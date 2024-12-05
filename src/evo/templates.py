@@ -38,17 +38,17 @@ cortical_types = {
             },
             "idgpio": {
                 "enabled": True,
-                "cortical_name": "Digital GPIO input",
+                "cortical_name": "Digital input",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [35, 20, -70]
             },
             "iagpio": {
                 "enabled": True,
-                "cortical_name": "Analog GPIO input",
+                "cortical_name": "Analog input",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 10],
+                "coordinate_3d": [35, 0, -70]
             },
             "i__pro": {
                 "enabled": True,
@@ -153,7 +153,7 @@ cortical_types = {
                 "cortical_name": "ID Trainer",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [111, 91, 0]
             },
             "i_spos": {
                 "enabled": True,
@@ -182,6 +182,13 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
+            },
+            "i_pres": {
+                "enabled": True,
+                "cortical_name": "Pressure Sensor Input",
+                "structure": "asymmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [60, 0, 0]
             },
         },
         "name_to_id_mapping": {
@@ -231,7 +238,20 @@ cortical_types = {
             ],
             "servo_motion": [
                 "i_smot"
+            ],
+            "digital_input": [
+                "idgpio"
+            ],
+            "analog_input": [
+                "iagpio"
+            ],
+            "id_trainer": [
+                "i___id"
+            ],
+            "pressure": [
+                "i_pres"
             ]
+
         }
     },
     "OPU": {
@@ -239,15 +259,17 @@ cortical_types = {
         "supported_devices": {
             "o__mot": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Motor control",
                 "controller_id": "motor",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [-30, 0, -20]
+                "coordinate_3d": [-30, 0, -20],
             },
             "odgpio": {
                 "enabled": True,
-                "cortical_name": "Digital GPIO output",
+                "measurable": False,
+                "cortical_name": "Digital output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
                 "resolution": [28, 1, 1],
@@ -255,7 +277,8 @@ cortical_types = {
             },
             "oagpio": {
                 "enabled": True,
-                "cortical_name": "Analog GPIO output",
+                "measurable": True,
+                "cortical_name": "Analog output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
                 "resolution": [28, 1, 10],
@@ -263,6 +286,7 @@ cortical_types = {
             },
             "oogpio": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "GPIO output pin assignment",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
@@ -271,6 +295,7 @@ cortical_types = {
             },
             "oigpio": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "GPIO input pin assignment",
                 "controller_id": "gpio_input",
                 "structure": "asymmetric",
@@ -279,6 +304,7 @@ cortical_types = {
             },
             "o__nav": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Navigation vector",
                 "controller_id": "navigation",
                 "structure": "asymmetric",
@@ -287,6 +313,7 @@ cortical_types = {
             },
             "o__spd": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Navigation speed",
                 "controller_id": "speed",
                 "structure": "asymmetric",
@@ -295,6 +322,7 @@ cortical_types = {
             },
             "o__bat": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Battery charger",
                 "controller_id": "battery",
                 "structure": "asymmetric",
@@ -303,6 +331,7 @@ cortical_types = {
             },
             "o_init": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Position initializer",
                 "controller_id": "reset",
                 "structure": "asymmetric",
@@ -311,6 +340,7 @@ cortical_types = {
             },
             "o_stop": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Emergency stop",
                 "controller_id": "emergency",
                 "structure": "asymmetric",
@@ -319,6 +349,7 @@ cortical_types = {
             },
             "o__ser": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Servo control",
                 "controller_id": "servo",
                 "structure": "asymmetric",
@@ -327,6 +358,7 @@ cortical_types = {
             },
             "o_spos": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Servo Position OPU",
                 "controller_id": "servo_position",
                 "structure": "asymmetric",
@@ -335,6 +367,7 @@ cortical_types = {
             },
             "o_blnk": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Blink",
                 "controller_id": "blink",
                 "structure": "asymmetric",
@@ -343,22 +376,34 @@ cortical_types = {
             },
             "o___id": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "ID Recognition",
                 "controller_id": "id_recognition",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [120, 91, 0]
+            },
+            "o__sid": {
+                "enabled": True,
+                "measurable": False,
+                "cortical_name": "Trainer Stimuli ID Selector",
+                "controller_id": "stimuli_id_selector",
+                "structure": "asymmetric",
+                "resolution": [1, 10, 1],
+                "coordinate_3d": [30, 0, 0]
             },
             "o__loc": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Recognition Location",
                 "controller_id": "recognition_location",
                 "structure": "asymmetric",
                 "resolution": [32, 32, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [110, 51, 0]
             },
             "o_misc": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Miscellaneous",
                 "controller_id": "misc",
                 "structure": "asymmetric",
@@ -367,6 +412,7 @@ cortical_types = {
             },
             "o_mctl": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Motion control",
                 "controller_id": "motion_control",
                 "structure": "asymmetric",
@@ -375,6 +421,7 @@ cortical_types = {
             },
             "ovflph": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Vision horizontal flip",
                 "controller_id": "horizontal_flip",
                 "structure": "asymmetric",
@@ -383,6 +430,7 @@ cortical_types = {
             },
             "ovflpv": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Vision vertical flip",
                 "controller_id": "vertical_flip",
                 "structure": "asymmetric",
@@ -391,6 +439,7 @@ cortical_types = {
             },
             "ov_mod": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Central vision modulation",
                 "controller_id": "modulation_control",
                 "structure": "asymmetric",
@@ -399,6 +448,7 @@ cortical_types = {
             },
             "ov_ecc": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Central vision eccentricity",
                 "controller_id": "eccentricity_control",
                 "structure": "asymmetric",
@@ -407,6 +457,7 @@ cortical_types = {
             },
             "ov_enh": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Lighting enhancement",
                 "controller_id": "enhancement",
                 "structure": "asymmetric",
@@ -415,6 +466,7 @@ cortical_types = {
             },
             "ovtune": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Lighting threshold",
                 "controller_id": "threshold",
                 "structure": "asymmetric",
@@ -423,6 +475,7 @@ cortical_types = {
             },
             "o__led": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "LED",
                 "controller_id": "led",
                 "structure": "asymmetric",
@@ -431,6 +484,7 @@ cortical_types = {
             },
             "ov_reg": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Vision activation regions",
                 "controller_id": "activation_regions",
                 "structure": "asymmetric",
@@ -439,12 +493,6 @@ cortical_types = {
             }
         },
         "name_to_id_mapping": {
-            "gpio": [
-                "odgpio",
-                "oagpio",
-                "oogpio",
-                "oigpio",
-            ],
             "motor": [
                 "o__mot",
             ],
@@ -481,8 +529,16 @@ cortical_types = {
             "motion_control": [
                 "o_mctl"
             ],
-            "miscellaneous": [
+            "misc": [
                 "o_misc"
+            ],
+            "digital_output": [
+                "odgpio",
+                "oogpio",
+                "oigpio",
+            ],
+            "analog_output": [
+                "oagpio"
             ]
         }
     },
@@ -518,7 +574,7 @@ cortical_template = {
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
     "degeneration": 0,
-    "psp_uniform_distribution": False,
+    "psp_uniform_distribution": True,
     "postsynaptic_current_max": 99999,
     "plasticity_constant": 1,
     "cortical_mapping_dst": {},
@@ -535,7 +591,7 @@ cortical_template = {
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True,
+    "mp_charge_accumulation": False,
     "mp_driven_psp": False,
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
@@ -560,6 +616,41 @@ core_morphologies = {
         "class": "core"
     },
     "projector": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "projector_xy": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "projector_xz": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "projector_yz": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "project_from_end_x": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "project_from_end_y": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "project_from_end_z": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "last_to_first": {
         "parameters": {},
         "type": "functions",
         "class": "core"

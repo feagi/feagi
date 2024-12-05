@@ -93,6 +93,8 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
     psc_base = runtime_data.genome["blueprint"][cortical_area_src]['postsynaptic_current']
     post_synaptic_current = psc_multiplier * psc_base
 
+    src_block_boundaries = runtime_data.genome["blueprint"][cortical_area_src]["block_boundaries"]
+
     try:
         if runtime_data.genome["neuron_morphologies"][neuron_morphology]["type"] == "vectors":
             for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["parameters"]["vectors"]:
@@ -108,9 +110,19 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         elif runtime_data.genome["neuron_morphologies"][neuron_morphology]["type"] == "patterns":
             for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["parameters"]["patterns"]:
 
-                candidate_list = match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                pattern=pattern, morphology_scalar=morphology_scalar
-                                                , src_subregion=src_subregion)
+                dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["block_boundaries"]
+
+                source_pattern = pattern[0]
+                destination_pattern = pattern[1]
+                candidate_list = []
+                # for src_candidate in src_generator:
+                dst_generator = find_destination_coordinates(src_pattern=source_pattern,
+                                                             dst_pattern=destination_pattern,
+                                                             dst_cortical_boundary=dst_block_boundaries,
+                                                             src_coordinate=src_voxel)
+                for dst_candidate in dst_generator:
+                    candidate_list.append(dst_candidate)
+
                 if candidate_list:
                     for candidate in candidate_list:
                         raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
@@ -143,12 +155,59 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
                                                  s=10, src_subregion=src_subregion)
                 raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
                 # candidate_voxel_list.append([candidate, post_synaptic_current])
+
+            elif neuron_morphology == "last_to_first":
+                src_cortical_dim = runtime_data.genome['blueprint'][cortical_area_src]["block_boundaries"]
+                if src_voxel == [src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1]:
+                    raw_candidate_list.add((0, 0, 0))
+
             elif neuron_morphology == "projector":
                 candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
                                                src_neuron_id, src_subregion=src_subregion)
                 for candidate in candidate_list:
                     raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
-                    # candidate_voxel_list.append([candidate, post_synaptic_current])
+
+            elif neuron_morphology == "projector_xy":
+                candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                               src_neuron_id, src_subregion=src_subregion, transpose=("y", "x", "z"))
+                for candidate in candidate_list:
+                    raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "projector_xz":
+                candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                               src_neuron_id, src_subregion=src_subregion, transpose=("z", "y", "x"))
+                for candidate in candidate_list:
+                    raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "projector_yz":
+                candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                               src_neuron_id, src_subregion=src_subregion, transpose=("x", "z", "y"))
+                for candidate in candidate_list:
+                    raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "project_from_end_x":
+                if src_voxel[0] == src_block_boundaries[0] - 1:
+                    candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                                   src_neuron_id, src_subregion=src_subregion,
+                                                   project_last_layer_of="x")
+                    for candidate in candidate_list:
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "project_from_end_y":
+                if src_voxel[1] == src_block_boundaries[1] - 1:
+                    candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                                   src_neuron_id, src_subregion=src_subregion,
+                                                   project_last_layer_of="y")
+                    for candidate in candidate_list:
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "project_from_end_z":
+                if src_voxel[2] == src_block_boundaries[2] - 1:
+                    candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                                   src_neuron_id, src_subregion=src_subregion,
+                                                   project_last_layer_of="z")
+                    for candidate in candidate_list:
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
 
             elif neuron_morphology == "memory":
                 syn_memory(src_cortical_area=cortical_area_src, dst_cortical_area=cortical_area_dst)
@@ -166,13 +225,28 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         print(traceback.format_exc())
 
     for candidate in raw_candidate_list:
-        candidate_voxel_list.append([list(candidate), post_synaptic_current])
+        candidate_voxel_list.append([tuple(candidate), post_synaptic_current])
 
     if candidate_voxel_list:
         candidate_neuron_list = \
             voxels.voxel_list_to_neuron_list(cortical_area=cortical_area_dst,
                                              voxel_list=candidate_voxel_list)
         return candidate_neuron_list
+
+
+# todo: use the following function
+def validate_pattern(pattern):
+    valid_patterns = {"*", "?", "!"}
+    for p in pattern:
+        if isinstance(p, list) and len(p) == 3:
+            for axis_pattern in p:
+                if axis_pattern not in valid_patterns:
+                    try:
+                        int(axis_pattern)
+                    except ValueError:
+                        raise ValueError(f"Invalid pattern value: {axis_pattern}")
+        else:
+            raise ValueError("Pattern must be a list of three elements per axis.")
 
 
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_subregion):
@@ -182,92 +256,98 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_s
         if item < 0:
             return None
     within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
-                                              block=voxels.block_reference_builder(candidate_vector))
+                                              block=(candidate_vector[0], candidate_vector[1], candidate_vector[2]))
     if within_limits:
         return [candidate_vector]
 
 
-def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src_subregion):
+def check_pattern_validity(pattern):
     """
-    Matches source voxels to destination voxels
-
-    Expected pattern format:    [source pattern, destination pattern] e.g. [["*", "?", 3], [2, "*", "?"]]
-
+    Checks the validity of a pattern
     """
-    voxel_list = list()
-    dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["block_boundaries"]
-
-    if len(pattern) != 2:
-        print("Error! Pattern was not defined correctly.. "
-              "should be similar to e.g. [[\"*\", \"?\", 3], [2, \"*\", \"?\"]]\n Current is as:", pattern)
-
-    src_pattern_x, src_pattern_y, src_pattern_z = pattern[0]
-    dst_pattern_x, dst_pattern_y, dst_pattern_z = pattern[1]
-
-    src_x, src_y, src_z = src_voxel
-
-    for dst_x in range(dst_block_boundaries[0]):
-        for dst_y in range(dst_block_boundaries[1]):
-            for dst_z in range(dst_block_boundaries[2]):
-
-                matching_condition_x = \
-                    (
-                            dst_pattern_x == "*"
-                            or
-                            (dst_pattern_x == "?" and
-                             (src_x == dst_x))
-                            or
-                            (dst_pattern_x == "!" and
-                             (src_x != dst_x))
-                            or
-                            (dst_pattern_x == dst_x and
-                             (src_pattern_x == "*" or
-                              (src_pattern_x == "?" and src_x == dst_x) or
-                              (src_pattern_x == "!" and src_x != dst_x) or
-                              (src_pattern_x == src_x)))
-                    )
-
-                matching_condition_y = \
-                    (
-                            dst_pattern_y == "*"
-                            or
-                            (dst_pattern_y == "?" and
-                             (src_y == dst_y))
-                            or
-                            (dst_pattern_y == "!" and
-                             (src_y != dst_y))
-                            or
-                            (dst_pattern_y == dst_y and
-                             (src_pattern_y == "*" or
-                              (src_pattern_y == "?" and src_y == dst_y) or
-                              (src_pattern_y == "!" and src_y != dst_y) or
-                              (src_pattern_y == src_y)))
-                    )
-
-                matching_condition_z = \
-                    (
-                            dst_pattern_z == "*"
-                            or
-                            (dst_pattern_z == "?" and
-                             (src_z == dst_z))
-                            or
-                            (dst_pattern_z == "!" and
-                             (src_z != dst_z))
-                            or
-                            (dst_pattern_z == dst_z and
-                             (src_pattern_z == "*" or
-                              (src_pattern_z == "?" and src_z == dst_z) or
-                              (src_pattern_z == "!" and src_z != dst_z) or
-                              (src_pattern_z == src_z)))
-                    )
-
-                if matching_condition_x and matching_condition_y and matching_condition_z:
-                    voxel_list.append([dst_x, dst_y, dst_z])
+    valid_patterns = {"*", "?", "!"}
+    for element in pattern:
+        if element not in valid_patterns:
+            try:
+                value = int(element)
+                if not (0 <= value):
+                    return False
+            except ValueError:
+                return False
+    return True
 
 
-    # todo: account for morphology scalar
+def find_source_coordinates(src_pattern, src_cortical_boundary):
+    """
+    Generator that yields coordinates within the cortical boundary that match the given pattern.
 
-    return voxel_list
+    :param src_pattern: A tuple (x, y, z) where each element can be an integer or "*".
+                        "*" matches all positions along that axis.
+    :param src_cortical_boundary: A list [x, y, z] defining the size of the cortical cube.
+    :yield: Coordinates (as tuples) that match the pattern within the cortical boundaries.
+    """
+    # Generate ranges based on pattern and boundary
+    x_range = range(src_cortical_boundary[0]) if src_pattern[0] == "*" else [src_pattern[0]]
+    y_range = range(src_cortical_boundary[1]) if src_pattern[1] == "*" else [src_pattern[1]]
+    z_range = range(src_cortical_boundary[2]) if src_pattern[2] == "*" else [src_pattern[2]]
+
+    # Use a generator expression to yield each matching coordinate
+    for x in x_range:
+        for y in y_range:
+            for z in z_range:
+                yield [x, y, z]
+
+
+def find_destination_coordinates(dst_cortical_boundary, src_coordinate, src_pattern, dst_pattern):
+    """
+    Generator that yields destination coordinates within the cortical boundary
+    that match the given pattern based on the source coordinate.
+
+    :param dst_cortical_boundary: A list [x, y, z] defining the size of the destination cube.
+    :param src_coordinate: A list [int, int, int] representing the coordinate on the source object.
+    :param dst_pattern: A tuple (x, y, z) where each element can be "*", "?", "!", or an int.
+                        "*" matches any position along that axis.
+                        "?" matches the corresponding source coordinate.
+                        "!" matches any coordinate except the corresponding source coordinate.
+                        int specifies an exact match on that axis.
+    :yield: Destination coordinates (as tuples) that match the pattern within the destination boundaries.
+    """
+    # Generate ranges based on dst_pattern, dst_cortical_boundary, and src_coordinate
+    x_range = (
+        range(dst_cortical_boundary[0]) if dst_pattern[0] == "*"
+        else [src_coordinate[0]] if (dst_pattern[0] == "?" and src_coordinate[0] < dst_cortical_boundary[0] and
+                                     (src_coordinate[0] == src_pattern[0] or src_pattern[0] in ["*", "?"]))
+        else [i for i in range(dst_cortical_boundary[0]) if i != src_coordinate[0]] if dst_pattern[0] == "!"
+        else [dst_pattern[0]] if (isinstance(dst_pattern[0], int) and
+                                  (src_pattern[0] == src_coordinate[0] or src_pattern[0] == "*" or
+                                   (src_pattern[0] == "?" and dst_pattern[0] == src_coordinate[0]))) else []
+    )
+
+    y_range = (
+        range(dst_cortical_boundary[1]) if dst_pattern[1] == "*"
+        else [src_coordinate[1]] if (dst_pattern[1] == "?" and src_coordinate[1] < dst_cortical_boundary[1] and
+                                     (src_coordinate[1] == src_pattern[1] or src_pattern[1] in ["*", "?"]))
+        else [i for i in range(dst_cortical_boundary[1]) if i != src_coordinate[1]] if dst_pattern[1] == "!"
+        else [dst_pattern[1]] if (isinstance(dst_pattern[1], int) and
+                                  (src_pattern[1] == src_coordinate[1] or src_pattern[1] == "*" or
+                                   (src_pattern[1] == "?" and dst_pattern[1] == src_coordinate[1]))) else []
+    )
+
+    z_range = (
+        range(dst_cortical_boundary[2]) if dst_pattern[2] == "*"
+        else [src_coordinate[2]] if (dst_pattern[2] == "?" and src_coordinate[2] < dst_cortical_boundary[2] and
+                                     (src_coordinate[2] == src_pattern[2] or src_pattern[2] in ["*", "?"]))
+        else [i for i in range(dst_cortical_boundary[2]) if i != src_coordinate[2]] if dst_pattern[2] == "!"
+        else [dst_pattern[2]] if (isinstance(dst_pattern[2], int) and
+                                  (src_pattern[2] == src_coordinate[2] or src_pattern[2] == "*" or
+                                   (src_pattern[2] == "?" and dst_pattern[2] == src_coordinate[2]))) else []
+    )
+
+    # Use a generator expression to yield each matching destination coordinate
+    for x in x_range:
+        for y in y_range:
+            for z in z_range:
+                yield [x, y, z]
 
 
 def syn_expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion, dst_y_index=0, dst_z_index=0):
@@ -395,19 +475,97 @@ def syn_block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, sr
     return [neuron_block_index_x // s, neuron_block_index_y, neuron_block_index_z]
 
 
-def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion):
+def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion,
+                  transpose=None, project_last_layer_of=None):
+
+    src_dimensions = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
+    src_shape = [0, 0, 0]
+    dst_shape = [0, 0, 0]
     candidate_list = list()
-    src_shape = [
-        src_subregion[1][0] - src_subregion[0][0],
-        src_subregion[1][1] - src_subregion[0][1],
-        src_subregion[1][2] - src_subregion[0][2],
-    ]
 
-    dst_shape = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"]
+    # Apply transpose to src_subregion and neuron_location
+    if transpose:
+        axis_map = {"x": 0, "y": 1, "z": 2}  # Mapping of axes to indices
+        transpose_indices = [axis_map[axis] for axis in transpose]  # Get new order indices
 
-    neuron_location = [runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0],
-                       runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1],
-                       runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2]]
+        # Transpose the source subregion
+        src_subregion = [
+            [src_subregion[0][transpose_indices[0]],
+             src_subregion[0][transpose_indices[1]],
+             src_subregion[0][transpose_indices[2]]],
+            [src_subregion[1][transpose_indices[0]],
+             src_subregion[1][transpose_indices[1]],
+             src_subregion[1][transpose_indices[2]]],
+        ]
+
+        # Transpose the neuron location
+        neuron_location = [
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][transpose_indices[0]],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][transpose_indices[1]],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][transpose_indices[2]],
+        ]
+    else:
+        # If no transpose, use the default order
+        neuron_location = [
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2],
+        ]
+
+    # If project_last_layer is enabled, handle that case
+    if project_last_layer_of:
+
+        if project_last_layer_of == "x":
+            # Compute shapes of the source subregion and destination block boundaries
+            src_shape = [
+                src_dimensions[0] - 1,
+                src_subregion[1][1] - src_subregion[0][1],
+                src_subregion[1][2] - src_subregion[0][2],
+            ]
+
+            dst_shape = [
+                1,
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][1],
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][2]
+            ]
+
+        if project_last_layer_of == "y":
+            # Compute shapes of the source subregion and destination block boundaries
+            src_shape = [
+                src_subregion[1][0] - src_subregion[0][0],
+                src_dimensions[1] - 1,
+                src_subregion[1][2] - src_subregion[0][2],
+            ]
+
+            dst_shape = [
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0],
+                1,
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][2]
+            ]
+
+        if project_last_layer_of == "z":
+            # Compute shapes of the source subregion and destination block boundaries
+            src_shape = [
+                src_subregion[1][0] - src_subregion[0][0],
+                src_subregion[1][1] - src_subregion[0][1],
+                src_dimensions[2] - 1,
+            ]
+
+            dst_shape = [
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0],
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][1],
+                1
+            ]
+
+    else:
+        # Compute shapes of the source subregion and destination block boundaries
+        src_shape = [
+            src_subregion[1][0] - src_subregion[0][0],
+            src_subregion[1][1] - src_subregion[0][1],
+            src_subregion[1][2] - src_subregion[0][2],
+        ]
+
+        dst_shape = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"]
 
     dst_vox_dict = dict()
 
@@ -415,13 +573,18 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
         for i in range(3):
             dst_vox_dict[i] = set()
             if src_shape[i] > dst_shape[i]:
-                ratio = src_shape[i]/dst_shape[i]
-                target_vox = int((neuron_location[i] - src_subregion[0][i])/ratio)
+                ratio = src_shape[i] / dst_shape[i]
+                target_vox = int((neuron_location[i] - src_subregion[0][i]) / ratio)
+                if (project_last_layer_of == "x" and i == 0) or \
+                        (project_last_layer_of == "y" and i == 1) or \
+                        (project_last_layer_of == "z" and i == 2):
+                    target_vox -= 1
                 dst_vox_dict[i].add(target_vox)
+
             elif src_shape[i] < dst_shape[i]:
-                ratio = dst_shape[i]/src_shape[i]
+                ratio = dst_shape[i] / src_shape[i]
                 for vox in range(dst_shape[i]):
-                    if int(vox/ratio) == (neuron_location[i] - src_subregion[0][i]):
+                    if int(vox / ratio) == (neuron_location[i] - src_subregion[0][i]):
                         target_vox = vox
                         dst_vox_dict[i].add(target_vox)
             elif src_shape[i] == dst_shape[i]:
@@ -431,13 +594,13 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
                 pass
     except ZeroDivisionError:
         pass
+
     if dst_vox_dict[0] and dst_vox_dict[1] and dst_vox_dict[2]:
         for x in dst_vox_dict[0]:
             for y in dst_vox_dict[1]:
                 for z in dst_vox_dict[2]:
-                    candidate_list.append([
-                        x, y, z
-                    ])
+                    candidate_list.append([x, y, z])
+
     return candidate_list
 
 
@@ -445,3 +608,9 @@ def syn_memory(src_cortical_area, dst_cortical_area):
     if dst_cortical_area not in runtime_data.memory_register:
         runtime_data.memory_register[dst_cortical_area] = set()
     runtime_data.memory_register[dst_cortical_area].add(src_cortical_area)
+
+
+def last_to_first(src_cortical_area):
+    src_cortical_dim = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
+    return [[src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1]]
+

@@ -36,6 +36,7 @@ import json
 import datetime
 import shutil
 import concurrent.futures
+from src.evo.connectome import reuse
 from src.evo import neuron, synapse, stats, genetics, voxels
 from src.evo.genome_editor import save_genome
 from src.evo.genome_processor import genome_v1_v2_converter
@@ -206,7 +207,7 @@ def voxelogenesis(cortical_area):
     for x in range(x_dim):
         for y in range(y_dim):
             for z in range(z_dim):
-                voxel_id = voxels.block_reference_builder([x, y, z])
+                voxel_id = (x, y, z)
                 runtime_data.voxel_dict[cortical_area][voxel_id] = set()
 
 

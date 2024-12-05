@@ -17,13 +17,14 @@
 
 import os
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 
 from ...schemas import *
 from ...commons import *
 
 from src.inf import runtime_data
 from src.inf.messenger import Sub
+from ...dependencies import check_brain_running
 
 
 router = APIRouter()
@@ -67,6 +68,7 @@ async def agent_properties(agent_id: str):
         agent_info["agent_router_address"] = runtime_data.agent_registry[agent_id]["agent_router_address"]
         agent_info["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
         agent_info["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
+        agent_info["capabilities"] = runtime_data.agent_registry[agent_id].get("capabilities", {})
         return agent_info
     else:
         raise HTTPException(status_code=400, detail="Requested agent not found!")
@@ -160,7 +162,8 @@ async def gazebo_robot_default_files():
 
 
 @router.post("/manual_stimulation")
-async def trigger_manual_stimulation(stimulation: ManualStimulation):
+async def trigger_manual_stimulation(stimulation: ManualStimulation,
+                                     _: str = Depends(check_brain_running)):
     """
     Stimulation needs to be in the following format:
     {

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 ##
 # Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #

@@ -301,7 +301,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
 
     if detection_locations is not None:
         for location in detection_locations:
-            block_ref = block_reference_builder(location)
+            block_ref = location
             block_neurons = neurons_in_the_block(cortical_area, block_ref)
             neuron_ids.update(neuron for neuron in block_neurons if neuron is not None)
 

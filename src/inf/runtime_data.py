@@ -111,12 +111,15 @@ fire_list = []
 prunning_candidates = set()
 plasticity_queue_candidates = dict()
 upcoming_lifesnap_mgmt = 0
+fcl_manager = None
 
 # Stats Collection
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
 training_stats = {}
-fitness_stats = {}
+fitness_stats = []
+fitness_score = 1
+fitness_criteria = {}
 brain_stats = {
     "neuron_count": 0,
     "synapse_count": 0

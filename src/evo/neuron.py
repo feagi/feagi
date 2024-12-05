@@ -144,7 +144,7 @@ def create_neuron(cortical_area, voxel):
     if neuron_count < 1 or not neuron_count:
         neuron_count = 1
 
-    neuron_location = block_ref_2_id(voxel)
+    neuron_location = tuple(voxel)
 
     # Create a new Neuron in target destination
     for _ in range(int(neuron_count)):

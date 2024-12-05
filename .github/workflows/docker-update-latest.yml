@@ -1,13 +1,12 @@
-name: Update FEAGI on Docker Hub
+name: Update latest FEAGI on Docker Hub
 
 on:
   push:
     branches:
-      - "main"
+      - "staging"
     paths:
       - 'src/**'
       - 'generate_version.sh'
-
 
 jobs:
   docker:
@@ -32,3 +31,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: neuraville/feagi:latest
+          build-args: |
+            BRANCH=staging
