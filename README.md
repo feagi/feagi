@@ -129,7 +129,7 @@ Here is a list of terminologies and common terms used throughout the documentati
 
 ## Citation
 
-If you use MuJoCo for published research, please cite:
+If you use FEAGI for published research, please cite:
 
 ```
 @ARTICLE{9034490,
