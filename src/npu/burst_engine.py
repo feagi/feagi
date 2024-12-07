@@ -1,4 +1,5 @@
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 """
 Burst engine is responsible for the event driven behavior of the artificial brain. It facilitates the firing all the
@@ -143,12 +145,6 @@ def burst_manager():
                           + settings.Bcolors.ENDC)
 
     def burst_stats(burst_start_time):
-        if not runtime_data.brain:
-            print("\n !! Brain not found !!")
-        if not runtime_data.cortical_list:
-            print("\n !! Cortical list not found !!")
-        if not runtime_data.genome:
-            print("\n !! Genome not found !!")
 
         if runtime_data.parameters["Logs"]["print_burst_info"] and runtime_data.burst_timer > 0.1:
             runtime_data.burst_duration = datetime.now() - burst_start_time
@@ -456,6 +452,7 @@ def burst_manager():
                         # Dynamically adjusting burst duration based on Controller needs
                         runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
                         if embodiment_data:
+                            # print("embodiment_data:", embodiment_data)
                             stimuli_router(embodiment_data)
 
             except Exception as e:
@@ -466,6 +463,7 @@ def burst_manager():
         if runtime_data.stimulation_script is not None:
             virtual_data = stimulator.stimulate()
             if virtual_data:
+                # print("virtual_data:", virtual_data)
                 stimuli_router({"data": {"direct_stimulation": virtual_data}})
 
         # Evaluated multiple scenarios and administers shock as needed
@@ -692,18 +690,18 @@ def burst_manager():
         prune_all_candidates()
 
         # Burst stats
-        burst_stats(burst_start_time)
+        # burst_stats(burst_start_time)
 
         # Manage Threads
         # For performance reasons, running this function not on every single burst
-        if runtime_data.burst_count % 10 == 0:
-            try:
-                # consciousness_manager()
-                death_manager()
-                if runtime_data.feagi_state["state"] == "idle" and runtime_data.autopilot:
-                    load_new_genome()
-            except Exception as e:
-                print(f"consciousness_manager encountered an error!! {e}")
+        # if runtime_data.burst_count % 10 == 0:
+        #     try:
+        #         # consciousness_manager()
+        #         death_manager()
+        #         if runtime_data.feagi_state["state"] == "idle" and runtime_data.autopilot:
+        #             load_new_genome()
+        #     except Exception as e:
+        #         print(f"consciousness_manager encountered an error!! {e}")
 
         if not runtime_data.controller_config and runtime_data.burst_publisher:
             controller_handshake()

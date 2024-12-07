@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-
-
-# Copyright 2019 The FEAGI Authors. All Rights Reserved.
+##
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +15,13 @@
 # limitations under the License.
 # ==============================================================================
 
+
 import pytest
-from src.skeleton import fib
 
 __author__ = "Mohammad Nadji-Tehrani"
 __copyright__ = "Mohammad Nadji-Tehrani"
 __license__ = "apache"
 
 
-def test_fib():
-    assert fib(1) == 1
-    assert fib(2) == 1
-    assert fib(7) == 13
-    with pytest.raises(AssertionError):
-        fib(-10)
+def test_neuron():
+    pass

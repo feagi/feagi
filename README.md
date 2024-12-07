@@ -127,3 +127,28 @@ Here is a list of terminologies and common terms used throughout the documentati
 
 **Neuron Processing Unit (NPU)**
 * A software program designed to process all the operations associated with neuron firing across the entire connectome
+
+
+## Citation
+
+If you use FEAGI for published research, please cite:
+
+```
+@ARTICLE{9034490,
+  author={Nadji-Tehrani, Mohammad and Eslami, Ali},
+  journal={IEEE Transactions on Neural Networks and Learning Systems}, 
+  title={A Brain-Inspired Framework for Evolutionary Artificial General Intelligence}, 
+  year={2020},
+  volume={31},
+  number={12},
+  pages={5257-5271},
+  keywords={Neural networks;Brain modeling;Genetic programming;Character recognition;Artificial intelligence;Artificial general intelligence;evolutionary algorithms;genetic programming;indirect encoding;spiking neural networks},
+  doi={10.1109/TNNLS.2020.2965567}}
+```
+
+## License and Disclaimer
+
+Copyright 2024 Neuraville Inc.
+
+Source code is licensed under the Apache License, Version 2.0. You may obtain a
+copy of the License at https://www.apache.org/licenses/LICENSE-2.0.

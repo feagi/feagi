@@ -1,4 +1,5 @@
-# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +17,14 @@
 
 import os
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 
 from ...schemas import *
 from ...commons import *
 
 from src.inf import runtime_data
 from src.inf.messenger import Sub
+from ...dependencies import check_brain_running
 
 
 router = APIRouter()
@@ -66,6 +68,7 @@ async def agent_properties(agent_id: str):
         agent_info["agent_router_address"] = runtime_data.agent_registry[agent_id]["agent_router_address"]
         agent_info["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
         agent_info["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
+        agent_info["capabilities"] = runtime_data.agent_registry[agent_id].get("capabilities", {})
         return agent_info
     else:
         raise HTTPException(status_code=400, detail="Requested agent not found!")
@@ -102,18 +105,17 @@ async def agent_registration(request: Request, data: AgentRegistration):
         agent_info["controller_version"] = data.controller_version
         agent_info["capabilities"] = capabilities
 
-    print(f"AGENT Details -- {agent_info}")
     runtime_data.agent_registry[data.agent_id] = agent_info
     runtime_data.host_info[data.agent_id] = agent_info
 
     if runtime_data.auto_pns_area_creation and runtime_data.genome:
-        print("@@@@  Auto generation of IPU/OPU areas has been initiated @@@")
-        print("#### Capabilities:", capabilities)
         message = {'update_pns_areas': capabilities}
-        print("*-----* " * 200 + "\n", message)
         api_queue.put(item=message)
 
     print("New agent has been successfully registered:", runtime_data.agent_registry[data.agent_id])
+
+    runtime_data.evo_change_register["agent"] += 1
+
     agent_info = runtime_data.agent_registry[data.agent_id].copy()
     agent_info.pop('listener')
     return agent_info
@@ -157,3 +159,19 @@ async def gazebo_robot_default_files():
     default_robots_path = "./evo/defaults/robot/"
     default_robots = os.listdir(default_robots_path)
     return {"robots": default_robots}
+
+
+@router.post("/manual_stimulation")
+async def trigger_manual_stimulation(stimulation: ManualStimulation,
+                                     _: str = Depends(check_brain_running)):
+    """
+    Stimulation needs to be in the following format:
+    {
+    "cortical_id": [[0,0,3], [1,4,1]],
+    "cortical_id": [[1,0,3], [1,4,3]],
+    "cortical_id": [[0,2,3], [3,4,1]],
+    }
+    """
+
+    message = {'manual_stimulation': stimulation.stimulation_payload}
+    api_queue.put(item=message)

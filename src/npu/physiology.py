@@ -1,5 +1,6 @@
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 import json
 import random
@@ -119,6 +121,7 @@ def add_neuron_to_fcl(cortical_area, neuron_id, pre_fire_mp):
     if cortical_area not in runtime_data.future_fcl:
         runtime_data.future_fcl[cortical_area] = set()
     runtime_data.future_fcl[cortical_area].add(neuron_id)
+
     runtime_data.brain[cortical_area][neuron_id]["pre_fire_mp"] = pre_fire_mp
 
 
@@ -180,9 +183,16 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                              neuron_id_src=neuron_id, neuron_id_dst=dst_neuron_id,
                                              post_synaptic_current=new_psc)
 
+            mappings = runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst_cortical_area]
+
+            psp_multipliers = [d["postSynapticCurrent_multiplier"] for d in mappings if
+                               "postSynapticCurrent_multiplier" in d]
+            average_psp_multiplier = sum(psp_multipliers) / len(psp_multipliers) if psp_multipliers else None
+
             if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
                 if "pre_fire_mp" in runtime_data.brain[cortical_area][neuron_id]:
-                    postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
+                    postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp'] * \
+                                           average_psp_multiplier
 
             neuron_output = activation_function(postsynaptic_current)
 

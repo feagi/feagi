@@ -65,7 +65,7 @@ services:
     ports:
       - "6081:8080"
       - "9050:9050"
-      - "30001:30001" # ZMQ port for feagi to connect for Gadot
+      - "30001:30001" # ZMQ port for feagi to connect for Godot
     env_file:
       - ./.env
     privileged: true

@@ -1,5 +1,6 @@
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 """
 This module is responsible for updating the commectome structure during brain life and post neuroembryogenesis.
@@ -238,7 +240,9 @@ def update_cortical_properties(cortical_properties):
         # ####################################################
 
         if cortical_type in ["IPU", "OPU"]:
-            if "cortical_dimensions_per_device" in cortical_properties or "dev_count" in cortical_properties:
+
+            if cortical_properties.get('cortical_dimensions_per_device') or cortical_properties.get('dev_count'):
+
                 dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
                 dev_count_updated = False
 
@@ -598,6 +602,9 @@ def cortical_removal(cortical_area, genome_scrub=False):
         if cortical_area in runtime_data.memory_register:
             runtime_data.memory_register.pop(cortical_area)
 
+        # Remove area from brain region registry
+        eject_area_from_regions(cortical_area=cortical_area)
+
         # Optional genome scrub
         if genome_scrub:
             if cortical_area in runtime_data.genome['blueprint']:
@@ -616,12 +623,17 @@ def cortical_removal(cortical_area, genome_scrub=False):
                     file_name=runtime_data.connectome_path + "genome.json")
 
 
+def eject_area_from_regions(cortical_area):
+    for region in runtime_data.genome["brain_regions"]:
+        if cortical_area in runtime_data.genome["brain_regions"][region]["areas"]:
+            runtime_data.genome["brain_regions"][region]["areas"].remove(cortical_area)
+
+
 def prune_cortical_synapses(cortical_area):
     upstream_cortical_areas, downstream_cortical_areas = \
         neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
 
     for src_cortical_area in upstream_cortical_areas:
-        print("++++++ 2")
         runtime_data.brain = synaptic_pruner(src_cortical_area=src_cortical_area,
                                              dst_cortical_area=cortical_area)
 
@@ -702,6 +714,14 @@ def add_core_cortical_area(cortical_properties):
                 if cortical_id_ in runtime_data.genome['blueprint']:
                     print("Warning! Cortical area already part of genome. Nothing got added.")
                 else:
+
+                    if "dev_count" in cortical_properties:
+                        dev_count = cortical_properties["dev_count"]
+                        if not dev_count:
+                            dev_count = 1
+                    else:
+                        dev_count = 1
+
                     reset_connectome_file(cortical_area=cortical_id_)
                     runtime_data.voxel_dict[cortical_id_] = dict()
                     runtime_data.genome['blueprint'][cortical_id_] = dict()
@@ -709,7 +729,7 @@ def add_core_cortical_area(cortical_properties):
                     runtime_data.genome["blueprint"][cortical_id_] = cortical_template.copy()
                     runtime_data.genome["blueprint"][cortical_id_]["cortical_name"] = cortical_name
                     runtime_data.genome['blueprint'][cortical_id_]["block_boundaries"] = \
-                        [cortical_properties['dev_count'] *
+                        [dev_count *
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
@@ -961,16 +981,19 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                           f"id:{new_cortical_area_id} name:{new_cortical_name}")
                 else:
                     if cortical_area_id not in dst_blueprint:
-                        add_core_cortical_area(cortical_properties={
+                        added_id = add_core_cortical_area(cortical_properties={
                             "cortical_id": cortical_area_id,
                             "cortical_type": src_blueprint[cortical_area_id]['group_id'],
                             "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
                             "coordinates_3d": [new_coordinates[0], new_coordinates[1], new_coordinates[2]],
-                            "channel_count": 1,
+                            "dev_count": 1,
                             "coordinates_2d": [0, 0]
                         })
-                        appended_cortical_areas.add(cortical_area_id)
-                        print(f"---------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
+                        if cortical_area_id == added_id:
+                            appended_cortical_areas.add(cortical_area_id)
+                            print(f"-------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
+                        else:
+                            print(f"!!!! Could not import {cortical_area_id}")
             except Exception as e:
                 print("Exception during cortical import", e, traceback.print_exc())
         # Amalgamate Brain Regions
@@ -1102,7 +1125,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "cortical_id": suggested_input_mapping["src_cortical_area_id"],
                                 "coordinates_2d": [0, 0],
                                 "coordinates_3d": [0, 0, 0],
-                                "channel_count": 1
+                                "dev_count": 1
                             })
                             # print("@@ New system cortical area added:",
                             # suggested_input_mapping["src_cortical_area_id"])
@@ -1166,7 +1189,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "cortical_id": suggested_output_mapping["dst_cortical_area_id"],
                                 "coordinates_2d": [0, 0],
                                 "coordinates_3d": [0, 0, 0],
-                                "channel_count": 1
+                                "dev_count": 1
                             })
                             print("@@ New system cortical area added:",
                                   suggested_output_mapping["dst_cortical_area_id"])
@@ -1248,10 +1271,10 @@ def create_missing_pns_areas(dev_list):
     """
     dev_list = {
         "o__mot": {
-            "dev_count": 2
+            "max_feagi_index": 2
         },
         "i__inf": {
-            "dev_count": 1
+            "max_feagi_index": 1
         }
     }
     """
@@ -1262,36 +1285,45 @@ def create_missing_pns_areas(dev_list):
     }
     for cortical_area in dev_list:
         if cortical_area not in runtime_data.genome["blueprint"]:
+
             dev_count = 1
-            if "dev_count" in dev_list[cortical_area]:
-                dev_count = dev_list[cortical_area]["dev_count"]
+
+            if "max_feagi_index" in dev_list[cortical_area]:
+                dev_count = dev_list[cortical_area]["max_feagi_index"] + 1
 
             cortical_type = cortical_area_type(cortical_area=cortical_area)
 
-            coordinate_2d = [0, 0]
-            if cortical_type == "IPU":
-                coordinate_2d = [random.randint(10, 100), random.randint(10, 200)]
+            if cortical_type in ["IPU", "OPU"]:
+                coordinate_2d = [0, 0]
+                if cortical_type == "IPU":
+                    coordinate_2d = [random.randint(10, 100), random.randint(10, 200)]
 
-            if cortical_type == "OPU":
-                coordinate_2d = [random.randint(1000, 1100), random.randint(0, 300)]
+                if cortical_type == "OPU":
+                    coordinate_2d = [random.randint(1000, 1100), random.randint(0, 300)]
 
-            coordinate_3d = [random.randint(10, 100), random.randint(10, 40), 0]
+                coordinate_3d = [random.randint(10, 100), random.randint(10, 40), 0]
 
-            if "coordinate_3d" in cortical_types[cortical_type]["supported_devices"][cortical_area]:
-                coordinate_3d = cortical_types[cortical_type]["supported_devices"][cortical_area]["coordinate_3d"]
+                if "coordinate_3d" in cortical_types[cortical_type]["supported_devices"][cortical_area]:
+                    coordinate_3d = cortical_types[cortical_type]["supported_devices"][cortical_area]["coordinate_3d"]
 
-            add_core_cortical_area(cortical_properties={
-                "cortical_type": cortical_type,
-                "cortical_id": cortical_area,
-                "coordinates_2d": coordinate_2d,
-                "coordinates_3d": coordinate_3d,
-                "dev_count": dev_count
-            })
-            pns_update_report["added"].append(cortical_area)
-        elif "dev_count" in dev_list[cortical_area]:
-            dev_count = dev_list[cortical_area]["dev_count"]
-            if dev_count != runtime_data.genome["blueprint"][cortical_area]["dev_count"]:
-                update_pns_dev_count(pns_area=cortical_area, new_dev_count=dev_count)
+                add_core_cortical_area(cortical_properties={
+                    "cortical_type": cortical_type,
+                    "cortical_id": cortical_area,
+                    "coordinates_2d": coordinate_2d,
+                    "coordinates_3d": coordinate_3d,
+                    "dev_count": dev_count
+                })
+                pns_update_report["added"].append(cortical_area)
+            else:
+                print(f"Warning!! During auto IO area creation '{cortical_area}' detected to have  '{cortical_type}' "
+                      f"as its cortical type.")
+
+        elif "max_feagi_index" in dev_list[cortical_area]:
+            needed_dev_count = dev_list[cortical_area]["max_feagi_index"] + 1
+            print(">>>>>>>>> cortical area:", cortical_area, needed_dev_count, runtime_data.genome["blueprint"][cortical_area]["dev_count"])
+            if needed_dev_count > runtime_data.genome["blueprint"][cortical_area]["dev_count"]:
+                print("<<<<<<<< >>>>>>>>", )
+                update_pns_dev_count(pns_area=cortical_area, new_dev_count=needed_dev_count)
                 pns_update_report["updated"].append(cortical_area)
 
     print(f"Cortical areas automatically added/reconfigured:\n {pns_update_report}")
@@ -1312,4 +1344,17 @@ def update_pns_dev_count(pns_area, new_dev_count):
     runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = dim_y
     runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = dim_z
 
+    runtime_data.transforming_areas.add(cortical_area)
+    runtime_data.brain_readiness = False
     cortical_regeneration(cortical_area=pns_area)
+
+    runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                file_name=runtime_data.connectome_path + "genome.json")
+    runtime_data.last_genome_modification_time = datetime.datetime.now()
+
+    runtime_data.transforming_areas.remove(cortical_area)
+    update_evo_change_register(change_area={pns_area})
+
+    runtime_data.brain_readiness = True

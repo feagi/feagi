@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 import logging
 from src.pns import stimuli_translator
@@ -84,7 +86,7 @@ def stimuli_router(ipu_data):
         if "connected_agents" in ipu_data["data"]:
             if ipu_data["data"]["connected_agents"]:
                 for connected_agent in ipu_data["data"]["connected_agents"]:
-                    if not runtime_data.connected_agents[connected_agent]:
+                    if not runtime_data.connected_agents.get(connected_agent):
                         runtime_data.connected_agents[connected_agent] = True
 
         if "sensory_data" in ipu_data["data"]:
@@ -169,7 +171,7 @@ def opu_router():
     Relays neuronal activities to the controller.
     Sample data format for runtime_data.opu_data:
 
-    {'o__bat': {}, 'o__mot': {'0-0-0': 47, '0-0-5': 48, '0-0-15': 50, '0-0-1': 45}}
+    {'o__bat': {}, 'o__mot': {(0, 0, 0): 47, (0, 0, 5): 48, (0, 0, 15): 50, (0, 0, 1): 45}}
 
     """
     for cortical_area in runtime_data.fire_candidate_list.copy():
@@ -177,7 +179,6 @@ def opu_router():
             if cortical_area not in runtime_data.opu_data:
                 runtime_data.opu_data[cortical_area] = {}
             runtime_data.opu_data[cortical_area] = opu_percentage_report(cortical_area=cortical_area)
-
 
 #
 # def action_router():

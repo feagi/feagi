@@ -1,5 +1,6 @@
 
-# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 """
 A collection of functions related to Neurons
@@ -142,7 +144,7 @@ def create_neuron(cortical_area, voxel):
     if neuron_count < 1 or not neuron_count:
         neuron_count = 1
 
-    neuron_location = block_ref_2_id(voxel)
+    neuron_location = tuple(voxel)
 
     # Create a new Neuron in target destination
     for _ in range(int(neuron_count)):

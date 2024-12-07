@@ -1,5 +1,6 @@
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 """This module is responsible for creating bidirectional synapses between neurons that are
 firing together, while also strengthening/weakening (via LTP/LTD, respectively) a given active
@@ -175,9 +177,9 @@ def long_short_term_memory():
                 mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
                 if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
                     neuron_id = init_neuron(cortical_area=memory_cortical_area,
-                                            soma_location=[0, 0, 0],
+                                            soma_location=(0, 0, 0),
                                             mem_neuron_id=memory_hash)
-                    runtime_data.voxel_dict[memory_cortical_area]["0-0-0"].add(neuron_id)
+                    runtime_data.voxel_dict[memory_cortical_area][(0, 0, 0)].add(neuron_id)
                     synapse_count = synapse_memory_neuron(neuron_id=neuron_id)
                 else:
                     increase_neuron_lifespan(cortical_area=memory_cortical_area, neuron_id=mem_neuron_id)

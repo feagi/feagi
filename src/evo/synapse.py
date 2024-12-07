@@ -1,5 +1,6 @@
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 """
 This module covers needed tools for synapse creation.
@@ -123,7 +125,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     synapse_count = 0
 
     mappings = runtime_data.genome["blueprint"][cortical_area]['cortical_mapping_dst'][cortical_area_dst]
-
     for morphology in mappings:
         try:
             # subregion definition is the start and end points of a vector defining a subregion
@@ -131,7 +132,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
             # src_subregions with be a collection of all subregions associated with a select composite morphology
             morphology_properties = runtime_data.genome["neuron_morphologies"][morphology["morphology_id"]]
             mapper_morphology = None
-
             src_subregions = set()
             if morphology_properties["type"] == "composite":
                 src_subregions = define_subregions(cortical_area=cortical_area,

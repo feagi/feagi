@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 import logging
 from math import inf
@@ -299,7 +301,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
 
     if detection_locations is not None:
         for location in detection_locations:
-            block_ref = block_reference_builder(location)
+            block_ref = location
             block_neurons = neurons_in_the_block(cortical_area, block_ref)
             neuron_ids.update(neuron for neuron in block_neurons if neuron is not None)
 

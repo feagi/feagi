@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,13 @@
 # limitations under the License.
 # ==============================================================================
 
+
 import logging
 from src.evo.voxels import *
 from src.pns import stimuli_processor
 from src.npu.physiology import update_membrane_potential_fire_queue
+
+from src.evo.genome_processor import is_memory_cortical_area
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +43,47 @@ Stimulation data received will have the following data structure:
 """
 
 
-def fake_cortical_stimulation(input_instruction, burst_count):
+def stimulation_validator(stimulation):
+    # Removes stimulation that are not part of genome
+    for cortical_area in stimulation.copy():
+        if cortical_area not in runtime_data.cortical_list:
+            del stimulation[cortical_area]
+            print(f"!! Manual stimulation container {cortical_area} which was not part of genome !!")
+    return stimulation
+
+
+def induce_manual_stimulation(stimulation):
+    """
+    Stimulation data received will have the following data structure:
+    { 'stimulation': {
+            'i__inf': [[x1, y1, z1], [x2, y2, z2], .....],
+            'i__pro': [[x1, y1, z1], [x2, y2, z2], .....],
+            ...
+            ...
+        }
+    }
+    """
+    stimulation = stimulation_validator(stimulation=stimulation)
+    # stimulation = convert_stimulation_to_dashed_format(stimulation_data=stimulation)
+    stimulation_injector(stimulation_data=stimulation)
+
+
+# def convert_stimulation_to_dashed_format(stimulation_data):
+#     """
+#     Converts stimulation from list format to dashed format
+#     # todo: revisit the value of having dashed format in the first place and get rid of it
+#     """
+#
+#     dashed_stimulation = {}
+#     for cortical_area in stimulation_data:
+#         if not is_memory_cortical_area(cortical_area=cortical_area):
+#             dashed_stimulation[cortical_area] = list()
+#             for neuron_block in stimulation_data[cortical_area]:
+#                 dashed_stimulation[cortical_area].append(neuron_block)
+#     return dashed_stimulation
+
+
+def stimuli_generator(input_instruction, burst_count):
     """
     It fakes cortical stimulation for the purpose of testing
 
@@ -77,20 +120,27 @@ def fake_cortical_stimulation(input_instruction, burst_count):
             runtime_data.logs["CNS"].add(f"Warning: Cortical area %s not found within the voxel_dict {cortical_area_}")
 
 
+# todo: has overlap with function called generic_ipu_translator in this module
 def stimulation_injector(stimulation_data):
+    """
+    TODO: define the stimulation_data format here
+
+    """
+
     for cortical_area in stimulation_data:
-        if stimulation_data[cortical_area]:
-            neuron_list = set()
-            for voxel in stimulation_data[cortical_area]:
-                if type(voxel) is list:
-                    voxel = block_reference_builder(voxel)
-                in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
-                for neuron in in_the_block:
-                    neuron_list.add(neuron)
-            for _ in neuron_list:
-                if cortical_area not in runtime_data.fire_candidate_list:
-                    runtime_data.fire_candidate_list[cortical_area] = set()
-                runtime_data.fire_candidate_list[cortical_area].add(_)
+        if not is_memory_cortical_area(cortical_area=cortical_area):
+            if stimulation_data[cortical_area]:
+                neuron_list = set()
+                for voxel in stimulation_data[cortical_area]:
+                    if type(voxel) is list:
+                        voxel = tuple(voxel)
+                    in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
+                    for neuron in in_the_block:
+                        neuron_list.add(neuron)
+                for _ in neuron_list:
+                    if cortical_area not in runtime_data.fire_candidate_list:
+                        runtime_data.fire_candidate_list[cortical_area] = set()
+                    runtime_data.fire_candidate_list[cortical_area].add(_)
 
 
 # @staticmethod
@@ -459,4 +509,5 @@ def vision_translator(vision_data):
 def generic_ipu_translator(ipu_data):
     if ipu_data is not None:
         for cortical_area in ipu_data:
-            inject_stimuli_to_fcl(cortical_area=cortical_area, stimulation=ipu_data[cortical_area])
+            if not is_memory_cortical_area(cortical_area=cortical_area):
+                inject_stimuli_to_fcl(cortical_area=cortical_area, stimulation=ipu_data[cortical_area])

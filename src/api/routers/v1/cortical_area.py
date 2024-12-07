@@ -1,4 +1,5 @@
-# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,6 +72,10 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             dim_y = cortical_data["block_boundaries"][1]
             dim_z = cortical_data["block_boundaries"][2]
 
+            leak_variability = cortical_data.get('leak_variability', 0)
+            if not leak_variability:
+                leak_variability = 0
+
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
@@ -107,7 +112,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-                "neuron_leak_variability": cortical_data['leak_variability'],
+                "neuron_leak_variability": leak_variability,
                 "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                 "neuron_snooze_period": cortical_data['snooze_length'],
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
@@ -128,9 +133,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
 
                 unit_dim_x = int(dim_x / dev_count)
 
-                unit_dim_y = int(dim_y / dev_count)
+                unit_dim_y = dim_y
 
-                unit_dim_z = int(dim_z / dev_count)
+                unit_dim_z = dim_z
 
                 cortical_properties["dev_count"] = dev_count
                 cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
@@ -468,6 +473,10 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     cortical_data['2d_coordinate'].append(None)
                     cortical_data['2d_coordinate'].append(None)
 
+                leak_variability = cortical_data.get('leak_variability', 0)
+                if not leak_variability:
+                    leak_variability = 0
+
                 cortical_properties = {
                     "cortical_id": cortical_area,
                     "cortical_name": cortical_data['cortical_name'],
@@ -504,7 +513,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
                     "neuron_refractory_period": cortical_data['refractory_period'],
                     "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-                    "neuron_leak_variability": cortical_data['leak_variability'],
+                    "neuron_leak_variability": leak_variability,
                     "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                     "neuron_snooze_period": cortical_data['snooze_length'],
                     "neuron_degeneracy_coefficient": cortical_data['degeneration'],
@@ -517,6 +526,17 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "neuron_excitability": cortical_data['neuron_excitability'],
                     "transforming": False
                 }
+
+                cortical_type = cortical_area_type(cortical_area=cortical_area)
+                if cortical_type in ["IPU", "OPU"]:
+                    dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+                    unit_dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
+                    unit_dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
+                    unit_dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+
+                    cortical_properties["dev_count"] = dev_count
+                    cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
+
                 if cortical_area in runtime_data.transforming_areas:
                     cortical_properties["transforming"] = True
                 else:

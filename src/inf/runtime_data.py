@@ -1,5 +1,6 @@
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 
 
 # System
@@ -74,7 +76,8 @@ evo_change_register = {
     "2d_loc": 0,
     "3d_dimm": 0,
     "name": 0,
-    "3d_viz": 0
+    "3d_viz": 0,
+    "agent": 0
 }
 manual_delete_list = set()
 genome_fitness = 1
@@ -108,12 +111,15 @@ fire_list = []
 prunning_candidates = set()
 plasticity_queue_candidates = dict()
 upcoming_lifesnap_mgmt = 0
+fcl_manager = None
 
 # Stats Collection
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
 training_stats = {}
-fitness_stats = {}
+fitness_stats = []
+fitness_score = 1
+fitness_criteria = {}
 brain_stats = {
     "neuron_count": 0,
     "synapse_count": 0

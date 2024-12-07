@@ -1,4 +1,5 @@
-# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -162,6 +163,9 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
 
 def init_brain_regions():
     if "brain_regions" not in runtime_data.genome:
+        runtime_data.genome["brain_regions"] = {}
+
+    if not runtime_data.genome["brain_regions"]:
         runtime_data.genome["brain_regions"] = {}
 
     if "root" not in runtime_data.genome["brain_regions"]:
