@@ -1,0 +1,1 @@
+This genome is based on the Essential Genome created by Nadji, with additional features for basic collision avoidance behavior. It provides fundamental neural circuitry for a FEAGI-powered robot or virtual agent.
