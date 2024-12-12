@@ -490,7 +490,17 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [3, 3, 1],
                 "coordinate_3d": [-20, 0, -50]
-            }
+            },
+            "opoint": {
+                "enabled": True,
+                "measurable": False,
+                "cortical_name": "Pointer",
+                "controller_id": "pointer_location",
+                "structure": "asymmetric",
+                "resolution": [64, 64, 1],
+                "coordinate_3d": [-100, 50, -50]
+            },
+
         },
         "name_to_id_mapping": {
             "motor": [
@@ -539,7 +549,10 @@ cortical_types = {
             ],
             "analog_output": [
                 "oagpio"
-            ]
+            ],
+            "pointer_location": [
+                "opoint"
+            ],
         }
     },
     "CORE": {
