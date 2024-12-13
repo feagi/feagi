@@ -61,14 +61,14 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "Accelerometer sensor",
                 "structure": "symmetric",
-                "resolution": [3, 1, 20],
+                "resolution": [3, 1, 21],
                 "coordinate_3d": [40, 0, 0]
             },
             "i__gyr": {
                 "enabled": True,
                 "cortical_name": "Gyro sensor",
                 "structure": "symmetric",
-                "resolution": [3, 1, 20],
+                "resolution": [3, 1, 21],
                 "coordinate_3d": [50, 0, 0]
             },
             "ishock": {
@@ -159,7 +159,7 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "Servo position sensor",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 20],
+                "resolution": [1, 1, 21],
                 "coordinate_3d": [20, 0, 0]
             },
             "i_smot": {
@@ -187,7 +187,7 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "Pressure Sensor Input",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 20],
+                "resolution": [3, 1, 21],
                 "coordinate_3d": [60, 0, 0]
             },
         },
