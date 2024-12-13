@@ -272,7 +272,7 @@ cortical_types = {
                 "cortical_name": "Digital output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
+                "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
             "oagpio": {
@@ -281,7 +281,7 @@ cortical_types = {
                 "cortical_name": "Analog output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 10],
+                "resolution": [1, 1, 10],
                 "coordinate_3d": [20, 0, 0]
             },
             "oogpio": {
@@ -290,7 +290,7 @@ cortical_types = {
                 "cortical_name": "GPIO output pin assignment",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
+                "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
             "oigpio": {
@@ -299,7 +299,7 @@ cortical_types = {
                 "cortical_name": "GPIO input pin assignment",
                 "controller_id": "gpio_input",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
+                "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
             "o__nav": {
