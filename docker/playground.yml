@@ -5,42 +5,42 @@ networks:
     driver: bridge
 
 services:
-  feagi:
-    image: ${FEAGI_IMAGE}
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2g'
-    ports:
-      - "8000:8000"
-      - "30000:30000"
-      - "40000-40050:40000-40050"
-    #      - "10000-10050:10000-10050" # ZMQ Port for Agent to Connect to Feagi
-    env_file:
-      - ./.env
-    volumes:
-      - ../src/:/opt/source-code/feagi/src
-    networks:
-      - net
+#  feagi:
+#    image: ${FEAGI_IMAGE}
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '1'
+#          memory: '2g'
+#    ports:
+#      - "8000:8000"
+#      - "30000:30000"
+#      - "40000-40050:40000-40050"
+#    #      - "10000-10050:10000-10050" # ZMQ Port for Agent to Connect to Feagi
+#    env_file:
+#      - ./.env
+#    volumes:
+#      - ../src/:/opt/source-code/feagi/src
+#    networks:
+#      - net
 
-  godot_bridge:
-    image: ${BRIDGE_IMAGE}
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: '1g'
-    ports:
-      - "9050:9050"
-      - "30001:30001" # ZMQ port for feagi to connect for Godot
-    env_file:
-      - ./.env
-    privileged: true
-    networks:
-      - net
-    depends_on:
-      - feagi
+#  godot_bridge:
+#    image: ${BRIDGE_IMAGE}
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '2'
+#          memory: '1g'
+#    ports:
+#      - "9050:9050"
+#      - "30001:30001" # ZMQ port for feagi to connect for Godot
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
+#    depends_on:
+#      - feagi
 
   playground:
     image: ${PLAYGROUND_IMAGE}
@@ -52,43 +52,43 @@ services:
     networks:
       - net
 
-  media_capture_controller:
-    image: ${MEDIA_CONTROLLER_IMAGE}
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2g'
-    ports:
-      - "9051:9051"
-    env_file:
-      - ./.env
-    privileged: true
-    networks:
-      - net
-    depends_on:
-      - feagi
-
-
-  godot-games-controller:
-    image: ${GODOT_GAMES_IMAGE}
-    ports:
-      - "9055:9055"
-    env_file:
-      - ./.env
-    privileged: true
-    networks:
-      - net
-
-  bluetooth_controller:
-    image: ${BLUETOOTH_IMAGE}
-    ports:
-      - "9052:9052"
-    env_file:
-      - ./.env
-    privileged: true
-    networks:
-      - net
+#  media_capture_controller:
+#    image: ${MEDIA_CONTROLLER_IMAGE}
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '1'
+#          memory: '2g'
+#    ports:
+#      - "9051:9051"
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
+#    depends_on:
+#      - feagi
+#
+#
+#  godot-games-controller:
+#    image: ${GODOT_GAMES_IMAGE}
+#    ports:
+#      - "9055:9055"
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
+#
+#  bluetooth_controller:
+#    image: ${BLUETOOTH_IMAGE}
+#    ports:
+#      - "9052:9052"
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
 
 #  feagi_trainer:
 #    build: /home/bwuk/feagi-agent/embodiments/neuraville/feagi_trainer
