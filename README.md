@@ -1,5 +1,7 @@
 # Hello and welcome to FEAGI! 
 
+[![GitHub Release](https://img.shields.io/github/v/release/feagi/brain-visualizer)](https://github.com/feagi/feagi/releases) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![GitHub License](https://img.shields.io/github/license/feagi/feagi)](https://www.apache.org/licenses/LICENSE-2.0.txt)
+
 * For the most up to date information about our platform and approach, please reference our [Wiki](https://github.com/feagi/feagi/wiki).
 * To get started using our platform please follow our [**Deployment Guide**](https://github.com/feagi/feagi/wiki/Deployment-(for-the-public)) and start by following our [**tutorials**](https://github.com/feagi/feagi/wiki/Tutorials)
 * To learn more and get involved in the community, join our the FEAGI [Linkedin group](https://www.linkedin.com/groups/12777894/).
@@ -129,7 +131,7 @@ Here is a list of terminologies and common terms used throughout the documentati
 
 ## Citation
 
-If you use MuJoCo for published research, please cite:
+If you use FEAGI for published research, please cite:
 
 ```
 @ARTICLE{9034490,

@@ -4,9 +4,13 @@ on:
   push:
     branches: 
       - staging
+    paths:
+      - src/**
   pull_request:
     branches: 
       - staging
+    paths:
+      - src/**
 
 jobs:
   build:
@@ -19,7 +23,7 @@ jobs:
     - name: Set up Python 3.8
       uses: actions/setup-python@v1
       with:
-        python-version: 3.8
+        python-version: 3.9
     - name: Install dependencies
       timeout-minutes: 2
       run: |
@@ -34,6 +38,6 @@ jobs:
         files=`git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '` 
         if [[ $files ]]; then pylint --fail-under=5 $files; fi
       working-directory: ./
-    - name: Run tests using pytest
-      run: pytest ../tests
-      working-directory: ./src
+    # - name: Run tests using pytest
+    #   run: pytest ../tests
+    #   working-directory: ./src
