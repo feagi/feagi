@@ -15,10 +15,12 @@
 # ==============================================================================
 
 from src.inf import runtime_data
+from src.evo.templates import cortical_types
 from src.evo.synaptogenesis_rules import neighbor_finder
+from src.evo.x_genesis import update_cortical_properties, update_cortical_mappings, add_core_cortical_area
 
 
-def collect_vision_configuration():
+def generate_vision_configuration():
     central_vision_dimension = get_central_vision_dimension()
     peripheral_vision_dimension = get_peripheral_vision_dimension()
 
@@ -55,7 +57,10 @@ def collect_vision_configuration():
 
 
 def reconfigure_vision(vision_parameters):
-    pass
+
+    set_vision_lighting_enhancements(brightness=vision_parameters.get("brightness"),
+                                     contrast=vision_parameters.get("contrast"),
+                                     shadows=vision_parameters.get("shadows"))
 
 
 def get_central_vision_dimension():
@@ -181,6 +186,70 @@ def get_lighting_enhancement_values():
     return brightness, contrast, shadows
 
 
+def set_vision_lighting_enhancements(brightness=None, contrast=None, shadows=None):
+    power_area = "___pwr"
+    lighting_enhancement_area = "ov_enh"
+    cortical_type = "OPU"
+    cortical_template = cortical_types[cortical_type]["supported_devices"][lighting_enhancement_area].copy()
+
+    # Check if vision lighting enhancement exist if not add it
+    if lighting_enhancement_area not in runtime_data.genome["blueprint"]:
+        add_core_cortical_area(cortical_properties={
+            "cortical_id": lighting_enhancement_area,
+            "cortical_type": cortical_type,
+            "cortical_name": cortical_template["cortical_name"],
+            "coordinates_3d": cortical_template["coordinate_3d"],
+            "dev_count": 1,
+            "coordinates_2d": [10, 0]
+        })
+
+    vision_enhancement_size = runtime_data.genome["blueprint"][lighting_enhancement_area]["block_boundaries"][2]
+
+    morphology_template = {
+        "parameters": {
+            "patterns": []
+        },
+        "type": "patterns",
+        "class": "custom"
+    }
+
+    if brightness:
+        brightness_voxel = round(vision_enhancement_size * brightness)
+        morphology_template["parameters"]["patterns"].append([[0, 0, 0], [0, 0, brightness_voxel]])
+    if contrast:
+        contrast_voxel = round(vision_enhancement_size * contrast)
+        morphology_template["parameters"]["patterns"].append([[0, 0, 0], [1, 0, contrast_voxel]])
+    if shadows:
+        shadows_voxel = round(vision_enhancement_size * shadows)
+        morphology_template["parameters"]["patterns"].append([[0, 0, 0], [2, 0, shadows_voxel]])
+
+    # check if prior morphology exists
+    power_mappings = runtime_data.genome["blueprint"][power_area].get("cortical_mapping_dst")
+    if power_mappings:
+        power_to_lighting_enhancements = power_mappings.get(lighting_enhancement_area)
+        if power_to_lighting_enhancements:
+            # remove existing mapping
+            del runtime_data.genome["blueprint"][power_area]["cortical_mapping_dst"][lighting_enhancement_area]
+
+    morphology_name = "system-" + power_area + "-" + lighting_enhancement_area
+
+    # Create new morphology
+    runtime_data.genome["neuron_morphologies"][morphology_name] = morphology_template
+
+    mapping_data = [{
+        'morphology_id': morphology_name,
+        'morphology_scalar': [1, 1, 1],
+        'plasticity_flag': False,
+        'postSynapticCurrent_multiplier': 1}]
+
+    # create new mapping
+    update_cortical_mappings({
+        "src_cortical_area": power_area,
+        "dst_cortical_area": lighting_enhancement_area,
+        "mapping_data": mapping_data
+    })
+
+
 def get_lighting_threshold_values():
     lighting_threshold_area = "ovtune"
     pixel_change_limit = None
@@ -194,3 +263,16 @@ def get_lighting_threshold_values():
                 pixel_change_limit = neuron_coordinate[2]
 
     return pixel_change_limit
+
+
+
+def set_vision_configuration(vision_parameters):
+    print("%***___" * 50)
+    print(vision_parameters)
+
+    central_vision_cortical_properties = {}
+
+    if "central_vision_resolution" in vision_parameters:
+        pass
+
+

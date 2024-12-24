@@ -22,7 +22,7 @@ from ...schemas import *
 
 from src.version import __version__
 from src.evo.templates import cortical_types
-from src.pns.vision import collect_vision_configuration
+from src.pns.vision import generate_vision_configuration
 
 
 router = APIRouter()
@@ -33,7 +33,7 @@ router = APIRouter()
 
 @router.get("/vision")
 async def get_vision_tuning_parameters():
-    vision_params = collect_vision_configuration()
+    vision_params = generate_vision_configuration()
 
     return vision_params
 
