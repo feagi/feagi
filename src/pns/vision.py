@@ -14,6 +14,8 @@
 # limitations under the License.
 # ==============================================================================
 
+from math import floor
+from random import randrange
 from src.inf import runtime_data
 from src.evo.templates import cortical_types
 from src.evo.synaptogenesis_rules import neighbor_finder
@@ -58,9 +60,20 @@ def generate_vision_configuration():
 
 def reconfigure_vision(vision_parameters):
 
-    set_vision_lighting_enhancements(brightness=vision_parameters.get("brightness"),
-                                     contrast=vision_parameters.get("contrast"),
-                                     shadows=vision_parameters.get("shadows"))
+    # set_vision_lighting_enhancements(brightness=vision_parameters.get("brightness"),
+    #                                  contrast=vision_parameters.get("contrast"),
+    #                                  shadows=vision_parameters.get("shadows"))
+
+    print("vision params:", vision_parameters)
+
+    build_power_connections(target_area_id="ov_enh",
+                            cortical_type="OPU",
+                            mapping_dict={
+                                "0": vision_parameters.get("brightness"),
+                                "1": vision_parameters.get("contrast"),
+                                "2": vision_parameters.get("shadows"),
+                            }
+                            )
 
 
 def get_central_vision_dimension():
@@ -186,24 +199,23 @@ def get_lighting_enhancement_values():
     return brightness, contrast, shadows
 
 
-def set_vision_lighting_enhancements(brightness=None, contrast=None, shadows=None):
+def build_power_connections(target_area_id: str, cortical_type: str,  mapping_dict: dict):
     power_area = "___pwr"
-    lighting_enhancement_area = "ov_enh"
-    cortical_type = "OPU"
-    cortical_template = cortical_types[cortical_type]["supported_devices"][lighting_enhancement_area].copy()
+    cortical_template = cortical_types[cortical_type]["supported_devices"][target_area_id].copy()
 
     # Check if vision lighting enhancement exist if not add it
-    if lighting_enhancement_area not in runtime_data.genome["blueprint"]:
+    if target_area_id not in runtime_data.genome["blueprint"]:
         add_core_cortical_area(cortical_properties={
-            "cortical_id": lighting_enhancement_area,
+            "cortical_id": target_area_id,
             "cortical_type": cortical_type,
             "cortical_name": cortical_template["cortical_name"],
             "coordinates_3d": cortical_template["coordinate_3d"],
             "dev_count": 1,
-            "coordinates_2d": [10, 0]
+            "coordinates_2d": [randrange(0, 10), randrange(0, 10)]
         })
 
-    vision_enhancement_size = runtime_data.genome["blueprint"][lighting_enhancement_area]["block_boundaries"][2]
+    target_area_width = runtime_data.genome["blueprint"][target_area_id]["block_boundaries"][0]
+    target_area_depth = runtime_data.genome["blueprint"][target_area_id]["block_boundaries"][2]
 
     morphology_template = {
         "parameters": {
@@ -213,25 +225,21 @@ def set_vision_lighting_enhancements(brightness=None, contrast=None, shadows=Non
         "class": "custom"
     }
 
-    if brightness:
-        brightness_voxel = round(vision_enhancement_size * brightness)
-        morphology_template["parameters"]["patterns"].append([[0, 0, 0], [0, 0, brightness_voxel]])
-    if contrast:
-        contrast_voxel = round(vision_enhancement_size * contrast)
-        morphology_template["parameters"]["patterns"].append([[0, 0, 0], [1, 0, contrast_voxel]])
-    if shadows:
-        shadows_voxel = round(vision_enhancement_size * shadows)
-        morphology_template["parameters"]["patterns"].append([[0, 0, 0], [2, 0, shadows_voxel]])
+    for entry in mapping_dict:
+        if mapping_dict[entry] or mapping_dict[entry] == 0:
+            if int(entry) < target_area_width and 0 <= mapping_dict[entry] <= 1:
+                target_voxel = floor((target_area_depth - 1) * mapping_dict[entry])
+                morphology_template["parameters"]["patterns"].append([[0, 0, 0], [int(entry), 0, target_voxel]])
 
     # check if prior morphology exists
     power_mappings = runtime_data.genome["blueprint"][power_area].get("cortical_mapping_dst")
     if power_mappings:
-        power_to_lighting_enhancements = power_mappings.get(lighting_enhancement_area)
-        if power_to_lighting_enhancements:
+        existing_power_to_target_area = power_mappings.get(target_area_id)
+        if existing_power_to_target_area:
             # remove existing mapping
-            del runtime_data.genome["blueprint"][power_area]["cortical_mapping_dst"][lighting_enhancement_area]
+            del runtime_data.genome["blueprint"][power_area]["cortical_mapping_dst"][target_area_id]
 
-    morphology_name = "system-" + power_area + "-" + lighting_enhancement_area
+    morphology_name = "system-" + power_area + "-" + target_area_id
 
     # Create new morphology
     runtime_data.genome["neuron_morphologies"][morphology_name] = morphology_template
@@ -245,9 +253,73 @@ def set_vision_lighting_enhancements(brightness=None, contrast=None, shadows=Non
     # create new mapping
     update_cortical_mappings({
         "src_cortical_area": power_area,
-        "dst_cortical_area": lighting_enhancement_area,
+        "dst_cortical_area": target_area_id,
         "mapping_data": mapping_data
     })
+
+
+# def set_vision_lighting_enhancements(brightness=None, contrast=None, shadows=None):
+#     power_area = "___pwr"
+#     lighting_enhancement_area = "ov_enh"
+#     cortical_type = "OPU"
+#     cortical_template = cortical_types[cortical_type]["supported_devices"][lighting_enhancement_area].copy()
+#
+#     # Check if vision lighting enhancement exist if not add it
+#     if lighting_enhancement_area not in runtime_data.genome["blueprint"]:
+#         add_core_cortical_area(cortical_properties={
+#             "cortical_id": lighting_enhancement_area,
+#             "cortical_type": cortical_type,
+#             "cortical_name": cortical_template["cortical_name"],
+#             "coordinates_3d": cortical_template["coordinate_3d"],
+#             "dev_count": 1,
+#             "coordinates_2d": [10, 0]
+#         })
+#
+#     vision_enhancement_size = runtime_data.genome["blueprint"][lighting_enhancement_area]["block_boundaries"][2]
+#
+#     morphology_template = {
+#         "parameters": {
+#             "patterns": []
+#         },
+#         "type": "patterns",
+#         "class": "custom"
+#     }
+#
+#     if brightness:
+#         brightness_voxel = round(vision_enhancement_size * brightness)
+#         morphology_template["parameters"]["patterns"].append([[0, 0, 0], [0, 0, brightness_voxel]])
+#     if contrast:
+#         contrast_voxel = round(vision_enhancement_size * contrast)
+#         morphology_template["parameters"]["patterns"].append([[0, 0, 0], [1, 0, contrast_voxel]])
+#     if shadows:
+#         shadows_voxel = round(vision_enhancement_size * shadows)
+#         morphology_template["parameters"]["patterns"].append([[0, 0, 0], [2, 0, shadows_voxel]])
+#
+#     # check if prior morphology exists
+#     power_mappings = runtime_data.genome["blueprint"][power_area].get("cortical_mapping_dst")
+#     if power_mappings:
+#         power_to_lighting_enhancements = power_mappings.get(lighting_enhancement_area)
+#         if power_to_lighting_enhancements:
+#             # remove existing mapping
+#             del runtime_data.genome["blueprint"][power_area]["cortical_mapping_dst"][lighting_enhancement_area]
+#
+#     morphology_name = "system-" + power_area + "-" + lighting_enhancement_area
+#
+#     # Create new morphology
+#     runtime_data.genome["neuron_morphologies"][morphology_name] = morphology_template
+#
+#     mapping_data = [{
+#         'morphology_id': morphology_name,
+#         'morphology_scalar': [1, 1, 1],
+#         'plasticity_flag': False,
+#         'postSynapticCurrent_multiplier': 1}]
+#
+#     # create new mapping
+#     update_cortical_mappings({
+#         "src_cortical_area": power_area,
+#         "dst_cortical_area": lighting_enhancement_area,
+#         "mapping_data": mapping_data
+#     })
 
 
 def get_lighting_threshold_values():
