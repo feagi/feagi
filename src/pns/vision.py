@@ -21,6 +21,9 @@ from src.evo.templates import cortical_types
 from src.evo.synaptogenesis_rules import neighbor_finder
 from src.evo.x_genesis import update_cortical_properties, update_cortical_mappings, add_core_cortical_area
 
+central_vision_cortical_area = "iv00_C"
+peripheral_vision_cortical_areas = ["iv00TR", "iv00TL", "iv00TM", "iv00MR", "iv00ML", "iv00BR", "iv00BL", "iv00BM"]
+
 
 def generate_vision_configuration():
     central_vision_dimension = get_central_vision_dimension()
@@ -72,16 +75,29 @@ def reconfigure_vision(vision_parameters):
             vision_parameters["central_vision_resolution"][1] != central_vision_dim[1] or \
             vision_depth != central_vision_dim[2]:
         # update central vision dim
-        # todo
-        pass
+        update_cortical_properties(cortical_properties={
+            "cortical_id": central_vision_cortical_area,
+            "cortical_dimensions_per_device": [
+                vision_parameters["central_vision_resolution"][0],
+                vision_parameters["central_vision_resolution"][1],
+                vision_depth
+            ]
+        })
 
     # Update Peripheral Vision Dimensions
     if vision_parameters["peripheral_vision_resolution"][0] != peripheral_vision_dim[0] or \
-            vision_parameters["central_vision_resolution"][1] != peripheral_vision_dim[1] or \
+            vision_parameters["peripheral_vision_resolution"][1] != peripheral_vision_dim[1] or \
             vision_depth != central_vision_dim[2]:
         # update central vision dim
-        # todo
-        pass
+        for area in peripheral_vision_cortical_areas:
+            update_cortical_properties(cortical_properties={
+                "cortical_id": area,
+                "cortical_dimensions_per_device": [
+                    vision_parameters["peripheral_vision_resolution"][0],
+                    vision_parameters["peripheral_vision_resolution"][1],
+                    vision_depth
+                ]
+            })
 
     # Vision Enhancement
     build_power_connections(target_area_id="ov_enh",
@@ -146,7 +162,6 @@ def reconfigure_vision(vision_parameters):
 
 
 def get_central_vision_dimension():
-    central_vision_cortical_area = "iv00_C"
     area_properties = runtime_data.genome["blueprint"].get(central_vision_cortical_area)
     if area_properties:
         cortical_dimension = runtime_data.genome["blueprint"][central_vision_cortical_area].get("block_boundaries")
@@ -186,9 +201,9 @@ def power_is_connected(cortical_area):
 
 
 def get_peripheral_vision_dimension():
-    central_vision_cortical_areas = ["iv00TR", "iv00TL", "iv00TM", "iv00MR", "iv00ML", "iv00BR", "iv00BL", "iv00BM"]
+
     cortical_dimension = set()
-    for area in central_vision_cortical_areas:
+    for area in peripheral_vision_cortical_areas:
         area_properties = runtime_data.genome["blueprint"].get(area)
         if area_properties:
             dimension = area_properties.get("block_boundaries")
