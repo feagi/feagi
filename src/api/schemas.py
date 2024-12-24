@@ -401,6 +401,8 @@ class VisionSettings(BaseModel):
                 "peripheral_vision_resolution": [8, 8],
                 "flicker_period": 16,
                 "color_vision": True,
+                "horizontal_flip": False,
+                "vertical_flip": False,
                 "eccentricity": [0.4, 0.6],
                 "modulation": [0.4, 0.6],
                 "brightness": 0.2,
