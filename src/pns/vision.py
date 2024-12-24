@@ -59,7 +59,31 @@ def generate_vision_configuration():
 
 
 def reconfigure_vision(vision_parameters):
-    # Wire Vision Enhancement
+    central_vision_dim = get_central_vision_dimension()
+    peripheral_vision_dim = get_peripheral_vision_dimension()
+
+    if vision_parameters["color_vision"]:
+        vision_depth = 3
+    else:
+        vision_depth = 1
+
+    # Update Central Vision Dimensions
+    if vision_parameters["central_vision_resolution"][0] != central_vision_dim[0] or \
+            vision_parameters["central_vision_resolution"][1] != central_vision_dim[1] or \
+            vision_depth != central_vision_dim[2]:
+        # update central vision dim
+        # todo
+        pass
+
+    # Update Peripheral Vision Dimensions
+    if vision_parameters["peripheral_vision_resolution"][0] != peripheral_vision_dim[0] or \
+            vision_parameters["central_vision_resolution"][1] != peripheral_vision_dim[1] or \
+            vision_depth != central_vision_dim[2]:
+        # update central vision dim
+        # todo
+        pass
+
+    # Vision Enhancement
     build_power_connections(target_area_id="ov_enh",
                             cortical_type="OPU",
                             mapping_dict={
@@ -68,14 +92,14 @@ def reconfigure_vision(vision_parameters):
                                 "2": vision_parameters.get("shadows"),
                             })
 
-    # Wire Vision Thresholds
+    # Vision Thresholds
     build_power_connections(target_area_id="ovtune",
                             cortical_type="OPU",
                             mapping_dict={
                                 "0": vision_parameters.get("pixel_change_limit"),
                             })
 
-    # Wire Eccentricity
+    # Eccentricity
     build_power_connections(target_area_id="ov_ecc",
                             cortical_type="OPU",
                             mapping_dict={
@@ -83,13 +107,42 @@ def reconfigure_vision(vision_parameters):
                                 "1": vision_parameters.get("eccentricity")[1]
                             })
 
-    # Wire Modulation
+    # Modulation
     build_power_connections(target_area_id="ov_mod",
                             cortical_type="OPU",
                             mapping_dict={
                                 "0": vision_parameters.get("modulation")[0],
                                 "1": vision_parameters.get("modulation")[1]
                             })
+
+    # Horizontal Flip
+    if vision_parameters.get("horizontal_flip"):
+        build_power_connections(target_area_id="ovflph",
+                                cortical_type="OPU",
+                                mapping_dict={
+                                    "0": 0
+                                })
+
+    # Vertical Flip
+    if vision_parameters.get("horizontal_flip"):
+        build_power_connections(target_area_id="ovflpv",
+                                cortical_type="OPU",
+                                mapping_dict={
+                                    "0": 0
+                                })
+
+    # Flicker (Blink)
+    flicker_period = vision_parameters.get("flicker_period")
+    if flicker_period > 0:
+        build_power_connections(target_area_id="o_blnk",
+                                cortical_type="OPU",
+                                mapping_dict={
+                                    "0": 0
+                                })
+        update_cortical_properties(cortical_properties={
+            "cortical_id": "o_blnk",
+            "neuron_refractory_period": flicker_period
+        })
 
 
 def get_central_vision_dimension():
