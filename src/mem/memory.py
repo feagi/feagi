@@ -178,7 +178,6 @@ def long_short_term_memory():
                 runtime_data.memory_queue.push(cortical_id=memory_cortical_area,
                                                value=instant_hash)
                 all_hashes = runtime_data.memory_queue.get_all_hashes(cortical_id=memory_cortical_area)
-                print(f"all hashes for {memory_cortical_area}:", all_hashes)
                 memory_hash = generate_mem_hash_cache(afferent_neuron_list=all_hashes)
 
                 mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area,
@@ -298,7 +297,8 @@ class MemoryQueue:
 
         """
         if cortical_id not in self.memory:
-            raise KeyError(f"ID '{cortical_id}' does not exist. Please add it first with a specific size.")
+            self.add_id(cortical_id=cortical_id,
+                        max_size=runtime_data.genome["blueprint"][cortical_id].get("temporal_depth", 1))
         self.memory[cortical_id].append(value)
 
     def get_all(self, cortical_id):
