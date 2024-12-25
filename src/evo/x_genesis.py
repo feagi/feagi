@@ -55,6 +55,7 @@ from src.api.schemas import NewRegionProperties
 logger = logging.getLogger(__name__)
 sentinel = object()
 
+
 class CustomError(Exception):
     def __init__(self, message, status_code):
         self.message = message
@@ -878,6 +879,8 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
                     cortical_template_['temporal_depth']
                 runtime_data.genome["blueprint"][cortical_area_id]["sub_group_id"] = "MEMORY"
                 runtime_data.memory_register[cortical_area_id] = set()
+                runtime_data.memory_queue.add_id(cortical_id=cortical_area_id,
+                                                 max_size=cortical_template_['temporal_depth'])
 
             runtime_data.genome["blueprint"][cortical_area_id]["group_id"] = "CUSTOM"
 

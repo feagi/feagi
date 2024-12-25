@@ -169,6 +169,7 @@ intercortical_mapping = []
 brain_is_running = False
 cumulative_stats = {}
 memory_register = {}
+memory_queue = None
 cortical_area_region_association = dict()
 
 

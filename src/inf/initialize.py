@@ -44,6 +44,7 @@ from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from src.evo.genome_validator import *
 from src.evo.region import region_id_gen
 from src.evo.templates import cortical_types
+from src.mem.memory import MemoryQueue
 
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,7 @@ def init_container_variables():
 
 def init_memory_register():
     runtime_data.memory_register = dict()
+    runtime_data.memory_queue = MemoryQueue()
     for cortical_area in runtime_data.genome["blueprint"]:
         if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
             if runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] == "MEMORY":
