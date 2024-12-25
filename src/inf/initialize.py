@@ -218,7 +218,6 @@ def init_container_variables():
 
 def init_memory_register():
     runtime_data.memory_register = dict()
-    runtime_data.memory_queue = MemoryQueue()
     for cortical_area in runtime_data.genome["blueprint"]:
         if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
             if runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] == "MEMORY":
@@ -505,6 +504,7 @@ def init_brain():
     init_cortical_info()
     init_io_areas()
     init_memory_register()
+    runtime_data.memory_queue = MemoryQueue()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()

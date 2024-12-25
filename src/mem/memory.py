@@ -178,7 +178,7 @@ def long_short_term_memory():
                 runtime_data.memory_queue.push(cortical_id=memory_cortical_area,
                                                value=instant_hash)
                 all_hashes = runtime_data.memory_queue.get_all_hashes(cortical_id=memory_cortical_area)
-                print("all hashes:", all_hashes)
+                print(f"all hashes for {memory_cortical_area}:", all_hashes)
                 memory_hash = generate_mem_hash_cache(afferent_neuron_list=all_hashes)
 
                 mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area,
@@ -277,6 +277,7 @@ class MemoryQueue:
         """
         Initializes the memory queue as an empty dictionary.
         """
+        print("&>> " * 100)
         self.memory = {}
 
     def add_id(self, cortical_id, max_size):
