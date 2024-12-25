@@ -629,3 +629,15 @@ async def delete_multiple_cortical_areas(cortical_id_list: CorticalIdList):
             api_queue.put(item=message)
         else:
             return generate_response("CORTICAL_AREA_NOT_FOUND")
+
+
+@router.get("/neuron_count")
+async def area_neuron_count(cortical_id: str):
+    if cortical_id in runtime_data.brain:
+        return len(runtime_data.brain[cortical_id])
+
+
+@router.put("/reset")
+async def reset_cortical_area(cortical_id: str):
+    message = {'reset': cortical_id}
+    api_queue.put(item=message)
