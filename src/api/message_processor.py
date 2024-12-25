@@ -28,6 +28,7 @@ from src.inf.db_handler import InfluxManagement
 from src.inf.initialize import deploy_genome
 from src.evo.templates import cortical_types
 from src.pns.stimuli_translator import induce_manual_stimulation
+from src.pns.vision import reconfigure_vision
 
 influx = InfluxManagement()
 
@@ -285,3 +286,7 @@ def api_message_processor(api_message):
 
     if 'manual_stimulation' in api_message:
         induce_manual_stimulation(stimulation=api_message["manual_stimulation"])
+
+    if 'vision' in api_message:
+        vision_configuration_params = dict(api_message['vision'])
+        reconfigure_vision(vision_parameters=vision_configuration_params)

@@ -273,7 +273,7 @@ cortical_types = {
                 "controller_id": "gpio",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-40, 0, 0]
             },
             "oagpio": {
                 "enabled": True,
@@ -282,7 +282,7 @@ cortical_types = {
                 "controller_id": "gpio",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-40, 0, 10]
             },
             "oogpio": {
                 "enabled": True,
@@ -291,7 +291,7 @@ cortical_types = {
                 "controller_id": "gpio",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-40, 0, 20]
             },
             "oigpio": {
                 "enabled": True,
@@ -300,7 +300,7 @@ cortical_types = {
                 "controller_id": "gpio_input",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-40, 0, 30]
             },
             "o__nav": {
                 "enabled": True,
@@ -309,7 +309,7 @@ cortical_types = {
                 "controller_id": "navigation",
                 "structure": "asymmetric",
                 "resolution": [3, 1, 21],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-30, 0, 0]
             },
             "o__spd": {
                 "enabled": True,
@@ -318,7 +318,7 @@ cortical_types = {
                 "controller_id": "speed",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-30, 0, 10]
             },
             "o__bat": {
                 "enabled": True,
@@ -327,7 +327,7 @@ cortical_types = {
                 "controller_id": "battery",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-50, 0, 0]
             },
             "o_init": {
                 "enabled": True,
@@ -336,7 +336,7 @@ cortical_types = {
                 "controller_id": "reset",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [0, 0, -20]
             },
             "o_stop": {
                 "enabled": True,
@@ -345,7 +345,7 @@ cortical_types = {
                 "controller_id": "emergency",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [5, 0, -20]
             },
             "o__ser": {
                 "enabled": True,
@@ -372,7 +372,7 @@ cortical_types = {
                 "controller_id": "blink",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [50, 0, -5]
             },
             "o___id": {
                 "enabled": True,
@@ -408,7 +408,7 @@ cortical_types = {
                 "controller_id": "misc",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [20, 0, -10]
             },
             "o_mctl": {
                 "enabled": True,
@@ -417,7 +417,7 @@ cortical_types = {
                 "controller_id": "motion_control",
                 "structure": "asymmetric",
                 "resolution": [4, 3, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [20, 0, -10]
             },
             "ovflph": {
                 "enabled": True,
@@ -435,7 +435,7 @@ cortical_types = {
                 "controller_id": "vertical_flip",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [25, 0, 0]
             },
             "ov_mod": {
                 "enabled": True,
@@ -444,7 +444,7 @@ cortical_types = {
                 "controller_id": "modulation_control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [30, 0, 0]
             },
             "ov_ecc": {
                 "enabled": True,
@@ -453,7 +453,7 @@ cortical_types = {
                 "controller_id": "eccentricity_control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [35, 0, 0]
             },
             "ov_enh": {
                 "enabled": True,
@@ -462,7 +462,7 @@ cortical_types = {
                 "controller_id": "enhancement",
                 "structure": "asymmetric",
                 "resolution": [3, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [40, 0, 0]
             },
             "ovtune": {
                 "enabled": True,
@@ -471,7 +471,7 @@ cortical_types = {
                 "controller_id": "threshold",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [45, 0, 0]
             },
             "o__led": {
                 "enabled": True,
