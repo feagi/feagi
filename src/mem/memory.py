@@ -283,8 +283,7 @@ class MemoryQueue:
         """
         Adds a new ID to the memory queue and initializes it with an empty FIFO deque with the specified size.
         """
-        print("#__++ " * 20)
-        print(f"Adding {cortical_id} and depth of {max_size}")
+
         if cortical_id not in self.memory:
             self.memory[cortical_id] = deque(maxlen=max_size)
 
