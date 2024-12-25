@@ -31,6 +31,7 @@ from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converte
 from src.evo.stats import circuit_size
 from src.evo.region import region_id_2_title, construct_genome_from_region
 from src.evo.templates import cortical_template
+from src.npu.consciousness import set_brain_readiness_to_false
 from src.inf.initialize import generate_cortical_dimensions_by_id
 
 
@@ -45,7 +46,7 @@ async def upload_barebones_genome():
     with open("./evo/defaults/genome/barebones_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
         runtime_data.genome_file_name = "barebones_genome.json"
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false()
     message = {'genome': genome_data}
 
     api_queue.put(item=message)
@@ -56,7 +57,7 @@ async def genome_default_upload():
     with open("./evo/defaults/genome/essential_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
         runtime_data.genome_file_name = "essential_genome.json"
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false()
     message = {'genome': genome_data}
     api_queue.put(item=message)
 
@@ -68,7 +69,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
     The genome must be in the form of a python file.
     """
     data = await file.read()
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false()
     runtime_data.genome_file_name = file.filename
 
     genome_str = json.loads(data)

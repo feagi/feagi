@@ -129,6 +129,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
+    temporal_depth: Optional[int] = None
     dev_count: Optional[int] = None
     cortical_dimensions_per_device: Optional[conlist(int, min_items=3, max_items=3)] = None
 
@@ -164,6 +165,7 @@ class UpdateMultipleCorticalProperties(BaseModel):
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
+    temporal_depth: Optional[int] = None
 
     @validator('cortical_dimensions', each_item=True)
     def check_positive(cls, value):

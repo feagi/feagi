@@ -54,6 +54,7 @@ import traceback
 import logging
 import xxhash
 
+from collections import deque
 from src.inf import runtime_data
 from src.evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
 from src.evo.synapse import synapse_memory_neuron
@@ -172,9 +173,16 @@ def long_short_term_memory():
                         if runtime_data.fire_candidate_list[upstream_cortical_area]:
                             # todo: performance: exclude non-immortal neurons from being processed
                             neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
-                memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
 
-                mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
+                instant_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
+                runtime_data.memory_queue.push(cortical_id=memory_cortical_area,
+                                               value=instant_hash)
+                all_hashes = runtime_data.memory_queue.get_all_hashes(cortical_id=memory_cortical_area)
+                memory_hash = generate_mem_hash_cache(afferent_neuron_list=all_hashes)
+
+                mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area,
+                                                          memory_hash=memory_hash)
+
                 if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
                     neuron_id = init_neuron(cortical_area=memory_cortical_area,
                                             soma_location=(0, 0, 0),
@@ -261,3 +269,68 @@ def generate_mem_hash_cache(afferent_neuron_list):
 def convert_hash_to_neuron_id(cortical_area, memory_hash):
     neuron_id = str(cortical_area + '_' + memory_hash)
     return neuron_id
+
+
+class MemoryQueue:
+    def __init__(self):
+        """
+        Initializes the memory queue as an empty dictionary.
+        """
+        print("&>> " * 100)
+        self.memory = {}
+
+    def add_id(self, cortical_id, max_size):
+        """
+        Adds a new ID to the memory queue and initializes it with an empty FIFO deque with the specified size.
+        """
+
+        if cortical_id not in self.memory:
+            self.memory[cortical_id] = deque(maxlen=max_size)
+
+    def push(self, cortical_id, value):
+        """
+        Pushes a value to the FIFO deque associated with the given ID.
+        If the ID doesn't exist, raises a KeyError.
+
+        value = (memory_hash, [neuron list])
+
+        """
+        if cortical_id not in self.memory:
+            self.add_id(cortical_id=cortical_id,
+                        max_size=runtime_data.genome["blueprint"][cortical_id].get("temporal_depth", 1))
+        self.memory[cortical_id].append(value)
+
+    def get_all(self, cortical_id):
+        """
+        Retrieves all items in the FIFO deque for the given ID.
+        """
+        if cortical_id in self.memory:
+            return list(self.memory[cortical_id])
+        return []
+
+    def get_all_hashes(self, cortical_id):
+        """
+        Retrieves all set hashes from the FIFO deque for the given ID.
+        """
+        if cortical_id in self.memory:
+            return self.memory[cortical_id]
+        return []
+
+    def resize(self, cortical_id, new_max_size):
+        """
+        Resizes the FIFO deque for a specific ID.
+        """
+        if cortical_id in self.memory:
+            current_values = list(self.memory[cortical_id])
+            self.memory[cortical_id] = deque(current_values, maxlen=new_max_size)
+        else:
+            raise KeyError(f"ID '{cortical_id}' does not exist.")
+
+    def remove_id(self, cortical_id):
+        """
+        Removes an ID and its associated FIFO deque from the memory queue.
+        """
+        if cortical_id in self.memory:
+            del self.memory[cortical_id]
+        else:
+            raise KeyError(f"ID '{cortical_id}' does not exist.")

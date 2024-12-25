@@ -29,6 +29,7 @@ from src.evo.synapse import cortical_mapping
 from src.inf.disk_ops import preserve_brain, revive_brain
 # from src.inf.feagi import start_feagi
 from src.inf.initialize import deploy_genome
+from src.npu.consciousness import set_brain_readiness_to_false
 
 
 router = APIRouter()
@@ -197,7 +198,7 @@ async def download_connectome():
 @router.post("/upload")
 async def upload_connectome(file: UploadFile = File(...)):
 
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false()
     runtime_data.genome = {}
     brain_data = await file.read()
     revive_brain(brain_data=brain_data)

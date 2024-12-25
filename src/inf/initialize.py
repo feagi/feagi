@@ -44,6 +44,8 @@ from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from src.evo.genome_validator import *
 from src.evo.region import region_id_gen
 from src.evo.templates import cortical_types
+from src.mem.memory import MemoryQueue
+from src.npu.consciousness import set_brain_readiness_to_ture
 
 
 logger = logging.getLogger(__name__)
@@ -128,7 +130,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         develop_brain(reincarnation_mode=runtime_data.parameters[
             'Brain_Development']['reincarnation_mode'])
     print("=======================    Genome Staging Completed        =======================")
-    runtime_data.brain_readiness = True
+    set_brain_readiness_to_ture()
 
 
 # def init_hw_controller():
@@ -502,6 +504,7 @@ def init_brain():
     init_cortical_info()
     init_io_areas()
     init_memory_register()
+    runtime_data.memory_queue = MemoryQueue()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()

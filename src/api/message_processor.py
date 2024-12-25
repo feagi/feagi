@@ -23,7 +23,7 @@ from src.inf import runtime_data, disk_ops
 # from src.evo.autopilot import update_generation_dict
 from src.evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
-from src.evo.x_genesis import create_missing_pns_areas
+from src.evo.x_genesis import create_missing_pns_areas, cortical_regeneration
 from src.inf.db_handler import InfluxManagement
 from src.inf.initialize import deploy_genome
 from src.evo.templates import cortical_types
@@ -290,3 +290,6 @@ def api_message_processor(api_message):
     if 'vision' in api_message:
         vision_configuration_params = dict(api_message['vision'])
         reconfigure_vision(vision_parameters=vision_configuration_params)
+
+    if 'reset' in api_message:
+        cortical_regeneration(cortical_area=api_message["reset"])
