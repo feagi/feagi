@@ -605,7 +605,7 @@ genome_1_template = {
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
     "init_lifespan": 9,
-    "temporal_depth": 0,
+    "temporal_depth": 1,
     "neuron_excitability": 100
     }
 

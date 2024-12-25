@@ -375,6 +375,8 @@ def update_cortical_properties(cortical_properties):
                     cortical_properties['temporal_depth']:
                 runtime_data.genome['blueprint'][cortical_area]["temporal_depth"] = \
                     cortical_properties['temporal_depth']
+                runtime_data.memory_queue.resize(cortical_id=cortical_area,
+                                                 new_max_size=cortical_properties['temporal_depth'])
                 regeneration_flag = False
                 changed_areas.add("blueprint")
 
@@ -879,6 +881,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
                     cortical_template_['temporal_depth']
                 runtime_data.genome["blueprint"][cortical_area_id]["sub_group_id"] = "MEMORY"
                 runtime_data.memory_register[cortical_area_id] = set()
+                print(f">>>>>>>> Adding {cortical_area_id} with temporal depth of {cortical_template_['temporal_depth']}")
                 runtime_data.memory_queue.add_id(cortical_id=cortical_area_id,
                                                  max_size=cortical_template_['temporal_depth'])
 
