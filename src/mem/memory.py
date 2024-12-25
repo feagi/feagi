@@ -176,9 +176,10 @@ def long_short_term_memory():
 
                 instant_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
                 runtime_data.memory_queue.push(cortical_id=memory_cortical_area,
-                                               value=(instant_hash, neurogenesis_list))
-                memory_hash = generate_mem_hash_cache(afferent_neuron_list=runtime_data.memory_queue.get_all_hashes(
-                    cortical_id=memory_cortical_area))
+                                               value=instant_hash)
+                all_hashes = runtime_data.memory_queue.get_all_hashes(cortical_id=memory_cortical_area)
+                print("all hashes:", all_hashes)
+                memory_hash = generate_mem_hash_cache(afferent_neuron_list=all_hashes)
 
                 mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area,
                                                           memory_hash=memory_hash)
@@ -312,7 +313,7 @@ class MemoryQueue:
         Retrieves all set hashes from the FIFO deque for the given ID.
         """
         if cortical_id in self.memory:
-            return [item[0] for item in self.memory[cortical_id]]
+            return self.memory[cortical_id]
         return []
 
     def resize(self, cortical_id, new_max_size):

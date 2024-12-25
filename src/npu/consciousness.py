@@ -15,6 +15,15 @@
 # limitations under the License.
 # ==============================================================================
 
+from src.inf import runtime_data
+
+
+def set_brain_readiness_to_false():
+    runtime_data.brain_readiness = False
+
+
+def set_brain_readiness_to_ture():
+    runtime_data.brain_readiness = True
 
 
 def start():
@@ -27,8 +36,6 @@ def candidate_list_counter(candidate_list):
         count += len(candidate_list[cortical_area])
         # print("&&$$%%>>", cortical_area, len(candidate_list[cortical_area]))
     return count
-
-
 
 
 def stop():

@@ -48,6 +48,7 @@ from src.evo.synapse import neighboring_cortical_areas
 from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
 from src.inf.initialize import init_fcl, init_memory_register, init_cortical_cumulative_stats
 from src.api.schemas import NewRegionProperties
+from src.npu.consciousness import set_brain_readiness_to_false, set_brain_readiness_to_ture
 
 
 # from src.evo.synaptogenesis_rules import syn_memory
@@ -132,7 +133,7 @@ def update_cortical_properties(cortical_properties):
     """
 
     if runtime_data.brain_readiness:
-        runtime_data.brain_readiness = False
+        set_brain_readiness_to_false()
 
         changed_areas = set()
         regeneration_flag = False
@@ -375,6 +376,7 @@ def update_cortical_properties(cortical_properties):
                     cortical_properties['temporal_depth']:
                 runtime_data.genome['blueprint'][cortical_area]["temporal_depth"] = \
                     cortical_properties['temporal_depth']
+                print(f"Temporal depth updated to {cortical_properties['temporal_depth']}")
                 runtime_data.memory_queue.resize(cortical_id=cortical_area,
                                                  new_max_size=cortical_properties['temporal_depth'])
                 regeneration_flag = False
@@ -418,7 +420,7 @@ def update_cortical_properties(cortical_properties):
         print(f">> {cortical_area} is no longer transforming..")
         update_evo_change_register(change_area=changed_areas)
 
-        runtime_data.brain_readiness = True
+        set_brain_readiness_to_ture()
 
 
 def update_evo_change_register(change_area: set):
@@ -430,7 +432,7 @@ def update_evo_change_register(change_area: set):
 def update_cortical_mappings(cortical_mappings):
 
     if runtime_data.brain_readiness:
-        runtime_data.brain_readiness = False
+        set_brain_readiness_to_false()
 
         cortical_area = cortical_mappings["src_cortical_area"]
         dst_cortical_area = cortical_mappings["dst_cortical_area"]
@@ -487,7 +489,7 @@ def update_cortical_mappings(cortical_mappings):
                     file_name=runtime_data.connectome_path + "genome.json")
         update_evo_change_register(change_area={"mappings"})
 
-        runtime_data.brain_readiness = True
+        set_brain_readiness_to_ture()
 
         # added_mappings, removed_mappings, modified_mappings = \
         #     mapping_change_report(cortical_area=cortical_area, new_mapping=cortical_properties['cortical_destinations'])
@@ -714,7 +716,7 @@ def mapping_change_report(cortical_area, new_mapping):
 def add_core_cortical_area(cortical_properties):
     try:
         if runtime_data.brain_readiness:
-            runtime_data.brain_readiness = False
+            set_brain_readiness_to_false()
 
             cortical_type = cortical_properties['cortical_type']
             cortical_id_ = cortical_properties['cortical_id']
@@ -807,7 +809,7 @@ def add_core_cortical_area(cortical_properties):
                                 file_name=runtime_data.connectome_path + "genome.json")
                     runtime_data.last_genome_modification_time = datetime.datetime.now()
 
-                    runtime_data.brain_readiness = True
+                    set_brain_readiness_to_ture()
 
                     return cortical_id_
             else:
@@ -822,7 +824,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
                              parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
 
     if runtime_data.brain_readiness:
-        runtime_data.brain_readiness = False
+        set_brain_readiness_to_false()
 
         cortical_names = neuroembryogenesis.cortical_name_list()
         if copy_of:
@@ -898,7 +900,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
                         file_name=runtime_data.connectome_path + "genome.json")
             runtime_data.last_genome_modification_time = datetime.datetime.now()
 
-            runtime_data.brain_readiness = True
+            set_brain_readiness_to_ture()
 
             return cortical_area_id
 
@@ -1361,7 +1363,7 @@ def update_pns_dev_count(pns_area, new_dev_count):
     runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = dim_z
 
     runtime_data.transforming_areas.add(cortical_area)
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false()
     cortical_regeneration(cortical_area=pns_area)
 
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
@@ -1373,4 +1375,4 @@ def update_pns_dev_count(pns_area, new_dev_count):
     runtime_data.transforming_areas.remove(cortical_area)
     update_evo_change_register(change_area={pns_area})
 
-    runtime_data.brain_readiness = True
+    set_brain_readiness_to_ture()
