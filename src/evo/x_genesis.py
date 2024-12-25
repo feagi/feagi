@@ -369,6 +369,14 @@ def update_cortical_properties(cortical_properties):
                 regeneration_flag = False
                 changed_areas.add("blueprint")
 
+        if 'temporal_depth' in cortical_properties:
+            if runtime_data.genome['blueprint'][cortical_area]["temporal_depth"] != \
+                    cortical_properties['temporal_depth']:
+                runtime_data.genome['blueprint'][cortical_area]["temporal_depth"] = \
+                    cortical_properties['temporal_depth']
+                regeneration_flag = False
+                changed_areas.add("blueprint")
+
         if cortical_properties.get('neuron_fire_threshold_increment'):
             genome_fire_threshold_increment = [
                 runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_x"],
@@ -866,6 +874,8 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
                     cortical_template_['lifespan_growth_rate']
                 runtime_data.genome["blueprint"][cortical_area_id]["init_lifespan"] = \
                     cortical_template_['init_lifespan']
+                runtime_data.genome["blueprint"][cortical_area_id]["temporal_depth"] = \
+                    cortical_template_['temporal_depth']
                 runtime_data.genome["blueprint"][cortical_area_id]["sub_group_id"] = "MEMORY"
                 runtime_data.memory_register[cortical_area_id] = set()
 

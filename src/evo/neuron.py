@@ -71,11 +71,13 @@ def init_neuron(cortical_area, soma_location, mem_neuron_id=None):
         is_memory_type = True
         lifespan = runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] + runtime_data.burst_count
         neuron_id = str(cortical_area + '_' + mem_neuron_id)
+        temporal_depth = 1
     else:
         immortality = True
         is_memory_type = False
         lifespan = None
         neuron_id = neuron_id_gen(cortical_id=cortical_area)
+        temporal_depth = 0
 
     runtime_data.brain[cortical_area][neuron_id] = {}
     runtime_data.brain[cortical_area][neuron_id]["memory_neuron"] = is_memory_type
@@ -92,6 +94,7 @@ def init_neuron(cortical_area, soma_location, mem_neuron_id=None):
     runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = 0
     runtime_data.brain[cortical_area][neuron_id]["activity_history"] = []
     runtime_data.brain[cortical_area][neuron_id]["lifespan"] = lifespan
+    runtime_data.brain[cortical_area][neuron_id]["temporal_depth"] = temporal_depth
     runtime_data.brain[cortical_area][neuron_id]["immortal"] = immortality
     runtime_data.brain[cortical_area][neuron_id]["soma_location"] = soma_location
     # loc_blk is a two element list where first element being the location of the neuron and second being the block

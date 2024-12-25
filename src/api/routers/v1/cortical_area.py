@@ -122,6 +122,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
                 "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
                 "neuron_init_lifespan": cortical_data['init_lifespan'],
+                "temporal_depth": cortical_data['temporal_depth'],
                 "neuron_excitability": cortical_data['neuron_excitability'],
                 "transforming": False
             }
@@ -523,6 +524,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
                     "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
                     "neuron_init_lifespan": cortical_data['init_lifespan'],
+                    "temporal_depth": cortical_data['temporal_depth'],
                     "neuron_excitability": cortical_data['neuron_excitability'],
                     "transforming": False
                 }

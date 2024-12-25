@@ -128,6 +128,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_longterm_mem_threshold: Optional[int] = None
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
+    neuron_temporal_depth: Optional[int] = None
     neuron_excitability: Optional[float] = None
     dev_count: Optional[int] = None
     cortical_dimensions_per_device: Optional[conlist(int, min_items=3, max_items=3)] = None
@@ -163,6 +164,7 @@ class UpdateMultipleCorticalProperties(BaseModel):
     neuron_longterm_mem_threshold: Optional[int] = None
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
+    neuron_temporal_depth: Optional[int] = None
     neuron_excitability: Optional[float] = None
 
     @validator('cortical_dimensions', each_item=True)
