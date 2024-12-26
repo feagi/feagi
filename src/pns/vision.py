@@ -231,17 +231,18 @@ def get_eccentricity_values():
     eccentricity_x = None
     eccentricity_y = None
 
-    power_connectivity = power_is_connected(cortical_area=eccentricity_area)
+    if eccentricity_area in runtime_data.genome["blueprint"]:
+        power_connectivity = power_is_connected(cortical_area=eccentricity_area)
+        area_depth = runtime_data.genome["blueprint"][eccentricity_area]["block_boundaries"][2]
+        if power_connectivity:
+            for connection_entry in power_connectivity:
+                neuron_coordinate = connection_entry[0]
+                if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
+                    eccentricity_x = neuron_coordinate[2] / area_depth
+                elif neuron_coordinate[0] == 1 and neuron_coordinate[1] == 0:
+                    eccentricity_y = neuron_coordinate[2] / area_depth
 
-    if power_connectivity:
-        for connection_entry in power_connectivity:
-            neuron_coordinate = connection_entry[0]
-            if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
-                eccentricity_x = neuron_coordinate[2]
-            elif neuron_coordinate[0] == 1 and neuron_coordinate[1] == 0:
-                eccentricity_y = neuron_coordinate[2]
-
-    return eccentricity_x, eccentricity_y
+        return eccentricity_x, eccentricity_y
 
 
 def get_modulation_values():
@@ -249,17 +250,19 @@ def get_modulation_values():
     modulation_x = None
     modulation_y = None
 
-    power_connectivity = power_is_connected(cortical_area=modulation_area)
+    if modulation_area in runtime_data.genome["blueprint"]:
+        power_connectivity = power_is_connected(cortical_area=modulation_area)
+        area_depth = runtime_data.genome["blueprint"][modulation_area]["block_boundaries"][2]
 
-    if power_connectivity:
-        for connection_entry in power_connectivity:
-            neuron_coordinate = connection_entry[0]
-            if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
-                modulation_x = neuron_coordinate[2]
-            elif neuron_coordinate[0] == 1 and neuron_coordinate[1] == 0:
-                modulation_y = neuron_coordinate[2]
+        if power_connectivity:
+            for connection_entry in power_connectivity:
+                neuron_coordinate = connection_entry[0]
+                if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
+                    modulation_x = neuron_coordinate[2] / area_depth
+                elif neuron_coordinate[0] == 1 and neuron_coordinate[1] == 0:
+                    modulation_y = neuron_coordinate[2] / area_depth
 
-    return modulation_x, modulation_y
+        return modulation_x, modulation_y
 
 
 def get_lighting_enhancement_values():
@@ -268,19 +271,38 @@ def get_lighting_enhancement_values():
     contrast = None
     shadows = None
 
-    power_connectivity = power_is_connected(cortical_area=lighting_enhancement_area)
+    if lighting_enhancement_area in runtime_data.genome["blueprint"]:
+        power_connectivity = power_is_connected(cortical_area=lighting_enhancement_area)
+        area_depth = runtime_data.genome["blueprint"][lighting_enhancement_area]["block_boundaries"][2]
 
-    if power_connectivity:
-        for connection_entry in power_connectivity:
-            neuron_coordinate = connection_entry[0]
-            if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
-                brightness = neuron_coordinate[2]
-            elif neuron_coordinate[0] == 1 and neuron_coordinate[1] == 0:
-                contrast = neuron_coordinate[2]
-            elif neuron_coordinate[0] == 2 and neuron_coordinate[1] == 0:
-                shadows = neuron_coordinate[2]
+        if power_connectivity:
+            for connection_entry in power_connectivity:
+                neuron_coordinate = connection_entry[0]
+                if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
+                    brightness = neuron_coordinate[2] / area_depth
+                elif neuron_coordinate[0] == 1 and neuron_coordinate[1] == 0:
+                    contrast = neuron_coordinate[2] / area_depth
+                elif neuron_coordinate[0] == 2 and neuron_coordinate[1] == 0:
+                    shadows = neuron_coordinate[2] / area_depth
 
     return brightness, contrast, shadows
+
+
+def get_lighting_threshold_values():
+    lighting_threshold_area = "ovtune"
+    pixel_change_limit = None
+
+    if lighting_threshold_area in runtime_data.genome["blueprint"]:
+        power_connectivity = power_is_connected(cortical_area=lighting_threshold_area)
+        area_depth = runtime_data.genome["blueprint"][lighting_threshold_area]["block_boundaries"][2]
+
+        if power_connectivity:
+            for connection_entry in power_connectivity:
+                neuron_coordinate = connection_entry[0]
+                if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
+                    pixel_change_limit = neuron_coordinate[2] / area_depth
+
+        return pixel_change_limit
 
 
 def build_power_connections(target_area_id: str, cortical_type: str,  mapping_dict: dict):
@@ -340,22 +362,6 @@ def build_power_connections(target_area_id: str, cortical_type: str,  mapping_di
         "dst_cortical_area": target_area_id,
         "mapping_data": mapping_data
     })
-
-
-def get_lighting_threshold_values():
-    lighting_threshold_area = "ovtune"
-    pixel_change_limit = None
-
-    power_connectivity = power_is_connected(cortical_area=lighting_threshold_area)
-
-    if power_connectivity:
-        for connection_entry in power_connectivity:
-            neuron_coordinate = connection_entry[0]
-            if neuron_coordinate[0] == 0 and neuron_coordinate[1] == 0:
-                pixel_change_limit = neuron_coordinate[2]
-
-    return pixel_change_limit
-
 
 
 def set_vision_configuration(vision_parameters):
