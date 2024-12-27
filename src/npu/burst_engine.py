@@ -383,6 +383,10 @@ def burst_manager():
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
     def controller_handshake():
+        if runtime_data.genome:
+            genome_availability = True
+        else:
+            genome_availability = False
         broadcast_message = {}
         broadcast_message['burst_counter'] = runtime_data.burst_count
         # broadcast_message['sockets'] = runtime_data.parameters['Sockets']
@@ -393,6 +397,10 @@ def burst_manager():
         broadcast_message['control_data'] = runtime_data.robot_controller
         broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
         broadcast_message['change_register'] = runtime_data.evo_change_register
+        broadcast_message['burst_engine'] = not runtime_data.exit_condition
+        broadcast_message['genome_availability'] = genome_availability
+        broadcast_message['genome_validity'] = runtime_data.genome_validity
+        broadcast_message['brain_readiness'] = runtime_data.brain_readiness
         broadcast_message['sent_utc'] = utc_time()
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
