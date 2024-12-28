@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-
+import re
+from sympy import sympify, Integer
 import logging
 import traceback
 from src.evo import voxels
@@ -250,8 +250,31 @@ def validate_pattern(pattern):
 
 
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_subregion):
-    scaled_vector = [prod(x) for x in zip(vector, morphology_scalar)]
+    def preprocess_expression(expr):
+        # Add * for implicit multiplication (e.g., 2x -> 2*x)
+        expr = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', expr)
+        # Replace ^ with ** for exponentiation
+        expr = expr.replace('^', '**')
+        return expr
+
+    # Preprocess, parse, evaluate, and cast each algebraic expression in the vector
+    evaluated_vector = [
+        int(sympify(preprocess_expression(expr)).subs({"x": morphology_scalar[0], "y": morphology_scalar[1], "z": morphology_scalar[2]}))
+        if isinstance(expr, str) else int(expr)
+        for expr in vector
+    ]
+
+    # Ensure evaluated_vector contains only integers
+    if not all(isinstance(ev, int) for ev in evaluated_vector):
+        raise TypeError(f"Evaluated vector {evaluated_vector} must contain only integers after evaluation.")
+
+    # Scale the evaluated vector
+    scaled_vector = [prod(x) for x in zip(src_voxel, evaluated_vector)]
+
+    # # Compute the candidate vector
     candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
+
+    print(f"src_voxel: {src_voxel} vector: {vector} candidate vector: {candidate_vector}")
     for item in candidate_vector:
         if item < 0:
             return None
@@ -259,6 +282,8 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_s
                                               block=(candidate_vector[0], candidate_vector[1], candidate_vector[2]))
     if within_limits:
         return [candidate_vector]
+    else:
+        print(f"OOL: {candidate_vector}")
 
 
 def check_pattern_validity(pattern):
