@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-
+import re
+from sympy import sympify, Integer
 import logging
 import traceback
 from src.evo import voxels
@@ -250,15 +250,71 @@ def validate_pattern(pattern):
 
 
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_subregion):
-    scaled_vector = [prod(x) for x in zip(vector, morphology_scalar)]
-    candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
-    for item in candidate_vector:
-        if item < 0:
-            return None
-    within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
-                                              block=(candidate_vector[0], candidate_vector[1], candidate_vector[2]))
-    if within_limits:
-        return [candidate_vector]
+    dst_area_dimm = runtime_data.genome["blueprint"][cortical_area_dst]["block_boundaries"]
+
+    def preprocess_expression(expr):
+        # Add * for implicit multiplication (e.g., 2x -> 2*x)
+        expr = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', expr)
+        # Replace ^ with ** for exponentiation
+        expr = expr.replace('^', '**')
+        return expr
+
+    morphology_scalar_string = str(morphology_scalar[0]) + str(morphology_scalar[1]) + str(morphology_scalar[2])
+
+    if "x" in morphology_scalar_string:
+        x__range = range(dst_area_dimm[0])
+    else:
+        x__range = [src_voxel[0]]
+
+    if "y" in morphology_scalar_string:
+        y__range = range(dst_area_dimm[1])
+    else:
+        y__range = [src_voxel[1]]
+
+    if "z" in morphology_scalar_string:
+        z__range = range(dst_area_dimm[2])
+        z_flag = True
+    else:
+        z__range = [src_voxel[2]]
+        z_flag = False
+
+    candidate_list = []
+
+    for x__ in x__range:
+        for y__ in y__range:
+            for z__ in z__range:
+                # Preprocess, parse, evaluate, and cast each algebraic expression in the vector
+                evaluated_vector = [
+                    int(sympify(preprocess_expression(expr)).subs({"x": x__, "y": y__, "z": z__}))
+                    if isinstance(expr, str) else int(expr)
+                    for expr in morphology_scalar
+                ]
+
+                # Ensure evaluated_vector contains only integers
+                if not all(isinstance(ev, int) for ev in evaluated_vector):
+                    raise TypeError(f"Evaluated vector {evaluated_vector} must contain only integers after evaluation.")
+
+                # Scale the evaluated vector
+                translation_vector = [prod(x) for x in zip(vector, evaluated_vector)]
+
+                # # Compute the candidate vector
+                candidate_vector = [sum(x) for x in zip(src_voxel, translation_vector)]
+                if z_flag:
+                    candidate_vector[2] = z__
+
+                for item in candidate_vector:
+                    if item < 0:
+                        pass
+                within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
+                                                          block=(candidate_vector[0],
+                                                                 candidate_vector[1],
+                                                                 candidate_vector[2]))
+                if within_limits:
+                    candidate_list.append(candidate_vector)
+                else:
+                    print(f"OOL: {candidate_vector}")
+
+    return candidate_list
 
 
 def check_pattern_validity(pattern):
