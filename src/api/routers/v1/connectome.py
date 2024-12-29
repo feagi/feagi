@@ -198,7 +198,7 @@ async def download_connectome():
 @router.post("/upload")
 async def upload_connectome(file: UploadFile = File(...)):
 
-    set_brain_readiness_to_false()
+    set_brain_readiness_to_false(context="Uploading connectome.")
     runtime_data.genome = {}
     brain_data = await file.read()
     revive_brain(brain_data=brain_data)

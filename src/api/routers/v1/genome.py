@@ -46,7 +46,7 @@ async def upload_barebones_genome():
     with open("./evo/defaults/genome/barebones_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
         runtime_data.genome_file_name = "barebones_genome.json"
-    set_brain_readiness_to_false()
+    set_brain_readiness_to_false(context="Loading genome.")
     message = {'genome': genome_data}
 
     api_queue.put(item=message)
@@ -57,7 +57,7 @@ async def genome_default_upload():
     with open("./evo/defaults/genome/essential_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
         runtime_data.genome_file_name = "essential_genome.json"
-    set_brain_readiness_to_false()
+    set_brain_readiness_to_false(context="Loading genome.")
     message = {'genome': genome_data}
     api_queue.put(item=message)
 
@@ -69,7 +69,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
     The genome must be in the form of a python file.
     """
     data = await file.read()
-    set_brain_readiness_to_false()
+    set_brain_readiness_to_false(context="Loading genome.")
     runtime_data.genome_file_name = file.filename
 
     genome_str = json.loads(data)
