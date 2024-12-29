@@ -552,8 +552,8 @@ def burst_manager():
             runtime_data.pending_genome = None
             if runtime_data.pending_brain:
                 runtime_data.brain = runtime_data.pending_brain
-            else:
-                print("No brain in pending state found!")
+                print("⚠️ A brain is in pending state!")
+
             runtime_data.pending_brain = None
             if runtime_data.pending_voxel_dict:
                 runtime_data.voxel_dict = runtime_data.pending_voxel_dict

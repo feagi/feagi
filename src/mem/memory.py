@@ -276,7 +276,6 @@ class MemoryQueue:
         """
         Initializes the memory queue as an empty dictionary.
         """
-        print("&>> " * 100)
         self.memory = {}
 
     def add_id(self, cortical_id, max_size):
