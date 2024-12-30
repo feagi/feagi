@@ -38,7 +38,7 @@ def merge_core_morphologies(genome):
 def genome_ver_check(genome):
     try:
         if genome['version'] == "2.0":
-            print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            # print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
             try:
                 runtime_data.genome_validity = genome_validator(genome)
                 print("Genome validity=", runtime_data.genome_validity)
@@ -424,7 +424,7 @@ def morphology_convertor(morphology_in):
         else:
             pass
 
-    print("morphology out 1", morphology_out)
+
     # Fix pattern nesting
     if "patterns" in morphology_out["parameters"]:
         for pattern in morphology_out["parameters"]["patterns"]:

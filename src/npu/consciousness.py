@@ -18,14 +18,14 @@
 from src.inf import runtime_data
 
 
-def set_brain_readiness_to_false():
+def set_brain_readiness_to_false(context=None):
     runtime_data.brain_readiness = False
-    print("Brain readiness is set to False!")
+    print(f"⚠️ !!! Brain readiness is set to False !!! {context}")
 
 
 def set_brain_readiness_to_ture():
     runtime_data.brain_readiness = True
-    print("Brain readiness is set back to true.")
+    print("🟩 Brain is now in ready state.")
 
 
 def start():

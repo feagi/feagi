@@ -57,9 +57,9 @@ def utc_time():
 
 
 def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
-    print("=======================    Genome Staging Initiated        =======================")
+    print("🧬 =======================    Genome Staging Initiated      =======================")
     if neuroembryogenesis_flag:
-        print("cortical_list:", runtime_data.cortical_list)
+        # print("cortical_list:", runtime_data.cortical_list)
         reset_connectome()
     if reset_runtime_data_flag:
         reset_runtime_data()
@@ -454,7 +454,7 @@ def init_infrastructure():
 
 
 def reset_runtime_data():
-    print("\n\n\n\n----------------- Resetting the brain -----------------------------\n\n\n")
+    print("⚠️ ----------------- Resetting the brain -----------------------------")
     runtime_data.genome = {}
     runtime_data.stats = {}
     runtime_data.brain = {}
@@ -479,7 +479,7 @@ def reset_runtime_data():
 
 
 def init_fcl(cortical_area_=None):
-    print("\n\n=========================  Initializing the FCL ===================================\n\n")
+    # print("\n\n=========================  Initializing the FCL ===================================\n\n")
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     if not cortical_area_:
         runtime_data.fire_candidate_list = {}
@@ -494,11 +494,11 @@ def init_fcl(cortical_area_=None):
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
         # runtime_data.upstream_neurons[cortical_area_] = {}
-    print("\n\n=========================  FCL Initializing Completed ===================================\n\n")
+    # print("\n\n=========================  FCL Initializing Completed ===================================\n\n")
 
 
 def init_brain():
-    print("\n\n=========================   Brain Initialization Started ===================================\n\n")
+    print("\n\n=========================   Brain Initialization Triggered ===================================\n\n")
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
