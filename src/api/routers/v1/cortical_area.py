@@ -640,6 +640,8 @@ async def area_neuron_count(cortical_id: str):
 
 
 @router.put("/reset")
-async def reset_cortical_area(cortical_id: str):
-    message = {'reset': cortical_id}
-    api_queue.put(item=message)
+async def reset_cortical_area(cortical_list: CorticalList):
+    for cortical_id in cortical_list.area_list:
+        if cortical_id in runtime_data.cortical_list:
+            message = {'reset': cortical_id}
+            api_queue.put(item=message)
