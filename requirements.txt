@@ -17,3 +17,4 @@ xxhash==3.4.1
 feagi_agent
 pyzmq==22.3.0
 zmq==0.0.0
+sympy==1.13.3
