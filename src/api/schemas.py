@@ -265,6 +265,10 @@ class Shock(BaseModel):
     shock: tuple
 
 
+class CorticalList(BaseModel):
+    area_list: list
+
+
 class Intensity(BaseModel):
     intensity: conint(ge=0, le=9)
 
