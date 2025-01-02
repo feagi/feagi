@@ -48,6 +48,7 @@ from src.inf.messenger import Pub, Sub
 from src.pns.pns_router import opu_router, stimuli_router
 # from src.api.message_processor import api_message_processor
 from src.trn.shock import shock_manager
+from src.api.commons import pending_amalgamation
 from src.evo.autopilot import load_new_genome
 
 logger = logging.getLogger(__name__)
@@ -402,6 +403,14 @@ def burst_manager():
         broadcast_message['genome_validity'] = runtime_data.genome_validity
         broadcast_message['brain_readiness'] = runtime_data.brain_readiness
         broadcast_message['sent_utc'] = utc_time()
+        if pending_amalgamation():
+            broadcast_message["amalgamation_pending"] = {
+                "initiation_time": runtime_data.pending_amalgamation["initiation_time"],
+                "genome_id": runtime_data.pending_amalgamation["genome_id"],
+                "amalgamation_id": runtime_data.pending_amalgamation["amalgamation_id"],
+                "genome_title": runtime_data.pending_amalgamation["genome_title"],
+                "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
+            }
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)
