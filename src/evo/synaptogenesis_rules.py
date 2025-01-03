@@ -158,7 +158,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
 
             elif neuron_morphology == "last_to_first":
                 src_cortical_dim = runtime_data.genome['blueprint'][cortical_area_src]["block_boundaries"]
-                if src_voxel == [src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1]:
+                if src_voxel == (src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1):
                     raw_candidate_list.add((0, 0, 0))
 
             elif neuron_morphology == "projector":
