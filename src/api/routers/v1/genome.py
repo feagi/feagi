@@ -18,6 +18,7 @@
 import os
 import json
 
+from time import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
 from starlette.responses import FileResponse
 
@@ -31,6 +32,7 @@ from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converte
 from src.evo.stats import circuit_size
 from src.evo.region import region_id_2_title, construct_genome_from_region
 from src.evo.templates import cortical_template
+from src.npu.consciousness import set_brain_readiness_to_false
 from src.inf.initialize import generate_cortical_dimensions_by_id
 
 
@@ -45,7 +47,7 @@ async def upload_barebones_genome():
     with open("./evo/defaults/genome/barebones_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
         runtime_data.genome_file_name = "barebones_genome.json"
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false(context="Loading genome.")
     message = {'genome': genome_data}
 
     api_queue.put(item=message)
@@ -56,7 +58,7 @@ async def genome_default_upload():
     with open("./evo/defaults/genome/essential_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
         runtime_data.genome_file_name = "essential_genome.json"
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false(context="Loading genome.")
     message = {'genome': genome_data}
     api_queue.put(item=message)
 
@@ -68,7 +70,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
     The genome must be in the form of a python file.
     """
     data = await file.read()
-    runtime_data.brain_readiness = False
+    set_brain_readiness_to_false(context="Loading genome.")
     runtime_data.genome_file_name = file.filename
 
     genome_str = json.loads(data)
@@ -203,7 +205,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
         runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
         runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
         runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
+        runtime_data.pending_amalgamation["initiation_time"] = time()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=genome["blueprint"])
@@ -228,7 +230,7 @@ async def amalgamation_attempt(_: str = Depends(check_active_genome), file: Uplo
         runtime_data.pending_amalgamation["genome_id"] = runtime_data.genome_file_name
         runtime_data.pending_amalgamation["genome_title"] = runtime_data.genome_file_name
         runtime_data.pending_amalgamation["genome_payload"] = genome_str
-        runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
+        runtime_data.pending_amalgamation["initiation_time"] = time()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=genome_2["blueprint"])
@@ -247,7 +249,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
         runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
         runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
         runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
+        runtime_data.pending_amalgamation["initiation_time"] = time()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])

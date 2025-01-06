@@ -51,14 +51,13 @@ def reset_connectome_files():
 
 
 def reset_connectome():
-    print("\n" * 5, "@__@--" * 20)
-    print("Clearing the entire Connectome!")
+    print("⚠️ Clearing the entire Connectome!")
     connectome_path = runtime_data.connectome_path
     shutil.rmtree(connectome_path)
     os.mkdir(connectome_path)
     print("All files associated with Connectome has been cleared.")
     reset_connectome_in_mem()
-    print("All memory units associated with Connectome has been cleared.", "\n" * 5)
+    print("All memory units associated with Connectome has been cleared.")
 
 
 def reuse():

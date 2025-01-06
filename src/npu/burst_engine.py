@@ -48,6 +48,7 @@ from src.inf.messenger import Pub, Sub
 from src.pns.pns_router import opu_router, stimuli_router
 # from src.api.message_processor import api_message_processor
 from src.trn.shock import shock_manager
+from src.api.commons import pending_amalgamation
 from src.evo.autopilot import load_new_genome
 
 logger = logging.getLogger(__name__)
@@ -383,6 +384,10 @@ def burst_manager():
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
     def controller_handshake():
+        if runtime_data.genome:
+            genome_availability = True
+        else:
+            genome_availability = False
         broadcast_message = {}
         broadcast_message['burst_counter'] = runtime_data.burst_count
         # broadcast_message['sockets'] = runtime_data.parameters['Sockets']
@@ -393,7 +398,20 @@ def burst_manager():
         broadcast_message['control_data'] = runtime_data.robot_controller
         broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
         broadcast_message['change_register'] = runtime_data.evo_change_register
+        broadcast_message['burst_engine'] = not runtime_data.exit_condition
+        broadcast_message['genome_availability'] = genome_availability
+        broadcast_message['genome_validity'] = runtime_data.genome_validity
+        broadcast_message['brain_readiness'] = runtime_data.brain_readiness
         broadcast_message['sent_utc'] = utc_time()
+        if pending_amalgamation():
+            broadcast_message["amalgamation_pending"] = {
+                "initiation_time": runtime_data.pending_amalgamation["initiation_time"],
+                "genome_id": runtime_data.pending_amalgamation["genome_id"],
+                "amalgamation_id": runtime_data.pending_amalgamation["amalgamation_id"],
+                "genome_title": runtime_data.pending_amalgamation["genome_title"],
+                "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
+            }
+
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)
@@ -544,8 +562,8 @@ def burst_manager():
             runtime_data.pending_genome = None
             if runtime_data.pending_brain:
                 runtime_data.brain = runtime_data.pending_brain
-            else:
-                print("No brain in pending state found!")
+                print("⚠️ A brain is in pending state!")
+
             runtime_data.pending_brain = None
             if runtime_data.pending_voxel_dict:
                 runtime_data.voxel_dict = runtime_data.pending_voxel_dict
