@@ -38,7 +38,7 @@ def pending_amalgamation():
         # todo: externalize the amalgamation timeout currently hardcoded below
         amalgamation_reqeust_timeout = 500
         elapsed_time = time() - runtime_data.pending_amalgamation["initiation_time"]
-        if elapsed_time.seconds > amalgamation_reqeust_timeout:
+        if elapsed_time > amalgamation_reqeust_timeout:
             print(f"Pending amalgamation got voided due to exceeding {amalgamation_reqeust_timeout} threshold! ")
             runtime_data.pending_amalgamation = {}
             return False
