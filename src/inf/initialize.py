@@ -30,6 +30,7 @@ from src.evo.autopilot import update_generation_dict
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
+from time import time
 from datetime import datetime, timedelta
 from collections import deque
 from shutil import copyfile
@@ -66,7 +67,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.genome_counter += 1
     runtime_data.genome_reset_flag = False
     runtime_data.genome_ver = None
-    runtime_data.last_genome_modification_time = datetime.now()
+    runtime_data.last_genome_modification_time = time()
 
     if not genome_data:
         try:

@@ -411,6 +411,7 @@ def burst_manager():
                 "genome_title": runtime_data.pending_amalgamation["genome_title"],
                 "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
             }
+            print("broadcast_message['amalgamation_pending']:", broadcast_message["amalgamation_pending"])
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)

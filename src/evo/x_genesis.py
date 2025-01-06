@@ -28,6 +28,8 @@ import random
 import string
 import traceback
 
+from time import time
+
 # from src.evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
 from src.evo import voxels, neuroembryogenesis
 from src.evo.templates import cortical_template, cortical_types
@@ -413,7 +415,7 @@ def update_cortical_properties(cortical_properties):
         runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
-        runtime_data.last_genome_modification_time = datetime.datetime.now()
+        runtime_data.last_genome_modification_time = time()
 
         runtime_data.transforming_areas.remove(cortical_area)
         print(f">> {cortical_area} is no longer transforming..")
@@ -807,7 +809,7 @@ def add_core_cortical_area(cortical_properties):
 
                     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                                 file_name=runtime_data.connectome_path + "genome.json")
-                    runtime_data.last_genome_modification_time = datetime.datetime.now()
+                    runtime_data.last_genome_modification_time = time()
 
                     set_brain_readiness_to_ture()
 
@@ -898,7 +900,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
 
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                         file_name=runtime_data.connectome_path + "genome.json")
-            runtime_data.last_genome_modification_time = datetime.datetime.now()
+            runtime_data.last_genome_modification_time = time()
 
             set_brain_readiness_to_ture()
 
@@ -1261,7 +1263,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
 
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
-        runtime_data.last_genome_modification_time = datetime.datetime.now()
+        runtime_data.last_genome_modification_time = time()
 
         print("Merger of new genome completed successfully!")
 
@@ -1370,7 +1372,7 @@ def update_pns_dev_count(pns_area, new_dev_count):
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
-    runtime_data.last_genome_modification_time = datetime.datetime.now()
+    runtime_data.last_genome_modification_time = time()
 
     runtime_data.transforming_areas.remove(cortical_area)
     update_evo_change_register(change_area={pns_area})
