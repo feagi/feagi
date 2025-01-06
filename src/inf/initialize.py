@@ -30,6 +30,7 @@ from src.evo.autopilot import update_generation_dict
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
+from time import time
 from datetime import datetime, timedelta
 from collections import deque
 from shutil import copyfile
@@ -44,6 +45,8 @@ from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from src.evo.genome_validator import *
 from src.evo.region import region_id_gen
 from src.evo.templates import cortical_types
+from src.mem.memory import MemoryQueue
+from src.npu.consciousness import set_brain_readiness_to_ture
 
 
 logger = logging.getLogger(__name__)
@@ -55,16 +58,16 @@ def utc_time():
 
 
 def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
-    print("=======================    Genome Staging Initiated        =======================")
+    print("🧬 =======================    Genome Staging Initiated      =======================")
     if neuroembryogenesis_flag:
-        print("cortical_list:", runtime_data.cortical_list)
+        # print("cortical_list:", runtime_data.cortical_list)
         reset_connectome()
     if reset_runtime_data_flag:
         reset_runtime_data()
     runtime_data.genome_counter += 1
     runtime_data.genome_reset_flag = False
     runtime_data.genome_ver = None
-    runtime_data.last_genome_modification_time = datetime.now()
+    runtime_data.last_genome_modification_time = time()
 
     if not genome_data:
         try:
@@ -128,7 +131,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         develop_brain(reincarnation_mode=runtime_data.parameters[
             'Brain_Development']['reincarnation_mode'])
     print("=======================    Genome Staging Completed        =======================")
-    runtime_data.brain_readiness = True
+    set_brain_readiness_to_ture()
 
 
 # def init_hw_controller():
@@ -452,7 +455,7 @@ def init_infrastructure():
 
 
 def reset_runtime_data():
-    print("\n\n\n\n----------------- Resetting the brain -----------------------------\n\n\n")
+    print("⚠️ ----------------- Resetting the brain -----------------------------")
     runtime_data.genome = {}
     runtime_data.stats = {}
     runtime_data.brain = {}
@@ -477,7 +480,7 @@ def reset_runtime_data():
 
 
 def init_fcl(cortical_area_=None):
-    print("\n\n=========================  Initializing the FCL ===================================\n\n")
+    # print("\n\n=========================  Initializing the FCL ===================================\n\n")
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     if not cortical_area_:
         runtime_data.fire_candidate_list = {}
@@ -492,16 +495,17 @@ def init_fcl(cortical_area_=None):
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
         # runtime_data.upstream_neurons[cortical_area_] = {}
-    print("\n\n=========================  FCL Initializing Completed ===================================\n\n")
+    # print("\n\n=========================  FCL Initializing Completed ===================================\n\n")
 
 
 def init_brain():
-    print("\n\n=========================   Brain Initialization Started ===================================\n\n")
+    print("\n\n=========================   Brain Initialization Triggered ===================================\n\n")
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
     init_io_areas()
     init_memory_register()
+    runtime_data.memory_queue = MemoryQueue()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()

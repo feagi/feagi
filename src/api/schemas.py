@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Optional, Literal, List
-from pydantic import BaseModel, Field, conint, conlist, validator
+from typing import Optional, Literal, List, Tuple
+from pydantic import BaseModel, Field, conint, conlist, validator, confloat
 from fastapi.staticfiles import StaticFiles
 from src.inf import runtime_data
 
@@ -129,6 +129,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
+    temporal_depth: Optional[int] = None
     dev_count: Optional[int] = None
     cortical_dimensions_per_device: Optional[conlist(int, min_items=3, max_items=3)] = None
 
@@ -164,6 +165,7 @@ class UpdateMultipleCorticalProperties(BaseModel):
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
+    temporal_depth: Optional[int] = None
 
     @validator('cortical_dimensions', each_item=True)
     def check_positive(cls, value):
@@ -263,6 +265,10 @@ class Shock(BaseModel):
     shock: tuple
 
 
+class CorticalList(BaseModel):
+    area_list: list
+
+
 class Intensity(BaseModel):
     intensity: conint(ge=0, le=9)
 
@@ -350,3 +356,79 @@ class BrainVisualization(BaseModel):
 
 class ManualStimulation(BaseModel):
     stimulation_payload: dict = None
+
+
+class VisionSettings(BaseModel):
+    central_vision_resolution: Tuple[int, int] = Field(
+        ...,
+        description="Resolution for central vision as (width, height). Must be positive integers."
+    )
+    peripheral_vision_resolution: Tuple[int, int] = Field(
+        ...,
+        description="Resolution for peripheral vision as (width, height). Must be positive integers."
+    )
+    flicker_period: int = Field(
+        ...,
+        description="Flicker period in milliseconds. Must be a positive integer."
+    )
+    color_vision: bool = Field(
+        ...,
+        description="Indicates if color vision is enabled."
+    )
+    eccentricity: Tuple[float, float] = Field(
+        ...,
+        description="Eccentricity values as a tuple of two floats between 0.0 and 1.0."
+    )
+    modulation: Tuple[float, float] = Field(
+        ...,
+        description="Modulation values as a tuple of two floats between 0.0 and 1.0."
+    )
+    brightness: confloat(ge=0.0, le=1.0) = Field(
+        ...,
+        description="Brightness level between 0.0 and 1.0."
+    )
+    contrast: confloat(ge=0.0, le=1.0) = Field(
+        ...,
+        description="Contrast level between 0.0 and 1.0."
+    )
+    shadows: confloat(ge=0.0, le=1.0) = Field(
+        ...,
+        description="Shadows level between 0.0 and 1.0."
+    )
+    pixel_change_limit: confloat(ge=0.0, le=1.0) = Field(
+        ...,
+        description="Pixel change limit between 0.0 and 1.0."
+    )
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "central_vision_resolution": [64, 64],
+                "peripheral_vision_resolution": [8, 8],
+                "flicker_period": 16,
+                "color_vision": True,
+                "horizontal_flip": False,
+                "vertical_flip": False,
+                "eccentricity": [0.4, 0.6],
+                "modulation": [0.4, 0.6],
+                "brightness": 0.2,
+                "contrast": 0.6,
+                "shadows": 0.1,
+                "pixel_change_limit": 0.2,
+            }
+        }
+        anystr_strip_whitespace = True
+        min_anystr_length = 1
+        validate_assignment = True
+
+    @validator('central_vision_resolution', 'peripheral_vision_resolution')
+    def check_resolution(cls, v, field):
+        if len(v) != 2:
+            raise ValueError(f"{field.name} must be a tuple of exactly two integers.")
+        return v
+
+    @validator('eccentricity', 'modulation')
+    def check_tuple_bounds(cls, v, field):
+        if not all(0.0 <= val <= 1.0 for val in v):
+            raise ValueError(f"All values in {field.name} must be between 0.0 and 1.0.")
+        return v

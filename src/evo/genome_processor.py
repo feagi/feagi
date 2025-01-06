@@ -38,7 +38,7 @@ def merge_core_morphologies(genome):
 def genome_ver_check(genome):
     try:
         if genome['version'] == "2.0":
-            print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            # print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
             try:
                 runtime_data.genome_validity = genome_validator(genome)
                 print("Genome validity=", runtime_data.genome_validity)
@@ -424,7 +424,7 @@ def morphology_convertor(morphology_in):
         else:
             pass
 
-    print("morphology out 1", morphology_out)
+
     # Fix pattern nesting
     if "patterns" in morphology_out["parameters"]:
         for pattern in morphology_out["parameters"]["patterns"]:
@@ -560,6 +560,7 @@ gene_decoder = {
     "_______c-______-cx-mem__t-i": "longterm_mem_threshold",
     "_______c-______-cx-mem_gr-i": "lifespan_growth_rate",
     "_______c-______-cx-mem_ls-i": "init_lifespan",
+    "_______c-______-cx-tmpdpt-i": "temporal_depth",
     "_______c-______-nx-excite-f": "neuron_excitability",
     "_______c-______-cx-devcnt-i": "dev_count",
 }
@@ -604,6 +605,7 @@ genome_1_template = {
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
     "init_lifespan": 9,
+    "temporal_depth": 1,
     "neuron_excitability": 100
     }
 
@@ -644,6 +646,7 @@ genome_2_to_1 = {
     "mem__t-i": "longterm_mem_threshold",
     "mem_gr-i": "lifespan_growth_rate",
     "mem_ls-i": "init_lifespan",
+    "tmpdpt-i": "temporal_depth",
     "excite-f": "neuron_excitability",
     "devcnt-i": "dev_count"
 }
@@ -678,5 +681,6 @@ genome_1_to_2 = {
     "longterm_mem_threshold": "cx-mem__t-i",
     "lifespan_growth_rate": "cx-mem_gr-i",
     "init_lifespan": "cx-mem_ls-i",
+    "temporal_depth": "cx-tmpdpt-i",
     "dev_count": "cx-devcnt-i"
 }
