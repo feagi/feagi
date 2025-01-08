@@ -18,6 +18,7 @@
 import os
 import json
 
+from time import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
 from starlette.responses import FileResponse
 
@@ -204,7 +205,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
         runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
         runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
         runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
+        runtime_data.pending_amalgamation["initiation_time"] = time()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=genome["blueprint"])
@@ -229,7 +230,7 @@ async def amalgamation_attempt(_: str = Depends(check_active_genome), file: Uplo
         runtime_data.pending_amalgamation["genome_id"] = runtime_data.genome_file_name
         runtime_data.pending_amalgamation["genome_title"] = runtime_data.genome_file_name
         runtime_data.pending_amalgamation["genome_payload"] = genome_str
-        runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
+        runtime_data.pending_amalgamation["initiation_time"] = time()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=genome_2["blueprint"])
@@ -248,7 +249,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
         runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
         runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
         runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
+        runtime_data.pending_amalgamation["initiation_time"] = time()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
