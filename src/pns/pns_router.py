@@ -149,6 +149,8 @@ def stimuli_router(ipu_data):
 
                 if 'camera' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
+                        if "00CC" in ipu_data["data"]["sensory_data"][sensor_type]:
+                            runtime_data.color_img_feed = ipu_data["data"]["sensory_data"][sensor_type]["00CC"]
                         stimuli_translator.vision_translator(vision_data=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:
                         print("ERROR while processing Camera IPU", traceback.format_exc())
@@ -160,6 +162,8 @@ def stimuli_router(ipu_data):
                         print("ERROR while processing Object Identification Training IPU", traceback.format_exc())
                 if 'generic_ipu' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
+                        if "iv00CC" in ipu_data["data"]["sensory_data"][sensor_type]:
+                            runtime_data.color_img_feed = ipu_data["data"]["sensory_data"][sensor_type]["iv00CC"]
                         stimuli_translator.generic_ipu_translator(
                             ipu_data=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:

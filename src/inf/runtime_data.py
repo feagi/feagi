@@ -16,7 +16,6 @@
 # ==============================================================================
 
 
-
 # System
 parameters = {}
 event_id = '_'
@@ -194,6 +193,7 @@ environment_map_path = None
 # ZMQ
 godot_listener = None
 embodiment_listener = None
+color_img_feed = {}
 
 # Agents
 """
