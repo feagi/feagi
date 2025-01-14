@@ -403,6 +403,7 @@ def burst_manager():
         broadcast_message['genome_validity'] = runtime_data.genome_validity
         broadcast_message['brain_readiness'] = runtime_data.brain_readiness
         broadcast_message['sent_utc'] = utc_time()
+        broadcast_message['color_image'] = runtime_data.color_img_feed
         if pending_amalgamation():
             broadcast_message["amalgamation_pending"] = {
                 "initiation_time": runtime_data.pending_amalgamation["initiation_time"],

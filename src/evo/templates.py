@@ -85,6 +85,13 @@ cortical_types = {
                 "resolution": [1, 1, 10],
                 "coordinate_3d": [60, 0, 0]
             },
+            "iv00CC": {
+                "enabled": True,
+                "cortical_name": "Central vision sensor in color",
+                "structure": "asymmetric",
+                "resolution": [32, 32, 3],
+                "coordinate_3d": [30, 100, -20]
+            },
             "iv00_C": {
                 "enabled": True,
                 "cortical_name": "Central vision sensor",
@@ -220,6 +227,7 @@ cortical_types = {
                 "i__bat"
             ],
             "camera": [
+                "iv00CC",
                 "iv00_C",
                 "iv00TL",
                 "iv00TM",
