@@ -197,6 +197,13 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [60, 0, 0]
             },
+            "ilidar": {
+                "enabled": True,
+                "cortical_name": "Lidar Input",
+                "structure": "asymmetric",
+                "resolution": [60, 20, 1],
+                "coordinate_3d": [10, -40, -20]
+            },
         },
         "name_to_id_mapping": {
             "infrared": [
@@ -258,6 +265,9 @@ cortical_types = {
             ],
             "pressure": [
                 "i_pres"
+            ],
+            "lidar": [
+                "ilidar"
             ]
 
         }
