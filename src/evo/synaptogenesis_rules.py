@@ -311,8 +311,8 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_s
                                                                  candidate_vector[2]))
                 if within_limits:
                     candidate_list.append(candidate_vector)
-                else:
-                    print(f"OOL: {candidate_vector}")
+                # else:
+                #     print(f"OOL: {candidate_vector}")
 
     return candidate_list
 
