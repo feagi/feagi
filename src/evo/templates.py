@@ -204,6 +204,13 @@ cortical_types = {
                 "resolution": [60, 20, 1],
                 "coordinate_3d": [10, -40, -20]
             },
+            "i_hear": {
+                "enabled": True,
+                "cortical_name": "Auditory Input",
+                "structure": "asymmetric",
+                "resolution": [60, 20, 1],
+                "coordinate_3d": [100, -40, -20]
+            },
         },
         "name_to_id_mapping": {
             "infrared": [
@@ -268,6 +275,9 @@ cortical_types = {
             ],
             "lidar": [
                 "ilidar"
+            ],
+            "audio": [
+                "i_hear"
             ]
 
         }
