@@ -446,7 +446,7 @@ def burst_manager():
         if runtime_data.brain_activity_pub:
             # todo: Obtain the frequency from controller config
             if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
-                activity_data = brain_activity_voxelizer()
+                activity_data = brain_activity_voxelizer_svo()
                 runtime_data.burst_activities = activity_data
 
     def manual_neuron_stimulation():
@@ -535,6 +535,60 @@ def burst_manager():
                                             firing_neuron_loc[0] + relative_coords[0],
                                             firing_neuron_loc[1] + relative_coords[1],
                                             firing_neuron_loc[2] + relative_coords[2]
+                                        )
+                                    )
+                    return broadcast_message
+                except Exception as e:
+                    print("Exception during voxelization.", e, traceback.print_exc())
+            else:
+                print("No blueprint found in genome during voxelization!")
+        else:
+            print("No genome found during voxelization!")
+
+    def brain_activity_voxelizer_svo():
+        """
+        Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
+        """
+        broadcast_message = dict()
+        if runtime_data.genome:
+            if "blueprint" in runtime_data.genome:
+                try:
+                    for _ in runtime_data.fire_candidate_list:
+                        fire_list = set(runtime_data.fire_candidate_list[_])
+                        if _ not in runtime_data.cortical_viz_list:
+                            if len(fire_list) > runtime_data.cortical_viz_sup_threshold:
+                                # todo: move this to a function that does cortical area initialization
+                                if _ not in runtime_data.cortical_viz_sup_till_burst:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+
+                                if runtime_data.burst_count < runtime_data.cortical_viz_sup_till_burst[_]:
+                                    pass
+                                else:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+                                    # todo: duplicate code snippet 10 lines down -- refactor
+                                    if _ not in broadcast_message:
+                                        broadcast_message[_] = set()
+                                    while fire_list:
+                                        firing_neuron = fire_list.pop()
+                                        firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                        broadcast_message[_].add(
+                                            (
+                                                firing_neuron_loc[0],
+                                                firing_neuron_loc[1],
+                                                firing_neuron_loc[2]
+                                            )
+                                        )
+                            else:
+                                while fire_list:
+                                    firing_neuron = fire_list.pop()
+                                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                    broadcast_message[_].add(
+                                        (
+                                            firing_neuron_loc[0],
+                                            firing_neuron_loc[1],
+                                            firing_neuron_loc[2]
                                         )
                                     )
                     return broadcast_message
