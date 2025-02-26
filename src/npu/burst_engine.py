@@ -570,6 +570,11 @@ def burst_manager():
                                     # todo: duplicate code snippet 10 lines down -- refactor
                                     if _ not in broadcast_message:
                                         broadcast_message[_] = set()
+                                        broadcast_message[_].add(
+                                            (runtime_data.genome['blueprint'][_]['block_boundaries'][0],
+                                             runtime_data.genome['blueprint'][_]['block_boundaries'][1],
+                                             runtime_data.genome['blueprint'][_]['block_boundaries'][2])
+                                        )
                                     while fire_list:
                                         firing_neuron = fire_list.pop()
                                         firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
