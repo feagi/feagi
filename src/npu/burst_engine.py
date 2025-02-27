@@ -389,18 +389,18 @@ def burst_manager():
         else:
             genome_availability = False
         broadcast_message = {}
+        broadcast_message['burst_counter'] = runtime_data.burst_count
+        # broadcast_message['sockets'] = runtime_data.parameters['Sockets']
+        broadcast_message['burst_frequency'] = runtime_data.burst_timer
+        broadcast_message['godot'] = runtime_data.burst_activities
         broadcast_message['cortical_dimensions'] = dict()
-        for _ in runtime_data.fire_list:
+        for _ in runtime_data.burst_activities:
             if _ not in broadcast_message['cortical_dimensions']:
                 broadcast_message['cortical_dimensions'][_] = \
                     (runtime_data.genome['blueprint'][_]['block_boundaries'][0],
                      runtime_data.genome['blueprint'][_]['block_boundaries'][1],
                      runtime_data.genome['blueprint'][_]['block_boundaries'][2])
 
-        broadcast_message['burst_counter'] = runtime_data.burst_count
-        # broadcast_message['sockets'] = runtime_data.parameters['Sockets']
-        broadcast_message['burst_frequency'] = runtime_data.burst_timer
-        broadcast_message['godot'] = runtime_data.burst_activities
         broadcast_message['opu_data'] = runtime_data.opu_data
         broadcast_message['genome_num'] = runtime_data.genome_counter
         broadcast_message['control_data'] = runtime_data.robot_controller
