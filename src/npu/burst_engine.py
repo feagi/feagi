@@ -437,7 +437,6 @@ def burst_manager():
         # broadcast_message['cortical_dimensions'] = runtime_data.cortical_dimensions
 
         # runtime_data.burst_publisher.send(message=broadcast_message)
-        print(broadcast_message)
         serialized_data = pickle.dumps(broadcast_message)
         runtime_data.burst_publisher.send(message=lz4.frame.compress(serialized_data))
         runtime_data.opu_data = {}
