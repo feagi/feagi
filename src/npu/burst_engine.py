@@ -437,6 +437,7 @@ def burst_manager():
         # broadcast_message['cortical_dimensions'] = runtime_data.cortical_dimensions
 
         # runtime_data.burst_publisher.send(message=broadcast_message)
+        print(broadcast_message)
         serialized_data = pickle.dumps(broadcast_message)
         runtime_data.burst_publisher.send(message=lz4.frame.compress(serialized_data))
         runtime_data.opu_data = {}
@@ -586,6 +587,13 @@ def burst_manager():
                                             )
                                         )
                             else:
+                                if _ not in broadcast_message:
+                                    broadcast_message[_] = set()
+                                    broadcast_message[_].add(
+                                        (runtime_data.genome['blueprint'][_]['block_boundaries'][0],
+                                         runtime_data.genome['blueprint'][_]['block_boundaries'][1],
+                                         runtime_data.genome['blueprint'][_]['block_boundaries'][2])
+                                    )
                                 while fire_list:
                                     firing_neuron = fire_list.pop()
                                     firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
