@@ -389,6 +389,14 @@ def burst_manager():
         else:
             genome_availability = False
         broadcast_message = {}
+        broadcast_message['cortical_dimensions'] = dict()
+        for _ in runtime_data.fire_list:
+            if _ not in broadcast_message['cortical_dimensions']:
+                broadcast_message['cortical_dimensions'][_] = \
+                    (runtime_data.genome['blueprint'][_]['block_boundaries'][0],
+                     runtime_data.genome['blueprint'][_]['block_boundaries'][1],
+                     runtime_data.genome['blueprint'][_]['block_boundaries'][2])
+
         broadcast_message['burst_counter'] = runtime_data.burst_count
         # broadcast_message['sockets'] = runtime_data.parameters['Sockets']
         broadcast_message['burst_frequency'] = runtime_data.burst_timer
@@ -570,11 +578,7 @@ def burst_manager():
                                     # todo: duplicate code snippet 10 lines down -- refactor
                                     if _ not in broadcast_message:
                                         broadcast_message[_] = set()
-                                        broadcast_message[_].add(
-                                            (runtime_data.genome['blueprint'][_]['block_boundaries'][0],
-                                             runtime_data.genome['blueprint'][_]['block_boundaries'][1],
-                                             runtime_data.genome['blueprint'][_]['block_boundaries'][2])
-                                        )
+
                                     while fire_list:
                                         firing_neuron = fire_list.pop()
                                         firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
@@ -588,11 +592,7 @@ def burst_manager():
                             else:
                                 if _ not in broadcast_message:
                                     broadcast_message[_] = set()
-                                    broadcast_message[_].add(
-                                        (runtime_data.genome['blueprint'][_]['block_boundaries'][0],
-                                         runtime_data.genome['blueprint'][_]['block_boundaries'][1],
-                                         runtime_data.genome['blueprint'][_]['block_boundaries'][2])
-                                    )
+
                                 while fire_list:
                                     firing_neuron = fire_list.pop()
                                     firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
