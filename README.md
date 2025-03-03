@@ -147,7 +147,7 @@ If you use FEAGI for published research, please cite:
 
 ## License and Disclaimer
 
-Copyright 2024 Neuraville Inc.
+Copyright 2025 Neuraville Inc.
 
 Source code is licensed under the Apache License, Version 2.0. You may obtain a
 copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
