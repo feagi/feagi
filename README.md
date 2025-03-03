@@ -28,7 +28,7 @@ Here are some key highlights of the framework differentiating it from others:
 
 &nbsp;
 # Deployment
-For deployment instructions, please refer to the ***[Deployment Guide](./DEPLOY.md)***.
+For deployment instructions, please refer to the ***[Deployment Guide](https://github.com/feagi/feagi/wiki/Deployment)***.
 
 &nbsp;
 # Framework Overview
