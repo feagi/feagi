@@ -22,6 +22,7 @@ from ...schemas import *
 
 from src.version import __version__
 from src.evo.templates import cortical_types
+from src.inf.initialize import init_fcl
 
 
 router = APIRouter()
@@ -243,3 +244,9 @@ async def fetch_cortical_area_visualization_globally():
 async def update_cortical_area_visualization_globally(viz_ctrl: BrainVisualization):
     """Controls the brain activity visualization across the entire brain."""
     runtime_data.brain_activity_pub = viz_ctrl.global_visualization
+
+
+@router.post("/fcl_reset")
+async def reset_fire_candidate_list():
+    """Resets fire candidate list contents"""
+    init_fcl()
