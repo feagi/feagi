@@ -1,7 +1,6 @@
 # Hello and welcome to FEAGI! 
 
-
-https://github.com/user-attachments/assets/c1b57ce8-6b66-4a29-a0a9-9f2e9e21da0e
+[![Bouncing a pebble](thumbnail.png)](https://github.com/user-attachments/assets/c1b57ce8-6b66-4a29-a0a9-9f2e9e21da0e)
 
 
 [![GitHub Release](https://img.shields.io/github/v/release/feagi/brain-visualizer)](https://github.com/feagi/feagi/releases) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![GitHub License](https://img.shields.io/github/license/feagi/feagi)](https://www.apache.org/licenses/LICENSE-2.0.txt)
