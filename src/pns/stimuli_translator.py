@@ -21,6 +21,7 @@ import logging
 from src.evo.voxels import *
 from src.pns import stimuli_processor
 from src.npu.physiology import update_membrane_potential_fire_queue
+from src.evo.x_genesis import update_cortical_mappings
 
 from src.evo.genome_processor import is_memory_cortical_area
 
@@ -64,8 +65,59 @@ def induce_manual_stimulation(stimulation):
     }
     """
     stimulation = stimulation_validator(stimulation=stimulation)
-    # stimulation = convert_stimulation_to_dashed_format(stimulation_data=stimulation)
     stimulation_injector(stimulation_data=stimulation)
+
+
+def update_sustained_stimulation_morphology(cortical_id, stimulation):
+    morphology_name = "system_sustained_stimulation_" + cortical_id
+    pattern = []
+    parameters = {"patterns": []}
+    cortical_depth = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][2]
+    for entry in stimulation:
+        pattern.append([[0, 0, 0], [entry[0], 0, int(entry[3] * cortical_depth / 100)]])
+
+    # Overwriting existing morphology or creating a new one
+    runtime_data.genome['neuron_morphologies'][morphology_name] = {}
+    runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = "patterns"
+    runtime_data.genome['neuron_morphologies'][morphology_name]["class"] = "custom"
+    runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = parameters
+    return morphology_name
+
+
+def induce_sustained_stimulation(stimulation):
+    """
+    Stimulation data received will have the following data structure:
+    { 'stimulation': {
+            'i__inf': [[x1, y1, z1, p1]]
+        }
+    }
+    """
+    stimulation = stimulation_validator(stimulation=stimulation)
+    stimulation_payload = stimulation.get("stimulation")
+    if stimulation_payload:
+        for cortical_id in stimulation_payload:
+            morphology_name = update_sustained_stimulation_morphology(cortical_id=cortical_id, stimulation=stimulation_payload)
+
+            # Create mapping between power and target area using the given morphology
+            update_cortical_mappings({
+                "src_cortical_area": "___pwr",
+                "dst_cortical_area": cortical_id,
+                "mapping_data": [
+                    [
+                      morphology_name,
+                      [
+                        1,
+                        1,
+                        1
+                      ],
+                      1,
+                      False,
+                      1,
+                      1,
+                      1
+                    ]
+                  ]
+            })
 
 
 # def convert_stimulation_to_dashed_format(stimulation_data):
