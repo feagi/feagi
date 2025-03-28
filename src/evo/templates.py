@@ -519,6 +519,15 @@ cortical_types = {
                 "resolution": [3, 3, 1],
                 "coordinate_3d": [-20, 0, -50]
             },
+            "ov_out": {
+                "enabled": True,
+                "measurable": False,
+                "cortical_name": "Vision output",
+                "controller_id": "vision_output",
+                "structure": "asymmetric",
+                "resolution": [128, 128, 1],
+                "coordinate_3d": [-200, 0, -50]
+            },
             "opoint": {
                 "enabled": True,
                 "measurable": False,
@@ -563,6 +572,7 @@ cortical_types = {
             "recognition": [
                 "o___id",
                 "o__loc",
+                "o__sid"
             ],
             "motion_control": [
                 "o_mctl"
@@ -581,6 +591,10 @@ cortical_types = {
             "pointer_location": [
                 "opoint"
             ],
+            "vision_out": [
+                "ov_out"
+            ]
+
         }
     },
     "CORE": {
