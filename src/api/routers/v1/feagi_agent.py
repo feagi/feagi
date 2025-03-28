@@ -189,6 +189,5 @@ async def trigger_sustained_stimulation(stimulation: ManualStimulation,
     "cortical_id": [[2, 0, 0, 20], [5, 0, 0, 10]]
     }
     """
-
     message = {'sustained_stimulation': stimulation.stimulation_payload}
     api_queue.put(item=message)

@@ -431,7 +431,8 @@ def update_evo_change_register(change_area: set):
 
 
 def update_cortical_mappings(cortical_mappings):
-
+    print("### ___" * 100)
+    print("cortical_mappings:", cortical_mappings)
     if runtime_data.brain_readiness:
         cortical_area = cortical_mappings["src_cortical_area"]
         dst_cortical_area = cortical_mappings["dst_cortical_area"]
@@ -473,7 +474,6 @@ def update_cortical_mappings(cortical_mappings):
                     if cortical_area in runtime_data.memory_register[dst_cortical_area]:
                         runtime_data.memory_register[dst_cortical_area].remove(cortical_area)
         else:
-            print("*****************              ************************        ********************")
             # todo: very inefficient. Need to only initiate synaptogenesis on changed links instead of all connections
             neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 

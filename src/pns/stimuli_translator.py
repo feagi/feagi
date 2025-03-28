@@ -71,10 +71,13 @@ def induce_manual_stimulation(stimulation):
 def update_sustained_stimulation_morphology(cortical_id, stimulation):
     morphology_name = "system_sustained_stimulation_" + cortical_id
     pattern = []
-    parameters = {"patterns": []}
+
     cortical_depth = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][2]
+
     for entry in stimulation:
-        pattern.append([[0, 0, 0], [entry[0], 0, int(entry[3] * cortical_depth / 100)]])
+        pattern.append([[0, 0, 0], [entry[0], 0, min(int(entry[3] * cortical_depth / 100), cortical_depth - 1)]])
+
+    parameters = {"patterns": pattern}
 
     # Overwriting existing morphology or creating a new one
     runtime_data.genome['neuron_morphologies'][morphology_name] = {}
@@ -93,30 +96,20 @@ def induce_sustained_stimulation(stimulation):
     }
     """
     stimulation = stimulation_validator(stimulation=stimulation)
-    stimulation_payload = stimulation.get("stimulation")
+    stimulation_payload = stimulation
     if stimulation_payload:
         for cortical_id in stimulation_payload:
-            morphology_name = update_sustained_stimulation_morphology(cortical_id=cortical_id, stimulation=stimulation_payload)
+            morphology_name = update_sustained_stimulation_morphology(cortical_id=cortical_id,
+                                                                      stimulation=stimulation_payload[cortical_id])
 
             # Create mapping between power and target area using the given morphology
             update_cortical_mappings({
                 "src_cortical_area": "___pwr",
                 "dst_cortical_area": cortical_id,
-                "mapping_data": [
-                    [
-                      morphology_name,
-                      [
-                        1,
-                        1,
-                        1
-                      ],
-                      1,
-                      False,
-                      1,
-                      1,
-                      1
-                    ]
-                  ]
+                "mapping_data": [{'morphology_id': morphology_name,
+                                  'morphology_scalar': [1, 1, 1],
+                                  'plasticity_flag': False,
+                                  'postSynapticCurrent_multiplier': 1}]
             })
 
 
