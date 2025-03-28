@@ -431,8 +431,6 @@ def update_evo_change_register(change_area: set):
 
 
 def update_cortical_mappings(cortical_mappings):
-    print("### ___" * 100)
-    print("cortical_mappings:", cortical_mappings)
     if runtime_data.brain_readiness:
         cortical_area = cortical_mappings["src_cortical_area"]
         dst_cortical_area = cortical_mappings["dst_cortical_area"]

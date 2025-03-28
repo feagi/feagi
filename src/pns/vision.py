@@ -305,8 +305,6 @@ def get_lighting_threshold_values():
 
 
 def set_vision_configuration(vision_parameters):
-    print("%***___" * 50)
-    print(vision_parameters)
 
     central_vision_cortical_properties = {}
 
