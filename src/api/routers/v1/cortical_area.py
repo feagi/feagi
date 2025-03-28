@@ -27,6 +27,7 @@ from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from src.evo.templates import cortical_types
 from src.evo.region import change_cortical_area_parent
 from src.evo.cortical_area import cortical_area_type, cortical_id_gen
+from src.evo.mapping_helper import generate_detailed_cortical_map
 
 from ...schemas import *
 from ...commons import *
@@ -418,14 +419,7 @@ async def current_opu_list():
 
 @router.get("/cortical_map_detailed")
 async def connectome_detailed_cortical_map():
-    cortical_map = dict()
-    for cortical_area in runtime_data.genome["blueprint"]:
-        cortical_map[cortical_area] = dict()
-        for dst in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
-            cortical_map[cortical_area][dst] = list()
-            for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst]:
-                cortical_map[cortical_area][dst].append(mapping)
-
+    cortical_map = generate_detailed_cortical_map()
     return cortical_map
 
 

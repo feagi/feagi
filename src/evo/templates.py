@@ -572,6 +572,7 @@ cortical_types = {
             "recognition": [
                 "o___id",
                 "o__loc",
+                "o__sid"
             ],
             "motion_control": [
                 "o_mctl"

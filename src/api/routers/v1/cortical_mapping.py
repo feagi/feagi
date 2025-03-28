@@ -119,6 +119,7 @@ async def update_cortical_mapping_properties(cortical_mapping_properties: Update
     data["src_cortical_area"] = src_cortical_area
     data["dst_cortical_area"] = dst_cortical_area
     data = {'update_cortical_mappings': data}
+    print("update_cortical_mappings:++++", data)
     api_queue.put(item=data)
 
 
