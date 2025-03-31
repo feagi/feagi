@@ -9,10 +9,13 @@ FEAGI is a Python-based framework for developing and deploying artificial genera
 ## Features
 
 - **FastAPI Backend**: High-performance API server for model deployment and interaction
+- **ZMQ Messaging**: Efficient inter-component communication using ZeroMQ
 - **Hybrid Architecture**: Core functionality in Python with performance-critical components in Rust
 - **Extensible Design**: Easily add new model types, training methods, and inference strategies
 - **Comprehensive Testing**: Built with pytest to ensure reliability and stability
 - **Well-Documented**: Complete API documentation and usage examples
+- **Memory Profiling**: Built-in tools for tracking memory usage
+- **Benchmarking**: Performance measurement tools for identifying bottlenecks
 
 ## Installation
 
@@ -20,22 +23,74 @@ FEAGI is a Python-based framework for developing and deploying artificial genera
 pip install feagi
 ```
 
-## Quick Start
+## Running FEAGI
+
+FEAGI provides multiple ways to run the system depending on your needs:
+
+### Unified Command (Recommended)
+
+The simplest way to run FEAGI is with the unified command that starts both the API and ZMQ servers:
+
+```bash
+# Start both API and ZMQ servers with default settings
+feagi
+
+# Custom configuration
+feagi --api-port 8080 --zmq-pub-port 5566 --zmq-sub-port 5567
+```
+
+### Component-Specific Commands
+
+You can also run specific components individually:
+
+```bash
+# Run only the API server
+feagi --api-only
+feagi-api
+
+# Run only the ZMQ server
+feagi --zmq-only
+feagi-zmq
+```
+
+### Advanced Configuration
+
+```bash
+# See all available options
+feagi --help
+feagi-api --help
+feagi-zmq --help
+
+# Run with custom host and port
+feagi --api-host 0.0.0.0 --api-port 8888
+
+# Run ZMQ with specific topics
+feagi --zmq-topics neural metrics heartbeat system
+```
+
+### Python Module Usage
+
+You can also run FEAGI as Python modules:
+
+```bash
+# Full system
+python -m feagi.main
+
+# Individual components
+python -m feagi.api.server
+python -m feagi.zmq.server
+```
+
+## Programming Interface
 
 ```python
-from feagi import FEAGI
+from feagi import create_feagi
 
 # Initialize a new FEAGI instance
-feagi = FEAGI()
+feagi = create_feagi()
 
-# Create a simple model
-model = feagi.create_model("simple_model")
-
-# Train the model
-model.train(data, epochs=10)
-
-# Make predictions
-predictions = model.predict(test_data)
+# Access components
+resource_mgr = feagi["resource_mgr"]
 ```
 
 ## Documentation
@@ -56,7 +111,19 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install development dependencies
-pip install -e ".[dev]"
+pip install -e .
+```
+
+### Optional: Rust Integration
+
+For performance-critical components, FEAGI can leverage Rust:
+
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install the project with Rust extensions
+pip install -e .
 ```
 
 ### Running Tests
