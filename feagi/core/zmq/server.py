@@ -14,11 +14,21 @@ import warnings
 ZMQ_AVAILABLE = False
 try:
     import zmq
-    # Specifically check for Context to prevent "module 'zmq' has no attribute 'Context'" error
+    # Verify that Context can be used correctly by creating and destroying a test context
     if hasattr(zmq, 'Context'):
-        ZMQ_AVAILABLE = True
+        try:
+            # Try to create a Context instance to verify it works
+            test_context = zmq.Context()
+            test_socket = test_context.socket(zmq.PUB)
+            test_socket.close()
+            test_context.term()
+            ZMQ_AVAILABLE = True
+        except Exception as e:
+            warnings.warn(f"PyZMQ Context initialization failed: {e}. The ZMQ server will not be available. "
+                          f"Try reinstalling PyZMQ with 'pip uninstall -y pyzmq && pip install pyzmq==24.0.1'")
     else:
-        warnings.warn(f"PyZMQ is installed but 'Context' attribute is missing. This may be due to an incomplete installation.")
+        warnings.warn(f"PyZMQ is installed but 'Context' attribute is missing. This may be due to an incomplete installation. "
+                      f"Try reinstalling PyZMQ with 'pip uninstall -y pyzmq && pip install pyzmq==24.0.1'")
 except ImportError as e:
     warnings.warn(f"PyZMQ is not properly installed or configured: {e}")
 
