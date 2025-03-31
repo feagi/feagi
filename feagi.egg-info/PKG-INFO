@@ -1,0 +1,111 @@
+Metadata-Version: 2.4
+Name: feagi
+Version: 0.1.0
+Summary: Framework for Evolutionary Artificial General Intelligence
+Author: FEAGI Team
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/yourusername/feagi
+Project-URL: Bug Tracker, https://github.com/yourusername/feagi/issues
+Project-URL: Documentation, https://yourusername.github.io/feagi
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.95.0
+Requires-Dist: uvicorn>=0.21.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: torch>=2.0.0
+Requires-Dist: httpx>=0.24.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: ruff>=0.0.270; extra == "dev"
+Requires-Dist: pre-commit>=3.0.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs>=1.4.0; extra == "docs"
+Requires-Dist: mkdocs-material>=9.0.0; extra == "docs"
+Requires-Dist: mkdocstrings>=0.20.0; extra == "docs"
+Requires-Dist: mkdocstrings-python>=1.0.0; extra == "docs"
+
+# FEAGI
+
+**F**ramework for **E**volutionary **A**rtificial **G**eneral **I**ntelligence
+
+## Overview
+
+FEAGI is a Python-based framework for developing and deploying artificial general intelligence models. It provides a flexible architecture that combines Python's ease of use with Rust's performance for computationally intensive operations.
+
+## Features
+
+- **FastAPI Backend**: High-performance API server for model deployment and interaction
+- **Hybrid Architecture**: Core functionality in Python with performance-critical components in Rust
+- **Extensible Design**: Easily add new model types, training methods, and inference strategies
+- **Comprehensive Testing**: Built with pytest to ensure reliability and stability
+- **Well-Documented**: Complete API documentation and usage examples
+
+## Installation
+
+```bash
+pip install feagi
+```
+
+## Quick Start
+
+```python
+from feagi import FEAGI
+
+# Initialize a new FEAGI instance
+feagi = FEAGI()
+
+# Create a simple model
+model = feagi.create_model("simple_model")
+
+# Train the model
+model.train(data, epochs=10)
+
+# Make predictions
+predictions = model.predict(test_data)
+```
+
+## Documentation
+
+Comprehensive documentation is available at [docs/](./docs/).
+
+## Development
+
+### Setup Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/feagi.git
+cd feagi
+
+# Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install development dependencies
+pip install -e ".[dev]"
+```
+
+### Running Tests
+
+```bash
+pytest
+```
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the LICENSE file for details. 

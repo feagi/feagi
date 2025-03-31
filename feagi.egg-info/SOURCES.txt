@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+setup.py
+feagi/__init__.py
+feagi.egg-info/PKG-INFO
+feagi.egg-info/SOURCES.txt
+feagi.egg-info/dependency_links.txt
+feagi.egg-info/not-zip-safe
+feagi.egg-info/requires.txt
+feagi.egg-info/top_level.txt
+tests/test_core.py
+tests/test_model.py

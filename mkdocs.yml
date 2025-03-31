@@ -1,0 +1,69 @@
+site_name: FEAGI Documentation
+site_description: Documentation for the Framework for Evolutionary Artificial General Intelligence
+site_url: https://yourusername.github.io/feagi/
+repo_url: https://github.com/yourusername/feagi
+repo_name: yourusername/feagi
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          selection:
+            docstring_style: google
+          rendering:
+            show_source: true
+            heading_level: 3
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.emoji
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quick Start: quickstart.md
+  - User Guide:
+    - Core Concepts: user_guide/core_concepts.md
+    - Models: user_guide/models.md
+    - API: user_guide/api.md
+    - Rust Integration: user_guide/rust_integration.md
+  - API Reference:
+    - FEAGI: api_reference/feagi.md
+    - Models: api_reference/models.md
+    - API: api_reference/api.md
+    - Rust: api_reference/rust.md
+    - Utils: api_reference/utils.md
+  - Examples: examples.md
+  - Contributing: contributing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/feagi
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/feagi/ 
