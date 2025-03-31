@@ -31,6 +31,8 @@ def check_dependencies():
     Returns:
         bool: True if all dependencies are compatible, False otherwise.
     """
+    logger.info("Checking dependency versions...")
+    
     try:
         # Import here to avoid circular imports
         from feagi.utils.version_checker import verify_dependencies
@@ -48,9 +50,9 @@ def check_dependencies():
         is_compatible = verify_dependencies(requirements_path, raise_exception=False)
         
         if is_compatible:
-            logger.info("All dependencies are compatible with requirements")
+            logger.info("✓ All dependencies are compatible with requirements")
         else:
-            logger.warning("Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.")
+            logger.warning("⚠ Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.")
             
         return is_compatible
         
@@ -88,10 +90,12 @@ def main():
     args = parser.parse_args()
     
     # Check dependencies unless explicitly skipped
-    if not args.skip_version_check:
+    if args.skip_version_check:
+        logger.info("Dependency version check skipped (--skip-version-check flag)")
+    else:
         if not check_dependencies():
             # Failed dependency check, but continue with a warning
-            logger.warning("Continuing despite dependency version mismatches")
+            logger.warning("⚠ Continuing despite dependency version mismatches")
     
     # Dictionary to store processes
     processes = {}
