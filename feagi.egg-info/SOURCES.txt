@@ -2,6 +2,7 @@ README.md
 pyproject.toml
 setup.py
 feagi/__init__.py
+feagi/main.py
 feagi.egg-info/PKG-INFO
 feagi.egg-info/SOURCES.txt
 feagi.egg-info/dependency_links.txt

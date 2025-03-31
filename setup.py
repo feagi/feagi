@@ -17,6 +17,7 @@ setup(
         "console_scripts": [
             "feagi-api=feagi.api.server:main",
             "feagi-zmq=feagi.zmq.server:main",
+            "feagi=feagi.main:main",
         ],
     },
 ) 
