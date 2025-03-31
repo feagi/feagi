@@ -7,9 +7,103 @@ import json
 import logging
 import threading
 import time
-from typing import Dict, List, Optional, Any, Callable
+from typing import Dict, List, Optional, Any, Callable, TYPE_CHECKING
+import warnings
 
-import zmq
+# Try to import ZMQ and provide fallbacks
+ZMQ_AVAILABLE = False
+try:
+    import zmq
+    # Specifically check for Context to prevent "module 'zmq' has no attribute 'Context'" error
+    if hasattr(zmq, 'Context'):
+        ZMQ_AVAILABLE = True
+    else:
+        warnings.warn(f"PyZMQ is installed but 'Context' attribute is missing. This may be due to an incomplete installation.")
+except ImportError as e:
+    warnings.warn(f"PyZMQ is not properly installed or configured: {e}")
+
+# Create a stub zmq module if not available
+if not ZMQ_AVAILABLE:
+    # Create a stub zmq module
+    class StubSocket:
+        """Stub socket class for when ZMQ is not available."""
+        def __init__(self, *args, **kwargs):
+            self.closed = False
+            
+        def close(self):
+            self.closed = True
+            
+        def bind(self, *args, **kwargs):
+            pass
+            
+        def connect(self, *args, **kwargs):
+            pass
+            
+        def setsockopt(self, *args, **kwargs):
+            pass
+            
+        def setsockopt_string(self, *args, **kwargs):
+            pass
+            
+        def recv_string(self, *args, **kwargs):
+            raise Exception("ZMQ not available")
+
+    class StubContext:
+        """Stub context class for when ZMQ is not available."""
+        def __init__(self, *args, **kwargs):
+            pass
+            
+        def socket(self, *args, **kwargs):
+            return StubSocket()
+            
+        def term(self):
+            pass
+    
+    # If zmq module doesn't exist, create it
+    if 'zmq' not in globals():
+        class StubZMQ:
+            """Stub ZMQ module."""
+            PUB = 1
+            SUB = 2
+            RCVTIMEO = 3
+            SUBSCRIBE = 4
+            
+            class Again(Exception):
+                """Stub exception."""
+                pass
+                
+            class ZMQError(Exception):
+                """Stub exception."""
+                pass
+                
+            def Context(self, *args, **kwargs):
+                return StubContext()
+            
+        zmq = StubZMQ()
+    # If zmq exists but doesn't have Context, add it
+    elif not hasattr(zmq, 'Context'):
+        zmq.Context = StubContext
+        zmq.PUB = 1
+        zmq.SUB = 2
+        zmq.RCVTIMEO = 3
+        zmq.SUBSCRIBE = 4
+        
+        class Again(Exception):
+            """Stub exception."""
+            pass
+            
+        class ZMQError(Exception):
+            """Stub exception."""
+            pass
+            
+        zmq.Again = Again
+        zmq.ZMQError = ZMQError
+
+# Use TYPE_CHECKING to avoid runtime dependency on zmq.Socket
+if TYPE_CHECKING:
+    from zmq.sugar.socket import Socket as ZMQSocket
+else:
+    ZMQSocket = Any
 
 class ZMQServer:
     """
@@ -27,69 +121,102 @@ class ZMQServer:
         pub_port: int = 5556,
         sub_port: int = 5557,
         topics: List[str] = None,
-        use_auth: bool = False,
-        use_encryption: bool = False,
-        config: Optional[Dict] = None,
-    ):
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
         """
-        Initialize the ZMQ server.
+        Initialize a ZMQ server.
         
         Args:
-            host: Host address to bind to
-            pub_port: Port for the publisher socket
-            sub_port: Port for the subscriber socket
-            topics: List of topics to support
-            use_auth: Whether to use authentication
-            use_encryption: Whether to use encryption
-            config: Additional configuration
+            host: The host to bind to.
+            pub_port: The port to use for the publisher socket.
+            sub_port: The port to use for the subscriber socket.
+            topics: A list of topics to subscribe to.
+            logger: A logger to use for logging.
         """
         self.host = host
         self.pub_port = pub_port
         self.sub_port = sub_port
-        self.topics = topics or ["default"]
-        self.use_auth = use_auth
-        self.use_encryption = use_encryption
-        self.config = config or {}
+        self.topics = topics or []
+        self.logger = logger or logging.getLogger(__name__)
         
-        self.context = zmq.Context()
-        self.publisher = self.context.socket(zmq.PUB)
-        self.subscribers: Dict[str, zmq.Socket] = {}
-        self.subscriber_threads: Dict[str, threading.Thread] = {}
-        self.callbacks: Dict[str, List[Callable]] = {topic: [] for topic in self.topics}
-        
-        self.logger = logging.getLogger("feagi.zmq_server")
+        # Initialize data structures
         self.running = False
+        self.subscribers = {}
+        self.subscriber_threads = {}
+        self.callbacks = {topic: [] for topic in self.topics}
+        
+        # Initialize ZMQ context and sockets if ZMQ is available
+        self.context = None
+        self.publisher = None
+        
+        if ZMQ_AVAILABLE:
+            try:
+                # Explicitly verify that zmq.Context is callable
+                if callable(getattr(zmq, 'Context', None)):
+                    self.context = zmq.Context()
+                    self.publisher = self.context.socket(zmq.PUB)
+                    self.logger.info("ZMQ context and publisher initialized")
+                else:
+                    self.logger.error("zmq.Context is not callable. ZMQ may not be properly installed.")
+            except Exception as e:
+                self.logger.error(f"Error initializing ZMQ context or publisher: {e}")
+        else:
+            self.logger.warning("ZMQ not available. Server will not function properly.")
     
     def start(self) -> bool:
         """
         Start the ZMQ server.
         
         Returns:
-            True if the server was started successfully, False otherwise
+            bool: True if started successfully, False otherwise.
         """
         if self.running:
             self.logger.warning("ZMQ server is already running.")
+            return True
+            
+        # Double check for ZMQ functionality
+        if not ZMQ_AVAILABLE:
+            self.logger.error("ZMQ is not available. Cannot start ZMQ server.")
             return False
-        
+            
+        # Verify that context initialization was successful
+        if self.context is None:
+            self.logger.error("ZMQ context initialization failed. Cannot start ZMQ server.")
+            return False
+            
         try:
-            # Configure and bind the publisher socket
-            pub_address = f"tcp://{self.host}:{self.pub_port}"
-            self.publisher.bind(pub_address)
-            self.logger.info(f"Publisher bound to {pub_address}")
+            self.logger.info(f"Starting ZMQ server on {self.host}")
+            self.logger.info(f"PUB port: {self.pub_port}, SUB port: {self.sub_port}")
             
-            # Initialize authentication if needed
-            if self.use_auth:
-                self._setup_auth()
+            # Initialize publisher socket if needed
+            if self.publisher is None:
+                try:
+                    self.publisher = self.context.socket(zmq.PUB)
+                except Exception as e:
+                    self.logger.error(f"Failed to create publisher socket: {e}")
+                    return False
             
-            # Initialize encryption if needed
-            if self.use_encryption:
-                self._setup_encryption()
-            
+            # Bind the publisher socket
+            try:
+                self.publisher.bind(f"tcp://{self.host}:{self.pub_port}")
+                self.logger.info(f"Publisher bound to tcp://{self.host}:{self.pub_port}")
+            except Exception as e:
+                self.logger.error(f"Failed to bind publisher socket: {e}")
+                return False
+                    
+            # Initialize subscribers for known topics
+            for topic in self.topics:
+                if topic not in self.subscribers:
+                    success = self._create_subscriber(topic)
+                    if not success:
+                        self.logger.warning(f"Failed to create subscriber for topic: {topic}")
+                    
             self.running = True
+            self.logger.info("ZMQ server started successfully.")
             return True
         except Exception as e:
-            self.logger.error(f"Failed to start ZMQ server: {e}")
-            self.shutdown()
+            self.logger.error(f"Error starting ZMQ server: {e}")
+            self.shutdown()  # Clean up any partially initialized resources
             return False
     
     def _setup_auth(self) -> None:
@@ -120,34 +247,39 @@ class ZMQServer:
             self.logger.error("zmq.auth not available. Encryption disabled.")
             self.use_encryption = False
     
-    def publish(self, topic: str, message: Any) -> bool:
+    def publish(self, topic: str, message: str) -> bool:
         """
-        Publish a message to a specific topic.
+        Publish a message to a topic.
         
         Args:
-            topic: Topic to publish to
-            message: Message to publish (will be JSON serialized)
+            topic: The topic to publish to.
+            message: The message to publish.
             
         Returns:
-            True if the message was published successfully, False otherwise
+            bool: True if successful, False otherwise.
         """
-        if not self.running:
-            self.logger.error("Cannot publish: ZMQ server is not running.")
+        # Check if ZMQ is available at runtime (might have changed)
+        if not ZMQ_AVAILABLE:
+            self.logger.warning("Cannot publish: ZMQ is not available.")
             return False
-        
-        if topic not in self.topics:
-            self.logger.warning(f"Unknown topic: {topic}. Adding it to the topics list.")
-            self.topics.append(topic)
-            self.callbacks[topic] = []
-        
+            
+        # Check if we're running
+        if not self.running:
+            self.logger.warning("Cannot publish: ZMQ server is not running.")
+            return False
+            
+        # Check if we have a publisher socket
+        if not hasattr(self, "publisher") or self.publisher is None:
+            self.logger.warning("Cannot publish: publisher socket is not initialized.")
+            return False
+            
         try:
-            # Serialize the message to JSON
-            json_message = json.dumps(message)
-            # Publish the message with the topic prefix
-            self.publisher.send_multipart([topic.encode(), json_message.encode()])
+            # Format the message: "topic message"
+            full_message = f"{topic} {message}"
+            self.publisher.send_string(full_message)
             return True
         except Exception as e:
-            self.logger.error(f"Failed to publish message to topic {topic}: {e}")
+            self.logger.error(f"Error publishing message to topic {topic}: {e}")
             return False
     
     def subscribe(self, topic: str, callback: Callable[[str, Any], None]) -> bool:
@@ -163,6 +295,10 @@ class ZMQServer:
         """
         if not self.running:
             self.logger.error("Cannot subscribe: ZMQ server is not running.")
+            return False
+            
+        if not ZMQ_AVAILABLE or self.context is None:
+            self.logger.error("Cannot subscribe: ZMQ context is not available.")
             return False
         
         if topic not in self.topics:
@@ -201,7 +337,7 @@ class ZMQServer:
         
         return True
     
-    def _receive_messages(self, topic: str, subscriber: zmq.Socket) -> None:
+    def _receive_messages(self, topic: str, subscriber: ZMQSocket) -> None:
         """
         Receive messages for a specific topic in a background thread.
         
@@ -268,6 +404,31 @@ class ZMQServer:
         
         return True
     
+    def is_healthy(self) -> bool:
+        """
+        Check if the ZMQ server is running and healthy.
+        
+        Returns:
+            bool: True if the server is running and ZMQ is available, False otherwise.
+        """
+        if not ZMQ_AVAILABLE:
+            self.logger.warning("ZMQ is not available.")
+            return False
+            
+        if not self.running:
+            self.logger.warning("ZMQ server is not running.")
+            return False
+            
+        if self.context is None:
+            self.logger.warning("ZMQ context is not initialized.")
+            return False
+            
+        if self.publisher is None:
+            self.logger.warning("ZMQ publisher is not initialized.")
+            return False
+            
+        return True
+    
     def shutdown(self) -> None:
         """
         Shutdown the ZMQ server and clean up resources.
@@ -275,28 +436,139 @@ class ZMQServer:
         self.logger.info("Shutting down ZMQ server...")
         self.running = False
         
-        # Close all subscriber sockets
-        for topic, subscriber in self.subscribers.items():
-            subscriber.close()
-            self.logger.info(f"Closed subscriber for topic: {topic}")
+        if not ZMQ_AVAILABLE:
+            self.logger.warning("ZMQ not available, skipping socket cleanup.")
+            return
         
-        # Wait for subscriber threads to finish
-        for topic, thread in self.subscriber_threads.items():
-            thread.join(timeout=1.0)
-            if thread.is_alive():
-                self.logger.warning(f"Subscriber thread for topic {topic} did not terminate.")
+        try:
+            # Close all subscriber sockets
+            for topic, subscriber in list(self.subscribers.items()):
+                try:
+                    subscriber.close()
+                    self.logger.info(f"Closed subscriber for topic: {topic}")
+                except Exception as e:
+                    self.logger.warning(f"Error closing subscriber for topic {topic}: {e}")
+            
+            # Wait for subscriber threads to finish
+            for topic, thread in list(self.subscriber_threads.items()):
+                try:
+                    thread.join(timeout=1.0)
+                    if thread.is_alive():
+                        self.logger.warning(f"Subscriber thread for topic {topic} did not terminate.")
+                except Exception as e:
+                    self.logger.warning(f"Error joining thread for topic {topic}: {e}")
+            
+            # Close the publisher socket
+            if hasattr(self, "publisher") and self.publisher is not None:
+                try:
+                    self.publisher.close()
+                    self.logger.info("Closed publisher socket")
+                except Exception as e:
+                    self.logger.warning(f"Error closing publisher socket: {e}")
+            
+            # Terminate the ZMQ context
+            if hasattr(self, "context") and self.context is not None:
+                try:
+                    self.context.term()
+                    self.logger.info("Terminated ZMQ context")
+                except Exception as e:
+                    self.logger.warning(f"Error terminating ZMQ context: {e}")
+        except Exception as e:
+            self.logger.error(f"Error during ZMQ server shutdown: {e}")
+        finally:
+            # Reset state
+            self.subscribers = {}
+            self.subscriber_threads = {}
+            self.callbacks = {topic: [] for topic in self.topics}
+            self.logger.info("ZMQ server shutdown complete.")
+    
+    def _create_subscriber(self, topic: str) -> bool:
+        """
+        Create a subscriber for a topic.
         
-        # Close the publisher socket
-        if hasattr(self, "publisher"):
-            self.publisher.close()
-            self.logger.info("Closed publisher socket")
+        Args:
+            topic: The topic to subscribe to.
+            
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        if not ZMQ_AVAILABLE or self.context is None:
+            self.logger.warning("Cannot create subscriber: ZMQ not available.")
+            return False
+            
+        try:
+            # Create subscriber socket
+            subscriber = self.context.socket(zmq.SUB)
+            subscriber.connect(f"tcp://{self.host}:{self.sub_port}")
+            subscriber.setsockopt_string(zmq.SUBSCRIBE, topic)
+            
+            # Store subscriber
+            self.subscribers[topic] = subscriber
+            self.logger.info(f"Created subscriber for topic: {topic}")
+            
+            # Create subscriber thread
+            thread = threading.Thread(
+                target=self._subscriber_loop,
+                args=(topic, subscriber),
+                daemon=True,
+                name=f"zmq-subscriber-{topic}"
+            )
+            self.subscriber_threads[topic] = thread
+            thread.start()
+            self.logger.info(f"Started subscriber thread for topic: {topic}")
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Error creating subscriber for topic {topic}: {e}")
+            if topic in self.subscribers:
+                try:
+                    self.subscribers[topic].close()
+                except Exception:
+                    pass
+                del self.subscribers[topic]
+            return False
+    
+    def _subscriber_loop(self, topic: str, subscriber: 'zmq.Socket') -> None:
+        """
+        Main loop for a subscriber thread.
         
-        # Terminate the ZMQ context
-        if hasattr(self, "context"):
-            self.context.term()
-            self.logger.info("Terminated ZMQ context")
+        Args:
+            topic: The topic being subscribed to.
+            subscriber: The ZMQ subscriber socket.
+        """
+        self.logger.info(f"Subscriber loop started for topic: {topic}")
         
-        self.subscribers = {}
-        self.subscriber_threads = {}
-        self.callbacks = {topic: [] for topic in self.topics}
-        self.logger.info("ZMQ server shutdown complete.") 
+        # Configure socket timeout to allow for checking if server is still running
+        subscriber.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
+        
+        while self.running:
+            try:
+                # Try to receive a message with timeout
+                message = subscriber.recv_string()
+                
+                # Process the message if callbacks exist
+                if topic in self.callbacks and self.callbacks[topic]:
+                    # Strip topic prefix from message (if it exists)
+                    if message.startswith(topic):
+                        message = message[len(topic):].lstrip()
+                        
+                    # Call all registered callbacks for this topic
+                    for callback in self.callbacks[topic]:
+                        try:
+                            callback(message)
+                        except Exception as e:
+                            self.logger.error(f"Error in callback for topic {topic}: {e}")
+                
+            except zmq.Again:
+                # Timeout occurred, just continue to check if server is still running
+                continue
+            except zmq.ZMQError as e:
+                self.logger.error(f"ZMQ error in subscriber loop for topic {topic}: {e}")
+                if self.running:  # Only log if we're supposed to be running
+                    time.sleep(1)  # Avoid tight error loop
+            except Exception as e:
+                self.logger.error(f"Unexpected error in subscriber loop for topic {topic}: {e}")
+                if self.running:
+                    time.sleep(1)  # Avoid tight error loop
+        
+        self.logger.info(f"Subscriber loop ended for topic: {topic}") 
