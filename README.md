@@ -37,6 +37,19 @@ feagi
 
 # Custom configuration
 feagi --api-port 8080 --zmq-pub-port 5566 --zmq-sub-port 5567
+
+# Skip dependency version checking
+feagi --skip-version-check
+```
+
+### Environment Variables
+
+You can configure FEAGI behavior using environment variables:
+
+```bash
+# Skip dependency version checking
+export FEAGI_SKIP_VERSION_CHECK=1
+feagi
 ```
 
 ### Component-Specific Commands
@@ -112,6 +125,21 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install development dependencies
 pip install -e .
+```
+
+### Dependency Management
+
+FEAGI includes tools to help manage dependencies:
+
+```bash
+# Check if installed dependencies match requirements.txt
+python -m feagi.scripts.check_dependencies
+
+# Run with strict mode (exit with error if dependencies don't match)
+python -m feagi.scripts.check_dependencies --strict
+
+# Use a custom requirements file
+python -m feagi.scripts.check_dependencies --requirements path/to/requirements.txt
 ```
 
 ### Optional: Rust Integration

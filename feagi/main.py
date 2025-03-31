@@ -21,6 +21,44 @@ logger = logging.getLogger("feagi.main")
 
 # Import other modules only when needed to avoid circular imports
 
+def check_dependencies():
+    """
+    Check if installed dependencies match required versions.
+    
+    This function verifies that all required packages are installed with the correct versions.
+    If not, it displays warnings or errors as appropriate.
+    
+    Returns:
+        bool: True if all dependencies are compatible, False otherwise.
+    """
+    try:
+        # Import here to avoid circular imports
+        from feagi.utils.version_checker import verify_dependencies
+        
+        # Check if FEAGI_SKIP_VERSION_CHECK environment variable is set
+        skip_check = os.environ.get("FEAGI_SKIP_VERSION_CHECK", "").lower() in ("1", "true", "yes")
+        if skip_check:
+            logger.info("Dependency version check skipped (FEAGI_SKIP_VERSION_CHECK is set)")
+            return True
+            
+        # Get the path to requirements.txt
+        requirements_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "requirements.txt")
+        
+        # Verify dependencies, don't raise an exception but return False if there's a mismatch
+        is_compatible = verify_dependencies(requirements_path, raise_exception=False)
+        
+        if is_compatible:
+            logger.info("All dependencies are compatible with requirements")
+        else:
+            logger.warning("Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.")
+            
+        return is_compatible
+        
+    except Exception as e:
+        logger.error(f"Error checking dependencies: {e}")
+        return True  # Continue execution despite the error
+
+
 def main():
     """Run the complete FEAGI system with API and ZMQ servers."""
     parser = argparse.ArgumentParser(description="FEAGI Main Runner")
@@ -45,8 +83,15 @@ def main():
     parser.add_argument("--config", type=str, help="Path to general configuration file")
     parser.add_argument("--api-only", action="store_true", help="Start only the API server")
     parser.add_argument("--zmq-only", action="store_true", help="Start only the ZMQ server")
+    parser.add_argument("--skip-version-check", action="store_true", help="Skip dependency version check")
     
     args = parser.parse_args()
+    
+    # Check dependencies unless explicitly skipped
+    if not args.skip_version_check:
+        if not check_dependencies():
+            # Failed dependency check, but continue with a warning
+            logger.warning("Continuing despite dependency version mismatches")
     
     # Dictionary to store processes
     processes = {}
