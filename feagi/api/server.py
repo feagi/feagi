@@ -2,7 +2,7 @@
 import os
 import argparse
 import uvicorn
-from feagi.api.app import create_app
+from feagi.core.api import create_api
 
 def main():
     """Run the FEAGI API server."""
@@ -14,7 +14,7 @@ def main():
     
     print(f"Starting FEAGI API server on {args.host}:{args.port}")
     uvicorn.run(
-        "feagi.api.app:create_app",
+        "feagi.core.api:create_api",
         host=args.host,
         port=args.port,
         reload=args.reload,

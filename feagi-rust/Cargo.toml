@@ -2,8 +2,10 @@
 name = "feagi-rust"
 version = "0.1.0"
 edition = "2021"
-authors = ["FEAGI Team"]
-description = "Rust components for the FEAGI framework"
+authors = ["FEAGI Team <info@feagi.org>"]
+description = "Rust extensions for the FEAGI framework"
+license = "MIT"
+repository = "https://github.com/feagi/feagi"
 
 [lib]
 name = "feagi_rust"
@@ -12,11 +14,17 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.19.0", features = ["extension-module"] }
 ndarray = "0.15.6"
-rayon = "1.7.0"
-thiserror = "1.0.40"
+numpy = "0.19.0"
+rayon = "1.8.0"
+thiserror = "1.0.50"
 
 [build-dependencies]
 pyo3-build-config = "0.19.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
 
 [features]
 extension-module = ["pyo3/extension-module"]

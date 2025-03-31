@@ -24,6 +24,7 @@ FEAGI uses a message-based architecture for its BurstEngine implementation, prov
 ./
 ├── feagi/                  # Main package
 │   └── core/               # Core functionality and resource management
+│       ├── resource_mgr.py # ZMQ handler
 │       ├── zmq/            # ZMQ handler
 │       ├── sec/            # Placeholder for authentication and encryption modules
 │       └── api/            # API
@@ -79,9 +80,19 @@ Major modules:
   - Neural development
   
 
-### API
+### REST API
 - Should be organized in version folders to enable future maintainability. Routes should be defined enabling endpoints 
 to be organized by functional area.
+
+### ZMQ Handler
+Initiates a ZMQ server with the ability to support multiple topics enabling multithreaded communication to and from 
+FEAGI. 
+
+### Resource Manager
+FEAGI consists of many independent processes with various requirements such as some running on CPU vs. others suitable 
+for GPU, some being mission-critical and highly time sensitive such neuron firing process vs sleep or api 
+handling. The resource manager is responsible for starting, terminating, and orchestrating all FEAGI processes and 
+initialization of critical data structures.
 
 ### Brain Development Unit (BDU)
 
@@ -209,7 +220,14 @@ The act of firing all neurons within the fire candidate list is called a burst o
 Fire Candidate List Queue keeps track of fire candidate list across N number of consecutive bursts where the value N is 
 set based on FEAGI configuration parameters and can be overwritten using API.
 
+#### FCL Manager
+At the heart of the burst engine lies the FCL manager that is responsible for reading FCL content and initiating the 
+firing of neurons. FCL Manager can be tapped by the FCL sampler to provide a copy of the current FCL content for 
+transmission to the peripheral nervous system (PNS) and data visualization.
 
+#### FCL Sampler
+Responsible for invoking the FCL manager at a configurable frequency for the purpose generating motor commands and brain 
+visualization.
 
 ### Neuron Firing Dynamics
 
@@ -284,6 +302,46 @@ python -m feagi.main --vis-sampling 1.0
 python -m feagi.main --vis-sampling 30
 ```
 
+
+## Implementation Strategy
+Given the enormous size of this project it is vital to follow a solid design strategy as outlined below:
+1. Initialize project skeleton and folder structure enabling a highly modular project with clear path to rust migration including:
+   1. Folder structure
+   2. API server
+   3. ZMQ server
+   4. Resource manager
+2. Create the following functional modules in order and ensure every single functional module has an associated pytest folder. Additionally, each functional module should have an associated API route dedicated to it enabling REST management.
+   1. Brain Developmental Unit
+      1. Connectome Manager
+      2. Cortical area module
+      3. Neuron module
+      4. Connectivity rules module
+      5. cortical mappings module
+      6. synapse module
+   2. Burst Engine
+      1. Burst Engine Manager
+      2. FCL Manager
+      3. FCL Sampler
+   3. PNS message broker
+   4. Memory and Learning Manager
+   5. Async Stem Cell Manager
+   6. Sleep Manager
+
+
+## Benchmarking
+It is crucial to be able to collect performance and resource consumption metrics during FEAGI operation to ensure:
+1. Enable optimization
+2. Prevent regression
+
+### Benchmarking Strategy
+TBD
+
+
+## Testing
+All unit and functional tests will be written using pytest framework.
+
+### Test Strategy
+TBD
 
 ## Configuration
 

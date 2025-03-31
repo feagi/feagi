@@ -1,0 +1,20 @@
+fastapi>=0.68.0
+uvicorn>=0.15.0
+pydantic>=1.8.2
+numpy>=1.21.0
+pyzmq>=22.3.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.5
+psutil>=5.9.0
+pytest>=6.2.5
+pytest-asyncio>=0.15.1
+httpx>=0.21.0
+tracemalloc>=0.1.0
+dataclasses-json>=0.5.7
+torch>=1.12.0; sys_platform != 'darwin' or platform_machine != 'arm64'
+torch>=1.12.0; sys_platform == 'darwin' and platform_machine == 'arm64'
+memory-profiler>=0.60.0
+pytest-benchmark>=3.4.1
+pytest-cov>=3.0.0
+pytest-mock>=3.7.0
