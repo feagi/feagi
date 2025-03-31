@@ -19,6 +19,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("feagi.main")
 
+# Import other modules only when needed to avoid circular imports
+
 def main():
     """Run the complete FEAGI system with API and ZMQ servers."""
     parser = argparse.ArgumentParser(description="FEAGI Main Runner")

@@ -13,9 +13,6 @@ __version__ = "0.1.0"
 
 # Import key components for easy access
 from feagi.core.resource_mgr import ResourceManager
-from feagi.zmq import create_zmq_server
-from feagi.utils.memory_profiler import MemoryProfiler
-from feagi.utils.benchmarking import benchmark
 
 # Create a factory function to initialize a complete FEAGI system
 def create_feagi(config=None):
