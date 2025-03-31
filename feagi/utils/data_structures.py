@@ -43,7 +43,7 @@ class RustCompatible:
     """Mixin for dataclasses that are designed to be Rust-compatible."""
     
     # Class variable to store Rust-specific field metadata
-    __rust_fields__: ClassVar[Dict[str, RustField]] = field(default_factory=dict)
+    __rust_fields__: ClassVar[Dict[str, RustField]] = {}
     
     def __post_init__(self):
         """Initialize Rust-specific field metadata."""
@@ -253,10 +253,10 @@ class ExampleStruct(RustCompatible):
     """
     
     name: str
-    value: int = 0
-    tags: List[str] = field(default_factory=list)
     # Demonstrate a field with Rust-specific metadata
     reference_count: int = rust_field(ownership=OwnershipType.MUTABLE_BORROWED, thread_safe=True)
+    value: int = 0
+    tags: List[str] = field(default_factory=list)
 
 
 # Example of using custom field with thread-safety annotation

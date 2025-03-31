@@ -98,6 +98,19 @@ def _py_matrix_multiply(matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarra
 # Initialize the global Rust integration instance
 rust_integration = RustIntegration()
 
+# Export the is_rust_available function
+def is_rust_available(module_name: str = "feagi_rust") -> bool:
+    """
+    Check if a specific Rust module is available.
+    
+    Args:
+        module_name: Name of the module to check
+        
+    Returns:
+        True if the module is available, False otherwise
+    """
+    return rust_integration.is_available(module_name)
+
 # Example of a function that will use Rust if available, otherwise Python
 matrix_multiply = rust_integration.fallback_to_python(
     "feagi_rust.linear_algebra.matrix_multiply", 
@@ -171,4 +184,24 @@ def _py_generate_connections(
 generate_connections = rust_integration.fallback_to_python(
     "feagi_rust.connectivity.generate_connections",
     _py_generate_connections
-) 
+)
+
+# Create namespaces for different Rust modules
+neural_process = {
+    'update_membrane_potentials': update_membrane_potentials,
+}
+
+# Synapse processing namespace
+synapses = {
+    'apply_plasticity': apply_plasticity,
+}
+
+# Connectivity namespace
+connectivity = {
+    'generate_connections': generate_connections,
+}
+
+# Linear algebra namespace
+linear_algebra = {
+    'matrix_multiply': matrix_multiply,
+} 

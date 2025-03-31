@@ -267,6 +267,38 @@ class RustIntegrationError(FeagiError):
         )
 
 
+class RustCompatibilityError(FeagiError):
+    """Error raised when there is a compatibility issue with Rust code."""
+    
+    def __init__(
+        self, 
+        component: str,
+        message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Initialize a RustCompatibilityError.
+        
+        Args:
+            component: Component that has compatibility issues
+            message: Optional custom error message
+            details: Additional details about the error
+        """
+        if message is None:
+            message = f"Rust compatibility issue in component '{component}'"
+        
+        details = details or {}
+        details.update({
+            "component": component,
+        })
+        
+        super().__init__(
+            message=message,
+            code=ErrorCode.RUST_MODULE_NOT_AVAILABLE,
+            details=details,
+        )
+
+
 # Example Rust error enum generation
 def generate_rust_error_enum() -> str:
     """

@@ -33,11 +33,11 @@ class ProcessInfo(RustCompatible):
     
     process_name: str
     pid: int
+    # Thread-safe field that can be mutated
+    last_heartbeat: float = rust_field(ownership=OwnershipType.MUTABLE_BORROWED, thread_safe=True)
     cpu_allocation: int = 1
     is_running: bool = True
     start_time: float = field(default_factory=time.time)
-    # Thread-safe field that can be mutated
-    last_heartbeat: float = rust_field(ownership=OwnershipType.MUTABLE_BORROWED, thread_safe=True)
     # Self-contained references that don't need to be tracked by Rust
     _process_ref: Any = field(default=None, repr=False)
 
@@ -85,6 +85,10 @@ class ResourceManager:
         # Use a singleton pattern to avoid multiple instances
         with _resource_lock:
             self.config = config or {}
+            # Thread safety
+            self._lock = threading.RLock()
+            # Set up logger early
+            self.logger = logging.getLogger("feagi.resource_mgr")
             # Use weak references to processes to avoid memory leaks
             self.processes: Dict[str, weakref.ReferenceType] = {}
             self.threads: Dict[str, weakref.ReferenceType] = {}
@@ -94,10 +98,7 @@ class ResourceManager:
             # Allocated resources
             self.allocated_cpu_cores: Set[int] = set()
             self.allocated_gpu_ids: Set[int] = set()
-            # Thread safety
-            self._lock = threading.RLock()
             
-            self.logger = logging.getLogger("feagi.resource_mgr")
             ResourceManager._instances[id(self)] = self
     
     @classmethod
