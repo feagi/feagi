@@ -109,9 +109,11 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
                 add_neuron_to_fcl(cortical_area=cortical_area,
                                   neuron_id=neuron_id,
                                   pre_fire_mp=runtime_data.fire_queue[cortical_area][neuron_id][0])
-            elif runtime_data.fire_queue[cortical_area][neuron_id][0] <= \
+            elif ((runtime_data.fire_queue[cortical_area][neuron_id][0] <=
+                  runtime_data.fire_queue[cortical_area][neuron_id][1]) and
+                  runtime_data.fire_queue[cortical_area][neuron_id][0] <=
                     (runtime_data.fire_queue[cortical_area][neuron_id][1] +
-                     runtime_data.genome['blueprint'][cortical_area]['firing_threshold_limit']):
+                     runtime_data.genome['blueprint'][cortical_area]['firing_threshold_limit'])):
                 add_neuron_to_fcl(cortical_area=cortical_area,
                                   neuron_id=neuron_id,
                                   pre_fire_mp=runtime_data.fire_queue[cortical_area][neuron_id][0])
