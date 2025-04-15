@@ -78,6 +78,13 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [100, 0, 0]
             },
+            "ieuler": {
+                "enabled": True,
+                "cortical_name": "Euler angle sensor",
+                "structure": "symmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [60, 0, 0]
+            },
             "ishock": {
                 "enabled": True,
                 "cortical_name": "Shock sensor",
@@ -240,6 +247,9 @@ cortical_types = {
             ],
             "gyro": [
                 "i__gyr"
+            ],
+            "euler": [
+                "ieuler"
             ],
             "shock": [
                 "ishock"
