@@ -71,6 +71,13 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [50, 0, 0]
             },
+            "i_comp": {
+                "enabled": True,
+                "cortical_name": "Compass sensor",
+                "structure": "symmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [100, 0, 0]
+            },
             "ishock": {
                 "enabled": True,
                 "cortical_name": "Shock sensor",
@@ -240,6 +247,9 @@ cortical_types = {
             "battery": [
                 "i__bat"
             ],
+            "compass": [
+                "i_comp"
+            ],
             "camera": [
                 "iv00CC",
                 "iv00_C",
@@ -279,7 +289,6 @@ cortical_types = {
             "audio": [
                 "i_hear"
             ]
-
         }
     },
     "OPU": {
