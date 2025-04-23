@@ -79,13 +79,9 @@ def stimuli_router(ipu_data):
         if "direct_stimulation" in ipu_data["data"]:
             if ipu_data["data"]["direct_stimulation"] is not None:
                 try:
-                    byte_ipu_data = ipu_data["data"]["direct_stimulation"]
-                    dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
-                    print("_-" * 30)
-                    print("byte_ipu_data:", byte_ipu_data)
-                    print("dict_ipu_data:", dict_ipu_data)
 
-                    stimuli_translator.stimulation_injector(stimulation_data=dict_ipu_data)
+
+                    stimuli_translator.stimulation_injector(stimulation_data=ipu_data["data"]["direct_stimulation"])
                 except Exception as e:
                     print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"], ">>", e,
                           traceback.format_exc())
@@ -98,6 +94,8 @@ def stimuli_router(ipu_data):
 
         if "sensory_data" in ipu_data["data"]:
             for sensor_type in ipu_data["data"]["sensory_data"]:
+
+
                 # Ultrasonic / Lidar Handler
                 # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                 # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
@@ -169,10 +167,16 @@ def stimuli_router(ipu_data):
                         print("ERROR while processing Object Identification Training IPU", traceback.format_exc())
                 if 'generic_ipu' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
-                        if "iv00CC" in ipu_data["data"]["sensory_data"][sensor_type]:
-                            runtime_data.color_img_feed = ipu_data["data"]["sensory_data"][sensor_type]["iv00CC"]
+                        byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu']
+                        dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
+                        print("_-" * 30)
+                        print("byte_ipu_data:", byte_ipu_data)
+                        print("dict_ipu_data:", dict_ipu_data)
+
+                        if "iv00CC" in dict_ipu_data:
+                            runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
                         stimuli_translator.generic_ipu_translator(
-                            ipu_data=ipu_data["data"]["sensory_data"][sensor_type])
+                            ipu_data=dict_ipu_data)
                     except Exception:
                         print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
 
