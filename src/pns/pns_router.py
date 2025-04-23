@@ -24,6 +24,7 @@ import traceback
 from datetime import datetime
 from src.evo.voxels import *
 from src.evo.stats import opu_activity_report
+from src.inf.byte_processor import bytes_to_feagi_data
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,13 @@ def stimuli_router(ipu_data):
         if "direct_stimulation" in ipu_data["data"]:
             if ipu_data["data"]["direct_stimulation"] is not None:
                 try:
-                    stimuli_translator.stimulation_injector(stimulation_data=ipu_data["data"]["direct_stimulation"])
+                    byte_ipu_data = ipu_data["data"]["direct_stimulation"]
+                    dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
+                    print("_-" * 30)
+                    print("byte_ipu_data:", byte_ipu_data)
+                    print("dict_ipu_data:", dict_ipu_data)
+
+                    stimuli_translator.stimulation_injector(stimulation_data=dict_ipu_data)
                 except Exception as e:
                     print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"], ">>", e,
                           traceback.format_exc())
