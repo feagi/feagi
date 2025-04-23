@@ -50,6 +50,7 @@ from src.pns.pns_router import opu_router, stimuli_router
 from src.trn.shock import shock_manager
 from src.api.commons import pending_amalgamation
 from src.evo.autopilot import load_new_genome
+from src.inf.byte_processor import feagi_data_to_bytes, bytes_to_feagi_data
 
 logger = logging.getLogger(__name__)
 
@@ -401,7 +402,7 @@ def burst_manager():
                      runtime_data.genome['blueprint'][_]['block_boundaries'][1],
                      runtime_data.genome['blueprint'][_]['block_boundaries'][2])
 
-        broadcast_message['opu_data'] = runtime_data.opu_data
+        broadcast_message['opu_data'] = feagi_data_to_bytes(runtime_data.opu_data)
         broadcast_message['genome_num'] = runtime_data.genome_counter
         broadcast_message['control_data'] = runtime_data.robot_controller
         broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
