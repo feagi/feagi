@@ -163,8 +163,9 @@ def stimuli_router(ipu_data):
                         stimuli_translator.training_translator(stimulation=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:
                         print("ERROR while processing Object Identification Training IPU", traceback.format_exc())
-                if 'generic_ipu' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                if 'generic_ipu' == sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
+
                         dict_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu']
                         if "iv00CC" in dict_ipu_data:
                             runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
@@ -173,7 +174,7 @@ def stimuli_router(ipu_data):
                     except Exception:
                         print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
 
-                if 'generic_ipu_b' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                if 'generic_ipu_b' == sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
                         byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu_b']
                         dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
