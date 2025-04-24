@@ -175,11 +175,8 @@ def stimuli_router(ipu_data):
 
                 if 'generic_ipu_b' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
-                        byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu']
+                        byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu_b']
                         dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
-                        print("_-" * 30)
-                        print("byte_ipu_data:", byte_ipu_data)
-                        print("dict_ipu_data:", dict_ipu_data)
 
                         if "iv00CC" in dict_ipu_data:
                             runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
