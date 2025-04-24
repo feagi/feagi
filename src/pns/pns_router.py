@@ -79,8 +79,6 @@ def stimuli_router(ipu_data):
         if "direct_stimulation" in ipu_data["data"]:
             if ipu_data["data"]["direct_stimulation"] is not None:
                 try:
-
-
                     stimuli_translator.stimulation_injector(stimulation_data=ipu_data["data"]["direct_stimulation"])
                 except Exception as e:
                     print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"], ">>", e,
@@ -167,6 +165,16 @@ def stimuli_router(ipu_data):
                         print("ERROR while processing Object Identification Training IPU", traceback.format_exc())
                 if 'generic_ipu' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
+                        dict_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu']
+                        if "iv00CC" in dict_ipu_data:
+                            runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
+                        stimuli_translator.generic_ipu_translator(
+                            ipu_data=dict_ipu_data)
+                    except Exception:
+                        print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
+
+                if 'generic_ipu_b' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                    try:
                         byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu']
                         dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
                         print("_-" * 30)
@@ -179,6 +187,10 @@ def stimuli_router(ipu_data):
                             ipu_data=dict_ipu_data)
                     except Exception:
                         print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
+
+
+
+
 
 
 def opu_router():
