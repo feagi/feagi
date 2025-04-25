@@ -24,6 +24,7 @@ import traceback
 from datetime import datetime
 from src.evo.voxels import *
 from src.evo.stats import opu_activity_report
+from src.inf.byte_processor import bytes_to_feagi_data
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,8 @@ def stimuli_router(ipu_data):
 
         if "sensory_data" in ipu_data["data"]:
             for sensor_type in ipu_data["data"]["sensory_data"]:
+
+
                 # Ultrasonic / Lidar Handler
                 # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                 # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
@@ -160,14 +163,32 @@ def stimuli_router(ipu_data):
                         stimuli_translator.training_translator(stimulation=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:
                         print("ERROR while processing Object Identification Training IPU", traceback.format_exc())
-                if 'generic_ipu' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                if 'generic_ipu' == sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
-                        if "iv00CC" in ipu_data["data"]["sensory_data"][sensor_type]:
-                            runtime_data.color_img_feed = ipu_data["data"]["sensory_data"][sensor_type]["iv00CC"]
+
+                        dict_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu']
+                        if "iv00CC" in dict_ipu_data:
+                            runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
                         stimuli_translator.generic_ipu_translator(
-                            ipu_data=ipu_data["data"]["sensory_data"][sensor_type])
+                            ipu_data=dict_ipu_data)
                     except Exception:
                         print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
+
+                if 'generic_ipu_b' == sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                    try:
+                        byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu_b']
+                        dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
+
+                        if "iv00CC" in dict_ipu_data:
+                            runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
+                        stimuli_translator.generic_ipu_translator(
+                            ipu_data=dict_ipu_data)
+                    except Exception:
+                        print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
+
+
+
+
 
 
 def opu_router():
