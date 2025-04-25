@@ -172,3 +172,22 @@ async def trigger_manual_stimulation(stimulation: ManualStimulation,
 
     message = {'manual_stimulation': stimulation.stimulation_payload}
     api_queue.put(item=message)
+
+
+@router.post("/sustained_stimulation")
+async def trigger_sustained_stimulation(stimulation: ManualStimulation,
+                                        _: str = Depends(check_brain_running)):
+    """
+    Sustained stimulation will create a new connectivity rule and connects brain power to across the cortical area.
+
+    Important Note: Prior sustained stimulation's will be overwritten when new one is induced. If an x index is omitted
+    from the list, the prior connections to given area will be removed.
+
+    Stimulation needs to be in the following format:
+
+    {
+    "cortical_id": [[2, 0, 0, 20], [5, 0, 0, 10]]
+    }
+    """
+    message = {'sustained_stimulation': stimulation.stimulation_payload}
+    api_queue.put(item=message)
