@@ -81,29 +81,26 @@ async def agent_registration(request: Request, data: AgentRegistration):
     if data.capabilities:
         capabilities = data.capabilities
 
-    if data.agent_id in runtime_data.agent_registry:
-        agent_info = runtime_data.agent_registry[data.agent_id]
+    agent_info = dict()
+    agent_info["agent_id"] = data.agent_id
+    agent_info["agent_type"] = data.agent_type
+    # runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
+    agent_info["agent_ip"] = request.client.host
+    if data.agent_type == 'monitor':
+        agent_router_address = f"tcp://{request.client.host}:{data.agent_data_port}"
+        agent_info["listener"] = Sub(address=agent_router_address, bind=False)
+        print("Publication of brain activity turned on!")
+        runtime_data.brain_activity_pub = True
     else:
-        agent_info = dict()
-        agent_info["agent_id"] = data.agent_id
-        agent_info["agent_type"] = data.agent_type
-        # runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
-        agent_info["agent_ip"] = request.client.host
-        if data.agent_type == 'monitor':
-            agent_router_address = f"tcp://{request.client.host}:{data.agent_data_port}"
-            agent_info["listener"] = Sub(address=agent_router_address, bind=False)
-            print("Publication of brain activity turned on!")
-            runtime_data.brain_activity_pub = True
-        else:
-            agent_data_port = assign_available_port()
-            agent_router_address = f"tcp://*:{agent_data_port}"
-            agent_info["listener"] = Sub(address=agent_router_address, bind=True)
+        agent_data_port = assign_available_port()
+        agent_router_address = f"tcp://*:{agent_data_port}"
+        agent_info["listener"] = Sub(address=agent_router_address, bind=True)
 
-        agent_info["agent_data_port"] = agent_data_port
-        agent_info["agent_router_address"] = agent_router_address
-        agent_info["agent_version"] = data.agent_version
-        agent_info["controller_version"] = data.controller_version
-        agent_info["capabilities"] = capabilities
+    agent_info["agent_data_port"] = agent_data_port
+    agent_info["agent_router_address"] = agent_router_address
+    agent_info["agent_version"] = data.agent_version
+    agent_info["controller_version"] = data.controller_version
+    agent_info["capabilities"] = capabilities
 
     runtime_data.agent_registry[data.agent_id] = agent_info
     runtime_data.host_info[data.agent_id] = agent_info
@@ -174,4 +171,23 @@ async def trigger_manual_stimulation(stimulation: ManualStimulation,
     """
 
     message = {'manual_stimulation': stimulation.stimulation_payload}
+    api_queue.put(item=message)
+
+
+@router.post("/sustained_stimulation")
+async def trigger_sustained_stimulation(stimulation: ManualStimulation,
+                                        _: str = Depends(check_brain_running)):
+    """
+    Sustained stimulation will create a new connectivity rule and connects brain power to across the cortical area.
+
+    Important Note: Prior sustained stimulation's will be overwritten when new one is induced. If an x index is omitted
+    from the list, the prior connections to given area will be removed.
+
+    Stimulation needs to be in the following format:
+
+    {
+    "cortical_id": [[2, 0, 0, 20], [5, 0, 0, 10]]
+    }
+    """
+    message = {'sustained_stimulation': stimulation.stimulation_payload}
     api_queue.put(item=message)

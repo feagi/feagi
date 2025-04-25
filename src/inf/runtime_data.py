@@ -16,7 +16,6 @@
 # ==============================================================================
 
 
-
 # System
 parameters = {}
 event_id = '_'
@@ -169,6 +168,7 @@ intercortical_mapping = []
 brain_is_running = False
 cumulative_stats = {}
 memory_register = {}
+memory_queue = None
 cortical_area_region_association = dict()
 
 
@@ -193,6 +193,7 @@ environment_map_path = None
 # ZMQ
 godot_listener = None
 embodiment_listener = None
+color_img_feed = {}
 
 # Agents
 """

@@ -48,7 +48,9 @@ from src.inf.messenger import Pub, Sub
 from src.pns.pns_router import opu_router, stimuli_router
 # from src.api.message_processor import api_message_processor
 from src.trn.shock import shock_manager
+from src.api.commons import pending_amalgamation
 from src.evo.autopilot import load_new_genome
+from src.inf.byte_processor import feagi_data_to_bytes, bytes_to_feagi_data
 
 logger = logging.getLogger(__name__)
 
@@ -383,17 +385,44 @@ def burst_manager():
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
     def controller_handshake():
+        if runtime_data.genome:
+            genome_availability = True
+        else:
+            genome_availability = False
         broadcast_message = {}
         broadcast_message['burst_counter'] = runtime_data.burst_count
         # broadcast_message['sockets'] = runtime_data.parameters['Sockets']
         broadcast_message['burst_frequency'] = runtime_data.burst_timer
         broadcast_message['godot'] = runtime_data.burst_activities
+        broadcast_message['cortical_dimensions'] = dict()
+        for _ in runtime_data.burst_activities:
+            if _ not in broadcast_message['cortical_dimensions']:
+                broadcast_message['cortical_dimensions'][_] = \
+                    (runtime_data.genome['blueprint'][_]['block_boundaries'][0],
+                     runtime_data.genome['blueprint'][_]['block_boundaries'][1],
+                     runtime_data.genome['blueprint'][_]['block_boundaries'][2])
+
         broadcast_message['opu_data'] = runtime_data.opu_data
+        broadcast_message['opu_data_b'] = feagi_data_to_bytes(runtime_data.opu_data)
         broadcast_message['genome_num'] = runtime_data.genome_counter
         broadcast_message['control_data'] = runtime_data.robot_controller
         broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
         broadcast_message['change_register'] = runtime_data.evo_change_register
+        broadcast_message['burst_engine'] = not runtime_data.exit_condition
+        broadcast_message['genome_availability'] = genome_availability
+        broadcast_message['genome_validity'] = runtime_data.genome_validity
+        broadcast_message['brain_readiness'] = runtime_data.brain_readiness
         broadcast_message['sent_utc'] = utc_time()
+        broadcast_message['color_image'] = runtime_data.color_img_feed
+        if pending_amalgamation():
+            broadcast_message["amalgamation_pending"] = {
+                "initiation_time": runtime_data.pending_amalgamation["initiation_time"],
+                "genome_id": runtime_data.pending_amalgamation["genome_id"],
+                "amalgamation_id": runtime_data.pending_amalgamation["amalgamation_id"],
+                "genome_title": runtime_data.pending_amalgamation["genome_title"],
+                "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
+            }
+
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)
@@ -427,7 +456,7 @@ def burst_manager():
         if runtime_data.brain_activity_pub:
             # todo: Obtain the frequency from controller config
             if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
-                activity_data = brain_activity_voxelizer()
+                activity_data = brain_activity_voxelizer_svo()
                 runtime_data.burst_activities = activity_data
 
     def manual_neuron_stimulation():
@@ -526,6 +555,64 @@ def burst_manager():
         else:
             print("No genome found during voxelization!")
 
+    def brain_activity_voxelizer_svo():
+        """
+        Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
+        """
+        broadcast_message = dict()
+        if runtime_data.genome:
+            if "blueprint" in runtime_data.genome:
+                try:
+                    for _ in runtime_data.fire_candidate_list:
+                        fire_list = set(runtime_data.fire_candidate_list[_])
+                        if _ not in runtime_data.cortical_viz_list:
+                            if len(fire_list) > runtime_data.cortical_viz_sup_threshold:
+                                # todo: move this to a function that does cortical area initialization
+                                if _ not in runtime_data.cortical_viz_sup_till_burst:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+
+                                if runtime_data.burst_count < runtime_data.cortical_viz_sup_till_burst[_]:
+                                    pass
+                                else:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+                                    # todo: duplicate code snippet 10 lines down -- refactor
+                                    if _ not in broadcast_message:
+                                        broadcast_message[_] = set()
+
+                                    while fire_list:
+                                        firing_neuron = fire_list.pop()
+                                        firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                        broadcast_message[_].add(
+                                            (
+                                                firing_neuron_loc[0],
+                                                firing_neuron_loc[1],
+                                                firing_neuron_loc[2]
+                                            )
+                                        )
+                            else:
+                                if _ not in broadcast_message:
+                                    broadcast_message[_] = set()
+
+                                while fire_list:
+                                    firing_neuron = fire_list.pop()
+                                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                    broadcast_message[_].add(
+                                        (
+                                            firing_neuron_loc[0],
+                                            firing_neuron_loc[1],
+                                            firing_neuron_loc[2]
+                                        )
+                                    )
+                    return broadcast_message
+                except Exception as e:
+                    print("Exception during voxelization.", e, traceback.print_exc())
+            else:
+                print("No blueprint found in genome during voxelization!")
+        else:
+            print("No genome found during voxelization!")
+
     def terminate_on_low_perf():
         # TBD
         pass
@@ -544,8 +631,8 @@ def burst_manager():
             runtime_data.pending_genome = None
             if runtime_data.pending_brain:
                 runtime_data.brain = runtime_data.pending_brain
-            else:
-                print("No brain in pending state found!")
+                print("⚠️ A brain is in pending state!")
+
             runtime_data.pending_brain = None
             if runtime_data.pending_voxel_dict:
                 runtime_data.voxel_dict = runtime_data.pending_voxel_dict
@@ -614,6 +701,8 @@ def burst_manager():
 
         if runtime_data.genome:
             runtime_data.current_age += 1
+
+        print("runtime_data.fire_candidate_list:", runtime_data.fire_candidate_list)
 
         if runtime_data.brain and runtime_data.brain_readiness:
             # Activating the always on neurons

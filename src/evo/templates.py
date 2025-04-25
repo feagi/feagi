@@ -71,6 +71,20 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [50, 0, 0]
             },
+            "i_comp": {
+                "enabled": True,
+                "cortical_name": "Compass sensor",
+                "structure": "symmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [100, 0, 0]
+            },
+            "ieuler": {
+                "enabled": True,
+                "cortical_name": "Euler angle sensor",
+                "structure": "symmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [60, 0, 0]
+            },
             "ishock": {
                 "enabled": True,
                 "cortical_name": "Shock sensor",
@@ -84,6 +98,13 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "coordinate_3d": [60, 0, 0]
+            },
+            "iv00CC": {
+                "enabled": True,
+                "cortical_name": "Central vision sensor in color",
+                "structure": "asymmetric",
+                "resolution": [32, 32, 3],
+                "coordinate_3d": [30, 100, -20]
             },
             "iv00_C": {
                 "enabled": True,
@@ -190,6 +211,20 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [60, 0, 0]
             },
+            "ilidar": {
+                "enabled": True,
+                "cortical_name": "Lidar Input",
+                "structure": "asymmetric",
+                "resolution": [60, 20, 1],
+                "coordinate_3d": [10, -40, -20]
+            },
+            "i_hear": {
+                "enabled": True,
+                "cortical_name": "Auditory Input",
+                "structure": "asymmetric",
+                "resolution": [60, 20, 1],
+                "coordinate_3d": [100, -40, -20]
+            },
         },
         "name_to_id_mapping": {
             "infrared": [
@@ -213,13 +248,20 @@ cortical_types = {
             "gyro": [
                 "i__gyr"
             ],
+            "euler": [
+                "ieuler"
+            ],
             "shock": [
                 "ishock"
             ],
             "battery": [
                 "i__bat"
             ],
+            "compass": [
+                "i_comp"
+            ],
             "camera": [
+                "iv00CC",
                 "iv00_C",
                 "iv00TL",
                 "iv00TM",
@@ -250,8 +292,13 @@ cortical_types = {
             ],
             "pressure": [
                 "i_pres"
+            ],
+            "lidar": [
+                "ilidar"
+            ],
+            "audio": [
+                "i_hear"
             ]
-
         }
     },
     "OPU": {
@@ -272,8 +319,8 @@ cortical_types = {
                 "cortical_name": "Digital output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [-40, 0, 0]
             },
             "oagpio": {
                 "enabled": True,
@@ -281,8 +328,8 @@ cortical_types = {
                 "cortical_name": "Analog output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 10],
+                "coordinate_3d": [-40, 0, 10]
             },
             "oogpio": {
                 "enabled": True,
@@ -290,8 +337,8 @@ cortical_types = {
                 "cortical_name": "GPIO output pin assignment",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [-40, 0, 20]
             },
             "oigpio": {
                 "enabled": True,
@@ -299,8 +346,8 @@ cortical_types = {
                 "cortical_name": "GPIO input pin assignment",
                 "controller_id": "gpio_input",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [-40, 0, 30]
             },
             "o__nav": {
                 "enabled": True,
@@ -309,7 +356,7 @@ cortical_types = {
                 "controller_id": "navigation",
                 "structure": "asymmetric",
                 "resolution": [3, 1, 21],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-30, 0, 0]
             },
             "o__spd": {
                 "enabled": True,
@@ -318,7 +365,7 @@ cortical_types = {
                 "controller_id": "speed",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-30, 0, 10]
             },
             "o__bat": {
                 "enabled": True,
@@ -327,7 +374,7 @@ cortical_types = {
                 "controller_id": "battery",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-50, 0, 0]
             },
             "o_init": {
                 "enabled": True,
@@ -336,7 +383,7 @@ cortical_types = {
                 "controller_id": "reset",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [0, 0, -20]
             },
             "o_stop": {
                 "enabled": True,
@@ -345,7 +392,7 @@ cortical_types = {
                 "controller_id": "emergency",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [5, 0, -20]
             },
             "o__ser": {
                 "enabled": True,
@@ -372,7 +419,7 @@ cortical_types = {
                 "controller_id": "blink",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [50, 0, -5]
             },
             "o___id": {
                 "enabled": True,
@@ -408,7 +455,7 @@ cortical_types = {
                 "controller_id": "misc",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [20, 0, -10]
             },
             "o_mctl": {
                 "enabled": True,
@@ -417,7 +464,7 @@ cortical_types = {
                 "controller_id": "motion_control",
                 "structure": "asymmetric",
                 "resolution": [4, 3, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [20, 0, -10]
             },
             "ovflph": {
                 "enabled": True,
@@ -435,7 +482,7 @@ cortical_types = {
                 "controller_id": "vertical_flip",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [25, 0, 0]
             },
             "ov_mod": {
                 "enabled": True,
@@ -444,7 +491,7 @@ cortical_types = {
                 "controller_id": "modulation_control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [30, 0, 0]
             },
             "ov_ecc": {
                 "enabled": True,
@@ -453,7 +500,7 @@ cortical_types = {
                 "controller_id": "eccentricity_control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [35, 0, 0]
             },
             "ov_enh": {
                 "enabled": True,
@@ -462,7 +509,7 @@ cortical_types = {
                 "controller_id": "enhancement",
                 "structure": "asymmetric",
                 "resolution": [3, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [40, 0, 0]
             },
             "ovtune": {
                 "enabled": True,
@@ -471,7 +518,7 @@ cortical_types = {
                 "controller_id": "threshold",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [45, 0, 0]
             },
             "o__led": {
                 "enabled": True,
@@ -490,7 +537,26 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [3, 3, 1],
                 "coordinate_3d": [-20, 0, -50]
-            }
+            },
+            "ov_out": {
+                "enabled": True,
+                "measurable": False,
+                "cortical_name": "Vision output",
+                "controller_id": "vision_output",
+                "structure": "asymmetric",
+                "resolution": [128, 128, 1],
+                "coordinate_3d": [-200, 0, -50]
+            },
+            "opoint": {
+                "enabled": True,
+                "measurable": False,
+                "cortical_name": "Pointer",
+                "controller_id": "pointer_location",
+                "structure": "asymmetric",
+                "resolution": [64, 64, 1],
+                "coordinate_3d": [-100, 50, -50]
+            },
+
         },
         "name_to_id_mapping": {
             "motor": [
@@ -525,6 +591,7 @@ cortical_types = {
             "recognition": [
                 "o___id",
                 "o__loc",
+                "o__sid"
             ],
             "motion_control": [
                 "o_mctl"
@@ -539,7 +606,14 @@ cortical_types = {
             ],
             "analog_output": [
                 "oagpio"
+            ],
+            "pointer_location": [
+                "opoint"
+            ],
+            "vision_out": [
+                "ov_out"
             ]
+
         }
     },
     "CORE": {
@@ -597,6 +671,7 @@ cortical_template = {
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
     "init_lifespan": 9,
+    "temporal_depth": 1,
     "neuron_excitability": 100
 }
 

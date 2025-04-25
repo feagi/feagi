@@ -31,12 +31,12 @@ class Settings(BaseSettings):
     FEAGI."""
     title: str = "FEAGI API Documentation"
     version: str = "1"
-    terms_of_service: str = "http://feagi.org"
+    terms_of_service: str = "https://feagi.org"
     favicon_path: str = "favicon.svg"
     contact: dict = {
         "name": "FEAGI Community",
-        "url": "http://feagi.org",
-        "email": "info@feagi.org",
+        "url": "https://feagi.org",
+        "email": "feagi@neuraville.com",
     }
     license_info: dict = {
         "name": "Apache 2.0",

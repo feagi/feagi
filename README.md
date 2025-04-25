@@ -1,7 +1,12 @@
 # Hello and welcome to FEAGI! 
 
+[![Bouncing a pebble](thumbnail.png)](https://github.com/user-attachments/assets/c1b57ce8-6b66-4a29-a0a9-9f2e9e21da0e)
+
+
+[![GitHub Release](https://img.shields.io/github/v/release/feagi/brain-visualizer)](https://github.com/feagi/feagi/releases) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![GitHub License](https://img.shields.io/github/license/feagi/feagi)](https://www.apache.org/licenses/LICENSE-2.0.txt)
+
 * For the most up to date information about our platform and approach, please reference our [Wiki](https://github.com/feagi/feagi/wiki).
-* To get started using our platform please follow our [**Deployment Guide**](https://github.com/feagi/feagi/wiki/Deployment-(for-the-public)) and start by following our [**tutorials**](https://github.com/feagi/feagi/wiki/Tutorials)
+* To get started using our platform please follow our [**Deployment Guide**](https://github.com/feagi/feagi/wiki/Deployment) and start by following our [**tutorials**](https://github.com/feagi/feagi/wiki/Tutorials)
 * To learn more and get involved in the community, join our the FEAGI [Linkedin group](https://www.linkedin.com/groups/12777894/).
 
 # About FEAGI
@@ -12,8 +17,7 @@ since 2016 and has been publicly introduced in 2020 through
 a journal paper published in IEEE Transactions on Neural Networks. Thus far, [Neuraville](https://neuraville.com) has 
 been the biggest contributor to this open-source software but we hope others would join in building an amazing solution.
 
-[FEAGI.org](https://feagi.org) is dedicated to this project and intends to capture information about FEAGI applications, 
-use-cases, tutorials, and deployment examples. To learn more and get involved, join the FEAGI [LinkedIn group](https://www.linkedin.com/groups/12777894/).
+To learn more and get involved, join the FEAGI [LinkedIn group](https://www.linkedin.com/groups/12777894/).
 
 Here are some key highlights of the framework differentiating it from others:
 * Inspired by the evolutionary process that developed the human brain over millions of years
@@ -27,7 +31,7 @@ Here are some key highlights of the framework differentiating it from others:
 
 &nbsp;
 # Deployment
-For deployment instructions, please refer to the ***[Deployment Guide](./DEPLOY.md)***.
+For deployment instructions, please refer to the ***[Deployment Guide](https://github.com/feagi/feagi/wiki/Deployment)***.
 
 &nbsp;
 # Framework Overview
@@ -129,7 +133,7 @@ Here is a list of terminologies and common terms used throughout the documentati
 
 ## Citation
 
-If you use MuJoCo for published research, please cite:
+If you use FEAGI for published research, please cite:
 
 ```
 @ARTICLE{9034490,
@@ -146,7 +150,7 @@ If you use MuJoCo for published research, please cite:
 
 ## License and Disclaimer
 
-Copyright 2024 Neuraville Inc.
+Copyright 2025 Neuraville Inc.
 
 Source code is licensed under the Apache License, Version 2.0. You may obtain a
 copy of the License at https://www.apache.org/licenses/LICENSE-2.0.

@@ -31,6 +31,7 @@ from .commons import CustomError, api_queue
 from .models import *
 from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \
     network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping, region
+from .routers.v1 import inputs
 from src.inf.feagi import start_feagi
 
 logger = logging.getLogger(__name__)
@@ -238,6 +239,14 @@ app.include_router(
     neuroplasticity.router,
     prefix="/v1/neuroplasticity",
     tags=["NEUROPLASTICITY"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
+    inputs.router,
+    prefix="/v1/input",
+    tags=["INPUT MANAGEMENT"],
     dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )

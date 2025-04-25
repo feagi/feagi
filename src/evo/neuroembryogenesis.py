@@ -173,10 +173,7 @@ def develop_brain(reincarnation_mode=False):
         start_time = datetime.datetime.now()
         develop()
 
-        print("-----------------  Brain Development Completed Successfully -------------------")
-        for _ in range(10):
-            print("#" * 40)
-
+        print("🧠 -----------------  Brain Development Completed Successfully -------------------")
         print("\nBrain development lasted %s\n" % (datetime.datetime.now()-start_time))
 
 
