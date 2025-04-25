@@ -71,6 +71,20 @@ cortical_types = {
                 "resolution": [3, 1, 21],
                 "coordinate_3d": [50, 0, 0]
             },
+            "i_comp": {
+                "enabled": True,
+                "cortical_name": "Compass sensor",
+                "structure": "symmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [100, 0, 0]
+            },
+            "ieuler": {
+                "enabled": True,
+                "cortical_name": "Euler angle sensor",
+                "structure": "symmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [60, 0, 0]
+            },
             "ishock": {
                 "enabled": True,
                 "cortical_name": "Shock sensor",
@@ -234,11 +248,17 @@ cortical_types = {
             "gyro": [
                 "i__gyr"
             ],
+            "euler": [
+                "ieuler"
+            ],
             "shock": [
                 "ishock"
             ],
             "battery": [
                 "i__bat"
+            ],
+            "compass": [
+                "i_comp"
             ],
             "camera": [
                 "iv00CC",
@@ -279,7 +299,6 @@ cortical_types = {
             "audio": [
                 "i_hear"
             ]
-
         }
     },
     "OPU": {
@@ -519,6 +538,15 @@ cortical_types = {
                 "resolution": [3, 3, 1],
                 "coordinate_3d": [-20, 0, -50]
             },
+            "ov_out": {
+                "enabled": True,
+                "measurable": False,
+                "cortical_name": "Vision output",
+                "controller_id": "vision_output",
+                "structure": "asymmetric",
+                "resolution": [128, 128, 1],
+                "coordinate_3d": [-200, 0, -50]
+            },
             "opoint": {
                 "enabled": True,
                 "measurable": False,
@@ -563,6 +591,7 @@ cortical_types = {
             "recognition": [
                 "o___id",
                 "o__loc",
+                "o__sid"
             ],
             "motion_control": [
                 "o_mctl"
@@ -581,6 +610,10 @@ cortical_types = {
             "pointer_location": [
                 "opoint"
             ],
+            "vision_out": [
+                "ov_out"
+            ]
+
         }
     },
     "CORE": {

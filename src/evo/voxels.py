@@ -214,15 +214,15 @@ def y_block_refs(cortical_area, x_ref, z_ref):
     return block_ref_list
 
 
-def z_block_refs(cortical_area, x_ref, y_ref):
-    """
-    Returns the list of all blocks in a given cortical area in a block_ref format
-    """
-    block_ref_list = list()
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
-    for z in range(block_boundaries[2]):
-        block_ref_list.append((x_ref, y_ref, z))
-    return block_ref_list
+# def z_block_refs(cortical_area, x_ref, y_ref):
+#     """
+#     Returns the list of all blocks in a given cortical area in a block_ref format
+#     """
+#     block_ref_list = list()
+#     block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
+#     for z in range(block_boundaries[2]):
+#         block_ref_list.append((x_ref, y_ref, z))
+#     return block_ref_list
 
 
 def percent_active_neurons_in_block(block_ref, cortical_area, current_fcl=True):
