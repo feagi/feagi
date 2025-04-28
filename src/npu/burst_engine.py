@@ -702,8 +702,6 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
-        print("runtime_data.fire_candidate_list:", runtime_data.fire_candidate_list)
-
         if runtime_data.brain and runtime_data.brain_readiness:
             # Activating the always on neurons
             if "___pwr" in runtime_data.brain:
