@@ -1,0 +1,14 @@
+#!/bin/bash
+# Script to start the FEAGI ZMQ server
+
+# Get the directory of this script
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Activate virtual environment if it exists
+if [ -d "$SCRIPT_DIR/.venv" ]; then
+    source "$SCRIPT_DIR/.venv/bin/activate"
+fi
+
+# Run the ZMQ server with the correct Python
+# Pass all arguments to the script
+python3 -m feagi.zmq.server "$@" 
