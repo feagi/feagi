@@ -9,7 +9,7 @@ The Framework for Evolutionary Artificial General Intelligence (FEAGI)
 - Multi-backend support (CPU/GPU)
 - FastAPI-based REST API
 - High-performance ZMQ messaging for bidirectional communication
-- Modular architecture and seperation of compute intensive operations (neural processing) with async operations (neural development, data visualization, app management)
+- Modular architecture and separation of compute intensive operations (neural processing) with async operations (neural development, data visualization, app management)
 - Pathway for evolutionary optimization
 - Configurable visualization sampling for high-frequency simulations
 
