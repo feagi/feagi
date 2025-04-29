@@ -12,9 +12,20 @@ from feagi.core.backend.interface import (
     get_backend,
 )
 
+# Import backend implementations
+from feagi.core.backend.cpu import CPUBackend
+
+try:
+    from feagi.core.backend.webgpu import WebGPUBackend
+except ImportError:
+    # WebGPU support is optional
+    pass
+
 __all__ = [
     "BackendType",
     "BackendInterface",
     "get_available_backends",
     "get_backend",
+    "CPUBackend",
+    "WebGPUBackend",
 ] 
