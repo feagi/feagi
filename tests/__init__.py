@@ -1,1 +1,1 @@
-"""Tests for the FEAGI framework.""" 
+"""Tests for FEAGI.""" 
