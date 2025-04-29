@@ -2,9 +2,9 @@
 name = "feagi-rust"
 version = "0.1.0"
 edition = "2021"
-authors = ["FEAGI Team <info@feagi.org>"]
+authors = ["Neuraville Inc. <feagi@neuraville.com>"]
 description = "Rust extensions for the FEAGI framework"
-license = "MIT"
+license = "Apache 2.0"
 repository = "https://github.com/feagi/feagi"
 
 [lib]
