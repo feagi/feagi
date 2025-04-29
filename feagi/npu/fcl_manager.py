@@ -1364,10 +1364,47 @@ def example_enhanced_fcl_usage() -> None:
         print(f"  Area {area_id}: window_size={area_info['window_size']}, active_neurons={area_info['current_neurons']}")
 
 
+# Example: Injecting specific neurons into the FCL for a memory area
+def inject_neurons_into_fcl(fcl_manager, area_id, neuron_ids, timestep=None):
+    """
+    Inject specific neurons into the FCL for a given area.
+    
+    Args:
+        fcl_manager: EnhancedHierarchicalFCL instance
+        area_id: ID of the area to inject neurons into
+        neuron_ids: List/Set/BitMap of neuron IDs to inject
+        timestep: Optional timestep (defaults to current)
+    """
+    if timestep is None:
+        timestep = fcl_manager.current_timestep
+    
+    # Create a dictionary with just the area we want to inject neurons into
+    neurons_by_area = {area_id: neuron_ids}
+    
+    # Update FCL with just this area (others will remain unchanged)
+    fcl_manager.update_fcl(timestep, neurons_by_area)
+    
+    return f"Injected {len(neuron_ids) if not isinstance(neuron_ids, BitMap) else len(neuron_ids)} neurons into area {area_id} at timestep {timestep}"
+
+
 if __name__ == "__main__":
     # Set up logging
     logging.basicConfig(level=logging.DEBUG)
     
     # Run examples
     example_fcl_usage()
-    example_enhanced_fcl_usage() 
+    example_enhanced_fcl_usage()
+
+    # Initialize the enhanced FCL
+    fcl = EnhancedHierarchicalFCL(default_window_size=5)
+
+    # Register a memory area
+    fcl.register_memory_area(area_id=500, window_size=100)
+
+    # Inject specific neurons into the hippocampus memory area
+    hippocampus_neurons = [501, 502, 503, 504]
+    inject_neurons_into_fcl(fcl, area_id=500, neuron_ids=hippocampus_neurons)
+
+    # Check the injected neurons
+    result = fcl.get_area_fcl(area_id=500)
+    print(f"Neurons in hippocampus: {result}") 
