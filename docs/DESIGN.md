@@ -31,7 +31,7 @@ FEAGI uses a message-based architecture for its BurstEngine implementation, prov
 │               └── v2/     #
 │   ├── bdu/                # Brain Developmental Unit
 │   ├── npu/                # Neural Processing Unit
-│   ├── evo/                # Evolutionary algorithms 
+│   ├── evo/                # Evolutionary Unit 
 │   ├── pns/                # Peripherial Nervous System and sensorimotor IO modules
 │   └── viz/                # Visualization data transformation
 ├── tests/                  # Unit, integration, and functional tests
@@ -51,7 +51,7 @@ to support both CPU and GPU backends. The rest of the application will be runnin
 
 ## Security Considerations
 ### Authentication
-FEAGI API and ZMQ will be equipped with authentication enabling secure communication on all communication methods.
+FEAGI API and ZMQ will eventually be equipped with authentication enabling secure communication on all communication methods.
 
 ### Encryption
 Encryption can negatively impact the transmission of sensorimotor data by adding latency but might be essential for 
