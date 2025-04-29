@@ -11,6 +11,8 @@ import time
 import os
 import signal
 import logging
+import importlib
+from typing import Dict, Any, Optional, List
 
 # Configure logging
 logging.basicConfig(
@@ -19,7 +21,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("feagi.main")
 
-# Import other modules only when needed to avoid circular imports
+# Global reference to ZMQ server instance
+_zmq_server_instance = None
 
 def check_dependencies():
     """
@@ -61,8 +64,141 @@ def check_dependencies():
         return True  # Continue execution despite the error
 
 
+def start_api_server(args: Dict[str, Any]) -> Optional[subprocess.Popen]:
+    """Start the API server as a separate process.
+    
+    Args:
+        args: Configuration arguments for the API server
+        
+    Returns:
+        The process object if successful, None otherwise
+    """
+    logger.info(f"Starting API server on {args['host']}:{args['port']}")
+    
+    cmd = [
+        sys.executable, "-m", "feagi.api.server",
+        "--host", args["host"],
+        "--port", str(args["port"])
+    ]
+    
+    if args.get("reload"):
+        cmd.append("--reload")
+    
+    try:
+        process = subprocess.Popen(cmd)
+        logger.info(f"API server started with PID {process.pid}")
+        return process
+    except Exception as e:
+        logger.error(f"Failed to start API server: {e}")
+        return None
+
+
+def start_zmq_server(args: Dict[str, Any]) -> bool:
+    """Start the ZMQ server in the current process.
+    
+    This avoids subprocess issues by running the ZMQ server in-process.
+    
+    Args:
+        args: Configuration arguments for the ZMQ server
+        
+    Returns:
+        True if started successfully, False otherwise
+    """
+    global _zmq_server_instance
+    
+    logger.info(f"Starting ZMQ server on {args['host']} (pub: {args['pub_port']}, sub: {args['sub_port']})")
+    
+    # Set relevant environment variables
+    os.environ["FEAGI_ZMQ_HOST"] = args["host"]
+    os.environ["FEAGI_ZMQ_PUB_PORT"] = str(args["pub_port"])
+    os.environ["FEAGI_ZMQ_SUB_PORT"] = str(args["sub_port"])
+    os.environ["FEAGI_ZMQ_TOPICS"] = ",".join(args["topics"] if args["topics"] else ["neural", "metrics", "heartbeat"])
+    
+    try:
+        # Import ZMQServer with better diagnostics
+        try:
+            # Try to import the module without creating a ZMQServer yet
+            module = importlib.import_module("feagi.core.zmq.server")
+            logger.info(f"Successfully imported ZMQ server module from: {getattr(module, '__file__', 'unknown')}")
+            
+            # Check if the module has ZMQ_AVAILABLE flag and log it
+            if hasattr(module, 'ZMQ_AVAILABLE'):
+                logger.info(f"ZMQ_AVAILABLE in module: {module.ZMQ_AVAILABLE}")
+            
+            # Check if ZMQ has Context in the module's scope
+            if hasattr(module, 'zmq') and hasattr(module.zmq, 'Context'):
+                logger.info(f"ZMQ Context found in module: {module.zmq.Context}")
+            
+            # Get ZMQServer class
+            ZMQServer = getattr(module, "ZMQServer")
+            
+            # Create server instance
+            logger.info("Creating ZMQServer instance...")
+            _zmq_server_instance = ZMQServer(
+                host=args["host"],
+                pub_port=args["pub_port"],
+                sub_port=args["sub_port"],
+                topics=args["topics"],
+                logger=logger
+            )
+            
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Failed to import ZMQServer from feagi.core.zmq.server: {e}")
+            logger.info("Trying fallback import from feagi.zmq...")
+            
+            # Fallback to legacy import path
+            try:
+                from feagi.zmq import create_zmq_server
+                _zmq_server_instance = create_zmq_server(
+                    host=args["host"],
+                    pub_port=args["pub_port"],
+                    sub_port=args["sub_port"],
+                    topics=args["topics"]
+                )
+                
+                if _zmq_server_instance is None:
+                    logger.error("Failed to create ZMQ server using legacy API")
+                    return False
+            except Exception as e:
+                logger.error(f"Fallback import also failed: {e}")
+                return False
+        
+        # Start the server and return the result
+        if _zmq_server_instance is None:
+            logger.error("Failed to create ZMQ server instance")
+            return False
+            
+        logger.info("Starting ZMQ server...")
+        success = _zmq_server_instance.start()
+        if not success:
+            logger.error("Failed to start ZMQ server")
+            _zmq_server_instance = None
+            
+        return success
+            
+    except Exception as e:
+        logger.error(f"Error starting ZMQ server: {e}")
+        _zmq_server_instance = None
+        return False
+
+
+def get_zmq_client():
+    """
+    Get the ZMQ client instance.
+    
+    This provides access to the ZMQ server's functionality from other parts of FEAGI.
+    
+    Returns:
+        The ZMQ server instance or None if not running
+    """
+    global _zmq_server_instance
+    return _zmq_server_instance
+
+
 def main():
     """Run the complete FEAGI system with API and ZMQ servers."""
+    global _zmq_server_instance
+    
     parser = argparse.ArgumentParser(description="FEAGI Main Runner")
     
     # API server arguments
@@ -78,16 +214,27 @@ def main():
     zmq_group.add_argument("--zmq-sub-port", type=int, default=5557, help="ZMQ subscriber port")
     zmq_group.add_argument("--zmq-topics", type=str, nargs="+", default=["neural", "metrics", "heartbeat"], 
                           help="ZMQ topics to support")
-    zmq_group.add_argument("--zmq-auth", action="store_true", help="Enable ZMQ authentication")
-    zmq_group.add_argument("--zmq-encryption", action="store_true", help="Enable ZMQ encryption")
     
     # General arguments
-    parser.add_argument("--config", type=str, help="Path to general configuration file")
+    parser.add_argument("--config", type=str, help="Path to configuration file")
     parser.add_argument("--api-only", action="store_true", help="Start only the API server")
     parser.add_argument("--zmq-only", action="store_true", help="Start only the ZMQ server")
     parser.add_argument("--skip-version-check", action="store_true", help="Skip dependency version check")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     
     args = parser.parse_args()
+    
+    # Set debug logging if requested
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug logging enabled")
+    
+    # Set environment variables for containerization support
+    os.environ["FEAGI_ZMQ_HOST"] = args.zmq_host
+    os.environ["FEAGI_ZMQ_PUB_PORT"] = str(args.zmq_pub_port)
+    os.environ["FEAGI_ZMQ_SUB_PORT"] = str(args.zmq_sub_port)
+    os.environ["FEAGI_ZMQ_TOPICS"] = ",".join(args.zmq_topics)
     
     # Check dependencies unless explicitly skipped
     if args.skip_version_check:
@@ -103,10 +250,19 @@ def main():
     # Handle Ctrl+C and termination signals
     def signal_handler(sig, frame):
         logger.info("\nShutting down FEAGI servers...")
+        
+        # Shutdown ZMQ server if running
+        if _zmq_server_instance is not None:
+            logger.info("Terminating ZMQ server...")
+            _zmq_server_instance.shutdown()
+            _zmq_server_instance = None
+        
+        # Terminate child processes
         for name, process in processes.items():
             if process.poll() is None:  # If process is still running
                 logger.info(f"Terminating {name} server...")
                 process.terminate()
+                
         logger.info("FEAGI servers shut down")
         sys.exit(0)
     
@@ -116,46 +272,31 @@ def main():
     try:
         # Start API server if requested or if neither --api-only nor --zmq-only is specified
         if not args.zmq_only:
-            logger.info(f"Starting API server on {args.api_host}:{args.api_port}")
-            api_cmd = [
-                sys.executable, "-m", "feagi.api.server",
-                "--host", args.api_host,
-                "--port", str(args.api_port)
-            ]
-            if args.api_reload:
-                api_cmd.append("--reload")
-            
-            api_process = subprocess.Popen(api_cmd)
-            processes["API"] = api_process
-            logger.info(f"API server started with PID {api_process.pid}")
+            api_args = {
+                "host": args.api_host,
+                "port": args.api_port,
+                "reload": args.api_reload
+            }
+            api_process = start_api_server(api_args)
+            if api_process:
+                processes["API"] = api_process
+            else:
+                logger.error("Failed to start API server")
+                return 1
         
         # Start ZMQ server if requested or if neither --api-only nor --zmq-only is specified
         if not args.api_only:
-            logger.info(f"Starting ZMQ server on {args.zmq_host} (pub: {args.zmq_pub_port}, sub: {args.zmq_sub_port})")
-            zmq_cmd = [
-                sys.executable, "-m", "feagi.zmq.server",
-                "--host", args.zmq_host,
-                "--pub-port", str(args.zmq_pub_port),
-                "--sub-port", str(args.zmq_sub_port)
-            ]
+            zmq_args = {
+                "host": args.zmq_host,
+                "pub_port": args.zmq_pub_port,
+                "sub_port": args.zmq_sub_port,
+                "topics": args.zmq_topics,
+            }
             
-            # Add topics if specified
-            if args.zmq_topics:
-                zmq_cmd.extend(["--topics"] + args.zmq_topics)
-            
-            # Add auth and encryption flags if enabled
-            if args.zmq_auth:
-                zmq_cmd.append("--auth")
-            if args.zmq_encryption:
-                zmq_cmd.append("--encryption")
-            
-            # Add config if specified
-            if args.config:
-                zmq_cmd.extend(["--config", args.config])
-            
-            zmq_process = subprocess.Popen(zmq_cmd)
-            processes["ZMQ"] = zmq_process
-            logger.info(f"ZMQ server started with PID {zmq_process.pid}")
+            # Start ZMQ server inline
+            if not start_zmq_server(zmq_args):
+                logger.error("Failed to start ZMQ server")
+                return 1
         
         # Keep the main process running and monitor child processes
         while True:
@@ -167,9 +308,15 @@ def main():
                     return_code = process.returncode
                     logger.error(f"{name} server exited with code {return_code}")
                     del processes[name]
+                    
+                    # If API server exits, also stop the ZMQ server
+                    if name == "API" and _zmq_server_instance is not None:
+                        logger.info("API server exited, shutting down ZMQ server")
+                        _zmq_server_instance.shutdown()
+                        _zmq_server_instance = None
             
-            # Exit if all processes have terminated
-            if not processes:
+            # Exit if all processes have terminated and ZMQ server is not running
+            if not processes and _zmq_server_instance is None:
                 logger.error("All servers have terminated. Exiting.")
                 return 1
     
@@ -179,7 +326,12 @@ def main():
     
     except Exception as e:
         logger.error(f"Error in main process: {e}")
-        # Ensure all child processes are terminated
+        # Ensure all resources are released
+        if _zmq_server_instance is not None:
+            _zmq_server_instance.shutdown()
+            _zmq_server_instance = None
+            
+        # Terminate child processes
         for name, process in processes.items():
             if process.poll() is None:
                 process.terminate()
