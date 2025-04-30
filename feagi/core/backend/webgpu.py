@@ -53,7 +53,16 @@ class WebGPUBackend(BackendInterface):
             return False
         
         try:
-            self.adapter = wgpu.request_adapter(power_preference="high-performance")
+            # Use wgpu.gpu for newer versions of wgpu
+            if hasattr(wgpu, 'gpu') and hasattr(wgpu.gpu, 'request_adapter'):
+                self.adapter = wgpu.gpu.request_adapter(power_preference="high-performance")
+            # Fallback to direct access for older versions
+            elif hasattr(wgpu, 'request_adapter'):
+                self.adapter = wgpu.request_adapter(power_preference="high-performance")
+            else:
+                logger.error("WebGPU API not found in installed wgpu package")
+                return False
+                
             self.device = self.adapter.request_device()
             
             # Log device information
