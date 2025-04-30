@@ -219,6 +219,87 @@ class WebGPUBackend(BackendInterface):
         
         self._shader_modules["elementwise"] = self.device.create_shader_module(code=elementwise_shader)
         
+        # FCL bitmap operations shader
+        bitmap_shader = """
+        @group(0) @binding(0) var<storage, read> bitmap1: array<u32>;
+        @group(0) @binding(1) var<storage, read> bitmap2: array<u32>;
+        @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+        
+        @compute @workgroup_size(256)
+        fn bitmap_or(@builtin(global_invocation_id) id: vec3<u32>) {
+            let index = id.x;
+            if (index >= arrayLength(&output)) {
+                return;
+            }
+            output[index] = bitmap1[index] | bitmap2[index];
+        }
+        
+        @compute @workgroup_size(256)
+        fn bitmap_and(@builtin(global_invocation_id) id: vec3<u32>) {
+            let index = id.x;
+            if (index >= arrayLength(&output)) {
+                return;
+            }
+            output[index] = bitmap1[index] & bitmap2[index];
+        }
+        
+        @compute @workgroup_size(256)
+        fn bitmap_xor(@builtin(global_invocation_id) id: vec3<u32>) {
+            let index = id.x;
+            if (index >= arrayLength(&output)) {
+                return;
+            }
+            output[index] = bitmap1[index] ^ bitmap2[index];
+        }
+        
+        @compute @workgroup_size(256)
+        fn bitmap_not(@builtin(global_invocation_id) id: vec3<u32>) {
+            let index = id.x;
+            if (index >= arrayLength(&output)) {
+                return;
+            }
+            output[index] = ~bitmap1[index];
+        }
+        
+        @compute @workgroup_size(256)
+        fn bitmap_sub(@builtin(global_invocation_id) id: vec3<u32>) {
+            let index = id.x;
+            if (index >= arrayLength(&output)) {
+                return;
+            }
+            // Remove bits in bitmap2 from bitmap1
+            output[index] = bitmap1[index] & (~bitmap2[index]);
+        }
+        
+        @compute @workgroup_size(256)
+        fn bitmap_clear(@builtin(global_invocation_id) id: vec3<u32>) {
+            let index = id.x;
+            if (index >= arrayLength(&output)) {
+                return;
+            }
+            output[index] = 0u;
+        }
+        
+        @compute @workgroup_size(256)
+        fn bitmap_set_bit(@builtin(global_invocation_id) id: vec3<u32>) {
+            let neuron_id = id.x;
+            if (neuron_id >= arrayLength(&bitmap1)) {
+                return;
+            }
+            
+            // bitmap1 contains the neuron IDs to set
+            // bitmap2 contains the bitmap to update
+            let chunk_index = neuron_id / 32u;
+            let bit_index = neuron_id % 32u;
+            let mask = 1u << bit_index;
+            
+            // Atomic OR to set the bit
+            atomicOr(&output[chunk_index], mask);
+        }
+        """
+        
+        self._shader_modules["bitmap_ops"] = self.device.create_shader_module(code=bitmap_shader)
+        
         # Neuron dynamics shader for burst engine
         neuron_shader = """
         struct NeuronParams {
@@ -271,6 +352,298 @@ class WebGPUBackend(BackendInterface):
         """
         
         self._shader_modules["neuron_dynamics"] = self.device.create_shader_module(code=neuron_shader)
+    
+    def bitmap_or(self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor) -> WebGPUTensor:
+        """Perform bitwise OR operation between two bitmaps."""
+        if not self.initialized:
+            raise RuntimeError("WebGPU backend is not initialized")
+        
+        if bitmap1.shape != bitmap2.shape:
+            raise ValueError("Input bitmaps must have the same shape")
+        
+        # Create output tensor
+        output = self.create_tensor(bitmap1.shape, bitmap1.dtype)
+        
+        # Create bind group layout
+        bind_group_layout = self.device.create_bind_group_layout(
+            entries=[
+                {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.storage}},
+            ]
+        )
+        
+        # Create pipeline layout
+        pipeline_layout = self.device.create_pipeline_layout(bind_group_layouts=[bind_group_layout])
+        
+        # Create compute pipeline
+        compute_pipeline = self.device.create_compute_pipeline(
+            layout=pipeline_layout,
+            compute={"module": self._shader_modules["bitmap_ops"], "entry_point": "bitmap_or"}
+        )
+        
+        # Create bind group
+        bind_group = self.device.create_bind_group(
+            layout=bind_group_layout,
+            entries=[
+                {"binding": 0, "resource": {"buffer": bitmap1.buffer}},
+                {"binding": 1, "resource": {"buffer": bitmap2.buffer}},
+                {"binding": 2, "resource": {"buffer": output.buffer}},
+            ]
+        )
+        
+        # Create command encoder
+        encoder = self.device.create_command_encoder()
+        
+        # Begin compute pass
+        compute_pass = encoder.begin_compute_pass()
+        compute_pass.set_pipeline(compute_pipeline)
+        compute_pass.set_bind_group(0, bind_group)
+        
+        # Dispatch compute shader
+        workgroup_count = (bitmap1.size + 255) // 256
+        compute_pass.dispatch(workgroup_count)
+        
+        # End compute pass
+        compute_pass.end()
+        
+        # Submit commands
+        self.device.queue.submit([encoder.finish()])
+        
+        return output
+    
+    def bitmap_and(self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor) -> WebGPUTensor:
+        """Perform bitwise AND operation between two bitmaps."""
+        if not self.initialized:
+            raise RuntimeError("WebGPU backend is not initialized")
+        
+        if bitmap1.shape != bitmap2.shape:
+            raise ValueError("Input bitmaps must have the same shape")
+        
+        # Create output tensor
+        output = self.create_tensor(bitmap1.shape, bitmap1.dtype)
+        
+        # Create bind group layout
+        bind_group_layout = self.device.create_bind_group_layout(
+            entries=[
+                {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.storage}},
+            ]
+        )
+        
+        # Create pipeline layout
+        pipeline_layout = self.device.create_pipeline_layout(bind_group_layouts=[bind_group_layout])
+        
+        # Create compute pipeline
+        compute_pipeline = self.device.create_compute_pipeline(
+            layout=pipeline_layout,
+            compute={"module": self._shader_modules["bitmap_ops"], "entry_point": "bitmap_and"}
+        )
+        
+        # Create bind group
+        bind_group = self.device.create_bind_group(
+            layout=bind_group_layout,
+            entries=[
+                {"binding": 0, "resource": {"buffer": bitmap1.buffer}},
+                {"binding": 1, "resource": {"buffer": bitmap2.buffer}},
+                {"binding": 2, "resource": {"buffer": output.buffer}},
+            ]
+        )
+        
+        # Create command encoder
+        encoder = self.device.create_command_encoder()
+        
+        # Begin compute pass
+        compute_pass = encoder.begin_compute_pass()
+        compute_pass.set_pipeline(compute_pipeline)
+        compute_pass.set_bind_group(0, bind_group)
+        
+        # Dispatch compute shader
+        workgroup_count = (bitmap1.size + 255) // 256
+        compute_pass.dispatch(workgroup_count)
+        
+        # End compute pass
+        compute_pass.end()
+        
+        # Submit commands
+        self.device.queue.submit([encoder.finish()])
+        
+        return output
+    
+    def bitmap_xor(self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor) -> WebGPUTensor:
+        """Perform bitwise XOR operation between two bitmaps."""
+        if not self.initialized:
+            raise RuntimeError("WebGPU backend is not initialized")
+        
+        if bitmap1.shape != bitmap2.shape:
+            raise ValueError("Input bitmaps must have the same shape")
+        
+        # Create output tensor
+        output = self.create_tensor(bitmap1.shape, bitmap1.dtype)
+        
+        # Create bind group layout
+        bind_group_layout = self.device.create_bind_group_layout(
+            entries=[
+                {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.storage}},
+            ]
+        )
+        
+        # Create pipeline layout
+        pipeline_layout = self.device.create_pipeline_layout(bind_group_layouts=[bind_group_layout])
+        
+        # Create compute pipeline
+        compute_pipeline = self.device.create_compute_pipeline(
+            layout=pipeline_layout,
+            compute={"module": self._shader_modules["bitmap_ops"], "entry_point": "bitmap_xor"}
+        )
+        
+        # Create bind group
+        bind_group = self.device.create_bind_group(
+            layout=bind_group_layout,
+            entries=[
+                {"binding": 0, "resource": {"buffer": bitmap1.buffer}},
+                {"binding": 1, "resource": {"buffer": bitmap2.buffer}},
+                {"binding": 2, "resource": {"buffer": output.buffer}},
+            ]
+        )
+        
+        # Create command encoder
+        encoder = self.device.create_command_encoder()
+        
+        # Begin compute pass
+        compute_pass = encoder.begin_compute_pass()
+        compute_pass.set_pipeline(compute_pipeline)
+        compute_pass.set_bind_group(0, bind_group)
+        
+        # Dispatch compute shader
+        workgroup_count = (bitmap1.size + 255) // 256
+        compute_pass.dispatch(workgroup_count)
+        
+        # End compute pass
+        compute_pass.end()
+        
+        # Submit commands
+        self.device.queue.submit([encoder.finish()])
+        
+        return output
+    
+    def bitmap_subtract(self, bitmap1: WebGPUTensor, bitmap2: WebGPUTensor) -> WebGPUTensor:
+        """Perform bitmap subtraction (remove elements in bitmap2 from bitmap1)."""
+        if not self.initialized:
+            raise RuntimeError("WebGPU backend is not initialized")
+        
+        if bitmap1.shape != bitmap2.shape:
+            raise ValueError("Input bitmaps must have the same shape")
+        
+        # Create output tensor
+        output = self.create_tensor(bitmap1.shape, bitmap1.dtype)
+        
+        # Create bind group layout
+        bind_group_layout = self.device.create_bind_group_layout(
+            entries=[
+                {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.storage}},
+            ]
+        )
+        
+        # Create pipeline layout
+        pipeline_layout = self.device.create_pipeline_layout(bind_group_layouts=[bind_group_layout])
+        
+        # Create compute pipeline
+        compute_pipeline = self.device.create_compute_pipeline(
+            layout=pipeline_layout,
+            compute={"module": self._shader_modules["bitmap_ops"], "entry_point": "bitmap_sub"}
+        )
+        
+        # Create bind group
+        bind_group = self.device.create_bind_group(
+            layout=bind_group_layout,
+            entries=[
+                {"binding": 0, "resource": {"buffer": bitmap1.buffer}},
+                {"binding": 1, "resource": {"buffer": bitmap2.buffer}},
+                {"binding": 2, "resource": {"buffer": output.buffer}},
+            ]
+        )
+        
+        # Create command encoder
+        encoder = self.device.create_command_encoder()
+        
+        # Begin compute pass
+        compute_pass = encoder.begin_compute_pass()
+        compute_pass.set_pipeline(compute_pipeline)
+        compute_pass.set_bind_group(0, bind_group)
+        
+        # Dispatch compute shader
+        workgroup_count = (bitmap1.size + 255) // 256
+        compute_pass.dispatch(workgroup_count)
+        
+        # End compute pass
+        compute_pass.end()
+        
+        # Submit commands
+        self.device.queue.submit([encoder.finish()])
+        
+        return output
+    
+    def bitmap_set_bits(self, bitmap: WebGPUTensor, neuron_ids: WebGPUTensor) -> WebGPUTensor:
+        """Set bits in the bitmap for each neuron ID."""
+        if not self.initialized:
+            raise RuntimeError("WebGPU backend is not initialized")
+        
+        # Create output tensor (copy of input bitmap)
+        output = self.from_numpy(self.to_numpy(bitmap))
+        
+        # Create bind group layout
+        bind_group_layout = self.device.create_bind_group_layout(
+            entries=[
+                {"binding": 0, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 1, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.read_only_storage}},
+                {"binding": 2, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": wgpu.BufferBindingType.storage}},
+            ]
+        )
+        
+        # Create pipeline layout
+        pipeline_layout = self.device.create_pipeline_layout(bind_group_layouts=[bind_group_layout])
+        
+        # Create compute pipeline
+        compute_pipeline = self.device.create_compute_pipeline(
+            layout=pipeline_layout,
+            compute={"module": self._shader_modules["bitmap_ops"], "entry_point": "bitmap_set_bit"}
+        )
+        
+        # Create bind group
+        bind_group = self.device.create_bind_group(
+            layout=bind_group_layout,
+            entries=[
+                {"binding": 0, "resource": {"buffer": neuron_ids.buffer}},
+                {"binding": 1, "resource": {"buffer": bitmap.buffer}},
+                {"binding": 2, "resource": {"buffer": output.buffer}},
+            ]
+        )
+        
+        # Create command encoder
+        encoder = self.device.create_command_encoder()
+        
+        # Begin compute pass
+        compute_pass = encoder.begin_compute_pass()
+        compute_pass.set_pipeline(compute_pipeline)
+        compute_pass.set_bind_group(0, bind_group)
+        
+        # Dispatch compute shader - one workgroup per neuron ID
+        workgroup_count = (neuron_ids.size + 255) // 256
+        compute_pass.dispatch(workgroup_count)
+        
+        # End compute pass
+        compute_pass.end()
+        
+        # Submit commands
+        self.device.queue.submit([encoder.finish()])
+        
+        return output
 
 
 # Register backend if WebGPU is available
