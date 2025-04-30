@@ -131,6 +131,8 @@ class ResourceManager:
                 "cpu_cores": list(range(os.cpu_count() or 1)),
                 "gpu_available": False,
                 "gpu_count": 0,
+                "webgpu_available": False,
+                "metal_available": False,
                 "memory": self._get_available_memory(),
             }
             
@@ -148,8 +150,35 @@ class ResourceManager:
                         }
                         for i in range(resources["gpu_count"])
                     ]
+                
+                # Check for Apple Metal support
+                if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    resources["metal_available"] = True
+                    self.logger.info("Apple Metal (MPS) backend is available")
             except ImportError:
                 self.logger.warning("PyTorch not available. GPU detection skipped.")
+            
+            # Check for WebGPU support
+            try:
+                import wgpu
+                resources["webgpu_available"] = True
+                
+                # Get WebGPU adapter information if possible
+                try:
+                    if hasattr(wgpu, 'gpu') and hasattr(wgpu.gpu, 'request_adapter'):
+                        adapter = wgpu.gpu.request_adapter()
+                        if adapter:
+                            adapter_info = adapter.request_adapter_info()
+                            resources["webgpu_info"] = {
+                                "name": adapter_info.get("name", "Unknown"),
+                                "driver": adapter_info.get("driver", "Unknown"),
+                                "adapter_type": adapter_info.get("adapter_type", "Unknown")
+                            }
+                            self.logger.info(f"WebGPU adapter detected: {resources['webgpu_info']['name']}")
+                except Exception as e:
+                    self.logger.warning(f"WebGPU adapter detection error: {e}")
+            except ImportError:
+                self.logger.debug("WebGPU not available.")
             
             return resources
     

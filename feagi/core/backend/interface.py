@@ -176,138 +176,139 @@ def register_backend(backend_type: BackendType, backend_class: Type[BackendInter
 
 def get_available_backends() -> List[BackendType]:
     """
-    Get a list of available backends.
+    Get a list of available backends by querying the Resource Manager.
     
     Returns:
         List of available backend types.
     """
+    from feagi.core.resource_mgr import ResourceManager
+    
     available = []
     
     # CPU is always available
     available.append(BackendType.CPU)
     
-    # Try to import and detect other backends
+    # Get resource information from ResourceManager
     try:
-        import torch
-        if torch.cuda.is_available():
+        resource_mgr = ResourceManager.get_instance()
+        resources = resource_mgr.resources
+        
+        # Check for CUDA GPU availability
+        if resources.get("gpu_available", False) and resources.get("gpu_count", 0) > 0:
             available.append(BackendType.CUDA)
         
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        # Check for WebGPU availability
+        if BackendType.WEBGPU in _BACKENDS:
+            available.append(BackendType.WEBGPU)
+        
+        # Check for Metal (Apple Silicon) availability
+        if resources.get("metal_available", False):
             available.append(BackendType.METAL)
-    except ImportError:
-        pass
-    
-    # Check for WebGPU support (this is a placeholder - actual detection would be more complex)
-    try:
-        # This would need to be implemented based on how WebGPU is integrated
-        # For now, we just assume it's not available
-        pass
-    except ImportError:
-        pass
+            
+        logger.debug(f"Available backends detected via ResourceManager: {[b.value for b in available]}")
+    except Exception as e:
+        logger.warning(f"Error detecting available backends via ResourceManager: {e}")
+        logger.warning("Falling back to CPU backend only")
     
     return available
 
 
 def determine_best_backend() -> BackendType:
     """
-    Determine the best available backend based on hardware capabilities.
+    Determine the best available backend based on system capabilities.
+    
+    This function queries the ResourceManager to get the most appropriate
+    backend for the current hardware configuration.
     
     Returns:
-        The best backend type to use.
+        The best available backend type.
     """
-    available = get_available_backends()
+    from feagi.core.resource_mgr import ResourceManager
     
-    # Prefer CUDA > Metal > WebGPU > CPU
-    if BackendType.CUDA in available:
+    # Get system resources from ResourceManager
+    resources = ResourceManager.get_instance().resources
+    
+    # First preference: CUDA GPU if available
+    if resources.get("gpu_available", False) and resources.get("gpu_count", 0) > 0:
+        logger.info("CUDA GPU detected, selecting CUDA backend")
         return BackendType.CUDA
-    elif BackendType.METAL in available:
+    
+    # Second preference: Metal for Apple Silicon
+    if resources.get("metal_available", False):
+        logger.info("Apple Metal detected, selecting Metal backend")
         return BackendType.METAL
-    elif BackendType.WEBGPU in available:
+    
+    # Third preference: WebGPU if available
+    if resources.get("webgpu_available", False):
+        logger.info("WebGPU detected, selecting WebGPU backend")
         return BackendType.WEBGPU
-    else:
-        return BackendType.CPU
+    
+    # Default: CPU
+    logger.info("No GPU acceleration detected, falling back to CPU backend")
+    return BackendType.CPU
 
 
-def get_backend(backend_type: Optional[BackendType] = None) -> BackendInterface:
+def get_backend(backend_type: Optional[BackendType] = None) -> Optional[BackendInterface]:
     """
     Get or create a backend instance.
     
     Args:
-        backend_type: Type of backend to get or create. If None, use the configured backend.
+        backend_type: Type of backend to get. If None, the best available backend is chosen.
         
     Returns:
-        Backend instance.
-        
-    Raises:
-        ValueError: If the requested backend is not available.
+        A backend instance, or None if the requested backend is not available.
     """
     with _backend_lock:
-        # Determine which backend to use
-        if backend_type is None:
-            # Use configured backend, defaulting to AUTO
-            config_backend = config.get("npu.backend", "auto")
-            
-            if config_backend == "auto":
-                backend_type = determine_best_backend()
-            else:
-                try:
-                    backend_type = BackendType(config_backend)
-                except ValueError:
-                    logger.warning(
-                        f"Invalid backend type {config_backend} in configuration. "
-                        f"Using auto detection."
-                    )
-                    backend_type = determine_best_backend()
-        
-        # If AUTO is explicitly specified, determine the best backend
-        if backend_type == BackendType.AUTO:
+        # If no specific backend is requested, determine the best one
+        if backend_type is None or backend_type == BackendType.AUTO:
             backend_type = determine_best_backend()
         
-        # Check if we already have an instance
+        # Check if we already have an initialized instance
         if backend_type in _BACKEND_INSTANCES:
             return _BACKEND_INSTANCES[backend_type]
         
-        # Check if the backend is available
+        # If backend is not registered, return None or try fallback
         if backend_type not in _BACKENDS:
-            available = get_available_backends()
-            if backend_type not in available:
-                if backend_type == BackendType.CPU:
-                    # This should never happen as CPU is always available
-                    raise RuntimeError("CPU backend is not available. This is a bug.")
+            logger.warning(f"Backend {backend_type.value} is not registered")
+            
+            # Check if user specifically requested this backend or it was auto-selected
+            if backend_type in [BackendType.AUTO, BackendType.CPU]:
+                logger.warning("No fallback available, returning None")
+                return None
+            else:
+                # Try fallback to CPU
+                logger.warning(f"Falling back to CPU backend.")
+                backend_type = BackendType.CPU
+                if backend_type not in _BACKENDS:
+                    logger.error("CPU backend is not registered. This should never happen.")
+                    return None
+        
+        # Create a new backend instance
+        try:
+            backend_class = _BACKENDS[backend_type]
+            backend = backend_class()
+            
+            # Initialize the backend
+            init_success = backend.initialize()
+            if not init_success:
+                logger.warning(f"Failed to initialize {backend_type.value} backend. Falling back to CPU.")
+                # Try fallback to CPU if requested backend failed to initialize
+                if backend_type != BackendType.CPU:
+                    return get_backend(BackendType.CPU)
                 else:
-                    # For other backends, fall back to CPU with a warning
-                    logger.warning(
-                        f"Requested backend {backend_type.value} is not available. "
-                        f"Falling back to CPU."
-                    )
-                    backend_type = BackendType.CPU
-            else:
-                # Backend is available but not registered yet
-                # We'll register CPU implementations later in this file
-                raise ValueError(
-                    f"Backend {backend_type.value} is available but not registered. "
-                    f"This is likely a bug in the backend registration."
-                )
-        
-        # Create and initialize the backend
-        backend_class = _BACKENDS[backend_type]
-        instance = backend_class()
-        
-        success = instance.initialize()
-        if not success:
-            if backend_type == BackendType.CPU:
-                # This should never happen for CPU
-                raise RuntimeError("Failed to initialize CPU backend. This is a bug.")
-            else:
-                # For other backends, fall back to CPU with a warning
-                logger.warning(
-                    f"Failed to initialize {backend_type.value} backend. "
-                    f"Falling back to CPU."
-                )
+                    logger.error("CPU backend initialization failed. This should never happen.")
+                    return None
+            
+            # Store the initialized instance
+            _BACKEND_INSTANCES[backend_type] = backend
+            logger.info(f"Successfully initialized {backend_type.value} backend")
+            return backend
+        except Exception as e:
+            logger.error(f"Error initializing {backend_type.value} backend: {e}")
+            # Try fallback to CPU if there was an error
+            if backend_type != BackendType.CPU:
+                logger.warning(f"Falling back to CPU backend.")
                 return get_backend(BackendType.CPU)
-        
-        # Cache the instance
-        _BACKEND_INSTANCES[backend_type] = instance
-        
-        logger.info(f"Using {backend_type.value} backend")
-        return instance 
+            else:
+                logger.error("CPU backend initialization error. This should never happen.")
+                return None 
