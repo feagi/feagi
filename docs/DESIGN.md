@@ -242,6 +242,45 @@ Connectome manager is the process responsible for:
 serialization and storage of the connectome and the revival would involve the reverse process where the artificial brain
 can return to its functional state while preserving its integrity including all learning.
 
+#### Fire Candidate List (FCL) Management
+
+The Fire Candidate List (FCL) is a crucial component of FEAGI's brain simulation, managing which neurons are eligible to fire at each timestep. The FCL implementation follows a temporal model with specific roles for each timestep:
+
+- **FCL[t]**: Current timestep (accumulation phase) - Neurons that will fire in the next timestep
+- **FCL[t-1]**: Previous timestep (firing phase) - Neurons currently firing and affecting other neurons
+- **FCL[t-2...t-window]**: Historical record - For tracking firing patterns and memory-related operations
+
+The FCL Manager maintains this temporal structure and provides methods to query neuron firing across multiple timesteps. This enables both the simulation of neuron dynamics and the extraction of information about firing patterns.
+
+**Key features:**
+- Configurable window size for retaining firing history
+- Efficient bitmap-based storage for fast operations
+- Query capabilities for retrieving neurons that fired across multiple timesteps
+- Support for memory-type cortical areas with extended firing history
+
+#### Two-Phase Membrane Potential Update Process
+
+The neural simulation uses a two-phase approach for updating membrane potentials and determining which neurons fire:
+
+**Phase 1: Firing Phase**
+- Process neurons in FCL[t-1] (previous timestep)
+- Each firing neuron affects its downstream targets via synapses
+- Membrane potential updates are queued in the update queue
+- This ensures all influences are collected before determining new firing
+
+**Phase 2: Accumulation Phase**
+- Process the membrane potential update queue
+- Apply decay to all neuron membrane potentials
+- Apply queued updates to membrane potentials
+- Determine which neurons exceed their firing threshold
+- Add these neurons to FCL[t] (current timestep)
+
+This two-phase approach ensures that:
+1. All synaptic inputs are considered before determining which neurons fire
+2. Excitatory and inhibitory effects can balance out properly
+3. Neurons that exceed threshold but are later inhibited below threshold won't fire inappropriately
+
+The update process maintains the temporal aspect of the simulation while providing an efficient and accurate model of neural dynamics.
 
 ### Sensorimotor IO
 

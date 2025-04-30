@@ -35,6 +35,14 @@ class TimestepOutOfRangeError(FCLError):
     pass
 
 
+@dataclass
+class MembraneUpdate:
+    """Represents a pending update to a neuron's membrane potential."""
+    neuron_idx: int
+    delta_potential: float
+    source_neuron_idx: Optional[int] = None  # Source of the update (for tracing)
+
+
 # Define a Protocol for bitmap-like objects (similar to Rust traits)
 class BitMapProtocol(Protocol):
     """Protocol defining the interface for bitmap-like objects."""
@@ -628,6 +636,129 @@ class HierarchicalFCL:
             "window_size": self.window_size
         }
 
+    # Methods for two-phase membrane potential update process
+    
+    def advance_timestep(self) -> None:
+        """
+        Advance to the next timestep, shifting FCL history.
+        """
+        self.current_timestep += 1
+        self.current_window_index = (self.current_window_index + 1) % self.window_size
+        
+        # Clear the current FCL slot (both global and per-area)
+        self.global_fcl_history[self.current_window_index].clear()
+        
+        for area_id in self.area_fcl_history:
+            self.area_fcl_history[area_id][self.current_window_index].clear()
+            
+        # Reset update queue for new timestep
+        self._reset_update_queue()
+    
+    def _reset_update_queue(self) -> None:
+        """Reset the membrane potential update queue for a new timestep."""
+        if not hasattr(self, 'mp_update_queue'):
+            self.mp_update_queue: List[MembraneUpdate] = []
+            self.updates_processed_count = 0
+        else:
+            self.mp_update_queue = []
+    
+    def queue_membrane_update(self, 
+                             neuron_idx: int, 
+                             delta_potential: float,
+                             source_neuron_idx: Optional[int] = None) -> None:
+        """
+        Queue an update to a neuron's membrane potential.
+        
+        Args:
+            neuron_idx: Index of the neuron to update
+            delta_potential: Change in membrane potential
+            source_neuron_idx: Source of the update (if from a specific neuron)
+        """
+        if not hasattr(self, 'mp_update_queue'):
+            self._reset_update_queue()
+            
+        self.mp_update_queue.append(
+            MembraneUpdate(
+                neuron_idx=neuron_idx,
+                delta_potential=delta_potential,
+                source_neuron_idx=source_neuron_idx
+            )
+        )
+        self.updates_processed_count += 1
+    
+    def process_update_queue(self) -> List[Tuple[int, float]]:
+        """
+        Process the membrane potential update queue, aggregating updates per neuron.
+        
+        Returns:
+            List of (neuron_idx, total_delta) tuples with the final updates
+        """
+        if not hasattr(self, 'mp_update_queue') or not self.mp_update_queue:
+            return []
+        
+        # Aggregate updates by neuron
+        neuron_updates: Dict[int, float] = {}
+        
+        for update in self.mp_update_queue:
+            neuron_updates[update.neuron_idx] = (
+                neuron_updates.get(update.neuron_idx, 0.0) + update.delta_potential
+            )
+        
+        # Convert to list of tuples
+        aggregated_updates = [(idx, delta) for idx, delta in neuron_updates.items()]
+        
+        # Clear the queue after processing
+        self.mp_update_queue = []
+        
+        return aggregated_updates
+    
+    def get_firing_neurons(self, offset: int = -1) -> List[int]:
+        """
+        Get list of neuron indices that are in the FCL at the specified offset.
+        
+        Args:
+            offset: Timestep offset (-1 for previous timestep, which is the firing phase)
+            
+        Returns:
+            List of neuron indices
+        """
+        fcl = self.get_global_fcl(self.current_timestep + offset if offset else None)
+        return list(fcl)
+    
+    def add_to_current_fcl(self, neuron_indices: Union[List[int], Set[int], BitMap]) -> None:
+        """
+        Add neurons to the current timestep's FCL.
+        
+        Args:
+            neuron_indices: Indices of neurons to add to current FCL
+        """
+        # Convert to BitMap if needed
+        if not isinstance(neuron_indices, BitMap):
+            neuron_bitmap = BitMap(neuron_indices)
+        else:
+            neuron_bitmap = neuron_indices
+            
+        # Add to global FCL
+        current_fcl = self.global_fcl_history[self.current_window_index]
+        # Use BitMap.__or__ to update in place
+        updated_fcl = current_fcl | neuron_bitmap
+        self.global_fcl_history[self.current_window_index] = updated_fcl
+        
+        # Update statistics
+        self.total_neurons_fired += len(neuron_bitmap)
+    
+    def get_fcl(self, offset: int = 0) -> BitMap:
+        """
+        Get the FCL for a specific timestep relative to current.
+        
+        Args:
+            offset: Timestep offset (0 for current, -1 for previous, etc.)
+            
+        Returns:
+            BitMap of neuron indices in the FCL
+        """
+        return self.get_global_fcl(self.current_timestep + offset if offset else None)
+
 
 class EnhancedHierarchicalFCL:
     """
@@ -1197,32 +1328,145 @@ class EnhancedHierarchicalFCL:
     
     def get_firing_statistics(self) -> Dict[str, Any]:
         """
-        Get comprehensive statistics about the current FCL state.
+        Get statistics about firing patterns across the FCL history.
         
         Returns:
-            Dictionary with statistics about firing neurons, active areas, and memory areas
+            Dictionary with firing statistics
         """
-        active_areas = self.get_active_areas()
-        memory_areas_info = {}
-        
-        for area_id in self.memory_area_ids:
-            window_size, _, start_timestep = self.custom_area_history[area_id]
-            memory_areas_info[area_id] = {
-                "window_size": window_size,
-                "start_timestep": start_timestep,
-                "current_neurons": len(self.get_area_fcl(area_id)) if area_id in active_areas else 0
-            }
-        
-        return {
-            "timestep": self.current_timestep,
+        stats = {
             "total_neurons_fired": self.total_neurons_fired,
-            "active_areas_count": len(active_areas),
-            "active_areas": list(active_areas),
-            "neurons_per_area": dict(self.neurons_per_area),
-            "default_window_size": self.default_window_size,
-            "memory_areas_count": len(self.memory_area_ids),
-            "memory_areas": memory_areas_info
+            "neurons_per_area": self.neurons_per_area,
+            "active_areas": len(self.area_fcl_history),
+            "memory_areas": len(self.memory_area_ids),
+            "current_window_index": self.current_window_index,
+            "current_timestep": self.current_timestep
         }
+        return stats
+    
+    # Methods for two-phase membrane potential update process
+    
+    def advance_timestep(self) -> None:
+        """
+        Advance to the next timestep, shifting FCL history.
+        """
+        self.current_timestep += 1
+        self.current_window_index = (self.current_window_index + 1) % self.default_window_size
+        
+        # Clear the current FCL slot (both global and per-area)
+        self.global_fcl_history[self.current_window_index].clear()
+        
+        for area_id in self.area_fcl_history:
+            window_size = self.get_area_window_size(area_id)
+            idx = self._get_custom_area_index(area_id, self.current_timestep)
+            self.area_fcl_history[area_id][idx].clear()
+            
+        # Reset update queue for new timestep
+        self._reset_update_queue()
+    
+    def _reset_update_queue(self) -> None:
+        """Reset the membrane potential update queue for a new timestep."""
+        if not hasattr(self, 'mp_update_queue'):
+            self.mp_update_queue: List[MembraneUpdate] = []
+            self.updates_processed_count = 0
+        else:
+            self.mp_update_queue = []
+    
+    def queue_membrane_update(self, 
+                             neuron_idx: int, 
+                             delta_potential: float,
+                             source_neuron_idx: Optional[int] = None) -> None:
+        """
+        Queue an update to a neuron's membrane potential.
+        
+        Args:
+            neuron_idx: Index of the neuron to update
+            delta_potential: Change in membrane potential
+            source_neuron_idx: Source of the update (if from a specific neuron)
+        """
+        if not hasattr(self, 'mp_update_queue'):
+            self._reset_update_queue()
+            
+        self.mp_update_queue.append(
+            MembraneUpdate(
+                neuron_idx=neuron_idx,
+                delta_potential=delta_potential,
+                source_neuron_idx=source_neuron_idx
+            )
+        )
+        self.updates_processed_count += 1
+    
+    def process_update_queue(self) -> List[Tuple[int, float]]:
+        """
+        Process the membrane potential update queue, aggregating updates per neuron.
+        
+        Returns:
+            List of (neuron_idx, total_delta) tuples with the final updates
+        """
+        if not hasattr(self, 'mp_update_queue') or not self.mp_update_queue:
+            return []
+        
+        # Aggregate updates by neuron
+        neuron_updates: Dict[int, float] = {}
+        
+        for update in self.mp_update_queue:
+            neuron_updates[update.neuron_idx] = (
+                neuron_updates.get(update.neuron_idx, 0.0) + update.delta_potential
+            )
+        
+        # Convert to list of tuples
+        aggregated_updates = [(idx, delta) for idx, delta in neuron_updates.items()]
+        
+        # Clear the queue after processing
+        self.mp_update_queue = []
+        
+        return aggregated_updates
+    
+    def get_firing_neurons(self, offset: int = -1) -> List[int]:
+        """
+        Get list of neuron indices that are in the FCL at the specified offset.
+        
+        Args:
+            offset: Timestep offset (-1 for previous timestep, which is the firing phase)
+            
+        Returns:
+            List of neuron indices
+        """
+        fcl = self.get_global_fcl(self.current_timestep + offset if offset else None)
+        return list(fcl)
+    
+    def add_to_current_fcl(self, neuron_indices: Union[List[int], Set[int], BitMap]) -> None:
+        """
+        Add neurons to the current timestep's FCL.
+        
+        Args:
+            neuron_indices: Indices of neurons to add to current FCL
+        """
+        # Convert to BitMap if needed
+        if not isinstance(neuron_indices, BitMap):
+            neuron_bitmap = BitMap(neuron_indices)
+        else:
+            neuron_bitmap = neuron_indices
+            
+        # Add to global FCL
+        current_fcl = self.global_fcl_history[self.current_window_index]
+        # Use BitMap.__or__ to update in place
+        updated_fcl = current_fcl | neuron_bitmap
+        self.global_fcl_history[self.current_window_index] = updated_fcl
+        
+        # Update statistics
+        self.total_neurons_fired += len(neuron_bitmap)
+    
+    def get_fcl(self, offset: int = 0) -> BitMap:
+        """
+        Get the FCL for a specific timestep relative to current.
+        
+        Args:
+            offset: Timestep offset (0 for current, -1 for previous, etc.)
+            
+        Returns:
+            BitMap of neuron indices in the FCL
+        """
+        return self.get_global_fcl(self.current_timestep + offset if offset else None)
 
 
 # Example usage
@@ -1359,9 +1603,7 @@ def example_enhanced_fcl_usage() -> None:
     print(f"\nFiring statistics:")
     print(f"Total neurons fired: {stats['total_neurons_fired']}")
     print(f"Active areas: {stats['active_areas']}")
-    print(f"Memory areas: {stats['memory_areas_count']}")
-    for area_id, area_info in stats['memory_areas'].items():
-        print(f"  Area {area_id}: window_size={area_info['window_size']}, active_neurons={area_info['current_neurons']}")
+    print(f"Memory areas: {stats['memory_areas']}")
 
 
 # Example: Injecting specific neurons into the FCL for a memory area
