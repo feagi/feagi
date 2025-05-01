@@ -14,6 +14,7 @@ from pathlib import Path
 import json
 import tempfile
 import shutil
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -77,7 +78,8 @@ def config():
 @pytest.fixture
 def connectome_manager(config):
     """Create a ConnectomeManager for testing."""
-    return ConnectomeManager(config)
+    # Create a ConnectomeManager with limited neuron count for faster testing
+    return ConnectomeManager(config, max_test_neurons=100000)  # Increase from 10,000 to 100,000 to accommodate essential genome
 
 
 @pytest.fixture
@@ -132,40 +134,102 @@ def test_cortical_area_setup(embryo, genome_file):
 
 def test_neurogenesis(embryo, genome_file):
     """Test neurogenesis process."""
-    # Load the genome and setup areas
-    embryo.load_genome(genome_file)
-    embryo._setup_cortical_areas()
+    total_start = time.time()
     
-    # Perform neurogenesis
+    # Load the genome and setup areas
+    genome_load_start = time.time()
+    embryo.load_genome(genome_file)
+    genome_load_end = time.time()
+    print(f"\nGenome load time: {genome_load_end - genome_load_start:.3f} seconds")
+    
+    setup_areas_start = time.time()
+    embryo._setup_cortical_areas()
+    setup_areas_end = time.time()
+    print(f"Cortical area setup time: {setup_areas_end - setup_areas_start:.3f} seconds")
+    
+    # Perform neurogenesis with timing
+    neurogenesis_start = time.time()
     success = embryo._perform_neurogenesis()
+    neurogenesis_end = time.time()
+    print(f"Neurogenesis execution time: {neurogenesis_end - neurogenesis_start:.3f} seconds")
+    
     assert success
     
     # Get all neurons from the connectome manager
+    count_start = time.time()
     neuron_count = 0
+    area_counts = {}
     for area_id in embryo.cortical_areas.keys():
         neurons = embryo.connectome_manager.get_neurons_by_area(area_id)
-        neuron_count += len(neurons)
+        count = len(neurons)
+        neuron_count += count
+        # Use the name attribute instead of dictionary-style access
+        area = embryo.cortical_areas[area_id]
+        area_counts[area.name if hasattr(area, 'name') else f"Area {area_id}"] = count
+    count_end = time.time()
+    print(f"Neuron counting time: {count_end - count_start:.3f} seconds")
+    
+    # Print breakdown by area
+    print(f"\nCreated {neuron_count} neurons across {len(embryo.cortical_areas)} areas")
+    print("Neurons per area:")
+    for area_name, count in area_counts.items():
+        print(f"  {area_name}: {count}")
     
     # Verify neurons were created
     assert neuron_count > 0
+    
+    total_end = time.time()
+    print(f"Total test time: {total_end - total_start:.3f} seconds")
 
 
 def test_synaptogenesis(embryo, genome_file):
     """Test synaptogenesis process."""
+    total_start = time.time()
+    
     # Load the genome, setup areas, and create neurons
+    setup_start = time.time()
     embryo.load_genome(genome_file)
     embryo._setup_cortical_areas()
     embryo._perform_neurogenesis()
+    setup_end = time.time()
+    print(f"\nSetup time (genome, areas, neurons): {setup_end - setup_start:.3f} seconds")
+    
+    # Count neurons before synaptogenesis
+    count_start = time.time()
+    neuron_count = sum(len(embryo.connectome_manager.get_neurons_by_area(area_id)) 
+                       for area_id in embryo.cortical_areas.keys())
+    count_end = time.time()
+    print(f"Neuron counting time: {count_end - count_start:.3f} seconds")
+    print(f"Created {neuron_count} neurons across {len(embryo.cortical_areas)} areas")
     
     # Determine if genome has any cortical mappings
+    mappings_start = time.time()
     has_mappings = "cortical_mappings" in embryo.genome and len(embryo.genome["cortical_mappings"]) > 0
+    mappings_end = time.time()
+    print(f"Mapping check time: {mappings_end - mappings_start:.3f} seconds")
     
-    # Perform synaptogenesis
+    # Print mapping information
+    if has_mappings:
+        mapping_count = len(embryo.genome["cortical_mappings"])
+        print(f"Found {mapping_count} cortical mappings in genome")
+    else:
+        print("No cortical mappings found in genome")
+    
+    # Perform synaptogenesis with timing
+    synapse_start = time.time()
     success = embryo._perform_synaptogenesis()
+    synapse_end = time.time()
+    print(f"Synaptogenesis execution time: {synapse_end - synapse_start:.3f} seconds")
+    
     assert success
     
     # Get the synapse count from the statistics
+    stats_start = time.time()
     stats = embryo.get_development_statistics()
+    stats_end = time.time()
+    print(f"Statistics collection time: {stats_end - stats_start:.3f} seconds")
+    
+    print(f"Created {stats['synapses']} synapses")
     
     # If there are no mappings in the genome, we expect synapse count to be 0
     # Otherwise, there should be synapses created
@@ -173,16 +237,47 @@ def test_synaptogenesis(embryo, genome_file):
         assert stats["synapses"] > 0
     else:
         assert stats["synapses"] == 0
+    
+    total_end = time.time()
+    print(f"Total test time: {total_end - total_start:.3f} seconds")
 
 
 def test_full_development(embryo, genome_file):
     """Test the full brain development process."""
-    # Develop the brain
+    # Measure overall time
+    total_start = time.time()
+    
+    # Measure development time
+    develop_start = time.time()
     success = embryo.develop_brain(genome_file)
+    develop_end = time.time()
+    print(f"\nBrain development time: {develop_end - develop_start:.3f} seconds")
+    
     assert success
     
     # Check development statistics
     stats = embryo.get_development_statistics()
+    
+    # Detailed timing breakdown from statistics
+    print("\nDetailed Development Timing:")
+    for stage, duration in stats.get("stage_durations", {}).items():
+        print(f"  {stage}: {duration:.3f} seconds")
+    
+    # Print statistics
+    print(f"\nDevelopment Statistics:")
+    print(f"  Cortical Areas: {stats['cortical_areas']}")
+    print(f"  Neurons: {stats['neurons']}")
+    print(f"  Synapses: {stats['synapses']}")
+    
+    # Check if duration is a timedelta object and convert to seconds if needed
+    duration = stats['duration']
+    if hasattr(duration, 'total_seconds'):
+        duration_seconds = duration.total_seconds()
+        print(f"  Development Duration: {duration_seconds:.3f} seconds")
+    else:
+        print(f"  Development Duration: {duration}")
+    
+    # Assertions for development statistics
     assert stats["cortical_areas"] > 0
     assert stats["neurons"] > 0
     
@@ -198,8 +293,24 @@ def test_full_development(embryo, genome_file):
     else:
         # No mappings, so it's expected to have 0 synapses
         assert stats["synapses"] == 0
-        
+    
     assert stats["duration"] is not None
+    
+    # Print detailed progress logs
+    print("\nProgress Log Summary:")
+    stage_logs = {}
+    for stage, progress, message in embryo.progress_logs:
+        if stage not in stage_logs:
+            stage_logs[stage] = []
+        stage_logs[stage].append((progress, message))
+    
+    for stage, logs in stage_logs.items():
+        print(f"  {stage}:")
+        print(f"    First: {logs[0][1]} ({logs[0][0]}%)")
+        print(f"    Last: {logs[-1][1]} ({logs[-1][0]}%)")
+    
+    total_end = time.time()
+    print(f"\nTotal test time: {total_end - total_start:.3f} seconds")
 
 
 def test_synapse_manager_use_in_development(embryo, genome_file):

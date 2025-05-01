@@ -218,6 +218,19 @@ class Neuroembryogenesis:
         # Error state
         self.error = None
         
+        # Cache for morphology registry to avoid regenerating it
+        self._morphology_registry_cache = None
+        
+        # Add temporary method to ConnectomeManager to provide morphology information
+        # Add this once at initialization instead of each time in _perform_synaptogenesis
+        def get_morphologies_registry(self):
+            return self._neuroembryogenesis_morphologies_registry
+            
+        if not hasattr(self.connectome_manager, 'get_morphologies_registry'):
+            setattr(self.connectome_manager, 'get_morphologies_registry', 
+                   types.MethodType(get_morphologies_registry, self.connectome_manager))
+            # Will set the actual registry later when we have the genome
+        
     def _report_progress(self, stage: DevelopmentStage, percentage: float, message: str) -> None:
         """Report progress for the given development stage."""
         logger.info(f"[{stage.value}] {percentage:.1f}% - {message}")
@@ -235,47 +248,47 @@ class Neuroembryogenesis:
         
     def load_genome(self, genome_path: Union[str, Path]) -> bool:
         """
-        Load and validate a genome from a file.
+        Load a genome from file.
         
         Args:
-            genome_path: Path to the genome JSON file
+            genome_path: Path to the genome file
             
         Returns:
-            True if genome loaded successfully, False otherwise
+            True if successful, False otherwise
         """
         self._report_progress(DevelopmentStage.INITIALIZATION, 0, "Loading genome")
         
         try:
+            # Load genome from file
             with open(genome_path, 'r') as f:
-                genome = json.load(f)
-                
-            # Validate and potentially update the genome
-            self._report_progress(DevelopmentStage.INITIALIZATION, 25, "Validating genome")
-            if "version" in genome and genome["version"] == "2.0":
-                # Apply standard processing to ensure consistency
-                genome = merge_core_morphologies(genome)
-                genome = genome_morphology_updator(genome)
-                genome = genome_physiology_updator(genome)
-                genome = genome_stat_updator(genome)
-                
-                # Validate the genome
-                validity = genome_validator(genome)
-                if not validity:
-                    self.error = "Genome validation failed"
-                    self._report_progress(DevelopmentStage.FAILED, 0, "Genome validation failed")
-                    return False
-                
-                self.genome = genome
-                self._report_progress(DevelopmentStage.INITIALIZATION, 100, "Genome loaded and validated")
-                return True
-            else:
-                self.error = f"Unsupported genome version: {genome.get('version', 'unknown')}"
-                self._report_progress(DevelopmentStage.FAILED, 0, self.error)
+                self.genome = json.load(f)
+            
+            # Validate genome
+            is_valid = genome_validator(self.genome)
+            if not is_valid:
+                self._report_failure(DevelopmentStage.INITIALIZATION, "Invalid genome")
                 return False
+            
+            # Update morphologies and physiology
+            self.genome = merge_core_morphologies(self.genome)
+            self.genome = genome_morphology_updator(self.genome)
+            self.genome = genome_physiology_updator(self.genome)
+            self.genome = genome_stat_updator(self.genome)
+            
+            # Generate and cache the morphology registry
+            morphology_registry = self.get_morphology_registry()
+            
+            # Set the morphology registry on the ConnectomeManager
+            if hasattr(self.connectome_manager, 'get_morphologies_registry'):
+                setattr(self.connectome_manager, '_neuroembryogenesis_morphologies_registry', morphology_registry)
+            
+            self._report_progress(DevelopmentStage.INITIALIZATION, 100, "Genome loaded and validated")
+            return True
+            
         except Exception as e:
-            self.error = f"Failed to load genome: {str(e)}"
-            self._report_progress(DevelopmentStage.FAILED, 0, self.error)
-            logger.exception("Error loading genome")
+            self._report_failure(DevelopmentStage.INITIALIZATION, f"Failed to load genome: {str(e)}")
+            logger.error("Error loading genome")
+            logger.exception(e)
             return False
     
     def _extract_cortical_properties(self, cortical_id: str) -> Dict[str, Any]:
@@ -603,18 +616,6 @@ class Neuroembryogenesis:
             # Memory register for memory-based morphologies
             memory_register = {}
             
-            # Add temporary method to ConnectomeManager to provide morphology information
-            # This is needed because synaptogenesis_rules expects this method
-            def get_morphologies_registry(self):
-                return self._neuroembryogenesis_morphologies_registry
-            
-            # Add the method and registry to the ConnectomeManager if not already there
-            if not hasattr(self.connectome_manager, 'get_morphologies_registry'):
-                setattr(self.connectome_manager, 'get_morphologies_registry', 
-                       types.MethodType(get_morphologies_registry, self.connectome_manager))
-                setattr(self.connectome_manager, '_neuroembryogenesis_morphologies_registry', 
-                       self.get_morphology_registry())
-            
             # Extract mapping data from the genome
             mapping_data = {}
             if "cortical_mappings" in self.genome:
@@ -712,6 +713,10 @@ class Neuroembryogenesis:
         Returns:
             Dictionary mapping morphology_id to morphology type and parameters
         """
+        # Use cached registry if available
+        if self._morphology_registry_cache is not None:
+            return self._morphology_registry_cache
+            
         registry = {}
         
         # Add standard morphology functions that are built-in
@@ -756,7 +761,7 @@ class Neuroembryogenesis:
         }
         
         # Add morphologies from the genome
-        if "neuron_morphologies" in self.genome:
+        if self.genome and "neuron_morphologies" in self.genome:
             for morphology_id, morphology in self.genome["neuron_morphologies"].items():
                 morphology_type = morphology.get("type", "unknown")
                 
@@ -774,6 +779,9 @@ class Neuroembryogenesis:
                             "patterns": morphology.get("parameters", {}).get("patterns", [])
                         }
                     }
+        
+        # Cache the registry
+        self._morphology_registry_cache = registry
         
         return registry
 

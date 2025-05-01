@@ -17,15 +17,18 @@ class TestConnectomeManager(unittest.TestCase):
     
     def setUp(self):
         # Set up logging
-        logging.basicConfig(level=logging.DEBUG)
+        setup_start = time.time()
+        
+        logging.basicConfig(level=logging.INFO)  # Reduce logging level
         
         # Create a ConnectomeManager instance with small capacities for testing
-        self.connectome = ConnectomeManager()
-        self.connectome._max_neurons = 1000  # Override for testing
-        self.connectome._init_neuron_arrays()
-        self.connectome.synapse_manager._init_synapse_storage()
+        cm_start = time.time()
+        self.connectome = ConnectomeManager(max_test_neurons=100)  # Use a smaller array size for faster tests
+        cm_end = time.time()
+        print(f"ConnectomeManager creation time: {cm_end - cm_start:.6f} seconds")
         
         # Add a test cortical area
+        area_start = time.time()
         self.area_id = 1
         self.area = self.connectome.add_cortical_area(
             area_id=self.area_id,
@@ -34,8 +37,11 @@ class TestConnectomeManager(unittest.TestCase):
             dimensions=(10, 10, 5),
             position=(0, 0, 0)
         )
+        area_end = time.time()
+        print(f"Test area creation time: {area_end - area_start:.6f} seconds")
         
         # Add an area with extreme dimensions for testing
+        extreme_start = time.time()
         self.extreme_area_id = 2
         self.extreme_area = self.connectome.add_cortical_area(
             area_id=self.extreme_area_id,
@@ -44,6 +50,11 @@ class TestConnectomeManager(unittest.TestCase):
             dimensions=(20000, 1, 1),
             position=(0, 10, 0)
         )
+        extreme_end = time.time()
+        print(f"Extreme area creation time: {extreme_end - extreme_start:.6f} seconds")
+        
+        setup_end = time.time()
+        print(f"Total setup time: {setup_end - setup_start:.6f} seconds")
     
     def test_create_neuron(self):
         """Test neuron creation and retrieval."""
@@ -74,32 +85,57 @@ class TestConnectomeManager(unittest.TestCase):
     
     def test_create_multiple_neurons(self):
         """Test creation of multiple neurons."""
-        # Create several neurons
-        neuron_ids = []
+        # Measure overall time
+        start_time = time.time()
+        
+        # Create a grid of positions
+        positions = []
         for x in range(5):
             for y in range(5):
-                neuron_id = self.connectome.create_neuron(
-                    area_id=self.area_id,
-                    position=(x, y, 0),
-                    threshold=1.0,
-                    refractory_period=5,
-                    decay_rate=0.9,
-                    resting_potential=0.0
-                )
-                neuron_ids.append(neuron_id)
+                positions.append((x, y, 0))
         
+        # Measure batch creation time
+        pre_create = time.time()
+        neuron_ids = self.connectome.batch_create_neurons(
+            area_id=self.area_id,
+            positions=positions,
+            threshold=1.0,
+            refractory_period=5,
+            decay_rate=0.9,
+            resting_potential=0.0
+        )
+        post_create = time.time()
+        print(f"Batch creation time: {post_create - pre_create:.6f} seconds")
+        
+        # Measure verification time
+        pre_verify = time.time()
         # Verify neuron count
         self.assertEqual(self.connectome.get_neuron_count(), 25)
+        post_verify_count = time.time()
+        print(f"Verify count time: {post_verify_count - pre_verify:.6f} seconds")
         
         # Verify all neurons are in the area
+        pre_verify_area = time.time()
         neurons_in_area = self.connectome.get_neurons_by_area(self.area_id)
         self.assertEqual(len(neurons_in_area), 25)
+        post_verify_area = time.time()
+        print(f"Verify area time: {post_verify_area - pre_verify_area:.6f} seconds")
         
         # Delete a neuron
+        pre_delete = time.time()
         self.connectome.delete_neuron(neuron_ids[0])
+        post_delete = time.time()
+        print(f"Delete neuron time: {post_delete - pre_delete:.6f} seconds")
         
         # Verify neuron count decreased
+        pre_verify_final = time.time()
         self.assertEqual(self.connectome.get_neuron_count(), 24)
+        post_verify_final = time.time()
+        print(f"Final verify time: {post_verify_final - pre_verify_final:.6f} seconds")
+        
+        # Print total time
+        end_time = time.time()
+        print(f"Total test time: {end_time - start_time:.6f} seconds")
     
     def test_create_synapses(self):
         """Test synapse creation and retrieval."""
@@ -252,9 +288,7 @@ class TestConnectomeManager(unittest.TestCase):
             self.assertTrue(success)
             
             # Create a new connectome
-            new_connectome = ConnectomeManager()
-            new_connectome._max_neurons = 1000
-            new_connectome._init_neuron_arrays()
+            new_connectome = ConnectomeManager(max_test_neurons=100)
             
             # Deserialize
             success = new_connectome.deserialize_brain_state(temp_path)
