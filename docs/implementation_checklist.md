@@ -79,7 +79,7 @@ This document provides a detailed, sequential checklist for implementing the FEA
 | Synapse Management | Partially Complete | ✅ Sparse matrix representations for synapses<br>✅ Efficient storage and querying<br>✅ Special handling for plastic synapses<br>⚠️ Memory-optimized implementation<br>⚠️ Batch operations for performance<br>❌ Activity-dependent synapse creation/pruning<br>❌ Multiple synapse types |
 | Neural Dynamics | Partially Complete | ✅ Membrane potential updates<br>✅ Threshold detection<br>✅ Refractory period handling<br>✅ Synaptic input computation<br>⚠️ Vectorized operations<br>⚠️ GPU acceleration support<br>❌ Support for multiple neuron models beyond LIF |
 | Cortical Areas | Partially Complete | ✅ Area definition and management<br>✅ Spatial organization of neurons<br>✅ Position tracking within areas<br>✅ Efficient area-based queries<br>❌ Hierarchical organization of areas<br>❌ Templates for common cortical configurations<br>❌ Brain region implementation |
-| Connectivity Rules | Not Implemented | ❌ Vector-based connectivity rules<br>❌ Pattern-based connectivity rules<br>❌ Function-based connectivity rules<br>❌ Rule composition and combination |
+| Connectivity Rules | Implemented | ✅ Vector-based connectivity rules<br>✅ Pattern-based connectivity rules<br>✅ Function-based connectivity rules<br>✅ Rule composition and combination<br>✅ Memory-efficient implementation with bitmap operations<br>✅ Support for multiple neurons per voxel<br>✅ Position linearization and delinearization for efficiency |
 | Cortical Mappings | Not Implemented | ❌ Mapping definition between cortical areas<br>❌ Properties storage (PSP multiplier, inhibitory flag)<br>❌ Plasticity configuration (type, decay, coefficient)<br>❌ Mapping application to generate synapses |
 | Serialization | Partially Complete | ✅ Complete brain state serialization<br>✅ Basic file format using NumPy<br>❌ Incremental updates support<br>❌ Memory-mapped storage for large brains |
 | Query Capabilities | Complete | ✅ Multi-criteria neuron queries<br>✅ Efficient filtering by properties<br>✅ Position and area-based filtering<br>✅ Statistical aggregation functions |
@@ -92,10 +92,10 @@ This document provides a detailed, sequential checklist for implementing the FEA
 - [x] **4.4.** Add efficient query methods for neural properties
 - [x] **4.5.** Implement CPU version of neural state updates
 - [x] **4.6.** Create serialization/deserialization for brain state
+- [x] **4.8.** Develop connectivity rules framework (vector, pattern, function)
 
 **Pending Tasks:**
 - [ ] **4.7.** Implement brain regions data structures and management
-- [ ] **4.8.** Develop connectivity rules framework (vector, pattern, function)
 - [ ] **4.9.** Create cortical mappings implementation
 - [ ] **4.10.** Implement dynamic growth strategy for neuron arrays
 - [ ] **4.11.** Add sparse activation tracking for performance
@@ -114,9 +114,9 @@ This document provides a detailed, sequential checklist for implementing the FEA
 
 | Component | Status | Implementation Details |
 |-----------|--------|------------------------|
-| Connectome Manager | Partially Complete | ✅ Basic Structure of Arrays implementation<br>✅ Neuron and synapse management<br>✅ Cortical area basic implementation<br>⚠️ Missing brain regions<br>❌ Missing connectivity rules<br>❌ Missing cortical mappings |
+| Connectome Manager | Partially Complete | ✅ Basic Structure of Arrays implementation<br>✅ Neuron and synapse management<br>✅ Cortical area basic implementation<br>⚠️ Missing brain regions<br>✅ Connectivity rules implemented<br>❌ Missing cortical mappings |
 | Brain Regions | Not Implemented | ❌ Data structures for brain regions<br>❌ Region metadata (UUID, description, etc.)<br>❌ Region hierarchy (parent-child)<br>❌ Region import/export<br>❌ Input/output specification |
-| Connectivity Rules | Not Implemented | ❌ Vector-based rules<br>❌ Pattern-based rules<br>❌ Function-based rules<br>❌ Rule composition framework<br>❌ Efficient rule application |
+| Connectivity Rules | Implemented | ✅ Vector-based rules with expression support<br>✅ Pattern-based rules with special character notation<br>✅ Function-based rules (expander_x, reducer_x, etc.)<br>✅ Efficient rule application with bitmap optimization<br>✅ Multiple neurons per voxel support<br>✅ Position linearization for performance<br>✅ ConnectomeManager API integration |
 | Cortical Mappings | Not Implemented | ❌ Area-to-area mapping definitions<br>❌ PSP multiplier support<br>❌ Inhibitory/excitatory configuration<br>❌ Plasticity settings<br>❌ Bulk synapse generation |
 | Synapse Generation | Partially Complete | ✅ Basic synapse creation between neurons<br>✅ Synapse property management<br>❌ Bulk generation based on mapping rules<br>❌ Plasticity type implementation<br>❌ Dynamic synaptic adaptation |
 | Brain State Management | Partially Complete | ✅ Basic serialization for full brain state<br>⚠️ Memory efficiency for large brains<br>❌ Incremental updates<br>❌ Migration between versions<br>❌ Export/import of partial brain structures |
@@ -126,10 +126,10 @@ This document provides a detailed, sequential checklist for implementing the FEA
 - Cortical area implementation provides foundation for spatial organization
 - Structure of Arrays (SoA) pattern implemented for performance
 - Basic serialization of brain state for persistence
+- Connectivity rules fully implemented with vector, pattern, and function-based morphologies
 
 **Missing Critical Components:**
 - Brain regions implementation (collection of cortical areas)
-- Connectivity rules framework
 - Cortical mapping system
 - Advanced memory management for scaling
 - Hierarchical organization of brain structures
@@ -137,9 +137,9 @@ This document provides a detailed, sequential checklist for implementing the FEA
 
 **Next Steps:**
 1. Implement brain regions data structures and management
-2. Develop connectivity rules framework
-3. Create cortical mappings implementation
-4. Implement efficient synapse generation from mappings
+2. Create cortical mappings implementation
+3. Implement efficient synapse generation from mappings
+4. Add advanced memory management for large-scale simulations
 
 ### 5. FCL Manager (Priority 1)
 
