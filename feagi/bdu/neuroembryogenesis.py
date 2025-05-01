@@ -636,7 +636,7 @@ class Neuroembryogenesis:
                     self._report_progress(
                         DevelopmentStage.SYNAPTOGENESIS, 
                         100 * i / total_areas, 
-                        f"No mappings found for area {src_area_id} ({src_area['name']})"
+                        f"No mappings found for area {src_area_id} ({src_area.name})"
                     )
                     continue
                 
@@ -672,7 +672,7 @@ class Neuroembryogenesis:
                             self._report_progress(
                                 DevelopmentStage.SYNAPTOGENESIS, 
                                 100 * completion, 
-                                f"Area {i+1}/{total_areas} ({src_area['name']}): {j}/{neuron_count} neurons"
+                                f"Area {i+1}/{total_areas} ({src_area.name}): {j}/{neuron_count} neurons"
                             )
                         
                         # Find target neurons based on connectivity rules
