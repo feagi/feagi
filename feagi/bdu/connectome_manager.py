@@ -18,6 +18,7 @@ import scipy.sparse as sp
 from feagi.core.backend import get_backend, BackendType
 from feagi.utils.config import FeagiConfig
 from feagi.npu.fcl_manager import HierarchicalFCL, BitMap
+from feagi.bdu.synapse_manager import SynapseManager
 
 logger = logging.getLogger(__name__)
 
@@ -50,286 +51,6 @@ class CorticalArea:
         """Maximum number of neurons this area can contain."""
         width, height, depth = self.dimensions
         return width * height * depth
-
-
-class SynapseManager:
-    """
-    Manages synapse storage and operations using compressed sparse representations.
-    
-    This class uses compressed sparse row/column (CSR/CSC) format to efficiently
-    store synaptic connections between neurons, optimizing for both memory usage
-    and computational efficiency.
-    """
-    
-    def __init__(self, max_neurons: int, max_synapses_per_neuron: int = 1000):
-        """
-        Initialize the SynapseManager.
-        
-        Args:
-            max_neurons: Maximum number of neurons that can have synapses
-            max_synapses_per_neuron: Maximum number of synapses per neuron
-        """
-        self.max_neurons = max_neurons
-        self.max_synapses_per_neuron = max_synapses_per_neuron
-        
-        # Lock for thread-safe operations
-        self._synapse_lock = threading.RLock()
-        
-        # Initialize sparse matrices for synapse storage
-        self._init_synapse_storage()
-        
-        # Counters for statistics
-        self.total_synapses = 0
-        self.plastic_synapses = 0
-    
-    def _init_synapse_storage(self):
-        """Initialize storage for synapses using sparse matrices."""
-        # Weights matrix (sparse) - stores connection strengths
-        self.weights = sp.lil_matrix((self.max_neurons, self.max_neurons), dtype=np.float32)
-        
-        # Plasticity-related matrices (only allocated for plastic synapses)
-        self.is_plastic = sp.lil_matrix((self.max_neurons, self.max_neurons), dtype=bool)
-        self.plasticity_coeffs = sp.lil_matrix((self.max_neurons, self.max_neurons), dtype=np.float32)
-        self.plasticity_decay = sp.lil_matrix((self.max_neurons, self.max_neurons), dtype=np.float32)
-        
-        # Adjacency lists for quick lookups
-        self.outgoing_synapses = [[] for _ in range(self.max_neurons)]  # Pre -> Post
-        self.incoming_synapses = [[] for _ in range(self.max_neurons)]  # Post <- Pre
-        
-        # Counter for synapses per neuron
-        self.synapse_count = np.zeros(self.max_neurons, dtype=np.int32)
-        
-        logger.info(f"Initialized synapse storage for up to {self.max_neurons} neurons " 
-                   f"with max {self.max_synapses_per_neuron} synapses per neuron")
-    
-    def add_synapse(self, pre_neuron: int, post_neuron: int, weight: float, 
-                   is_plastic: bool = False, plasticity_coeff: float = 0.0,
-                   plasticity_decay: float = 0.0) -> bool:
-        """
-        Add a synapse between two neurons.
-        
-        Args:
-            pre_neuron: ID of the presynaptic neuron
-            post_neuron: ID of the postsynaptic neuron
-            weight: Synaptic weight
-            is_plastic: Whether the synapse exhibits plasticity
-            plasticity_coeff: Coefficient for plasticity updates
-            plasticity_decay: Decay rate for plasticity effects
-            
-        Returns:
-            True if the synapse was added successfully, False otherwise
-        """
-        if pre_neuron >= self.max_neurons or post_neuron >= self.max_neurons:
-            logger.error(f"Cannot create synapse: neuron ID exceeds max neurons ({self.max_neurons})")
-            return False
-        
-        if self.synapse_count[pre_neuron] >= self.max_synapses_per_neuron:
-            logger.warning(f"Neuron {pre_neuron} has reached maximum synapse count")
-            return False
-        
-        with self._synapse_lock:
-            # Check if synapse already exists
-            if post_neuron in self.outgoing_synapses[pre_neuron]:
-                # Update existing synapse
-                self.weights[pre_neuron, post_neuron] = weight
-                if is_plastic:
-                    self.is_plastic[pre_neuron, post_neuron] = True
-                    self.plasticity_coeffs[pre_neuron, post_neuron] = plasticity_coeff
-                    self.plasticity_decay[pre_neuron, post_neuron] = plasticity_decay
-                    if not self.is_plastic[pre_neuron, post_neuron]:
-                        self.plastic_synapses += 1
-                elif self.is_plastic[pre_neuron, post_neuron]:
-                    self.is_plastic[pre_neuron, post_neuron] = False
-                    self.plastic_synapses -= 1
-                
-                logger.debug(f"Updated synapse: {pre_neuron} -> {post_neuron}, weight={weight}")
-                return True
-            
-            # Add new synapse
-            self.weights[pre_neuron, post_neuron] = weight
-            self.outgoing_synapses[pre_neuron].append(post_neuron)
-            self.incoming_synapses[post_neuron].append(pre_neuron)
-            self.synapse_count[pre_neuron] += 1
-            self.total_synapses += 1
-            
-            # Handle plastic synapse attributes
-            if is_plastic:
-                self.is_plastic[pre_neuron, post_neuron] = True
-                self.plasticity_coeffs[pre_neuron, post_neuron] = plasticity_coeff
-                self.plasticity_decay[pre_neuron, post_neuron] = plasticity_decay
-                self.plastic_synapses += 1
-            
-            logger.debug(f"Added synapse: {pre_neuron} -> {post_neuron}, weight={weight}")
-            return True
-    
-    def remove_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
-        """
-        Remove a synapse between two neurons.
-        
-        Args:
-            pre_neuron: ID of the presynaptic neuron
-            post_neuron: ID of the postsynaptic neuron
-            
-        Returns:
-            True if the synapse was removed, False if it didn't exist
-        """
-        if pre_neuron >= self.max_neurons or post_neuron >= self.max_neurons:
-            return False
-        
-        with self._synapse_lock:
-            # Check if synapse exists
-            if post_neuron not in self.outgoing_synapses[pre_neuron]:
-                return False
-            
-            # Remove synapse
-            self.weights[pre_neuron, post_neuron] = 0
-            self.outgoing_synapses[pre_neuron].remove(post_neuron)
-            self.incoming_synapses[post_neuron].remove(pre_neuron)
-            self.synapse_count[pre_neuron] -= 1
-            self.total_synapses -= 1
-            
-            # Handle plastic synapse cleanup
-            if self.is_plastic[pre_neuron, post_neuron]:
-                self.is_plastic[pre_neuron, post_neuron] = False
-                self.plasticity_coeffs[pre_neuron, post_neuron] = 0
-                self.plasticity_decay[pre_neuron, post_neuron] = 0
-                self.plastic_synapses -= 1
-            
-            logger.debug(f"Removed synapse: {pre_neuron} -> {post_neuron}")
-            return True
-    
-    def get_synapse_weight(self, pre_neuron: int, post_neuron: int) -> float:
-        """
-        Get the weight of a synapse between two neurons.
-        
-        Args:
-            pre_neuron: ID of the presynaptic neuron
-            post_neuron: ID of the postsynaptic neuron
-            
-        Returns:
-            Synaptic weight, or 0 if the synapse doesn't exist
-        """
-        if pre_neuron >= self.max_neurons or post_neuron >= self.max_neurons:
-            return 0.0
-        
-        return self.weights[pre_neuron, post_neuron]
-    
-    def get_outgoing_synapses(self, neuron_id: int) -> List[Tuple[int, float]]:
-        """
-        Get all outgoing synapses for a neuron.
-        
-        Args:
-            neuron_id: ID of the neuron
-            
-        Returns:
-            List of (target_neuron_id, weight) tuples
-        """
-        if neuron_id >= self.max_neurons:
-            return []
-        
-        return [(post_id, self.weights[neuron_id, post_id]) 
-                for post_id in self.outgoing_synapses[neuron_id]]
-    
-    def get_incoming_synapses(self, neuron_id: int) -> List[Tuple[int, float]]:
-        """
-        Get all incoming synapses for a neuron.
-        
-        Args:
-            neuron_id: ID of the neuron
-            
-        Returns:
-            List of (source_neuron_id, weight) tuples
-        """
-        if neuron_id >= self.max_neurons:
-            return []
-        
-        return [(pre_id, self.weights[pre_id, neuron_id]) 
-                for pre_id in self.incoming_synapses[neuron_id]]
-    
-    def update_synapse_weight(self, pre_neuron: int, post_neuron: int, new_weight: float) -> bool:
-        """
-        Update the weight of a synapse.
-        
-        Args:
-            pre_neuron: ID of the presynaptic neuron
-            post_neuron: ID of the postsynaptic neuron
-            new_weight: New synaptic weight
-            
-        Returns:
-            True if the synapse was updated, False if it doesn't exist
-        """
-        if pre_neuron >= self.max_neurons or post_neuron >= self.max_neurons:
-            return False
-        
-        with self._synapse_lock:
-            if post_neuron not in self.outgoing_synapses[pre_neuron]:
-                return False
-            
-            self.weights[pre_neuron, post_neuron] = new_weight
-            return True
-    
-    def get_synapse_count(self) -> int:
-        """Get the total number of synapses."""
-        return self.total_synapses
-    
-    def get_plastic_synapse_count(self) -> int:
-        """Get the total number of plastic synapses."""
-        return self.plastic_synapses
-    
-    def compute_synaptic_input(self, firing_neurons: List[int]) -> np.ndarray:
-        """
-        Compute synaptic input to all neurons based on firing neurons.
-        
-        Args:
-            firing_neurons: List of IDs of neurons that are firing
-            
-        Returns:
-            Array of synaptic inputs for all neurons
-        """
-        # Initialize array for synaptic inputs
-        synaptic_input = np.zeros(self.max_neurons, dtype=np.float32)
-        
-        # For each firing neuron, update its downstream targets
-        for pre_id in firing_neurons:
-            if pre_id >= self.max_neurons:
-                continue
-                
-            for post_id in self.outgoing_synapses[pre_id]:
-                synaptic_input[post_id] += self.weights[pre_id, post_id]
-        
-        return synaptic_input
-    
-    def compute_synaptic_input_matrix(self, firing_neurons: np.ndarray) -> np.ndarray:
-        """
-        Compute synaptic input using matrix operations for better performance.
-        
-        Args:
-            firing_neurons: Array of indices of firing neurons
-            
-        Returns:
-            Array of synaptic inputs for all neurons
-        """
-        # Create a sparse vector representing firing neurons
-        firing_vector = np.zeros(self.max_neurons, dtype=np.float32)
-        firing_vector[firing_neurons] = 1.0
-        
-        # Convert to CSR for efficient matrix multiplication
-        weights_csr = self.weights.tocsr()
-        
-        # Perform matrix-vector multiplication
-        synaptic_input = weights_csr.T.dot(firing_vector)
-        
-        return synaptic_input
-    
-    def optimize_storage(self):
-        """Optimize storage format for memory efficiency and computational performance."""
-        # Convert to CSR for fast row-wise operations (outgoing synapses)
-        self.weights = self.weights.tocsr()
-        self.is_plastic = self.is_plastic.tocsr()
-        self.plasticity_coeffs = self.plasticity_coeffs.tocsr()
-        self.plasticity_decay = self.plasticity_decay.tocsr()
-        
-        logger.info(f"Optimized synapse storage: {self.total_synapses} synapses, {self.plastic_synapses} plastic")
 
 
 class ConnectomeManager:
@@ -838,7 +559,8 @@ class ConnectomeManager:
     
     def create_synapse(self, pre_neuron_id: int, post_neuron_id: int, weight: float,
                       is_plastic: bool = False, plasticity_coeff: float = 0.0,
-                      plasticity_decay: float = 0.0) -> bool:
+                      plasticity_decay: float = 0.0, plasticity_type: int = 0,
+                      activity_factor: float = 1.0, scaling_exponent: float = 1.0) -> bool:
         """
         Create a synapse between two neurons.
         
@@ -849,6 +571,9 @@ class ConnectomeManager:
             is_plastic: Whether the synapse exhibits plasticity
             plasticity_coeff: Coefficient for plasticity updates
             plasticity_decay: Decay rate for plasticity effects
+            plasticity_type: Type of plasticity (0: None, 1: STP, 2: LTP/LTD)
+            activity_factor: Multiplier for synaptic activity
+            scaling_exponent: Nonlinear scaling factor for plasticity
             
         Returns:
             True if the synapse was created successfully, False otherwise
@@ -868,7 +593,8 @@ class ConnectomeManager:
         
         # Create synapse
         result = self.synapse_manager.add_synapse(
-            pre_idx, post_idx, weight, is_plastic, plasticity_coeff, plasticity_decay
+            pre_idx, post_idx, weight, is_plastic, plasticity_coeff, 
+            plasticity_decay, plasticity_type, activity_factor, scaling_exponent
         )
         
         return result

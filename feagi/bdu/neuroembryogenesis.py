@@ -862,4 +862,4 @@ def develop_brain_from_genome(
     success = embryo.develop_brain(genome_path)
     
     # Return results
-    return success, embryo.get_development_statistics() 
+    return success, embryo.get_development_statistics()
