@@ -307,134 +307,131 @@ def find_destination_coordinates(dst_cortical_boundary: Position,
 
 
 def match_vectors(src_voxel: Position, 
-                dst_area_id: AreaId, 
-                vector: List[int], 
-                morphology_scalar: List[Union[int, str]], 
-                src_subregion: BoundingBox,
-                connectome_manager) -> List[Position]:
+                 dst_area_id: AreaId,
+                 vector: Union[Position, str],
+                 morphology_scalar: float,
+                 src_subregion: BoundingBox,
+                 connectome_manager) -> Set[Position]:
     """
-    Match vectors between source and destination areas based on morphology.
+    Find target positions that match vector rules.
     
     Args:
-        src_voxel: Source voxel position
+        src_voxel: Source neuron position
         dst_area_id: Destination area ID
-        vector: Translation vector (x, y, z)
-        morphology_scalar: Scaling factor for the vector (can include expressions)
-        src_subregion: Source subregion bounding box
-        connectome_manager: Reference to the ConnectomeManager for accessing area info
+        vector: Vector definition or algebraic expression
+        morphology_scalar: Scalar multiplier for the vector
+        src_subregion: Bounding box of the source subregion
+        connectome_manager: Reference to the ConnectomeManager
         
     Returns:
-        List of matching destination voxel positions
+        Set of destination positions
     """
-    dst_area = connectome_manager.get_area(dst_area_id)
-    dst_area_dims = dst_area.dimensions
+    # Get destination area dimensions
+    if dst_area_id not in connectome_manager._areas:
+        logger.error(f"Destination area {dst_area_id} not found")
+        return set()
     
-    # Create a string representation to check which dimensions need full range
-    morphology_scalar_string = ''.join(str(s) for s in morphology_scalar)
-
-    # Determine ranges based on morphology_scalar
-    x_range = range(dst_area_dims[0]) if "x" in morphology_scalar_string else [src_voxel[0]]
-    y_range = range(dst_area_dims[1]) if "y" in morphology_scalar_string else [src_voxel[1]]
+    dst_area = connectome_manager._areas[dst_area_id]
+    dst_dimensions = dst_area.dimensions
     
-    # Special handling for z-dimension
-    if "z" in morphology_scalar_string:
-        z_range = range(dst_area_dims[2])
-        z_flag = True
-    else:
-        z_range = [src_voxel[2]]
-        z_flag = False
-
-    candidate_list = []
-
-    # Evaluate for each possible coordinate in the ranges
-    for x__ in x_range:
-        for y__ in y_range:
-            for z__ in z_range:
-                # Evaluate the morphology scalar expressions
-                try:
-                    evaluated_vector = [
-                        evaluate_expression(expr, x__, y__, z__)
-                        for expr in morphology_scalar
-                    ]
-                    
-                    # Scale the vector by the evaluated factors
-                    translation_vector = [v * s for v, s in zip(vector, evaluated_vector)]
-                    
-                    # Compute candidate destination position
-                    candidate_vector = [
-                        src_pos + trans
-                        for src_pos, trans in zip(src_voxel, translation_vector)
-                    ]
-                    
-                    # If z-flag is set, override z with the current z value
-                    if z_flag:
-                        candidate_vector[2] = z__
-                    
-                    # Check if the candidate is within bounds
-                    if all(0 <= candidate_vector[i] < dst_area_dims[i] for i in range(3)):
-                        candidate_list.append(tuple(candidate_vector))
-                except Exception as e:
-                    logger.warning(f"Error evaluating vector expression: {e}")
+    positions = set()
     
-    return candidate_list
+    # Process vector-based destination coordinate
+    if isinstance(vector, list) or isinstance(vector, tuple):
+        # Convert to a list if it's a tuple
+        if isinstance(vector, tuple):
+            vector = list(vector)
+        
+        # Apply the morphology scalar
+        scaled_vector = [int(v * morphology_scalar) for v in vector]
+        
+        # Calculate destination voxel
+        dst_voxel = tuple(max(0, min(src_voxel[i] + scaled_vector[i], dst_dimensions[i] - 1)) 
+                         for i in range(3))
+        
+        positions.add(dst_voxel)
+    
+    # Process algebraic expression-based vector
+    elif isinstance(vector, str):
+        logger.debug(f"Evaluating expression: {vector}")
+        
+        # Create variables dictionary for evaluation
+        x, y, z = src_voxel
+        variables = {
+            'x': x, 'y': y, 'z': z,
+            'src_x': x, 'src_y': y, 'src_z': z,
+            'scalar': morphology_scalar
+        }
+        
+        # Evaluate expression
+        components = [c.strip() for c in vector.split(',')]
+        if len(components) != 3:
+            logger.error(f"Invalid vector expression {vector}, should contain 3 components")
+            return positions
+        
+        # Parse x, y, z components
+        try:
+            dst_x = evaluate_expression(components[0], variables)
+            dst_y = evaluate_expression(components[1], variables) 
+            dst_z = evaluate_expression(components[2], variables)
+            
+            # Ensure coordinates are within bounds
+            dst_x = max(0, min(int(dst_x), dst_dimensions[0] - 1))
+            dst_y = max(0, min(int(dst_y), dst_dimensions[1] - 1))
+            dst_z = max(0, min(int(dst_z), dst_dimensions[2] - 1))
+            
+            positions.add((dst_x, dst_y, dst_z))
+        except Exception as e:
+            logger.error(f"Error evaluating vector expression {vector}: {str(e)}")
+    
+    return positions
 
 
 def syn_expander_x(src_area_id: AreaId, 
-                  dst_area_id: AreaId, 
-                  src_neuron_id: NeuronId, 
-                  src_subregion: BoundingBox, 
-                  connectome_manager,
-                  dst_y_index: int = 0, 
-                  dst_z_index: int = 0) -> List[Position]:
+                  dst_area_id: AreaId,
+                  src_neuron_id: NeuronId,
+                  src_subregion: BoundingBox,
+                  connectome_manager) -> Set[Position]:
     """
-    Implement the expander rule for x-dimension.
-    
-    This rule maps combinations of source neurons to unique configurations
-    in the destination area based on binary patterns.
+    Expander_X morphology: maps neurons by expanding coordinates from source to destination.
     
     Args:
         src_area_id: Source area ID
         dst_area_id: Destination area ID
         src_neuron_id: Source neuron ID
-        src_subregion: Source subregion bounding box
-        connectome_manager: Reference to the ConnectomeManager
-        dst_y_index: Y-coordinate in destination (default 0)
-        dst_z_index: Z-coordinate in destination (default 0)
+        src_subregion: Source region bounding box
+        connectome_manager: Reference to ConnectomeManager
         
     Returns:
-        List of matching destination positions
+        Set of destination positions
     """
-    # Get dimensions
-    src_cortical_dim_x = src_subregion[1][0] - src_subregion[0][0]
-    dst_area = connectome_manager.get_area(dst_area_id)
-    dst_cortical_dim_x = dst_area.dimensions[0]
-
-    cortical_length_binary = len(bin(dst_cortical_dim_x)) - 2
-    
-    # Check for sufficient space in destination area
-    if dst_cortical_dim_x < 2 ** src_cortical_dim_x:
-        logger.warning(f"Area {dst_area_id} does not have enough blocks on x dim for synaptogenesis")
-    
     # Get source neuron position
-    src_neuron_pos = connectome_manager.get_neuron_position(src_neuron_id)
-    if not src_neuron_pos:
-        return []
-    
-    src_neuron_block_index_x = src_neuron_pos[1]  # x-coordinate (after area_id)
-    candidate_list = []
-
-    # For each destination x-position
-    for dst_x_index in range(dst_cortical_dim_x):
-        # Convert to binary and pad
-        position_length_binary = len(bin(dst_x_index)[2:])
-        length_difference = cortical_length_binary - position_length_binary
-        binary_str = '0' * length_difference + bin(dst_x_index)[2:]
+    src_pos = connectome_manager.get_neuron_position(src_neuron_id)
+    if not src_pos:
+        logger.error(f"Cannot find position for source neuron {src_neuron_id}")
+        return set()
         
-        # Check if the bit at the source neuron's x-position is set
-        if len(binary_str) > src_neuron_block_index_x and binary_str[src_neuron_block_index_x] == '1':
-            candidate_list.append((dst_x_index, dst_y_index, dst_z_index))
+    # Get area dimensions
+    if src_area_id not in connectome_manager._areas or dst_area_id not in connectome_manager._areas:
+        logger.error(f"Source or destination area not found")
+        return set()
+        
+    src_area = connectome_manager._areas[src_area_id]
+    dst_area = connectome_manager._areas[dst_area_id]
     
-    return candidate_list
+    src_dims = src_area.dimensions
+    dst_dims = dst_area.dimensions
+    
+    # Calculate the expansion ratio in each dimension
+    ratios = [dst_dims[i] / src_dims[i] if src_dims[i] > 0 else 1.0 for i in range(3)]
+    
+    # Compute the destination position by scaling coordinates
+    dst_x = min(int(src_pos[0] * ratios[0]), dst_dims[0] - 1)
+    dst_y = min(int(src_pos[1] * ratios[1]), dst_dims[1] - 1) 
+    dst_z = min(int(src_pos[2] * ratios[2]), dst_dims[2] - 1)
+    
+    # Return as a set with a single position
+    return {(dst_x, dst_y, dst_z)}
 
 
 def syn_reducer_x(src_area_id: AreaId, 
@@ -826,7 +823,8 @@ def neighbor_finder(src_area_id: AreaId,
         logger.error(f"Cannot find position for source neuron {src_neuron_id}")
         return []
     
-    src_voxel = (src_neuron_pos[1], src_neuron_pos[2], src_neuron_pos[3])
+    # Get position tuple (x, y, z)
+    src_voxel = src_neuron_pos
     
     # Determine morphology ID and parameters
     neuron_morphology = morphology_id_overwrite or morphology['morphology_id']
@@ -834,7 +832,11 @@ def neighbor_finder(src_area_id: AreaId,
     psc_multiplier = morphology['postSynapticCurrent_multiplier']
     
     # Get source area properties
-    src_area = connectome_manager.get_area(src_area_id)
+    if src_area_id not in connectome_manager._areas:
+        logger.error(f"Source area {src_area_id} not found")
+        return []
+    
+    src_area = connectome_manager._areas[src_area_id]
     psc_base = src_area.properties.get('postsynaptic_current', 1.0)
     post_synaptic_current = psc_multiplier * psc_base
     
@@ -843,12 +845,17 @@ def neighbor_finder(src_area_id: AreaId,
     candidate_neuron_list = []
     
     # Get morphology type
-    morphologies_registry = connectome_manager.get_morphologies_registry()
-    if neuron_morphology not in morphologies_registry:
-        logger.error(f"Morphology {neuron_morphology} not found in registry")
-        return []
-    
-    morphology_type = morphologies_registry[neuron_morphology]["type"]
+    if not hasattr(connectome_manager, 'get_morphologies_registry'):
+        logger.error("ConnectomeManager does not have morphologies registry")
+        # Use default morphology type from the parameter
+        morphology_type = RuleType.FUNCTIONS.value
+    else:
+        morphologies_registry = connectome_manager.get_morphologies_registry()
+        if neuron_morphology not in morphologies_registry:
+            logger.error(f"Morphology {neuron_morphology} not found in registry")
+            return []
+        
+        morphology_type = morphologies_registry[neuron_morphology]["type"]
     
     try:
         # Process based on morphology type
@@ -870,7 +877,11 @@ def neighbor_finder(src_area_id: AreaId,
         elif morphology_type == RuleType.PATTERNS.value:
             for pattern in morphologies_registry[neuron_morphology]["parameters"]["patterns"]:
                 # Get destination area dimensions
-                dst_area = connectome_manager.get_area(dst_area_id)
+                if dst_area_id not in connectome_manager._areas:
+                    logger.error(f"Destination area {dst_area_id} not found")
+                    continue
+                
+                dst_area = connectome_manager._areas[dst_area_id]
                 dst_dimensions = dst_area.dimensions
                 
                 source_pattern = pattern[0]
@@ -938,7 +949,6 @@ def neighbor_finder(src_area_id: AreaId,
             
             elif neuron_morphology == MorphologyFunction.LAST_TO_FIRST.value:
                 # Check if this is the last neuron in the area
-                src_area = connectome_manager.get_area(src_area_id)
                 src_dimensions = src_area.dimensions
                 last_pos = (src_dimensions[0] - 1, src_dimensions[1] - 1, src_dimensions[2] - 1)
                 
@@ -956,115 +966,34 @@ def neighbor_finder(src_area_id: AreaId,
                 for pos in positions:
                     raw_candidate_positions.add(pos)
             
-            elif neuron_morphology == MorphologyFunction.PROJECTOR_XY.value:
-                positions = syn_projector(
-                    src_area_id=src_area_id,
-                    dst_area_id=dst_area_id,
-                    src_neuron_id=src_neuron_id,
-                    src_subregion=src_subregion,
-                    connectome_manager=connectome_manager,
-                    transpose=("y", "x", "z")
-                )
-                for pos in positions:
-                    raw_candidate_positions.add(pos)
-            
-            elif neuron_morphology == MorphologyFunction.PROJECTOR_XZ.value:
-                positions = syn_projector(
-                    src_area_id=src_area_id,
-                    dst_area_id=dst_area_id,
-                    src_neuron_id=src_neuron_id,
-                    src_subregion=src_subregion,
-                    connectome_manager=connectome_manager,
-                    transpose=("z", "y", "x")
-                )
-                for pos in positions:
-                    raw_candidate_positions.add(pos)
-            
-            elif neuron_morphology == MorphologyFunction.PROJECTOR_YZ.value:
-                positions = syn_projector(
-                    src_area_id=src_area_id,
-                    dst_area_id=dst_area_id,
-                    src_neuron_id=src_neuron_id,
-                    src_subregion=src_subregion,
-                    connectome_manager=connectome_manager,
-                    transpose=("x", "z", "y")
-                )
-                for pos in positions:
-                    raw_candidate_positions.add(pos)
-            
-            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_X.value:
-                # Only apply to neurons in the last layer of x dimension
-                src_area = connectome_manager.get_area(src_area_id)
-                if src_voxel[0] == src_area.dimensions[0] - 1:
-                    positions = syn_projector(
-                        src_area_id=src_area_id,
-                        dst_area_id=dst_area_id,
-                        src_neuron_id=src_neuron_id,
-                        src_subregion=src_subregion,
-                        connectome_manager=connectome_manager,
-                        project_last_layer_of="x"
-                    )
-                    for pos in positions:
-                        raw_candidate_positions.add(pos)
-            
-            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_Y.value:
-                # Only apply to neurons in the last layer of y dimension
-                src_area = connectome_manager.get_area(src_area_id)
-                if src_voxel[1] == src_area.dimensions[1] - 1:
-                    positions = syn_projector(
-                        src_area_id=src_area_id,
-                        dst_area_id=dst_area_id,
-                        src_neuron_id=src_neuron_id,
-                        src_subregion=src_subregion,
-                        connectome_manager=connectome_manager,
-                        project_last_layer_of="y"
-                    )
-                    for pos in positions:
-                        raw_candidate_positions.add(pos)
-            
-            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_Z.value:
-                # Only apply to neurons in the last layer of z dimension
-                src_area = connectome_manager.get_area(src_area_id)
-                if src_voxel[2] == src_area.dimensions[2] - 1:
-                    positions = syn_projector(
-                        src_area_id=src_area_id,
-                        dst_area_id=dst_area_id,
-                        src_neuron_id=src_neuron_id,
-                        src_subregion=src_subregion,
-                        connectome_manager=connectome_manager,
-                        project_last_layer_of="z"
-                    )
-                    for pos in positions:
-                        raw_candidate_positions.add(pos)
-            
+            # Handle special memory morphology that doesn't produce voxel positions
             elif neuron_morphology == MorphologyFunction.MEMORY.value:
-                syn_memory(
-                    src_area_id=src_area_id,
-                    dst_area_id=dst_area_id,
-                    memory_register=memory_register
-                )
-        
-        elif morphology_type == RuleType.PLACEHOLDER.value:
-            # Placeholder morphologies don't create connections
-            pass
+                syn_memory(src_area_id, dst_area_id, memory_register)
+                # No positions are added for memory function
+            
+            else:
+                logger.warning(f"Unsupported morphology function: {neuron_morphology}")
         
         else:
-            logger.warning(f"Morphology {neuron_morphology} has an invalid type")
-    
-    except Exception as e:
-        logger.error(f"Error during synaptogenesis of {src_area_id} and {dst_area_id}: {e}")
-        logger.error(traceback.format_exc())
-    
-    # Convert positions to neurons
-    for position in raw_candidate_positions:
-        # Find neurons at this position
-        dst_neurons = connectome_manager.get_neurons_at_position(
-            area_id=dst_area_id,
-            position=position
-        )
+            logger.warning(f"Unsupported morphology type: {morphology_type}")
         
-        # Add each neuron with the appropriate weight (PSC)
-        for neuron_id in dst_neurons:
-            candidate_neuron_list.append((neuron_id, post_synaptic_current))
-    
-    return candidate_neuron_list 
+        # For each candidate position, find the neurons there and add them to the result list
+        for dst_pos in raw_candidate_positions:
+            if dst_pos is None:
+                continue
+                
+            # Get neurons at this position in the destination area
+            dst_neurons = connectome_manager.get_neurons_at_position(dst_area_id, dst_pos)
+            
+            # Add each destination neuron with its weight to the candidate list
+            for dst_neuron_id in dst_neurons:
+                if dst_neuron_id:
+                    candidate_neuron_list.append((dst_neuron_id, post_synaptic_current))
+        
+        logger.debug(f"Found {len(candidate_neuron_list)} destination neurons")
+        return candidate_neuron_list
+        
+    except Exception as e:
+        logger.error(f"Error in neighbor_finder: {str(e)}")
+        logger.exception("Exception details:")
+        return [] 
