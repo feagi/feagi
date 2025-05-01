@@ -202,7 +202,7 @@ def get_available_backends() -> List[BackendType]:
             available.append(BackendType.WEBGPU)
         
         # Check for Metal (Apple Silicon) availability
-        if resources.get("metal_available", False):
+        if resources.get("metal_available", False) and BackendType.METAL in _BACKENDS:
             available.append(BackendType.METAL)
             
         logger.debug(f"Available backends detected via ResourceManager: {[b.value for b in available]}")
@@ -229,17 +229,17 @@ def determine_best_backend() -> BackendType:
     resources = ResourceManager.get_instance().resources
     
     # First preference: CUDA GPU if available
-    if resources.get("gpu_available", False) and resources.get("gpu_count", 0) > 0:
+    if resources.get("gpu_available", False) and resources.get("gpu_count", 0) > 0 and BackendType.CUDA in _BACKENDS:
         logger.info("CUDA GPU detected, selecting CUDA backend")
         return BackendType.CUDA
     
     # Second preference: Metal for Apple Silicon
-    if resources.get("metal_available", False):
+    if resources.get("metal_available", False) and BackendType.METAL in _BACKENDS:
         logger.info("Apple Metal detected, selecting Metal backend")
         return BackendType.METAL
     
     # Third preference: WebGPU if available
-    if resources.get("webgpu_available", False):
+    if resources.get("webgpu_available", False) and BackendType.WEBGPU in _BACKENDS:
         logger.info("WebGPU detected, selecting WebGPU backend")
         return BackendType.WEBGPU
     

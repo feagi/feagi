@@ -165,16 +165,17 @@ class ResourceManager:
                 
                 # Get WebGPU adapter information if possible
                 try:
-                    if hasattr(wgpu, 'gpu') and hasattr(wgpu.gpu, 'request_adapter'):
-                        adapter = wgpu.gpu.request_adapter()
+                    if hasattr(wgpu, 'gpu') and hasattr(wgpu.gpu, 'request_adapter_sync'):
+                        adapter = wgpu.gpu.request_adapter_sync()
                         if adapter:
-                            adapter_info = adapter.request_adapter_info()
+                            # In newer wgpu versions, adapter_info might not be available
+                            # Instead, just record that we have a valid adapter
                             resources["webgpu_info"] = {
-                                "name": adapter_info.get("name", "Unknown"),
-                                "driver": adapter_info.get("driver", "Unknown"),
-                                "adapter_type": adapter_info.get("adapter_type", "Unknown")
+                                "name": "WebGPU Adapter",
+                                "driver": "Unknown",
+                                "adapter_type": "Unknown"
                             }
-                            self.logger.info(f"WebGPU adapter detected: {resources['webgpu_info']['name']}")
+                            self.logger.info(f"WebGPU adapter detected successfully")
                 except Exception as e:
                     self.logger.warning(f"WebGPU adapter detection error: {e}")
             except ImportError:

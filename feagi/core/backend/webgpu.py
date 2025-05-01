@@ -54,20 +54,23 @@ class WebGPUBackend(BackendInterface):
         
         try:
             # Use wgpu.gpu for newer versions of wgpu
-            if hasattr(wgpu, 'gpu') and hasattr(wgpu.gpu, 'request_adapter'):
-                self.adapter = wgpu.gpu.request_adapter(power_preference="high-performance")
+            if hasattr(wgpu, 'gpu') and hasattr(wgpu.gpu, 'request_adapter_sync'):
+                self.adapter = wgpu.gpu.request_adapter_sync(power_preference="high-performance")
             # Fallback to direct access for older versions
-            elif hasattr(wgpu, 'request_adapter'):
-                self.adapter = wgpu.request_adapter(power_preference="high-performance")
+            elif hasattr(wgpu, 'request_adapter_sync'):
+                self.adapter = wgpu.request_adapter_sync(power_preference="high-performance")
             else:
                 logger.error("WebGPU API not found in installed wgpu package")
                 return False
                 
-            self.device = self.adapter.request_device()
+            # Use request_device_sync instead of request_device
+            if hasattr(self.adapter, 'request_device_sync'):
+                self.device = self.adapter.request_device_sync()
+            else:
+                self.device = self.adapter.request_device()
             
             # Log device information
-            adapter_info = self.adapter.request_adapter_info()
-            logger.info(f"WebGPU adapter: {adapter_info.get('name', 'Unknown')}")
+            logger.info(f"WebGPU adapter successfully loaded")
             logger.info(f"WebGPU device: {self.device}")
             
             # Initialize common shader modules
@@ -215,15 +218,28 @@ class WebGPUBackend(BackendInterface):
             }
             output[index] = input1[index] * input2[index];
         }
+        
+        @compute @workgroup_size(256)
+        fn divide(@builtin(global_invocation_id) id: vec3<u32>) {
+            let index = id.x;
+            if (index >= arrayLength(&output)) {
+                return;
+            }
+            if (input2[index] != 0.0) {
+                output[index] = input1[index] / input2[index];
+            } else {
+                output[index] = 0.0;
+            }
+        }
         """
         
         self._shader_modules["elementwise"] = self.device.create_shader_module(code=elementwise_shader)
         
-        # FCL bitmap operations shader
+        # Bitmap operations shader
         bitmap_shader = """
         @group(0) @binding(0) var<storage, read> bitmap1: array<u32>;
         @group(0) @binding(1) var<storage, read> bitmap2: array<u32>;
-        @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(2) var<storage, read_write> output: array<atomic<u32>>;
         
         @compute @workgroup_size(256)
         fn bitmap_or(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -253,26 +269,16 @@ class WebGPUBackend(BackendInterface):
         }
         
         @compute @workgroup_size(256)
-        fn bitmap_not(@builtin(global_invocation_id) id: vec3<u32>) {
+        fn bitmap_subtract(@builtin(global_invocation_id) id: vec3<u32>) {
             let index = id.x;
             if (index >= arrayLength(&output)) {
                 return;
             }
-            output[index] = ~bitmap1[index];
+            output[index] = bitmap1[index] & ~bitmap2[index];
         }
         
         @compute @workgroup_size(256)
-        fn bitmap_sub(@builtin(global_invocation_id) id: vec3<u32>) {
-            let index = id.x;
-            if (index >= arrayLength(&output)) {
-                return;
-            }
-            // Remove bits in bitmap2 from bitmap1
-            output[index] = bitmap1[index] & (~bitmap2[index]);
-        }
-        
-        @compute @workgroup_size(256)
-        fn bitmap_clear(@builtin(global_invocation_id) id: vec3<u32>) {
+        fn clear_bitmap(@builtin(global_invocation_id) id: vec3<u32>) {
             let index = id.x;
             if (index >= arrayLength(&output)) {
                 return;
@@ -556,7 +562,7 @@ class WebGPUBackend(BackendInterface):
         # Create compute pipeline
         compute_pipeline = self.device.create_compute_pipeline(
             layout=pipeline_layout,
-            compute={"module": self._shader_modules["bitmap_ops"], "entry_point": "bitmap_sub"}
+            compute={"module": self._shader_modules["bitmap_ops"], "entry_point": "bitmap_subtract"}
         )
         
         # Create bind group
