@@ -10,7 +10,7 @@ import zmq
 
 logger = logging.getLogger(__name__)
 
-class ZMQClient:
+class ZmqClient:
     """
     ZeroMQ client for FEAGI.
     
@@ -362,7 +362,7 @@ def create_zmq_client(
     push_port: int = 5557,
     stream_port: int = 5558,
     topics: Optional[List[str]] = None,
-) -> ZMQClient:
+) -> ZmqClient:
     """
     Create and start a ZeroMQ client.
     
@@ -375,9 +375,9 @@ def create_zmq_client(
         topics: List of topics to subscribe to.
         
     Returns:
-        Running ZMQClient instance.
+        Running ZmqClient instance.
     """
-    client = ZMQClient(
+    client = ZmqClient(
         host=host,
         req_port=req_port,
         pub_port=pub_port,

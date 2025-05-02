@@ -1,51 +1,46 @@
-"""ZMQ Server launcher for FEAGI.
+#!/usr/bin/env python
+"""ZMQ Server for FEAGI.
 
-This module provides a command-line interface for starting ZMQ servers
-in FEAGI, following the same pattern as the REST API server.
+This is a compatibility module that forwards to the new implementation.
 """
-import os
 import argparse
-import threading
-import signal
 import logging
 import importlib
-from typing import Dict, Optional
+import signal
+import sys
+import os
+from typing import Dict, Any, Optional, List
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger("feagi.zmq.server")
+logger = logging.getLogger(__name__)
 
-# Global reference to the ZMQ server instance
+# Global ZMQ server instance
 zmq_server_instance = None
 
 def main():
     """Run the FEAGI ZMQ server."""
     parser = argparse.ArgumentParser(description="FEAGI ZMQ Server")
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to run the server on (default: 127.0.0.1)")
-    parser.add_argument("--pub-port", type=int, default=5556, help="Publisher port")
-    parser.add_argument("--sub-port", type=int, default=5557, help="Subscriber port")
-    parser.add_argument("--topics", type=str, nargs="+", default=["neural", "metrics", "heartbeat"], help="Topics to support")
-    parser.add_argument("--auth", action="store_true", help="Enable authentication (deprecated)")
+    
+    # Add arguments
+    parser.add_argument("--host", default="*", help="Host address to bind to")
+    parser.add_argument("--pub-port", dest="pub_port", type=int, default=5556, help="Publisher port")
+    parser.add_argument("--sub-port", dest="sub_port", type=int, default=5557, help="Subscriber port")
+    parser.add_argument("--topics", type=str, nargs="+", default=["neural", "metrics", "heartbeat"], 
+                       help="Topics to support")
     parser.add_argument("--encryption", action="store_true", help="Enable encryption (deprecated)")
-    parser.add_argument("--config", type=str, help="Path to configuration file (deprecated)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    
     args = parser.parse_args()
     
-    # Set environment variables for containerization
-    os.environ["FEAGI_ZMQ_HOST"] = args.host
-    os.environ["FEAGI_ZMQ_PUB_PORT"] = str(args.pub_port)
-    os.environ["FEAGI_ZMQ_SUB_PORT"] = str(args.sub_port)
-    os.environ["FEAGI_ZMQ_TOPICS"] = ",".join(args.topics)
-    
-    # Load configuration if provided
-    config = None
-    if args.config:
-        logger.warning("The '--config' parameter is deprecated and will be ignored.")
-        
-    if args.auth:
-        logger.warning("The '--auth' parameter is deprecated and will be ignored.")
+    # Set debug logging if requested
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug logging enabled")
         
     if args.encryption:
         logger.warning("The '--encryption' parameter is deprecated and will be ignored.")
@@ -55,30 +50,15 @@ def main():
     
     global zmq_server_instance
     
-    # Try to import ZMQServer from core implementation
+    # Import and create the server using the new implementation
     try:
-        # Try to import from core first
-        try:
-            core_module = importlib.import_module("feagi.core.zmq.server")
-            ZMQServer = getattr(core_module, "ZMQServer")
-            
-            # Create the server directly instead of using factory
-            zmq_server_instance = ZMQServer(
-                host=args.host,
-                pub_port=args.pub_port,
-                sub_port=args.sub_port,
-                topics=args.topics,
-                logger=logger
-            )
-        except (ImportError, AttributeError):
-            # Fall back to legacy factory function
-            from feagi.zmq import create_zmq_server
-            zmq_server_instance = create_zmq_server(
-                host=args.host,
-                pub_port=args.pub_port,
-                sub_port=args.sub_port,
-                topics=args.topics
-            )
+        from feagi.api.zmq import create_zmq_server
+        zmq_server_instance = create_zmq_server(
+            host=args.host,
+            pub_port=args.pub_port,
+            sub_port=args.sub_port,
+            topics=args.topics
+        )
             
         if zmq_server_instance is None:
             logger.error("Failed to create ZMQ server")
@@ -103,19 +83,14 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # Keep the main thread alive
     try:
-        # Use polling instead of signal.pause() which is not available on all platforms
-        while zmq_server_instance.running:
-            try:
-                import time
-                time.sleep(1)
-            except KeyboardInterrupt:
-                break
-    except (KeyboardInterrupt, SystemExit):
-        if zmq_server_instance is not None:
-            zmq_server_instance.shutdown()
-
+        # Keep the process running
+        print("ZMQ server running (press Ctrl+C to quit)")
+        signal.pause()
+    except KeyboardInterrupt:
+        pass
+    
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main()) 

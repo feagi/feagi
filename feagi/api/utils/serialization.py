@@ -1,4 +1,9 @@
-"""Serialization utilities for FEAGI API."""
+"""
+Serialization utilities for FEAGI API.
+
+This module provides serialization and deserialization functions for
+different data formats used in the API.
+"""
 
 import json
 import struct

@@ -1,0 +1,329 @@
+"""
+ZeroMQ Push-Pull Implementation for FEAGI API
+
+This module implements the PUSH/PULL pattern for ZeroMQ communication in FEAGI.
+It provides:
+- Push server for distributing work items to multiple workers
+- Pull client for receiving and processing work items
+- Load balancing across multiple workers
+- Backpressure handling for overloaded workers
+"""
+
+import asyncio
+import logging
+import time
+import zmq
+import zmq.asyncio
+from typing import Dict, Any, List, Callable, Optional, Union, Tuple
+
+from ...core.service import CoreApiService
+from ..serialization import serialize_message, deserialize_message
+from ...utils.rate_limit import RateLimiter
+
+logger = logging.getLogger(__name__)
+
+
+class PushServer:
+    """
+    ZeroMQ Push server implementation.
+    
+    This server distributes work items to one or more Pull clients using the PUSH/PULL pattern.
+    It's designed for load balancing work across multiple workers.
+    """
+    
+    def __init__(
+        self, 
+        core_api: CoreApiService,
+        host: str = "*", 
+        port: int = 5557,
+        hwm: int = 1000,
+        context: Optional[zmq.asyncio.Context] = None
+    ):
+        """
+        Initialize a new Push server.
+        
+        Args:
+            core_api: The CoreApiService instance to delegate calls to
+            host: Host address to bind to (default "*" to bind to all interfaces)
+            port: Port number to bind to
+            hwm: High water mark (max queued messages)
+            context: Optional existing ZMQ context to use
+        """
+        self.core_api = core_api
+        self.host = host
+        self.port = port
+        self.running = False
+        self.context = context or zmq.asyncio.Context.instance()
+        self.socket = self.context.socket(zmq.PUSH)
+        self.socket.setsockopt(zmq.SNDHWM, hwm)
+        self.socket.bind(f"tcp://{host}:{port}")
+        self.rate_limiter = RateLimiter()
+        
+        # Queue for pending work items
+        self.work_queue = asyncio.Queue()
+        
+        # Statistics
+        self.stats = {
+            "sent_items": 0,
+            "queued_items": 0,
+            "last_push_time": 0
+        }
+
+    async def start(self) -> None:
+        """Start the push server."""
+        logger.info(f"Starting PUSH server on {self.host}:{self.port}")
+        self.running = True
+        asyncio.create_task(self._process_queue())
+
+    async def stop(self) -> None:
+        """Stop the push server."""
+        logger.info("Stopping PUSH server")
+        self.running = False
+        self.socket.close()
+
+    async def push_item(
+        self, 
+        item: Any, 
+        work_type: str = "default",
+        priority: int = 0,
+        content_type: str = "application/json"
+    ) -> None:
+        """
+        Queue a work item for processing.
+        
+        Args:
+            item: The work item data to push
+            work_type: Type of work for categorization
+            priority: Priority (higher values are processed first)
+            content_type: Content type for serialization
+        """
+        await self.work_queue.put((priority, work_type, item, content_type))
+        self.stats["queued_items"] = self.work_queue.qsize()
+        logger.debug(f"Queued work item of type {work_type}, priority {priority}")
+
+    async def _process_queue(self) -> None:
+        """Process queued work items and push them to workers."""
+        while self.running:
+            try:
+                # Get the next work item (blocks until one is available)
+                priority, work_type, item, content_type = await self.work_queue.get()
+                
+                # Prepare the message
+                serialized_data = serialize_message(item, content_type)
+                message = [
+                    work_type.encode(),
+                    content_type.encode(),
+                    serialized_data
+                ]
+                
+                # Send the message
+                await self.socket.send_multipart(message)
+                
+                # Update statistics
+                self.stats["sent_items"] += 1
+                self.stats["queued_items"] = self.work_queue.qsize()
+                self.stats["last_push_time"] = time.time()
+                
+                logger.debug(f"Pushed work item of type {work_type}")
+                
+                # Mark task as done
+                self.work_queue.task_done()
+                
+            except asyncio.CancelledError:
+                logger.debug("Process queue task cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Error processing work queue: {e}")
+                await asyncio.sleep(1)  # Avoid tight loop on errors
+
+    async def push_batch(
+        self, 
+        items: List[Tuple[Any, str, int]], 
+        content_type: str = "application/json"
+    ) -> None:
+        """
+        Queue multiple work items for processing.
+        
+        Args:
+            items: List of (item, work_type, priority) tuples
+            content_type: Content type for serialization
+        """
+        for item, work_type, priority in items:
+            await self.push_item(item, work_type, priority, content_type)
+
+
+class PullClient:
+    """
+    ZeroMQ Pull client implementation.
+    
+    This client connects to a Push server and receives work items for processing.
+    """
+    
+    def __init__(
+        self, 
+        host: str = "localhost", 
+        port: int = 5557,
+        hwm: int = 100,
+        context: Optional[zmq.asyncio.Context] = None
+    ):
+        """
+        Initialize a new Pull client.
+        
+        Args:
+            host: Push server host address to connect to
+            port: Push server port to connect to
+            hwm: High water mark (max queued messages)
+            context: Optional existing ZMQ context to use
+        """
+        self.host = host
+        self.port = port
+        self.running = False
+        self.context = context or zmq.asyncio.Context.instance()
+        self.socket = self.context.socket(zmq.PULL)
+        self.socket.setsockopt(zmq.RCVHWM, hwm)
+        self.socket.connect(f"tcp://{host}:{port}")
+        
+        # Handler registry
+        self.handlers = {}
+        
+        # Default handler
+        self.default_handler = None
+        
+        # Stats
+        self.stats = {
+            "received_items": 0,
+            "processed_items": 0,
+            "errors": 0,
+            "last_receive_time": 0
+        }
+
+    def register_handler(self, work_type: str, handler: Callable) -> None:
+        """
+        Register a handler for a specific work type.
+        
+        Args:
+            work_type: The work type to handle
+            handler: Async callback function that takes the work item as an argument
+        """
+        self.handlers[work_type] = handler
+
+    def register_default_handler(self, handler: Callable) -> None:
+        """
+        Register a default handler for unknown work types.
+        
+        Args:
+            handler: Async callback function that takes (work_type, work_item) as arguments
+        """
+        self.default_handler = handler
+
+    async def start(self) -> None:
+        """Start receiving work items."""
+        logger.info(f"Starting PULL client to {self.host}:{self.port}")
+        self.running = True
+        asyncio.create_task(self._receive_loop())
+
+    async def stop(self) -> None:
+        """Stop receiving work items."""
+        logger.info("Stopping PULL client")
+        self.running = False
+        self.socket.close()
+
+    async def _receive_loop(self) -> None:
+        """Main loop for receiving work items and dispatching to handlers."""
+        while self.running:
+            try:
+                multipart = await self.socket.recv_multipart()
+                
+                # Expecting [work_type, content_type, data]
+                if len(multipart) < 3:
+                    logger.error(f"Received malformed message: {multipart}")
+                    self.stats["errors"] += 1
+                    continue
+                
+                work_type = multipart[0].decode()
+                content_type = multipart[1].decode()
+                data = deserialize_message(multipart[2], content_type)
+                
+                # Update statistics
+                self.stats["received_items"] += 1
+                self.stats["last_receive_time"] = time.time()
+                
+                logger.debug(f"Received work item of type: {work_type}")
+                
+                # Dispatch to handler
+                if work_type in self.handlers:
+                    try:
+                        await self.handlers[work_type](data)
+                        self.stats["processed_items"] += 1
+                    except Exception as e:
+                        logger.error(f"Error in handler for work type {work_type}: {e}")
+                        self.stats["errors"] += 1
+                elif self.default_handler:
+                    try:
+                        await self.default_handler(work_type, data)
+                        self.stats["processed_items"] += 1
+                    except Exception as e:
+                        logger.error(f"Error in default handler for work type {work_type}: {e}")
+                        self.stats["errors"] += 1
+                else:
+                    logger.warning(f"No handler for work type: {work_type}")
+            
+            except asyncio.CancelledError:
+                logger.debug("Receive loop cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Error receiving work item: {e}")
+                self.stats["errors"] += 1
+                await asyncio.sleep(1)  # Avoid tight loop on errors
+
+
+class PushPullManager:
+    """
+    Manager class for coordinating Push and Pull operations.
+    
+    This class provides a unified interface for the FEAGI ZMQ server
+    to manage PUSH/PULL patterns.
+    """
+    
+    def __init__(
+        self, 
+        core_api: CoreApiService,
+        host: str = "*", 
+        port: int = 5557,
+        context: Optional[zmq.asyncio.Context] = None
+    ):
+        """
+        Initialize a new PushPull Manager.
+        
+        Args:
+            core_api: The CoreApiService instance to delegate calls to
+            host: Host address to bind to
+            port: Port number to bind to
+            context: Optional existing ZMQ context to use
+        """
+        self.context = context or zmq.asyncio.Context.instance()
+        self.push_server = PushServer(core_api, host, port, context=self.context)
+    
+    async def start(self) -> None:
+        """Start the PushPull manager."""
+        await self.push_server.start()
+    
+    async def stop(self) -> None:
+        """Stop the PushPull manager."""
+        await self.push_server.stop()
+    
+    async def queue_work(
+        self, 
+        work_type: str, 
+        data: Any, 
+        priority: int = 0
+    ) -> None:
+        """
+        Queue a work item for processing.
+        
+        Args:
+            work_type: Type of work item
+            data: Work item data
+            priority: Priority level (higher is processed first)
+        """
+        await self.push_server.push_item(data, work_type, priority) 

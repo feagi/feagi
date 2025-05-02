@@ -94,73 +94,53 @@ def start_api_server(args: Dict[str, Any]) -> Optional[subprocess.Popen]:
 
 
 def start_zmq_server(args: Dict[str, Any]) -> bool:
-    """Start the ZMQ server in the current process.
-    
-    This avoids subprocess issues by running the ZMQ server in-process.
+    """
+    Start the ZMQ server for FEAGI.
     
     Args:
-        args: Configuration arguments for the ZMQ server
-        
+        args: Dictionary of arguments
+            - host: Host to bind to
+            - pub_port: Port for publishing messages
+            - sub_port: Port for subscribing to messages
+            - topics: List of topics to support
+            
     Returns:
-        True if started successfully, False otherwise
+        bool: True if started successfully
     """
     global _zmq_server_instance
     
-    logger.info(f"Starting ZMQ server on {args['host']} (pub: {args['pub_port']}, sub: {args['sub_port']})")
-    
-    # Set relevant environment variables
-    os.environ["FEAGI_ZMQ_HOST"] = args["host"]
-    os.environ["FEAGI_ZMQ_PUB_PORT"] = str(args["pub_port"])
-    os.environ["FEAGI_ZMQ_SUB_PORT"] = str(args["sub_port"])
-    os.environ["FEAGI_ZMQ_TOPICS"] = ",".join(args["topics"] if args["topics"] else ["neural", "metrics", "heartbeat"])
+    logger.info("Starting ZMQ server...")
     
     try:
-        # Import ZMQServer with better diagnostics
+        # Create the ZMQ server
         try:
-            # Try to import the module without creating a ZMQServer yet
-            module = importlib.import_module("feagi.core.zmq.server")
-            logger.info(f"Successfully imported ZMQ server module from: {getattr(module, '__file__', 'unknown')}")
+            # Import the server from the API module
+            from feagi.api.zmq.server import ZmqServer
             
-            # Check if the module has ZMQ_AVAILABLE flag and log it
-            if hasattr(module, 'ZMQ_AVAILABLE'):
-                logger.info(f"ZMQ_AVAILABLE in module: {module.ZMQ_AVAILABLE}")
-            
-            # Check if ZMQ has Context in the module's scope
-            if hasattr(module, 'zmq') and hasattr(module.zmq, 'Context'):
-                logger.info(f"ZMQ Context found in module: {module.zmq.Context}")
-            
-            # Get ZMQServer class
-            ZMQServer = getattr(module, "ZMQServer")
-            
-            # Create server instance
-            logger.info("Creating ZMQServer instance...")
-            _zmq_server_instance = ZMQServer(
+            _zmq_server_instance = ZmqServer(
+                core_api=None,  # Will be created internally if not provided
                 host=args["host"],
-                pub_port=args["pub_port"],
-                sub_port=args["sub_port"],
-                topics=args["topics"],
-                logger=logger
+                req_rep_port=args.get("req_port", 5555),
+                pub_sub_port=args["pub_port"],
+                push_pull_port=args.get("push_port", 5557),
+                sensorimotor_port=args.get("sensorimotor_port", 5558),
+                vis_base_port=args.get("vis_base_port", 5560)
             )
             
         except (ImportError, AttributeError) as e:
-            logger.error(f"Failed to import ZMQServer from feagi.core.zmq.server: {e}")
-            logger.info("Trying fallback import from feagi.zmq...")
+            # If direct import fails, try using the factory function
+            logger.error(f"Failed to import ZmqServer from feagi.api.zmq.server: {e}")
             
-            # Fallback to legacy import path
-            try:
-                from feagi.zmq import create_zmq_server
-                _zmq_server_instance = create_zmq_server(
-                    host=args["host"],
-                    pub_port=args["pub_port"],
-                    sub_port=args["sub_port"],
-                    topics=args["topics"]
-                )
-                
-                if _zmq_server_instance is None:
-                    logger.error("Failed to create ZMQ server using legacy API")
-                    return False
-            except Exception as e:
-                logger.error(f"Fallback import also failed: {e}")
+            from feagi.api.zmq import create_zmq_server
+            _zmq_server_instance = create_zmq_server(
+                host=args["host"],
+                pub_port=args["pub_port"],
+                sub_port=args["sub_port"],
+                topics=args["topics"]
+            )
+            
+            if _zmq_server_instance is None:
+                logger.error("Failed to create ZMQ server")
                 return False
         
         # Start the server and return the result

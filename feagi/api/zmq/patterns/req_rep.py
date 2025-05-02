@@ -1,231 +1,322 @@
-"""Request-Reply pattern implementation for FEAGI ZeroMQ interface."""
+"""
+ZeroMQ Request-Reply Implementation for FEAGI API
 
-import logging
+This module implements the REQ/REP pattern for ZeroMQ communication in FEAGI.
+It provides:
+- Request-Reply server for handling command requests
+- Request-Reply client for sending commands
+- Command routing and execution framework
+"""
+
+import asyncio
 import json
-import threading
+import logging
+import time
 import uuid
-from typing import Dict, Any, Optional, Callable, List
-
 import zmq
+import zmq.asyncio
+from typing import Dict, Any, List, Callable, Optional, Union
+
+from ...core.service import CoreApiService
+from ..serialization import serialize_message, deserialize_message
+from ...utils.auth import validate_token
 
 logger = logging.getLogger(__name__)
 
-class RequestReplyPattern:
+
+class RequestReplyServer:
     """
-    Request-Reply pattern implementation for FEAGI ZeroMQ interface.
+    ZeroMQ Request-Reply server implementation.
     
-    This pattern is used for CRUD operations and other request-response interactions.
+    This server handles command requests from clients using the REQ/REP pattern.
     """
     
     def __init__(
-        self,
-        context: zmq.Context,
-        is_server: bool = True,
-        host: str = "127.0.0.1",
+        self, 
+        core_api: CoreApiService,
+        host: str = "*", 
         port: int = 5555,
-        handlers: Optional[Dict[str, Callable]] = None
+        context: Optional[zmq.asyncio.Context] = None
     ):
         """
-        Initialize the Request-Reply pattern.
+        Initialize a new Request-Reply server.
         
         Args:
-            context: ZeroMQ context.
-            is_server: Whether this is a server (Rep) or client (Req).
-            host: Host address to bind/connect to.
-            port: Port to bind/connect to.
-            handlers: Dictionary of command handlers for server mode.
+            core_api: The CoreApiService instance to delegate calls to
+            host: Host address to bind to (default "*" to bind to all interfaces)
+            port: Port number to bind to
+            context: Optional existing ZMQ context to use
         """
-        self.context = context
-        self.is_server = is_server
+        self.core_api = core_api
         self.host = host
         self.port = port
-        self.handlers = handlers or {}
-        
-        self.socket = None
         self.running = False
-        self.thread = None
-        
-    def start(self):
-        """Start the Request-Reply pattern."""
-        if self.running:
-            logger.warning("Request-Reply pattern already running")
-            return
-            
-        if self.is_server:
-            self._setup_server_socket()
-            self._start_server_thread()
-        else:
-            self._setup_client_socket()
-            
-        self.running = True
-        logger.info(f"{'Server' if self.is_server else 'Client'} Request-Reply pattern started")
-        
-    def stop(self):
-        """Stop the Request-Reply pattern."""
-        self.running = False
-        
-        if self.thread:
-            self.thread.join(timeout=2.0)
-            
-        if self.socket:
-            self.socket.close()
-            
-        logger.info(f"{'Server' if self.is_server else 'Client'} Request-Reply pattern stopped")
-        
-    def _setup_server_socket(self):
-        """Set up the server-side Rep socket."""
+        self.context = context or zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.REP)
-        self.socket.bind(f"tcp://{self.host}:{self.port}")
-        logger.info(f"REP socket bound to tcp://{self.host}:{self.port}")
+        self.socket.bind(f"tcp://{host}:{port}")
         
-    def _setup_client_socket(self):
-        """Set up the client-side Req socket."""
-        self.socket = self.context.socket(zmq.REQ)
-        self.socket.connect(f"tcp://{self.host}:{self.port}")
-        logger.info(f"REQ socket connected to tcp://{self.host}:{self.port}")
-        
-    def _start_server_thread(self):
-        """Start a thread to handle server requests."""
-        self.thread = threading.Thread(target=self._server_handler)
-        self.thread.daemon = True
-        self.thread.start()
-        
-    def _server_handler(self):
-        """Handle server requests."""
+        # Command handlers
+        self.command_handlers = {
+            "ping": self._handle_ping,
+            "get_status": self._handle_get_status,
+            "get_performance": self._handle_get_performance,
+        }
+
+    async def start(self) -> None:
+        """Start the request-reply server."""
+        logger.info(f"Starting REP server on {self.host}:{self.port}")
+        self.running = True
+        asyncio.create_task(self._request_handler())
+
+    async def stop(self) -> None:
+        """Stop the request-reply server."""
+        logger.info("Stopping REP server")
+        self.running = False
+        self.socket.close()
+
+    async def _request_handler(self) -> None:
+        """Main loop for handling client requests."""
         while self.running:
             try:
-                if self.socket.poll(1000, zmq.POLLIN):
-                    message = self.socket.recv_json()
-                    
-                    # Process message and send response
-                    response = self._process_request(message)
-                    self.socket.send_json(response)
-                    
-            except zmq.ZMQError as e:
-                logger.error(f"ZMQ error in server handler: {e}")
+                # Wait for request
+                request_data = await self.socket.recv_multipart()
+                
+                # Expecting [auth_token, content_type, request_data]
+                if len(request_data) < 3:
+                    logger.error(f"Invalid request format: {request_data}")
+                    await self._send_error("Invalid request format")
+                    continue
+                
+                auth_token = request_data[0].decode()
+                content_type = request_data[1].decode()
+                request = deserialize_message(request_data[2], content_type)
+                
+                logger.debug(f"Received request: {request}")
+                
+                # Validate authentication if token is provided
+                if auth_token and not await validate_token(auth_token):
+                    logger.warning(f"Invalid authentication token: {auth_token}")
+                    await self._send_error("Authentication failed")
+                    continue
+                
+                # Process command
+                command = request.get("command")
+                if not command:
+                    await self._send_error("Missing command field")
+                    continue
+                
+                # Handle command
+                if command in self.command_handlers:
+                    try:
+                        result = await self.command_handlers[command](request)
+                        await self._send_response(result)
+                    except Exception as e:
+                        logger.error(f"Error handling command {command}: {e}")
+                        await self._send_error(f"Error handling command: {str(e)}")
+                else:
+                    logger.warning(f"Unknown command: {command}")
+                    await self._send_error(f"Unknown command: {command}")
+            
+            except asyncio.CancelledError:
+                logger.debug("Request handler cancelled")
+                break
             except Exception as e:
-                logger.exception(f"Error in server handler: {e}")
-                
-    def _process_request(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process a request message.
-        
-        Args:
-            message: Request message as a dictionary.
-            
-        Returns:
-            Response message as a dictionary.
-        """
+                logger.error(f"Error processing request: {e}")
+                try:
+                    await self._send_error(f"Internal server error: {str(e)}")
+                except:
+                    pass
+                await asyncio.sleep(1)  # Avoid tight loop on errors
+
+    async def _send_response(self, data: Any, content_type: str = "application/json") -> None:
+        """Send a response to the client."""
         try:
-            # Extract message fields
-            command = message.get("command")
-            params = message.get("params", {})
-            message_id = message.get("id", str(uuid.uuid4()))
-            version = message.get("version", "1.0")
-            
-            # Check if command is valid
-            if not command:
-                return {
-                    "error": "Missing command",
-                    "id": message_id,
-                    "version": version
-                }
-                
-            # Check if handler exists
-            if command not in self.handlers:
-                return {
-                    "error": f"Unknown command: {command}",
-                    "id": message_id,
-                    "version": version
-                }
-                
-            # Call handler
-            handler = self.handlers[command]
-            result = handler(**params)
-            
-            # Return result
-            return {
-                "result": result,
-                "id": message_id,
-                "version": version
-            }
-            
+            serialized_data = serialize_message(data, content_type)
+            await self.socket.send_multipart([
+                content_type.encode(),
+                serialized_data
+            ])
         except Exception as e:
-            logger.exception(f"Error processing request: {e}")
-            return {
-                "error": str(e),
-                "id": message_id,
-                "version": version
-            }
-            
-    def send_request(self, command: str, params: Optional[Dict[str, Any]] = None, timeout: float = 5.0) -> Dict[str, Any]:
-        """
-        Send a request to the server.
-        
-        Args:
-            command: Command to send.
-            params: Parameters for the command.
-            timeout: Timeout in seconds.
-            
-        Returns:
-            Response from the server.
-        """
-        if self.is_server:
-            raise RuntimeError("Cannot send request in server mode")
-            
-        if not self.socket:
-            raise RuntimeError("Socket not initialized")
-            
-        message = {
-            "command": command,
-            "params": params or {},
-            "id": str(uuid.uuid4()),
+            logger.error(f"Error sending response: {e}")
+
+    async def _send_error(self, error_message: str, content_type: str = "application/json") -> None:
+        """Send an error response to the client."""
+        error_data = {
+            "error": error_message,
+            "timestamp": time.time()
+        }
+        await self._send_response(error_data, content_type)
+
+    async def _handle_ping(self, request: Dict) -> Dict:
+        """Handle ping command."""
+        return {
+            "pong": True,
+            "timestamp": time.time(),
             "version": "1.0"
         }
-        
-        try:
-            # Set timeout for receiving response
-            self.socket.setsockopt(zmq.RCVTIMEO, int(timeout * 1000))
-            
-            # Send message
-            self.socket.send_json(message)
-            
-            # Receive response
-            response = self.socket.recv_json()
-            
-            return response
-        except zmq.ZMQError as e:
-            if e.errno == zmq.EAGAIN:
-                logger.error(f"Timeout waiting for response to command {command}")
-                return {
-                    "error": "Timeout waiting for response",
-                    "id": message["id"],
-                    "version": "1.0"
-                }
-            else:
-                logger.error(f"ZMQ error in send_request: {e}")
-                return {
-                    "error": f"ZMQ error: {e}",
-                    "id": message["id"],
-                    "version": "1.0"
-                }
-        except Exception as e:
-            logger.exception(f"Error in send_request: {e}")
-            return {
-                "error": str(e),
-                "id": message["id"],
-                "version": "1.0"
-            }
-            
-    def register_handler(self, command: str, handler: Callable):
+
+    async def _handle_get_status(self, request: Dict) -> Dict:
+        """Handle get_status command."""
+        status = await self.core_api.get_simulation_status()
+        return {
+            "status": status,
+            "timestamp": time.time()
+        }
+
+    async def _handle_get_performance(self, request: Dict) -> Dict:
+        """Handle get_performance command."""
+        performance = await self.core_api.get_performance_stats()
+        return {
+            "performance": performance,
+            "timestamp": time.time()
+        }
+
+
+class RequestReplyClient:
+    """
+    ZeroMQ Request-Reply client implementation.
+    
+    This client connects to a Request-Reply server and sends command requests.
+    """
+    
+    def __init__(
+        self, 
+        host: str = "localhost", 
+        port: int = 5555,
+        context: Optional[zmq.asyncio.Context] = None,
+        timeout: float = 5.0
+    ):
         """
-        Register a handler for a command.
+        Initialize a new Request-Reply client.
         
         Args:
-            command: Command name.
-            handler: Handler function.
+            host: Server host address to connect to
+            port: Server port to connect to
+            context: Optional existing ZMQ context to use
+            timeout: Request timeout in seconds
         """
-        if not self.is_server:
-            raise RuntimeError("Cannot register handler in client mode")
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+        self.context = context or zmq.asyncio.Context.instance()
+        self.socket = self.context.socket(zmq.REQ)
+        self.socket.connect(f"tcp://{host}:{port}")
+        
+        # Unique client ID
+        self.client_id = str(uuid.uuid4())
+        
+        # Auth token (if any)
+        self.auth_token = None
+
+    async def start(self) -> None:
+        """Start the request-reply client."""
+        logger.info(f"Starting REQ client to {self.host}:{self.port}")
+        pass  # Nothing to start for client
+
+    async def stop(self) -> None:
+        """Stop the request-reply client."""
+        logger.info("Stopping REQ client")
+        self.socket.close()
+
+    async def send_request(
+        self, 
+        command: str, 
+        params: Optional[Dict] = None,
+        content_type: str = "application/json"
+    ) -> Dict:
+        """
+        Send a command request to the server.
+        
+        Args:
+            command: Command to execute
+            params: Command parameters
+            content_type: Content type for serialization
             
-        self.handlers[command] = handler 
+        Returns:
+            Server response data
+        """
+        request = {
+            "command": command,
+            "params": params or {},
+            "client_id": self.client_id,
+            "timestamp": time.time()
+        }
+        
+        serialized_data = serialize_message(request, content_type)
+        
+        await self.socket.send_multipart([
+            self.auth_token.encode() if self.auth_token else b"",
+            content_type.encode(),
+            serialized_data
+        ])
+        
+        # Set timeout
+        self.socket.setsockopt(zmq.RCVTIMEO, int(self.timeout * 1000))
+        
+        # Receive response
+        try:
+            response = await self.socket.recv_multipart()
+            
+            # Expecting [content_type, response_data]
+            if len(response) < 2:
+                logger.error(f"Invalid response format: {response}")
+                return {"error": "Invalid response format"}
+            
+            resp_content_type = response[0].decode()
+            resp_data = deserialize_message(response[1], resp_content_type)
+            
+            return resp_data
+            
+        except zmq.error.Again:
+            logger.error(f"Request timed out after {self.timeout} seconds")
+            return {"error": "Request timed out"}
+
+    def set_auth_token(self, token: str) -> None:
+        """
+        Set the authentication token to use for requests.
+        
+        Args:
+            token: Authentication token
+        """
+        self.auth_token = token
+
+
+class RequestReplyManager:
+    """
+    Manager class for coordinating Request-Reply servers and clients.
+    
+    This class provides a unified interface for the FEAGI ZMQ server
+    to manage REQ/REP patterns.
+    """
+    
+    def __init__(
+        self, 
+        core_api: CoreApiService,
+        host: str = "*", 
+        port: int = 5555,
+        context: Optional[zmq.asyncio.Context] = None
+    ):
+        """
+        Initialize a new RequestReply Manager.
+        
+        Args:
+            core_api: The CoreApiService instance to delegate calls to
+            host: Host address to bind to
+            port: Port number to bind to
+            context: Optional existing ZMQ context to use
+        """
+        self.context = context or zmq.asyncio.Context.instance()
+        self.request_reply_server = RequestReplyServer(
+            core_api=core_api,
+            host=host,
+            port=port,
+            context=self.context
+        )
+    
+    async def start(self) -> None:
+        """Start the RequestReply manager."""
+        await self.request_reply_server.start()
+    
+    async def stop(self) -> None:
+        """Stop the RequestReply manager."""
+        await self.request_reply_server.stop() 
