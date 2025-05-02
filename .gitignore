@@ -58,4 +58,7 @@ logs/
 # Testing
 .coverage
 htmlcov/
-.pytest_cache/ 
+.pytest_cache/
+
+# Temp
+legacy_feagi/
