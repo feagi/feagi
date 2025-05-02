@@ -54,6 +54,7 @@ Thumbs.db
 # Log files
 *.log
 logs/
+tests/performance/logs/
 
 # Testing
 .coverage
