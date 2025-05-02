@@ -146,7 +146,7 @@ python -m feagi.main
 python -m feagi.api.server
 
 # Run only the ZMQ server
-python -m feagi.zmq.server
+python -m feagi.api.zmq.server
 ```
 
 The command-line options are the same as described above.
@@ -157,7 +157,7 @@ You can also use FEAGI programmatically in your Python code:
 
 ```python
 from feagi import create_feagi
-from feagi.zmq import create_zmq_server
+from feagi.api.zmq import create_zmq_server
 from feagi.core.resource_mgr import ResourceManager
 
 # Create a complete FEAGI instance

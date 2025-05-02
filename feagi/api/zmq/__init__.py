@@ -203,11 +203,11 @@ def create_zmq_client(
         # Create the client
         client = ZmqClient(
             host=host or os.environ.get("FEAGI_ZMQ_HOST", "127.0.0.1"),
-            req_rep_port=5555,  # Default req_rep port
-            pub_sub_port=pub_port or int(os.environ.get("FEAGI_ZMQ_PUB_PORT", "5556")),
-            push_pull_port=sub_port or int(os.environ.get("FEAGI_ZMQ_SUB_PORT", "5557")),
-            sensorimotor_port=5558,
-            vis_base_port=5560
+            req_port=5555,  # Default req_port
+            pub_port=pub_port or int(os.environ.get("FEAGI_ZMQ_PUB_PORT", "5556")),
+            push_port=sub_port or int(os.environ.get("FEAGI_ZMQ_SUB_PORT", "5557")),
+            stream_port=5558,
+            topics=topics
         )
         
         # Create a wrapper class to mimic the old ZMQClient API
@@ -221,10 +221,7 @@ def create_zmq_client(
                 """Start the client"""
                 # Create and run a background thread to run the client
                 def run_client():
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(self.client.start())
-                    loop.run_forever()
+                    self.client.start()
                 
                 self.thread = threading.Thread(target=run_client, daemon=True)
                 self.thread.start()
@@ -243,34 +240,25 @@ def create_zmq_client(
             
             def publish(self, topic, message):
                 """Publish a message to a topic"""
-                # Create a new event loop for publishing
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                # Use pub_sub interface to publish event
-                async def pub_task():
-                    await self.client.publish_event(topic, message)
-                loop.run_until_complete(pub_task())
-                loop.close()
-                return True
+                # Forward to ZmqClient
+                response = self.client.send_request("publish", {
+                    "topic": topic,
+                    "message": message
+                })
+                return "error" not in response
             
             def subscribe(self, topic, callback):
                 """Subscribe to a topic with a callback"""
                 # Store subscription for later use
                 self.subscriptions[topic] = callback
                 
-                # Create a new event loop for subscribing
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                # Register async callback adapter
-                async def callback_adapter(data):
+                # Create function that accepts data only
+                def topic_callback(data):
+                    # Call the original callback with topic and data
                     callback(topic, data)
                     
-                async def subscribe_task():
-                    await self.client.subscribe_to_topic(topic, callback_adapter)
-                    
-                loop.run_until_complete(subscribe_task())
-                loop.close()
+                # Register callback
+                self.client.register_topic_callback(topic, topic_callback)
                 return True
         
         # Create and start the wrapper
