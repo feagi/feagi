@@ -1,10 +1,52 @@
-"""ZeroMQ API implementation for FEAGI.
+"""
+ZeroMQ Interface for FEAGI API
 
-This module provides a ZeroMQ interface to FEAGI's functionality,
-primarily for high-performance streaming data and real-time operations.
+This package provides ZeroMQ-based interfaces for high-performance
+communication with FEAGI, including:
+
+- Request-Reply pattern for CRUD operations
+- Publish-Subscribe pattern for events and updates
+- Push-Pull pattern for high-throughput data processing
+- Specialized streams for sensorimotor data and visualization
 """
 
-from feagi.api.zmq.server import create_zmq_server
-from feagi.api.zmq.client import create_zmq_client
+from .server import ZmqServer
+from .client import ZmqClient
 
-__all__ = ["create_zmq_server", "create_zmq_client"] 
+from .patterns import (
+    RequestReplyServer, RequestReplyClient, RequestReplyManager,
+    PublisherServer, SubscriberClient, PubSubManager,
+    PushServer, PullClient, PushPullManager
+)
+
+from .streams import (
+    SensorimotorStream, SensorimotorClient,
+    VisualizationStream, VisualizationClient
+)
+
+__all__ = [
+    # Main server/client
+    'ZmqServer',
+    'ZmqClient',
+    
+    # Request-Reply Pattern
+    'RequestReplyServer',
+    'RequestReplyClient',
+    'RequestReplyManager',
+    
+    # Publish-Subscribe Pattern
+    'PublisherServer',
+    'SubscriberClient',
+    'PubSubManager',
+    
+    # Push-Pull Pattern
+    'PushServer',
+    'PullClient',
+    'PushPullManager',
+    
+    # Specialized Streams
+    'SensorimotorStream',
+    'SensorimotorClient',
+    'VisualizationStream',
+    'VisualizationClient',
+] 

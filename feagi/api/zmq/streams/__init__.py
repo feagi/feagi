@@ -1,15 +1,19 @@
-"""ZeroMQ streams for FEAGI.
+"""
+ZeroMQ Stream Implementations for FEAGI API
 
-This module provides implementations of specialized ZeroMQ streams
-for different data types, including sensorimotor and visualization data.
+This package contains specialized stream implementations for various
+data types used in FEAGI.
 """
 
-from feagi.api.zmq.streams.sensorimotor import SensorimotorStream
-from feagi.api.zmq.streams.visualization import VisualizationStream
-from feagi.api.zmq.streams.monitoring import MonitoringStream
+from .sensorimotor import SensorimotorStream, SensorimotorClient
+from .visualization import VisualizationStream, VisualizationClient
 
 __all__ = [
-    "SensorimotorStream",
-    "VisualizationStream",
-    "MonitoringStream"
+    # Sensorimotor Stream
+    'SensorimotorStream',
+    'SensorimotorClient',
+    
+    # Visualization Stream
+    'VisualizationStream',
+    'VisualizationClient',
 ] 

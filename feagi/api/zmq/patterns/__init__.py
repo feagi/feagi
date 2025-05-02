@@ -1,17 +1,27 @@
-"""ZeroMQ pattern implementations for FEAGI.
+"""
+ZeroMQ Pattern Implementations for FEAGI API
 
-This module provides implementations of various ZeroMQ patterns
-for different data types and interaction patterns.
+This package contains implementations of different ZeroMQ messaging patterns
+for use with the FEAGI API.
 """
 
-from feagi.api.zmq.patterns.req_rep import RequestReplyPattern
-from feagi.api.zmq.patterns.pub_sub import PublishSubscribePattern
-from feagi.api.zmq.patterns.push_pull import PushPullPattern
-from feagi.api.zmq.patterns.stream import StreamPattern
+from .req_rep import RequestReplyServer, RequestReplyClient, RequestReplyManager
+from .pub_sub import PublisherServer, SubscriberClient, PubSubManager
+from .push_pull import PushServer, PullClient, PushPullManager
 
 __all__ = [
-    "RequestReplyPattern",
-    "PublishSubscribePattern",
-    "PushPullPattern",
-    "StreamPattern"
+    # Request-Reply Pattern
+    'RequestReplyServer',
+    'RequestReplyClient',
+    'RequestReplyManager',
+    
+    # Publish-Subscribe Pattern
+    'PublisherServer',
+    'SubscriberClient',
+    'PubSubManager',
+    
+    # Push-Pull Pattern
+    'PushServer',
+    'PullClient',
+    'PushPullManager',
 ] 

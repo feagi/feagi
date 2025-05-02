@@ -1,308 +1,180 @@
-"""ZeroMQ server implementation for FEAGI."""
+"""
+ZeroMQ Server for FEAGI API
 
+This module implements the ZeroMQ server for the FEAGI API, providing
+high-performance, real-time communication with clients.
+"""
+
+import asyncio
 import logging
-import threading
 import time
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, Optional, List, Tuple, Union
 
 import zmq
+import zmq.asyncio
 
-from feagi.api.core.services import CoreAPIService
-from feagi.api.gateway import APIGateway
+from ..core.service import CoreApiService
+from .patterns.req_rep import RequestReplyManager
+from .patterns.pub_sub import PubSubManager
+from .patterns.push_pull import PushPullManager
+from .streams.sensorimotor import SensorimotorStream
+from .streams.visualization import VisualizationStream
 
 logger = logging.getLogger(__name__)
 
-class ZMQServer:
+
+class ZmqServer:
     """
-    ZeroMQ server for FEAGI.
+    ZeroMQ server implementation for FEAGI API.
     
-    This class implements a ZeroMQ server that provides interfaces to FEAGI's
-    functionality using various ZMQ patterns (Request-Reply, Pub-Sub, Push-Pull, Stream).
+    This server integrates multiple ZeroMQ patterns and streams to provide
+    a comprehensive API for FEAGI clients:
+    
+    - Request-Reply: For traditional CRUD operations
+    - Publish-Subscribe: For broadcasting events and updates
+    - Push-Pull: For high-throughput data processing
+    - Sensorimotor Stream: For efficient binary exchange of sensorimotor data
+    - Visualization Stream: For brain activity visualization
     """
     
     def __init__(
-        self,
-        host: str = "127.0.0.1",
-        req_port: int = 5555,
-        pub_port: int = 5556,
-        push_port: int = 5557,
-        stream_port: int = 5558,
-        api_gateway: Optional[APIGateway] = None,
+        self, 
+        core_api: CoreApiService,
+        host: str = "*",
+        req_rep_port: int = 5555,
+        pub_sub_port: int = 5556,
+        push_pull_port: int = 5557,
+        sensorimotor_port: int = 5558,
+        vis_base_port: int = 5560,
+        context: Optional[zmq.asyncio.Context] = None
     ):
         """
-        Initialize the ZeroMQ server.
+        Initialize a new ZMQ server.
         
         Args:
-            host: Host address to bind to.
-            req_port: Port for Request-Reply socket.
-            pub_port: Port for Publish-Subscribe socket.
-            push_port: Port for Push-Pull socket.
-            stream_port: Port for Stream socket.
-            api_gateway: Optional API Gateway instance. If not provided,
-                        a new instance will be created.
+            core_api: The CoreApiService instance to delegate calls to
+            host: Host address to bind to
+            req_rep_port: Port for Request-Reply pattern
+            pub_sub_port: Port for Publish-Subscribe pattern
+            push_pull_port: Port for Push-Pull pattern
+            sensorimotor_port: Port for Sensorimotor stream
+            vis_base_port: Base port for Visualization stream
+            context: Optional existing ZMQ context to use
         """
+        self.core_api = core_api
         self.host = host
-        self.req_port = req_port
-        self.pub_port = pub_port
-        self.push_port = push_port
-        self.stream_port = stream_port
+        self.context = context or zmq.asyncio.Context.instance()
         
-        self.api_gateway = api_gateway or APIGateway()
-        self.core_api = self.api_gateway.core_api
+        # Initialize pattern managers
+        self.req_rep = RequestReplyManager(
+            core_api=core_api,
+            host=host,
+            port=req_rep_port,
+            context=self.context
+        )
         
-        self.context = zmq.Context()
-        self.req_socket = None
-        self.pub_socket = None
-        self.push_socket = None
-        self.stream_socket = None
+        self.pub_sub = PubSubManager(
+            core_api=core_api,
+            host=host,
+            port=pub_sub_port,
+            context=self.context
+        )
         
+        self.push_pull = PushPullManager(
+            core_api=core_api,
+            host=host,
+            port=push_pull_port,
+            context=self.context
+        )
+        
+        # Initialize specialized streams
+        self.sensorimotor = SensorimotorStream(
+            core_api=core_api,
+            host=host,
+            port=sensorimotor_port,
+            context=self.context
+        )
+        
+        self.visualization = VisualizationStream(
+            core_api=core_api,
+            host=host,
+            structure_port=vis_base_port,
+            activity_port=vis_base_port + 1,
+            control_port=vis_base_port + 2,
+            context=self.context
+        )
+        
+        # Periodically publish system metrics
         self.running = False
-        self.threads = []
-        
-    def start(self):
-        """Start the ZeroMQ server."""
-        if self.running:
-            logger.warning("ZMQ server already running")
-            return
-            
-        # Create and bind sockets
-        self._setup_req_socket()
-        self._setup_pub_socket()
-        self._setup_push_socket()
-        self._setup_stream_socket()
-        
-        # Start threads
-        self._start_req_thread()
-        self._start_pub_thread()
-        
+
+    async def start(self) -> None:
+        """Start the ZMQ server."""
+        logger.info(f"Starting ZMQ server on {self.host}")
         self.running = True
-        logger.info("ZMQ server started")
         
-    def stop(self):
-        """Stop the ZeroMQ server."""
+        # Start all servers
+        await asyncio.gather(
+            self.req_rep.start(),
+            self.pub_sub.start(),
+            self.push_pull.start(),
+            self.sensorimotor.start(),
+            self.visualization.start(),
+            self._publish_system_metrics()
+        )
+
+    async def stop(self) -> None:
+        """Stop the ZMQ server."""
+        logger.info("Stopping ZMQ server")
         self.running = False
         
-        # Wait for threads to stop
-        for thread in self.threads:
-            thread.join(timeout=2.0)
-            
-        # Close sockets
-        if self.req_socket:
-            self.req_socket.close()
-        if self.pub_socket:
-            self.pub_socket.close()
-        if self.push_socket:
-            self.push_socket.close()
-        if self.stream_socket:
-            self.stream_socket.close()
-            
-        # Terminate context
+        # Stop all servers
+        await asyncio.gather(
+            self.req_rep.stop(),
+            self.pub_sub.stop(),
+            self.push_pull.stop(),
+            self.sensorimotor.stop(),
+            self.visualization.stop()
+        )
+        
+        # Close context
         self.context.term()
-        
-        logger.info("ZMQ server stopped")
-        
-    def _setup_req_socket(self):
-        """Set up the Request-Reply socket."""
-        self.req_socket = self.context.socket(zmq.REP)
-        self.req_socket.bind(f"tcp://{self.host}:{self.req_port}")
-        logger.info(f"REQ socket bound to tcp://{self.host}:{self.req_port}")
-        
-    def _setup_pub_socket(self):
-        """Set up the Publish-Subscribe socket."""
-        self.pub_socket = self.context.socket(zmq.PUB)
-        self.pub_socket.bind(f"tcp://{self.host}:{self.pub_port}")
-        logger.info(f"PUB socket bound to tcp://{self.host}:{self.pub_port}")
-        
-    def _setup_push_socket(self):
-        """Set up the Push-Pull socket."""
-        self.push_socket = self.context.socket(zmq.PUSH)
-        self.push_socket.bind(f"tcp://{self.host}:{self.push_port}")
-        logger.info(f"PUSH socket bound to tcp://{self.host}:{self.push_port}")
-        
-    def _setup_stream_socket(self):
-        """Set up the Stream socket."""
-        self.stream_socket = self.context.socket(zmq.STREAM)
-        self.stream_socket.bind(f"tcp://{self.host}:{self.stream_port}")
-        logger.info(f"STREAM socket bound to tcp://{self.host}:{self.stream_port}")
-        
-    def _start_req_thread(self):
-        """Start a thread to handle Request-Reply socket."""
-        thread = threading.Thread(target=self._req_handler)
-        thread.daemon = True
-        thread.start()
-        self.threads.append(thread)
-        
-    def _start_pub_thread(self):
-        """Start a thread to publish data."""
-        thread = threading.Thread(target=self._pub_handler)
-        thread.daemon = True
-        thread.start()
-        self.threads.append(thread)
-        
-    def _req_handler(self):
-        """Handle Request-Reply socket messages."""
+
+    async def _publish_system_metrics(self) -> None:
+        """Periodically publish system metrics."""
         while self.running:
             try:
-                # Wait for a message with timeout
-                if self.req_socket.poll(1000, zmq.POLLIN):
-                    message = self.req_socket.recv_json()
-                    
-                    # Process message and send response
-                    response = self._process_request(message)
-                    self.req_socket.send_json(response)
-                    
-            except zmq.ZMQError as e:
-                logger.error(f"ZMQ error in REQ handler: {e}")
+                # Gather system metrics
+                metrics = await self.core_api.get_system_metrics()
+                
+                # Publish to subscribers
+                await self.pub_sub.publish_event("system.metrics", metrics)
+                
+                # Publish metrics every 5 seconds
+                await asyncio.sleep(5.0)
+                
+            except asyncio.CancelledError:
+                break
             except Exception as e:
-                logger.exception(f"Error in REQ handler: {e}")
-                
-    def _pub_handler(self):
-        """Publish data periodically."""
-        while self.running:
-            try:
-                # Get data to publish
-                fcl_data = self._get_fcl_data()
-                if fcl_data:
-                    # Publish data
-                    self.pub_socket.send_multipart([
-                        b"fcl",
-                        fcl_data
-                    ])
-                    
-                # Get simulation status
-                status_data = self._get_simulation_status()
-                if status_data:
-                    # Publish status
-                    self.pub_socket.send_multipart([
-                        b"status",
-                        status_data
-                    ])
-                    
-                # Sleep for a short interval
-                time.sleep(0.1)
-                
-            except zmq.ZMQError as e:
-                logger.error(f"ZMQ error in PUB handler: {e}")
-            except Exception as e:
-                logger.exception(f"Error in PUB handler: {e}")
-                
-    def _process_request(self, message: Dict[str, Any]) -> Dict[str, Any]:
+                logger.error(f"Error publishing system metrics: {e}")
+                await asyncio.sleep(5.0)
+
+    async def publish_event(self, event_type: str, event_data: Dict) -> None:
         """
-        Process a request message.
+        Publish an event to all subscribers.
         
         Args:
-            message: Request message as a dictionary.
-            
-        Returns:
-            Response message as a dictionary.
+            event_type: Type of the event
+            event_data: Event data
         """
-        try:
-            # Extract message fields
-            command = message.get("command")
-            params = message.get("params", {})
-            message_id = message.get("id")
-            version = message.get("version", "1.0")
-            
-            # Check if command is valid
-            if not command:
-                return {
-                    "error": "Missing command",
-                    "id": message_id,
-                    "version": version
-                }
-                
-            # Route command to appropriate handler
-            if command == "get_cortical_areas":
-                result = self.core_api.get_cortical_areas()
-            elif command == "get_cortical_area":
-                area_id = params.get("area_id")
-                if not area_id:
-                    return {
-                        "error": "Missing area_id parameter",
-                        "id": message_id,
-                        "version": version
-                    }
-                result = self.core_api.get_cortical_area(area_id)
-            elif command == "start_simulation":
-                result = self.core_api.start_simulation()
-            elif command == "stop_simulation":
-                result = self.core_api.stop_simulation()
-            elif command == "get_simulation_status":
-                result = self.core_api.get_simulation_status()
-            else:
-                return {
-                    "error": f"Unknown command: {command}",
-                    "id": message_id,
-                    "version": version
-                }
-                
-            # Return result
-            return {
-                "result": result,
-                "id": message_id,
-                "version": version
-            }
-            
-        except Exception as e:
-            logger.exception(f"Error processing request: {e}")
-            return {
-                "error": str(e),
-                "id": message_id,
-                "version": version
-            }
-            
-    def _get_fcl_data(self) -> bytes:
-        """
-        Get FCL data to publish.
-        
-        Returns:
-            FCL data as a binary string.
-        """
-        # This would be implemented to get real FCL data from FEAGI
-        # For now, return empty bytes
-        return b""
-        
-    def _get_simulation_status(self) -> bytes:
-        """
-        Get simulation status data to publish.
-        
-        Returns:
-            Simulation status data as a binary string.
-        """
-        # This would be implemented to get real simulation status from FEAGI
-        # For now, return empty bytes
-        return b""
+        await self.pub_sub.publish_event(event_type, event_data)
 
-
-def create_zmq_server(
-    host: str = "127.0.0.1",
-    req_port: int = 5555,
-    pub_port: int = 5556,
-    push_port: int = 5557,
-    stream_port: int = 5558,
-    api_gateway: Optional[APIGateway] = None,
-) -> ZMQServer:
-    """
-    Create and start a ZeroMQ server.
-    
-    Args:
-        host: Host address to bind to.
-        req_port: Port for Request-Reply socket.
-        pub_port: Port for Publish-Subscribe socket.
-        push_port: Port for Push-Pull socket.
-        stream_port: Port for Stream socket.
-        api_gateway: Optional API Gateway instance.
+    async def queue_work(self, work_type: str, data: Any, priority: int = 0) -> None:
+        """
+        Queue a work item for processing.
         
-    Returns:
-        Running ZMQServer instance.
-    """
-    server = ZMQServer(
-        host=host,
-        req_port=req_port,
-        pub_port=pub_port,
-        push_port=push_port,
-        stream_port=stream_port,
-        api_gateway=api_gateway,
-    )
-    server.start()
-    return server 
+        Args:
+            work_type: Type of work item
+            data: Work item data
+            priority: Priority level (higher is processed first)
+        """
+        await self.push_pull.queue_work(work_type, data, priority) 
