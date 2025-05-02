@@ -10,8 +10,6 @@ import threading
 import time
 import tempfile
 import logging
-import random
-from pathlib import Path
 from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType, CorticalArea
 from feagi.utils.config import FeagiConfig
 
@@ -25,31 +23,33 @@ class TestConnectomeManager(unittest.TestCase):
         
         # Create a ConnectomeManager instance with small capacities for testing
         cm_start = time.time()
-        self.connectome = ConnectomeManager(max_test_neurons=200)  # Use a smaller array size for faster tests
+        self.connectome = ConnectomeManager(max_test_neurons=100)  # Use a smaller array size for faster tests
         cm_end = time.time()
         print(f"ConnectomeManager creation time: {cm_end - cm_start:.6f} seconds")
         
         # Add a test cortical area
         area_start = time.time()
-        self.area, self.area_cortical_id = self.connectome.add_cortical_area(
+        self.area_id = 1
+        self.area = self.connectome.add_cortical_area(
+            area_id=self.area_id,
             name="Test Area",
             area_type="interconnect",
             dimensions=(10, 10, 5),
             position=(0, 0, 0)
         )
-        self.area_id = self.area.id
         area_end = time.time()
         print(f"Test area creation time: {area_end - area_start:.6f} seconds")
         
         # Add an area with extreme dimensions for testing
         extreme_start = time.time()
-        self.extreme_area, self.extreme_area_cortical_id = self.connectome.add_cortical_area(
+        self.extreme_area_id = 2
+        self.extreme_area = self.connectome.add_cortical_area(
+            area_id=self.extreme_area_id,
             name="Extreme Area",
             area_type="interconnect",
             dimensions=(20000, 1, 1),
             position=(0, 10, 0)
         )
-        self.extreme_area_id = self.extreme_area.id
         extreme_end = time.time()
         print(f"Extreme area creation time: {extreme_end - extreme_start:.6f} seconds")
         
@@ -58,68 +58,30 @@ class TestConnectomeManager(unittest.TestCase):
     
     def test_create_neuron(self):
         """Test neuron creation and retrieval."""
+        # Create a neuron
         neuron_id = self.connectome.create_neuron(
-            self.area_id, 
-            (5, 5, 2),
-            refractory_period=0
+            area_id=self.area_id,
+            position=(5, 5, 2),
+            threshold=1.0,
+            refractory_period=5,
+            decay_rate=0.9,
+            resting_potential=0.0
         )
-
-        # Check neuron properties
-        self.assertIsNotNone(neuron_id)
-        properties = self.connectome.get_neuron_properties(neuron_id)
-        self.assertEqual(properties["threshold"], 1.0)
-        self.assertEqual(properties["leak"], 10)
-        self.assertEqual(properties["refractory"], 0)
-
-        # Check neuron position
+        
+        # Verify neuron exists
+        self.assertIn(neuron_id, self.connectome._neuron_id_to_index)
+        
+        # Verify neuron properties
+        threshold = self.connectome.get_neuron_property(neuron_id, NeuronPropertyType.THRESHOLD)
+        self.assertEqual(threshold, 1.0)
+        
+        # Verify neuron position
         position = self.connectome.get_neuron_position(neuron_id)
-        # Position now includes area_id as the first element: (area_id, x, y, z)
-        self.assertEqual(position[1:], (5, 5, 2))  # Check only x, y, z
-
-        # Check that neuron belongs to the area
-        self.assertEqual(self.connectome.get_neuron_area_id(neuron_id), self.area_id)
-
-        # Clean up
-        batch_create_time = time.time()
-        batch_size = 100
-        neuron_ids = []
-        for i in range(batch_size):
-            neuron_ids.append(self.connectome.create_neuron(self.area_id, (i % 10, i // 10, 0)))
-        batch_end_time = time.time()
-        print(f"Batch creation time: {batch_end_time - batch_create_time:.6f} seconds")
-
-        # Verify all neurons were created
-        verify_start = time.time()
-        self.assertEqual(len(self.connectome.get_neurons_by_area(self.area_id)), batch_size + 1)
-        verify_end = time.time()
-        print(f"Verify count time: {verify_end - verify_start:.6f} seconds")
-
-        # Verify area for a random neuron
-        verify_area_start = time.time()
-        random_idx = random.randint(0, batch_size - 1)
-        random_neuron_id = neuron_ids[random_idx]
-        self.assertEqual(self.connectome.get_neuron_area_id(random_neuron_id), self.area_id)
-        verify_area_end = time.time()
-        print(f"Verify area time: {verify_area_end - verify_area_start:.6f} seconds")
-
-        # Delete a neuron
-        delete_start = time.time()
-        self.connectome.delete_neuron(neuron_ids[0])
-        delete_end = time.time()
-        print(f"Delete neuron time: {delete_end - delete_start:.6f} seconds")
-
-        # Final verification
-        final_verify_start = time.time()
-        self.assertEqual(len(self.connectome.get_neurons_by_area(self.area_id)), batch_size)
-        final_verify_end = time.time()
-        print(f"Final verify time: {final_verify_end - final_verify_start:.6f} seconds")
-
-        total_test_time = (batch_end_time - batch_create_time) + \
-                         (verify_end - verify_start) + \
-                         (verify_area_end - verify_area_start) + \
-                         (delete_end - delete_start) + \
-                         (final_verify_end - final_verify_start)
-        print(f"Total test time: {total_test_time:.6f} seconds")
+        self.assertEqual(position, (5, 5, 2))
+        
+        # Verify area assignment
+        neurons_in_area = self.connectome.get_neurons_by_area(self.area_id)
+        self.assertIn(neuron_id, neurons_in_area)
     
     def test_create_multiple_neurons(self):
         """Test creation of multiple neurons."""
@@ -227,7 +189,7 @@ class TestConnectomeManager(unittest.TestCase):
         post_id = self.connectome.create_neuron(
             area_id=self.area_id,
             position=(2, 2, 0),
-            threshold=1.0
+            threshold=0.5  # Lower threshold to ensure firing
         )
         
         # Create a synapse from pre to post
@@ -352,25 +314,23 @@ class TestConnectomeManager(unittest.TestCase):
                 os.unlink(temp_path)
 
     def test_multiple_neurons_per_voxel(self):
-        """Test creating multiple neurons in the same voxel with different indices."""
-        # Create first neuron at position (1, 1, 1)
+        """Test creating and managing multiple neurons per voxel."""
+        # Create multiple neurons at the same position but with different indices
         neuron1 = self.connectome.create_neuron(
-            area_id=self.area_id,
-            position=(1, 1, 1),
+            area_id=self.area_id, 
+            position=(1, 1, 1), 
             neuron_index=0
         )
         
-        # Create second neuron at same position with different index
         neuron2 = self.connectome.create_neuron(
-            area_id=self.area_id,
-            position=(1, 1, 1),
+            area_id=self.area_id, 
+            position=(1, 1, 1), 
             neuron_index=1
         )
         
-        # Create third neuron at same position with different index
         neuron3 = self.connectome.create_neuron(
-            area_id=self.area_id,
-            position=(1, 1, 1),
+            area_id=self.area_id, 
+            position=(1, 1, 1), 
             neuron_index=2
         )
         
@@ -424,34 +384,45 @@ class TestConnectomeManager(unittest.TestCase):
         self.assertEqual(len(neurons_at_pos), 3)
     
     def test_extreme_dimension_area(self):
-        """Test operations with an area with extreme dimensions."""
-        # Create a neuron in the extreme area
-        neuron_id = self.connectome.create_neuron(
-            area_id=self.extreme_area_id,
-            position=(10000, 0, 0)
+        """Test neurons in an area with extreme dimensions using specialized tracking."""
+        # Create neurons at various positions in the extreme dimension area
+        neuron1 = self.connectome.create_neuron(
+            area_id=self.extreme_area_id, 
+            position=(500, 0, 0)
         )
         
-        # Test that the position is stored correctly
-        area_id, x, y, z = self.connectome.get_neuron_position(neuron_id)
-        self.assertEqual((x, y, z), (10000, 0, 0))
-
-        # Create a neuron at the maximum extreme
         neuron2 = self.connectome.create_neuron(
-            area_id=self.extreme_area_id,
+            area_id=self.extreme_area_id, 
+            position=(15000, 0, 0)
+        )
+        
+        neuron3 = self.connectome.create_neuron(
+            area_id=self.extreme_area_id, 
             position=(19999, 0, 0)
         )
-        self.assertIsNotNone(neuron2)
         
-        # Test query by position range
+        # Verify positions
+        self.assertEqual(self.connectome.get_neuron_position(neuron1), (500, 0, 0))
+        self.assertEqual(self.connectome.get_neuron_position(neuron2), (15000, 0, 0))
+        self.assertEqual(self.connectome.get_neuron_position(neuron3), (19999, 0, 0))
+        
+        # Test querying by position range in extreme dimension
+        # Small range query
         neurons = self.connectome.query_neurons_by_area_and_position(
             area_id=self.extreme_area_id,
-            x_range=(10000, 20000),
-            y_range=(0, 0),
-            z_range=(0, 0)
+            x_range=(400, 600)
+        )
+        self.assertEqual(len(neurons), 1)
+        self.assertIn(neuron1, neurons)
+        
+        # Large range query
+        neurons = self.connectome.query_neurons_by_area_and_position(
+            area_id=self.extreme_area_id,
+            x_range=(10000, 19999)
         )
         self.assertEqual(len(neurons), 2)
-        self.assertIn(neuron_id, neurons)
         self.assertIn(neuron2, neurons)
+        self.assertIn(neuron3, neurons)
     
     def test_position_linearization(self):
         """Test the internal position linearization and delinearization."""

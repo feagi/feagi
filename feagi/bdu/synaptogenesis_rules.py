@@ -713,12 +713,6 @@ def syn_projector(src_area_id: AreaId,
     try:
         # For each axis
         for i in range(3):
-            # Avoid division by zero
-            if src_shape[i] == 0:
-                # Skip scaling for this dimension
-                dst_vox_dict[i].add(0)
-                continue
-                
             if src_shape[i] > dst_shape[i]:
                 # Source is larger: scale down
                 ratio = src_shape[i] / dst_shape[i]

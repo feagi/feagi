@@ -457,7 +457,8 @@ class Neuroembryogenesis:
                 
                 # Add to connectome manager
                 try:
-                    area, cortical_area_id = self.connectome_manager.add_cortical_area(
+                    area = self.connectome_manager.add_cortical_area(
+                        area_id=i,  # Use sequential IDs internally
                         name=name,
                         area_type=area_type,
                         dimensions=dimensions,
@@ -470,7 +471,7 @@ class Neuroembryogenesis:
                     self.cortical_id_map[i] = cortical_id
                     self.reverse_cortical_id_map[cortical_id] = i
                     
-                    logger.info(f"Created cortical area {name} (ID {i}, genome ID {cortical_id}, cortical ID {cortical_area_id})")
+                    logger.info(f"Created cortical area {name} (ID {i}, genome ID {cortical_id})")
                 except Exception as e:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
@@ -720,42 +721,42 @@ class Neuroembryogenesis:
         
         # Add standard morphology functions that are built-in
         registry["expander_x"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         
         registry["reducer_x"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         
         registry["randomizer"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         
         registry["lateral_pairs_x"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         
         registry["block_connection"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         
         registry["projector"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         
         registry["last_to_first"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         
         registry["memory"] = {
-            "type": "functions", 
+            "type": "function", 
             "parameters": {}
         }
         

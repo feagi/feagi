@@ -14,8 +14,6 @@ import time
 from enum import Enum
 from dataclasses import dataclass
 import scipy.sparse as sp
-import random
-import string
 
 from feagi.core.backend import get_backend, BackendType
 from feagi.utils.config import FeagiConfig
@@ -85,7 +83,6 @@ class ConnectomeManager:
         # Cortical area management
         self._areas: Dict[int, CorticalArea] = {}
         self._neuron_to_area: Dict[int, int] = {}
-        self._used_cortical_ids: Set[str] = set()  # Track used cortical IDs to avoid duplicates
         
         # Structure of Arrays for neuron properties
         self.initialized = False
@@ -182,79 +179,14 @@ class ConnectomeManager:
         self.initialized = True
         logger.info(f"Initialized neuron arrays with capacity for {self._max_neurons} neurons")
     
-    def _generate_cortical_id(self, area_id: int, area_type: str) -> str:
-        """
-        Generate a cortical ID following the standard convention.
-        
-        Args:
-            area_id: The numeric ID of the cortical area
-            area_type: The type of cortical area
-            
-        Returns:
-            A string cortical ID in the format: 
-            - 'C' + 2 random chars + 3 char seed for regular areas
-            - 'M' + 2 random chars + 3 char seed for memory areas
-        """
-        # Create a seed based on the area_id
-        seed = str(area_id).zfill(3)[-3:]
-        seed = seed.replace('-', '_')
-        
-        # Determine if this is a memory area
-        is_memory = area_type.lower() == 'memory'
-        
-        # Generate a unique ID
-        attempts = 0
-        max_attempts = 100  # Prevent infinite loops
-        
-        while attempts < max_attempts:
-            # Generate 2 random characters
-            chars = string.ascii_uppercase + string.digits
-            random_chars = ''.join(random.choices(chars, k=2))
-            
-            # Create the full cortical ID
-            prefix = 'M' if is_memory else 'C'
-            cortical_id = f"{prefix}{random_chars}{seed}"
-            
-            # Check if this ID is already in use
-            if cortical_id not in self._used_cortical_ids:
-                # Add to the used IDs set
-                self._used_cortical_ids.add(cortical_id)
-                return cortical_id
-            
-            attempts += 1
-        
-        # If we reach here, we couldn't generate a unique ID after max_attempts
-        # As a fallback, use a timestamp to ensure uniqueness
-        timestamp = str(int(time.time() * 1000))[-5:]
-        prefix = 'M' if is_memory else 'C'
-        cortical_id = f"{prefix}{timestamp[:2]}{seed}"
-        self._used_cortical_ids.add(cortical_id)
-        
-        return cortical_id
-    
-    def _generate_area_id(self, area_type: str) -> int:
-        """
-        Generate a unique area ID.
-        
-        Args:
-            area_type: Type of cortical area
-        
-        Returns:
-            A unique numeric ID for a cortical area
-        """
-        # Find the next available ID (highest existing ID + 1)
-        if not self._areas:
-            return 0
-        
-        return max(self._areas.keys()) + 1
-    
-    def add_cortical_area(self, name: str, area_type: str, 
+    def add_cortical_area(self, area_id: int, name: str, area_type: str, 
                          dimensions: Tuple[int, int, int], position: Tuple[int, int, int],
-                         properties: Optional[Dict[str, Any]] = None) -> Tuple[CorticalArea, str]:
+                         properties: Optional[Dict[str, Any]] = None) -> CorticalArea:
         """
         Add a new cortical area to the connectome.
         
         Args:
+            area_id: Unique identifier for the area
             name: Human-readable name of the area
             area_type: Type of cortical area ('ipu', 'opu', 'interconnect', 'memory')
             dimensions: Width, height, depth of the area in neurons
@@ -262,17 +194,10 @@ class ConnectomeManager:
             properties: Additional properties for the area
             
         Returns:
-            A tuple containing (CorticalArea object, cortical_id)
+            The created CorticalArea
         """
-        # Generate a unique area ID
-        area_id = self._generate_area_id(area_type)
-        
-        # Initialize properties if None
-        properties = properties or {}
-        
-        # Generate a cortical ID and add it to the properties
-        if "cortical_id" not in properties:
-            properties["cortical_id"] = self._generate_cortical_id(area_id, area_type)
+        if area_id in self._areas:
+            raise ValueError(f"Cortical area with ID {area_id} already exists")
         
         area = CorticalArea(
             id=area_id,
@@ -280,7 +205,7 @@ class ConnectomeManager:
             type=area_type,
             dimensions=dimensions,
             position=position,
-            properties=properties
+            properties=properties or {}
         )
         
         self._areas[area_id] = area
@@ -313,11 +238,11 @@ class ConnectomeManager:
             self._large_regular_areas.add(area_id)
             # Initialize with empty bitmap, populated as neurons are added
         
-        logger.info(f"Added cortical area {name} (ID: {area_id}, cortical_id: {properties['cortical_id']}) with dimensions {dimensions}")
+        logger.info(f"Added cortical area {name} (ID: {area_id}) with dimensions {dimensions}")
         
-        return area, properties["cortical_id"]
+        return area
     
-    def create_neuron(self, area_id: int, position: Tuple[int, int, int],
+    def create_neuron(self, area_id: int, position: Tuple[int, int, int], 
                       threshold: float = 1.0, refractory_period: int = 5,
                       decay_rate: float = 0.9, resting_potential: float = 0.0,
                       neuron_index: int = 0) -> int:
@@ -326,7 +251,7 @@ class ConnectomeManager:
         
         Args:
             area_id: ID of the cortical area
-            position: Position tuple (x, y, z) within the cortical area
+            position: Position within the cortical area (x, y, z)
             threshold: Firing threshold potential
             refractory_period: Refractory period in timesteps
             decay_rate: Membrane potential decay rate
@@ -503,31 +428,6 @@ class ConnectomeManager:
         else:
             raise ValueError(f"Unknown property type: {property_type}")
     
-    def get_neuron_properties(self, neuron_id: int) -> Dict[str, Any]:
-        """
-        Get all properties of a neuron.
-        
-        Args:
-            neuron_id: ID of the neuron
-            
-        Returns:
-            Dictionary with neuron properties
-        """
-        if neuron_id not in self._neuron_id_to_index:
-            raise ValueError(f"Neuron with ID {neuron_id} does not exist")
-        
-        index = self._neuron_id_to_index[neuron_id]
-        
-        return {
-            "membrane_potential": float(self.membrane_potentials[index]),
-            "threshold": float(self.thresholds[index]),
-            "refractory": int(self.refractory_periods[index]),
-            "decay": float(self.decay_rates[index]),
-            "resting_potential": float(self.resting_potentials[index]),
-            "last_fired": int(self.last_fired[index]),
-            "leak": 10  # Hardcoded for backward compatibility with tests
-        }
-    
     def set_neuron_property(self, neuron_id: int, property_type: NeuronPropertyType, value: Any) -> None:
         """
         Set a specific property of a neuron.
@@ -558,7 +458,122 @@ class ConnectomeManager:
         else:
             raise ValueError(f"Unknown property type: {property_type}")
     
-    def get_neuron_position(self, neuron_id: int) -> Tuple[int, int, int, int]:
+    def get_neurons_by_area(self, area_id: int) -> List[int]:
+        """
+        Get all neuron IDs belonging to a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area
+            
+        Returns:
+            List of neuron IDs in the specified area
+        """
+        if area_id not in self._areas:
+            raise ValueError(f"Cortical area with ID {area_id} does not exist")
+        
+        # Find neurons with matching area_id
+        result = []
+        for neuron_id, idx in self._neuron_id_to_index.items():
+            if self.area_ids[idx] == area_id:
+                result.append(neuron_id)
+        
+        return result
+    
+    def get_neuron_count(self) -> int:
+        """Get the total number of active neurons in the connectome."""
+        return np.sum(self.is_active)
+    
+    def delete_neuron(self, neuron_id: int) -> None:
+        """
+        Delete a neuron from the connectome.
+        
+        Args:
+            neuron_id: ID of the neuron to delete
+        """
+        if neuron_id not in self._neuron_id_to_index:
+            raise ValueError(f"Neuron with ID {neuron_id} does not exist")
+        
+        with self._neuron_lock:
+            # Get neuron details
+            index = self._neuron_id_to_index[neuron_id]
+            area_id = self.area_ids[index]
+            
+            # Get position details from tracking structures
+            if neuron_id in self._neuron_to_position:
+                area_id, x, y, z, neuron_index = self._neuron_to_position[neuron_id]
+                
+                # Clean up voxel tracking
+                voxel_key = (area_id, x, y, z)
+                if voxel_key in self._voxel_to_neurons:
+                    self._voxel_to_neurons[voxel_key].discard(neuron_id)
+                    if not self._voxel_to_neurons[voxel_key]:
+                        del self._voxel_to_neurons[voxel_key]
+                
+                # Clean up bitmap tracking based on area type
+                if area_id in self._small_regular_areas:
+                    # For small areas, voxel_to_neurons is sufficient
+                    pass
+                elif area_id in self._extreme_dimension_areas:
+                    # For extreme dimension areas, clean up specialized tracking
+                    if area_id in self._area_lookup_tables:
+                        lookup = self._area_lookup_tables[area_id]
+                        block_size = 1000
+                        block_key = (x // block_size, y // block_size, z // block_size)
+                        local_pos = (x % block_size, y % block_size, z % block_size)
+                        
+                        if block_key in lookup['position_mapping'] and local_pos in lookup['position_mapping'][block_key]:
+                            lookup['position_mapping'][block_key][local_pos].discard(neuron_id)
+                            
+                            # Clean up empty structures
+                            if not lookup['position_mapping'][block_key][local_pos]:
+                                del lookup['position_mapping'][block_key][local_pos]
+                            
+                            if not lookup['position_mapping'][block_key]:
+                                del lookup['position_mapping'][block_key]
+                            
+                            # Check if we need to update dimension occupancy
+                            if not any(pos[0] == x for block in lookup['position_mapping'].values() 
+                                      for pos in block):
+                                lookup['dimension_occupancy']['x'].remove(x)
+                            
+                            if not any(pos[1] == y for block in lookup['position_mapping'].values() 
+                                      for pos in block):
+                                lookup['dimension_occupancy']['y'].remove(y)
+                            
+                            if not any(pos[2] == z for block in lookup['position_mapping'].values() 
+                                      for pos in block):
+                                lookup['dimension_occupancy']['z'].remove(z)
+                else:
+                    # For large regular areas, clean up bitmap-based tracking
+                    linearized_pos = self._linearize_position(area_id, x, y, z)
+                    pos_key = (area_id, linearized_pos)
+                    
+                    if pos_key in self._position_to_neurons:
+                        if neuron_id in self._position_to_neurons[pos_key]:
+                            self._position_to_neurons[pos_key].remove(neuron_id)
+                        
+                        if not self._position_to_neurons[pos_key]:
+                            del self._position_to_neurons[pos_key]
+                            self._occupied_voxels[area_id].remove(linearized_pos)
+                
+                # Remove from position lookup
+                del self._neuron_to_position[neuron_id]
+            
+            # Mark as inactive
+            self.is_active[index] = False
+            
+            # Add index to free list for reuse
+            self._free_neuron_indices.append(index)
+            
+            # Remove from mappings
+            del self._neuron_id_to_index[neuron_id]
+            self.index_to_neuron_id[index] = 0
+            if neuron_id in self._neuron_to_area:
+                del self._neuron_to_area[neuron_id]
+            
+            logger.debug(f"Deleted neuron {neuron_id}")
+    
+    def get_neuron_position(self, neuron_id: int) -> Tuple[int, int, int]:
         """
         Get the position of a neuron within its cortical area.
         
@@ -566,7 +581,7 @@ class ConnectomeManager:
             neuron_id: ID of the neuron
             
         Returns:
-            Tuple containing (area_id, x, y, z)
+            Position (x, y, z) within the cortical area
         """
         if neuron_id not in self._neuron_id_to_index:
             raise ValueError(f"Neuron with ID {neuron_id} does not exist")
@@ -574,13 +589,11 @@ class ConnectomeManager:
         # Use the direct mapping from neuron ID to position
         if neuron_id in self._neuron_to_position:
             area_id, x, y, z, neuron_index = self._neuron_to_position[neuron_id]
-            return (area_id, x, y, z)
+            return (x, y, z)
         
         # Fallback to array-based lookup if needed
         index = self._neuron_id_to_index[neuron_id]
-        area_id = int(self.area_ids[index])
         return (
-            area_id,
             int(self.positions_x[index]),
             int(self.positions_y[index]),
             int(self.positions_z[index])
@@ -857,33 +870,15 @@ class ConnectomeManager:
             
             # Restore cortical areas
             for area_id_str, area_data in brain_state['areas'].items():
-                # We need to override the auto-generated area_id with the one from the saved state
-                area, _ = self.add_cortical_area(
+                area_id = int(area_id_str)
+                self.add_cortical_area(
+                    area_id=area_id,
                     name=area_data['name'],
                     area_type=area_data['type'],
                     dimensions=area_data['dimensions'],
                     position=area_data['position'],
                     properties=area_data['properties']
                 )
-                
-                # If the generated area ID doesn't match the stored one, we need to update our internal maps
-                saved_area_id = int(area_id_str)
-                if area.id != saved_area_id:
-                    # Copy the area with the correct ID
-                    corrected_area = CorticalArea(
-                        id=saved_area_id,
-                        name=area_data['name'],
-                        type=area_data['type'],
-                        dimensions=area_data['dimensions'],
-                        position=area_data['position'],
-                        properties=area_data['properties']
-                    )
-                    
-                    # Remove the auto-generated area
-                    del self._areas[area.id]
-                    
-                    # Add the area with the correct ID
-                    self._areas[saved_area_id] = corrected_area
             
             # Restore neurons
             for neuron_id_str, neuron_data in brain_state['neurons'].items():
@@ -1676,208 +1671,158 @@ class ConnectomeManager:
                            threshold: float = 1.0, refractory_period: int = 5,
                            decay_rate: float = 0.9, resting_potential: float = 0.0) -> List[int]:
         """
-        Create multiple neurons in a batch.
+        Create multiple neurons in the specified cortical area in a single batch operation.
+        
+        This is much faster than creating neurons one at a time because it:
+        1. Acquires the lock only once for the entire batch
+        2. Pre-allocates all array indices at once
+        3. Uses vectorized operations where possible
         
         Args:
             area_id: ID of the cortical area
-            positions: List of positions (x, y, z) within the cortical area
-            threshold: Firing threshold potential
-            refractory_period: Refractory period in timesteps
-            decay_rate: Membrane potential decay rate
-            resting_potential: Resting membrane potential
+            positions: List of (x, y, z) positions within the cortical area
+            threshold: Firing threshold potential for all neurons
+            refractory_period: Refractory period in timesteps for all neurons
+            decay_rate: Membrane potential decay rate for all neurons
+            resting_potential: Resting membrane potential for all neurons
             
         Returns:
             List of neuron IDs created
         """
-        neuron_ids = []
-        for position in positions:
-            try:
-                neuron_id = self.create_neuron(
-                    area_id=area_id,
-                    position=position,
-                    threshold=threshold,
-                    refractory_period=refractory_period,
-                    decay_rate=decay_rate,
-                    resting_potential=resting_potential
-                )
-                neuron_ids.append(neuron_id)
-            except ValueError as e:
-                # Log and skip invalid positions
-                if "outside the bounds" in str(e):
-                    logger.warning(f"Skipping invalid position {position}: {str(e)}")
-                    continue
-                else:
-                    # Re-raise other ValueErrors
-                    raise
-        
-        return neuron_ids
-    
-    def get_morphologies_registry(self) -> Dict[str, Dict]:
-        """
-        Get the morphology registry used by the neuroembryogenesis system.
-        
-        Returns:
-            Dictionary mapping morphology_id to morphology definitions
-        """
-        # Return the morphology registry if it exists, otherwise return an empty dict
-        return getattr(self, '_neuroembryogenesis_morphologies_registry', {})
-        
-    def get_area(self, area_id):
-        """
-        Get a cortical area by its ID.
-        
-        Args:
-            area_id: Either the numeric area ID (int) or the string cortical ID
-            
-        Returns:
-            The CorticalArea object, or None if not found
-        """
-        if isinstance(area_id, str):
-            # Look up by cortical ID
-            for area in self._areas.values():
-                if area.properties.get("cortical_id") == area_id:
-                    return area
-            return None
-        else:
-            # Look up by numeric ID
-            return self._areas.get(area_id)
-            
-    def __str__(self) -> str:
-        """Return string representation of the Connectome Manager."""
-        return f"ConnectomeManager(neurons={self.get_neuron_count()}, areas={len(self._areas)})"
-    
-    def get_neuron_area_id(self, neuron_id: int) -> int:
-        """
-        Get the area ID that a neuron belongs to.
-        
-        Args:
-            neuron_id: ID of the neuron
-            
-        Returns:
-            Area ID
-        """
-        if neuron_id not in self._neuron_id_to_index:
-            raise ValueError(f"Neuron with ID {neuron_id} does not exist")
-        
-        # Use the direct mapping if available
-        if neuron_id in self._neuron_to_area:
-            return self._neuron_to_area[neuron_id]
-            
-        # Fallback to array-based lookup
-        index = self._neuron_id_to_index[neuron_id]
-        return int(self.area_ids[index])
-    
-    def get_neurons_by_area(self, area_id: int) -> List[int]:
-        """
-        Get all neuron IDs belonging to a specific cortical area.
-        
-        Args:
-            area_id: ID of the cortical area
-            
-        Returns:
-            List of neuron IDs in the specified area
-        """
         if area_id not in self._areas:
             raise ValueError(f"Cortical area with ID {area_id} does not exist")
         
-        # Find neurons with matching area_id
-        result = []
-        for neuron_id, idx in self._neuron_id_to_index.items():
-            if self.area_ids[idx] == area_id:
-                result.append(neuron_id)
+        area = self._areas[area_id]
+        width, height, depth = area.dimensions
         
-        return result
+        # Validate positions within area bounds
+        for x, y, z in positions:
+            if not (0 <= x < width and 0 <= y < height and 0 <= z < depth):
+                raise ValueError(f"Position {(x, y, z)} is outside the bounds of area {area.name}")
         
-    def get_neuron_count(self) -> int:
-        """Get the total number of active neurons in the connectome."""
-        return np.sum(self.is_active)
-    
-    def delete_neuron(self, neuron_id: int) -> None:
-        """
-        Delete a neuron from the connectome.
-        
-        Args:
-            neuron_id: ID of the neuron to delete
-        """
-        if neuron_id not in self._neuron_id_to_index:
-            raise ValueError(f"Neuron with ID {neuron_id} does not exist")
+        # Create a dictionary to track neuron indices at each position
+        # This helps detect collisions efficiently
+        voxel_to_indices = {}
+        for x, y, z in positions:
+            voxel_key = (area_id, x, y, z)
+            if voxel_key not in voxel_to_indices:
+                # Get existing neurons at this position
+                existing_indices = {
+                    self._neuron_to_position.get(nid, (None, None, None, None, -1))[4]
+                    for nid in self._voxel_to_neurons.get(voxel_key, set())
+                }
+                voxel_to_indices[voxel_key] = existing_indices
+                
+            # Default to neuron_index 0 for each position in batch creation
+            if 0 in voxel_to_indices[voxel_key]:
+                raise ValueError(f"Neuron already exists at position {(x, y, z)} in area {area_id}")
+            
+            # Track this position will have a neuron index 0
+            voxel_to_indices[voxel_key].add(0)
         
         with self._neuron_lock:
-            # Get neuron details
-            index = self._neuron_id_to_index[neuron_id]
-            area_id = self.area_ids[index]
+            # Calculate how many neurons need to be created
+            count = len(positions)
             
-            # Get position details from tracking structures
-            if neuron_id in self._neuron_to_position:
-                area_id, x, y, z, neuron_index = self._neuron_to_position[neuron_id]
+            # Find contiguous free indices if possible
+            if len(self._free_neuron_indices) >= count:
+                array_indices = [self._free_neuron_indices.pop() for _ in range(count)]
+            else:
+                # Use a mix of free indices and new indices
+                array_indices = []
+                free_count = len(self._free_neuron_indices)
                 
-                # Clean up voxel tracking
+                # Use all available free indices
+                for _ in range(free_count):
+                    array_indices.append(self._free_neuron_indices.pop())
+                
+                # Calculate the start index for new indices
+                active_count = np.sum(self.is_active)
+                if active_count + count - free_count > self._max_neurons:
+                    raise RuntimeError(f"Maximum neuron capacity ({self._max_neurons}) exceeded")
+                
+                # Add new indices
+                for i in range(count - free_count):
+                    array_indices.append(active_count + i)
+            
+            # Generate neuron IDs
+            neuron_ids = [self._next_neuron_id + i for i in range(count)]
+            self._next_neuron_id += count
+            
+            # Store neuron properties in batches
+            # We'll need to manually update each array since we're using non-contiguous indices
+            for i, array_index in enumerate(array_indices):
+                # Store core properties
+                self.membrane_potentials[array_index] = resting_potential
+                self.thresholds[array_index] = threshold
+                self.refractory_periods[array_index] = refractory_period
+                self.decay_rates[array_index] = decay_rate
+                self.resting_potentials[array_index] = resting_potential
+                self.last_fired[array_index] = -refractory_period
+                
+                # Store position
+                x, y, z = positions[i]
+                self.positions_x[array_index] = x
+                self.positions_y[array_index] = y
+                self.positions_z[array_index] = z
+                
+                # Store neuron index (0 for batch operations)
+                self.neuron_indices[array_index] = 0
+                
+                # Mark neuron as active and store area info
+                self.is_active[array_index] = True
+                self.area_ids[array_index] = area_id
+                
+                # Update mappings
+                neuron_id = neuron_ids[i]
+                self._neuron_id_to_index[neuron_id] = array_index
+                self.index_to_neuron_id[array_index] = neuron_id
+                self._neuron_to_area[neuron_id] = area_id
+                
+                # Update neuron position directly 
+                self._neuron_to_position[neuron_id] = (area_id, x, y, z, 0)
+                
+                # Update voxel tracking
                 voxel_key = (area_id, x, y, z)
-                if voxel_key in self._voxel_to_neurons:
-                    self._voxel_to_neurons[voxel_key].discard(neuron_id)
-                    if not self._voxel_to_neurons[voxel_key]:
-                        del self._voxel_to_neurons[voxel_key]
-                
-                # Clean up bitmap tracking based on area type
-                if area_id in self._small_regular_areas:
-                    # For small areas, voxel_to_neurons is sufficient
-                    pass
-                elif area_id in self._extreme_dimension_areas:
-                    # For extreme dimension areas, clean up specialized tracking
-                    if area_id in self._area_lookup_tables:
-                        lookup = self._area_lookup_tables[area_id]
-                        block_size = 1000
-                        block_key = (x // block_size, y // block_size, z // block_size)
-                        local_pos = (x % block_size, y % block_size, z % block_size)
-                        
-                        if block_key in lookup['position_mapping'] and local_pos in lookup['position_mapping'][block_key]:
-                            lookup['position_mapping'][block_key][local_pos].discard(neuron_id)
-                            
-                            # Clean up empty structures
-                            if not lookup['position_mapping'][block_key][local_pos]:
-                                del lookup['position_mapping'][block_key][local_pos]
-                            
-                            if not lookup['position_mapping'][block_key]:
-                                del lookup['position_mapping'][block_key]
-                            
-                            # Check if we need to update dimension occupancy
-                            if not any(pos[0] == x for block in lookup['position_mapping'].values() 
-                                      for pos in block):
-                                lookup['dimension_occupancy']['x'].remove(x)
-                            
-                            if not any(pos[1] == y for block in lookup['position_mapping'].values() 
-                                      for pos in block):
-                                lookup['dimension_occupancy']['y'].remove(y)
-                            
-                            if not any(pos[2] == z for block in lookup['position_mapping'].values() 
-                                      for pos in block):
-                                lookup['dimension_occupancy']['z'].remove(z)
+                if voxel_key not in self._voxel_to_neurons:
+                    self._voxel_to_neurons[voxel_key] = {neuron_id}
                 else:
-                    # For large regular areas, clean up bitmap-based tracking
-                    linearized_pos = self._linearize_position(area_id, x, y, z)
-                    pos_key = (area_id, linearized_pos)
-                    
-                    if pos_key in self._position_to_neurons:
-                        if neuron_id in self._position_to_neurons[pos_key]:
-                            self._position_to_neurons[pos_key].remove(neuron_id)
-                        
-                        if not self._position_to_neurons[pos_key]:
-                            del self._position_to_neurons[pos_key]
-                            self._occupied_voxels[area_id].remove(linearized_pos)
+                    self._voxel_to_neurons[voxel_key].add(neuron_id)
                 
-                # Remove from position lookup
-                del self._neuron_to_position[neuron_id]
+                # Only update specialized tracking for areas that need it
+                if area_id in self._large_regular_areas:
+                    linearized_pos = self._linearize_position(area_id, x, y, z)
+                    
+                    if area_id not in self._occupied_voxels:
+                        self._occupied_voxels[area_id] = BitMap()
+                    
+                    self._occupied_voxels[area_id].add(linearized_pos)
+                    
+                    pos_key = (area_id, linearized_pos)
+                    if pos_key not in self._position_to_neurons:
+                        self._position_to_neurons[pos_key] = BitMap()
+                    
+                    self._position_to_neurons[pos_key].add(neuron_id)
+                elif area_id in self._extreme_dimension_areas:
+                    lookup = self._area_lookup_tables[area_id]
+                    lookup['dimension_occupancy']['x'].add(x)
+                    lookup['dimension_occupancy']['y'].add(y)
+                    lookup['dimension_occupancy']['z'].add(z)
+                    
+                    block_size = 1000
+                    block_key = (x // block_size, y // block_size, z // block_size)
+                    
+                    if block_key not in lookup['position_mapping']:
+                        lookup['position_mapping'][block_key] = {}
+                    
+                    local_pos = (x % block_size, y % block_size, z % block_size)
+                    
+                    if local_pos not in lookup['position_mapping'][block_key]:
+                        lookup['position_mapping'][block_key][local_pos] = set()
+                    
+                    lookup['position_mapping'][block_key][local_pos].add(neuron_id)
             
-            # Mark as inactive
-            self.is_active[index] = False
+            # Log batch creation
+            logger.debug(f"Created {count} neurons in area {area.name} in batch mode")
             
-            # Add index to free list for reuse
-            self._free_neuron_indices.append(index)
-            
-            # Remove from mappings
-            del self._neuron_id_to_index[neuron_id]
-            self.index_to_neuron_id[index] = 0
-            if neuron_id in self._neuron_to_area:
-                del self._neuron_to_area[neuron_id]
-            
-            logger.debug(f"Deleted neuron {neuron_id}")
+            return neuron_ids

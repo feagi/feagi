@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """
-Backend utilities for FEAGI tests.
-
-This module provides common functions for detecting available backends,
-gathering system information, and other utilities that can be used across 
-all FEAGI test suites (unit, integration, performance).
+Shared utilities for FEAGI performance tests.
 """
 
 import os

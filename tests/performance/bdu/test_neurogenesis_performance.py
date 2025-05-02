@@ -20,7 +20,7 @@ import io
 import psutil
 import platform
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Union, Callable, Set
+from typing import Dict, List, Optional, Tuple, Any, Union, Callable
 
 # Configure logging
 logging.basicConfig(
@@ -38,14 +38,6 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
 from feagi.utils.config import FeagiConfig
 from feagi.core.backend import BackendType, get_backend, get_available_backends
-
-# Import test utilities from the central location
-# Makes tests directory available in sys.path
-tests_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-if tests_path not in sys.path:
-    sys.path.insert(0, tests_path)
-
-from tests.utils.backend_utils import is_webgpu_available, get_system_info
 
 
 class NeurogenesisPerformanceBenchmark:
@@ -77,8 +69,8 @@ class NeurogenesisPerformanceBenchmark:
         self.neuron_count_scenario = [10, 100, 1000, 10000]  # Skip the largest values
         self.dimension_scenario = [(1, 1, 1), (10, 10, 10), (100, 100, 100)]  # Skip 1000x1000x1000
         
-        # Get system specifications using the shared utility
-        self.system_specs = get_system_info()
+        # Get system specifications
+        self.system_specs = self._get_system_specs()
         
         # Store the process for resource monitoring
         self.process = psutil.Process(os.getpid())
@@ -240,8 +232,12 @@ class NeurogenesisPerformanceBenchmark:
                 test_neurons_per_voxel = embryo.genome["benchmark_settings"].get("test_area_neurons_per_voxel")
                 
                 if test_dims and test_neurons_per_voxel:
+                    # Generate a new area ID that doesn't conflict with existing ones
+                    test_area_id = max(embryo.cortical_areas.keys(), default=-1) + 1
+                    
                     # Add the test area to the connectome manager
-                    area, cortical_id = connectome_manager.add_cortical_area(
+                    area = connectome_manager.add_cortical_area(
+                        area_id=test_area_id,
                         name="Performance Test Area",
                         area_type="interconnect",
                         dimensions=test_dims,
@@ -251,22 +247,14 @@ class NeurogenesisPerformanceBenchmark:
                         }
                     )
                     
-                    # Store the area_id for later use
-                    test_area_id = area.id
-                    area_id = area.id
-                    
-                    # Register the test area with the embryo instance  
-                    embryo.cortical_areas[area_id] = area
-                    
-                    # Fix the mapping to make sure cortical_id_map has the right entry
-                    # The cortical_id_map should map from numeric IDs to cortical IDs (strings)
-                    embryo.cortical_id_map[area_id] = cortical_id
-                    # The reverse map maps cortical IDs to numeric IDs 
-                    embryo.reverse_cortical_id_map[cortical_id] = area_id
+                    # Register the test area with the embryo instance
+                    embryo.cortical_areas[test_area_id] = area
+                    embryo.cortical_id_map[test_area_id] = "benchmark-test-area"
+                    embryo.reverse_cortical_id_map["benchmark-test-area"] = test_area_id
                     
                     # We need to add the property to be extracted by the embryo
                     embryo._extract_cortical_properties_cache = getattr(embryo, "_extract_cortical_properties_cache", {})
-                    embryo._extract_cortical_properties_cache[cortical_id] = {
+                    embryo._extract_cortical_properties_cache["benchmark-test-area"] = {
                         "name": "Performance Test Area",
                         "dimensions": test_dims,
                         "position": (0, 0, 0),
@@ -279,10 +267,10 @@ class NeurogenesisPerformanceBenchmark:
                     # Monkey patch the _extract_cortical_properties method for our test
                     original_extract_method = embryo._extract_cortical_properties
                     
-                    def patched_extract_cortical_properties(incoming_cortical_id):
-                        if incoming_cortical_id == cortical_id and hasattr(embryo, "_extract_cortical_properties_cache"):
-                            return embryo._extract_cortical_properties_cache.get(incoming_cortical_id, {})
-                        return original_extract_method(incoming_cortical_id)
+                    def patched_extract_cortical_properties(cortical_id):
+                        if cortical_id == "benchmark-test-area" and hasattr(embryo, "_extract_cortical_properties_cache"):
+                            return embryo._extract_cortical_properties_cache.get(cortical_id, {})
+                        return original_extract_method(cortical_id)
                     
                     embryo._extract_cortical_properties = patched_extract_cortical_properties
                     
@@ -569,6 +557,42 @@ class NeurogenesisPerformanceBenchmark:
         else:  # error
             print(f"{indent}Error: {result.get('error', 'Unknown error')}")
     
+    def _get_system_specs(self) -> Dict:
+        """Get system specifications for benchmarking context."""
+        specs = {
+            "os": platform.system(),
+            "os_version": platform.version(),
+            "os_release": platform.release(),
+            "python_version": platform.python_version(),
+            "processor": platform.processor(),
+            "cpu_count": psutil.cpu_count(logical=False),
+            "cpu_count_logical": psutil.cpu_count(logical=True),
+            "total_memory": psutil.virtual_memory().total,
+        }
+        
+        # Add GPU info if available
+        try:
+            from feagi.core.resource_mgr import ResourceManager
+            resource_mgr = ResourceManager.get_instance()
+            resources = resource_mgr.resources
+            
+            if resources.get("gpu_available", False):
+                specs["gpu_info"] = {
+                    "gpu_count": resources.get("gpu_count", 0),
+                    "gpu_names": resources.get("gpu_names", []),
+                    "gpu_memory": resources.get("gpu_memory", [])
+                }
+                
+            if resources.get("metal_available", False):
+                specs["metal_available"] = True
+                
+            if resources.get("webgpu_available", False):
+                specs["webgpu_available"] = True
+        except Exception as e:
+            logger.warning(f"Failed to get GPU information: {e}")
+            
+        return specs
+
     def _monitor_resources(self, start=False):
         """Monitor system resources during benchmark execution."""
         if start:
@@ -596,13 +620,7 @@ class NeurogenesisPerformanceBenchmark:
         print(f"Python: {specs.get('python_version')}")
         print(f"Processor: {specs.get('processor')}")
         print(f"CPU Cores: {specs.get('cpu_count')} (Physical), {specs.get('cpu_count_logical')} (Logical)")
-        
-        # Add the safe handling of None for total_memory
-        total_memory = specs.get('total_memory')
-        if total_memory is not None:
-            print(f"Total Memory: {total_memory / (1024**3):.2f} GB")
-        else:
-            print(f"Total Memory: Unknown")
+        print(f"Total Memory: {specs.get('total_memory') / (1024**3):.2f} GB")
         
         if "gpu_info" in specs:
             gpu_info = specs["gpu_info"]
