@@ -721,42 +721,42 @@ class Neuroembryogenesis:
         
         # Add standard morphology functions that are built-in
         registry["expander_x"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         
         registry["reducer_x"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         
         registry["randomizer"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         
         registry["lateral_pairs_x"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         
         registry["block_connection"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         
         registry["projector"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         
         registry["last_to_first"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         
         registry["memory"] = {
-            "type": "function", 
+            "type": "functions", 
             "parameters": {}
         }
         

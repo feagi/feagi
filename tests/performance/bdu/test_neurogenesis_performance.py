@@ -20,7 +20,7 @@ import io
 import psutil
 import platform
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Union, Callable
+from typing import Dict, List, Optional, Tuple, Any, Union, Callable, Set
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +38,14 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
 from feagi.utils.config import FeagiConfig
 from feagi.core.backend import BackendType, get_backend, get_available_backends
+
+# Import test utilities from the central location
+# Makes tests directory available in sys.path
+tests_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
+if tests_path not in sys.path:
+    sys.path.insert(0, tests_path)
+
+from tests.utils.backend_utils import is_webgpu_available, get_system_info
 
 
 class NeurogenesisPerformanceBenchmark:
@@ -69,8 +77,8 @@ class NeurogenesisPerformanceBenchmark:
         self.neuron_count_scenario = [10, 100, 1000, 10000]  # Skip the largest values
         self.dimension_scenario = [(1, 1, 1), (10, 10, 10), (100, 100, 100)]  # Skip 1000x1000x1000
         
-        # Get system specifications
-        self.system_specs = self._get_system_specs()
+        # Get system specifications using the shared utility
+        self.system_specs = get_system_info()
         
         # Store the process for resource monitoring
         self.process = psutil.Process(os.getpid())
@@ -557,42 +565,6 @@ class NeurogenesisPerformanceBenchmark:
         else:  # error
             print(f"{indent}Error: {result.get('error', 'Unknown error')}")
     
-    def _get_system_specs(self) -> Dict:
-        """Get system specifications for benchmarking context."""
-        specs = {
-            "os": platform.system(),
-            "os_version": platform.version(),
-            "os_release": platform.release(),
-            "python_version": platform.python_version(),
-            "processor": platform.processor(),
-            "cpu_count": psutil.cpu_count(logical=False),
-            "cpu_count_logical": psutil.cpu_count(logical=True),
-            "total_memory": psutil.virtual_memory().total,
-        }
-        
-        # Add GPU info if available
-        try:
-            from feagi.core.resource_mgr import ResourceManager
-            resource_mgr = ResourceManager.get_instance()
-            resources = resource_mgr.resources
-            
-            if resources.get("gpu_available", False):
-                specs["gpu_info"] = {
-                    "gpu_count": resources.get("gpu_count", 0),
-                    "gpu_names": resources.get("gpu_names", []),
-                    "gpu_memory": resources.get("gpu_memory", [])
-                }
-                
-            if resources.get("metal_available", False):
-                specs["metal_available"] = True
-                
-            if resources.get("webgpu_available", False):
-                specs["webgpu_available"] = True
-        except Exception as e:
-            logger.warning(f"Failed to get GPU information: {e}")
-            
-        return specs
-
     def _monitor_resources(self, start=False):
         """Monitor system resources during benchmark execution."""
         if start:
