@@ -240,12 +240,8 @@ class NeurogenesisPerformanceBenchmark:
                 test_neurons_per_voxel = embryo.genome["benchmark_settings"].get("test_area_neurons_per_voxel")
                 
                 if test_dims and test_neurons_per_voxel:
-                    # Generate a new area ID that doesn't conflict with existing ones
-                    test_area_id = max(embryo.cortical_areas.keys(), default=-1) + 1
-                    
                     # Add the test area to the connectome manager
-                    area = connectome_manager.add_cortical_area(
-                        area_id=test_area_id,
+                    area, cortical_id = connectome_manager.add_cortical_area(
                         name="Performance Test Area",
                         area_type="interconnect",
                         dimensions=test_dims,
@@ -255,14 +251,22 @@ class NeurogenesisPerformanceBenchmark:
                         }
                     )
                     
-                    # Register the test area with the embryo instance
-                    embryo.cortical_areas[test_area_id] = area
-                    embryo.cortical_id_map[test_area_id] = "benchmark-test-area"
-                    embryo.reverse_cortical_id_map["benchmark-test-area"] = test_area_id
+                    # Store the area_id for later use
+                    test_area_id = area.id
+                    area_id = area.id
+                    
+                    # Register the test area with the embryo instance  
+                    embryo.cortical_areas[area_id] = area
+                    
+                    # Fix the mapping to make sure cortical_id_map has the right entry
+                    # The cortical_id_map should map from numeric IDs to cortical IDs (strings)
+                    embryo.cortical_id_map[area_id] = cortical_id
+                    # The reverse map maps cortical IDs to numeric IDs 
+                    embryo.reverse_cortical_id_map[cortical_id] = area_id
                     
                     # We need to add the property to be extracted by the embryo
                     embryo._extract_cortical_properties_cache = getattr(embryo, "_extract_cortical_properties_cache", {})
-                    embryo._extract_cortical_properties_cache["benchmark-test-area"] = {
+                    embryo._extract_cortical_properties_cache[cortical_id] = {
                         "name": "Performance Test Area",
                         "dimensions": test_dims,
                         "position": (0, 0, 0),
@@ -275,10 +279,10 @@ class NeurogenesisPerformanceBenchmark:
                     # Monkey patch the _extract_cortical_properties method for our test
                     original_extract_method = embryo._extract_cortical_properties
                     
-                    def patched_extract_cortical_properties(cortical_id):
-                        if cortical_id == "benchmark-test-area" and hasattr(embryo, "_extract_cortical_properties_cache"):
-                            return embryo._extract_cortical_properties_cache.get(cortical_id, {})
-                        return original_extract_method(cortical_id)
+                    def patched_extract_cortical_properties(incoming_cortical_id):
+                        if incoming_cortical_id == cortical_id and hasattr(embryo, "_extract_cortical_properties_cache"):
+                            return embryo._extract_cortical_properties_cache.get(incoming_cortical_id, {})
+                        return original_extract_method(incoming_cortical_id)
                     
                     embryo._extract_cortical_properties = patched_extract_cortical_properties
                     
@@ -592,7 +596,13 @@ class NeurogenesisPerformanceBenchmark:
         print(f"Python: {specs.get('python_version')}")
         print(f"Processor: {specs.get('processor')}")
         print(f"CPU Cores: {specs.get('cpu_count')} (Physical), {specs.get('cpu_count_logical')} (Logical)")
-        print(f"Total Memory: {specs.get('total_memory') / (1024**3):.2f} GB")
+        
+        # Add the safe handling of None for total_memory
+        total_memory = specs.get('total_memory')
+        if total_memory is not None:
+            print(f"Total Memory: {total_memory / (1024**3):.2f} GB")
+        else:
+            print(f"Total Memory: Unknown")
         
         if "gpu_info" in specs:
             gpu_info = specs["gpu_info"]

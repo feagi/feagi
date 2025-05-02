@@ -457,8 +457,7 @@ class Neuroembryogenesis:
                 
                 # Add to connectome manager
                 try:
-                    area = self.connectome_manager.add_cortical_area(
-                        area_id=i,  # Use sequential IDs internally
+                    area, cortical_area_id = self.connectome_manager.add_cortical_area(
                         name=name,
                         area_type=area_type,
                         dimensions=dimensions,
@@ -471,7 +470,7 @@ class Neuroembryogenesis:
                     self.cortical_id_map[i] = cortical_id
                     self.reverse_cortical_id_map[cortical_id] = i
                     
-                    logger.info(f"Created cortical area {name} (ID {i}, genome ID {cortical_id})")
+                    logger.info(f"Created cortical area {name} (ID {i}, genome ID {cortical_id}, cortical ID {cortical_area_id})")
                 except Exception as e:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
