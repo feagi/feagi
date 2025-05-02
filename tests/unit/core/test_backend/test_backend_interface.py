@@ -74,36 +74,164 @@ class TestBackendSelection:
     
     def test_determine_best_backend_cuda(self, monkeypatch):
         """Test that CUDA is preferred when available."""
+        # Create a mock CUDA backend class
+        class MockCUDABackend:
+            pass
+            
+        # Mock the _BACKENDS dictionary to include CUDA
+        monkeypatch.setattr(
+            "feagi.core.backend.interface._BACKENDS",
+            {BackendType.CPU: None, BackendType.CUDA: MockCUDABackend, BackendType.METAL: None}
+        )
+        
         monkeypatch.setattr(
             "feagi.core.backend.interface.get_available_backends",
             lambda: [BackendType.CPU, BackendType.CUDA, BackendType.METAL]
+        )
+        
+        # Mock the ResourceManager's resources to indicate CUDA is available
+        mock_resources = {
+            "gpu_available": True,
+            "gpu_count": 1,
+            "webgpu_available": False,
+            "metal_available": False
+        }
+        
+        class MockResourceManager:
+            @classmethod
+            def get_instance(cls):
+                return cls()
+                
+            @property
+            def resources(self):
+                return mock_resources
+        
+        monkeypatch.setattr(
+            "feagi.core.resource_mgr.ResourceManager",
+            MockResourceManager
         )
         
         assert determine_best_backend() == BackendType.CUDA
     
     def test_determine_best_backend_metal(self, monkeypatch):
         """Test that Metal is preferred when CUDA is not available."""
+        # Create mock backend classes
+        class MockMetalBackend:
+            pass
+            
+        # Mock the _BACKENDS dictionary to include Metal but not CUDA
+        monkeypatch.setattr(
+            "feagi.core.backend.interface._BACKENDS",
+            {BackendType.CPU: None, BackendType.METAL: MockMetalBackend}
+        )
+        
         monkeypatch.setattr(
             "feagi.core.backend.interface.get_available_backends",
             lambda: [BackendType.CPU, BackendType.METAL]
+        )
+        
+        # Mock the ResourceManager's resources to indicate Metal is available but not CUDA
+        mock_resources = {
+            "gpu_available": False,
+            "gpu_count": 0,
+            "webgpu_available": False,
+            "metal_available": True
+        }
+        
+        class MockResourceManager:
+            @classmethod
+            def get_instance(cls):
+                return cls()
+                
+            @property
+            def resources(self):
+                return mock_resources
+        
+        monkeypatch.setattr(
+            "feagi.core.resource_mgr.ResourceManager",
+            MockResourceManager
         )
         
         assert determine_best_backend() == BackendType.METAL
     
     def test_determine_best_backend_webgpu(self, monkeypatch):
         """Test that WebGPU is preferred when CUDA and Metal are not available."""
+        # Create mock backend classes
+        class MockWebGPUBackend:
+            pass
+            
+        # Mock the _BACKENDS dictionary to include WebGPU but not CUDA or Metal
+        monkeypatch.setattr(
+            "feagi.core.backend.interface._BACKENDS",
+            {BackendType.CPU: None, BackendType.WEBGPU: MockWebGPUBackend}
+        )
+        
         monkeypatch.setattr(
             "feagi.core.backend.interface.get_available_backends",
             lambda: [BackendType.CPU, BackendType.WEBGPU]
+        )
+        
+        # Mock the ResourceManager's resources to indicate WebGPU is available but not CUDA or Metal
+        mock_resources = {
+            "gpu_available": False,
+            "gpu_count": 0,
+            "webgpu_available": True,
+            "metal_available": False
+        }
+        
+        class MockResourceManager:
+            @classmethod
+            def get_instance(cls):
+                return cls()
+                
+            @property
+            def resources(self):
+                return mock_resources
+        
+        monkeypatch.setattr(
+            "feagi.core.resource_mgr.ResourceManager",
+            MockResourceManager
         )
         
         assert determine_best_backend() == BackendType.WEBGPU
     
     def test_determine_best_backend_cpu(self, monkeypatch):
         """Test that CPU is used when no other backends are available."""
+        # Create mock backend classes
+        class MockCPUBackend:
+            pass
+            
+        # Mock the _BACKENDS dictionary to include only CPU
+        monkeypatch.setattr(
+            "feagi.core.backend.interface._BACKENDS",
+            {BackendType.CPU: MockCPUBackend}
+        )
+        
         monkeypatch.setattr(
             "feagi.core.backend.interface.get_available_backends",
             lambda: [BackendType.CPU]
+        )
+        
+        # Mock the ResourceManager's resources to indicate no GPU acceleration is available
+        mock_resources = {
+            "gpu_available": False,
+            "gpu_count": 0,
+            "webgpu_available": False,
+            "metal_available": False
+        }
+        
+        class MockResourceManager:
+            @classmethod
+            def get_instance(cls):
+                return cls()
+                
+            @property
+            def resources(self):
+                return mock_resources
+        
+        monkeypatch.setattr(
+            "feagi.core.resource_mgr.ResourceManager",
+            MockResourceManager
         )
         
         assert determine_best_backend() == BackendType.CPU
