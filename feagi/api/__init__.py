@@ -1,5 +1,19 @@
 """API module for FEAGI."""
 
-from feagi.api.app import create_app
+# Core API exports
+from feagi.api.core.services import CoreAPIService
+from feagi.api.gateway import APIGateway
 
-__all__ = ["create_app"] 
+# REST API exports
+from feagi.api.rest import create_rest_app
+
+# ZMQ API exports
+from feagi.api.zmq import create_zmq_server, create_zmq_client
+
+__all__ = [
+    "CoreAPIService",
+    "APIGateway",
+    "create_rest_app",
+    "create_zmq_server", 
+    "create_zmq_client"
+] 
