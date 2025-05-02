@@ -87,7 +87,8 @@ def create_rest_app() -> FastAPI:
         return {"version": "1.0.0"}
     
     # Include versioned API routers
-    from feagi.api.rest.v1.router import router as v1_router
+    from feagi.api.rest.v1 import router as v1_router, genome_router as v1_genome_router
     app.include_router(v1_router, prefix="/api/v1")
+    app.include_router(v1_genome_router, prefix="/api/v1")
     
     return app 
