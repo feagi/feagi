@@ -301,7 +301,7 @@ The Burst Engine is a key component of the NPU that handles all activities relat
 - Management of the fire candidate list queue
 - Management of cortical stimulation queue
 
-For detailed implementation information about the Burst Engine, refer to [burst_engine.md](burst_engine.md).
+For detailed implementation information about the Burst Engine, refer to [burst_engine.md](../feagi/npu/burst_engine.md).
 
 ##### Fire Candidate List Queue
 The Fire Candidate List contains the list of neurons that ought to be fired simultaneously across the entire brain. The act of firing all neurons within the fire candidate list is called a burst of neuron firing or "burst" for short.
@@ -319,7 +319,7 @@ Responsible for invoking the FCL manager at a configurable frequency for generat
 ##### Neuron Models
 FEAGI supports different neuron models that define the behavioral dynamics of neurons, with Leaky Integrate and Fire (LIF) being the primary model. FEAGI 2.0 is designed to enable supporting multiple neuron models as needed.
 
-For implementation details of neuron models, refer to [burst_engine.md](burst_engine.md).
+For implementation details of neuron models, refer to [burst_engine.md](../feagi/npu/burst_engine.md).
 
 #### CPU/GPU Acceleration Strategy
 
@@ -343,7 +343,7 @@ The NPU employs a dual-path design for neural processing:
 - Enables future web-based visualization and deployment options
 - Balances performance and portability requirements
 
-The implementation details of compute shaders and optimization techniques can be found in [burst_engine.md](burst_engine.md).
+The implementation details of compute shaders and optimization techniques can be found in [burst_engine.md](../feagi/npu/burst_engine.md).
 
 #### Performance Optimizations
 
