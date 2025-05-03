@@ -17,7 +17,10 @@ def get_api_gateway() -> APIGateway:
     Returns:
         APIGateway instance.
     """
-    return APIGateway()
+    # Ensure we have a singleton instance of the gateway
+    if not hasattr(get_api_gateway, "instance"):
+        get_api_gateway.instance = APIGateway()
+    return get_api_gateway.instance
 
 def get_core_api() -> CoreAPIService:
     """
@@ -87,8 +90,33 @@ def create_rest_app() -> FastAPI:
         return {"version": "1.0.0"}
     
     # Include versioned API routers
-    from feagi.api.rest.v1 import router as v1_router, genome_router as v1_genome_router
-    app.include_router(v1_router, prefix="/api/v1")
+    from feagi.api.rest.routers.v1 import (
+        cortical_area_router as v1_cortical_area_router,
+        genome_router as v1_genome_router,
+        simulation_router as v1_simulation_router,
+        system_router as v1_system_router,
+        morphology_router as v1_morphology_router,
+        neuroplasticity_router as v1_neuroplasticity_router,
+        connectome_router as v1_connectome_router,
+        burst_engine_router as v1_burst_engine_router,
+        inputs_router as v1_inputs_router,
+        region_router as v1_region_router,
+        insights_router as v1_insights_router,
+        cortical_mapping_router as v1_cortical_mapping_router
+    )
+    
+    # Include all domain-specific routers
+    app.include_router(v1_cortical_area_router, prefix="/api/v1")
     app.include_router(v1_genome_router, prefix="/api/v1")
+    app.include_router(v1_simulation_router, prefix="/api/v1")
+    app.include_router(v1_system_router, prefix="/api/v1")
+    app.include_router(v1_morphology_router, prefix="/api/v1")
+    app.include_router(v1_neuroplasticity_router, prefix="/api/v1")
+    app.include_router(v1_connectome_router, prefix="/api/v1")
+    app.include_router(v1_burst_engine_router, prefix="/api/v1")
+    app.include_router(v1_inputs_router, prefix="/api/v1")
+    app.include_router(v1_region_router, prefix="/api/v1")
+    app.include_router(v1_insights_router, prefix="/api/v1")
+    app.include_router(v1_cortical_mapping_router, prefix="/api/v1")
     
     return app 

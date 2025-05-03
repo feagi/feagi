@@ -13,6 +13,7 @@ import signal
 import logging
 import importlib
 from typing import Dict, Any, Optional, List
+import socket
 
 # Configure logging
 logging.basicConfig(
@@ -64,29 +65,73 @@ def check_dependencies():
         return True  # Continue execution despite the error
 
 
-def start_api_server(args: Dict[str, Any]) -> Optional[subprocess.Popen]:
-    """Start the API server as a separate process.
+def find_available_port(start_port, max_tries=10):
+    """
+    Find an available port starting from start_port.
     
     Args:
-        args: Configuration arguments for the API server
+        start_port: The port to start checking from
+        max_tries: Maximum number of ports to try
         
     Returns:
-        The process object if successful, None otherwise
+        An available port or None if no port was found
     """
-    logger.info(f"Starting API server on {args['host']}:{args['port']}")
+    for port_offset in range(max_tries):
+        port = start_port + port_offset
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", port))
+                return port
+        except OSError:
+            logger.warning(f"Port {port} is already in use, trying next port...")
     
+    logger.error(f"Could not find an available port after {max_tries} attempts")
+    return None
+
+
+def start_api_server(args: Dict[str, Any]) -> Optional[subprocess.Popen]:
+    """
+    Start the API server in a separate process.
+    
+    Args:
+        args: Dictionary containing API server arguments
+        
+    Returns:
+        A subprocess.Popen instance for the API server process or None if startup failed
+    """
+    host = args.get("host", "127.0.0.1")
+    port = args.get("port", 8000)
+    
+    # Check if the specified port is available, otherwise find a free port
+    available_port = find_available_port(port)
+    if available_port is None:
+        logger.error("Could not find an available port for the API server")
+        return None
+    
+    if available_port != port:
+        logger.warning(f"Port {port} is already in use, using port {available_port} instead")
+        port = available_port
+    
+    reload = args.get("reload", False)
+    
+    # Build the command to start the API server
     cmd = [
-        sys.executable, "-m", "feagi.api.server",
-        "--host", args["host"],
-        "--port", str(args["port"])
+        sys.executable, "-m", "uvicorn", 
+        "feagi.api.rest.main:app", 
+        "--host", host,
+        "--port", str(port)
     ]
     
-    if args.get("reload"):
+    if reload:
         cmd.append("--reload")
     
+    # Log the API server startup
+    logger.info(f"Starting FEAGI API server on {host}:{port}")
+    print(f"Starting FEAGI API server on {host}:{port}")
+    
+    # Start the process
     try:
-        process = subprocess.Popen(cmd)
-        logger.info(f"API server started with PID {process.pid}")
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         return process
     except Exception as e:
         logger.error(f"Failed to start API server: {e}")
@@ -95,36 +140,73 @@ def start_api_server(args: Dict[str, Any]) -> Optional[subprocess.Popen]:
 
 def start_zmq_server(args: Dict[str, Any]) -> bool:
     """
-    Start the ZMQ server for FEAGI.
+    Start the ZMQ server.
     
     Args:
-        args: Dictionary of arguments
-            - host: Host to bind to
-            - pub_port: Port for publishing messages
-            - sub_port: Port for subscribing to messages
-            - topics: List of topics to support
-            
+        args: Configuration arguments for the ZMQ server
+        
     Returns:
-        bool: True if started successfully
+        True if successful, False otherwise
     """
     global _zmq_server_instance
     
-    logger.info("Starting ZMQ server...")
-    
     try:
-        # Create the ZMQ server
+        # Check and adjust ports if needed
+        req_rep_port = args.get("req_port", 5555)
+        pub_sub_port = args.get("pub_port", 5556)
+        push_pull_port = args.get("push_port", 5557)
+        sensorimotor_port = args.get("sensorimotor_port", 5558)
+        vis_base_port = args.get("vis_base_port", 5560)
+        
+        # Check if the ports are available, otherwise find free ports
+        available_req_rep_port = find_available_port(req_rep_port)
+        if available_req_rep_port != req_rep_port:
+            logger.warning(f"Port {req_rep_port} is already in use, using port {available_req_rep_port} instead")
+            req_rep_port = available_req_rep_port
+            
+        available_pub_sub_port = find_available_port(pub_sub_port)
+        if available_pub_sub_port != pub_sub_port:
+            logger.warning(f"Port {pub_sub_port} is already in use, using port {available_pub_sub_port} instead")
+            pub_sub_port = available_pub_sub_port
+            
+        available_push_pull_port = find_available_port(push_pull_port)
+        if available_push_pull_port != push_pull_port:
+            logger.warning(f"Port {push_pull_port} is already in use, using port {available_push_pull_port} instead")
+            push_pull_port = available_push_pull_port
+            
+        available_sensorimotor_port = find_available_port(sensorimotor_port)
+        if available_sensorimotor_port != sensorimotor_port:
+            logger.warning(f"Port {sensorimotor_port} is already in use, using port {available_sensorimotor_port} instead")
+            sensorimotor_port = available_sensorimotor_port
+            
+        available_vis_base_port = find_available_port(vis_base_port)
+        if available_vis_base_port != vis_base_port:
+            logger.warning(f"Port {vis_base_port} is already in use, using port {available_vis_base_port} instead")
+            vis_base_port = available_vis_base_port
+        
+        # Update the args dictionary with the available ports
+        args["req_port"] = req_rep_port
+        args["pub_port"] = pub_sub_port
+        args["push_port"] = push_pull_port
+        args["sensorimotor_port"] = available_sensorimotor_port
+        args["vis_base_port"] = available_vis_base_port
+        
+        logger.info(f"Starting ZMQ server with ports: req={req_rep_port}, pub={pub_sub_port}, push={push_pull_port}, "
+                   f"sensorimotor={sensorimotor_port}, vis_base={vis_base_port}")
+        
+        # Try to import the ZmqServer class directly
         try:
-            # Import the server from the API module
             from feagi.api.zmq.server import ZmqServer
             
+            # Create the ZMQ server instance
             _zmq_server_instance = ZmqServer(
-                core_api=None,  # Will be created internally if not provided
+                core_api=None,  # This will be replaced with the actual CoreApiService
                 host=args["host"],
-                req_rep_port=args.get("req_port", 5555),
+                req_rep_port=args["req_port"],
                 pub_sub_port=args["pub_port"],
-                push_pull_port=args.get("push_port", 5557),
-                sensorimotor_port=args.get("sensorimotor_port", 5558),
-                vis_base_port=args.get("vis_base_port", 5560)
+                push_pull_port=args["push_port"],
+                sensorimotor_port=args["sensorimotor_port"],
+                vis_base_port=args["vis_base_port"]
             )
             
         except (ImportError, AttributeError) as e:
@@ -149,12 +231,27 @@ def start_zmq_server(args: Dict[str, Any]) -> bool:
             return False
             
         logger.info("Starting ZMQ server...")
-        success = _zmq_server_instance.start()
-        if not success:
-            logger.error("Failed to start ZMQ server")
-            _zmq_server_instance = None
+        try:
+            success = _zmq_server_instance.start()
+            if not success:
+                logger.error("Failed to start ZMQ server")
+                _zmq_server_instance = None
+                return False
             
-        return success
+            logger.info("ZMQ server started successfully")
+            return True
+            
+        except RuntimeWarning as w:
+            # Handle the "coroutine was never awaited" warning
+            logger.warning(f"Warning during ZMQ server start (this is expected in async mode): {w}")
+            # Continue since the server was started in a background thread
+            logger.info("ZMQ server starting in background thread")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error starting ZMQ server: {e}")
+            _zmq_server_instance = None
+            return False
             
     except Exception as e:
         logger.error(f"Error starting ZMQ server: {e}")
@@ -229,25 +326,35 @@ def main():
     
     # Handle Ctrl+C and termination signals
     def signal_handler(sig, frame):
+        global _zmq_server_instance
         logger.info("\nShutting down FEAGI servers...")
         
-        # Shutdown ZMQ server if running
-        if _zmq_server_instance is not None:
-            logger.info("Terminating ZMQ server...")
-            _zmq_server_instance.shutdown()
-            _zmq_server_instance = None
+        try:
+            # Shutdown ZMQ server if running
+            if '_zmq_server_instance' in globals() and _zmq_server_instance is not None:
+                logger.info("Terminating ZMQ server...")
+                _zmq_server_instance.shutdown()
+                _zmq_server_instance = None
+        except Exception as e:
+            logger.error(f"Error shutting down ZMQ server: {e}")
         
-        # Terminate child processes
-        for name, process in processes.items():
-            if process.poll() is None:  # If process is still running
-                logger.info(f"Terminating {name} server...")
-                process.terminate()
+        try:
+            # Terminate child processes
+            for name, process in processes.items():
+                if process.poll() is None:  # If process is still running
+                    logger.info(f"Terminating {name} server...")
+                    process.terminate()
+        except Exception as e:
+            logger.error(f"Error terminating processes: {e}")
                 
         logger.info("FEAGI servers shut down")
         sys.exit(0)
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Initialize to avoid reference errors
+    _zmq_server_instance = None
     
     try:
         # Start API server if requested or if neither --api-only nor --zmq-only is specified
@@ -307,9 +414,12 @@ def main():
     except Exception as e:
         logger.error(f"Error in main process: {e}")
         # Ensure all resources are released
-        if _zmq_server_instance is not None:
-            _zmq_server_instance.shutdown()
-            _zmq_server_instance = None
+        try:
+            if '_zmq_server_instance' in globals() and _zmq_server_instance is not None:
+                _zmq_server_instance.shutdown()
+                _zmq_server_instance = None
+        except Exception as shutdown_error:
+            logger.error(f"Error during ZMQ server shutdown: {shutdown_error}")
             
         # Terminate child processes
         for name, process in processes.items():

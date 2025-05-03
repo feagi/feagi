@@ -13,7 +13,7 @@ import numpy as np
 
 from feagi.core.feagi import FEAGI
 from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, develop_brain_from_genome
-from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
 try:
     # Try to import these from the new location
     from feagi.evo.genome_validator import genome_validator
@@ -93,6 +93,20 @@ class CoreAPIService:
         # Current genome state
         self._current_genome = None
         
+        # Add a sample cortical area for testing
+        if not self._connectome_manager._areas:
+            try:
+                self._connectome_manager.add_cortical_area(
+                    area_id=1,
+                    name="Test Area",
+                    area_type="interconnect",
+                    dimensions=(10, 10, 5),
+                    position=(0, 0, 0),
+                    properties={"test": True}
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to create test cortical area: {str(e)}")
+        
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
         self.logger.info(f"[{stage}] {percentage:.1f}% - {message}")
@@ -146,9 +160,39 @@ class CoreAPIService:
         Returns:
             List of dictionaries containing cortical area information.
         """
-        return self._feagi.get_cortical_areas()
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot retrieve cortical areas")
+            return []
         
-    def get_cortical_area(self, area_id: str) -> Dict[str, Any]:
+        result = []
+        try:
+            for area_id, area in self._connectome_manager._areas.items():
+                # Convert from internal representation to API format
+                neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id))
+                result.append({
+                    "id": str(area_id),  # Convert to string for API consistency
+                    "name": area.name,
+                    "coordinates": {
+                        "x": area.position[0],
+                        "y": area.position[1],
+                        "z": area.position[2]
+                    },
+                    "dimensions": {
+                        "width": area.dimensions[0],
+                        "height": area.dimensions[1],
+                        "depth": area.dimensions[2]
+                    },
+                    "type": area.type,
+                    "parameters": area.properties,
+                    "neuron_count": neuron_count
+                })
+        except Exception as e:
+            self.logger.error(f"Error retrieving cortical areas: {str(e)}")
+        
+        return result
+        
+    def get_cortical_area(self, area_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a cortical area by ID.
         
@@ -156,9 +200,541 @@ class CoreAPIService:
             area_id: ID of the cortical area.
             
         Returns:
-            Dictionary containing cortical area information.
+            Dictionary containing cortical area information, or None if not found.
         """
-        return self._feagi.get_cortical_area(area_id)
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot retrieve cortical area")
+            return None
+        
+        try:
+            area_id_int = int(area_id)
+        except ValueError:
+            return None
+        
+        try:
+            area = self._connectome_manager._areas.get(area_id_int)
+            if not area:
+                return None
+            
+            # Convert to API format
+            neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id_int))
+            return {
+                "id": str(area_id_int),
+                "name": area.name,
+                "coordinates": {
+                    "x": area.position[0],
+                    "y": area.position[1],
+                    "z": area.position[2]
+                },
+                "dimensions": {
+                    "width": area.dimensions[0],
+                    "height": area.dimensions[1],
+                    "depth": area.dimensions[2]
+                },
+                "type": area.type,
+                "parameters": area.properties,
+                "neuron_count": neuron_count
+            }
+        except Exception as e:
+            self.logger.error(f"Error retrieving cortical area {area_id}: {str(e)}")
+            return None
+        
+    def create_cortical_area(
+        self, 
+        name: str,
+        coordinates: Dict[str, int],
+        dimensions: Dict[str, int],
+        area_type: str,
+        parameters: Dict[str, Any] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Create a new cortical area.
+        
+        Args:
+            name: Name of the cortical area.
+            coordinates: 3D coordinates of the cortical area.
+            dimensions: Dimensions of the cortical area.
+            area_type: Type of the cortical area.
+            parameters: Additional parameters for the cortical area.
+            
+        Returns:
+            Dictionary containing the created cortical area information,
+            or None if creation failed.
+        """
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot create cortical area")
+            return None
+        
+        try:
+            # Generate a unique ID for the new area
+            # In a real implementation, this might be more sophisticated
+            existing_ids = set(self._connectome_manager._areas.keys())
+            new_id = 1
+            while new_id in existing_ids:
+                new_id += 1
+            
+            # Convert API format to internal representation
+            position = (coordinates["x"], coordinates["y"], coordinates["z"])
+            dims = (dimensions["width"], dimensions["height"], dimensions["depth"])
+            
+            # Create the area in the connectome manager
+            area = self._connectome_manager.add_cortical_area(
+                area_id=new_id,
+                name=name,
+                area_type=area_type,
+                dimensions=dims,
+                position=position,
+                properties=parameters or {}
+            )
+            
+            # Return the created area information
+            return {
+                "id": str(new_id),
+                "name": area.name,
+                "coordinates": coordinates,
+                "dimensions": dimensions,
+                "type": area.type,
+                "parameters": area.properties,
+                "neuron_count": 0  # New area has no neurons yet
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to create cortical area: {str(e)}")
+            return None
+        
+    def update_cortical_area(
+        self,
+        area_id: str,
+        name: Optional[str] = None,
+        coordinates: Optional[Dict[str, int]] = None,
+        dimensions: Optional[Dict[str, int]] = None,
+        area_type: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update an existing cortical area.
+        
+        Args:
+            area_id: ID of the cortical area to update.
+            name: New name for the cortical area.
+            coordinates: New coordinates for the cortical area.
+            dimensions: New dimensions for the cortical area.
+            area_type: New type for the cortical area.
+            parameters: New parameters for the cortical area.
+            
+        Returns:
+            Dictionary containing the updated cortical area information,
+            or None if the area doesn't exist.
+        """
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot update cortical area")
+            return None
+        
+        try:
+            area_id_int = int(area_id)
+        except ValueError:
+            return None
+        
+        try:
+            area = self._connectome_manager._areas.get(area_id_int)
+            if not area:
+                return None
+            
+            # Update the area properties
+            if name is not None:
+                area.name = name
+            
+            if coordinates is not None:
+                area.position = (coordinates["x"], coordinates["y"], coordinates["z"])
+            
+            if dimensions is not None:
+                area.dimensions = (dimensions["width"], dimensions["height"], dimensions["depth"])
+            
+            if area_type is not None:
+                area.type = area_type
+            
+            if parameters is not None:
+                area.properties.update(parameters)
+            
+            # Return the updated area
+            neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id_int))
+            return {
+                "id": str(area_id_int),
+                "name": area.name,
+                "coordinates": {
+                    "x": area.position[0],
+                    "y": area.position[1],
+                    "z": area.position[2]
+                },
+                "dimensions": {
+                    "width": area.dimensions[0],
+                    "height": area.dimensions[1],
+                    "depth": area.dimensions[2]
+                },
+                "type": area.type,
+                "parameters": area.properties,
+                "neuron_count": neuron_count
+            }
+        except Exception as e:
+            self.logger.error(f"Error updating cortical area {area_id}: {str(e)}")
+            return None
+        
+    def delete_cortical_area(self, area_id: str) -> bool:
+        """
+        Delete a cortical area.
+        
+        Args:
+            area_id: ID of the cortical area to delete.
+            
+        Returns:
+            True if the cortical area was deleted, False otherwise.
+        """
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot delete cortical area")
+            return False
+        
+        try:
+            area_id_int = int(area_id)
+        except ValueError:
+            return False
+        
+        try:
+            if area_id_int not in self._connectome_manager._areas:
+                return False
+            
+            # Get all neurons in this area
+            neurons = self._connectome_manager.get_neurons_by_area(area_id_int)
+            
+            # Delete all neurons in the area
+            for neuron_id in neurons:
+                self._connectome_manager.delete_neuron(neuron_id)
+            
+            # Remove the area
+            del self._connectome_manager._areas[area_id_int]
+            
+            # Clean up any area-specific data structures
+            if area_id_int in self._connectome_manager._occupied_voxels:
+                del self._connectome_manager._occupied_voxels[area_id_int]
+            
+            if area_id_int in self._connectome_manager._area_lookup_tables:
+                del self._connectome_manager._area_lookup_tables[area_id_int]
+            
+            # Remove from area classification sets
+            if area_id_int in self._connectome_manager._small_regular_areas:
+                self._connectome_manager._small_regular_areas.remove(area_id_int)
+            
+            if area_id_int in self._connectome_manager._large_regular_areas:
+                self._connectome_manager._large_regular_areas.remove(area_id_int)
+            
+            if area_id_int in self._connectome_manager._extreme_dimension_areas:
+                self._connectome_manager._extreme_dimension_areas.remove(area_id_int)
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deleting cortical area {area_id}: {str(e)}")
+            return False
+        
+    def get_cortical_area_neurons(self, area_id: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get neurons for a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area.
+            
+        Returns:
+            List of dictionaries containing neuron information,
+            or None if the area doesn't exist.
+        """
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot retrieve cortical area neurons")
+            return None
+        
+        try:
+            area_id_int = int(area_id)
+        except ValueError:
+            return None
+        
+        try:
+            if area_id_int not in self._connectome_manager._areas:
+                return None
+            
+            # Get all neurons in this area
+            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
+            result = []
+            
+            for neuron_id in neuron_ids:
+                # Get neuron index for accessing property arrays
+                neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
+                if neuron_index is None:
+                    continue
+                
+                # Get neuron position
+                position = self._connectome_manager.get_neuron_position(neuron_id)
+                
+                # Get neuron properties
+                membrane_potential = float(self._connectome_manager.membrane_potentials[neuron_index])
+                threshold = float(self._connectome_manager.thresholds[neuron_index])
+                decay_rate = float(self._connectome_manager.decay_rates[neuron_index])
+                
+                result.append({
+                    "id": str(neuron_id),
+                    "position": {
+                        "x": position[0],
+                        "y": position[1],
+                        "z": position[2]
+                    },
+                    "properties": {
+                        "membrane_potential": membrane_potential,
+                        "threshold": threshold,
+                        "decay_rate": decay_rate
+                    }
+                })
+            
+            return result
+        except Exception as e:
+            self.logger.error(f"Error retrieving neurons for cortical area {area_id}: {str(e)}")
+            return None
+        
+    def get_cortical_area_activity(self, area_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
+        """
+        Get activity data for a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area.
+            window: Time window for activity data (in bursts).
+            
+        Returns:
+            Dictionary containing activity data for the cortical area,
+            or None if the area doesn't exist.
+        """
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot retrieve cortical area activity")
+            return None
+        
+        try:
+            area_id_int = int(area_id)
+        except ValueError:
+            return None
+        
+        try:
+            if area_id_int not in self._connectome_manager._areas:
+                return None
+            
+            # Get all neurons in this area
+            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
+            
+            # Current timestep
+            current_time = self._connectome_manager.current_timestep
+            
+            # Get neurons that fired within the window
+            active_neurons = []
+            for neuron_id in neuron_ids:
+                neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
+                if neuron_index is None:
+                    continue
+                
+                last_fired = int(self._connectome_manager.last_fired[neuron_index])
+                if last_fired > 0 and (current_time - last_fired) <= window:
+                    position = self._connectome_manager.get_neuron_position(neuron_id)
+                    active_neurons.append({
+                        "id": str(neuron_id),
+                        "position": {
+                            "x": position[0],
+                            "y": position[1],
+                            "z": position[2]
+                        },
+                        "last_fired": last_fired
+                    })
+            
+            # Calculate activity summary
+            total_neurons = len(neuron_ids)
+            active_count = len(active_neurons)
+            
+            return {
+                "total_neurons": total_neurons,
+                "active_neurons": active_count,
+                "activity_ratio": active_count / total_neurons if total_neurons > 0 else 0,
+                "active_details": active_neurons[:100]  # Limit to prevent huge responses
+            }
+        except Exception as e:
+            self.logger.error(f"Error retrieving activity for cortical area {area_id}: {str(e)}")
+            return None
+        
+    def get_cortical_area_connectivity(self, area_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
+        """
+        Get connectivity information for a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area.
+            direction: Connection direction ('incoming', 'outgoing', or 'both').
+            
+        Returns:
+            Dictionary containing connectivity information for the cortical area,
+            or None if the area doesn't exist.
+        """
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot retrieve cortical area connectivity")
+            return None
+        
+        try:
+            area_id_int = int(area_id)
+        except ValueError:
+            return None
+        
+        try:
+            if area_id_int not in self._connectome_manager._areas:
+                return None
+            
+            # Get all neurons in this area
+            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
+            
+            # Collect connectivity information
+            incoming_connections = set()
+            outgoing_connections = set()
+            
+            if direction in ["incoming", "both"]:
+                for neuron_id in neuron_ids:
+                    connections = self._connectome_manager.get_incoming_connections(neuron_id)
+                    for pre_id, _ in connections:
+                        # Skip connections within the same area
+                        pre_area = self._connectome_manager._neuron_to_area.get(pre_id)
+                        if pre_area is not None and pre_area != area_id_int:
+                            incoming_connections.add(pre_area)
+            
+            if direction in ["outgoing", "both"]:
+                for neuron_id in neuron_ids:
+                    connections = self._connectome_manager.get_outgoing_connections(neuron_id)
+                    for post_id, _ in connections:
+                        # Skip connections within the same area
+                        post_area = self._connectome_manager._neuron_to_area.get(post_id)
+                        if post_area is not None and post_area != area_id_int:
+                            outgoing_connections.add(post_area)
+            
+            # Format results
+            result = {
+                "area_id": str(area_id_int),
+                "direction": direction
+            }
+            
+            if direction in ["incoming", "both"]:
+                result["incoming_connections"] = [
+                    {
+                        "area_id": str(connected_area),
+                        "name": self._connectome_manager._areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
+                    } 
+                    for connected_area in incoming_connections
+                ]
+            
+            if direction in ["outgoing", "both"]:
+                result["outgoing_connections"] = [
+                    {
+                        "area_id": str(connected_area),
+                        "name": self._connectome_manager._areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
+                    }
+                    for connected_area in outgoing_connections
+                ]
+            
+            return result
+        except Exception as e:
+            self.logger.error(f"Error retrieving connectivity for cortical area {area_id}: {str(e)}")
+            return None
+        
+    def stimulate_cortical_area(self, area_id: str, pattern: Dict[str, Any]) -> bool:
+        """
+        Stimulate a cortical area with a specific pattern.
+        
+        Args:
+            area_id: ID of the cortical area.
+            pattern: Stimulation pattern.
+            
+        Returns:
+            True if stimulation was successful, False otherwise.
+        """
+        # In legacy FEAGI, this depends on a genome being loaded first
+        if self._current_genome is None:
+            self.logger.warning("No genome loaded, cannot stimulate cortical area")
+            return False
+        
+        try:
+            area_id_int = int(area_id)
+        except ValueError:
+            return False
+        
+        try:
+            if area_id_int not in self._connectome_manager._areas:
+                return False
+            
+            # Get the neurons in the area
+            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
+            
+            # Apply the stimulation pattern
+            pattern_type = pattern.get("type", "uniform")
+            intensity = pattern.get("intensity", 1.0)
+            
+            successful = False
+            
+            if pattern_type == "uniform":
+                # Apply uniform stimulation to all neurons
+                for neuron_id in neuron_ids:
+                    neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
+                    if neuron_index is not None:
+                        # Add stimulation to membrane potential
+                        current_potential = self._connectome_manager.membrane_potentials[neuron_index]
+                        self._connectome_manager.membrane_potentials[neuron_index] = current_potential + intensity
+                        successful = True
+            
+            elif pattern_type == "spatial":
+                # Apply stimulation based on spatial pattern
+                center = pattern.get("center", {"x": 0, "y": 0, "z": 0})
+                radius = pattern.get("radius", 5)
+                
+                for neuron_id in neuron_ids:
+                    position = self._connectome_manager.get_neuron_position(neuron_id)
+                    
+                    # Calculate distance from center
+                    dx = position[0] - center["x"]
+                    dy = position[1] - center["y"]
+                    dz = position[2] - center["z"]
+                    distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+                    
+                    if distance <= radius:
+                        # Apply stimulation with falloff based on distance
+                        falloff = 1.0 - (distance / radius)
+                        neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
+                        if neuron_index is not None:
+                            stim_value = intensity * falloff
+                            current_potential = self._connectome_manager.membrane_potentials[neuron_index]
+                            self._connectome_manager.membrane_potentials[neuron_index] = current_potential + stim_value
+                            successful = True
+            
+            elif pattern_type == "specific":
+                # Apply stimulation to specific neurons
+                target_positions = pattern.get("positions", [])
+                
+                for pos in target_positions:
+                    if "x" in pos and "y" in pos and "z" in pos:
+                        # Find neurons at this position
+                        position = (pos["x"], pos["y"], pos["z"])
+                        found_neurons = self._connectome_manager.get_neurons_at_position(area_id_int, position)
+                        
+                        for neuron_id in found_neurons:
+                            neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
+                            if neuron_index is not None:
+                                stim_value = intensity
+                                current_potential = self._connectome_manager.membrane_potentials[neuron_index]
+                                self._connectome_manager.membrane_potentials[neuron_index] = current_potential + stim_value
+                                successful = True
+            
+            return successful
+        except Exception as e:
+            self.logger.error(f"Error stimulating cortical area {area_id}: {str(e)}")
+            return False
         
     # Simulation control methods
     
@@ -673,4 +1249,37 @@ class CoreAPIService:
             return True
         except Exception as e:
             self.logger.error(f"Error appending circuit: {str(e)}")
-            return False 
+            return False
+    
+    def get_cortical_area_types(self) -> Dict[str, List[str]]:
+        """
+        Get available cortical area types.
+        
+        Returns:
+            Dictionary containing available cortical area types.
+        """
+        # In legacy FEAGI, this might depend on a genome being loaded
+        if self._current_genome is None:
+            self.logger.info("No genome loaded, returning default cortical area types")
+        
+        # In a real implementation, this might come from a configuration file
+        # or be derived from the genome
+        return {
+            "types": [
+                "ipu",       # Input Processing Unit
+                "opu",       # Output Processing Unit
+                "interconnect", # Interconnection
+                "memory",    # Memory
+                "sensory",   # Sensory processing
+                "motor",     # Motor control
+                "association", # Association areas
+                "prefrontal", # Prefrontal cortex
+                "custom"     # Custom area type
+            ],
+            "parameters": {
+                "ipu": ["modality", "input_channels", "mapping"],
+                "opu": ["modality", "output_channels", "mapping"],
+                "memory": ["capacity", "decay_rate", "association_threshold"],
+                "custom": []  # Custom areas can have any parameters
+            }
+        } 

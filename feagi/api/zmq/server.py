@@ -107,8 +107,8 @@ class ZmqServer:
         # Periodically publish system metrics
         self.running = False
 
-    async def start(self) -> None:
-        """Start the ZMQ server."""
+    async def async_start(self) -> None:
+        """Start the ZMQ server asynchronously."""
         logger.info(f"Starting ZMQ server on {self.host}")
         self.running = True
         
@@ -121,6 +121,51 @@ class ZmqServer:
             self.visualization.start(),
             self._publish_system_metrics()
         )
+
+    def start(self) -> bool:
+        """
+        Synchronous method to start the ZMQ server.
+        
+        Returns:
+            bool: True if the server started successfully, False otherwise.
+        """
+        logger.info(f"Starting ZMQ server on {self.host} (sync)")
+        
+        try:
+            # Create a new event loop if needed
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # No event loop in current thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # For the synchronous version, we'll just flag the server as running
+            # and initialize the components, but we won't block waiting for them
+            self.running = True
+                
+            # Start the async components in a background task if the loop is running
+            if loop.is_running():
+                logger.info("Event loop is running, using create_task for startup")
+                asyncio.create_task(self.async_start())
+            else:
+                # If the loop isn't running, we need to create a new thread to run it
+                logger.info("Creating background thread for ZMQ server")
+                import threading
+                def run_server():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(self.async_start())
+                    loop.run_forever()
+                
+                thread = threading.Thread(target=run_server, daemon=True)
+                thread.start()
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error starting ZMQ server: {e}")
+            self.running = False
+            return False
 
     async def stop(self) -> None:
         """Stop the ZMQ server."""
@@ -157,6 +202,45 @@ class ZmqServer:
             except Exception as e:
                 logger.error(f"Error publishing system metrics: {e}")
                 await asyncio.sleep(5.0)
+
+    def shutdown(self) -> None:
+        """
+        Synchronous method to shutdown the ZMQ server.
+        
+        This is a non-async wrapper around the async stop() method,
+        intended for use in synchronous code like the main process.
+        """
+        logger.info("Shutting down ZMQ server (sync)")
+        self.running = False
+        
+        # Create a new event loop if needed
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # No event loop in current thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        # Run the stop coroutine until complete
+        if not loop.is_closed():
+            try:
+                # Check if the loop is running
+                if loop.is_running():
+                    logger.info("Event loop is running, using create_task for shutdown")
+                    asyncio.create_task(self.stop())
+                else:
+                    logger.info("Running stop() in event loop")
+                    loop.run_until_complete(self.stop())
+            except Exception as e:
+                logger.error(f"Error during ZMQ server shutdown: {e}")
+        else:
+            logger.warning("Event loop is closed, cannot properly shutdown ZMQ server")
+            
+        # Just in case, try to close the context
+        try:
+            self.context.term()
+        except Exception as e:
+            logger.error(f"Error terminating ZMQ context: {e}")
 
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
         """
