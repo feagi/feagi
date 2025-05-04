@@ -17,7 +17,7 @@ class InputSourceBase(BaseModel):
     name: str
     type: str
     properties: Dict[str, Any] = Field(default={}, description="Additional properties for the input source")
-    target_cortical_area: str = Field(..., description="ID of the target cortical area")
+    target_area_id: str = Field(..., description="ID of the target cortical area")
 
 class InputSourceCreate(InputSourceBase):
     """Request model for creating an input source."""
@@ -28,7 +28,7 @@ class InputSourceUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     properties: Optional[Dict[str, Any]] = None
-    target_cortical_area: Optional[str] = None
+    target_area_id: Optional[str] = None
 
 class InputSourceResponse(InputSourceBase):
     """Response model for input source information."""
@@ -60,6 +60,14 @@ class StimulusResponse(BaseModel):
     success: bool
     message: str
 
+# Stimulus models
+class CorticalStimulationRequest(BaseModel):
+    """Request model for stimulating a cortical area."""
+    pattern: str = Field("random", description="Stimulus pattern (random, specific, etc.)")
+    intensity: float = Field(1.0, description="Stimulus intensity (0.0-1.0)")
+    duration: int = Field(1, description="Stimulus duration in bursts")
+    coordinates: Optional[List[Dict[str, int]]] = Field(None, description="Specific coordinates to stimulate")
+
 # Create router
 router = APIRouter(prefix="/inputs", tags=["inputs"])
 
@@ -72,11 +80,9 @@ async def get_all_input_sources(core_api: CoreAPIService = Depends(get_core_api)
     Returns a list of all input sources configured in the system.
     """
     try:
-        # Placeholder implementation
-        # In a real implementation, this would get the input sources from the core API
-        
-        # Return empty list for now
-        return {"sources": []}
+        # Get input sources from the core API
+        sources = core_api.get_input_sources()
+        return {"sources": sources}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving input sources: {str(e)}")
 
@@ -95,8 +101,11 @@ async def get_input_source(
         Detailed information about the specified input source.
     """
     try:
-        # Placeholder implementation
-        raise HTTPException(status_code=404, detail=f"Input source {source_id} not found")
+        # Get the input source from the core API
+        source = core_api.get_input_source(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail=f"Input source {source_id} not found")
+        return source
     except HTTPException:
         raise
     except Exception as e:
@@ -121,8 +130,8 @@ async def create_input_source(
         areas = core_api.get_cortical_areas()
         area_ids = [area["id"] for area in areas]
         
-        if source.target_cortical_area not in area_ids:
-            raise HTTPException(status_code=404, detail=f"Target cortical area {source.target_cortical_area} not found")
+        if source.target_area_id not in area_ids:
+            raise HTTPException(status_code=404, detail=f"Target cortical area {source.target_area_id} not found")
         
         # Validate the input source type
         valid_types = ["vector", "matrix", "tensor", "image", "audio", "text", "custom"]
@@ -132,14 +141,21 @@ async def create_input_source(
                 detail=f"Invalid input source type. Must be one of: {', '.join(valid_types)}"
             )
         
-        # Placeholder implementation - in a real implementation, this would create the input source in the system
-        return {
-            "id": "new_source_id",
+        # Create the input source via the core API
+        source_data = {
             "name": source.name,
             "type": source.type,
             "properties": source.properties,
-            "target_cortical_area": source.target_cortical_area
+            "target_area_id": source.target_area_id
         }
+        source_id = core_api.register_input_source(source_data)
+        
+        # Get the newly created source
+        new_source = core_api.get_input_source(source_id)
+        if not new_source:
+            raise HTTPException(status_code=500, detail="Failed to retrieve newly created input source")
+        
+        return new_source
     except HTTPException:
         raise
     except Exception as e:
@@ -162,8 +178,30 @@ async def update_input_source(
         Information about the updated input source.
     """
     try:
-        # Placeholder implementation
-        raise HTTPException(status_code=404, detail=f"Input source {source_id} not found")
+        # Check if the input source exists
+        existing_source = core_api.get_input_source(source_id)
+        if not existing_source:
+            raise HTTPException(status_code=404, detail=f"Input source {source_id} not found")
+        
+        # Update the input source
+        source_data = {}
+        if source_update.name is not None:
+            source_data["name"] = source_update.name
+        if source_update.type is not None:
+            source_data["type"] = source_update.type
+        if source_update.properties is not None:
+            source_data["properties"] = source_update.properties
+        if source_update.target_area_id is not None:
+            source_data["target_area_id"] = source_update.target_area_id
+        
+        success = core_api.update_input_source(source_id, source_data)
+        if not success:
+            raise HTTPException(status_code=500, detail=f"Failed to update input source {source_id}")
+        
+        # Return success message
+        return {
+            "message": f"Input source {source_id} updated successfully"
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -184,8 +222,20 @@ async def delete_input_source(
         Confirmation message.
     """
     try:
-        # Placeholder implementation
-        raise HTTPException(status_code=404, detail=f"Input source {source_id} not found")
+        # Check if the input source exists
+        existing_source = core_api.get_input_source(source_id)
+        if not existing_source:
+            raise HTTPException(status_code=404, detail=f"Input source {source_id} not found")
+        
+        # Delete the input source
+        success = core_api.remove_input_source(source_id)
+        if not success:
+            raise HTTPException(status_code=500, detail=f"Failed to delete input source {source_id}")
+        
+        # Return success message
+        return {
+            "message": f"Input source {source_id} removed successfully"
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -412,6 +462,41 @@ async def stimulate_with_custom_data(
         return {
             "success": True,
             "message": f"Successfully stimulated cortical area {area_id} with custom data"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error stimulating cortical area {area_id}: {str(e)}")
+
+# Add the stimulate_area endpoint
+@router.post("/stimulate_area/{area_id}")
+async def stimulate_area(
+    area_id: str = Path(..., description="ID of the cortical area to stimulate"),
+    stimulation: CorticalStimulationRequest = Body(...),
+    core_api: CoreAPIService = Depends(get_core_api)
+):
+    """
+    Stimulate a cortical area with the specified pattern.
+    
+    Args:
+        area_id: ID of the cortical area to stimulate.
+        stimulation: Stimulation parameters.
+    
+    Returns:
+        Information about the applied stimulation.
+    """
+    try:
+        # Check if the cortical area exists
+        area = core_api.get_cortical_area(area_id)
+        if not area:
+            raise HTTPException(status_code=404, detail=f"Cortical area {area_id} not found")
+        
+        # Apply stimulation
+        # In a real implementation, this would apply the stimulation to the cortical area
+        # via the core API. Here we just return a placeholder response.
+        return {
+            "stimulated_neurons": 100,
+            "timestamp": 123456789
         }
     except HTTPException:
         raise

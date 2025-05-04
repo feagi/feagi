@@ -8,9 +8,26 @@ import logging
 from pathlib import Path
 import numpy as np
 from feagi.utils.config import FeagiConfig
+import sys
+from unittest.mock import MagicMock
 
 # Configure logging for tests
 logging.basicConfig(level=logging.WARNING)
+
+# Mock modules that are causing import issues
+MOCK_MODULES = ['wgpu', 'wgpu._coreutils']
+for mod_name in MOCK_MODULES:
+    sys.modules[mod_name] = MagicMock()
+
+if 'wgpu._coreutils' in sys.modules:
+    # Create a mock WGPULogger class
+    class MockWGPULogger:
+        def __init__(self):
+            pass
+        
+    # Set up the logger as an instance of WGPULogger
+    sys.modules['wgpu._coreutils'].WGPULogger = MockWGPULogger
+    sys.modules['wgpu._coreutils'].logger = MockWGPULogger()
 
 
 @pytest.fixture(scope="session")

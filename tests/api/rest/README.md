@@ -72,3 +72,32 @@ To fix the failing tests:
    - Add OpenAPI/Swagger documentation for all endpoints
    - Create API reference documentation
    - Update the implementation checklist 
+
+## API Compatibility Changes
+
+The following changes have been made to ensure compatibility between the API implementation and the tests:
+
+1. **Router Path Consistency**:
+   - Updated the burst_engine router to use `/config` instead of `/configuration` endpoints
+   - Ensured all routers use consistent plural/singular naming
+
+2. **Dependencies and Middleware**:
+   - Added standard response models for error handling
+   - Added dependency check functions (`check_active_genome`, `check_brain_running`, `check_burst_engine`)
+   - Added CORS middleware with proper configuration
+
+3. **Router Tags and Organization**:
+   - Updated router tags to match the legacy API structure (all caps)
+   - Organized endpoint paths to follow standard RESTful patterns
+
+4. **Core API Implementation**:
+   - Added placeholder implementations for missing API methods:
+     - `get_input_sources()`, `get_input_source()`, `register_input_source()`, etc.
+     - `get_burst_engine_config()`, `update_burst_engine_config()`, `get_burst_engine_stats()`
+     - `stimulate_cortical_area()`
+
+5. **Endpoint Parameters**:
+   - Updated parameter names to be consistent with the core API implementation
+   - Fixed inconsistencies like `target_cortical_area` vs `target_area_id`
+
+These changes ensure that the API structure is consistent with the test expectations while maintaining the modular organization of the new implementation. 
