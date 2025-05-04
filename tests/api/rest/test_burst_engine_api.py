@@ -6,49 +6,75 @@ from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 import pytest
 
-from feagi.api.rest.app import create_rest_app
+from feagi.api.rest.app import create_rest_app, app
+from feagi.api.rest.app import get_core_api
+
+# Create a global mock outside of fixtures so we can share it
+mock_core_api_instance = MagicMock()
+
+# Configure the mock
+mock_core_api_instance.get_burst_engine_config.return_value = {
+    "burst_duration": 10,
+    "refractory_period": 5,
+    "threshold": 0.5,
+    "decay_rate": 0.1,
+    "firing_threshold": 0.7,
+    "membrane_potential_decay": 0.05
+}
+mock_core_api_instance.update_burst_engine_config.return_value = True
+mock_core_api_instance.get_burst_engine_stats.return_value = {
+    "average_burst_time": 8.5,
+    "max_burst_time": 12.3,
+    "min_burst_time": 7.1,
+    "total_bursts": 1000,
+    "average_active_neurons": 500,
+    "memory_usage": 128.5  # MB
+}
 
 @pytest.fixture
-def app():
-    """Create a FastAPI app for testing."""
-    return create_rest_app()
-
-@pytest.fixture
-def client(app):
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
+def client():
+    """Create a test client for the FastAPI app with mocked dependencies."""
+    # Create a new instance of the app for testing
+    test_app = create_rest_app()
+    
+    # Patch the dependency for testing
+    test_app.dependency_overrides[get_core_api] = lambda: mock_core_api_instance
+    
+    # Return the test client
+    return TestClient(test_app)
 
 @pytest.fixture
 def mock_core_api():
-    """Create a mock CoreAPIService."""
-    with patch('feagi.api.gateway.APIGateway.core_api', new_callable=MagicMock) as mock:
-        # Mock burst engine configuration
-        mock.get_burst_engine_config.return_value = {
-            "burst_duration": 10,
-            "refractory_period": 5,
-            "threshold": 0.5,
-            "decay_rate": 0.1,
-            "firing_threshold": 0.7,
-            "membrane_potential_decay": 0.05
-        }
-        
-        # Mock update burst engine configuration
-        mock.update_burst_engine_config.return_value = True
-        
-        # Mock burst engine stats
-        mock.get_burst_engine_stats.return_value = {
-            "average_burst_time": 8.5,
-            "max_burst_time": 12.3,
-            "min_burst_time": 7.1,
-            "total_bursts": 1000,
-            "average_active_neurons": 500,
-            "memory_usage": 128.5  # MB
-        }
-        
-        yield mock
+    """Return the global mock_core_api_instance."""
+    # Reset mocks before each test
+    mock_core_api_instance.reset_mock()
+    
+    # Reconfigure default responses
+    mock_core_api_instance.get_burst_engine_config.return_value = {
+        "burst_duration": 10,
+        "refractory_period": 5,
+        "threshold": 0.5,
+        "decay_rate": 0.1,
+        "firing_threshold": 0.7,
+        "membrane_potential_decay": 0.05
+    }
+    mock_core_api_instance.update_burst_engine_config.return_value = True
+    mock_core_api_instance.get_burst_engine_stats.return_value = {
+        "average_burst_time": 8.5,
+        "max_burst_time": 12.3,
+        "min_burst_time": 7.1,
+        "total_bursts": 1000,
+        "average_active_neurons": 500,
+        "memory_usage": 128.5  # MB
+    }
+    
+    return mock_core_api_instance
 
 def test_get_burst_engine_config(client, mock_core_api):
     """Test getting the burst engine configuration."""
+    # Override the app's dependency to use our fixture
+    app.dependency_overrides[get_core_api] = lambda: mock_core_api
+    
     response = client.get("/api/v1/burst_engine/config")
     assert response.status_code == 200
     data = response.json()
@@ -71,6 +97,9 @@ def test_get_burst_engine_config(client, mock_core_api):
 
 def test_update_burst_engine_config(client, mock_core_api):
     """Test updating the burst engine configuration."""
+    # Override the app's dependency to use our fixture
+    app.dependency_overrides[get_core_api] = lambda: mock_core_api
+    
     update_data = {
         "parameters": {
             "burst_duration": 15,
@@ -91,6 +120,9 @@ def test_update_burst_engine_config(client, mock_core_api):
 
 def test_update_burst_engine_config_failure(client, mock_core_api):
     """Test updating the burst engine configuration when it fails."""
+    # Override the app's dependency to use our fixture
+    app.dependency_overrides[get_core_api] = lambda: mock_core_api
+    
     # Override the mock to simulate failure
     mock_core_api.update_burst_engine_config.return_value = False
     
@@ -113,6 +145,9 @@ def test_update_burst_engine_config_failure(client, mock_core_api):
 
 def test_get_burst_engine_stats(client, mock_core_api):
     """Test getting the burst engine statistics."""
+    # Override the app's dependency to use our fixture
+    app.dependency_overrides[get_core_api] = lambda: mock_core_api
+    
     response = client.get("/api/v1/burst_engine/stats")
     assert response.status_code == 200
     data = response.json()

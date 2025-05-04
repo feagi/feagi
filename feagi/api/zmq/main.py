@@ -1,0 +1,102 @@
+"""Standalone entry point for the FEAGI ZMQ server.
+
+This script provides a way to run just the ZMQ server without the full FEAGI system.
+This is useful for development and testing, but the main.py entry point should be
+used for running the complete system.
+"""
+import argparse
+import asyncio
+import logging
+import os
+import signal
+import sys
+import time
+from typing import Dict, Any, Optional
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("feagi.zmq")
+
+def main():
+    """Run the FEAGI ZMQ server in standalone mode."""
+    parser = argparse.ArgumentParser(description="FEAGI ZMQ Server (Standalone)")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to run the server on")
+    parser.add_argument("--req-port", type=int, default=5555, help="REQ/REP port")
+    parser.add_argument("--pub-port", type=int, default=5556, help="PUB/SUB port")
+    parser.add_argument("--push-port", type=int, default=5557, help="PUSH/PULL port")
+    parser.add_argument("--sensorimotor-port", type=int, default=5558, help="Sensorimotor port")
+    parser.add_argument("--vis-base-port", type=int, default=5560, help="Visualization base port")
+    parser.add_argument("--mock", action="store_true", help="Use mock core API")
+    args = parser.parse_args()
+    
+    # Warning about standalone mode
+    logger.warning("Running FEAGI ZMQ server in standalone mode. For full functionality, use 'python -m feagi.main'")
+    
+    # Import server here to avoid circular imports
+    from feagi.api.zmq.server import ZmqServer
+    
+    # Setup mock core API if needed
+    core_api = None
+    if args.mock:
+        from unittest.mock import MagicMock
+        core_api = MagicMock()
+        logger.info("Using mock core API")
+    else:
+        try:
+            from feagi.core import create_core_api
+            core_api = create_core_api({})
+            logger.info("Using real core API")
+        except ImportError:
+            logger.error("Failed to import core API, using mock instead")
+            from unittest.mock import MagicMock
+            core_api = MagicMock()
+    
+    # Setup ZMQ server
+    zmq_server = ZmqServer(
+        core_api=core_api,
+        host=args.host,
+        req_rep_port=args.req_port,
+        pub_sub_port=args.pub_port,
+        push_pull_port=args.push_port,
+        sensorimotor_port=args.sensorimotor_port,
+        vis_base_port=args.vis_base_port
+    )
+    
+    # Setup signal handlers
+    def signal_handler(sig, frame):
+        logger.info("Shutting down ZMQ server...")
+        zmq_server.shutdown()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Start the server
+    print(f"Starting ZMQ server on {args.host}")
+    print(f"  - REQ/REP port: {args.req_port}")
+    print(f"  - PUB/SUB port: {args.pub_port}")
+    print(f"  - PUSH/PULL port: {args.push_port}")
+    print(f"  - Sensorimotor port: {args.sensorimotor_port}")
+    print(f"  - Visualization base port: {args.vis_base_port}")
+    
+    success = zmq_server.start()
+    if not success:
+        logger.error("Failed to start ZMQ server")
+        return 1
+    
+    # Keep the main thread alive
+    try:
+        while True:
+            time.sleep(1)
+    except Exception as e:
+        logger.error(f"Error in main thread: {e}")
+        zmq_server.shutdown()
+        return 1
+    
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main()) 

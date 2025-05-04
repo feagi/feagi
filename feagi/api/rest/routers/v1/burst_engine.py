@@ -47,8 +47,8 @@ class BurstStatsResponse(BaseModel):
     average_processing_time: float = Field(..., description="Average processing time per burst in milliseconds")
     neuron_activity_level: float = Field(..., description="Percentage of neurons activated in last burst")
 
-# Create router
-router = APIRouter(prefix="/burst_engine", tags=["burst_engine"])
+# Create router - Remove the prefix as it's already added in the main router
+router = APIRouter(tags=["burst_engine"])
 
 # Burst Engine Endpoints
 @router.get("/config", response_model=BurstConfigResponse)
