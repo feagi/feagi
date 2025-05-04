@@ -233,10 +233,10 @@ class ProcessManager:
             if self._zmq_server:
                 env["FEAGI_ZMQ_ENABLED"] = "1"
                 env["FEAGI_ZMQ_HOST"] = self._zmq_server.host
-                env["FEAGI_ZMQ_REQ_PORT"] = str(self._zmq_server.req_rep.port)
-                env["FEAGI_ZMQ_PUB_PORT"] = str(self._zmq_server.pub_sub.port)
-                env["FEAGI_ZMQ_PUSH_PORT"] = str(self._zmq_server.push_pull.port)
-                env["FEAGI_ZMQ_STREAM_PORT"] = str(self._zmq_server.sensorimotor.port)
+                env["FEAGI_ZMQ_REQ_PORT"] = str(self._zmq_server.req_rep_port)
+                env["FEAGI_ZMQ_PUB_PORT"] = str(self._zmq_server.pub_sub_port)
+                env["FEAGI_ZMQ_PUSH_PORT"] = str(self._zmq_server.push_pull_port)
+                env["FEAGI_ZMQ_STREAM_PORT"] = str(self._zmq_server.sensorimotor_port)
             else:
                 env["FEAGI_ZMQ_ENABLED"] = "0"
                 
