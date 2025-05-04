@@ -882,8 +882,9 @@ class CoreAPIService:
         if data_path:
             return data_path
             
-        # Then use the default location
-        return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "evo", "defaults")
+        # Then use the default location - correct path to the feagi/evo/defaults directory
+        feagi_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        return os.path.join(feagi_path, "evo", "defaults")
     
     def get_temp_path(self) -> str:
         """

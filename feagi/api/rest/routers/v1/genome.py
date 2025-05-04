@@ -44,10 +44,13 @@ async def upload_barebones_genome(core_api: CoreAPIService = Depends(get_core_ap
     """Upload a barebones genome."""
     try:
         # The path below should be configured based on FEAGI 2.1 structure
-        barebones_path = os.path.join(core_api.get_data_path(), "defaults", "genome", "barebones_genome.json")
+        data_path = core_api.get_data_path()
+        barebones_path = os.path.join(data_path, "genome", "barebones_genome.json")
+        
+        print(f"Attempting to load barebones genome from: {barebones_path}")
         
         if not os.path.exists(barebones_path):
-            raise HTTPException(status_code=404, detail="Barebones genome file not found")
+            raise HTTPException(status_code=404, detail=f"Barebones genome file not found at {barebones_path}")
             
         with open(barebones_path, "r") as genome_file:
             genome_data = json.load(genome_file)
@@ -65,10 +68,13 @@ async def genome_default_upload(core_api: CoreAPIService = Depends(get_core_api)
     """Upload the essential genome."""
     try:
         # The path below should be configured based on FEAGI 2.1 structure
-        essential_path = os.path.join(core_api.get_data_path(), "defaults", "genome", "essential_genome.json")
+        data_path = core_api.get_data_path()
+        essential_path = os.path.join(data_path, "genome", "essential_genome.json")
+        
+        print(f"Attempting to load essential genome from: {essential_path}")
         
         if not os.path.exists(essential_path):
-            raise HTTPException(status_code=404, detail="Essential genome file not found")
+            raise HTTPException(status_code=404, detail=f"Essential genome file not found at {essential_path}")
             
         with open(essential_path, "r") as genome_file:
             genome_data = json.load(genome_file)
@@ -221,10 +227,13 @@ async def genome_download_from_region(
 async def genome_default_files(core_api: CoreAPIService = Depends(get_core_api)):
     """Get the list of default genome files."""
     try:
-        default_genomes_path = os.path.join(core_api.get_data_path(), "defaults", "genome")
+        data_path = core_api.get_data_path()
+        default_genomes_path = os.path.join(data_path, "genome")
+        
+        print(f"Looking for default genomes in: {default_genomes_path}")
         
         if not os.path.exists(default_genomes_path):
-            raise HTTPException(status_code=404, detail="Default genomes directory not found")
+            raise HTTPException(status_code=404, detail=f"Default genomes directory not found at {default_genomes_path}")
             
         default_genomes = os.listdir(default_genomes_path)
         genome_mappings = {}
