@@ -9,6 +9,7 @@ import asyncio
 import logging
 import time
 from typing import Dict, Any, Optional, List, Tuple, Union
+import concurrent.futures
 
 import zmq
 import zmq.asyncio
@@ -112,15 +113,20 @@ class ZmqServer:
         logger.info(f"Starting ZMQ server on {self.host}")
         self.running = True
         
+        # Store the current event loop
+        self._event_loop = asyncio.get_event_loop()
+        
         # Start all servers
         await asyncio.gather(
             self.req_rep.start(),
             self.pub_sub.start(),
             self.push_pull.start(),
             self.sensorimotor.start(),
-            self.visualization.start(),
-            self._publish_system_metrics()
+            self.visualization.start()
         )
+        
+        # Start the system metrics publisher
+        self._metrics_task = self._event_loop.create_task(self._publish_system_metrics())
 
     def start(self) -> bool:
         """
@@ -143,11 +149,22 @@ class ZmqServer:
             # For the synchronous version, we'll just flag the server as running
             # and initialize the components, but we won't block waiting for them
             self.running = True
+            
+            # Create a thread-local store for the event loop
+            if not hasattr(self, '_thread_local'):
+                import threading
+                self._thread_local = threading.local()
+            self._thread_local.loop = loop
                 
             # Start the async components in a background task if the loop is running
             if loop.is_running():
                 logger.info("Event loop is running, using create_task for startup")
-                asyncio.create_task(self.async_start())
+                future = asyncio.run_coroutine_threadsafe(self.async_start(), loop)
+                # Wait briefly to catch immediate errors
+                try:
+                    future.result(0.1)
+                except concurrent.futures.TimeoutError:
+                    pass  # This is expected, async_start doesn't complete quickly
             else:
                 # If the loop isn't running, we need to create a new thread to run it
                 logger.info("Creating background thread for ZMQ server")
@@ -155,11 +172,14 @@ class ZmqServer:
                 def run_server():
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
+                    if not hasattr(self, '_thread_local'):
+                        self._thread_local = threading.local()
+                    self._thread_local.loop = loop
                     loop.run_until_complete(self.async_start())
                     loop.run_forever()
                 
-                thread = threading.Thread(target=run_server, daemon=True)
-                thread.start()
+                self._thread = threading.Thread(target=run_server, daemon=True)
+                self._thread.start()
             
             return True
         except Exception as e:
@@ -213,21 +233,29 @@ class ZmqServer:
         logger.info("Shutting down ZMQ server (sync)")
         self.running = False
         
-        # Create a new event loop if needed
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # No event loop in current thread
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Get the event loop from thread local storage if it exists
+        loop = getattr(self._thread_local, 'loop', None) if hasattr(self, '_thread_local') else None
         
-        # Run the stop coroutine until complete
+        # If we don't have a stored loop, try to get the current one
+        if loop is None:
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # No event loop in current thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        
+        # Run the stop coroutine
         if not loop.is_closed():
             try:
-                # Check if the loop is running
                 if loop.is_running():
                     logger.info("Event loop is running, using create_task for shutdown")
-                    asyncio.create_task(self.stop())
+                    future = asyncio.run_coroutine_threadsafe(self.stop(), loop)
+                    # Wait a bit for shutdown to proceed
+                    try:
+                        future.result(1.0)
+                    except concurrent.futures.TimeoutError:
+                        logger.warning("Shutdown taking longer than expected")
                 else:
                     logger.info("Running stop() in event loop")
                     loop.run_until_complete(self.stop())
@@ -236,11 +264,16 @@ class ZmqServer:
         else:
             logger.warning("Event loop is closed, cannot properly shutdown ZMQ server")
             
-        # Just in case, try to close the context
+        # Make sure we terminate the ZMQ context
         try:
-            self.context.term()
+            # Try to close the context directly
+            if hasattr(self, 'context') and self.context:
+                try:
+                    self.context.term()
+                except Exception as e:
+                    logger.error(f"Error terminating ZMQ context: {e}")
         except Exception as e:
-            logger.error(f"Error terminating ZMQ context: {e}")
+            logger.error(f"Error during final cleanup: {e}")
 
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
         """

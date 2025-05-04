@@ -55,6 +55,9 @@ class VisualizationStream:
         """
         self.core_api = core_api
         self.host = host
+        self._structure_port = structure_port
+        self._activity_port = activity_port
+        self._control_port = control_port
         self.running = False
         self.context = context or zmq.asyncio.Context.instance()
         
@@ -82,23 +85,39 @@ class VisualizationStream:
         # Periodic task references
         self.periodic_tasks = {}
 
+    @property
+    def structure_port(self) -> int:
+        """Get the port used for structural data."""
+        return self._structure_port
+        
+    @property
+    def activity_port(self) -> int:
+        """Get the port used for activity data."""
+        return self._activity_port
+        
+    @property
+    def control_port(self) -> int:
+        """Get the port used for control messages."""
+        return self._control_port
+
     async def start(self) -> None:
         """Start the visualization stream server."""
         logger.info(f"Starting Visualization Stream server")
         self.running = True
         
-        # Start control socket handler
-        self.periodic_tasks["control_handler"] = asyncio.create_task(
+        # Store the current event loop for this method
+        self._event_loop = asyncio.get_event_loop()
+        
+        # Start tasks in the current loop
+        self.periodic_tasks["control_handler"] = self._event_loop.create_task(
             self._handle_control_messages()
         )
         
-        # Start activity streaming task
-        self.periodic_tasks["activity_stream"] = asyncio.create_task(
+        self.periodic_tasks["activity_stream"] = self._event_loop.create_task(
             self._stream_activity()
         )
         
-        # Start structure update task (lower frequency)
-        self.periodic_tasks["structure_updates"] = asyncio.create_task(
+        self.periodic_tasks["structure_updates"] = self._event_loop.create_task(
             self._stream_structure_updates()
         )
 
@@ -239,27 +258,23 @@ class VisualizationStream:
                 await asyncio.sleep(1)  # Avoid tight loop on errors
 
     async def _stream_structure_updates(self) -> None:
-        """Periodically check for and stream brain structure updates."""
+        """Periodically send brain structure updates."""
         while self.running:
             try:
-                # Check if brain structure has changed
-                current_structure = await self.core_api.get_brain_structure()
+                # Get current brain structure
+                structure = await self.core_api.get_brain_structure()
                 
-                # Compare with last known structure and send if different
-                structure_hash = hash(str(current_structure))
-                if getattr(self, '_last_structure_hash', None) != structure_hash:
-                    await self._send_brain_structure_to_all(current_structure)
-                    self._last_structure_hash = structure_hash
+                # Send to all clients
+                await self._send_brain_structure_to_all(structure)
                 
-                # Structure updates are less frequent
-                await asyncio.sleep(5.0)  # Check every 5 seconds
+                # Check for structural changes every 5 seconds
+                await asyncio.sleep(5.0)
                 
             except asyncio.CancelledError:
-                logger.debug("Structure update task cancelled")
                 break
             except Exception as e:
                 logger.error(f"Error streaming structure updates: {e}")
-                await asyncio.sleep(5)  # Longer sleep on errors
+                await asyncio.sleep(5.0)  # Avoid tight loop on errors
 
     async def _send_activity_update(self, brain_state: Dict) -> None:
         """

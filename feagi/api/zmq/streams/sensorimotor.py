@@ -78,8 +78,11 @@ class SensorimotorStream:
         logger.info(f"Starting Sensorimotor Stream server on {self.host}:{self.port}")
         self.running = True
         
-        # Start request handler
-        self.periodic_tasks["request_handler"] = asyncio.create_task(
+        # Store the current event loop for this method
+        self._event_loop = asyncio.get_event_loop()
+        
+        # Start request handler in the current loop
+        self.periodic_tasks["request_handler"] = self._event_loop.create_task(
             self._handle_requests()
         )
 

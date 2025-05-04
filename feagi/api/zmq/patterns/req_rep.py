@@ -66,7 +66,12 @@ class RequestReplyServer:
         """Start the request-reply server."""
         logger.info(f"Starting REP server on {self.host}:{self.port}")
         self.running = True
-        asyncio.create_task(self._request_handler())
+        
+        # Store the current event loop for this method
+        self._event_loop = asyncio.get_event_loop()
+        
+        # Start the request handler in the current loop
+        self._handler_task = self._event_loop.create_task(self._request_handler())
 
     async def stop(self) -> None:
         """Stop the request-reply server."""
@@ -306,12 +311,18 @@ class RequestReplyManager:
             context: Optional existing ZMQ context to use
         """
         self.context = context or zmq.asyncio.Context.instance()
+        self._port = port
         self.request_reply_server = RequestReplyServer(
             core_api=core_api,
             host=host,
             port=port,
             context=self.context
         )
+    
+    @property
+    def port(self) -> int:
+        """Get the port used by this manager's server."""
+        return self._port
     
     async def start(self) -> None:
         """Start the RequestReply manager."""

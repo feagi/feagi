@@ -73,7 +73,12 @@ class PushServer:
         """Start the push server."""
         logger.info(f"Starting PUSH server on {self.host}:{self.port}")
         self.running = True
-        asyncio.create_task(self._process_queue())
+        
+        # Store the current event loop for this method
+        self._event_loop = asyncio.get_event_loop()
+        
+        # Start the queue processor in the current loop
+        self._queue_task = self._event_loop.create_task(self._process_queue())
 
     async def stop(self) -> None:
         """Stop the push server."""
@@ -103,10 +108,22 @@ class PushServer:
 
     async def _process_queue(self) -> None:
         """Process queued work items and push them to workers."""
+        # Get the event loop for this coroutine
+        current_loop = asyncio.get_event_loop()
+        
         while self.running:
             try:
                 # Get the next work item (blocks until one is available)
-                priority, work_type, item, content_type = await self.work_queue.get()
+                # Use a timeout to allow for clean cancellation
+                try:
+                    priority, work_type, item, content_type = await asyncio.wait_for(
+                        self.work_queue.get(), timeout=0.5
+                    )
+                except asyncio.TimeoutError:
+                    # Check if we should still be running
+                    if not self.running:
+                        break
+                    continue
                 
                 # Prepare the message
                 serialized_data = serialize_message(item, content_type)
@@ -302,7 +319,13 @@ class PushPullManager:
             context: Optional existing ZMQ context to use
         """
         self.context = context or zmq.asyncio.Context.instance()
+        self._port = port
         self.push_server = PushServer(core_api, host, port, context=self.context)
+    
+    @property
+    def port(self) -> int:
+        """Get the port used by this manager's server."""
+        return self._port
     
     async def start(self) -> None:
         """Start the PushPull manager."""

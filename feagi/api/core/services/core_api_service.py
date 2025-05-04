@@ -116,6 +116,25 @@ class CoreAPIService:
         """Get the FEAGI instance."""
         return self._feagi
         
+    def get_burst_engine(self):
+        """Get the Burst Engine component."""
+        # For now, return None as this component isn't fully implemented
+        return None
+        
+    def get_connectome_manager(self):
+        """Get the Connectome Manager component."""
+        return self._connectome_manager
+        
+    def get_fcl_manager(self):
+        """Get the FCL Manager component."""
+        # For now, return None as this component isn't fully implemented
+        return None
+        
+    def get_memory_manager(self):
+        """Get the Memory & Learning Manager component."""
+        # For now, return None as this component isn't fully implemented
+        return None
+        
     # Brain state management methods
     
     def get_brain_state(self) -> Dict[str, Any]:
@@ -756,14 +775,75 @@ class CoreAPIService:
         """
         return self._feagi.stop_simulation()
         
-    def get_simulation_status(self) -> Dict[str, Any]:
+    async def get_simulation_status(self) -> Dict[str, Any]:
         """
         Get the current simulation status.
         
         Returns:
-            Dictionary containing the simulation status.
+            Dictionary containing the current simulation status.
         """
-        return self._feagi.get_simulation_status()
+        # Placeholder implementation
+        return {
+            "running": False,
+            "step": 0,
+            "time": 0.0,
+            "timestamp": time()
+        }
+        
+    async def get_performance_stats(self) -> Dict[str, Any]:
+        """
+        Get performance statistics for the simulation.
+        
+        Returns:
+            Dictionary containing performance statistics.
+        """
+        # Placeholder implementation
+        return {
+            "fps": 0.0,
+            "neurons_active": 0,
+            "synapses_active": 0,
+            "memory_usage": 0.0,
+            "cpu_usage": 0.0,
+            "timestamp": time()
+        }
+        
+    async def get_system_metrics(self) -> Dict[str, Any]:
+        """
+        Get system metrics.
+        
+        Returns:
+            Dictionary containing system metrics.
+        """
+        # Placeholder implementation
+        return {
+            "cpu_usage": 0.0,
+            "memory_usage": 0.0,
+            "timestamp": time()
+        }
+        
+    async def get_brain_structure(self) -> Dict[str, Any]:
+        """
+        Get the current brain structure.
+        
+        Returns:
+            Dictionary containing the brain structure.
+        """
+        # Convert cortical areas to structure format
+        areas = self.get_cortical_areas()
+        
+        # Group areas by type
+        area_types = {}
+        for area in areas:
+            area_type = area.get("type", "unknown")
+            if area_type not in area_types:
+                area_types[area_type] = []
+            area_types[area_type].append(area)
+        
+        return {
+            "areas": areas,
+            "area_types": area_types,
+            "timestamp": time()
+        }
         
     # Configuration methods
     

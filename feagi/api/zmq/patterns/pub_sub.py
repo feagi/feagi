@@ -75,11 +75,14 @@ class PublisherServer:
         logger.info(f"Starting PUB server on {self.host}:{self.port}")
         self.running = True
         
-        # Start periodic broadcasting tasks
-        self.periodic_tasks["simulation_status"] = asyncio.create_task(
+        # Store the current event loop for this method
+        self._event_loop = asyncio.get_event_loop()
+        
+        # Start periodic broadcasting tasks in the current loop
+        self.periodic_tasks["simulation_status"] = self._event_loop.create_task(
             self._broadcast_simulation_status()
         )
-        self.periodic_tasks["performance_stats"] = asyncio.create_task(
+        self.periodic_tasks["performance_stats"] = self._event_loop.create_task(
             self._broadcast_performance_stats()
         )
 
@@ -146,7 +149,8 @@ class PublisherServer:
     async def _handle_brain_activity(self) -> Dict:
         """Get current brain activity data for broadcasting."""
         # This would typically fetch current firing data from the FCL Manager
-        return await self.core_api.get_brain_activity()
+        # For now, return a default empty structure
+        return {"activity": [], "timestamp": time.time()}
 
     async def _handle_simulation_status(self) -> Dict:
         """Get current simulation status for broadcasting."""
@@ -158,11 +162,13 @@ class PublisherServer:
 
     async def _handle_system_events(self) -> Dict:
         """Get system events for broadcasting."""
-        return await self.core_api.get_system_events()
+        # Instead of trying to call a non-existent method, return a default empty structure
+        return {"events": [], "timestamp": time.time()}
 
     async def _handle_log_events(self) -> Dict:
         """Get log events for broadcasting."""
-        return await self.core_api.get_log_events()
+        # Instead of trying to call a non-existent method, return a default empty structure
+        return {"logs": [], "timestamp": time.time()}
 
     async def broadcast_event(self, event_type: str, event_data: Dict) -> None:
         """
@@ -315,7 +321,13 @@ class PubSubManager:
             context: Optional existing ZMQ context to use
         """
         self.context = context or zmq.asyncio.Context.instance()
+        self._port = port
         self.publisher = PublisherServer(core_api, host, port, self.context)
+    
+    @property
+    def port(self) -> int:
+        """Get the port used by this manager's server."""
+        return self._port
     
     async def start(self) -> None:
         """Start the PubSub manager."""

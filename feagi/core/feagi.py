@@ -8,15 +8,17 @@ class FEAGI:
     This class serves as the primary entry point for creating and managing AI models.
     """
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, use_gpu: bool = False):
         """
         Initialize a new FEAGI instance.
         
         Args:
             config_path: Optional path to a configuration file.
+            use_gpu: Whether to use GPU acceleration if available.
         """
         self.models = {}
         self.config = self._load_config(config_path) if config_path else {}
+        self.use_gpu = use_gpu
         
     def _load_config(self, config_path: str) -> Dict:
         """
