@@ -58,14 +58,14 @@ async def get_all_cortical_areas(core_api: CoreAPIService = Depends(get_core_api
 
 @router.get("/{area_id}", response_model=CorticalAreaResponse)
 async def get_cortical_area(
-    area_id: str = Path(..., description="ID of the cortical area"),
+    area_id: str = Path(..., description="String representation of the cortical_idx"),
     core_api: CoreAPIService = Depends(get_core_api)
 ):
     """
     Get a specific cortical area by ID.
     
     Args:
-        area_id: ID of the cortical area to retrieve.
+        area_id: String representation of the cortical_idx.
     
     Returns:
         Detailed information about the specified cortical area.
@@ -110,28 +110,28 @@ async def create_cortical_area(
 
 @router.put("/{area_id}", response_model=CorticalAreaResponse)
 async def update_cortical_area(
-    area_id: str = Path(..., description="ID of the cortical area"),
-    area_update: CorticalAreaUpdate = Body(...),
+    area_id: str = Path(..., description="String representation of the cortical_idx to update"),
+    area: CorticalAreaUpdate = Body(...),
     core_api: CoreAPIService = Depends(get_core_api)
 ):
     """
     Update an existing cortical area.
     
     Args:
-        area_id: ID of the cortical area to update.
-        area_update: Updated details for the cortical area.
+        area_id: String representation of the cortical_idx to update.
+        area: Updated cortical area details.
     
     Returns:
-        Information about the updated cortical area.
+        The updated cortical area information.
     """
     try:
         updated_area = core_api.update_cortical_area(
             area_id=area_id,
-            name=area_update.name,
-            coordinates=area_update.coordinates,
-            dimensions=area_update.dimensions,
-            area_type=area_update.type,
-            parameters=area_update.parameters
+            name=area.name,
+            coordinates=area.coordinates,
+            dimensions=area.dimensions,
+            area_type=area.type,
+            parameters=area.parameters
         )
         if not updated_area:
             raise HTTPException(status_code=404, detail=f"Cortical area {area_id} not found")
@@ -141,25 +141,21 @@ async def update_cortical_area(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating cortical area {area_id}: {str(e)}")
 
-@router.delete("/{area_id}")
+@router.delete("/{area_id}", status_code=204)
 async def delete_cortical_area(
-    area_id: str = Path(..., description="ID of the cortical area"),
+    area_id: str = Path(..., description="String representation of the cortical_idx to delete"),
     core_api: CoreAPIService = Depends(get_core_api)
 ):
     """
     Delete a cortical area.
     
     Args:
-        area_id: ID of the cortical area to delete.
-    
-    Returns:
-        Confirmation message.
+        area_id: String representation of the cortical_idx to delete.
     """
     try:
         success = core_api.delete_cortical_area(area_id)
         if not success:
             raise HTTPException(status_code=404, detail=f"Cortical area {area_id} not found")
-        return {"message": f"Cortical area {area_id} deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:

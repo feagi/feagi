@@ -1,9 +1,19 @@
-"""
+'''
 Neuroembryogenesis Module for FEAGI 2.1
 
 This module is responsible for reading instructions from the genome (genotype) and translating
 them into a functional connectome (phenotype). The process is biologically inspired by
 neuroembryogenesis, where genetic instructions guide brain development from the embryonic neural tube.
+
+Naming Convention:
+-----------------
+* cortical_id: 6-character unique identifier from the genome (e.g., "iv00_C")
+* cortical_idx: Auto-incremented integer ID used internally for efficient indexing
+                Previously referred to as 'area_id' or just 'i' in various places
+
+Throughout this module, we maintain mappings between these two ID types:
+1. cortical_id_map[cortical_idx] = cortical_id
+2. reverse_cortical_id_map[cortical_id] = cortical_idx
 
 Key components:
 1. Corticogenesis - Creation of cortical area definitions
@@ -13,7 +23,7 @@ Key components:
 
 The implementation uses the ConnectomeManager API for efficient neuron and synapse management,
 and focuses on memory efficiency and thread-safety.
-"""
+'''
 
 import os
 import sys
@@ -210,9 +220,9 @@ class Neuroembryogenesis:
         
         # Tracking data
         self.genome = None
-        self.cortical_areas = {}  # Maps cortical IDs to CorticalArea objects
-        self.cortical_id_map = {}  # Maps internal cortical IDs to genome IDs
-        self.reverse_cortical_id_map = {}  # Maps genome IDs to internal cortical IDs
+        self.cortical_areas = {}  # cortical_idx -> CorticalArea
+        self.cortical_id_map = {}  # cortical_idx -> cortical_id (6-char genome ID)
+        self.reverse_cortical_id_map = {}  # cortical_id -> cortical_idx
         self.voxel_neuron_map = {}  # Maps (area_id, position) to list of neuron IDs
         
         # Error state
@@ -432,7 +442,7 @@ class Neuroembryogenesis:
             cortical_ids = self._get_cortical_ids_from_genome()
             total_areas = len(cortical_ids)
             
-            for i, cortical_id in enumerate(cortical_ids):
+            for cortical_idx, cortical_id in enumerate(cortical_ids):
                 properties = self._extract_cortical_properties(cortical_id)
                 
                 # Skip if required properties are missing
@@ -458,7 +468,7 @@ class Neuroembryogenesis:
                 # Add to connectome manager
                 try:
                     area = self.connectome_manager.add_cortical_area(
-                        area_id=i,  # Use sequential IDs internally
+                        area_id=cortical_idx,  # Use sequential IDs internally (cortical_idx)
                         name=name,
                         area_type=area_type,
                         dimensions=dimensions,
@@ -467,21 +477,21 @@ class Neuroembryogenesis:
                     )
                     
                     # Store in our tracking maps
-                    self.cortical_areas[i] = area
-                    self.cortical_id_map[i] = cortical_id
-                    self.reverse_cortical_id_map[cortical_id] = i
+                    self.cortical_areas[cortical_idx] = area
+                    self.cortical_id_map[cortical_idx] = cortical_id
+                    self.reverse_cortical_id_map[cortical_id] = cortical_idx
                     
-                    logger.info(f"Created cortical area {name} (ID {i}, genome ID {cortical_id})")
+                    logger.info(f"Created cortical area {name} (internal ID {cortical_idx}, genome ID {cortical_id})")
                 except Exception as e:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
                 
                 # Report progress
-                progress = ((i + 1) / total_areas) * 100
+                progress = ((cortical_idx + 1) / total_areas) * 100
                 self._report_progress(
                     DevelopmentStage.CORTICOGENESIS, 
                     progress, 
-                    f"Created cortical area {i+1}/{total_areas}: {name}"
+                    f"Created cortical area {cortical_idx+1}/{total_areas}: {name}"
                 )
             
             self.development_stats["cortical_areas"] = len(self.cortical_areas)
@@ -499,9 +509,9 @@ class Neuroembryogenesis:
             return True
             
         except Exception as e:
-            self.error = f"Failed to set up cortical areas: {str(e)}"
+            self.error = f"Failed to setup cortical areas: {e}"
+            logger.exception(self.error)
             self._report_progress(DevelopmentStage.FAILED, 0, self.error)
-            logger.exception("Error setting up cortical areas")
             return False
     
     def _perform_neurogenesis(self) -> bool:

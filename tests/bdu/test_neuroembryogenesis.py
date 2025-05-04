@@ -27,9 +27,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 sys.path.insert(0, project_root)
 
 # Import the modules to test
-from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
-from feagi.utils.config import FeagiConfig
+    from feagi.bdu.connectome_manager import ConnectomeManager
+    from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
+    from feagi.utils.config import FeagiConfig
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def genome_file():
 def config():
     """Create a FeagiConfig for testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        config_dict = {
+    config_dict = {
             "connectome_path": temp_dir,
             "skip_memory_neurogenesis": True,
             "connectome.max_neurons": 10000000,  # Increase to handle large essential genome
@@ -90,11 +90,11 @@ def embryo(connectome_manager, config):
     def progress_callback(stage, progress, message):
         progress_logs.append((stage, progress, message))
     
-    embryo = Neuroembryogenesis(
-        connectome_manager=connectome_manager,
-        config=config,
-        progress_callback=progress_callback
-    )
+        embryo = Neuroembryogenesis(
+            connectome_manager=connectome_manager,
+            config=config,
+            progress_callback=progress_callback
+        )
     
     embryo.progress_logs = progress_logs
     return embryo

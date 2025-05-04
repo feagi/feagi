@@ -26,8 +26,35 @@ try:
     )
 except ImportError:
     # Fallback implementations if the imports fail
-    def genome_validator(genome):
-        """Validate a genome."""
+    def genome_validator(genome: Dict[str, Any]) -> bool:
+        """
+        Placeholder for genome validation function.
+        
+        Args:
+            genome: Genome data to validate.
+            
+        Returns:
+            True if valid, False otherwise.
+        """
+        if not isinstance(genome, dict):
+            print(f"Invalid genome - not a dictionary: {type(genome)}")
+            return False
+        
+        required_keys = ["genome_id", "blueprint"]
+        
+        # Check for required keys
+        for key in required_keys:
+            if key not in genome:
+                print(f"Invalid genome - missing required key: {key}")
+                return False
+            
+        # Basic structural validation
+        if not isinstance(genome.get("blueprint"), dict):
+            print(f"Invalid genome - blueprint is not a dictionary: {type(genome.get('blueprint'))}")
+            return False
+        
+        # More detailed validation could be added here
+        
         return True
         
     def save_genome(genome, file_name=''):
@@ -61,9 +88,15 @@ class CoreAPIService:
     """
     Core API Service for FEAGI.
     
-    This class provides the internal API interfaces to FEAGI's core functionality.
-    It acts as a bridge between the external interfaces (REST, ZMQ) and the 
-    FEAGI core components.
+    This service manages high-level operations on the FEAGI brain and coordinates
+    between the various components.
+    
+    Naming Convention:
+    -----------------
+    * cortical_id: 6-character unique identifier from the genome (e.g., "iv00_C") 
+      - Used in the genome's blueprint
+    * cortical_idx: Auto-incremented integer ID used internally (previously called area_id)
+      - These are converted to strings in the API layer and back to ints internally
     """
     
     def __init__(self, feagi_instance: Optional[FEAGI] = None):
@@ -92,17 +125,18 @@ class CoreAPIService:
         
         # Current genome state
         self._current_genome = None
+        self._test_area_id = 999999999  # Very large ID to avoid conflicts
         
         # Add a sample cortical area for testing
         if not self._connectome_manager._areas:
             try:
                 self._connectome_manager.add_cortical_area(
-                    area_id=1,
+                    area_id=self._test_area_id,
                     name="Test Area",
                     area_type="interconnect",
                     dimensions=(10, 10, 5),
                     position=(0, 0, 0),
-                    properties={"test": True}
+                    properties={"is_test_area": True}  # Flag to identify test areas
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to create test cortical area: {str(e)}")
@@ -179,35 +213,60 @@ class CoreAPIService:
         Returns:
             List of dictionaries containing cortical area information.
         """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot retrieve cortical areas")
-            return []
-        
         result = []
         try:
+            if not self._connectome_manager._areas:
+                # No areas exist at all
+                self.logger.warning("No cortical areas available")
+                return []
+            
+            has_non_test_areas = any(
+                area_id != self._test_area_id and not area.properties.get("is_test_area", False)
+                for area_id, area in self._connectome_manager._areas.items()
+            )
+            
+            # If the genome is loaded but no non-test areas exist, that's a problem
+            if self._current_genome is not None and not has_non_test_areas:
+                self.logger.warning("Genome is loaded but no cortical areas from genome exist")
+            
+            # Convert all areas to API format
             for area_id, area in self._connectome_manager._areas.items():
-                # Convert from internal representation to API format
-                neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id))
-                result.append({
-                    "id": str(area_id),  # Convert to string for API consistency
-                    "name": area.name,
-                    "coordinates": {
-                        "x": area.position[0],
-                        "y": area.position[1],
-                        "z": area.position[2]
-                    },
-                    "dimensions": {
-                        "width": area.dimensions[0],
-                        "height": area.dimensions[1],
-                        "depth": area.dimensions[2]
-                    },
-                    "type": area.type,
-                    "parameters": area.properties,
-                    "neuron_count": neuron_count
-                })
+                # Skip test areas if we have real areas from a genome
+                if has_non_test_areas and (area_id == self._test_area_id or area.properties.get("is_test_area", False)):
+                    continue
+                    
+                try:
+                    # Get neuron count (safely)
+                    try:
+                        neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id))
+                    except Exception:
+                        neuron_count = 0
+                        
+                    # Convert to API format
+                    result.append({
+                        "id": str(area_id),  # Convert to string for API consistency
+                        "name": area.name,
+                        "coordinates": {
+                            "x": area.position[0],
+                            "y": area.position[1],
+                            "z": area.position[2]
+                        },
+                        "dimensions": {
+                            "width": area.dimensions[0],
+                            "height": area.dimensions[1],
+                            "depth": area.dimensions[2]
+                        },
+                        "type": area.type,
+                        "parameters": area.properties,
+                        "neuron_count": neuron_count
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error converting area {area_id} to API format: {str(e)}")
+                    
         except Exception as e:
             self.logger.error(f"Error retrieving cortical areas: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
         
         return result
         
@@ -216,30 +275,42 @@ class CoreAPIService:
         Get a cortical area by ID.
         
         Args:
-            area_id: ID of the cortical area.
+            area_id: String representation of the cortical_idx.
             
         Returns:
             Dictionary containing cortical area information, or None if not found.
         """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot retrieve cortical area")
-            return None
-        
         try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return None
-        
-        try:
-            area = self._connectome_manager._areas.get(area_id_int)
-            if not area:
+            # Convert string ID to integer (cortical_idx)
+            try:
+                cortical_idx = int(area_id)
+            except ValueError:
+                self.logger.error(f"Invalid cortical area ID format: {area_id}")
                 return None
             
-            # Convert to API format
-            neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id_int))
+            # Get the area from connectome manager
+            area = self._connectome_manager._areas.get(cortical_idx)
+            if not area:
+                self.logger.warning(f"Cortical area {area_id} not found")
+                return None
+            
+            # Check if we should hide test areas when we have genome-loaded areas
+            has_non_test_areas = any(
+                idx != self._test_area_id and not a.properties.get("is_test_area", False)
+                for idx, a in self._connectome_manager._areas.items()
+            )
+            
+            # Skip test areas if we have real areas from a genome
+            if has_non_test_areas and (cortical_idx == self._test_area_id or area.properties.get("is_test_area", False)):
+                self.logger.info(f"Hiding test area {area_id} since genome is loaded")
+                return None
+            
+            # Return area information
+            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_idx))
+            
+            # Format response
             return {
-                "id": str(area_id_int),
+                "id": str(cortical_idx),
                 "name": area.name,
                 "coordinates": {
                     "x": area.position[0],
@@ -256,7 +327,7 @@ class CoreAPIService:
                 "neuron_count": neuron_count
             }
         except Exception as e:
-            self.logger.error(f"Error retrieving cortical area {area_id}: {str(e)}")
+            self.logger.error(f"Error retrieving cortical area: {str(e)}")
             return None
         
     def create_cortical_area(
@@ -405,7 +476,7 @@ class CoreAPIService:
         Delete a cortical area.
         
         Args:
-            area_id: ID of the cortical area to delete.
+            area_id: String representation of the cortical_idx to delete.
             
         Returns:
             True if the cortical area was deleted, False otherwise.
@@ -416,41 +487,41 @@ class CoreAPIService:
             return False
         
         try:
-            area_id_int = int(area_id)
+            cortical_idx = int(area_id)
         except ValueError:
             return False
         
         try:
-            if area_id_int not in self._connectome_manager._areas:
+            if cortical_idx not in self._connectome_manager._areas:
                 return False
             
             # Get all neurons in this area
-            neurons = self._connectome_manager.get_neurons_by_area(area_id_int)
+            neurons = self._connectome_manager.get_neurons_by_area(cortical_idx)
             
             # Delete all neurons in the area
             for neuron_id in neurons:
                 self._connectome_manager.delete_neuron(neuron_id)
             
             # Remove the area
-            del self._connectome_manager._areas[area_id_int]
+            del self._connectome_manager._areas[cortical_idx]
             
             # Clean up any area-specific data structures
-            if area_id_int in self._connectome_manager._occupied_voxels:
-                del self._connectome_manager._occupied_voxels[area_id_int]
+            if cortical_idx in self._connectome_manager._occupied_voxels:
+                del self._connectome_manager._occupied_voxels[cortical_idx]
             
-            if area_id_int in self._connectome_manager._area_lookup_tables:
-                del self._connectome_manager._area_lookup_tables[area_id_int]
+            if cortical_idx in self._connectome_manager._area_lookup_tables:
+                del self._connectome_manager._area_lookup_tables[cortical_idx]
             
             # Remove from area classification sets
-            if area_id_int in self._connectome_manager._small_regular_areas:
-                self._connectome_manager._small_regular_areas.remove(area_id_int)
+            if cortical_idx in self._connectome_manager._small_regular_areas:
+                self._connectome_manager._small_regular_areas.remove(cortical_idx)
             
-            if area_id_int in self._connectome_manager._large_regular_areas:
-                self._connectome_manager._large_regular_areas.remove(area_id_int)
+            if cortical_idx in self._connectome_manager._large_regular_areas:
+                self._connectome_manager._large_regular_areas.remove(cortical_idx)
             
-            if area_id_int in self._connectome_manager._extreme_dimension_areas:
-                self._connectome_manager._extreme_dimension_areas.remove(area_id_int)
-            
+            if cortical_idx in self._connectome_manager._extreme_dimension_areas:
+                self._connectome_manager._extreme_dimension_areas.remove(cortical_idx)
+                
             return True
         except Exception as e:
             self.logger.error(f"Error deleting cortical area {area_id}: {str(e)}")
@@ -882,9 +953,43 @@ class CoreAPIService:
         if data_path:
             return data_path
             
-        # Then use the default location - correct path to the feagi/evo/defaults directory
-        feagi_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        return os.path.join(feagi_path, "evo", "defaults")
+        # Then look for the evo/defaults directory in the FEAGI package
+        import feagi
+        feagi_path = os.path.dirname(os.path.dirname(feagi.__file__))
+        evo_defaults_path = os.path.join(feagi_path, "feagi", "evo", "defaults")
+        
+        # First verify this path exists before returning it
+        if os.path.isdir(evo_defaults_path):
+            self.logger.info(f"Using data path: {evo_defaults_path}")
+            return evo_defaults_path
+            
+        # If not found through package directory, try to find relative to current file
+        current_file_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        evo_defaults_path = os.path.join(current_file_dir, "evo", "defaults")
+        
+        if os.path.isdir(evo_defaults_path):
+            self.logger.info(f"Using data path: {evo_defaults_path}")
+            return evo_defaults_path
+            
+        # If all else fails, try to search for it
+        self.logger.warning(f"Could not find evo/defaults directory, searching...")
+        
+        def find_evo_defaults(start_path):
+            for root, dirs, files in os.walk(start_path):
+                if os.path.basename(root) == "defaults" and os.path.basename(os.path.dirname(root)) == "evo":
+                    return root
+            return None
+            
+        search_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        found_path = find_evo_defaults(search_path)
+        
+        if found_path:
+            self.logger.info(f"Found data path by searching: {found_path}")
+            return found_path
+            
+        # Final fallback is to return the directory containing this script
+        self.logger.error("Could not find evo/defaults directory, using fallback location")
+        return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     
     def get_temp_path(self) -> str:
         """
@@ -926,31 +1031,54 @@ class CoreAPIService:
             genome_data = genome_physiology_updator(genome_data)
             genome_data = genome_stat_updator(genome_data)
             
-            # Store the current genome in memory
+            # IMPORTANT: Set the current genome here - this is what makes the genome "loaded"
             self._current_genome = genome_data
             
             # Save the genome to a temporary file to load it with neuroembryogenesis
             genome_path = os.path.join(self._temp_dir, filename or "current_genome.json")
             with open(genome_path, 'w') as f:
                 json.dump(genome_data, f, indent=2)
-                
-            # Attempt to develop the brain from this genome
-            # This is a more complex operation that we might want to make optional
-            # or run asynchronously in a real implementation
-            success, stats = develop_brain_from_genome(
-                genome_path=genome_path,
-                connectome_manager=self._connectome_manager
-            )
             
-            if success:
-                self.logger.info(f"Successfully developed brain from genome: {stats}")
-            else:
-                self.logger.warning(f"Brain development completed with warnings: {stats}")
+            # Backup any test areas by ID before clearing
+            test_areas = {}
+            for area_id, area in self._connectome_manager._areas.items():
+                if area_id == self._test_area_id or area.properties.get("is_test_area"):
+                    test_areas[area_id] = area
+                    
+            # Clear the connectome manager's state to start fresh
+            self._connectome_manager._areas.clear()
+            
+            # Restore test areas
+            for area_id, area in test_areas.items():
+                self._connectome_manager._areas[area_id] = area
+            
+            try:
+                # Try to develop the brain from genome
+                success, stats = develop_brain_from_genome(
+                    genome_path=genome_path,
+                    connectome_manager=self._connectome_manager
+                )
                 
+                if success:
+                    self.logger.info(f"Successfully developed brain from genome: {stats}")
+                else:
+                    self.logger.warning(f"Brain development completed with warnings: {stats}")
+            except Exception as e:
+                # Log the error but don't affect genome loaded status
+                self.logger.error(f"Error during brain development: {str(e)}")
+                import traceback
+                self.logger.error(traceback.format_exc())
+                
+            # Return success - the genome is loaded even if brain development failed
             return True
                 
         except Exception as e:
+            # Only on catastrophic failure do we reset the genome loaded status
             self.logger.error(f"Error loading genome: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            self._current_genome = None
+            self._genome_filename = None
             return False
     
     def get_genome(self) -> Dict[str, Any]:

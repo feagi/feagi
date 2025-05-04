@@ -28,7 +28,7 @@ class FeagiConfig:
         """
         self._config = config_dict or {}
         self._defaults = {
-            "connectome.max_neurons": 10000000,
+            "connectome.max_neurons": 1000000,
             "connectome.max_synapses_per_neuron": 1000,
         }
     

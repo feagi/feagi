@@ -55,10 +55,16 @@ class CorticalArea:
 
 class ConnectomeManager:
     """
-    Manages the storage and operations of neurons and synapses in the FEAGI brain.
+    Manages the connectome data structure for FEAGI.
     
-    Implements a Structure of Arrays (SoA) approach for efficient memory organization
-    and GPU acceleration compatibility.
+    The ConnectomeManager provides an API for creating and manipulating 
+    cortical areas, neurons, and synapses with a focus on memory efficiency.
+    
+    Naming Convention:
+    -----------------
+    * cortical_id: 6-character unique identifier from the genome (e.g., "iv00_C")
+    * cortical_idx: Auto-incremented integer ID used internally for efficient indexing
+      (called 'area_id' in most method signatures for backward compatibility)
     """
     
     def __init__(self, config: Optional[FeagiConfig] = None, max_test_neurons: Optional[int] = None):
@@ -179,28 +185,41 @@ class ConnectomeManager:
         self.initialized = True
         logger.info(f"Initialized neuron arrays with capacity for {self._max_neurons} neurons")
     
-    def add_cortical_area(self, area_id: int, name: str, area_type: str, 
-                         dimensions: Tuple[int, int, int], position: Tuple[int, int, int],
-                         properties: Optional[Dict[str, Any]] = None) -> CorticalArea:
+    def add_cortical_area(
+        self, 
+        area_id: int,  # Kept for backward compatibility, represents cortical_idx
+        name: str,
+        area_type: str,
+        dimensions: Tuple[int, int, int],
+        position: Tuple[int, int, int],
+        properties: Optional[Dict[str, Any]] = None
+    ) -> CorticalArea:
         """
         Add a new cortical area to the connectome.
         
         Args:
-            area_id: Unique identifier for the area
-            name: Human-readable name of the area
-            area_type: Type of cortical area ('ipu', 'opu', 'interconnect', 'memory')
-            dimensions: Width, height, depth of the area in neurons
-            position: X, Y, Z coordinates of the area in 3D space
-            properties: Additional properties for the area
+            area_id: Unique identifier for the area (cortical_idx)
+            name: Name of the cortical area
+            area_type: Type of the cortical area (e.g., sensory, motor, etc.)
+            dimensions: (width, height, depth) dimensions in voxels
+            position: (x, y, z) position in the 3D space
+            properties: Optional additional properties for the area
             
         Returns:
-            The created CorticalArea
+            The created CorticalArea object
+            
+        Raises:
+            ValueError: If a cortical area with the given ID already exists
         """
-        if area_id in self._areas:
-            raise ValueError(f"Cortical area with ID {area_id} already exists")
+        cortical_idx = area_id  # For clarity with new naming convention
         
+        # Check if area already exists
+        if cortical_idx in self._areas:
+            raise ValueError(f"Cortical area with ID {cortical_idx} already exists")
+        
+        # Create the cortical area object
         area = CorticalArea(
-            id=area_id,
+            id=cortical_idx,
             name=name,
             type=area_type,
             dimensions=dimensions,
@@ -208,38 +227,32 @@ class ConnectomeManager:
             properties=properties or {}
         )
         
-        self._areas[area_id] = area
+        # Add the area to the connectome
+        self._areas[cortical_idx] = area
         
-        # Categorize area based on dimensions for optimized lookups
+        # Add to positional tracking
         width, height, depth = dimensions
-        total_voxels = width * height * depth
+        extreme_dimension = width > 100 or height > 100 or depth > 100
         
-        # Initialize bitmap for tracking occupied voxels
-        self._occupied_voxels[area_id] = BitMap()
+        # Initialize bitmap for occupied voxels in this area
+        self._occupied_voxels[cortical_idx] = BitMap()
         
-        # Determine area category and initialize appropriate lookup structure
-        if any(dim > 10000 for dim in dimensions):
-            # Extreme dimension area - use specialized sparse tracking
-            self._extreme_dimension_areas.add(area_id)
-            self._area_lookup_tables[area_id] = {
-                'dimension_occupancy': {
-                    'x': BitMap(),  # Occupied x positions
-                    'y': BitMap(),  # Occupied y positions
-                    'z': BitMap()   # Occupied z positions
-                },
-                'position_mapping': {}  # (x_block, y_block, z_block) -> {local_position -> neuron_IDs}
+        if extreme_dimension:
+            # Special handling for very large areas
+            self._extreme_dimension_areas.add(cortical_idx)
+            self._area_lookup_tables[cortical_idx] = {
+                'x_indices': {},
+                'y_indices': {},
+                'z_indices': {}
             }
-        elif total_voxels <= 1000000:  # 100³
-            # Small regular area - use direct array lookup for speed
-            self._small_regular_areas.add(area_id)
-            # For small areas, we'll use the voxel_to_neurons dict directly, no need for array
+        elif width * height * depth <= 1000:
+            # Small regular areas
+            self._small_regular_areas.add(cortical_idx)
         else:
-            # Large regular area - use bitmap-based tracking
-            self._large_regular_areas.add(area_id)
-            # Initialize with empty bitmap, populated as neurons are added
+            # Large regular areas
+            self._large_regular_areas.add(cortical_idx)
         
-        logger.info(f"Added cortical area {name} (ID: {area_id}) with dimensions {dimensions}")
-        
+        logger.info(f"Added cortical area {name} (ID: {cortical_idx}) with dimensions {dimensions}")
         return area
     
     def create_neuron(self, area_id: int, position: Tuple[int, int, int], 

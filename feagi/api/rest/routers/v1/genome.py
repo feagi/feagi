@@ -43,49 +43,133 @@ def pending_amalgamation() -> bool:
 async def upload_barebones_genome(core_api: CoreAPIService = Depends(get_core_api)):
     """Upload a barebones genome."""
     try:
-        # The path below should be configured based on FEAGI 2.1 structure
+        # Get the data path
         data_path = core_api.get_data_path()
         barebones_path = os.path.join(data_path, "genome", "barebones_genome.json")
         
         print(f"Attempting to load barebones genome from: {barebones_path}")
         
         if not os.path.exists(barebones_path):
-            raise HTTPException(status_code=404, detail=f"Barebones genome file not found at {barebones_path}")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Barebones genome file not found at {barebones_path}"
+            )
             
-        with open(barebones_path, "r") as genome_file:
-            genome_data = json.load(genome_file)
+        # Load the genome file
+        try:
+            with open(barebones_path, "r") as genome_file:
+                genome_data = json.load(genome_file)
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid JSON in barebones genome file: {str(e)}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error reading barebones genome file: {str(e)}"
+            )
         
+        # Load the genome into FEAGI
         success = core_api.load_genome(genome_data, filename="barebones_genome.json")
+        
         if not success:
-            raise HTTPException(status_code=500, detail="Failed to load barebones genome")
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to load barebones genome into FEAGI"
+            )
+            
+        # Verify if it's really loaded by checking cortical areas
+        areas = core_api.get_cortical_areas()
+        has_non_test_areas = any(
+            not a.get("parameters", {}).get("is_test_area", False) 
+            for a in areas
+        )
+        
+        if not has_non_test_areas:
+            # No real cortical areas were created despite the genome loading "successfully"
+            raise HTTPException(
+                status_code=500, 
+                detail="Barebones genome loaded but no cortical areas were created"
+            )
             
         return {"message": "Barebones genome loaded successfully"}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading barebones genome: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error loading barebones genome: {str(e)}"
+        )
 
 @router.post("/upload/essential")
 async def genome_default_upload(core_api: CoreAPIService = Depends(get_core_api)):
     """Upload the essential genome."""
     try:
-        # The path below should be configured based on FEAGI 2.1 structure
+        # Get the data path
         data_path = core_api.get_data_path()
         essential_path = os.path.join(data_path, "genome", "essential_genome.json")
         
         print(f"Attempting to load essential genome from: {essential_path}")
         
         if not os.path.exists(essential_path):
-            raise HTTPException(status_code=404, detail=f"Essential genome file not found at {essential_path}")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Essential genome file not found at {essential_path}"
+            )
             
-        with open(essential_path, "r") as genome_file:
-            genome_data = json.load(genome_file)
+        # Load the genome file
+        try:
+            with open(essential_path, "r") as genome_file:
+                genome_data = json.load(genome_file)
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid JSON in essential genome file: {str(e)}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error reading essential genome file: {str(e)}"
+            )
         
+        # Load the genome into FEAGI
         success = core_api.load_genome(genome_data, filename="essential_genome.json")
+        
         if not success:
-            raise HTTPException(status_code=500, detail="Failed to load essential genome")
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to load essential genome into FEAGI"
+            )
+            
+        # Verify if it's really loaded by checking cortical areas
+        areas = core_api.get_cortical_areas()
+        has_non_test_areas = any(
+            not a.get("parameters", {}).get("is_test_area", False) 
+            for a in areas
+        )
+        
+        if not has_non_test_areas:
+            # No real cortical areas were created despite the genome loading "successfully"
+            raise HTTPException(
+                status_code=500, 
+                detail="Essential genome loaded but no cortical areas were created"
+            )
             
         return {"message": "Essential genome loaded successfully"}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading essential genome: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error loading essential genome: {str(e)}"
+        )
 
 @router.post("/upload/file")
 async def genome_file_upload(
