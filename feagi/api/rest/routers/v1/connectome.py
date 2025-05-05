@@ -1,287 +1,207 @@
-"""Connectome API router for FEAGI REST API."""
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-from typing import Dict, List, Optional, Any, Tuple
-from fastapi import APIRouter, HTTPException, Depends, Path, Query, Body
-from pydantic import BaseModel, Field
 
-from feagi.api.core.services import CoreAPIService
-from feagi.api.rest.app import get_core_api
+import tempfile
+from fastapi import APIRouter, File, UploadFile
+from fastapi import HTTPException
+from starlette.responses import FileResponse
 
-# Pydantic models for request/response
-class ConnectionBase(BaseModel):
-    """Base model for connection properties."""
-    source_id: str
-    target_id: str
-    properties: Dict[str, Any] = Field(default={}, description="Properties of the connection")
+from ast import literal_eval
+from threading import Thread
 
-class ConnectionCreate(ConnectionBase):
-    """Request model for creating a connection."""
-    pass
+from src.api.commons import *
+from src.inf import runtime_data
+from src.evo.synapse import cortical_mapping
+from src.inf.disk_ops import preserve_brain, revive_brain
+# from src.inf.feagi import start_feagi
+from src.inf.initialize import deploy_genome
+from src.npu.consciousness import set_brain_readiness_to_false
 
-class ConnectionUpdate(BaseModel):
-    """Request model for updating a connection."""
-    properties: Dict[str, Any] = Field(..., description="Updated properties of the connection")
 
-class ConnectionResponse(ConnectionBase):
-    """Response model for connection information."""
-    id: str
+router = APIRouter()
 
-class ConnectionList(BaseModel):
-    """Response model for list of connections."""
-    connections: List[ConnectionResponse]
 
-class NeuronConnection(BaseModel):
-    """Model for a neuron-to-neuron connection."""
-    source_neuron_id: str
-    target_neuron_id: str
-    source_area_id: str
-    target_area_id: str
-    weight: float = 1.0
-    properties: Dict[str, Any] = Field(default={})
+# ######  Connectome Endpoints #########
+# ######################################
+@router.get("/cortical_areas/list/summary")
+async def connectome_cortical_areas_summary():
+    cortical_list = set()
+    for cortical_area in runtime_data.brain:
+        cortical_list.add(cortical_area)
 
-class NeuronConnectionCreate(BaseModel):
-    """Request model for creating a neuron connection."""
-    source_neuron_id: str
-    target_neuron_id: str
-    weight: Optional[float] = 1.0
-    properties: Dict[str, Any] = Field(default={})
+    return cortical_list
 
-class NeuronConnectionBulkCreate(BaseModel):
-    """Request model for creating multiple neuron connections."""
-    connections: List[NeuronConnectionCreate]
 
-# Create router
-router = APIRouter(prefix="/connectome", tags=["connectome"])
+@router.get("/cortical_areas/list/transforming")
+async def transforming_cortical_areas_summary():
+    return runtime_data.transforming_areas
 
-# Connectome Endpoints
-@router.get("/connections", response_model=ConnectionList)
-async def get_all_connections(
-    source_id: Optional[str] = Query(None, description="Filter by source cortical area ID"),
-    target_id: Optional[str] = Query(None, description="Filter by target cortical area ID"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
+
+@router.get("/cortical_areas/list/detailed")
+async def connectome_cortical_areas():
+    cortical_list = dict()
+    for cortical_area in runtime_data.brain:
+        cortical_list[cortical_area] = {}
+        cortical_list[cortical_area]["name"] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+        cortical_list[cortical_area]["type"] = runtime_data.genome["blueprint"][cortical_area]["group_id"]
+        cortical_list[cortical_area]["sub_type"] = runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]
+        cortical_list[cortical_area]["position"] = []
+    return cortical_list
+
+
+@router.get("/cortical_info")
+async def connectome_cortical_info(cortical_area: str):
+
+    if cortical_area in runtime_data.brain:
+        return runtime_data.brain[cortical_area]
+    else:
+        raise HTTPException(status_code=400, detail="Requested cortical area not found!")
+
+
+# @router.get("/all")
+# async def connectome_comprehensive_info(response: Response):
+
+    # if runtime_data.brain:
+    #     response.status_code = status.HTTP_200_OK
+    #     return runtime_data.brain
+    # else:
+    #     response.status_code = status.HTTP_404_NOT_FOUND
+
+
+@router.get("/plasticity")
+async def connectome_plasticity_info():
+    if runtime_data.plasticity_dict:
+        return runtime_data.plasticity_dict
+    else:
+        return {}
+
+
+@router.get("/path")
+async def connectome_system_path():
+    if runtime_data.connectome_path:
+        return runtime_data.connectome_path
+    else:
+        return {}
+
+
+# @router.post("/source")
+# async def connectome_source_path(connectome_path: str):
+#     feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path', connectome_path,))
+#     feagi_thread.start()
+
+
+@router.post("/snapshot")
+async def connectome_snapshot(connectome_storage_path: str):
+    message = {'connectome_path': connectome_storage_path}
+    print("Snapshot path:", message)
+    api_queue.put(item=message)
+
+
+@router.get("/download-cortical-area")
+async def connectome_download(cortical_area: str):
+    print("Downloading Connectome...")
+    file_name = "connectome_" + cortical_area + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
+    print(file_name)
+    if runtime_data.brain[cortical_area]:
+        return FileResponse(path=runtime_data.connectome_path + cortical_area + ".json", filename=file_name)
+    else:
+        raise HTTPException(status_code=400, detail="Requested cortical area not found!")
+
+
+@router.post("/upload-cortical-area")
+async def connectome_file_upload(file: UploadFile = File(...)):
+    data = await file.read()
+    connectome_str = data.decode("utf-8").split(" = ")[1]
+    connectome = literal_eval(connectome_str)
+    message = {"connectome": connectome}
+    api_queue.put(item=message)
+    return {"Connectome received as a file"}
+
+
+@router.get("/properties/dimensions")
+async def connectome_dimensions_report():
+    if runtime_data.cortical_dimensions:
+        return runtime_data.cortical_dimensions
+    else:
+        return [0, 0, 0]
+
+
+@router.get("/stats/cortical/cumulative")
+async def connectome_dimensions_report(cortical_area: str):
+    if cortical_area in runtime_data.cumulative_stats:
+        return runtime_data.cumulative_stats[cortical_area]
+    else:
+        return {}
+
+
+@router.get("/properties/mappings")
+async def connectome_mapping_report():
     """
-    Get all cortical area connections.
-    
-    Returns a list of all connections between cortical areas with optional filtering.
-    """
-    try:
-        # Note: This is a placeholder implementation and should be replaced with actual connectome data retrieval
-        # from the Core API when that functionality is implemented
-        
-        genome = core_api.get_genome()
-        if not genome or "blueprint" not in genome:
-            return {"connections": []}
-        
-        # In a real implementation, we would get actual connections from the connectome manager
-        # For now, we'll return a placeholder based on the genome blueprint
-        connections = []
-        areas = core_api.get_cortical_areas()
-        area_ids = [area["id"] for area in areas]
-        
-        # Generate a list of connections (this is just a placeholder for demo purposes)
-        conn_id = 1
-        for source in area_ids:
-            for target in area_ids:
-                if source != target:
-                    # Skip if filtering is applied and doesn't match
-                    if source_id and source != source_id:
-                        continue
-                    if target_id and target != target_id:
-                        continue
-                    
-                    connections.append({
-                        "id": str(conn_id),
-                        "source_id": source,
-                        "target_id": target,
-                        "properties": {
-                            "strength": 0.5,
-                            "bidirectional": False
-                        }
-                    })
-                    conn_id += 1
-        
-        return {"connections": connections}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving connections: {str(e)}")
+    Report result can be used with the following tool to visualize the connectome mapping:
 
-@router.get("/connections/{connection_id}", response_model=ConnectionResponse)
-async def get_connection(
-    connection_id: str = Path(..., description="ID of the connection"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Get a specific connection by ID.
-    
-    Args:
-        connection_id: ID of the connection to retrieve.
-    
-    Returns:
-        Detailed information about the specified connection.
-    """
-    try:
-        # Placeholder implementation
-        raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving connection {connection_id}: {str(e)}")
+    https://csacademy.com/app/graph_editor/
 
-@router.post("/connections", response_model=ConnectionResponse)
-async def create_connection(
-    connection: ConnectionCreate,
-    core_api: CoreAPIService = Depends(get_core_api)
-):
+    Note: Use the print out from FEAGI logs for above online editor
     """
-    Create a new connection between cortical areas.
-    
-    Args:
-        connection: Details of the connection to create.
-    
-    Returns:
-        Information about the newly created connection.
-    """
-    try:
-        # Validate that the source and target areas exist
-        areas = core_api.get_cortical_areas()
-        area_ids = [area["id"] for area in areas]
-        
-        if connection.source_id not in area_ids:
-            raise HTTPException(status_code=404, detail=f"Source cortical area {connection.source_id} not found")
-        
-        if connection.target_id not in area_ids:
-            raise HTTPException(status_code=404, detail=f"Target cortical area {connection.target_id} not found")
-        
-        # Placeholder implementation - in a real implementation, this would create the connection in the connectome
-        return {
-            "id": "new_connection_id",
-            "source_id": connection.source_id,
-            "target_id": connection.target_id,
-            "properties": connection.properties
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating connection: {str(e)}")
 
-@router.put("/connections/{connection_id}", response_model=ConnectionResponse)
-async def update_connection(
-    connection_id: str = Path(..., description="ID of the connection"),
-    connection_update: ConnectionUpdate = Body(...),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Update an existing connection.
-    
-    Args:
-        connection_id: ID of the connection to update.
-        connection_update: Updated details for the connection.
-    
-    Returns:
-        Information about the updated connection.
-    """
-    try:
-        # Placeholder implementation
-        raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating connection {connection_id}: {str(e)}")
+    mappings = cortical_mapping()
+    if mappings:
+        return mappings
+    else:
+        return {}
 
-@router.delete("/connections/{connection_id}")
-async def delete_connection(
-    connection_id: str = Path(..., description="ID of the connection"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Delete a connection.
-    
-    Args:
-        connection_id: ID of the connection to delete.
-    
-    Returns:
-        Confirmation message.
-    """
-    try:
-        # Placeholder implementation
-        raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting connection {connection_id}: {str(e)}")
 
-@router.get("/neurons/{neuron_id}/connections")
-async def get_neuron_connections(
-    neuron_id: str = Path(..., description="ID of the neuron"),
-    direction: str = Query("both", description="Connection direction: 'incoming', 'outgoing', or 'both'"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
+@router.get("/download")
+async def download_connectome():
     """
-    Get connections for a specific neuron.
-    
-    Args:
-        neuron_id: ID of the neuron.
-        direction: Direction of connections to retrieve (incoming, outgoing, or both).
-    
-    Returns:
-        List of connections for the specified neuron.
+    Creates a compressed file containing the entire brain data
     """
-    try:
-        # Placeholder implementation
-        # This would normally retrieve the neuron's connections from the connectome manager
-        return {
-            "neuron_id": neuron_id,
-            "direction": direction,
-            "connections": []
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving connections for neuron {neuron_id}: {str(e)}")
+    print("Downloading Genome...")
 
-@router.post("/neurons/connections")
-async def create_neuron_connections(
-    connections: NeuronConnectionBulkCreate,
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Create connections between neurons.
-    
-    Args:
-        connections: Details of the connections to create.
-    
-    Returns:
-        Confirmation message with count of created connections.
-    """
-    try:
-        # Placeholder implementation
-        # This would normally create connections between neurons in the connectome manager
-        return {
-            "message": f"Created {len(connections.connections)} neuron connections successfully"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating neuron connections: {str(e)}")
+    file_name = "brain_" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".feagi"
+    print(file_name)
+    brain_data = preserve_brain()
 
-@router.get("/statistics")
-async def get_connectome_statistics(core_api: CoreAPIService = Depends(get_core_api)):
-    """
-    Get statistics about the connectome.
-    
-    Returns:
-        Statistical information about the connectome.
-    """
-    try:
-        # Placeholder implementation
-        # This would normally gather statistics from the connectome manager
-        areas = core_api.get_cortical_areas()
-        total_areas = len(areas)
-        
-        return {
-            "total_cortical_areas": total_areas,
-            "total_connections": 0,
-            "total_neurons": 0,
-            "total_synapses": 0,
-            "average_connectivity": 0.0
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving connectome statistics: {str(e)}") 
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.gz') as temp_file:
+        temp_file.write(brain_data)
+
+        # Ensure all data is written
+        temp_file.flush()
+
+        # Get the size of the file
+        temp_file_size = temp_file.tell()
+        print(f"Size of data: {temp_file_size} bytes")
+
+        # Seek back to the start of the file
+        temp_file.seek(0)
+
+        # Create the FileResponse inside the with block
+        response = FileResponse(temp_file.name, media_type="application/gzip", filename=file_name)
+
+        return response
+
+
+@router.post("/upload")
+async def upload_connectome(file: UploadFile = File(...)):
+
+    set_brain_readiness_to_false(context="Uploading connectome.")
+    runtime_data.genome = {}
+    brain_data = await file.read()
+    revive_brain(brain_data=brain_data)
+    deploy_genome(genome_data=runtime_data.pending_genome)
+    runtime_data.new_genome = True
+    print("\n Brain successfully initialized.")

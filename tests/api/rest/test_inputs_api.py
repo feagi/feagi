@@ -86,7 +86,7 @@ def mock_core_api():
 
 def test_get_input_sources(client, mock_core_api):
     """Test getting all registered input sources."""
-    response = client.get("/api/v1/inputs/sources")
+    response = client.get("/api/v0/inputs/sources")
     assert response.status_code == 200
     data = response.json()
     
@@ -121,7 +121,7 @@ def test_get_input_source(client, mock_core_api):
         }
     }
     
-    response = client.get("/api/v1/inputs/sources/camera1")
+    response = client.get("/api/v0/inputs/sources/camera1")
     assert response.status_code == 200
     data = response.json()
     
@@ -136,7 +136,7 @@ def test_get_nonexistent_input_source(client, mock_core_api):
     # Mock to return None when source doesn't exist
     mock_core_api.get_input_source.return_value = None
     
-    response = client.get("/api/v1/inputs/sources/nonexistent")
+    response = client.get("/api/v0/inputs/sources/nonexistent")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
@@ -152,7 +152,7 @@ def test_register_input_source(client, mock_core_api):
         }
     }
     
-    response = client.post("/api/v1/inputs/sources", json=new_source)
+    response = client.post("/api/v0/inputs/sources", json=new_source)
     assert response.status_code == 200
     data = response.json()
     
@@ -180,7 +180,7 @@ def test_register_input_source_invalid_target(client, mock_core_api):
         "properties": {}
     }
     
-    response = client.post("/api/v1/inputs/sources", json=new_source)
+    response = client.post("/api/v0/inputs/sources", json=new_source)
     assert response.status_code == 404
     assert "cortical area not found" in response.json()["detail"].lower()
 
@@ -204,7 +204,7 @@ def test_update_input_source(client, mock_core_api):
         }
     }
     
-    response = client.put("/api/v1/inputs/sources/camera1", json=update_data)
+    response = client.put("/api/v0/inputs/sources/camera1", json=update_data)
     assert response.status_code == 200
     data = response.json()
     
@@ -224,7 +224,7 @@ def test_update_nonexistent_input_source(client, mock_core_api):
         "name": "Updated Name"
     }
     
-    response = client.put("/api/v1/inputs/sources/nonexistent", json=update_data)
+    response = client.put("/api/v0/inputs/sources/nonexistent", json=update_data)
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
@@ -238,7 +238,7 @@ def test_remove_input_source(client, mock_core_api):
         "target_area_id": "101"
     }
     
-    response = client.delete("/api/v1/inputs/sources/camera1")
+    response = client.delete("/api/v0/inputs/sources/camera1")
     assert response.status_code == 200
     data = response.json()
     
@@ -254,7 +254,7 @@ def test_remove_nonexistent_input_source(client, mock_core_api):
     # Mock to return None when source doesn't exist
     mock_core_api.get_input_source.return_value = None
     
-    response = client.delete("/api/v1/inputs/sources/nonexistent")
+    response = client.delete("/api/v0/inputs/sources/nonexistent")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
@@ -274,7 +274,7 @@ def test_stimulate_cortical_area(client, mock_core_api):
         "coordinates": None
     }
     
-    response = client.post("/api/v1/inputs/stimulate_area/101", json=stimulation_data)
+    response = client.post("/api/v0/inputs/stimulate_area/101", json=stimulation_data)
     assert response.status_code == 200
     data = response.json()
     
@@ -302,7 +302,7 @@ def test_stimulate_nonexistent_cortical_area(client, mock_core_api):
         "duration": 3
     }
     
-    response = client.post("/api/v1/inputs/stimulate_area/999", json=stimulation_data)
+    response = client.post("/api/v0/inputs/stimulate_area/999", json=stimulation_data)
     assert response.status_code == 404
     assert "cortical area not found" in response.json()["detail"].lower()
 
@@ -326,7 +326,7 @@ def test_stimulate_cortical_area_with_coordinates(client, mock_core_api):
         ]
     }
     
-    response = client.post("/api/v1/inputs/stimulate_area/101", json=stimulation_data)
+    response = client.post("/api/v0/inputs/stimulate_area/101", json=stimulation_data)
     assert response.status_code == 200
     data = response.json()
     

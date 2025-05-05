@@ -1,391 +1,182 @@
-"""Region API router for FEAGI REST API."""
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Path, Query, Body
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
 
-from feagi.api.core.services import CoreAPIService
-from feagi.api.rest.app import get_core_api
+from ...schemas import *
+from ...commons import *
 
-# Import required genome functions
-try:
-    from feagi.evo.genome_editor import save_genome
-except ImportError:
-    # Fallback implementation
-    def save_genome(genome, file_name=''):
-        """Save a genome to a file."""
-        import json
-        if file_name:
-            with open(file_name, 'w') as f:
-                json.dump(genome, f, indent=2)
-        return True
+from src.inf import runtime_data
+from src.evo.region import *
+from src.api.error_handling import generate_response
+from src.evo.genome_properties import genome_properties
+from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
+from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
+from src.evo.templates import cortical_types
 
-# Pydantic models for request/response
-class RegionBase(BaseModel):
-    """Base model for brain region properties."""
-    name: str
-    description: Optional[str] = None
-    properties: Dict[str, Any] = Field(default={}, description="Additional properties for the region")
 
-class RegionCreate(RegionBase):
-    """Request model for creating a brain region."""
-    pass
+"""
+[POST] create a new brain region: /v0/region/region
+[PUT] Update brain region properties (title, coordinates) /v0/region/region
+[GET] Update brain region properties (title, coordinates) /v0/region/region
+[DELETE] Deletes a brain region /v0/region/region
 
-class RegionUpdate(BaseModel):
-    """Request model for updating a brain region."""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    properties: Optional[Dict[str, Any]] = None
+[GET] list all brain regions (summary): /v0/TBD
+[GET] list all brain regions and their members (comprehensive): /v0/TBD
+[GET] list members of a given brain region: /v0/TBD
+[PUT] associate a cortical area or brain region to another brain region: /v0/TBD
 
-class RegionResponse(RegionBase):
-    """Response model for brain region information."""
-    id: str
-    cortical_areas: List[str] = Field(default=[], description="IDs of cortical areas in this region")
 
-class RegionList(BaseModel):
-    """Response model for list of brain regions."""
-    regions: List[RegionResponse]
+"""
 
-class CorticalAreaMapping(BaseModel):
-    """Request model for mapping a cortical area to a region."""
-    cortical_area_id: str
+router = APIRouter()
 
-# Create router
-router = APIRouter(prefix="/region", tags=["region"])
 
-# Region Endpoints
-@router.get("/", response_model=RegionList)
-async def get_all_regions(core_api: CoreAPIService = Depends(get_core_api)):
+@router.post("/region")
+async def create_brain_region(region_data: NewRegionProperties):
+    if region_data.parent_region_id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{region_data.parent_region_id} is not a valid region id")
+    else:
+        region_id = create_region(region_data)
+        return {"region_id": region_id}
+
+
+@router.put("/region")
+async def update_region_properties(region_data: UpdateRegionProperties):
+    region_dict = region_data.__dict__
+    unacceptable_root_fields = ["parent_region_id", "coordinates_2d", "coordinates_3d"]
+    if region_data.region_id == "root":
+        for field in unacceptable_root_fields:
+            if field in region_dict:
+                raise HTTPException(status_code=400, detail=f"{field} cannot be modified for root region")
+    if "parent_region_id" in region_dict:
+        region_dict.pop("parent_region_id")
+
+    update_region(region_data=region_dict)
+
+
+@router.get("/region")
+async def view_region_properties(region_id):
+    if region_id in runtime_data.genome["brain_regions"]:
+        return runtime_data.genome["brain_regions"][region_id]
+    else:
+        raise HTTPException(status_code=400, detail=f"{region_id} is not a valid region id")
+
+
+@router.delete("/region")
+async def delete_region(region_id: Id):
+    if region_id.id == "root":
+        raise HTTPException(status_code=400, detail="Root region cannot be deleted")
+    elif region_id.id in runtime_data.genome["brain_regions"]:
+        region_parent = runtime_data.genome["brain_regions"][region_id.id]["parent_region_id"]
+        for area_id in runtime_data.genome["brain_regions"][region_id.id]["areas"]:
+            change_cortical_area_parent(cortical_area_id=area_id,
+                                        new_parent_id=region_parent)
+            runtime_data.cortical_area_region_association[area_id] = region_parent
+        for region_id_ in runtime_data.genome["brain_regions"][region_id.id]["regions"]:
+            change_brain_region_parent(region_id=region_id_,
+                                       new_parent_id=region_parent)
+        runtime_data.genome["brain_regions"].pop(region_id.id)
+        runtime_data.genome["brain_regions"][region_parent]["regions"].remove(region_id.id)
+
+    else:
+        raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
+
+
+@router.delete("/region_and_members")
+async def delete_region_and_members(region_id: Id):
+    if region_id.id == "root":
+        raise HTTPException(status_code=400, detail="Root region cannot be deleted")
+    elif region_id.id in runtime_data.genome["brain_regions"]:
+        delete_region_with_members(region_id=region_id)
+    else:
+        raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
+
+
+@router.get("/regions")
+async def list_all_regions():
+    region_summary = dict()
+    region_list = runtime_data.genome["brain_regions"].keys()
+    for region in region_list:
+        region_summary[region] = {}
+        region_summary[region]["coordinate_2d"] = runtime_data.genome["brain_regions"][region]["coordinate_2d"]
+        region_summary[region]["coordinate_3d"] = runtime_data.genome["brain_regions"][region]["coordinate_3d"]
+
+    return region_summary
+
+
+@router.get("/regions_members")
+async def list_all_regions_and_members():
+    return runtime_data.genome["brain_regions"]
+
+
+@router.get("/region_titles")
+async def list_all_region_titles():
+    title_list = []
+    for region_id in runtime_data.genome["brain_regions"]:
+        title_list.append((region_id, region_id_2_title(region_id=region_id)))
+    return title_list
+
+
+@router.put("/change_cortical_area_region")
+async def update_cortical_area_region_association(association_data: RegionAssociation):
+    if association_data.id not in runtime_data.genome["blueprint"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.id} is not a valid cortical area id")
+    elif runtime_data.genome["blueprint"][association_data.id]["group_id"] in ["IPU", "OPU", "CORE"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.id} is not custom area and "
+                                                    f"restricted to move")
+    elif association_data.new_region_id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.new_region_id} is not a valid brain region  id")
+    else:
+        change_cortical_area_parent(cortical_area_id=association_data.id,
+                                    new_parent_id=association_data.new_region_id)
+
+
+@router.put("/change_region_parent")
+async def update_brain_region_parent(association_data: RegionAssociation):
+    if association_data.id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.id} is not a valid brain region id")
+    elif association_data.new_region_id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.new_region_id} is not a valid brain region  id")
+    else:
+        change_brain_region_parent(region_id=association_data.id,
+                                   new_parent_id=association_data.new_region_id)
+
+
+@router.put("/relocate_members")
+async def brain_region_member_relocation(relocation_data: dict):
     """
-    Get all brain regions.
-    
-    Returns a list of all brain regions in the current genome.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "regions" not in genome:
-            return {"regions": []}
-        
-        regions = []
-        for region_id, region_data in genome.get("regions", {}).items():
-            # Find all cortical areas in this region
-            cortical_areas = []
-            if "blueprint" in genome:
-                for area_id, area_data in genome["blueprint"].items():
-                    if area_data.get("region") == region_id:
-                        cortical_areas.append(area_id)
-            
-            regions.append({
-                "id": region_id,
-                "name": region_data.get("name", f"Region {region_id}"),
-                "description": region_data.get("description"),
-                "properties": region_data,
-                "cortical_areas": cortical_areas
-            })
-        
-        return {"regions": regions}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving brain regions: {str(e)}")
+    Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
 
-@router.get("/{region_id}", response_model=RegionResponse)
-async def get_region(
-    region_id: str = Path(..., description="ID of the brain region"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Get a specific brain region by ID.
-    
-    Args:
-        region_id: ID of the brain region to retrieve.
-    
-    Returns:
-        Detailed information about the specified brain region.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "regions" not in genome:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        region = genome.get("regions", {}).get(region_id)
-        if not region:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        # Find all cortical areas in this region
-        cortical_areas = []
-        if "blueprint" in genome:
-            for area_id, area_data in genome["blueprint"].items():
-                if area_data.get("region") == region_id:
-                    cortical_areas.append(area_id)
-        
-        return {
-            "id": region_id,
-            "name": region.get("name", f"Region {region_id}"),
-            "description": region.get("description"),
-            "properties": region,
-            "cortical_areas": cortical_areas
+    Input format:
+
+    {
+        "region_id_1": {
+            "coordinate_2d": [10, 9],
+            "parent_region_id": "fhafsihwfiuhr23r_b",
+        },
+        "region_id_2": {
+            "coordinate_2d": [4, 93],
+            "parent_region_id": "dhdfsihwfiuhr23r_b",
+        },
+        "cortical_area_id": {
+            "coordinate_2d": [30, 29],
+            "parent_region_id": "gdfsihwfiuhr23r_b",
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving brain region {region_id}: {str(e)}")
-
-@router.post("/", response_model=RegionResponse)
-async def create_region(
-    region: RegionCreate,
-    core_api: CoreAPIService = Depends(get_core_api)
-):
+    }
     """
-    Create a new brain region.
-    
-    Args:
-        region: Details of the brain region to create.
-    
-    Returns:
-        Information about the newly created brain region.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome:
-            raise HTTPException(status_code=400, detail="No genome loaded")
-        
-        if "regions" not in genome:
-            genome["regions"] = {}
-        
-        # Generate a new ID for the region
-        new_id = str(len(genome["regions"]) + 1)
-        while new_id in genome["regions"]:
-            new_id = str(int(new_id) + 1)
-        
-        # Create the new region
-        new_region = {
-            "name": region.name,
-            "description": region.description,
-            **region.properties
-        }
-        
-        genome["regions"][new_id] = new_region
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        return {
-            "id": new_id,
-            "name": region.name,
-            "description": region.description,
-            "properties": new_region,
-            "cortical_areas": []
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating brain region: {str(e)}")
-
-@router.put("/{region_id}", response_model=RegionResponse)
-async def update_region(
-    region_id: str = Path(..., description="ID of the brain region"),
-    region_update: RegionUpdate = Body(...),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Update an existing brain region.
-    
-    Args:
-        region_id: ID of the brain region to update.
-        region_update: Updated details for the brain region.
-    
-    Returns:
-        Information about the updated brain region.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "regions" not in genome:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        if region_id not in genome["regions"]:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        # Update the region
-        current_region = genome["regions"][region_id]
-        
-        if region_update.name is not None:
-            current_region["name"] = region_update.name
-        
-        if region_update.description is not None:
-            current_region["description"] = region_update.description
-        
-        if region_update.properties is not None:
-            for key, value in region_update.properties.items():
-                current_region[key] = value
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        # Find all cortical areas in this region
-        cortical_areas = []
-        if "blueprint" in genome:
-            for area_id, area_data in genome["blueprint"].items():
-                if area_data.get("region") == region_id:
-                    cortical_areas.append(area_id)
-        
-        return {
-            "id": region_id,
-            "name": current_region.get("name", f"Region {region_id}"),
-            "description": current_region.get("description"),
-            "properties": current_region,
-            "cortical_areas": cortical_areas
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating brain region {region_id}: {str(e)}")
-
-@router.delete("/{region_id}")
-async def delete_region(
-    region_id: str = Path(..., description="ID of the brain region"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Delete a brain region.
-    
-    Args:
-        region_id: ID of the brain region to delete.
-    
-    Returns:
-        Confirmation message.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "regions" not in genome:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        if region_id not in genome["regions"]:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        # Check if the region is in use by any cortical areas
-        if "blueprint" in genome:
-            for area_id, area_data in genome["blueprint"].items():
-                if area_data.get("region") == region_id:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Cannot delete brain region {region_id} as it contains cortical area {area_id}"
-                    )
-        
-        # Delete the region
-        del genome["regions"][region_id]
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        return {"message": f"Brain region {region_id} deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting brain region {region_id}: {str(e)}")
-
-@router.post("/{region_id}/cortical_areas", response_model=RegionResponse)
-async def add_cortical_area_to_region(
-    region_id: str = Path(..., description="ID of the brain region"),
-    mapping: CorticalAreaMapping = Body(...),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Add a cortical area to a brain region.
-    
-    Args:
-        region_id: ID of the brain region.
-        mapping: Details of the cortical area to add to the region.
-    
-    Returns:
-        Updated information about the brain region.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome:
-            raise HTTPException(status_code=400, detail="No genome loaded")
-        
-        # Validate that the region exists
-        if "regions" not in genome or region_id not in genome["regions"]:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        # Validate that the cortical area exists
-        cortical_area_id = mapping.cortical_area_id
-        if "blueprint" not in genome or cortical_area_id not in genome["blueprint"]:
-            raise HTTPException(status_code=404, detail=f"Cortical area {cortical_area_id} not found")
-        
-        # Update the cortical area's region
-        genome["blueprint"][cortical_area_id]["region"] = region_id
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        # Get updated list of cortical areas in this region
-        cortical_areas = []
-        for area_id, area_data in genome["blueprint"].items():
-            if area_data.get("region") == region_id:
-                cortical_areas.append(area_id)
-        
-        # Get the region information
-        region = genome["regions"][region_id]
-        
-        return {
-            "id": region_id,
-            "name": region.get("name", f"Region {region_id}"),
-            "description": region.get("description"),
-            "properties": region,
-            "cortical_areas": cortical_areas
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error adding cortical area to region: {str(e)}")
-
-@router.delete("/{region_id}/cortical_areas/{cortical_area_id}")
-async def remove_cortical_area_from_region(
-    region_id: str = Path(..., description="ID of the brain region"),
-    cortical_area_id: str = Path(..., description="ID of the cortical area"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Remove a cortical area from a brain region.
-    
-    Args:
-        region_id: ID of the brain region.
-        cortical_area_id: ID of the cortical area to remove from the region.
-    
-    Returns:
-        Confirmation message.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome:
-            raise HTTPException(status_code=400, detail="No genome loaded")
-        
-        # Validate that the region exists
-        if "regions" not in genome or region_id not in genome["regions"]:
-            raise HTTPException(status_code=404, detail=f"Brain region {region_id} not found")
-        
-        # Validate that the cortical area exists
-        if "blueprint" not in genome or cortical_area_id not in genome["blueprint"]:
-            raise HTTPException(status_code=404, detail=f"Cortical area {cortical_area_id} not found")
-        
-        # Validate that the cortical area is in this region
-        if genome["blueprint"][cortical_area_id].get("region") != region_id:
-            raise HTTPException(status_code=400, detail=f"Cortical area {cortical_area_id} is not in region {region_id}")
-        
-        # Remove the cortical area's region
-        if "region" in genome["blueprint"][cortical_area_id]:
-            del genome["blueprint"][cortical_area_id]["region"]
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        return {"message": f"Cortical area {cortical_area_id} removed from region {region_id} successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error removing cortical area from region: {str(e)}") 
+    relocate_region_members(relocation_data=relocation_data)

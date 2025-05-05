@@ -345,7 +345,7 @@ Provide simplified interfaces for different programming languages.
 ```python
 class FeagiClient:
     def __init__(self, host, port, use_zmq=False):
-        self.base_url = f"http://{host}:{port}/v1"
+        self.base_url = f"http://{host}:{port}/v0"
         self.use_zmq = use_zmq
         
         if use_zmq:
@@ -496,7 +496,7 @@ def poll_multiple_sockets():
 # CRUD operation (JSON-based)
 crud_socket.send_multipart([
     b"CRUD",  # Message type identifier
-    b"v1",    # API version
+    b"v0",    # API version
     json.dumps({
         "operation": "create",
         "resource": "cortical_area",
@@ -897,7 +897,7 @@ async def get_visualization_snapshot(request: Request):
     brain_state = await get_current_brain_state()
     return JSONResponse(content=brain_state)
 
-@app.websocket("/v1/visualization/stream")
+@app.websocket("/v0/visualization/stream")
 async def websocket_endpoint(websocket: WebSocket):
     """Stream visualization data over WebSocket (alternative to ZMQ)."""
     await websocket.accept()
@@ -968,7 +968,7 @@ from .routes.v1 import router as router_v1
 from .routes.v2 import router as router_v2
 
 # Mount version routers
-app.include_router(router_v1, prefix="/v1")
+app.include_router(router_v1, prefix="/v0")
 app.include_router(router_v2, prefix="/v2")
 
 # Add version header handling middleware
@@ -1076,7 +1076,7 @@ VERSION_COMPATIBILITY = {
     # Map older versions to handler functions for newer versions
     "cortical_areas": {
         "GET": {
-            # v1 can be handled by the v2 method with default parameters
+            # v0 can be handled by the v2 method with default parameters
             "1": lambda params: service.get_cortical_area_v2(
                 params["area_id"], 
                 include_neurons=False
@@ -1099,7 +1099,7 @@ Client libraries must also support API versioning:
    # Default to latest version
    client = FeagiClient(host="localhost", port=8000)
    
-   # Explicitly request v1
+   # Explicitly request v0
    client_v1 = FeagiClient(host="localhost", port=8000, api_version="1")
    ```
 
@@ -1138,7 +1138,7 @@ class FeagiClient:
             params["include_neurons"] = include_neurons
         elif include_neurons is not None:
             warnings.warn(
-                "The 'include_neurons' parameter is not supported in API v1 "
+                "The 'include_neurons' parameter is not supported in API v0 "
                 "and will be ignored.",
                 UserWarning
             )

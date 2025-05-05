@@ -1,246 +1,173 @@
-"""Morphology API router for FEAGI REST API."""
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Path, Query, Body
-from pydantic import BaseModel, Field
 
-from feagi.api.core.services import CoreAPIService
-from feagi.api.rest.app import get_core_api
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
-# Import required genome functions
-try:
-    from feagi.evo.genome_editor import save_genome
-except ImportError:
-    # Fallback implementation
-    def save_genome(genome, file_name=''):
-        """Save a genome to a file."""
-        import json
-        if file_name:
-            with open(file_name, 'w') as f:
-                json.dump(genome, f, indent=2)
-        return True
+from ...commons import *
+from ...schemas import *
 
-# Pydantic models for request/response
-class MorphologyBase(BaseModel):
-    """Base model for morphology properties."""
-    name: str
-    parameters: Dict[str, Any] = Field(default={}, description="Parameters of the morphology")
+from src.inf import runtime_data
+from src.evo import synaptogenesis_rules
+from src.evo.synapse import morphology_usage_list
 
-class MorphologyCreate(MorphologyBase):
-    """Request model for creating a morphology."""
-    pass
 
-class MorphologyUpdate(BaseModel):
-    """Request model for updating a morphology."""
-    name: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
+router = APIRouter()
 
-class MorphologyResponse(MorphologyBase):
-    """Response model for morphology information."""
-    id: str
 
-class MorphologyList(BaseModel):
-    """Response model for list of morphologies."""
-    morphologies: List[MorphologyResponse]
-
-# Create router
-router = APIRouter(prefix="/morphology", tags=["morphology"])
-
-# Morphology Endpoints
-@router.get("/", response_model=MorphologyList)
-async def get_all_morphologies(core_api: CoreAPIService = Depends(get_core_api)):
+@router.get("/morphology_list")
+async def genome_neuron_morphologies():
     """
-    Get all morphologies.
-    
-    Returns a list of all morphologies in the current genome.
+    Returns a comprehensive list of all neuron morphologies.
     """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "morphologies" not in genome:
-            return {"morphologies": []}
-        
-        morphologies = []
-        for morph_id, morph_data in genome.get("morphologies", {}).items():
-            morphologies.append({
-                "id": morph_id,
-                "name": morph_data.get("name", f"Morphology {morph_id}"),
-                "parameters": morph_data
-            })
-        
-        return {"morphologies": morphologies}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving morphologies: {str(e)}")
+    morphology_names = set()
 
-@router.get("/{morphology_id}", response_model=MorphologyResponse)
-async def get_morphology(
-    morphology_id: str = Path(..., description="ID of the morphology"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Get a specific morphology by ID.
-    
-    Args:
-        morphology_id: ID of the morphology to retrieve.
-    
-    Returns:
-        Detailed information about the specified morphology.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "morphologies" not in genome:
-            raise HTTPException(status_code=404, detail=f"Morphology {morphology_id} not found")
-        
-        morphology = genome.get("morphologies", {}).get(morphology_id)
-        if not morphology:
-            raise HTTPException(status_code=404, detail=f"Morphology {morphology_id} not found")
-        
-        return {
-            "id": morphology_id,
-            "name": morphology.get("name", f"Morphology {morphology_id}"),
-            "parameters": morphology
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving morphology {morphology_id}: {str(e)}")
+    for morphology in runtime_data.genome['neuron_morphologies']:
+        morphology_names.add(morphology)
+    return sorted(morphology_names)
 
-@router.post("/", response_model=MorphologyResponse)
-async def create_morphology(
-    morphology: MorphologyCreate,
-    core_api: CoreAPIService = Depends(get_core_api)
-):
-    """
-    Create a new morphology.
-    
-    Args:
-        morphology: Details of the morphology to create.
-    
-    Returns:
-        Information about the newly created morphology.
-    """
-    try:
-        genome = core_api.get_genome()
-        if not genome:
-            raise HTTPException(status_code=400, detail="No genome loaded")
-        
-        if "morphologies" not in genome:
-            genome["morphologies"] = {}
-        
-        # Generate a new ID for the morphology
-        new_id = str(len(genome["morphologies"]) + 1)
-        while new_id in genome["morphologies"]:
-            new_id = str(int(new_id) + 1)
-        
-        # Create the new morphology
-        new_morphology = {
-            "name": morphology.name,
-            **morphology.parameters
-        }
-        
-        genome["morphologies"][new_id] = new_morphology
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        return {
-            "id": new_id,
-            "name": morphology.name,
-            "parameters": new_morphology
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating morphology: {str(e)}")
 
-@router.put("/{morphology_id}", response_model=MorphologyResponse)
-async def update_morphology(
-    morphology_id: str = Path(..., description="ID of the morphology"),
-    morphology_update: MorphologyUpdate = Body(...),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
+@router.get("/morphology_types")
+async def genome_neuron_morphology_types():
     """
-    Update an existing morphology.
-    
-    Args:
-        morphology_id: ID of the morphology to update.
-        morphology_update: Updated details for the morphology.
-    
-    Returns:
-        Information about the updated morphology.
+    Returns the properties of a neuron morphology.
     """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "morphologies" not in genome:
-            raise HTTPException(status_code=404, detail=f"Morphology {morphology_id} not found")
-        
-        if morphology_id not in genome["morphologies"]:
-            raise HTTPException(status_code=404, detail=f"Morphology {morphology_id} not found")
-        
-        # Update the morphology
-        current_morphology = genome["morphologies"][morphology_id]
-        
-        if morphology_update.name is not None:
-            current_morphology["name"] = morphology_update.name
-        
-        if morphology_update.parameters is not None:
-            for key, value in morphology_update.parameters.items():
-                current_morphology[key] = value
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        return {
-            "id": morphology_id,
-            "name": current_morphology.get("name", f"Morphology {morphology_id}"),
-            "parameters": current_morphology
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating morphology {morphology_id}: {str(e)}")
+    return {"vectors", "patterns", "composite", "functions"}
 
-@router.delete("/{morphology_id}")
-async def delete_morphology(
-    morphology_id: str = Path(..., description="ID of the morphology"),
-    core_api: CoreAPIService = Depends(get_core_api)
-):
+
+@router.get("/list/types")
+async def genome_neuron_morphology_type_list():
     """
-    Delete a morphology.
-    
-    Args:
-        morphology_id: ID of the morphology to delete.
-    
-    Returns:
-        Confirmation message.
+    Returns the properties of a neuron morphology.
     """
-    try:
-        genome = core_api.get_genome()
-        if not genome or "morphologies" not in genome:
-            raise HTTPException(status_code=404, detail=f"Morphology {morphology_id} not found")
-        
-        if morphology_id not in genome["morphologies"]:
-            raise HTTPException(status_code=404, detail=f"Morphology {morphology_id} not found")
-        
-        # Check if the morphology is in use by any cortical areas
-        if "blueprint" in genome:
-            for area_id, area_data in genome["blueprint"].items():
-                if area_data.get("morphology") == morphology_id:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Cannot delete morphology {morphology_id} as it is in use by cortical area {area_id}"
-                    )
-        
-        # Delete the morphology
-        del genome["morphologies"][morphology_id]
-        
-        # Save the updated genome
-        if core_api.get_genome_filename():
-            save_genome(genome, core_api.get_genome_filename())
-        
-        return {"message": f"Morphology {morphology_id} deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting morphology {morphology_id}: {str(e)}") 
+    report = {}
+    for morphology in runtime_data.genome["neuron_morphologies"]:
+        if morphology not in report:
+            report[morphology] = runtime_data.genome["neuron_morphologies"][morphology]["type"]
+    return report
+
+
+@router.get("/morphology_functions")
+async def genome_neuron_morphology_functions():
+    """
+    Returns the list of morphology function names.
+    """
+    morphology_list = set()
+    for entry in dir(synaptogenesis_rules):
+        if str(entry)[:4] == "syn_":
+            morphology_list.add(str(entry))
+    return morphology_list
+
+
+@router.post("/morphology_properties")
+async def genome_neuron_morphology_properties(morphology_name: MorphologyName):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    morphology_name = morphology_name.morphology_name
+    if morphology_name in runtime_data.genome['neuron_morphologies']:
+        results = runtime_data.genome['neuron_morphologies'][morphology_name]
+        results["morphology_name"] = morphology_name
+        return results
+    else:
+        raise HTTPException(status_code=400, detail=f"Morphology named {morphology_name} not found!")
+
+
+@router.post("/morphology_usage")
+async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    morphology_name = morphology_name.morphology_name
+    if morphology_name in runtime_data.genome["neuron_morphologies"]:
+        usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
+        if usage_list:
+            return usage_list
+        else:
+            return JSONResponse(status_code=200, content=[])
+    else:
+        return JSONResponse(status_code=400, content="Morphology not found")
+
+
+@router.put("/morphology")
+async def genome_update_neuron_morphology(morphology_input: MorphologyInput):
+    """
+    Updates an exsiting morphology of non-core class
+    """
+    if morphology_input.morphology_name not in runtime_data.genome['neuron_morphologies']:
+        raise HTTPException(status_code=400, detail=f"Morphology {morphology_input.morphology_name} not found!")
+    elif runtime_data.genome['neuron_morphologies'][morphology_input.morphology_name]["class"] == "core":
+        raise HTTPException(status_code=400, detail=f"{morphology_input.morphology_name} is a core morphology and "
+                                                    f"cannot be modified!")
+    else:
+        message = dict()
+        message["name"] = morphology_input.morphology_name
+        message["type"] = morphology_input.morphology_type
+        message["class"] = runtime_data.genome['neuron_morphologies'][morphology_input.morphology_name]["class"]
+        message["parameters"] = morphology_input.morphology_parameters
+
+        message = {'update_morphology_properties': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+
+
+@router.post("/morphology")
+async def genome_add_neuron_morphology(morphology_input: MorphologyInput):
+    """
+    Create new connectivity rule aka. neuron morphology.
+    """
+    morphology_name = morphology_input.morphology_name
+    if morphology_input.morphology_name not in runtime_data.genome['neuron_morphologies']:
+        runtime_data.genome['neuron_morphologies'][morphology_name] = {}
+        runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_input.morphology_type
+        runtime_data.genome['neuron_morphologies'][morphology_name]["class"] = "custom"
+        runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = \
+            morphology_input.morphology_parameters
+    else:
+        pass
+
+
+@router.delete("/morphology")
+async def genome_delete_neuron_morphology(morphology_name: MorphologyName):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    # todo: Needs to be rewritten
+    morphology_name = morphology_name.morphology_name
+    if morphology_name in runtime_data.genome['neuron_morphologies']:
+        if "class" in runtime_data.genome['neuron_morphologies'][morphology_name]:
+            if runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "custom":
+                usage = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
+                if not usage:
+                    runtime_data.genome['neuron_morphologies'].pop(morphology_name)
+                else:
+                    raise HTTPException(status_code=400, detail="In use morphology cannot be deleted!")
+            elif runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "core":
+                raise HTTPException(status_code=400, detail="Core morphology cannot be deleted!")
+        else:
+            pass
+    else:
+        raise HTTPException(status_code=400, detail=f"Morphology with name {morphology_name} not found!")
+
+
+@router.get("/morphologies")
+async def comprehensive_morphology_list():
+    """
+    Returns all morphologies and all payloads
+    """
+    if runtime_data.genome['neuron_morphologies']:
+        return runtime_data.genome['neuron_morphologies']

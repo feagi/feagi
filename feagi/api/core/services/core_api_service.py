@@ -216,9 +216,9 @@ class CoreAPIService:
         result = []
         try:
             if not self._connectome_manager._areas:
-                # No areas exist at all
-                self.logger.warning("No cortical areas available")
-                return []
+                # No areas exist at all, try getting them from FEAGI
+                self.logger.warning("No cortical areas available in connectome manager, trying FEAGI instance")
+                return self._feagi.get_cortical_areas()
             
             has_non_test_areas = any(
                 area_id != self._test_area_id and not area.properties.get("is_test_area", False)
@@ -228,6 +228,11 @@ class CoreAPIService:
             # If the genome is loaded but no non-test areas exist, that's a problem
             if self._current_genome is not None and not has_non_test_areas:
                 self.logger.warning("Genome is loaded but no cortical areas from genome exist")
+                
+                # Try getting areas from FEAGI as a fallback
+                feagi_areas = self._feagi.get_cortical_areas()
+                if feagi_areas:
+                    return feagi_areas
             
             # Convert all areas to API format
             for area_id, area in self._connectome_manager._areas.items():
@@ -1101,7 +1106,12 @@ class CoreAPIService:
         Returns:
             Filename of the current genome, or None if no genome is loaded.
         """
-        return self._genome_filename
+        # Use the locally stored filename if available
+        if self._genome_filename:
+            return self._genome_filename
+            
+        # Delegate to the FEAGI instance as a fallback
+        return self._feagi.get_genome_filename()
     
     def get_genome_counter(self) -> int:
         """
@@ -1471,27 +1481,8 @@ class CoreAPIService:
         if self._current_genome is None:
             self.logger.info("No genome loaded, returning default cortical area types")
         
-        # In a real implementation, this might come from a configuration file
-        # or be derived from the genome
-        return {
-            "types": [
-                "ipu",       # Input Processing Unit
-                "opu",       # Output Processing Unit
-                "interconnect", # Interconnection
-                "memory",    # Memory
-                "sensory",   # Sensory processing
-                "motor",     # Motor control
-                "association", # Association areas
-                "prefrontal", # Prefrontal cortex
-                "custom"     # Custom area type
-            ],
-            "parameters": {
-                "ipu": ["modality", "input_channels", "mapping"],
-                "opu": ["modality", "output_channels", "mapping"],
-                "memory": ["capacity", "decay_rate", "association_threshold"],
-                "custom": []  # Custom areas can have any parameters
-            }
-        }
+        # Delegate to the FEAGI instance to match the legacy API format
+        return self._feagi.get_cortical_area_types()
     
     def get_input_sources(self) -> List[Dict[str, Any]]:
         """
@@ -1615,16 +1606,9 @@ class CoreAPIService:
         Returns:
             Dictionary containing burst engine configuration.
         """
-        # This is a placeholder implementation
         self.logger.info("get_burst_engine_config called")
-        return {
-            "burst_duration": 10,
-            "refractory_period": 5,
-            "threshold": 0.5,
-            "decay_rate": 0.1,
-            "firing_threshold": 0.7,
-            "membrane_potential_decay": 0.05
-        }
+        # Delegate to the FEAGI instance to match the legacy API format
+        return self._feagi.get_burst_engine_config()
         
     def update_burst_engine_config(self, config: Dict[str, Any]) -> bool:
         """

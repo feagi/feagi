@@ -313,11 +313,13 @@ This document provides a detailed, sequential checklist for implementing the FEA
 - Some core functionality in CoreAPIService is missing (AttributeError: 'FEAGI' object has no attribute 'get_cortical_areas')
 - The ZMQ server has startup and shutdown issues that need to be addressed
 - API port binding conflicts suggest improved port detection/handling is needed
+- Inconsistent router tags in legacy API implementation (using underscores instead of hyphens)
 
 **Next Steps:**
 1. **Integration Fixes**
    - [x] Add cortical_mapping_router to the __init__.py exports
    - [x] Update app.py to include the cortical_mapping_router
+   - [x] Standardize legacy API router tags to match exactly with legacy FEAGI (using hyphens)
    - [ ] Implement missing FEAGI core methods referenced in CoreAPIService
 
 2. **Remaining API Implementation**

@@ -75,7 +75,7 @@ def test_get_burst_engine_config(client, mock_core_api):
     # Override the app's dependency to use our fixture
     app.dependency_overrides[get_core_api] = lambda: mock_core_api
     
-    response = client.get("/api/v1/burst_engine/config")
+    response = client.get("/api/v0/burst_engine/config")
     assert response.status_code == 200
     data = response.json()
     
@@ -107,7 +107,7 @@ def test_update_burst_engine_config(client, mock_core_api):
         }
     }
     
-    response = client.put("/api/v1/burst_engine/config", json=update_data)
+    response = client.put("/api/v0/burst_engine/config", json=update_data)
     assert response.status_code == 200
     data = response.json()
     
@@ -132,7 +132,7 @@ def test_update_burst_engine_config_failure(client, mock_core_api):
         }
     }
     
-    response = client.put("/api/v1/burst_engine/config", json=update_data)
+    response = client.put("/api/v0/burst_engine/config", json=update_data)
     assert response.status_code == 500
     data = response.json()
     
@@ -148,7 +148,7 @@ def test_get_burst_engine_stats(client, mock_core_api):
     # Override the app's dependency to use our fixture
     app.dependency_overrides[get_core_api] = lambda: mock_core_api
     
-    response = client.get("/api/v1/burst_engine/stats")
+    response = client.get("/api/v0/burst_engine/stats")
     assert response.status_code == 200
     data = response.json()
     

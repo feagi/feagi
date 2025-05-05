@@ -1,182 +1,284 @@
-"""REST API server implementation for FEAGI."""
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-import os
-import time
-import logging
-import importlib
 import traceback
-from typing import Dict, Any, List, Optional, Callable, Awaitable
+import time
+import string
+import random
 
-from fastapi import FastAPI, Request, Response, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from threading import Thread
 
-from ..core.services.core_api_service import CoreAPIService
+from .config import settings
+
+from .error_handling import *
+from .commons import CustomError, api_queue
+
+from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \
+    network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping, region
+from .routers.v1 import inputs
+from feagi.api.dependencies import *
+from feagi.api.models import *
 
 logger = logging.getLogger(__name__)
 
 
-# Global variable to store the CoreApiService instance
-core_api = None
+description = """FEAGI REST API will help you integrate FEAGI into other applications and 
+provides a programmatic method to interact with FEAGI. 
 
+"""
 
-def get_core_api() -> CoreAPIService:
-    """
-    Get the Core API service instance.
-    
-    This function is used as a dependency in FastAPI route handlers.
-    
-    Returns:
-        CoreAPIService: The Core API service instance.
-        
-    Raises:
-        HTTPException: If the Core API is not available.
-    """
-    if core_api is None:
-        logger.error("Core API service is not initialized")
-        raise HTTPException(status_code=503, detail="Core API service is not available")
-    return core_api
-
-
-def create_rest_app() -> FastAPI:
-    """
-    Create and configure the FastAPI application.
-    
-    This is a factory function that creates a new FastAPI application
-    instance each time it's called. It's used with the --factory flag
-    in uvicorn to ensure clean startup/shutdown.
-    
-    Returns:
-        Configured FastAPI application instance
-    """
-    # Create the FastAPI app
-    app = FastAPI(
-        title="FEAGI API",
-        description="FEAGI (Flexible Extensible Artificial General Intelligence) REST API",
-        version="1.0.0",  # Changed to match tests
-        docs_url="/docs",
-        redoc_url="/redoc",
+app = FastAPI(
+    title=settings.title,
+    description=settings.description,
+    version=settings.version,
+    terms_of_service=settings.terms_of_service,
+    contact=settings.contact,
+    license_info=settings.license_info,
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1,
+        "filter": True,  # Enable filtering
+        # "jsonEditor": True
+        }
     )
-    
-    # Configure CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins
-        allow_credentials=True,
-        allow_methods=["*"],  # Allow all methods
-        allow_headers=["*"],  # Allow all headers
-    )
-    
-    # Initialize Core API Service if enabled
-    global core_api
-    core_api_available = os.environ.get("FEAGI_CORE_API_AVAILABLE", "0") == "1"
-    
-    if core_api_available:
-        try:
-            core_api = CoreAPIService()
-            logger.info("Core API service initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Core API service: {e}")
-            core_api = None
-    
-    # Connect to ZMQ if enabled
-    zmq_enabled = os.environ.get("FEAGI_ZMQ_ENABLED", "0") == "1"
-    if zmq_enabled:
-        try:
-            # We don't need to create a ZMQ client here since
-            # the process manager will have started the ZMQ server
-            logger.info("ZMQ connection enabled")
-        except Exception as e:
-            logger.error(f"Failed to connect to ZMQ server: {e}")
-    
-    # Register middleware
-    @app.middleware("http")
-    async def log_request_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        """Log details about each request and response."""
-        start_time = time.time()
-        method = request.method
-        path = request.url.path
-        
-        try:
-            response = await call_next(request)
-            duration = time.time() - start_time
-            logger.info(f"Method: {method}, Path: {path}, Status: {response.status_code}, Duration: {duration:.4f}s")
-            return response
-        except Exception as e:
-            duration = time.time() - start_time
-            logger.error(f"Method: {method}, Path: {path}, Error: {str(e)}, Duration: {duration:.4f}s")
-            logger.error(traceback.format_exc())
-            return JSONResponse(
-                status_code=500,
-                content={"detail": "Internal server error"}
-            )
-    
-    # Register exception handler
-    @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-        """Handle HTTP exceptions."""
+
+
+favicon_path = settings.favicon_path
+
+
+ORIGINS = settings.origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
+)
+
+
+def kickstart_feagi_thread():
+    print("<>--" * 20)
+    print("Starting FEAGI thread..")
+    runtime_data.feagi_thread = Thread(target=start_feagi, args=(api_queue,))
+    runtime_data.feagi_thread.start()
+
+
+kickstart_feagi_thread()
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """
+    Credit: Phil Girard
+    """
+    idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    logger.info(f"rid={idem} start request path={request.url.path}")
+    start_time = time.time()
+
+    response = await call_next(request)
+
+    process_time = (time.time() - start_time) * 1000
+    formatted_process_time = '{0:.2f}'.format(process_time)
+    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}")
+
+    # print(response.status_code, ":", request.method, ":", request.url.path)
+    return response
+
+
+@app.middleware("http")
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except CustomError as e:
+        # Handle CustomError
+        print(f"Exception:\n {e}", traceback.print_exc())
         return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.detail}
+            status_code=e.status_code,
+            content={"message": f"A custom error occurred: {str(e.message)}"},
         )
-    
-    @app.exception_handler(Exception)
-    async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        """Handle general exceptions."""
-        logger.error(f"Unhandled exception: {str(exc)}")
-        logger.error(traceback.format_exc())
+    except Exception as e:
+        print(f"Exception:\n {e}", traceback.print_exc())
         return JSONResponse(
             status_code=500,
-            content={"detail": "Internal server error"}
+            content={
+                "type": "error",
+                "code": "UNHANDLED_EXCEPTION",
+                "message": f"An error occurred: {str(e)}"
+            },
         )
-    
-    # Import and include API routers
-    try:
-        from .v1.router import router as router_v1
-        app.include_router(router_v1, prefix="/api/v1")
-    except ImportError as e:
-        logger.error(f"Failed to import API v1 router: {e}")
-    
-    @app.get("/")
-    async def root() -> Dict[str, Any]:
-        """Root endpoint."""
-        return {
-            "name": "FEAGI API",
-            "version": "1.0.0",  # Changed to match tests
-            "message": "Welcome to FEAGI REST API",  # Changed to match tests exactly
-            "docs": "/docs",
-            "status": "running"
-        }
-    
-    @app.get("/status")
-    async def status() -> Dict[str, Any]:
-        """Server status endpoint."""
-        return {
-            "status": "running",
-            "timestamp": time.time(),
-            "core_api_available": core_api is not None,
-            "zmq_enabled": zmq_enabled
-        }
-    
-    # Add health check endpoint
-    @app.get("/health")
-    async def health_check() -> Dict[str, str]:
-        """Health check endpoint."""
-        return {
-            "status": "ok"  # Changed to match tests
-        }
-    
-    # Add version endpoint
-    @app.get("/version")
-    async def version() -> Dict[str, str]:
-        """Get API version."""
-        return {
-            "version": "1.0.0"  # Changed to match tests
-        }
-    
-    return app
+
+standard_response = {
+        400: {
+            "model": GeneralErrorResponse,
+            "description": "All Handled Errors",
+            "content": {
+                "application/json": {
+                    "example": {"error_code": 400, "error_message": "Request failed"}
+                }
+            }
+        },
+        500: {
+            "model": InternalServerErrorResponse,
+            "description": "Internal Server Error",
+            "content": {
+                "application/json": {
+                    "example": {"error_code": 500, "error_message": "Internal error"}
+                }
+            }
+        },
+    }
 
 
-# Create a direct instance of the app for tests
-app = create_rest_app() 
+# todo: To add the ability of updating allowable cors list on the fly
+# # Append to the CORS origin
+# @app.middleware("http")
+# async def update_cors_origin(request, call_next):
+#     response = await call_next(request)
+#     origin = response.headers.get("Access-Control-Allow-Origin", "")
+#     new_origin = ""
+#     response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
+#     return response
+
+app.include_router(
+    genome.router,
+    prefix="/v1/genome",
+    tags=["GENOME"],
+    dependencies=[Depends(check_burst_engine)],
+    responses=standard_response
+)
+
+app.include_router(
+    connectome.router,
+    prefix="/v1/connectome",
+    tags=["CONNECTOME"],
+    dependencies=[Depends(check_brain_running)],
+    responses=standard_response
+)
+
+app.include_router(
+    burst_engine.router,
+    prefix="/v1/burst_engine",
+    tags=["BURST ENGINE"],
+    dependencies=[Depends(check_burst_engine)],
+    responses=standard_response
+)
+
+app.include_router(
+    evolution.router,
+    prefix="/v1/evolution",
+    tags=["EVOLUTIONARY"],
+    dependencies=[Depends(check_burst_engine)],
+    responses=standard_response
+)
+
+app.include_router(
+    feagi_agent.router,
+    prefix="/v1/agent",
+    tags=["FEAGI AGENT"],
+    dependencies=[Depends(check_burst_engine)],
+    responses=standard_response
+)
+
+app.include_router(
+    insights.router,
+    prefix="/v1/insight",
+    tags=["INSIGHTS"],
+    dependencies=[Depends(check_brain_running)],
+    responses=standard_response
+)
+
+app.include_router(
+    morphology.router,
+    prefix="/v1/morphology",
+    tags=["NEURON MORPHOLOGIES"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
+    cortical_area.router,
+    prefix="/v1/cortical_area",
+    tags=["CORTICAL AREAS"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
+    region.router,
+    prefix="/v1/region",
+    tags=["BRAIN REGIONS"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
+    cortical_mapping.router,
+    prefix="/v1/cortical_mapping",
+    tags=["CORTICAL MAPPINGS"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
+    neuroplasticity.router,
+    prefix="/v1/neuroplasticity",
+    tags=["NEUROPLASTICITY"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
+    inputs.router,
+    prefix="/v1/input",
+    tags=["INPUT MANAGEMENT"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
+    network.router,
+    prefix="/v1/network",
+    tags=["NETWORK"],
+    dependencies=[],
+    responses=standard_response
+)
+
+app.include_router(
+    simulation.router,
+    prefix="/v1/simulation",
+    tags=["SIMULATION"],
+    dependencies=[Depends(check_brain_running)],
+    responses=standard_response
+)
+
+app.include_router(
+    system.router,
+    prefix="/v1/system",
+    tags=["SYSTEM"],
+    dependencies=[],
+    responses=standard_response
+)
+app.include_router(
+    training.router,
+    prefix="/v1/training",
+    tags=["TRAINING"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+

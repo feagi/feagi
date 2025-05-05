@@ -14,34 +14,32 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
+
 from fastapi import APIRouter, HTTPException
 
 from ...commons import *
-from ...schemas import *
-
-from src.version import __version__
-from src.evo.templates import cortical_types
-from src.pns.vision import generate_vision_configuration
-
 
 router = APIRouter()
 
 
-# ######   System Endpoints #########
-# ###################################
+# ######  Networking Endpoints #########
+# ##################################
 
-@router.get("/vision")
-async def get_vision_tuning_parameters():
-    vision_params = generate_vision_configuration()
+@router.get("/network")
+async def network_management():
+    if runtime_data.parameters['Sockets']:
+        return runtime_data.parameters['Sockets']
+    else:
+        raise HTTPException(status_code=400, detail=f"Networking data not available!")
 
-    return vision_params
 
-
-@router.post("/vision")
-async def set_vision_tuning_parameters(vision_settings: VisionSettings):
-    vision_configuration_params = vision_settings.dict(exclude_none=True)
-    vision_configuration_params = {'vision': vision_configuration_params}
-    print("*-----* " * 200 + "\n", vision_configuration_params)
-    api_queue.put(item=vision_configuration_params)
-
+# @router.api_route("/network", methods=['POST'], tags=["Networking"])
+# async def network_management(message: Network):
+#     try:
+#         message = message.dict()
+#         message = {'network_management': message}
+#         api_queue.put(item=message)
+#         return runtime_data.parameters['Sockets']
+#     except Exception as e:
+#         print("API Error:", e)
+#

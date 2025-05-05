@@ -42,7 +42,7 @@ def mock_core_api():
 
 def test_get_simulation_status(client, mock_core_api):
     """Test getting the simulation status."""
-    response = client.get("/api/v1/simulation/status")
+    response = client.get("/api/v0/simulation/status")
     assert response.status_code == 200
     data = response.json()
     
@@ -62,7 +62,7 @@ def test_get_simulation_status(client, mock_core_api):
 
 def test_start_simulation(client, mock_core_api):
     """Test starting the simulation."""
-    response = client.post("/api/v1/simulation/start")
+    response = client.post("/api/v0/simulation/start")
     assert response.status_code == 200
     data = response.json()
     
@@ -78,7 +78,7 @@ def test_start_simulation_failure(client, mock_core_api):
     # Override the mock to simulate failure
     mock_core_api.start_simulation.return_value = False
     
-    response = client.post("/api/v1/simulation/start")
+    response = client.post("/api/v0/simulation/start")
     assert response.status_code == 500
     data = response.json()
     
@@ -91,7 +91,7 @@ def test_start_simulation_failure(client, mock_core_api):
 
 def test_stop_simulation(client, mock_core_api):
     """Test stopping the simulation."""
-    response = client.post("/api/v1/simulation/stop")
+    response = client.post("/api/v0/simulation/stop")
     assert response.status_code == 200
     data = response.json()
     
@@ -107,7 +107,7 @@ def test_stop_simulation_failure(client, mock_core_api):
     # Override the mock to simulate failure
     mock_core_api.stop_simulation.return_value = False
     
-    response = client.post("/api/v1/simulation/stop")
+    response = client.post("/api/v0/simulation/stop")
     assert response.status_code == 500
     data = response.json()
     

@@ -62,7 +62,7 @@ def mock_core_api():
 # Test Region API Endpoints
 def test_get_all_regions(client, mock_core_api):
     """Test getting all brain regions."""
-    response = client.get("/api/v1/region/")
+    response = client.get("/api/v0/region/")
     assert response.status_code == 200
     data = response.json()
     assert "regions" in data
@@ -75,7 +75,7 @@ def test_get_all_regions(client, mock_core_api):
 
 def test_get_region(client, mock_core_api):
     """Test getting a specific brain region."""
-    response = client.get("/api/v1/region/1")
+    response = client.get("/api/v0/region/1")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "1"
@@ -90,7 +90,7 @@ def test_get_nonexistent_region(client, mock_core_api):
     # Override the mock to simulate no regions
     mock_core_api.get_genome.return_value = {"regions": {}}
     
-    response = client.get("/api/v1/region/999")
+    response = client.get("/api/v0/region/999")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
@@ -131,8 +131,8 @@ def test_create_region(client, mock_core_api):
     ]
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.region.save_genome', side_effect=mock_save_genome):
-        response = client.post("/api/v1/region/", json=new_region)
+    with patch('feagi.api.rest.routers.v0.region.save_genome', side_effect=mock_save_genome):
+        response = client.post("/api/v0/region/", json=new_region)
     
     assert response.status_code == 200
     data = response.json()
@@ -171,8 +171,8 @@ def test_update_region(client, mock_core_api):
     ]
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.region.save_genome', side_effect=mock_save_genome):
-        response = client.put("/api/v1/region/1", json=region_update)
+    with patch('feagi.api.rest.routers.v0.region.save_genome', side_effect=mock_save_genome):
+        response = client.put("/api/v0/region/1", json=region_update)
     
     assert response.status_code == 200
     data = response.json()
@@ -189,8 +189,8 @@ def test_delete_region(client, mock_core_api):
     }
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.region.save_genome', return_value=True):
-        response = client.delete("/api/v1/region/1")
+    with patch('feagi.api.rest.routers.v0.region.save_genome', return_value=True):
+        response = client.delete("/api/v0/region/1")
     
     assert response.status_code == 200
     assert "deleted successfully" in response.json()["message"]
@@ -203,7 +203,7 @@ def test_delete_region_in_use(client, mock_core_api):
         "blueprint": {"101": {"name": "Area 1", "region": "1"}}  # Area is using this region
     }
     
-    response = client.delete("/api/v1/region/1")
+    response = client.delete("/api/v0/region/1")
     assert response.status_code == 400
     assert "cannot delete" in response.json()["detail"].lower()
 
@@ -222,8 +222,8 @@ def test_add_cortical_area_to_region(client, mock_core_api):
     }
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.region.save_genome', return_value=True):
-        response = client.post("/api/v1/region/1/cortical_areas", json=mapping)
+    with patch('feagi.api.rest.routers.v0.region.save_genome', return_value=True):
+        response = client.post("/api/v0/region/1/cortical_areas", json=mapping)
     
     assert response.status_code == 200
     data = response.json()
@@ -241,8 +241,8 @@ def test_remove_cortical_area_from_region(client, mock_core_api):
     }
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.region.save_genome', return_value=True):
-        response = client.delete("/api/v1/region/1/cortical_areas/101")
+    with patch('feagi.api.rest.routers.v0.region.save_genome', return_value=True):
+        response = client.delete("/api/v0/region/1/cortical_areas/101")
     
     assert response.status_code == 200
     assert "removed from region" in response.json()["message"] 

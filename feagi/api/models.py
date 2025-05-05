@@ -15,25 +15,15 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter
-
-from src.inf import runtime_data
+from pydantic import BaseModel
 
 
-router = APIRouter()
+class InternalServerErrorResponse(BaseModel):
+    error_code: int
+    error_message: str
 
 
-@router.get("/plasticity_queue_depth")
-async def show_plasticity_queue_depth():
-    """
-    Returns the current plasticity queue depth value
-    """
-    return runtime_data.genome["physiology"]["plasticity_queue_depth"]
-
-
-@router.put("/plasticity_queue_depth")
-async def update_plasticity_queue_depth(queue_depth: int):
-    """
-    Enables changes against various Burst Engine parameters.
-    """
-    runtime_data.genome["physiology"]["plasticity_queue_depth"] = queue_depth
+class GeneralErrorResponse(BaseModel):
+    error_code: int
+    error_message: str
+    user_readable_message: str

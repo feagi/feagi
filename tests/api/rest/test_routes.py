@@ -57,7 +57,7 @@ def test_router_structure(client):
     # Check for router prefixes - adapt these to what's actually available
     # We'll use more flexible checks
     prefixes = [
-        "/api/v1",
+        "/api/v0",
         "/health",
         "/version"
     ]
@@ -69,18 +69,18 @@ def test_routes_exist(client):
     """Test that all the expected route prefixes work."""
     # Define the common paths to test
     prefixes = [
-        "/api/v1/system",
-        "/api/v1/genome",
-        "/api/v1/simulation",
-        "/api/v1/cortical_area",
-        "/api/v1/region",
-        "/api/v1/inputs",
-        "/api/v1/burst_engine",
-        "/api/v1/connectome",
-        "/api/v1/insights",
-        "/api/v1/morphology",
-        "/api/v1/neuroplasticity",
-        "/api/v1/cortical_mapping"
+        "/api/v0/system",
+        "/api/v0/genome",
+        "/api/v0/simulation",
+        "/api/v0/cortical_area",
+        "/api/v0/region",
+        "/api/v0/inputs",
+        "/api/v0/burst_engine",
+        "/api/v0/connectome",
+        "/api/v0/insights",
+        "/api/v0/morphology",
+        "/api/v0/neuroplasticity",
+        "/api/v0/cortical_mapping"
     ]
     
     # Test each prefix with a bogus endpoint that shouldn't exist

@@ -54,7 +54,7 @@ def mock_core_api():
 
 def test_get_configuration(client, mock_core_api):
     """Test getting the system configuration."""
-    response = client.get("/api/v1/system/configuration/")
+    response = client.get("/api/v0/system/configuration/")
     assert response.status_code == 200
     data = response.json()
     
@@ -81,7 +81,7 @@ def test_update_configuration(client, mock_core_api):
         }
     }
     
-    response = client.put("/api/v1/system/configuration/", json=update_data)
+    response = client.put("/api/v0/system/configuration/", json=update_data)
     assert response.status_code == 200
     data = response.json()
     
@@ -103,7 +103,7 @@ def test_update_configuration_failure(client, mock_core_api):
         }
     }
     
-    response = client.put("/api/v1/system/configuration/", json=update_data)
+    response = client.put("/api/v0/system/configuration/", json=update_data)
     assert response.status_code == 500
     data = response.json()
     
@@ -116,7 +116,7 @@ def test_update_configuration_failure(client, mock_core_api):
 
 def test_get_brain_state(client, mock_core_api):
     """Test getting the brain state."""
-    response = client.get("/api/v1/system/brain/")
+    response = client.get("/api/v0/system/brain/")
     assert response.status_code == 200
     data = response.json()
     

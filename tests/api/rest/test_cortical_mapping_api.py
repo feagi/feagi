@@ -72,7 +72,7 @@ def mock_core_api():
 # Test Cortical Mapping API Endpoints
 def test_get_all_mappings(client, mock_core_api):
     """Test getting all cortical mappings."""
-    response = client.get("/api/v1/cortical_mapping/")
+    response = client.get("/api/v0/cortical_mapping/")
     assert response.status_code == 200
     data = response.json()
     
@@ -91,7 +91,7 @@ def test_get_all_mappings(client, mock_core_api):
 def test_get_all_mappings_with_filters(client, mock_core_api):
     """Test getting all cortical mappings with source/target filters."""
     # Test filtering by source_id
-    response = client.get("/api/v1/cortical_mapping/", params={"source_id": "101"})
+    response = client.get("/api/v0/cortical_mapping/", params={"source_id": "101"})
     assert response.status_code == 200
     data = response.json()
     
@@ -99,7 +99,7 @@ def test_get_all_mappings_with_filters(client, mock_core_api):
     assert data["mappings"][0]["source_id"] == "101"
     
     # Test filtering by target_id
-    response = client.get("/api/v1/cortical_mapping/", params={"target_id": "101"})
+    response = client.get("/api/v0/cortical_mapping/", params={"target_id": "101"})
     assert response.status_code == 200
     data = response.json()
     
@@ -108,7 +108,7 @@ def test_get_all_mappings_with_filters(client, mock_core_api):
 
 def test_get_mapping(client, mock_core_api):
     """Test getting a specific cortical mapping."""
-    response = client.get("/api/v1/cortical_mapping/1")
+    response = client.get("/api/v0/cortical_mapping/1")
     assert response.status_code == 200
     data = response.json()
     
@@ -122,7 +122,7 @@ def test_get_nonexistent_mapping(client, mock_core_api):
     # Override mock to return a genome without the requested mapping
     mock_core_api.get_genome.return_value = {"connectivity": {}}
     
-    response = client.get("/api/v1/cortical_mapping/999")
+    response = client.get("/api/v0/cortical_mapping/999")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
@@ -154,8 +154,8 @@ def test_create_mapping(client, mock_core_api):
         return True
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.cortical_mapping.save_genome', side_effect=mock_save_genome):
-        response = client.post("/api/v1/cortical_mapping/", json=new_mapping)
+    with patch('feagi.api.rest.routers.v0.cortical_mapping.save_genome', side_effect=mock_save_genome):
+        response = client.post("/api/v0/cortical_mapping/", json=new_mapping)
     
     assert response.status_code == 200
     data = response.json()
@@ -177,7 +177,7 @@ def test_create_mapping_invalid_areas(client, mock_core_api):
         "parameters": {}
     }
     
-    response = client.post("/api/v1/cortical_mapping/", json=new_mapping)
+    response = client.post("/api/v0/cortical_mapping/", json=new_mapping)
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
@@ -202,8 +202,8 @@ def test_update_mapping(client, mock_core_api):
         return True
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.cortical_mapping.save_genome', side_effect=mock_save_genome):
-        response = client.put("/api/v1/cortical_mapping/1", json=mapping_update)
+    with patch('feagi.api.rest.routers.v0.cortical_mapping.save_genome', side_effect=mock_save_genome):
+        response = client.put("/api/v0/cortical_mapping/1", json=mapping_update)
     
     assert response.status_code == 200
     data = response.json()
@@ -221,15 +221,15 @@ def test_delete_mapping(client, mock_core_api):
         return True
     
     # Patch the save_genome function used in the endpoint
-    with patch('feagi.api.rest.routers.v1.cortical_mapping.save_genome', side_effect=mock_save_genome):
-        response = client.delete("/api/v1/cortical_mapping/1")
+    with patch('feagi.api.rest.routers.v0.cortical_mapping.save_genome', side_effect=mock_save_genome):
+        response = client.delete("/api/v0/cortical_mapping/1")
     
     assert response.status_code == 200
     assert "deleted successfully" in response.json()["message"]
 
 def test_get_mapping_stats(client, mock_core_api):
     """Test getting statistics about a specific cortical mapping."""
-    response = client.get("/api/v1/cortical_mapping/1/stats")
+    response = client.get("/api/v0/cortical_mapping/1/stats")
     assert response.status_code == 200
     data = response.json()
     
@@ -253,7 +253,7 @@ def test_get_mapping_stats(client, mock_core_api):
 
 def test_apply_mapping(client, mock_core_api):
     """Test applying a cortical mapping to generate connections."""
-    response = client.post("/api/v1/cortical_mapping/1/apply")
+    response = client.post("/api/v0/cortical_mapping/1/apply")
     assert response.status_code == 200
     data = response.json()
     
@@ -270,7 +270,7 @@ def test_apply_mapping(client, mock_core_api):
 
 def test_get_mapping_templates(client, mock_core_api):
     """Test getting available cortical mapping templates."""
-    response = client.post("/api/v1/cortical_mapping/templates")
+    response = client.post("/api/v0/cortical_mapping/templates")
     assert response.status_code == 200
     data = response.json()
     

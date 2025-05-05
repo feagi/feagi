@@ -1,41 +1,67 @@
-"""Simulation API router for FEAGI REST API."""
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-from typing import Dict, Any
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter
 
-from feagi.api.core.services import CoreAPIService
-from feagi.api.rest.app import get_core_api
+from ...schemas import *
+from ...commons import *
 
-# Models for request/response
-class SimulationStatusResponse(BaseModel):
-    """Response model for simulation status."""
-    running: bool
-    burst_count: int
-    uptime: float
-    performance: Dict[str, float]
 
-# Create router with appropriate tag
-router = APIRouter(prefix="/simulation", tags=["simulation"])
+router = APIRouter()
 
-@router.post("/start")
-async def start_simulation(core_api: CoreAPIService = Depends(get_core_api)):
-    """Start the simulation."""
-    success = core_api.start_simulation()
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to start simulation")
-    return {"message": "Simulation started successfully"}
 
-@router.post("/stop")
-async def stop_simulation(core_api: CoreAPIService = Depends(get_core_api)):
-    """Stop the simulation."""
-    success = core_api.stop_simulation()
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to stop simulation")
-    return {"message": "Simulation stopped successfully"}
+# ######  Stimulation #########
+# #############################
 
-@router.get("/status", response_model=SimulationStatusResponse)
-async def get_simulation_status(core_api: CoreAPIService = Depends(get_core_api)):
-    """Get the current simulation status."""
-    status = core_api.get_simulation_status()
-    return status 
+@router.post("/upload/string")
+async def stimulation_string_upload(stimulation_script: Stimulation):
+    """
+    stimulation_script = {
+    "IR_pain": {
+        "repeat": 10,
+        "definition": [
+            [{"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]}, 10],
+            [{"i__pro": ["0-0-8"]}, 5],
+            [{"i__bat": ["0-0-7"]}, 1],
+            [{}, 50]
+            ]
+    },
+    "exploration": {
+        "definition": []
+    },
+    "move_forward": {
+        "definition": []
+    },
+    "charge_batteries": {
+        "repeat": 1000,
+        "definition": [
+            [{"i__inf": ["2-0-0"]}, 2]
+        ]
+    }
+    """
+
+    runtime_data.stimulation_script = stimulation_script.stimulation_script
+
+    # message = stimulation_script.dict()
+    # message = {'stimulation_script': message}
+    # api_queue.put(item=message)
+
+
+@router.post("/reset")
+async def stimulation_string_upload():
+    message = {"stimulation_script": {}}
+    message = {'stimulation_script': message}
+    api_queue.put(item=message)

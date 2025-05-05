@@ -57,7 +57,7 @@ def test_activity_heatmap(client, mock_core_api):
         "threshold": 0.1
     }
     
-    response = client.post("/api/v1/insights/activity/heatmap", json=request_data)
+    response = client.post("/api/v0/insights/activity/heatmap", json=request_data)
     assert response.status_code == 200
     data = response.json()
     
@@ -83,7 +83,7 @@ def test_neuron_activity_time_series(client, mock_core_api):
         "window": 5
     }
     
-    response = client.post("/api/v1/insights/activity/neurons", json=request_data)
+    response = client.post("/api/v0/insights/activity/neurons", json=request_data)
     assert response.status_code == 200
     data = response.json()
     
@@ -105,7 +105,7 @@ def test_neuron_activity_time_series(client, mock_core_api):
 
 def test_network_analytics(client, mock_core_api):
     """Test getting network analytics data."""
-    response = client.get("/api/v1/insights/network/analytics")
+    response = client.get("/api/v0/insights/network/analytics")
     assert response.status_code == 200
     data = response.json()
     
@@ -136,7 +136,7 @@ def test_network_analytics(client, mock_core_api):
 
 def test_performance_stats(client, mock_core_api):
     """Test getting performance statistics."""
-    response = client.get("/api/v1/insights/performance/stats", params={"window": 10})
+    response = client.get("/api/v0/insights/performance/stats", params={"window": 10})
     assert response.status_code == 200
     data = response.json()
     
@@ -162,7 +162,7 @@ def test_performance_stats(client, mock_core_api):
 
 def test_activity_summary(client, mock_core_api):
     """Test getting activity summary data."""
-    response = client.get("/api/v1/insights/activity/summary", params={"window": 1})
+    response = client.get("/api/v0/insights/activity/summary", params={"window": 1})
     assert response.status_code == 200
     data = response.json()
     
@@ -192,7 +192,7 @@ def test_activity_summary(client, mock_core_api):
 
 def test_connectivity_graph(client, mock_core_api):
     """Test getting connectivity graph data."""
-    response = client.get("/api/v1/insights/connectivity/graph", params={"include_weights": True, "min_weight": 0.2})
+    response = client.get("/api/v0/insights/connectivity/graph", params={"include_weights": True, "min_weight": 0.2})
     assert response.status_code == 200
     data = response.json()
     
