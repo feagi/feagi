@@ -1,0 +1,370 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "FEAGI API",
+    "description": "FEAGI (Framework for Evolutionary Artificial General Intelligence) REST API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/cortical-areas": {
+      "get": {
+        "summary": "Get All Cortical Areas",
+        "operationId": "get_all_cortical_areas_v1_cortical_areas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorticalAreaList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Cortical Area",
+        "operationId": "create_cortical_area_v1_cortical_areas_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorticalAreaCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorticalAreaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cortical-areas/{area_id}": {
+      "get": {
+        "summary": "Get Cortical Area",
+        "operationId": "get_cortical_area_v1_cortical_areas__area_id__get",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "title": "Area Id",
+              "type": "string"
+            },
+            "name": "area_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorticalAreaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Cortical Area",
+        "operationId": "delete_cortical_area_v1_cortical_areas__area_id__delete",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "title": "Area Id",
+              "type": "string"
+            },
+            "name": "area_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cortical-area-types": {
+      "get": {
+        "summary": "Get Cortical Area Types",
+        "operationId": "get_cortical_area_types_v1_cortical_area_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/burst-engine/config": {
+      "get": {
+        "summary": "Get Burst Engine Config",
+        "operationId": "get_burst_engine_config_v1_burst_engine_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/genome/file_name": {
+      "get": {
+        "summary": "Get Genome Filename",
+        "operationId": "get_genome_filename_v1_genome_file_name_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/genome/upload/barebones": {
+      "post": {
+        "summary": "Upload Barebones Genome",
+        "operationId": "upload_barebones_genome_v1_genome_upload_barebones_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CorticalAreaBase": {
+        "title": "CorticalAreaBase",
+        "required": [
+          "name",
+          "coordinates",
+          "dimensions",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "coordinates": {
+            "title": "Coordinates",
+            "description": "3D coordinates of the cortical area",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "dimensions": {
+            "title": "Dimensions",
+            "description": "Dimensions of the cortical area",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "parameters": {
+            "title": "Parameters",
+            "description": "Additional parameters for the cortical area",
+            "type": "object",
+            "default": {}
+          }
+        }
+      },
+      "CorticalAreaCreate": {
+        "title": "CorticalAreaCreate",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CorticalAreaBase"
+          }
+        ]
+      },
+      "CorticalAreaList": {
+        "title": "CorticalAreaList",
+        "required": [
+          "areas"
+        ],
+        "type": "object",
+        "properties": {
+          "areas": {
+            "title": "Areas",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CorticalAreaResponse"
+            }
+          }
+        }
+      },
+      "CorticalAreaResponse": {
+        "title": "CorticalAreaResponse",
+        "required": [
+          "name",
+          "coordinates",
+          "dimensions",
+          "type",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "coordinates": {
+            "title": "Coordinates",
+            "description": "3D coordinates of the cortical area",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "dimensions": {
+            "title": "Dimensions",
+            "description": "Dimensions of the cortical area",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "parameters": {
+            "title": "Parameters",
+            "description": "Additional parameters for the cortical area",
+            "type": "object",
+            "default": {}
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "neuron_count": {
+            "title": "Neuron Count",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CorticalAreaBase"
+          }
+        ]
+      },
+      "HTTPValidationError": {
+        "title": "HTTPValidationError",
+        "type": "object",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "title": "ValidationError",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "loc": {
+            "title": "Location",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+} 

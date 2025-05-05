@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+"""
+Test script for the SharedMemoryFEAGIGateway
+"""
+
+import logging
+import time
+import os
+import sys
+import tempfile
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("test_shared_memory")
+
+# Import shared memory components
+from feagi.api.shared_memory.feagi_gateway import SharedMemoryFEAGIGateway
+from feagi.api.shared_memory.manager import SharedMemoryManager
+from feagi.api.shared_memory.events import EventNotificationSystem, EventType
+from feagi.api.shared_memory.data_structures import SharedConfigDict
+
+def test_basic_initialization():
+    """Test basic initialization of the shared memory gateway."""
+    try:
+        # Create a temporary directory for shared memory files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logger.info(f"Using temporary directory: {temp_dir}")
+            
+            # Initialize gateway
+            gateway = SharedMemoryFEAGIGateway(
+                process_name="test_process",
+                temp_dir=temp_dir
+            )
+            
+            logger.info("SharedMemoryFEAGIGateway initialized successfully")
+            
+            # Test config dictionary
+            gateway.config_dict.set("test_key", "test_value")
+            value = gateway.config_dict.get("test_key")
+            assert value == "test_value", f"Expected 'test_value', got {value}"
+            logger.info("Config dictionary test passed")
+            
+            # Test event system
+            event_received = False
+            
+            def event_handler(event):
+                nonlocal event_received
+                event_received = True
+                logger.info(f"Received event: {event}")
+            
+            gateway.event_system.register_handler(EventType.CONFIG_UPDATED, event_handler)
+            gateway.event_system.send_event(EventType.CONFIG_UPDATED, {"test": True})
+            
+            # Wait for event to be processed
+            time.sleep(0.5)
+            assert event_received, "Event was not received"
+            logger.info("Event system test passed")
+            
+            # Clean up
+            gateway.shutdown()
+            logger.info("Gateway shutdown successfully")
+            return True
+    except Exception as e:
+        logger.error(f"Test failed: {e}", exc_info=True)
+        return False
+
+def test_burst_engine_config():
+    """Test getting and setting burst engine configuration."""
+    try:
+        # Create a temporary directory for shared memory files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logger.info(f"Using temporary directory: {temp_dir}")
+            
+            # Initialize gateway
+            gateway = SharedMemoryFEAGIGateway(
+                process_name="test_process",
+                temp_dir=temp_dir
+            )
+            
+            # Set burst engine config
+            test_config = {
+                "burst_duration": 15,
+                "inter_burst_interval": 7,
+                "maximum_firing_rate": 120,
+                "threshold": 0.6
+            }
+            
+            result = gateway.set_burst_engine_config(test_config)
+            assert result, "Failed to set burst engine config"
+            
+            # Get burst engine config
+            config = gateway.get_burst_engine_config()
+            assert config.get("burst_duration") == 15, f"Expected burst_duration=15, got {config.get('burst_duration')}"
+            assert config.get("inter_burst_interval") == 7, f"Expected inter_burst_interval=7, got {config.get('inter_burst_interval')}"
+            
+            logger.info("Burst engine config test passed")
+            
+            # Clean up
+            gateway.shutdown()
+            return True
+    except Exception as e:
+        logger.error(f"Test failed: {e}", exc_info=True)
+        return False
+
+if __name__ == "__main__":
+    print("Testing SharedMemoryFEAGIGateway...")
+    
+    if test_basic_initialization():
+        print("✅ Basic initialization test passed")
+    else:
+        print("❌ Basic initialization test failed")
+    
+    if test_burst_engine_config():
+        print("✅ Burst engine config test passed")
+    else:
+        print("❌ Burst engine config test failed") 

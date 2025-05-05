@@ -17,41 +17,38 @@
 
 from fastapi import APIRouter
 
-from ...schemas import BurstEngine
+from ...schemas import BurstEngineConfig
 from ...commons import *
-
-from src.inf import runtime_data
-
 
 router = APIRouter()
 
 
 # ######  Burst-Engine Endpoints #########
 # ########################################
-@router.get("/burst_counter")
-async def burst_engine_params():
+@router.get("/burst_counter", response_model=int)
+async def burst_engine_counter():
     """
     Return the number associated with current FEAGI burst instance.
     """
-    if runtime_data.burst_count:
-        return runtime_data.burst_count
+    # Mock data for now
+    return 0
 
 
-@router.get("/stimulation_period")
-async def burst_engine_params():
+@router.get("/config", response_model=BurstEngineConfig)
+async def get_burst_engine_config():
     """
-    Returns the time it takes for each burst to execute in seconds.
+    Returns the burst engine configuration.
     """
-    if runtime_data.burst_timer:
-        return runtime_data.burst_timer
+    # Mock data for now
+    return BurstEngineConfig()
 
 
-@router.post("/stimulation_period")
-async def change_stimulation_period(message: BurstEngine):
+@router.post("/config", response_model=BurstEngineConfig)
+async def update_burst_engine_config(config: BurstEngineConfig):
     """
-    Enables changes against various Burst Engine parameters.
+    Updates the burst engine configuration.
     """
-
-    message = message.dict()
+    message = config.dict()
     message = {'burst_management': message}
     api_queue.put(item=message)
+    return config
