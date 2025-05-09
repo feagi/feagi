@@ -115,4 +115,16 @@ class FCLSampler:
         print("FCLSampler stopped.")
 
     def stop(self):
-        self.running = False 
+        self.running = False
+
+    def update_area_sample_rate(self, area_id, rate):
+        """
+        Update the sample rate for a specific area at runtime (live reconfiguration).
+        This updates the last sample time and ensures the new rate is used immediately.
+        """
+        if self.connectome_manager is not None:
+            area = self.connectome_manager.cortical_areas.get(area_id)
+            if area is not None:
+                area.properties['fcl_sample_rate'] = rate
+                # Optionally reset last sample time to force immediate sample
+                self._last_sample_time_per_area[area_id] = 0 

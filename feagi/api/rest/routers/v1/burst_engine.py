@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException
 from ...schemas import BurstEngineConfig, FCLSamplerConfig, FCLSamplerConsumer, FCLSampleRateConfig
 from ...commons import *
 from feagi.core.state_manager import FeagiStateManager
+from feagi.process_manager import process_manager
 
 router = APIRouter()
 
@@ -106,5 +107,6 @@ async def set_area_fcl_sample_rate(area_id: int, config: FCLSampleRateConfig):
     if area is None:
         raise HTTPException(status_code=404, detail="Cortical area not found")
     area.properties['fcl_sample_rate'] = config.sample_rate
-    # Optionally persist or notify other components here
+    # Live reconfiguration: notify process manager/FCLSampler if running
+    process_manager.update_area_sample_rate(area_id, config.sample_rate)
     return FCLSampleRateConfig(sample_rate=config.sample_rate)
