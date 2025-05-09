@@ -1,4 +1,48 @@
- # Burst Engine Implementation
+# Burst Engine Implementation (Python)
+
+## Overview
+
+The Python `BurstEngine` class implements a real-time burst loop for FEAGI neural simulation. It is designed to be RTOS/Rust-friendly, with:
+- Pre-allocated data structures (no dynamic allocation in the main loop)
+- Explicit, simple control flow
+- Easy migration path to embedded or real-time systems
+
+## Features
+- Runs at a configurable burst frequency (Hz)
+- Tracks actual vs. desired burst frequency
+- Implements load shedding: if the system cannot keep up, cortical areas with `__shed` enabled will have their FCL content dropped for that burst
+- Updates the actual frequency in the global state manager for monitoring
+
+## Main Loop Logic
+1. **Pre-allocate** all required data (cortical area list, shed area set)
+2. **For each burst:**
+    - Record start time
+    - Process neuron firing (calls `update_membrane_potentials`)
+    - Measure elapsed time and compute actual frequency
+    - If actual frequency < desired, clear FCL for all `__shed` areas (load shedding)
+    - Update the state manager with the actual frequency
+    - Sleep for the remainder of the burst interval (if any)
+
+## Example Usage
+
+```python
+from feagi.npu.burst_engine import BurstEngine
+# Assume connectome_manager is an instance of ConnectomeManager
+burst_engine = BurstEngine(connectome_manager, desired_frequency_hz=20)
+burst_engine.run()
+```
+
+## RTOS/Rust-Friendly Design Notes
+- No dynamic allocation in the main loop
+- All configuration and memory allocation happens before entering the loop
+- The main loop is a single, clear sequence of steps
+- All timing and state reporting are explicit and easy to port
+- No Python-specific magic or global state
+
+## Load Shedding
+If the actual burst frequency drops below the desired frequency, the engine will clear the FCL content for all cortical areas with the `__shed` property enabled. This allows the system to maintain overall performance under high computational load.
+
+# Burst Engine Implementation
 
 The Burst Engine is a core component of the Neural Processing Unit (NPU) in FEAGI that handles all activities related to neuron firing, including updating membrane potentials, managing fire candidate lists, and handling cortical stimulation.
 

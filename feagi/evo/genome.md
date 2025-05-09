@@ -123,6 +123,9 @@ Areas with the `is_mem_type` flag have special temporal properties, including:
 - Lifespan parameters for memory persistence
 - Thresholds for long-term memory formation
 
+### Load Shedding for Cortical Areas
+The `__shed` property (load shedding) can be set for any cortical area. If set to `true`, this area will be skipped (its FCL content dropped) during simulation bursts when the system is unable to maintain the desired burst frequency. Default is `false`. This property allows selective load reduction under high computational stress, helping the system maintain overall performance.
+
 ### Cortical Area Types
 The system supports different functional area types including:
 - Input Processing Units (IPU)

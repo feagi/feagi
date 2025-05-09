@@ -81,6 +81,7 @@ Cortical area properties:
 - memory neuron initial lifespan
 - memory neuron lifespan growth rate (int32)
 - memory neuron longterm conversion threshold
+- **load shedding (__shed)**: If set to true, this cortical area will be skipped (its FCL content dropped) during simulation bursts when the system is unable to maintain the desired burst frequency. Default is false. This property allows selective load reduction under high computational stress.
 
 # Cortical Area Implementation
 
@@ -112,11 +113,11 @@ The implementation uses the following data structures:
 # Core neuron properties using Structure of Arrays pattern
 membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
 thresholds = np.zeros(max_neurons, dtype=np.float32)
-positions_x = np.zeros(max_neurons, dtype=np.int32)
-positions_y = np.zeros(max_neurons, dtype=np.int32)
-positions_z = np.zeros(max_neurons, dtype=np.int32)
-neuron_indices = np.zeros(max_neurons, dtype=np.int32)  # Index within voxel
-area_ids = np.zeros(max_neurons, dtype=np.int32)
+positions_x = np.zeros(max_neurons, dtype=np.uint32)
+positions_y = np.zeros(max_neurons, dtype=np.uint32)
+positions_z = np.zeros(max_neurons, dtype=np.uint32)
+neuron_indices = np.zeros(max_neurons, dtype=np.uint32)  # Index within voxel
+area_ids = np.zeros(max_neurons, dtype=np.uint32)
 is_active = np.zeros(max_neurons, dtype=bool)
 ```
 
