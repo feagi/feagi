@@ -6,12 +6,13 @@ This document explains how FEAGI 2.1 maintains backward compatibility with legac
 
 The FEAGI 2.1 API is designed with the following principles:
 
-1. **Direct Endpoint Replication**: Rather than creating a compatibility layer or bridge between old and new APIs, FEAGI 2.1 directly replicates the exact endpoints from legacy FEAGI.
+1. **Direct Endpoint Replication**: Rather than creating a compatibility layer or bridge between old and new APIs, FEAGI 2.1 directly replicates the exact endpoints from legacy FEAGI as V1 super route.
 
 2. **Process Separation**: The API server runs as a separate process from the burst engine to ensure:
    - API requests don't disrupt neural simulations
    - Different CPU priority allocations can be applied
    - The API can be stopped/restarted without affecting the burst engine
+   - The API can be completely decoupled and removed for select use-cases
 
 3. **High-Performance IPC**: Inter-process communication between the API and burst engine uses efficient shared memory mechanisms rather than socket-based communication.
 
@@ -31,6 +32,7 @@ The implementation also accepts kebab-case variants (e.g., `/v1/cortical-areas`)
 
 ## Path Format Standardization
 
+To comply with industry best practices, FEAGI 2.0 is adopting the kebob-case aka. dash-case instead of snake_case format
 The legacy FEAGI API used snake_case for path segments (e.g., `/v1/cortical_area`, `/v1/burst_engine`). The FEAGI 2.1 API maintains this naming convention for all routes while accepting hyphenated alternatives:
 
 - `/v1/cortical_area` and `/v1/cortical-area` are both valid

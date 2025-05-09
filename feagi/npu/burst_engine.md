@@ -1,4 +1,4 @@
-# Burst Engine Implementation
+ # Burst Engine Implementation
 
 The Burst Engine is a core component of the Neural Processing Unit (NPU) in FEAGI that handles all activities related to neuron firing, including updating membrane potentials, managing fire candidate lists, and handling cortical stimulation.
 
