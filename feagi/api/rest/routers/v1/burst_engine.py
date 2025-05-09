@@ -15,10 +15,11 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
-from ...schemas import BurstEngineConfig
+from ...schemas import BurstEngineConfig, FCLSamplerConfig, FCLSamplerConsumer, FCLSampleRateConfig
 from ...commons import *
+from feagi.core.state_manager import FeagiStateManager
 
 router = APIRouter()
 
@@ -52,3 +53,58 @@ async def update_burst_engine_config(config: BurstEngineConfig):
     message = {'burst_management': message}
     api_queue.put(item=message)
     return config
+
+
+@router.get("/fcl_sampler/config", response_model=FCLSamplerConfig)
+async def get_fcl_sampler_config():
+    """
+    Returns the FCLSampler configuration (frequency, consumer).
+    """
+    state = FeagiStateManager.instance()
+    return FCLSamplerConfig(
+        frequency=state.get_fcl_sampler_frequency(),
+        consumer=FCLSamplerConsumer(state.get_fcl_sampler_consumer())
+    )
+
+
+@router.post("/fcl_sampler/config", response_model=FCLSamplerConfig)
+async def update_fcl_sampler_config(config: FCLSamplerConfig):
+    """
+    Updates the FCLSampler configuration (frequency, consumer).
+    Only supports Visualization and Motor as consumer options for now.
+    """
+    state = FeagiStateManager.instance()
+    state.set_fcl_sampler_frequency(config.frequency)
+    state.set_fcl_sampler_consumer(config.consumer.value)
+    # TODO: Notify process manager/FCLSampler to update live config if running
+    return config
+
+
+@router.get("/fcl_sampler/area/{area_id}/sample_rate", response_model=FCLSampleRateConfig)
+async def get_area_fcl_sample_rate(area_id: int):
+    """
+    Get the FCL sample rate for a specific cortical area.
+    """
+    # Assume connectome_manager is globally accessible or injected
+    area = connectome_manager.cortical_areas.get(area_id)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Cortical area not found")
+    rate = area.properties.get('fcl_sample_rate', None)
+    if rate is None:
+        rate = FeagiStateManager.instance().get_fcl_sampler_frequency()  # fallback to global
+    return FCLSampleRateConfig(sample_rate=rate)
+
+
+@router.post("/fcl_sampler/area/{area_id}/sample_rate", response_model=FCLSampleRateConfig)
+async def set_area_fcl_sample_rate(area_id: int, config: FCLSampleRateConfig):
+    """
+    Set the FCL sample rate for a specific cortical area.
+    """
+    if config.sample_rate <= 0:
+        raise HTTPException(status_code=400, detail="Sample rate must be positive")
+    area = connectome_manager.cortical_areas.get(area_id)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Cortical area not found")
+    area.properties['fcl_sample_rate'] = config.sample_rate
+    # Optionally persist or notify other components here
+    return FCLSampleRateConfig(sample_rate=config.sample_rate)

@@ -56,6 +56,9 @@ class FeagiStateStruct(ctypes.Structure):
         ("burst_engine_state", ctypes.c_uint8),
         ("burst_frequency", ctypes.c_float),
         ("simulation_state", ctypes.c_uint8),
+        ("fcl_sampler_state", ctypes.c_uint8),
+        ("fcl_sampler_frequency", ctypes.c_float),
+        ("fcl_sampler_consumer", ctypes.c_uint8),
         ("state_version", ctypes.c_uint64),
     ]
 
@@ -183,6 +186,34 @@ class FeagiStateManager:
         self.state_ptr.contents.simulation_state = int(state)
         self.state_ptr.contents.state_version += 1
         
+    # ===== FCLSampler State =====
+    def get_fcl_sampler_state(self) -> ServiceState:
+        """Get current FCLSampler state as enum value"""
+        raw_value = self.state_ptr.contents.fcl_sampler_state
+        return ServiceState(raw_value)
+    def set_fcl_sampler_state(self, state: ServiceState) -> None:
+        """Set FCLSampler state using enum value"""
+        self.state_ptr.contents.fcl_sampler_state = int(state)
+        self.state_ptr.contents.state_version += 1
+
+    # ===== FCLSampler Frequency =====
+    def get_fcl_sampler_frequency(self) -> float:
+        """Get current FCLSampler frequency in Hz"""
+        return self.state_ptr.contents.fcl_sampler_frequency
+    def set_fcl_sampler_frequency(self, frequency: float) -> None:
+        """Set FCLSampler frequency in Hz"""
+        self.state_ptr.contents.fcl_sampler_frequency = frequency
+        self.state_ptr.contents.state_version += 1
+
+    # ===== FCLSampler Consumer =====
+    def get_fcl_sampler_consumer(self) -> int:
+        """Get current FCLSampler consumer code (1=Visualization, 2=Motor, 3=Both, etc.)"""
+        return self.state_ptr.contents.fcl_sampler_consumer
+    def set_fcl_sampler_consumer(self, consumer: int) -> None:
+        """Set FCLSampler consumer code (1=Visualization, 2=Motor, 3=Both, etc.)"""
+        self.state_ptr.contents.fcl_sampler_consumer = consumer
+        self.state_ptr.contents.state_version += 1
+
     # ===== State Version =====
     def get_state_version(self) -> int:
         """Get current state version (increments on any state change)"""

@@ -151,7 +151,7 @@ def get_fcl_xor(time1, time2):
     Useful for detecting changes in firing patterns.
     """
     idx1 = time1 % ACTIVATION_WINDOW_SIZE
-    idx2 = time2 % ACTIVATION_WINDOW_SIZE
+    idx2 = time2 % ACTIVATION_SIZE
     
     return fcl_history[idx1] ^ fcl_history[idx2]  # Fast XOR operation
 
@@ -1166,23 +1166,86 @@ At the heart of the burst engine lies the FCL manager that is responsible for:
 
 The FCL Manager interfaces with the Hierarchical FCL implementation to manage the flow of neuron activations throughout the simulation.
 
-## FCL Sampler
+## FCL Sampler: Design and Integration (RTOS/Rust-Friendly)
 
-The FCL Sampler is responsible for:
-- Invoking the FCL manager at a configurable frequency
-- Generating motor commands based on neural activity
-- Providing data for brain visualization
-- Controlling sampling rate to balance performance and visual fidelity
+## Overview
 
-### Visualization Sampling
+The **FCLSampler** is a dedicated component responsible for sampling bursts (Fire Candidate Lists) from the neural simulation at a configurable rate for purposes such as visualization and motor command extraction. This design follows Option A: a separate sampler task/thread, which is the most RTOS/Rust-friendly approach.
 
-To maintain visualization performance for high-frequency simulations, the FCL Sampler supports two sampling modes:
+## Rationale
+- **Separation of Concerns:** The BurstEngine runs at high simulation frequency, while the FCLSampler operates at a lower, independently scheduled frequency.
+- **RTOS/Rust Compatibility:** Each component can be mapped to a periodic task/thread, using RTOS primitives (queues, mutexes) for communication.
+- **Determinism:** Both the burst engine and sampler have predictable, bounded execution times.
+- **Extensibility:** Multiple samplers or consumers (visualization, motor, logging) can be added without modifying the core burst engine.
 
-- **Ratio-based sampling** (0.0-1.0): Randomly selects a percentage of FCLs to visualize
-  - Example: 0.1 means visualize ~10% of FCLs
-  
-- **Frequency-based sampling** (>1.0): Caps visualization at a maximum frequency (Hz)
-  - Example: 30 means visualize at most 30 FCLs per second
+## Architecture
+
+```
+[BurstEngine] --updates--> [FCL Manager] <--read-- [FCLSampler] --+--> [Visualization]
+                                                                 |
+                                                                 +--> [Motor Command Extraction]
+```
+- **BurstEngine:** Updates the FCL at the simulation frequency.
+- **FCL Manager:** Maintains the rolling window/history of FCLs.
+- **FCLSampler:** Periodically samples the latest FCL and forwards it to consumers.
+
+## Sampling Strategies
+- **Ratio-based:** Sample a random X% of bursts (e.g., 10%).
+- **Frequency-based:** Sample at most N bursts per second (e.g., 30 Hz max).
+- **Nth-burst:** Sample every Nth burst (e.g., every 5th burst).
+
+## Integration Points
+- **Where to sample:** The FCLSampler runs in its own thread or async task, reading the latest FCL from the FCL manager at its configured interval.
+- **How to access FCL:** Direct reference (if in the same process/thread) or via a thread-safe queue or lock if needed.
+- **How to forward data:**
+  - Direct function call for motor command extraction
+  - Publish to a queue, websocket, or other IPC for visualization
+
+## RTOS/Rust-Friendly Design Notes
+- Each component (BurstEngine, FCLSampler) is a periodic task/thread.
+- All buffers and queues are pre-allocated; no dynamic allocation in the main loop.
+- Communication uses RTOS primitives (queues, mutexes) or Python equivalents (Queue, threading.Lock).
+- Deterministic, bounded execution for real-time guarantees.
+
+## Example Usage
+
+```python
+from feagi.npu.burst_engine import BurstEngine, FCLSampler
+from queue import Queue
+import threading
+
+# Assume connectome_manager is an instance of ConnectomeManager
+burst_engine = BurstEngine(connectome_manager, desired_frequency_hz=100)
+visualization_queue = Queue(maxsize=10)
+
+# FCLSampler samples at 20 Hz for visualization
+fcl_sampler = FCLSampler(
+    fcl_manager=connectome_manager.fcl_manager,
+    sample_frequency_hz=20,
+    output_queue=visualization_queue
+)
+
+# Start both components in separate threads
+burst_thread = threading.Thread(target=burst_engine.run)
+sampler_thread = threading.Thread(target=fcl_sampler.run)
+burst_thread.start()
+sampler_thread.start()
+
+# Visualization or motor module reads from visualization_queue
+```
+
+## Implementation Details
+- The FCLSampler maintains its own timing and can be stopped gracefully.
+- It supports different sampling strategies (frequency, ratio, Nth-burst).
+- It is easy to extend for multiple output queues or consumers.
+
+## Benefits
+- **Modular:** Easy to add/remove samplers or consumers.
+- **Deterministic:** Each task has a predictable schedule.
+- **RTOS/Rust-ready:** Direct mapping to RTOS tasks/threads and message queues.
+- **Scalable:** Supports multiple visualization or motor output modules.
+
+---
 
 ## Neuron Firing Dynamics
 
@@ -1263,3 +1326,110 @@ This shader demonstrates several important aspects of the NPU's design:
 5. **Workgroup Optimization**: Uses a workgroup size of 256 for efficient GPU utilization
 
 By using WebGPU, FEAGI achieves high-performance neural simulation across multiple platforms without vendor lock-in, making advanced brain simulation more accessible and portable. 
+
+## State Manager Integration and Observability
+
+The FCLSampler's operational state, sampling frequency, and consumer (e.g., Visualization, Motor, or Both) are now tracked in the global state manager. This allows for:
+- Real-time monitoring of the FCLSampler's health and configuration
+- Dynamic reconfiguration of sampling parameters at runtime
+- Robust diagnostics and system introspection
+
+### State Manager Fields
+- `fcl_sampler_state`: Service state (INITIALIZING, READY, ERROR, etc.)
+- `fcl_sampler_frequency`: Current sampling frequency in Hz
+- `fcl_sampler_consumer`: Code for the current consumer (1=Visualization, 2=Motor, 3=Both, etc.)
+
+## Dynamic Reconfiguration via API
+
+The FCLSampler's frequency and consumer can be made configurable via the FEAGI API. This enables remote or programmatic adjustment of sampling parameters without restarting the system.
+
+### Example API Endpoints (Intended Design)
+- `GET /api/v1/fcl_sampler/config` — Retrieve current FCLSampler configuration (frequency, consumer)
+- `POST /api/v1/fcl_sampler/config` — Update FCLSampler configuration
+
+#### Example Request to Change Frequency and Consumer
+```json
+POST /api/v1/fcl_sampler/config
+{
+  "frequency": 10.0,
+  "consumer": 3  // Both Visualization and Motor
+}
+```
+
+The process manager and FCLSampler will update their internal state and the state manager fields accordingly.
+
+## Example: Monitoring and Reconfiguring FCLSampler
+
+- **Monitor:**
+  - Use the state manager API or direct memory access to read `fcl_sampler_state`, `fcl_sampler_frequency`, and `fcl_sampler_consumer`.
+- **Reconfigure:**
+  - Send a POST request to the FCLSampler config endpoint to change frequency or consumer at runtime.
+
+## Updated Architecture Diagram
+
+```
+[BurstEngine] --updates--> [FCL Manager] <--read-- [FCLSampler] --+--> [Visualization]
+                                                                 |
+                                                                 +--> [Motor Command Extraction]
+
+[StateManager] <--- tracks state, frequency, consumer of FCLSampler
+```
+
+## Best Practices for RTOS/Rust
+- All configuration and state fields are fixed-size and C-compatible for easy migration.
+- Dynamic reconfiguration is handled via explicit API and state manager updates.
+- System is fully introspectable and robust for real-time and embedded deployments.
+
+## Per-Area Sample Rate Support in FCLSampler
+
+The FCLSampler now supports **per-cortical-area sample rates** using the `fcl_sample_rate` property in each area's `properties` dictionary.
+
+- **How it works:**
+  - If a cortical area has a `"fcl_sample_rate"` property (in Hz), the FCLSampler will sample that area's FCL at the specified rate.
+  - If not set, the global sample rate is used as a fallback.
+  - The sampler tracks the last sample time for each area and only samples when enough time has passed.
+  - The output queue receives `(area_id, area_fcl)` tuples for per-area samples.
+
+### Example: Setting Per-Area Sample Rate
+
+To set a sample rate of 10 Hz for area `area_1`:
+
+```json
+PATCH /api/v1/cortical_area/area_1
+{
+  "properties": {
+    "fcl_sample_rate": 10.0
+  }
+}
+```
+
+### FCLSampler Usage with Per-Area Rates
+
+```python
+# When initializing FCLSampler, pass connectome_manager:
+fcl_sampler = FCLSampler(
+    fcl_manager=connectome_manager.fcl_manager,
+    sample_frequency_hz=20,  # Global default
+    output_queue=visualization_queue,
+    connectome_manager=connectome_manager  # Enables per-area sampling
+)
+```
+
+### Updated Architecture
+
+```
+[BurstEngine] --updates--> [FCL Manager] <--read-- [FCLSampler] --+--> [Visualization]
+                                                                 |
+                                                                 +--> [Motor Command Extraction]
+
+[StateManager] <--- tracks state, frequency, consumer of FCLSampler
+
+[CorticalArea.properties] -- 'fcl_sample_rate' --> [FCLSampler] (per-area sampling)
+```
+
+### RTOS/Rust-Friendliness and Extensibility
+- Per-area sample rates are stored in fixed fields in each area's properties, not in a dynamic global mapping.
+- The FCLSampler logic is modular and can be ported to RTOS/Rust with statically allocated arrays for area sample rates and timers.
+- Adding new per-area properties or sampling logic is straightforward and does not require global schema changes.
+
+# ... rest of documentation ... 

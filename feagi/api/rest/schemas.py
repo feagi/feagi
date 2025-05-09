@@ -4,6 +4,7 @@ Pydantic schemas for the REST API.
 
 from typing import Dict, List, Any, Optional, Union
 from pydantic import BaseModel, Field
+from enum import Enum
 
 
 class ErrorResponse(BaseModel):
@@ -67,4 +68,19 @@ class SimulationStatus(BaseModel):
     running: bool = Field(description="Whether the simulation is running")
     burst_count: int = Field(description="Number of bursts executed")
     cycle_time: float = Field(description="Time per cycle in milliseconds")
-    running_time: float = Field(description="Total running time in seconds") 
+    running_time: float = Field(description="Total running time in seconds")
+
+
+class FCLSamplerConsumer(int, Enum):
+    visualization = 1
+    motor = 2
+    # Add more consumers as needed in the future
+
+
+class FCLSamplerConfig(BaseModel):
+    frequency: float = Field(..., description="FCLSampler frequency in Hz")
+    consumer: FCLSamplerConsumer = Field(..., description="FCLSampler consumer (visualization, motor, etc.)")
+
+
+class FCLSampleRateConfig(BaseModel):
+    sample_rate: float = Field(..., description="FCL sample rate for this cortical area in Hz") 

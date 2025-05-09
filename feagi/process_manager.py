@@ -14,6 +14,8 @@ import sys
 import threading
 import time
 from typing import Dict, Any, Optional, List, Tuple, Set
+from feagi.npu.burst_engine import FCLSampler
+from queue import Queue
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,10 @@ class ProcessManager:
         
         # Track which ports are in use
         self._used_ports = set()
+        
+        self._fcl_sampler = None
+        self._fcl_sampler_thread = None
+        self._fcl_sampler_queue = None
         
     def find_available_port(self, start_port: int, max_tries: int = 10) -> Optional[int]:
         """
@@ -140,6 +146,35 @@ class ProcessManager:
         logger.info("Initializing important (Priority 2) processes...")
         
         try:
+            # --- FCLSampler Integration ---
+            from feagi.core.state_manager import FeagiStateManager, ServiceState
+            state_manager = FeagiStateManager.instance()
+            state_manager.set_fcl_sampler_state(ServiceState.INITIALIZING)
+            # Set FCLSampler frequency and consumer in state manager
+            sampler_frequency = 20.0  # TODO: Make configurable
+            sampler_consumer = 1      # 1=Visualization, 2=Motor, 3=Both (default: Visualization)
+            state_manager.set_fcl_sampler_frequency(sampler_frequency)
+            state_manager.set_fcl_sampler_consumer(sampler_consumer)
+            # Create output queue for visualization/motor consumers
+            self._fcl_sampler_queue = Queue(maxsize=10)
+            # Use the FCL manager from critical processes
+            fcl_manager = self._fcl_manager
+            if fcl_manager is None:
+                logger.error("FCL Manager not initialized before FCLSampler!")
+                state_manager.set_fcl_sampler_state(ServiceState.ERROR)
+                return False
+            self._fcl_sampler = FCLSampler(
+                fcl_manager=fcl_manager,
+                sample_frequency_hz=sampler_frequency,
+                output_queue=self._fcl_sampler_queue
+            )
+            self._fcl_sampler_thread = threading.Thread(target=self._fcl_sampler.run, daemon=True)
+            self._fcl_sampler_thread.start()
+            state_manager.set_fcl_sampler_state(ServiceState.READY)
+            logger.info("FCLSampler started successfully.")
+            # --- FCLSampler Integration ---
+            # If you add dynamic reconfiguration of frequency/consumer, update state manager here as well.
+            
             # Initialize ZMQ server (acts as PNS Message Broker)
             zmq_config = config.get("zmq", {})
             
@@ -183,6 +218,9 @@ class ProcessManager:
             
         except Exception as e:
             logger.error(f"Failed to initialize important processes: {e}")
+            from feagi.core.state_manager import FeagiStateManager, ServiceState
+            state_manager = FeagiStateManager.instance()
+            state_manager.set_fcl_sampler_state(ServiceState.ERROR)
             return False
     
     def init_background_processes(self, config: Dict[str, Any]) -> bool:
@@ -426,6 +464,16 @@ class ProcessManager:
                 except:
                     if process.poll() is None:
                         process.kill()
+        
+        # Stop FCLSampler if running
+        if self._fcl_sampler:
+            logger.info("Stopping FCLSampler...")
+            self._fcl_sampler.stop()
+            if self._fcl_sampler_thread:
+                self._fcl_sampler_thread.join(timeout=2)
+            self._fcl_sampler = None
+            self._fcl_sampler_thread = None
+            self._fcl_sampler_queue = None
         
         logger.info("FEAGI servers shut down")
         

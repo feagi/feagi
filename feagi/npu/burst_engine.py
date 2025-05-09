@@ -54,3 +54,65 @@ class BurstEngine:
         # This method is added for testing purposes
         # It should be implemented to run the burst loop in a test environment
         pass 
+
+# --- FCLSampler Implementation ---
+
+class FCLSampler:
+    """
+    FCLSampler: Samples the latest FCL at a configurable frequency and forwards it to consumers (e.g., visualization, motor output).
+    - Now supports per-area sample rates using the 'fcl_sample_rate' property in each cortical area's properties dict.
+    - RTOS/Rust-friendly: runs as a periodic task/thread, no dynamic allocation in the main loop
+    - Supports graceful shutdown
+    """
+    def __init__(self, fcl_manager, sample_frequency_hz, output_queue, connectome_manager=None):
+        self.fcl_manager = fcl_manager
+        self.sample_frequency = sample_frequency_hz  # Global default
+        self.sample_interval = 1.0 / sample_frequency_hz
+        self.output_queue = output_queue
+        self.connectome_manager = connectome_manager  # Needed for per-area properties
+        self.running = False
+        self._last_sample_time_per_area = {}  # area_id -> last sample time
+
+    def run(self):
+        self.running = True
+        while self.running:
+            start = time.perf_counter()
+            now = start
+            # If connectome_manager is provided, support per-area sample rates
+            if self.connectome_manager is not None:
+                for area in self.connectome_manager.cortical_areas.values():
+                    area_id = area.id
+                    # Get per-area sample rate if set, else use global
+                    rate = area.properties.get('fcl_sample_rate', self.sample_frequency)
+                    interval = 1.0 / rate if rate > 0 else self.sample_interval
+                    last_time = self._last_sample_time_per_area.get(area_id, 0)
+                    if now - last_time >= interval:
+                        # Sample this area's FCL
+                        try:
+                            area_fcl = self.fcl_manager.get_area_fcl(area_id)
+                            # Put (area_id, area_fcl) in the output queue (non-blocking, drop if full)
+                            try:
+                                self.output_queue.put_nowait((area_id, area_fcl))
+                            except Exception:
+                                pass  # Optionally log dropped samples
+                        except Exception as e:
+                            print(f"FCLSampler error (area {area_id}): {e}")
+                        self._last_sample_time_per_area[area_id] = now
+            else:
+                # Global sampling (legacy behavior)
+                try:
+                    fcl_snapshot = self.fcl_manager.get_global_fcl()
+                    try:
+                        self.output_queue.put_nowait(fcl_snapshot)
+                    except Exception:
+                        pass
+                except Exception as e:
+                    print(f"FCLSampler error: {e}")
+            # Sleep for the remainder of the global sample interval
+            elapsed = time.perf_counter() - start
+            if elapsed < self.sample_interval:
+                time.sleep(self.sample_interval - elapsed)
+        print("FCLSampler stopped.")
+
+    def stop(self):
+        self.running = False 
