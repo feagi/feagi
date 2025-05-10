@@ -18,8 +18,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 
-from feagi.api.error_handling import generate_response
-from feagi.evo.voxels import generate_cortical_dimensions_by_id
+from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
 from feagi.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
 from feagi.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
@@ -374,7 +373,7 @@ async def update_coord_2d(new_2d_coordinates: dict):
             state.genome["blueprint"][cortical_area]["2d_coordinate"][1] = \
                 new_2d_coordinates[cortical_area][1]
 
-    state.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+    state.cortical_dimensions_by_id = None
 
 
 @router.put("/coord_3d")
@@ -391,7 +390,7 @@ async def update_coord_3d(new_3d_coordinates: dict):
             state.genome["blueprint"][cortical_area]["relative_coordinate"][2] = \
                 new_3d_coordinates[cortical_area][2]
 
-    state.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+    state.cortical_dimensions_by_id = None
 
 
 @router.get("/ipu")

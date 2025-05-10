@@ -24,7 +24,7 @@ Todo: Make improvements to this tool as it will have further use-cases.
 import logging
 import traceback
 
-import xxhash
+import hashlib
 from datetime import datetime
 from time import time
 from time import sleep
@@ -90,7 +90,7 @@ def clean_host_info(host_info):
 
 def generate_hash(payload):
     serialized_genome = json.dumps(payload, sort_keys=True)
-    signature = xxhash.xxh64(serialized_genome).hexdigest()
+    signature = hashlib.sha256(serialized_genome.encode('utf-8')).hexdigest()
     return signature
 
 

@@ -83,4 +83,85 @@ class FCLSamplerConfig(BaseModel):
 
 
 class FCLSampleRateConfig(BaseModel):
-    sample_rate: float = Field(..., description="FCL sample rate for this cortical area in Hz") 
+    sample_rate: float = Field(..., description="FCL sample rate for this cortical area in Hz")
+
+
+class AgentRegistration(BaseModel):
+    agent_id: str
+    agent_type: str
+    agent_data_port: int
+    agent_version: str
+    controller_version: str
+    capabilities: Optional[Dict[str, Any]] = None
+
+
+class RobotController(BaseModel):
+    # Add fields as needed; using a generic dict for now
+    parameters: Optional[Dict[str, Any]] = None
+
+
+class RobotModel(BaseModel):
+    # Add fields as needed; using a generic dict for now
+    parameters: Optional[Dict[str, Any]] = None
+
+
+class ManualStimulation(BaseModel):
+    stimulation_payload: Any 
+
+
+class RewiringMode(str, Enum):
+    rewire_all = "all"
+    rewire_system = "system"
+    rewire_none = "none"
+
+
+class UserPreferences(BaseModel):
+    adv_mode: bool
+    ui_magnification: float = 1.0
+
+
+# Registration model for agent registration endpoints
+class Registration(BaseModel):
+    agent_id: str
+    agent_type: str
+    agent_name: str
+    agent_version: str
+    agent_description: str
+    agent_ip: str
+    agent_port: int
+    agent_status: str
+    agent_capabilities: dict
+
+
+# Logs model for log management endpoints
+class Logs(BaseModel):
+    log_level: str
+    message: str
+    timestamp: Optional[str] = None
+
+
+# Subscriber model for beacon subscription endpoints
+class Subscriber(BaseModel):
+    subscriber_id: str
+    subscriber_type: str
+    subscriber_name: str
+    subscriber_ip: str
+    subscriber_port: int
+    subscriber_status: str
+    subscriber_capabilities: dict
+
+
+# VizSkipRate model for cortical area visualization skip rate endpoints
+class VizSkipRate(BaseModel):
+    cortical_area: str
+    skip_rate: int
+
+
+# VizThreshold model for cortical area visualization suppression threshold endpoints
+class VizThreshold(BaseModel):
+    visualization_threshold: int
+
+
+# BrainVisualization model for global activity visualization endpoints
+class BrainVisualization(BaseModel):
+    global_visualization: bool

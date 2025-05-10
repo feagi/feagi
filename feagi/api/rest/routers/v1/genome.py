@@ -17,19 +17,21 @@
 
 import os
 import json
+from enum import Enum
 
 from time import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
 from starlette.responses import FileResponse
+from pydantic import BaseModel
+from typing import Optional
 
 from ...schemas import *
 from ...commons import *
-from ...dependencies import check_active_genome
+from feagi.api.dependencies import check_active_genome
 
 from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
-from feagi.evo.stats import circuit_size
-from feagi.evo.region import region_id_2_title, construct_genome_from_region
+from feagi.bdu.brain_region import region_id_2_title, construct_genome_from_region
 from feagi.evo.templates import cortical_template
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
@@ -40,6 +42,20 @@ router = APIRouter()
 
 # Helper to get state manager instance
 state = FeagiStateManager.instance()
+
+
+# AmalgamationRequest model for amalgamation endpoints
+class AmalgamationRequest(BaseModel):
+    genome_id: Optional[str] = None
+    genome_title: Optional[str] = None
+    genome_payload: Optional[dict] = None
+
+
+# Local definition to avoid import issues
+class RewiringMode(str, Enum):
+    rewire_all = "all"
+    rewire_system = "system"
+    rewire_none = "none"
 
 
 # ######  Genome Endpoints #########
@@ -412,3 +428,29 @@ async def genome_append_circuit(circuit_origin_x: int,
 #     payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
 #     data = {'append_circuit': payload}
 #     api_queue.put(item=data)
+
+
+def circuit_size(blueprint):
+    """
+    Returns the size of genome in the form of voxel count in each axis
+
+    Returns:
+        (x, y, z)
+    """
+    dimensions = [1, 1, 1]
+
+    for cortical_area in blueprint:
+        x_coord = blueprint[cortical_area]["block_boundaries"][0] + blueprint[cortical_area]["relative_coordinate"][0]
+        y_coord = blueprint[cortical_area]["block_boundaries"][1] + blueprint[cortical_area]["relative_coordinate"][1]
+        z_coord = blueprint[cortical_area]["block_boundaries"][2] + blueprint[cortical_area]["relative_coordinate"][2]
+
+        if x_coord > dimensions[0]:
+            dimensions[0] = x_coord
+
+        if y_coord > dimensions[1]:
+            dimensions[1] = y_coord
+
+        if z_coord > dimensions[2]:
+            dimensions[2] = z_coord
+
+    return dimensions

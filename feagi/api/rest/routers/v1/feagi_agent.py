@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 
 from ...schemas import *
 from ...commons import *
+from feagi.api.rest.schemas import AgentRegistration
 
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager

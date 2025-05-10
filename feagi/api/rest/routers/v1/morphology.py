@@ -17,17 +17,42 @@
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from ...commons import *
 from ...schemas import *
 
-from feagi.evo import synaptogenesis_rules
-from feagi.bdu.synapse import morphology_usage_list
+from feagi.bdu import synaptogenesis_rules
 from feagi.bdu import ConnectomeManager
 from feagi.core.global_objects import connectome
 
 
 router = APIRouter()
+
+
+# MorphologyName model for endpoints
+class MorphologyName(BaseModel):
+    morphology_name: str
+
+
+# MorphologyInput model for endpoints
+class MorphologyInput(BaseModel):
+    morphology_name: str
+    morphology_type: str
+    morphology_parameters: dict
+
+
+def morphology_usage_list(morphology_name, genome):
+    """
+    Returns a list of (cortical_area, destination) tuples where the given morphology is used in the connectome.
+    """
+    usage_list = set()
+    for cortical_area in genome['blueprint']:
+        for destination in genome['blueprint'][cortical_area].get('cortical_mapping_dst', {}):
+            for mapping in genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
+                if mapping.get("morphology_id") == morphology_name:
+                    usage_list.add((cortical_area, destination))
+    return list(usage_list)
 
 
 @router.get("/morphology_list")

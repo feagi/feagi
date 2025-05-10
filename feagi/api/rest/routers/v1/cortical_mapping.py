@@ -19,7 +19,6 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from ...commons import *
 from ...schemas import *
-from ...dependencies import check_brain_running
 
 from feagi.evo.genome_properties import genome_properties
 from feagi.bdu import ConnectomeManager

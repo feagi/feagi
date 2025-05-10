@@ -16,6 +16,8 @@
 
 import os
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
+from ...schemas import Registration, Logs, Subscriber, VizSkipRate, VizThreshold, BrainVisualization
 
 from ...commons import *
 from ...schemas import *
@@ -23,6 +25,7 @@ from ...schemas import *
 from feagi.version import __version__
 from feagi.evo.templates import cortical_types
 from feagi.core.state_manager import FeagiStateManager
+from feagi.core.global_objects import connectome
 
 
 router = APIRouter()
@@ -220,13 +223,21 @@ async def update_cortical_area_visualization_suppression_threshold():
 
 
 @router.put("/cortical_area_visualization_skip_rate")
-async def update_cortical_area_visualization_skip_rate(cortical_viz_skip_rate: VizSkipRate):
-    """Set cortical area visualization skip rate. This value defines the number of skips between each instance of
-    neuron firing visualization"""
-    if cortical_viz_skip_rate.cortical_viz_skip_rate < 0:
-        raise HTTPException(status_code=400, detail=f"Visualization skip rate cannot be negative")
-    # TODO: Map cortical_viz_skip_rate to state manager if needed
-    state.cortical_viz_skip_rate = cortical_viz_skip_rate.cortical_viz_skip_rate
+async def update_cortical_area_visualization_skip_rate(viz_skip: VizSkipRate):
+    """
+    Set the FCL sample rate (Hz) for a specific cortical area for visualization purposes.
+    """
+    area_id = viz_skip.cortical_area
+    skip_rate = viz_skip.skip_rate
+    if skip_rate <= 0:
+        raise HTTPException(status_code=400, detail="Skip rate must be positive (Hz)")
+    area = connectome.cortical_areas.get(area_id)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Cortical area not found")
+    area.properties['fcl_sample_rate'] = skip_rate
+    # Optionally: notify FCLSampler/process_manager for live update
+    # process_manager.update_area_sample_rate(area_id, skip_rate)
+    return {"cortical_area": area_id, "fcl_sample_rate": skip_rate}
 
 
 @router.put("/cortical_area_visualization_suppression_threshold")
@@ -258,3 +269,9 @@ async def reset_fire_candidate_list():
     """Resets fire candidate list contents"""
     # TODO: Implement reset_fire_candidate_list function
     pass
+
+
+@router.get("/version")
+async def get_version():
+    """Returns the current FEAGI version."""
+    return JSONResponse(content={"version": __version__})

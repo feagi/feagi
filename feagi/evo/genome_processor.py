@@ -22,7 +22,7 @@ import datetime
 from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_validator import genome_validator
 from feagi.evo.templates import core_morphologies, cortical_types
-from feagi.evo.cortical_area import cortical_area_type
+from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.core.state_manager import FeagiStateManager
 
 
@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 # Helper to get state manager instance
 state = FeagiStateManager.instance()
+
+# TODO: Replace with actual global/singleton instance if available
+connectome_manager = None  # <-- Set this to the actual instance in your app
 
 
 def merge_core_morphologies(genome):
@@ -65,8 +68,22 @@ def genome_ver_check(genome):
 
 
 def update_template():
+    # Helper to map cortical_area (genome id) to area_id (int)
+    def get_area_by_genome_id(genome_id):
+        # TODO: Implement actual mapping from genome_id to area_id
+        # For now, assume area name == genome_id and search all areas
+        if connectome_manager is None:
+            raise RuntimeError("connectome_manager instance is not set!")
+        for area in connectome_manager._areas.values():
+            if area.name == genome_id:
+                return area
+        return None
+
     for cortical_area in state.genome["blueprint"]:
-        cortical_type = cortical_area_type(cortical_area=cortical_area)
+        area = get_area_by_genome_id(cortical_area)
+        if area is None:
+            continue  # or raise error
+        cortical_type = area.type.upper()  # e.g., 'IPU', 'OPU', etc.
         if cortical_type in ["IPU", "OPU"]:
             cortical_size = state.genome["blueprint"][cortical_area]["block_boundaries"]
 

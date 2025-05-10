@@ -21,6 +21,7 @@ except ImportError:
 
 # Type definitions to make migration to Rust more straightforward
 NeuronId = int
+AreaId = int  # Alias for backward compatibility
 CorticalIdx = int  # Changed from AreaId to CorticalIdx for consistency
 Timestep = int
 

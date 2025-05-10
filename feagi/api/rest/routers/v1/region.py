@@ -20,12 +20,12 @@ from fastapi.responses import JSONResponse
 from ...schemas import *
 from ...commons import *
 
-from feagi.evo.region import *
-from feagi.api.error_handling import generate_response
+from feagi.bdu.brain_region import *
+from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
-from feagi.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
-from feagi.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
-from feagi.evo.templates import cortical_types
+from feagi.bdu.x_genesis import add_core_cortical_area, add_custom_cortical_area
+from feagi.bdu.neuroembryogenesis import cortical_name_list, cortical_name_to_id
+from feagi.bdu.templates import cortical_types
 from feagi.core.state_manager import FeagiStateManager
 
 

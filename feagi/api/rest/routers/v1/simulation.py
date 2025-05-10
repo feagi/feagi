@@ -18,6 +18,7 @@ from fastapi import APIRouter
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
 from feagi.core.global_objects import connectome
+from pydantic import BaseModel
 
 from ...schemas import *
 from ...commons import *
@@ -25,6 +26,11 @@ from ...commons import *
 
 router = APIRouter()
 state = FeagiStateManager.instance()
+
+
+# Stimulation model for endpoints
+class Stimulation(BaseModel):
+    stimulation_script: str
 
 
 # ######  Stimulation #########

@@ -1,4 +1,3 @@
-
 #
 # Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
@@ -25,9 +24,14 @@ Supporting Genome Versions: 2.0
 import logging
 import traceback
 
-from src.inf import settings
-from src.evo.genome_properties import *
-from src.evo.templates import cortical_types
+# Terminal color codes for pretty printing
+class Bcolors:
+    OKGREEN = '\033[92m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
+
+from feagi.evo.genome_properties import *
+from feagi.evo.templates import cortical_types
 
 
 logger = logging.getLogger(__name__)
@@ -198,17 +202,17 @@ def blueprint_validator(genome):
 
 def print_validity(validity_status):
     if validity_status:
-        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
-        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
-        print("\n\t\t\t\t\t\t\t\tGenome validation completed successfully!!")
-        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
-        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
+        print("\n" + Bcolors.OKGREEN + "* -- * " * 20 + Bcolors.ENDC)
+        print("\n" + Bcolors.OKGREEN + "* -- * " * 20 + Bcolors.ENDC)
+        print("\n\t\t\t\t\t\t\tGenome validation completed successfully!!")
+        print("\n" + Bcolors.OKGREEN + "* -- * " * 20 + Bcolors.ENDC)
+        print("\n" + Bcolors.OKGREEN + "* -- * " * 20 + Bcolors.ENDC)
     else:
-        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
-        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
-        print("\n\t\t\t\t\t\t\t\tErrors detected during genome validation!!")
-        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
-        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
+        print("\n" + Bcolors.RED + "! ! " * 30 + Bcolors.ENDC)
+        print("\n" + Bcolors.RED + "! ! " * 30 + Bcolors.ENDC)
+        print("\n\t\t\t\t\t\t\tErrors detected during genome validation!!")
+        print("\n" + Bcolors.RED + "! ! " * 30 + Bcolors.ENDC)
+        print("\n" + Bcolors.RED + "! ! " * 30 + Bcolors.ENDC)
 
 
 def genome_validator(genome):
