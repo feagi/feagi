@@ -20,10 +20,8 @@ from fastapi.responses import JSONResponse
 
 from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
-from feagi.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
-from feagi.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from feagi.evo.templates import cortical_types
-from feagi.evo.region import change_cortical_area_parent
+from feagi.bdu.brain_region import change_cortical_area_parent, create_region, update_region, delete_region_with_members, relocate_region_members
 from feagi.evo.cortical_area import cortical_area_type, cortical_id_gen
 from feagi.evo.mapping_helper import generate_detailed_cortical_map
 from feagi.bdu import ConnectomeManager
@@ -206,7 +204,7 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties):
     message = new_cortical_properties.dict()
     message = {'add_core_cortical_area': message}
     print("*" * 50 + "\n", message)
-    api_queue.put(item=message)
+    connectome.add_core_cortical_area(message)
     return JSONResponse(status_code=200, content={'cortical_id': new_cortical_properties.cortical_id})
 
 
@@ -256,7 +254,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 
     message = {'add_custom_cortical_area': message}
     print("*-----* " * 200 + "\n", message)
-    api_queue.put(item=message)
+    connectome.add_custom_cortical_area(message)
 
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
@@ -290,7 +288,7 @@ async def genome_cortical_location_by_name(cortical_name: CorticalName):
     Returns a comprehensive list of all cortical area names.
     """
     cortical_name = cortical_name.cortical_name
-    cortical_area = cortical_name_to_id(cortical_name=cortical_name)
+    cortical_area = connectome.get_cortical_name_to_id(cortical_name)
     return state.genome["blueprint"][cortical_area]["relative_coordinate"]
 
 
@@ -299,8 +297,9 @@ async def genome_cortical_names():
     """
     Returns a comprehensive list of all cortical area names.
     """
-    if cortical_name_list:
-        return sorted(cortical_name_list())
+    name_list = connectome.get_cortical_name_list()
+    if name_list:
+        return sorted(name_list)
 
 
 @router.get("/cortical_types")

@@ -25,7 +25,6 @@ from threading import Thread
 
 from .config import settings
 
-from .error_handling import *
 from .commons import CustomError, api_queue
 
 from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \

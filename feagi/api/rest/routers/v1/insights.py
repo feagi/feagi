@@ -117,15 +117,15 @@ async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList, 
 # @router.post("/membrane_potential_monitoring/filter_setting")
 # async def neuron_membrane_potential_monitoring_scope(message: dict):
 #     """
-#     Monitor the membrane potential of select cortical areas and voxels in Grafana.
+#     Monitor the membrane potential of select cortical areas in Grafana.
 #     Message Template:
 #             {
 #                 "o__mot": {
-#                     "voxels": [[0, 0, 0], [2, 0, 0]],
+#                     "positions": [[0, 0, 0], [2, 0, 0]],
 #                     "neurons": []
 #                 },
 #                 "i__inf": {
-#                     "voxels": [[1, 1, 1]],
+#                     "positions": [[1, 1, 1]],
 #                     "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
 #                 },
 #                 ...
@@ -139,34 +139,34 @@ async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList, 
 # @router.post("/postsynaptic_potential_monitoring")
 # async def neuron_postsynaptic_potential_monitoring_scope(message: dict):
 #     """
-#     Monitor the post synaptic potentials of select cortical areas and voxels in Grafana.
+#     Monitor the post synaptic potentials of select cortical areas in Grafana.
 #
 #     Message Template:
 #             {
 #                 "o__mot": {
 #                     "dst_filter": {
-#                         "voxels": [[0, 0, 0], [2, 0, 0]],
+#                         "positions": [[0, 0, 0], [2, 0, 0]],
 #                         "neurons": []
 #                         },
 #                     "sources": {
 #                         "i__inf": {
-#                             "voxels": [[1, 1, 1]],
+#                             "positions": [[1, 1, 1]],
 #                             "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
 #                             },
 #                         "o__inf": {
-#                             "voxels": [[1, 1, 1]],
+#                             "positions": [[1, 1, 1]],
 #                             "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
 #                             }
 #                     },
 #                 },
 #                 "i__bat": {
 #                     "dst_filter": {
-#                         "voxels": [[0, 0, 0], [2, 0, 0]],
+#                         "positions": [[0, 0, 0], [2, 0, 0]],
 #                         "neurons": []
 #                     },
 #                     "sources": {
 #                         "i__inf": {
-#                             "voxels": [[1, 1, 1]],
+#                             "positions": [[1, 1, 1]],
 #                             "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
 #                         }
 #                     }

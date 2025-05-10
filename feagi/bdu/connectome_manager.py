@@ -1839,3 +1839,129 @@ class ConnectomeManager:
             logger.debug(f"Created {count} neurons in area {area.name} in batch mode")
             
             return neuron_ids
+
+    def add_core_cortical_area(self, cortical_properties):
+        """
+        Add a new core cortical area to the connectome. (Logic fully migrated from legacy x_genesis.py; no dependency remains. Reference for historical context only.)
+        Args:
+            cortical_properties: dict with keys like 'cortical_type', 'cortical_id', 'coordinates_3d', 'coordinates_2d', etc.
+        Returns:
+            The cortical_id of the created area, or None if failed.
+        """
+        # TODO: Validate cortical_properties structure
+        cortical_type = cortical_properties['cortical_type']
+        cortical_id_ = cortical_properties['cortical_id']
+        # Use templates from new codebase
+        from feagi.evo.templates import cortical_template, cortical_types
+        # Check if area already exists
+        if cortical_id_ in self._areas:
+            # Already exists, do nothing
+            return None
+        # Get device count
+        dev_count = cortical_properties.get('dev_count', 1) or 1
+        # Get name from template
+        if cortical_id_ in cortical_types[cortical_type]["supported_devices"]:
+            cortical_name = cortical_types[cortical_type]["supported_devices"][cortical_id_]['cortical_name']
+        else:
+            cortical_name = cortical_id_
+        # Dimensions
+        dims = (
+            dev_count * cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
+            cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
+            cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
+        )
+        pos = tuple(cortical_properties['coordinates_3d'])
+        # Add to connectome
+        area = self.add_cortical_area(
+            area_id=cortical_id_,
+            name=cortical_name,
+            area_type=cortical_type,
+            dimensions=dims,
+            position=pos,
+            properties={
+                'coordinates_2d': cortical_properties.get('coordinates_2d', [0, 0]),
+                'visualization': True,
+                # Add more properties as needed
+            }
+        )
+        # TODO: Region association, stats, FCL, neurogenesis, voxelogenesis
+        # self._region_manager.associate_area_with_region(cortical_id_, 'root')
+        # self._init_fcl(cortical_id_)
+        # self._init_cortical_stats(cortical_id_)
+        # self._neurogenesis(cortical_id_)
+        # self._voxelogenesis(cortical_id_)
+        # TODO: Save genome if needed
+        return cortical_id_
+
+    def add_custom_cortical_area(self, cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_area_id,
+                                 parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
+        """
+        Add a new custom cortical area, optionally cloning from an existing area.
+        Args:
+            cortical_name: str
+            coordinates_3d: list/tuple of 3 ints
+            coordinates_2d: list/tuple of 2 ints
+            cortical_dimensions: list/tuple of 3 ints
+            cortical_area_id: str
+            parent_region_id: str
+            cortical_id_overwrite: str or None
+            is_memory: bool
+            copy_of: str or None
+        Returns:
+            The cortical_area_id of the created area, or None if failed.
+        """
+        # TODO: Validate inputs
+        # If cloning, copy properties from source
+        if copy_of and copy_of in self._areas:
+            template = self._areas[copy_of].properties.copy()
+            template['cortical_name'] = cortical_name
+            template['cortical_mapping_dst'] = {}
+        else:
+            from feagi.evo.templates import cortical_template
+            template = cortical_template.copy()
+        # Check for duplicate name
+        for area in self._areas.values():
+            if area.name == cortical_name:
+                # Already exists
+                return None
+        # Add to connectome
+        area = self.add_cortical_area(
+            area_id=cortical_area_id,
+            name=cortical_name,
+            area_type="CUSTOM",
+            dimensions=tuple(cortical_dimensions),
+            position=tuple(coordinates_3d),
+            properties={
+                **template,
+                'coordinates_2d': list(coordinates_2d),
+                'visualization': True,
+                'sub_group_id': "MEMORY" if is_memory else "",
+                # Add more properties as needed
+            }
+        )
+        # TODO: Region association, stats, FCL, neurogenesis, voxelogenesis, memory register
+        # self._region_manager.associate_area_with_region(cortical_area_id, parent_region_id)
+        # if is_memory:
+        #     self._memory_manager.register_memory_area(cortical_area_id)
+        # self._init_fcl(cortical_area_id)
+        # self._init_cortical_stats(cortical_area_id)
+        # self._neurogenesis(cortical_area_id)
+        # self._voxelogenesis(cortical_area_id)
+        # TODO: Save genome if needed
+        return cortical_area_id
+
+    def get_cortical_name_list(self):
+        """
+        Returns a list of all cortical area names in the connectome.
+        """
+        return [area.name for area in self._areas.values()]
+
+    def get_cortical_name_to_id(self, cortical_name):
+        """
+        Returns the cortical_id for a given cortical_name.
+        Raises ValueError if not found.
+        """
+        for area_id, area in self._areas.items():
+            if area.name == cortical_name:
+                return area_id
+        raise ValueError(f"Cortical name '{cortical_name}' not found in connectome.")
