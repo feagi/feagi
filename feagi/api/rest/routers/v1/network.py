@@ -16,10 +16,14 @@
 
 
 from fastapi import APIRouter, HTTPException
+from feagi.core.state_manager import FeagiStateManager
+from feagi.bdu import ConnectomeManager
+from feagi.core.global_objects import connectome
 
 from ...commons import *
 
 router = APIRouter()
+state = FeagiStateManager.instance()
 
 
 # ######  Networking Endpoints #########
@@ -27,8 +31,8 @@ router = APIRouter()
 
 @router.get("/network")
 async def network_management():
-    if runtime_data.parameters['Sockets']:
-        return runtime_data.parameters['Sockets']
+    if state.parameters['Sockets']:
+        return state.parameters['Sockets']
     else:
         raise HTTPException(status_code=400, detail=f"Networking data not available!")
 

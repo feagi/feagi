@@ -18,20 +18,20 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 
-from src.inf import runtime_data
-from src.api.error_handling import generate_response
-from src.evo.voxels import generate_cortical_dimensions_by_id
-from src.evo.genome_properties import genome_properties
-from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
-from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
-from src.evo.templates import cortical_types
-from src.evo.region import change_cortical_area_parent
-from src.evo.cortical_area import cortical_area_type, cortical_id_gen
-from src.evo.mapping_helper import generate_detailed_cortical_map
+from feagi.api.error_handling import generate_response
+from feagi.evo.voxels import generate_cortical_dimensions_by_id
+from feagi.evo.genome_properties import genome_properties
+from feagi.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
+from feagi.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
+from feagi.evo.templates import cortical_types
+from feagi.evo.region import change_cortical_area_parent
+from feagi.evo.cortical_area import cortical_area_type, cortical_id_gen
+from feagi.evo.mapping_helper import generate_detailed_cortical_map
+from feagi.bdu import ConnectomeManager
+from feagi.core.global_objects import connectome
 
 from ...schemas import *
 from ...commons import *
-from ...dependencies import check_brain_running
 
 
 router = APIRouter()
@@ -44,13 +44,13 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
     """
     cortical_area = cortical_id.cortical_id
     if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
-        if cortical_area in runtime_data.genome['blueprint']:
-            cortical_data = runtime_data.genome['blueprint'][cortical_area]
-            brain_region_id = runtime_data.cortical_area_region_association[cortical_area]
+        if cortical_area in state.genome['blueprint']:
+            cortical_data = state.genome['blueprint'][cortical_area]
+            brain_region_id = state.cortical_area_region_association[cortical_area]
             brain_region_title = ""
             if brain_region_id:
-                if brain_region_id in runtime_data.genome["brain_regions"]:
-                    brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
+                if brain_region_id in state.genome["brain_regions"]:
+                    brain_region_title = state.genome["brain_regions"][brain_region_id]["title"]
 
             if 'mp_charge_accumulation' not in cortical_data:
                 cortical_data['mp_charge_accumulation'] = False
@@ -64,7 +64,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 cortical_data['2d_coordinate'].append(None)
 
             cortical_visibility = True
-            if cortical_area in runtime_data.cortical_viz_list:
+            if cortical_area in state.cortical_viz_list:
                 cortical_visibility = False
 
             cortical_type = cortical_area_type(cortical_area=cortical_area)
@@ -101,7 +101,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                     dim_y,
                     dim_z
                 ],
-                "cortical_destinations": cortical_data['cortical_mapping_dst'],
+                "cortical_destinations": connectome.get_outgoing_connections(cortical_area),
                 "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
                 "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
                 "neuron_fire_threshold": cortical_data['firing_threshold'],
@@ -129,9 +129,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             }
 
             if cortical_type in ["IPU", "OPU"]:
-                dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+                dev_count = state.genome["blueprint"][cortical_area]["dev_count"]
 
-                dim_x, dim_y, dim_z = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
+                dim_x, dim_y, dim_z = state.genome["blueprint"][cortical_area]["block_boundaries"]
 
                 unit_dim_x = int(dim_x / dev_count)
 
@@ -142,7 +142,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 cortical_properties["dev_count"] = dev_count
                 cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
 
-            if cortical_area in runtime_data.transforming_areas:
+            if cortical_area in state.transforming_areas:
                 cortical_properties["transforming"] = True
             else:
                 cortical_properties["transforming"] = False
@@ -154,16 +154,16 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
 
 
 @router.put("/cortical_area")
-async def update_cortical_properties(message: UpdateCorticalProperties, _: str = Depends(check_brain_running)):
+async def update_cortical_properties(message: UpdateCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
     """
-    if message.cortical_id not in runtime_data.genome["blueprint"]:
+    if message.cortical_id not in state.genome["blueprint"]:
         return JSONResponse(status_code=400, content={'message': f"{message.cortical_id} is not found in Genome!"})
 
-    current_cortical_size = runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][0] * \
-                            runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][1] * \
-                            runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][2]
+    current_cortical_size = state.genome["blueprint"][message.cortical_id]["block_boundaries"][0] * \
+                            state.genome["blueprint"][message.cortical_id]["block_boundaries"][1] * \
+                            state.genome["blueprint"][message.cortical_id]["block_boundaries"][2]
     updated_cortical_size = current_cortical_size
 
     if message.cortical_dimensions:
@@ -171,7 +171,7 @@ async def update_cortical_properties(message: UpdateCorticalProperties, _: str =
                             message.cortical_dimensions[1] * \
                             message.cortical_dimensions[2]
 
-    current_neuron_density = runtime_data.genome["blueprint"][message.cortical_id]["per_voxel_neuron_cnt"]
+    current_neuron_density = state.genome["blueprint"][message.cortical_id]["per_voxel_neuron_cnt"]
     updated_neuron_density = current_neuron_density
 
     if message.cortical_neuron_per_vox_count:
@@ -183,14 +183,14 @@ async def update_cortical_properties(message: UpdateCorticalProperties, _: str =
     current_neuron_count = current_cortical_size * current_neuron_density
     updated_neuron_count = updated_cortical_size * updated_neuron_density
 
-    max_allowable_neuron_count = int(runtime_data.parameters["Limits"]["max_neuron_count"])
+    max_allowable_neuron_count = int(state.parameters["Limits"]["max_neuron_count"])
 
-    if runtime_data.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
+    if state.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
             max_allowable_neuron_count:
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
                                                                  f" exceed {max_allowable_neuron_count} threshold"})
 
-    if message.cortical_id in runtime_data.transforming_areas:
+    if message.cortical_id in state.transforming_areas:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
     else:
         message = message.dict(exclude_none=True)
@@ -200,28 +200,21 @@ async def update_cortical_properties(message: UpdateCorticalProperties, _: str =
 
 
 @router.post("/cortical_area")
-async def add_cortical_area(new_cortical_properties: NewCorticalProperties,
-                            _: str = Depends(check_brain_running)):
-    """
-    Enables changes against various Burst Engine parameters.
-    """
-
+async def add_cortical_area(new_cortical_properties: NewCorticalProperties):
+    if not state.is_connectome_ready():
+        raise HTTPException(status_code=400, detail="Connectome is not ready!")
     print("Adding core cortical area:\n", new_cortical_properties)
     message = new_cortical_properties.dict()
     message = {'add_core_cortical_area': message}
     print("*" * 50 + "\n", message)
     api_queue.put(item=message)
-
     return JSONResponse(status_code=200, content={'cortical_id': new_cortical_properties.cortical_id})
 
 
 @router.post("/custom_cortical_area")
-async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties,
-                                   _: str = Depends(check_brain_running)):
-    """
-    Enables changes against various Burst Engine parameters.
-    """
-
+async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties):
+    if not state.is_connectome_ready():
+        raise HTTPException(status_code=400, detail="Connectome is not ready!")
     message = new_custom_cortical_properties.dict(exclude_none=True)
 
     # Generate Cortical ID
@@ -232,7 +225,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         temp_name = cortical_name + "000"
 
     parent_region_id = new_custom_cortical_properties.parent_region_id
-    if parent_region_id not in runtime_data.genome["brain_regions"]:
+    if parent_region_id not in state.genome["brain_regions"]:
         return JSONResponse(status_code=400, content={'message': f"{parent_region_id} does not exist!"})
 
     sub_group_id = new_custom_cortical_properties.sub_group_id
@@ -251,14 +244,14 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 
     neuron_density = 1
     if copy_of:
-        neuron_density = runtime_data.genome["blueprint"][copy_of]["per_voxel_neuron_cnt"]
+        neuron_density = state.genome["blueprint"][copy_of]["per_voxel_neuron_cnt"]
 
     message["copy_of"] = copy_of
     message["cortical_id"] = cortical_id
 
     neuron_count = neuron_density * cortical_dimensions[0] * cortical_dimensions[1] * cortical_dimensions[2]
-    max_allowable_neuron_count = int(runtime_data.parameters["Limits"]["max_neuron_count"])
-    if neuron_count + runtime_data.brain_stats["neuron_count"] > max_allowable_neuron_count:
+    max_allowable_neuron_count = int(state.parameters["Limits"]["max_neuron_count"])
+    if neuron_count + state.brain_stats["neuron_count"] > max_allowable_neuron_count:
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
                                                                  f" exceed {max_allowable_neuron_count} threshold"})
 
@@ -275,7 +268,7 @@ async def delete_cortical_area(cortical_id: CorticalId):
     Deletes a single cortical area
     """
     cortical_id = cortical_id.cortical_id
-    if cortical_id in runtime_data.genome["blueprint"]:
+    if cortical_id in state.genome["blueprint"]:
 
         message = {'delete_cortical_area': cortical_id}
         api_queue.put(item=message)
@@ -286,8 +279,8 @@ async def genome_cortical_ids():
     """
     Returns a comprehensive list of all cortical area names.
     """
-    if runtime_data.cortical_list:
-        return sorted(runtime_data.cortical_list)
+    if state.cortical_list:
+        return sorted(state.cortical_list)
     else:
         return []
 
@@ -299,7 +292,7 @@ async def genome_cortical_location_by_name(cortical_name: CorticalName):
     """
     cortical_name = cortical_name.cortical_name
     cortical_area = cortical_name_to_id(cortical_name=cortical_name)
-    return runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"]
+    return state.genome["blueprint"][cortical_area]["relative_coordinate"]
 
 
 @router.get("/cortical_area_name_list")
@@ -316,8 +309,8 @@ async def cortical_area_types():
     """
     Returns the list of supported cortical types
     """
-    if runtime_data.cortical_defaults:
-        return runtime_data.cortical_defaults
+    if state.cortical_defaults:
+        return state.cortical_defaults
 
 
 @router.post("/cortical_type_options")
@@ -339,8 +332,8 @@ async def cortical_area_types(cortical_type: CorticalId):
 @router.get("/cortical_id_name_mapping")
 async def connectome_cortical_id_name_mapping_table():
     mapping_table = dict()
-    for cortical_area in runtime_data.genome["blueprint"]:
-        mapping_table[cortical_area] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+    for area_id, area in connectome._areas.items():
+        mapping_table[area_id] = area.name
     return mapping_table
 
 
@@ -350,11 +343,11 @@ async def cortical_2d_locations():
     Enables changes against various Burst Engine parameters.
     """
     report = dict()
-    for area in runtime_data.genome["blueprint"]:
+    for area in state.genome["blueprint"]:
         if area not in report:
             report[area] = list()
-        if "2d_coordinate" in runtime_data.genome['blueprint'][area]:
-            report[area] = runtime_data.genome['blueprint'][area]["2d_coordinate"]
+        if "2d_coordinate" in state.genome['blueprint'][area]:
+            report[area] = state.genome['blueprint'][area]["2d_coordinate"]
         else:
             report[area].append([None, None])
     return report
@@ -362,8 +355,8 @@ async def cortical_2d_locations():
 
 @router.get("/cortical_area/geometry")
 async def cortical_area_geometry():
-    if runtime_data.cortical_dimensions_by_id:
-        return runtime_data.cortical_dimensions_by_id
+    if state.cortical_dimensions_by_id:
+        return state.cortical_dimensions_by_id
     else:
         return {}
 
@@ -375,13 +368,13 @@ async def update_coord_2d(new_2d_coordinates: dict):
     """
 
     for cortical_area in new_2d_coordinates:
-        if cortical_area in runtime_data.genome["blueprint"]:
-            runtime_data.genome["blueprint"][cortical_area]["2d_coordinate"][0] = \
+        if cortical_area in state.genome["blueprint"]:
+            state.genome["blueprint"][cortical_area]["2d_coordinate"][0] = \
                 new_2d_coordinates[cortical_area][0]
-            runtime_data.genome["blueprint"][cortical_area]["2d_coordinate"][1] = \
+            state.genome["blueprint"][cortical_area]["2d_coordinate"][1] = \
                 new_2d_coordinates[cortical_area][1]
 
-    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+    state.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
 
 @router.put("/coord_3d")
@@ -390,29 +383,29 @@ async def update_coord_3d(new_3d_coordinates: dict):
     Accepts a dictionary of 3D coordinates of one or more cortical areas and update them in genome.
     """
     for cortical_area in new_3d_coordinates:
-        if cortical_area in runtime_data.genome["blueprint"]:
-            runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"][0] = \
+        if cortical_area in state.genome["blueprint"]:
+            state.genome["blueprint"][cortical_area]["relative_coordinate"][0] = \
                 new_3d_coordinates[cortical_area][0]
-            runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"][1] = \
+            state.genome["blueprint"][cortical_area]["relative_coordinate"][1] = \
                 new_3d_coordinates[cortical_area][1]
-            runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"][2] = \
+            state.genome["blueprint"][cortical_area]["relative_coordinate"][2] = \
                 new_3d_coordinates[cortical_area][2]
 
-    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+    state.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
 
 @router.get("/ipu")
 async def current_ipu_list():
-    if runtime_data.ipu_list:
-        return runtime_data.ipu_list
+    if state.ipu_list:
+        return state.ipu_list
     else:
         return {}
 
 
 @router.get("/opu")
 async def current_opu_list():
-    if runtime_data.opu_list:
-        return runtime_data.opu_list
+    if state.opu_list:
+        return state.opu_list
     else:
         return {}
 
@@ -425,19 +418,19 @@ async def connectome_detailed_cortical_map():
 
 @router.get("/cortical_visibility")
 async def fetch_visualized_cortical_list():
-    return runtime_data.cortical_viz_list
+    return state.cortical_viz_list
 
 
 @router.put("/suppress_cortical_visibility")
 async def suppress_cortical_activity_visualization(cortical_id_list: list):
     unprocessed_list = set()
-    runtime_data.cortical_viz_list = set()
+    state.cortical_viz_list = set()
     for cortical_id in cortical_id_list:
-        if cortical_id in runtime_data.cortical_list:
-            runtime_data.cortical_viz_list.add(cortical_id)
+        if cortical_id in state.cortical_list:
+            state.cortical_viz_list.add(cortical_id)
         else:
             unprocessed_list.add(cortical_id)
-            runtime_data.genome["blueprint"][cortical_id]["visualization"] = False
+            state.get_genome()["blueprint"][cortical_id]["visualization"] = False
 
     if unprocessed_list:
         return JSONResponse(status_code=400, content={'message': f"Following cortical ids were not found!\n "
@@ -452,10 +445,10 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
     results = list()
     for cortical_area in cortical_id_list.cortical_id_list:
         if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
-            if cortical_area in runtime_data.genome['blueprint']:
-                cortical_data = runtime_data.genome['blueprint'][cortical_area]
-                brain_region_id = runtime_data.cortical_area_region_association[cortical_area]
-                brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
+            if cortical_area in state.get_genome()['blueprint']:
+                cortical_data = state.get_genome()['blueprint'][cortical_area]
+                brain_region_id = state.cortical_area_region_association[cortical_area]
+                brain_region_title = state.get_genome()["brain_regions"][brain_region_id]["title"]
 
                 if 'mp_charge_accumulation' not in cortical_data:
                     cortical_data['mp_charge_accumulation'] = False
@@ -480,7 +473,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "cortical_group": cortical_data['group_id'],
                     "cortical_sub_group": cortical_data['sub_group_id'],
                     "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                    "visualization": not (cortical_area in runtime_data.cortical_viz_list),
+                    "visualization": not (cortical_area in state.cortical_viz_list),
                     "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
                     "coordinates_3d": [
                         cortical_data["relative_coordinate"][0],
@@ -496,7 +489,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                         cortical_data["block_boundaries"][1],
                         cortical_data["block_boundaries"][2]
                     ],
-                    "cortical_destinations": cortical_data['cortical_mapping_dst'],
+                    "cortical_destinations": connectome.get_outgoing_connections(cortical_area),
                     "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
                     "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
                     "neuron_fire_threshold": cortical_data['firing_threshold'],
@@ -525,7 +518,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
 
                 cortical_type = cortical_area_type(cortical_area=cortical_area)
                 if cortical_type in ["IPU", "OPU"]:
-                    dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+                    dev_count = state.get_genome()["blueprint"][cortical_area]["dev_count"]
                     unit_dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
                     unit_dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
                     unit_dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
@@ -533,7 +526,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     cortical_properties["dev_count"] = dev_count
                     cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
 
-                if cortical_area in runtime_data.transforming_areas:
+                if cortical_area in state.transforming_areas:
                     cortical_properties["transforming"] = True
                 else:
                     cortical_properties["transforming"] = False
@@ -560,9 +553,9 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     type_list = set()
     transforming = False
     for cortical_id in message.cortical_id_list:
-        type_list.add(runtime_data.genome["blueprint"][cortical_id]["is_mem_type"])
-        if "transforming" in runtime_data.genome["blueprint"][cortical_id]:
-            if runtime_data.genome["blueprint"][cortical_id]["transforming"]:
+        type_list.add(state.get_genome()["blueprint"][cortical_id]["is_mem_type"])
+        if "transforming" in state.get_genome()["blueprint"][cortical_id]:
+            if state.get_genome()["blueprint"][cortical_id]["transforming"]:
                 transforming = True
     if len(type_list) > 1:
         return JSONResponse(status_code=400, content={'message': f"Memory and non-memory type cortical areas cannot"
@@ -575,9 +568,9 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
 
     # Proceed with updates
     for cortical_id in cortical_id_list:
-        current_cortical_size = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
-                                runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
-                                runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][2]
+        current_cortical_size = state.get_genome()["blueprint"][cortical_id]["block_boundaries"][0] * \
+                                state.get_genome()["blueprint"][cortical_id]["block_boundaries"][1] * \
+                                state.get_genome()["blueprint"][cortical_id]["block_boundaries"][2]
         updated_cortical_size = current_cortical_size
 
         if message_dict.get("cortical_dimensions"):
@@ -585,7 +578,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
                                 message.cortical_dimensions[1] * \
                                 message.cortical_dimensions[2]
 
-        current_neuron_density = runtime_data.genome["blueprint"][cortical_id]["per_voxel_neuron_cnt"]
+        current_neuron_density = state.get_genome()["blueprint"][cortical_id]["per_voxel_neuron_cnt"]
         updated_neuron_density = current_neuron_density
 
         if message_dict.get("cortical_neuron_per_vox_count"):
@@ -597,13 +590,13 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
         current_neuron_count = current_cortical_size * current_neuron_density
         updated_neuron_count = updated_cortical_size * updated_neuron_density
 
-        max_allowable_neuron_count = int(runtime_data.parameters["Limits"]["max_neuron_count"])
+        max_allowable_neuron_count = int(state.parameters["Limits"]["max_neuron_count"])
 
-        if runtime_data.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
+        if state.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
                 max_allowable_neuron_count:
             return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count"
-                                                                     f" will exceed {max_allowable_neuron_count} "
-                                                                     f"threshold"})
+                                                             f" will exceed {max_allowable_neuron_count} "
+                                                             f"threshold"})
 
         cortical_payload = message_dict.copy()
         cortical_payload["cortical_id"] = cortical_id
@@ -619,7 +612,7 @@ async def delete_multiple_cortical_areas(cortical_id_list: CorticalIdList):
     Deletes multiple cortical areas at the same time
     """
     for cortical_id in cortical_id_list.cortical_id_list:
-        if cortical_id in runtime_data.genome["blueprint"]:
+        if cortical_id in state.get_genome()["blueprint"]:
 
             message = {'delete_cortical_area': cortical_id}
             api_queue.put(item=message)
@@ -629,13 +622,13 @@ async def delete_multiple_cortical_areas(cortical_id_list: CorticalIdList):
 
 @router.get("/neuron_count")
 async def area_neuron_count(cortical_id: str):
-    if cortical_id in runtime_data.brain:
-        return len(runtime_data.brain[cortical_id])
+    if cortical_id in state.brain:
+        return len(state.brain[cortical_id])
 
 
 @router.put("/reset")
 async def reset_cortical_area(cortical_list: CorticalList):
     for cortical_id in cortical_list.area_list:
-        if cortical_id in runtime_data.cortical_list:
+        if cortical_id in state.cortical_list:
             message = {'reset': cortical_id}
             api_queue.put(item=message)

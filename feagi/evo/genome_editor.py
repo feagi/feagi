@@ -1,4 +1,3 @@
-
 #
 # Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
@@ -26,11 +25,11 @@ import logging
 import traceback
 
 import xxhash
-from src.inf import runtime_data
 from datetime import datetime
 from time import time
 from time import sleep
 import json
+from feagi.core.state_manager import FeagiStateManager
 
 
 logger = logging.getLogger(__name__)
@@ -43,12 +42,12 @@ def set_default(obj):
 
 
 def add_gene():
-    for cortical_area in runtime_data.genome['blueprint']:
-        for _ in runtime_data.genome['blueprint'][cortical_area]:
+    for cortical_area in state.genome['blueprint']:
+        for _ in state.genome['blueprint'][cortical_area]:
             if _ == "cortical_mapping_dst":
-                for __ in runtime_data.genome['blueprint'][cortical_area]["cortical_mapping_dst"]:
-                    if "excitatory" not in runtime_data.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]:
-                        runtime_data.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]["excitatory"] = True
+                for __ in state.genome['blueprint'][cortical_area]["cortical_mapping_dst"]:
+                    if "excitatory" not in state.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]:
+                        state.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]["excitatory"] = True
 
 
 def save_genome(genome, file_name=''):
@@ -64,11 +63,6 @@ def save_genome(genome, file_name=''):
                 data["signatures"] = {}
             data["timestamp"] = time()
 
-            # host_info = runtime_data.host_info.copy()
-            # data["hosts"] = clean_host_info(host_info)
-            # print("@----" * 20)
-            # print(data["hosts"])
-
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
@@ -82,7 +76,7 @@ def save_genome(genome, file_name=''):
             # todo: Identify the cause of errors when sleep is eliminated
             sleep(0.5)  # Elimination of sleep causes issues with Uvicorn
             print("genome is saved")
-            runtime_data.changes_saved_externally = False
+            state.changes_saved_externally = False
     except Exception as e:
         print(f"Warning: Genome could not be saved! {e}", traceback.print_exc())
 
@@ -105,3 +99,7 @@ def genome_signature_payload(genome):
     payload["blueprint"] = genome["blueprint"]
     payload["physiology"] = genome["physiology"]
     return payload
+
+
+# Helper to get state manager instance
+state = FeagiStateManager.instance()

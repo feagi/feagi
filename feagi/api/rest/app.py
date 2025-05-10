@@ -33,6 +33,7 @@ from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome
 from .routers.v1 import inputs
 from feagi.api.dependencies import *
 from feagi.api.models import *
+from feagi.core.state_manager import FeagiStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -71,12 +72,14 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
+state = FeagiStateManager.instance()
+
 
 def kickstart_feagi_thread():
     print("<>--" * 20)
     print("Starting FEAGI thread..")
-    runtime_data.feagi_thread = Thread(target=start_feagi, args=(api_queue,))
-    runtime_data.feagi_thread.start()
+    state.feagi_thread = Thread(target=start_feagi, args=(api_queue,))
+    state.feagi_thread.start()
 
 
 kickstart_feagi_thread()

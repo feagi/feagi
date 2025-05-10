@@ -15,12 +15,16 @@
 # ==============================================================================
 
 from fastapi import APIRouter
+from feagi.core.state_manager import FeagiStateManager
+from feagi.bdu import ConnectomeManager
+from feagi.core.global_objects import connectome
 
 from ...schemas import *
 from ...commons import *
 
 
 router = APIRouter()
+state = FeagiStateManager.instance()
 
 
 # ######  Stimulation #########
@@ -53,7 +57,7 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
     }
     """
 
-    runtime_data.stimulation_script = stimulation_script.stimulation_script
+    state.stimulation_script = stimulation_script.stimulation_script
 
     # message = stimulation_script.dict()
     # message = {'stimulation_script': message}

@@ -15,43 +15,16 @@
 # ==============================================================================
 
 from fastapi import APIRouter
-
-from src.inf import runtime_data
-from src.evo import autopilot
+from feagi.core.state_manager import FeagiStateManager
+from feagi.bdu import ConnectomeManager
+from feagi.core.global_objects import connectome
 
 router = APIRouter()
+state = FeagiStateManager.instance()
 
 
 # ######  Evolution #########
 # #############################
-
-@router.get("/autopilot/status")
-async def return_autopilot_status():
-    """
-    Returns the status of genome autopilot system.
-    """
-
-    if runtime_data.autopilot:
-        return runtime_data.autopilot
-    else:
-        return False
-
-
-@router.post("/autopilot/on")
-async def turn_autopilot_on():
-    if not runtime_data.autopilot:
-        autopilot.init_generation_dict()
-        if runtime_data.brain_run_id:
-            autopilot.update_generation_dict()
-        runtime_data.autopilot = True
-        print("<" * 30, "  Autopilot has been turned on  ", ">" * 30)
-
-
-@router.post("/autopilot/off")
-async def turn_autopilot_off():
-    runtime_data.autopilot = False
-    return
-
 
 @router.get("/generations")
 async def list_generations():
@@ -59,8 +32,8 @@ async def list_generations():
     Return details about all generations.
     """
 
-    if runtime_data.generation_dict:
-        return runtime_data.generation_dict
+    if state.generation_dict:
+        return state.generation_dict
     else:
         return {}
 
@@ -71,7 +44,7 @@ async def list_generations():
     Return details about all generations.
     """
 
-    if runtime_data.evo_change_register:
-        return runtime_data.evo_change_register
+    if state.evo_change_register:
+        return state.evo_change_register
     else:
         return {}

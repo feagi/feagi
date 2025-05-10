@@ -20,10 +20,13 @@ from fastapi import APIRouter, HTTPException
 from ...schemas import *
 from ...commons import *
 
-from src.inf import runtime_data
+from feagi.core.state_manager import FeagiStateManager
 
 
 router = APIRouter()
+
+# Helper to get state manager instance
+state = FeagiStateManager.instance()
 
 
 # ######  Training Endpoints #######
@@ -35,7 +38,7 @@ async def delete_fitness_stats_from_db():
     Erases the fitness statistics from the database.
     """
 
-    runtime_data.influxdb.drop_fitness_activity()
+    state.influxdb.drop_fitness_activity()
 
 
 @router.get("/shock/options")
@@ -43,14 +46,14 @@ async def list_available_shock_scenarios():
     """
     Get a list of available shock scenarios.
     """
-    if runtime_data.shock_scenarios_options:
-        return runtime_data.shock_scenarios_options
+    if state.shock_scenarios_options:
+        return state.shock_scenarios_options
 
 
 @router.get("/shock/status")
 async def list_activated_shock_scenarios():
-    if runtime_data.shock_scenarios:
-        return runtime_data.shock_scenarios
+    if state.shock_scenarios:
+        return state.shock_scenarios
     else:
         raise HTTPException(status_code=400, detail="No shock scenario is defined")
 
@@ -108,7 +111,7 @@ async def training_report():
     """
     Returns stats associated with training
     """
-    return runtime_data.training_stats
+    return state.training_stats
 
 
 @router.get("/brain_fitness")
@@ -119,23 +122,23 @@ async def brain_average_fitness_value():
     cumulative_score = 0
     try:
         counter = 0
-        for stat in runtime_data.fitness_stats:
+        for stat in state.fitness_stats:
             fitness_score = 0
             counter += 1
             criteria = stat.get("FITNESS_KEYS")
             if criteria:
                 for criterion in stat["FITNESS_KEYS"]:
-                    if criterion not in runtime_data.fitness_criteria:
+                    if criterion not in state.fitness_criteria:
                         raise HTTPException(status_code=400, detail=f"{criterion} is not defied as a fitness criteria!"
                                                                     f"Use post:/fitness_criteria to define it first.")
-                    fitness_score += stat["FITNESS_KEYS"][criterion] * runtime_data.fitness_criteria[criterion]
+                    fitness_score += stat["FITNESS_KEYS"][criterion] * state.fitness_criteria[criterion]
             cumulative_score += fitness_score
 
         if counter == 0:
             return 1
         else:
-            runtime_data.fitness_score = cumulative_score / counter
-            return runtime_data.fitness_score
+            state.fitness_score = cumulative_score / counter
+            return state.fitness_score
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error during fitness calculation as {e}")
 
@@ -145,7 +148,7 @@ async def fetch_fitness_criteria():
     """
     Returns the effective fitness criteria
     """
-    return runtime_data.fitness_criteria
+    return state.fitness_criteria
 
 
 @router.post("/fitness_criteria")
@@ -175,7 +178,7 @@ async def configure_fitness_criteria(fitness_criteria: dict):
     if key_sum != 1:
         raise HTTPException(status_code=400, detail=f"The sum of all FITNESS_KEYS should be equal to 1")
 
-    runtime_data.fitness_criteria = fitness_criteria
+    state.fitness_criteria = fitness_criteria
 
 
 @router.get("/fitness_stats")
@@ -183,7 +186,7 @@ async def reset_fitness_stats():
     """
     Resets fitness stats
     """
-    return runtime_data.fitness_stats
+    return state.fitness_stats
 
 
 @router.put("/fitness_stats")
@@ -218,7 +221,7 @@ async def capture_fitness_stats_instance(fitness_stats: dict):
     if "METADATA" not in fitness_stats:
         fitness_stats["METADATA"] = {}
 
-    runtime_data.fitness_stats.append(fitness_stats)
+    state.fitness_stats.append(fitness_stats)
 
 
 @router.delete("/fitness_stats")
@@ -226,4 +229,4 @@ async def reset_fitness_stats():
     """
     Resets fitness stats
     """
-    runtime_data.fitness_stats = []
+    state.fitness_stats = []

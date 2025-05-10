@@ -15,15 +15,17 @@
 # ==============================================================================
 
 from fastapi import HTTPException, Depends
-from src.inf import runtime_data
+from feagi.core.state_manager import FeagiStateManager
 
 # FEAGI state check
 # Genome running conditions
 # Agent connectivity
 
+# Helper to get state manager instance
+state = FeagiStateManager.instance()
 
 def check_burst_engine():
-    burst_engine_running = not runtime_data.exit_condition
+    burst_engine_running = not getattr(state, 'exit_condition', False)
     if burst_engine_running:
         return True
     else:
@@ -31,14 +33,14 @@ def check_burst_engine():
 
 
 def check_active_genome(_: bool = Depends(check_burst_engine)):
-    if runtime_data.genome:
+    if getattr(state, 'genome', False):
         return True
     else:
         raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
 
 
 def check_brain_running(_: bool = Depends(check_active_genome)):
-    if runtime_data.brain_readiness:
+    if getattr(state, 'brain_readiness', False):
         return True
     else:
         raise HTTPException(status_code=400, detail="Brain not yet ready! Please try again later.")

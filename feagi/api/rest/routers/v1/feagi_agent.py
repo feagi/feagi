@@ -22,12 +22,13 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from ...schemas import *
 from ...commons import *
 
-from src.inf import runtime_data
-from src.inf.messenger import Sub
-from ...dependencies import check_brain_running
+from feagi.core.state_manager import FeagiStateManager
+from feagi.bdu import ConnectomeManager
+from feagi.core.global_objects import connectome
 
 
 router = APIRouter()
+state = FeagiStateManager.instance()
 
 
 # ######  Peripheral Nervous System Endpoints #########
@@ -36,7 +37,7 @@ router = APIRouter()
 def assign_available_port():
     ports_used = []
     port_ranges = (40001, 40050)
-    for agent_id, agent_info in runtime_data.agent_registry.items():
+    for agent_id, agent_info in state.agent_registry.items():
         print(agent_id, agent_info, agent_info['agent_type'], type(agent_info['agent_type']))
         if agent_info['agent_type'] != 'monitor':
             ports_used.append(agent_info['agent_data_port'])
@@ -49,7 +50,7 @@ def assign_available_port():
 
 @router.get("/list")
 async def agent_list():
-    agents = set(runtime_data.agent_registry.keys())
+    agents = set(state.agent_registry.keys())
     if agents:
         return agents
     else:
@@ -59,16 +60,16 @@ async def agent_list():
 @router.get("/properties")
 async def agent_properties(agent_id: str):
     print("agent_id", agent_id)
-    print("agent_registry", runtime_data.agent_registry)
+    print("agent_registry", state.agent_registry)
     agent_info = {}
-    if agent_id in runtime_data.agent_registry:
-        agent_info["agent_type"] = runtime_data.agent_registry[agent_id]["agent_type"]
-        agent_info["agent_ip"] = runtime_data.agent_registry[agent_id]["agent_ip"]
-        agent_info["agent_data_port"] = runtime_data.agent_registry[agent_id]["agent_data_port"]
-        agent_info["agent_router_address"] = runtime_data.agent_registry[agent_id]["agent_router_address"]
-        agent_info["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
-        agent_info["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
-        agent_info["capabilities"] = runtime_data.agent_registry[agent_id].get("capabilities", {})
+    if agent_id in state.agent_registry:
+        agent_info["agent_type"] = state.agent_registry[agent_id]["agent_type"]
+        agent_info["agent_ip"] = state.agent_registry[agent_id]["agent_ip"]
+        agent_info["agent_data_port"] = state.agent_registry[agent_id]["agent_data_port"]
+        agent_info["agent_router_address"] = state.agent_registry[agent_id]["agent_router_address"]
+        agent_info["agent_version"] = state.agent_registry[agent_id]["agent_version"]
+        agent_info["controller_version"] = state.agent_registry[agent_id]["controller_version"]
+        agent_info["capabilities"] = state.agent_registry[agent_id].get("capabilities", {})
         return agent_info
     else:
         raise HTTPException(status_code=400, detail="Requested agent not found!")
@@ -84,17 +85,14 @@ async def agent_registration(request: Request, data: AgentRegistration):
     agent_info = dict()
     agent_info["agent_id"] = data.agent_id
     agent_info["agent_type"] = data.agent_type
-    # runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
     agent_info["agent_ip"] = request.client.host
     if data.agent_type == 'monitor':
         agent_router_address = f"tcp://{request.client.host}:{data.agent_data_port}"
-        agent_info["listener"] = Sub(address=agent_router_address, bind=False)
         print("Publication of brain activity turned on!")
-        runtime_data.brain_activity_pub = True
+        state.brain_activity_pub = True
     else:
         agent_data_port = assign_available_port()
         agent_router_address = f"tcp://*:{agent_data_port}"
-        agent_info["listener"] = Sub(address=agent_router_address, bind=True)
 
     agent_info["agent_data_port"] = agent_data_port
     agent_info["agent_router_address"] = agent_router_address
@@ -102,18 +100,18 @@ async def agent_registration(request: Request, data: AgentRegistration):
     agent_info["controller_version"] = data.controller_version
     agent_info["capabilities"] = capabilities
 
-    runtime_data.agent_registry[data.agent_id] = agent_info
-    runtime_data.host_info[data.agent_id] = agent_info
+    state.agent_registry[data.agent_id] = agent_info
+    state.host_info[data.agent_id] = agent_info
 
-    if runtime_data.auto_pns_area_creation and runtime_data.genome:
+    if state.auto_pns_area_creation and state.get_genome():
         message = {'update_pns_areas': capabilities}
         api_queue.put(item=message)
 
-    print("New agent has been successfully registered:", runtime_data.agent_registry[data.agent_id])
+    print("New agent has been successfully registered:", state.agent_registry[data.agent_id])
 
-    runtime_data.evo_change_register["agent"] += 1
+    state.evo_change_register["agent"] += 1
 
-    agent_info = runtime_data.agent_registry[data.agent_id].copy()
+    agent_info = state.agent_registry[data.agent_id].copy()
     agent_info.pop('listener')
     return agent_info
 
@@ -121,9 +119,8 @@ async def agent_registration(request: Request, data: AgentRegistration):
 @router.delete("/deregister")
 async def agent_removal(agent_id: str):
 
-    if agent_id in runtime_data.agent_registry:
-        agent_info = runtime_data.agent_registry.pop(agent_id)
-        agent_info['listener'].terminate()
+    if agent_id in state.agent_registry:
+        agent_info = state.agent_registry.pop(agent_id)
     else:
         raise HTTPException(status_code=400, detail="Requested agent not found!")
 
@@ -159,35 +156,16 @@ async def gazebo_robot_default_files():
 
 
 @router.post("/manual_stimulation")
-async def trigger_manual_stimulation(stimulation: ManualStimulation,
-                                     _: str = Depends(check_brain_running)):
-    """
-    Stimulation needs to be in the following format:
-    {
-    "cortical_id": [[0,0,3], [1,4,1]],
-    "cortical_id": [[1,0,3], [1,4,3]],
-    "cortical_id": [[0,2,3], [3,4,1]],
-    }
-    """
-
+async def trigger_manual_stimulation(stimulation: ManualStimulation):
+    if not state.is_connectome_ready():
+        raise HTTPException(status_code=400, detail="Connectome is not ready!")
     message = {'manual_stimulation': stimulation.stimulation_payload}
     api_queue.put(item=message)
 
 
 @router.post("/sustained_stimulation")
-async def trigger_sustained_stimulation(stimulation: ManualStimulation,
-                                        _: str = Depends(check_brain_running)):
-    """
-    Sustained stimulation will create a new connectivity rule and connects brain power to across the cortical area.
-
-    Important Note: Prior sustained stimulation's will be overwritten when new one is induced. If an x index is omitted
-    from the list, the prior connections to given area will be removed.
-
-    Stimulation needs to be in the following format:
-
-    {
-    "cortical_id": [[2, 0, 0, 20], [5, 0, 0, 10]]
-    }
-    """
+async def trigger_sustained_stimulation(stimulation: ManualStimulation):
+    if not state.is_connectome_ready():
+        raise HTTPException(status_code=400, detail="Connectome is not ready!")
     message = {'sustained_stimulation': stimulation.stimulation_payload}
     api_queue.put(item=message)

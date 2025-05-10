@@ -11,6 +11,7 @@ import signal
 import sys
 import time
 import logging
+from feagi.core.state_manager import FeagiStateManager
 
 # Configure logging
 logging.basicConfig(
@@ -105,6 +106,7 @@ def main():
     def signal_handler(sig, frame):
         logger.info("\nShutting down FEAGI servers...")
         process_manager.shutdown()
+        FeagiStateManager.instance().cleanup()
         sys.exit(0)
         
     signal.signal(signal.SIGINT, signal_handler)
@@ -145,6 +147,7 @@ def main():
     except Exception as e:
         logger.error(f"Error in main process: {e}")
         process_manager.shutdown()
+        FeagiStateManager.instance().cleanup()
         return 1
         
     return 0

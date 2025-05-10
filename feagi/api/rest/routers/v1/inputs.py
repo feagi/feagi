@@ -20,9 +20,9 @@ from fastapi import APIRouter, HTTPException
 from ...commons import *
 from ...schemas import *
 
-from src.version import __version__
-from src.evo.templates import cortical_types
-from src.pns.vision import generate_vision_configuration
+from feagi.version import __version__
+from feagi.evo.templates import cortical_types
+from feagi.pns.vision import generate_vision_configuration
 
 
 router = APIRouter()

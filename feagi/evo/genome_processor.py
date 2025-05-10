@@ -19,14 +19,17 @@ import logging
 import copy
 import traceback
 import datetime
-from src.evo.genome_editor import save_genome
-from src.evo.genome_validator import genome_validator
-from src.evo.templates import core_morphologies, cortical_types
-from src.evo.cortical_area import cortical_area_type
-from src.inf import runtime_data
+from feagi.evo.genome_editor import save_genome
+from feagi.evo.genome_validator import genome_validator
+from feagi.evo.templates import core_morphologies, cortical_types
+from feagi.evo.cortical_area import cortical_area_type
+from feagi.core.state_manager import FeagiStateManager
 
 
 logger = logging.getLogger(__name__)
+
+# Helper to get state manager instance
+state = FeagiStateManager.instance()
 
 
 def merge_core_morphologies(genome):
@@ -40,15 +43,15 @@ def genome_ver_check(genome):
         if genome['version'] == "2.0":
             # print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
             try:
-                runtime_data.genome_validity = genome_validator(genome)
-                print("Genome validity=", runtime_data.genome_validity)
+                state.genome_validity = genome_validator(genome)
+                print("Genome validity=", state.genome_validity)
             except Exception as e:
                 print("Error during genome validation!!\n", traceback.print_exc(), e)
             genome = merge_core_morphologies(genome)
             genome = genome_morphology_updator(genome)
             genome = genome_physiology_updator(genome=genome)
             genome = genome_stat_updator(genome=genome)
-            save_genome(genome=genome, file_name=runtime_data.connectome_path + "genome.json")
+            save_genome(genome=genome, file_name=state.connectome_path + "genome.json")
             genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
             genome['blueprint'] = genome1['blueprint']
@@ -62,13 +65,13 @@ def genome_ver_check(genome):
 
 
 def update_template():
-    for cortical_area in runtime_data.genome["blueprint"]:
+    for cortical_area in state.genome["blueprint"]:
         cortical_type = cortical_area_type(cortical_area=cortical_area)
         if cortical_type in ["IPU", "OPU"]:
-            cortical_size = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
+            cortical_size = state.genome["blueprint"][cortical_area]["block_boundaries"]
 
-            if "dev_count" not in runtime_data.genome["blueprint"][cortical_area]:
-                runtime_data.genome["blueprint"][cortical_area]["dev_count"] = \
+            if "dev_count" not in state.genome["blueprint"][cortical_area]:
+                state.genome["blueprint"][cortical_area]["dev_count"] = \
                     cortical_size[0] / cortical_types[cortical_type][
                         "supported_devices"][cortical_area]["resolution"][0]
 
@@ -77,7 +80,7 @@ def update_template():
                 cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
                     cortical_size[2]
             else:
-                dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+                dev_count = state.genome["blueprint"][cortical_area]["dev_count"]
 
                 if dev_count != 0:
                     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] = \
@@ -87,7 +90,7 @@ def update_template():
                     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
                         cortical_size[2]
                 else:
-                    runtime_data.genome["blueprint"][cortical_area]["dev_count"] = 1
+                    state.genome["blueprint"][cortical_area]["dev_count"] = 1
                     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"] = \
                         cortical_size
 
@@ -469,7 +472,7 @@ def genome_morphology_updator(genome):
             if not morphology:
                 genome["neuron_morphologies"].pop(morphology)
             genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
-        runtime_data.genome_validity = genome_validator(genome)
+        state.genome_validity = genome_validator(genome)
     except Exception as e:
         print("Error during genome morphology update!", e, traceback.print_exc())
 
@@ -477,9 +480,9 @@ def genome_morphology_updator(genome):
 
 
 def is_memory_cortical_area(cortical_area):
-    cortical_obj = runtime_data.genome["blueprint"].get(cortical_area)
+    cortical_obj = state.genome["blueprint"].get(cortical_area)
     if cortical_obj:
-        if "MEMORY" in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
+        if "MEMORY" in state.genome["blueprint"][cortical_area]["sub_group_id"]:
             return True
         else:
             return False

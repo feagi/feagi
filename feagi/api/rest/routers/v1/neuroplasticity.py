@@ -16,11 +16,11 @@
 
 
 from fastapi import APIRouter
-
-from src.inf import runtime_data
+from feagi.core.state_manager import FeagiStateManager
 
 
 router = APIRouter()
+state = FeagiStateManager.instance()
 
 
 @router.get("/plasticity_queue_depth")
@@ -28,7 +28,7 @@ async def show_plasticity_queue_depth():
     """
     Returns the current plasticity queue depth value
     """
-    return runtime_data.genome["physiology"]["plasticity_queue_depth"]
+    return state.get_genome()["physiology"]["plasticity_queue_depth"]
 
 
 @router.put("/plasticity_queue_depth")
@@ -36,4 +36,4 @@ async def update_plasticity_queue_depth(queue_depth: int):
     """
     Enables changes against various Burst Engine parameters.
     """
-    runtime_data.genome["physiology"]["plasticity_queue_depth"] = queue_depth
+    state.get_genome()["physiology"]["plasticity_queue_depth"] = queue_depth

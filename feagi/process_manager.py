@@ -497,4 +497,6 @@ def get_process_manager() -> ProcessManager:
     global _process_manager
     if _process_manager is None:
         _process_manager = ProcessManager()
-    return _process_manager 
+    return _process_manager
+
+process_manager = get_process_manager() 

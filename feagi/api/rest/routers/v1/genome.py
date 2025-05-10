@@ -26,17 +26,20 @@ from ...schemas import *
 from ...commons import *
 from ...dependencies import check_active_genome
 
-from src.inf import runtime_data
-from src.evo.genome_editor import save_genome
-from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
-from src.evo.stats import circuit_size
-from src.evo.region import region_id_2_title, construct_genome_from_region
-from src.evo.templates import cortical_template
-from src.npu.consciousness import set_brain_readiness_to_false
-from src.inf.initialize import generate_cortical_dimensions_by_id
+from feagi.evo.genome_editor import save_genome
+from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
+from feagi.evo.stats import circuit_size
+from feagi.evo.region import region_id_2_title, construct_genome_from_region
+from feagi.evo.templates import cortical_template
+from feagi.core.state_manager import FeagiStateManager
+from feagi.bdu import ConnectomeManager
+from feagi.core.global_objects import connectome
 
 
 router = APIRouter()
+
+# Helper to get state manager instance
+state = FeagiStateManager.instance()
 
 
 # ######  Genome Endpoints #########
@@ -46,8 +49,8 @@ async def upload_barebones_genome():
 
     with open("./evo/defaults/genome/barebones_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
-        runtime_data.genome_file_name = "barebones_genome.json"
-    set_brain_readiness_to_false(context="Loading genome.")
+        state.genome_file_name = "barebones_genome.json"
+    state.set_connectome_state('not_ready')
     message = {'genome': genome_data}
 
     api_queue.put(item=message)
@@ -57,8 +60,8 @@ async def upload_barebones_genome():
 async def genome_default_upload():
     with open("./evo/defaults/genome/essential_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
-        runtime_data.genome_file_name = "essential_genome.json"
-    set_brain_readiness_to_false(context="Loading genome.")
+        state.genome_file_name = "essential_genome.json"
+    state.set_connectome_state('not_ready')
     message = {'genome': genome_data}
     api_queue.put(item=message)
 
@@ -70,13 +73,13 @@ async def genome_file_upload(file: UploadFile = File(...)):
     The genome must be in the form of a python file.
     """
     data = await file.read()
-    set_brain_readiness_to_false(context="Loading genome.")
-    runtime_data.genome_file_name = file.filename
+    state.set_connectome_state('not_ready')
+    state.genome_file_name = file.filename
 
     genome_str = json.loads(data)
 
     if "genome_title" not in genome_str:
-        genome_str["genome_title"] = runtime_data.genome_file_name
+        genome_str["genome_title"] = state.genome_file_name
 
     if "genome_description" not in genome_str:
         genome_str["genome_description"] = ""
@@ -92,7 +95,7 @@ async def genome_file_name():
     """
     Returns the name of the genome file last uploaded to FEAGI
     """
-    genome_name = runtime_data.genome_file_name
+    genome_name = state.genome_file_name
     if genome_name:
         return genome_name
     else:
@@ -115,14 +118,14 @@ async def genome_string_upload(genome: dict):
 @router.get("/download")
 async def genome_download(_: str = Depends(check_active_genome)):
     print("Downloading Genome...")
-    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
-                file_name=runtime_data.connectome_path + "genome.json")
-    file_name = "genome-" + runtime_data.genome["genome_title"].replace(" ", "_") + ".json"
+    save_genome(genome=genome_v1_v2_converter(state.genome),
+                file_name=state.connectome_path + "genome.json")
+    file_name = "genome-" + state.genome["genome_title"].replace(" ", "_") + ".json"
     print(file_name)
 
-    if runtime_data.genome:
-        runtime_data.changes_saved_externally = True
-        file_path = runtime_data.connectome_path + "genome.json"
+    if state.genome:
+        state.changes_saved_externally = True
+        file_path = state.connectome_path + "genome.json"
         headers = {"Content-Disposition": f"attachment; filename={file_name}"}
         response = FileResponse(path=file_path,
                                 media_type="application/json",
@@ -143,13 +146,13 @@ async def genome_download_from_region(region_id, _: str = Depends(check_active_g
     region_title = region_id_2_title(region_id=region_id)
     genome_payload = construct_genome_from_region(region_id=region_id)
 
-    genome_path = runtime_data.connectome_path + f"genome_{region_title}.json"
+    genome_path = state.connectome_path + f"genome_{region_title}.json"
     save_genome(genome=genome_payload,
                 file_name=genome_path)
     file_name = f"genome-{region_title}".replace(" ", "_") + ".json"
 
-    if runtime_data.genome:
-        runtime_data.changes_saved_externally = True
+    if state.genome:
+        state.changes_saved_externally = True
         return FileResponse(path=genome_path, media_type="application/json", filename=file_name)
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
@@ -183,14 +186,18 @@ async def genome_number():
     """
     Return the number associated with current Genome instance.
     """
-    if runtime_data.genome_counter:
-        return runtime_data.genome_counter
+    # TODO: Map genome_counter to state manager if needed
+    genome_counter = getattr(state, 'genome_counter', None)
+    if genome_counter:
+        return genome_counter
+    else:
+        return 0
 
 
 @router.post("/reset")
 async def reset_genome():
     print("API call has triggered a genome reset")
-    runtime_data.genome_reset_flag = True
+    state.genome_reset_flag = True
 
 
 @router.post("/amalgamation_by_payload")
@@ -202,15 +209,15 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
         genome = genome_2_1_convertor(amalgamation_param.genome_payload["blueprint"])
 
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
-        runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
-        runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
-        runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        runtime_data.pending_amalgamation["initiation_time"] = time()
-        runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        runtime_data.pending_amalgamation["circuit_size"] = \
+        state.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
+        state.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
+        state.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
+        state.pending_amalgamation["initiation_time"] = time()
+        state.pending_amalgamation["amalgamation_id"] = amalgamation_id
+        state.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=genome["blueprint"])
 
-        runtime_data.amalgamation_history[amalgamation_id] = "pending"
+        state.amalgamation_history[amalgamation_id] = "pending"
         return amalgamation_id
 
 
@@ -220,22 +227,22 @@ async def amalgamation_attempt(_: str = Depends(check_active_genome), file: Uplo
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
         data = await file.read()
-        runtime_data.genome_file_name = file.filename
+        state.genome_file_name = file.filename
 
         genome_str = json.loads(data)
         genome_2 = genome_2_1_convertor(genome_str["blueprint"])
 
         now = datetime.now()
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
-        runtime_data.pending_amalgamation["genome_id"] = runtime_data.genome_file_name
-        runtime_data.pending_amalgamation["genome_title"] = runtime_data.genome_file_name
-        runtime_data.pending_amalgamation["genome_payload"] = genome_str
-        runtime_data.pending_amalgamation["initiation_time"] = time()
-        runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        runtime_data.pending_amalgamation["circuit_size"] = \
+        state.pending_amalgamation["genome_id"] = state.genome_file_name
+        state.pending_amalgamation["genome_title"] = state.genome_file_name
+        state.pending_amalgamation["genome_payload"] = genome_str
+        state.pending_amalgamation["initiation_time"] = time()
+        state.pending_amalgamation["amalgamation_id"] = amalgamation_id
+        state.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=genome_2["blueprint"])
 
-        runtime_data.amalgamation_history[amalgamation_id] = "pending"
+        state.amalgamation_history[amalgamation_id] = "pending"
         return amalgamation_id
 
 
@@ -246,21 +253,21 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
     else:
         now = datetime.now()
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
-        runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
-        runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
-        runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        runtime_data.pending_amalgamation["initiation_time"] = time()
-        runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        runtime_data.pending_amalgamation["circuit_size"] = \
+        state.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
+        state.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
+        state.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
+        state.pending_amalgamation["initiation_time"] = time()
+        state.pending_amalgamation["amalgamation_id"] = amalgamation_id
+        state.pending_amalgamation["circuit_size"] = \
             circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
 
-        runtime_data.amalgamation_history[amalgamation_id] = "pending"
+        state.amalgamation_history[amalgamation_id] = "pending"
         return amalgamation_id
 
 
 @router.get("/amalgamation_history")
 async def amalgamation_history():
-    return runtime_data.amalgamation_history
+    return state.amalgamation_history
 
 
 @router.get("/cortical_template")
@@ -279,17 +286,17 @@ async def amalgamation_conclusion(circuit_origin_x,
 
     if pending_amalgamation():
         payload = dict()
-        payload["genome_str"] = runtime_data.pending_amalgamation["genome_payload"]
+        payload["genome_str"] = state.pending_amalgamation["genome_payload"]
         payload["circuit_origin"] = [int(circuit_origin_x), int(circuit_origin_y), int(circuit_origin_z)]
         payload["parent_brain_region"] = brain_region_id
         payload["rewire_mode"] = rewire_mode.value
         data = {'append_circuit': payload}
         print(data)
         api_queue.put(item=data)
-        genome_title = runtime_data.pending_amalgamation["genome_title"]
+        genome_title = state.pending_amalgamation["genome_title"]
 
         cancel_pending_amalgamation(amalgamation_id=amalgamation_id)
-        runtime_data.amalgamation_history["amalgamation_id"] = "complete"
+        state.amalgamation_history["amalgamation_id"] = "complete"
         return f"Amalgamation for \"{genome_title}\" is complete."
     else:
         raise HTTPException(status_code=400, detail="No pending amalgamation request found")
@@ -297,8 +304,8 @@ async def amalgamation_conclusion(circuit_origin_x,
 
 @router.get("/amalgamation")
 async def circuit_library(amalgamation_id):
-    if amalgamation_id in runtime_data.amalgamation_history:
-        return runtime_data.amalgamation_history[amalgamation_id]
+    if amalgamation_id in state.amalgamation_history:
+        return state.amalgamation_history[amalgamation_id]
     else:
         raise HTTPException(status_code=400, detail="No matching amalgamation found")
 
@@ -313,7 +320,7 @@ async def circuit_library():
     """
     Returns the list of neuronal circuits under /evo/circuits
     """
-    circuit_list = os.listdir(runtime_data.circuit_lib_path)
+    circuit_list = os.listdir(state.circuit_lib_path)
     return circuit_list
 
 
@@ -331,8 +338,8 @@ async def circuit_library():
     # circuit_description = {}
     # circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
     # circuit_description["size"] = circuit_size_
-    # if "description" in runtime_data.genome:
-    #     circuit_description["description"] = runtime_data.genome["description"]
+    # if "description" in state.genome:
+    #     circuit_description["description"] = state.genome["description"]
     # else:
     #     circuit_description["description"] = ""
     # return circuit_description
@@ -348,7 +355,7 @@ async def genome_append_circuit(circuit_origin_x: int,
     """
     data = await file.read()
 
-    runtime_data.genome_file_name = file.filename
+    state.genome_file_name = file.filename
 
     genome_str = json.loads(data)
 

@@ -10,6 +10,7 @@ import mmap
 import os
 from enum import IntEnum
 from typing import Optional
+import time
 
 
 # ===== State Definitions =====
@@ -65,24 +66,25 @@ class FeagiStateStruct(ctypes.Structure):
 
 class FeagiStateManager:
     _instance = None
+    _default_dir = "/tmp"
 
     @classmethod
     def instance(cls, path: Optional[str] = None):
         """Singleton accessor for the state manager"""
         if cls._instance is None:
-            cls._instance = cls(path or "/tmp/feagi_state.bin")
+            if path is None:
+                timestamp = int(time.time())
+                path = f"{cls._default_dir}/feagi_state_{timestamp}.bin"
+            cls._instance = cls(path)
         return cls._instance
 
     def __init__(self, path: str):
         """Initialize state manager with memory mapping to specified file path"""
         size = ctypes.sizeof(FeagiStateStruct)
-        
-        # Create file if it doesn't exist
-        if not os.path.exists(path):
+        # Create file if it doesn't exist or resize if too small
+        if not os.path.exists(path) or os.path.getsize(path) != size:
             with open(path, "wb") as f:
                 f.write(b"\0" * size)
-        
-        # Memory map the file
         self.file = open(path, "r+b")
         self.mm = mmap.mmap(self.file.fileno(), size)
         self.state_ptr = ctypes.pointer(
@@ -90,15 +92,20 @@ class FeagiStateManager:
         )
         self.path = path
 
-    def __del__(self):
-        """Clean up resources on destruction"""
+    def cleanup(self):
+        """Clean up resources and delete the state file on shutdown"""
         try:
             if hasattr(self, 'mm') and self.mm:
                 self.mm.close()
             if hasattr(self, 'file') and self.file:
                 self.file.close()
+            if os.path.exists(self.path):
+                os.remove(self.path)
         except Exception:
             pass
+
+    def __del__(self):
+        self.cleanup()
 
     # ===== Genome State =====
     def get_genome_state(self) -> GenomeState:

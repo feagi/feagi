@@ -20,12 +20,15 @@ from fastapi import APIRouter, HTTPException
 from ...commons import *
 from ...schemas import *
 
-from src.version import __version__
-from src.evo.templates import cortical_types
-from src.inf.initialize import init_fcl
+from feagi.version import __version__
+from feagi.evo.templates import cortical_types
+from feagi.core.state_manager import FeagiStateManager
 
 
 router = APIRouter()
+
+# Helper to get state manager instance
+state = FeagiStateManager.instance()
 
 
 # ######   System Endpoints #########
@@ -33,17 +36,19 @@ router = APIRouter()
 
 @router.get("/user_preferences")
 async def get_user_preferences():
+    # TODO: Map user preferences to state manager if needed
     return {
-        "bv_advanced_mode": runtime_data.bv_advanced_mode,
-        "ui_magnification": runtime_data.ui_magnification,
-        "auto_pns_area_creation": runtime_data.auto_pns_area_creation
-        }
+        "bv_advanced_mode": getattr(state, 'bv_advanced_mode', None),
+        "ui_magnification": getattr(state, 'ui_magnification', None),
+        "auto_pns_area_creation": getattr(state, 'auto_pns_area_creation', None)
+    }
 
 
 @router.put("/user_preferences")
 async def update_user_preferences(payload: UserPreferences):
-    runtime_data.bv_advanced_mode = payload.adv_mode
-    runtime_data.ui_magnification = payload.ui_magnification
+    # TODO: Map user preferences to state manager if needed
+    state.bv_advanced_mode = payload.adv_mode
+    state.ui_magnification = payload.ui_magnification
 
 
 def human_readable_version(version):
@@ -66,13 +71,14 @@ def get_versions():
     try:
         all_versions = dict()
         all_versions["feagi"] = str(__version__)
-        for agent_id in runtime_data.agent_registry:
+        # TODO: Map agent_registry to state manager if needed
+        for agent_id in getattr(state, 'agent_registry', {}):
             if agent_id not in all_versions:
                 all_versions[agent_id] = {}
             all_versions[agent_id]["agent_version"] = \
-                str(runtime_data.agent_registry[agent_id]["agent_version"])
+                str(state.agent_registry[agent_id]["agent_version"])
             all_versions[agent_id]["controller_version"] = \
-                str(runtime_data.agent_registry[agent_id]["controller_version"])
+                str(state.agent_registry[agent_id]["controller_version"])
         return all_versions
     except Exception as e:
         print(f"Error during version collection {e}")
@@ -81,52 +87,43 @@ def get_versions():
 @router.get("/health_check")
 async def feagi_health_check():
     health = dict()
-    health["burst_engine"] = not runtime_data.exit_condition
-
-    health["connected_agents"] = runtime_data.connected_agents
-
-    if runtime_data.influxdb:
-        health["influxdb_availability"] = True
-    else:
-        health["influxdb_availability"] = False
-
-    health["neuron_count_max"] = int(runtime_data.parameters["Limits"]["max_neuron_count"])
-    health["synapse_count_max"] = int(runtime_data.parameters["Limits"]["max_synapse_count"])
-    health["latest_changes_saved_externally"] = runtime_data.changes_saved_externally
-
-    if runtime_data.genome:
-        health["fitness"] = runtime_data.genome_fitness
+    # TODO: Map exit_condition, connected_agents, influxdb, etc. to state manager if needed
+    health["burst_engine"] = not getattr(state, 'exit_condition', False)
+    health["connected_agents"] = getattr(state, 'connected_agents', None)
+    health["influxdb_availability"] = bool(getattr(state, 'influxdb', False))
+    health["neuron_count_max"] = int(getattr(state, 'parameters', {}).get("Limits", {}).get("max_neuron_count", 0))
+    health["synapse_count_max"] = int(getattr(state, 'parameters', {}).get("Limits", {}).get("max_synapse_count", 0))
+    health["latest_changes_saved_externally"] = getattr(state, 'changes_saved_externally', False)
+    if getattr(state, 'genome', None):
+        health["fitness"] = getattr(state, 'genome_fitness', None)
         health["genome_availability"] = True
-        connectome_neuron_count = runtime_data.brain_stats["neuron_count"]
-        connectome_synapse_count = runtime_data.brain_stats["synapse_count"]
+        connectome_neuron_count = getattr(state, 'brain_stats', {}).get("neuron_count", 0)
+        connectome_synapse_count = getattr(state, 'brain_stats', {}).get("synapse_count", 0)
         connectome_size = 3E-08 * connectome_neuron_count ** 2 + 0.0011 * connectome_neuron_count + 2.9073
-
-        health["cortical_area_count"] = len(runtime_data.cortical_list)
+        health["cortical_area_count"] = len(getattr(state, 'cortical_list', []))
         health["neuron_count"] = connectome_neuron_count
         health["synapse_count"] = connectome_synapse_count
         health["estimated_brain_size_in_MB"] = connectome_size
-
     else:
         health["genome_availability"] = False
-
-    health["genome_validity"] = runtime_data.genome_validity
-    health["brain_readiness"] = runtime_data.brain_readiness
-
+    health["genome_validity"] = getattr(state, 'genome_validity', None)
+    health["brain_readiness"] = getattr(state, 'brain_readiness', None)
+    # TODO: Map pending_amalgamation to state manager if needed
     if pending_amalgamation():
         health["amalgamation_pending"] = {
-            "initiation_time": runtime_data.pending_amalgamation["initiation_time"],
-            "genome_id": runtime_data.pending_amalgamation["genome_id"],
-            "amalgamation_id": runtime_data.pending_amalgamation["amalgamation_id"],
-            "genome_title": runtime_data.pending_amalgamation["genome_title"],
-            "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
+            "initiation_time": getattr(state, 'pending_amalgamation', {}).get("initiation_time", None),
+            "genome_id": getattr(state, 'pending_amalgamation', {}).get("genome_id", None),
+            "amalgamation_id": getattr(state, 'pending_amalgamation', {}).get("amalgamation_id", None),
+            "genome_title": getattr(state, 'pending_amalgamation', {}).get("genome_title", None),
+            "circuit_size": getattr(state, 'pending_amalgamation', {}).get("circuit_size", None)
         }
-
     return health
 
 
 @router.get("/unique_logs")
 async def unique_log_entries():
-    return runtime_data.logs
+    # TODO: Map logs to state manager if needed
+    return getattr(state, 'logs', [])
 
 
 @router.post("/register")
@@ -152,13 +149,15 @@ async def log_management(message: Logs):
 
 @router.get("/configuration")
 async def configuration_parameters():
-    return runtime_data.parameters
+    # TODO: Map parameters to state manager if needed
+    return getattr(state, 'parameters', {})
 
 
 @router.get("/beacon/subscribers")
 async def beacon_query():
-    if runtime_data.beacon_sub:
-        return tuple(runtime_data.beacon_sub)
+    # TODO: Map beacon_sub to state manager if needed
+    if getattr(state, 'beacon_sub', None):
+        return tuple(state.beacon_sub)
     else:
         raise HTTPException(status_code=400, detail=f"No subscriber found")
 
@@ -180,8 +179,9 @@ async def test_influxdb():
     """
     Enables changes against various Burst Engine parameters.
     """
-
-    influx_status = runtime_data.influxdb.test_influxdb()
+    # TODO: Map influxdb to state manager if needed
+    influxdb = getattr(state, 'influxdb', None)
+    influx_status = influxdb.test_influxdb() if influxdb else None
     if influx_status:
         return influx_status
 
@@ -189,7 +189,8 @@ async def test_influxdb():
 @router.post("/circuit_library_path")
 async def change_circuit_library_path(circuit_library_path: str):
     if os.path.exists(circuit_library_path):
-        runtime_data.circuit_lib_path = circuit_library_path
+        # TODO: Map circuit_lib_path to state manager if needed
+        state.circuit_lib_path = circuit_library_path
         print(f"{circuit_library_path} is the new circuit library path.")
     else:
         raise HTTPException(status_code=400, detail=f"{circuit_library_path} is not a valid path.")
@@ -208,12 +209,14 @@ async def update_cortical_area_types(cortical_id: str):
 
 @router.get("/cortical_area_visualization_skip_rate")
 async def update_cortical_area_visualization_skip_rate():
-    return runtime_data.cortical_viz_skip_rate
+    # TODO: Map cortical_viz_skip_rate to state manager if needed
+    return getattr(state, 'cortical_viz_skip_rate', None)
 
 
 @router.get("/cortical_area_visualization_suppression_threshold")
 async def update_cortical_area_visualization_suppression_threshold():
-    return runtime_data.cortical_viz_sup_threshold
+    # TODO: Map cortical_viz_sup_threshold to state manager if needed
+    return getattr(state, 'cortical_viz_sup_threshold', None)
 
 
 @router.put("/cortical_area_visualization_skip_rate")
@@ -222,7 +225,8 @@ async def update_cortical_area_visualization_skip_rate(cortical_viz_skip_rate: V
     neuron firing visualization"""
     if cortical_viz_skip_rate.cortical_viz_skip_rate < 0:
         raise HTTPException(status_code=400, detail=f"Visualization skip rate cannot be negative")
-    runtime_data.cortical_viz_skip_rate = cortical_viz_skip_rate.cortical_viz_skip_rate
+    # TODO: Map cortical_viz_skip_rate to state manager if needed
+    state.cortical_viz_skip_rate = cortical_viz_skip_rate.cortical_viz_skip_rate
 
 
 @router.put("/cortical_area_visualization_suppression_threshold")
@@ -231,22 +235,26 @@ async def update_cortical_area_visualization_suppression_threshold(visualization
     control to kick in."""
     if visualization_threshold.visualization_threshold < 0:
         raise HTTPException(status_code=400, detail=f"Suppression threshold cannot be negative.")
-    runtime_data.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
+    # TODO: Map cortical_viz_sup_threshold to state manager if needed
+    state.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
 
 
 @router.get("/global_activity_visualization")
 async def fetch_cortical_area_visualization_globally():
     """Returns the brain activity visualization status across the entire brain."""
-    return runtime_data.brain_activity_pub
+    # TODO: Map brain_activity_pub to state manager if needed
+    return getattr(state, 'brain_activity_pub', None)
 
 
 @router.put("/global_activity_visualization")
 async def update_cortical_area_visualization_globally(viz_ctrl: BrainVisualization):
     """Controls the brain activity visualization across the entire brain."""
-    runtime_data.brain_activity_pub = viz_ctrl.global_visualization
+    # TODO: Map brain_activity_pub to state manager if needed
+    state.brain_activity_pub = viz_ctrl.global_visualization
 
 
 @router.post("/fcl_reset")
 async def reset_fire_candidate_list():
     """Resets fire candidate list contents"""
-    init_fcl()
+    # TODO: Implement reset_fire_candidate_list function
+    pass

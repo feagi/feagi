@@ -23,51 +23,53 @@ from starlette.responses import FileResponse
 from ast import literal_eval
 from threading import Thread
 
-from src.api.commons import *
-from src.inf import runtime_data
-from src.evo.synapse import cortical_mapping
-from src.inf.disk_ops import preserve_brain, revive_brain
-# from src.inf.feagi import start_feagi
-from src.inf.initialize import deploy_genome
-from src.npu.consciousness import set_brain_readiness_to_false
+from ...commons import *
+from feagi.bdu import ConnectomeManager
+from feagi.core.global_objects import connectome
+from feagi.core.state_manager import FeagiStateManager
 
 
 router = APIRouter()
+
+# Helper to get state manager instance
+state = FeagiStateManager.instance()
 
 
 # ######  Connectome Endpoints #########
 # ######################################
 @router.get("/cortical_areas/list/summary")
 async def connectome_cortical_areas_summary():
+    # TODO: Replace with actual brain structure from state manager
     cortical_list = set()
-    for cortical_area in runtime_data.brain:
+    for cortical_area in state.get_brain():
         cortical_list.add(cortical_area)
-
     return cortical_list
 
 
 @router.get("/cortical_areas/list/transforming")
 async def transforming_cortical_areas_summary():
-    return runtime_data.transforming_areas
+    # TODO: Add transforming_areas to state manager if needed
+    return getattr(state, 'transforming_areas', {})
 
 
 @router.get("/cortical_areas/list/detailed")
 async def connectome_cortical_areas():
     cortical_list = dict()
-    for cortical_area in runtime_data.brain:
+    for cortical_area in state.get_brain():
         cortical_list[cortical_area] = {}
-        cortical_list[cortical_area]["name"] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
-        cortical_list[cortical_area]["type"] = runtime_data.genome["blueprint"][cortical_area]["group_id"]
-        cortical_list[cortical_area]["sub_type"] = runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]
+        # TODO: Map genome access to state manager
+        genome = state.get_genome()
+        cortical_list[cortical_area]["name"] = genome["blueprint"][cortical_area]["cortical_name"]
+        cortical_list[cortical_area]["type"] = genome["blueprint"][cortical_area]["group_id"]
+        cortical_list[cortical_area]["sub_type"] = genome["blueprint"][cortical_area]["sub_group_id"]
         cortical_list[cortical_area]["position"] = []
     return cortical_list
 
 
 @router.get("/cortical_info")
 async def connectome_cortical_info(cortical_area: str):
-
-    if cortical_area in runtime_data.brain:
-        return runtime_data.brain[cortical_area]
+    if cortical_area in state.get_brain():
+        return state.get_brain()[cortical_area]
     else:
         raise HTTPException(status_code=400, detail="Requested cortical area not found!")
 
@@ -84,18 +86,14 @@ async def connectome_cortical_info(cortical_area: str):
 
 @router.get("/plasticity")
 async def connectome_plasticity_info():
-    if runtime_data.plasticity_dict:
-        return runtime_data.plasticity_dict
-    else:
-        return {}
+    # TODO: Add plasticity_dict to state manager if needed
+    return getattr(state, 'plasticity_dict', {})
 
 
 @router.get("/path")
 async def connectome_system_path():
-    if runtime_data.connectome_path:
-        return runtime_data.connectome_path
-    else:
-        return {}
+    # TODO: Add connectome_path to state manager if needed
+    return getattr(state, 'connectome_path', {})
 
 
 # @router.post("/source")
@@ -116,8 +114,10 @@ async def connectome_download(cortical_area: str):
     print("Downloading Connectome...")
     file_name = "connectome_" + cortical_area + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
     print(file_name)
-    if runtime_data.brain[cortical_area]:
-        return FileResponse(path=runtime_data.connectome_path + cortical_area + ".json", filename=file_name)
+    if state.get_brain().get(cortical_area):
+        # TODO: Add connectome_path to state manager if needed
+        connectome_path = getattr(state, 'connectome_path', '')
+        return FileResponse(path=connectome_path + cortical_area + ".json", filename=file_name)
     else:
         raise HTTPException(status_code=400, detail="Requested cortical area not found!")
 
@@ -134,35 +134,27 @@ async def connectome_file_upload(file: UploadFile = File(...)):
 
 @router.get("/properties/dimensions")
 async def connectome_dimensions_report():
-    if runtime_data.cortical_dimensions:
-        return runtime_data.cortical_dimensions
-    else:
-        return [0, 0, 0]
+    # TODO: Add cortical_dimensions to state manager if needed
+    return getattr(state, 'cortical_dimensions', [0, 0, 0])
 
 
 @router.get("/stats/cortical/cumulative")
 async def connectome_dimensions_report(cortical_area: str):
-    if cortical_area in runtime_data.cumulative_stats:
-        return runtime_data.cumulative_stats[cortical_area]
-    else:
-        return {}
+    # TODO: Add cumulative_stats to state manager if needed
+    cumulative_stats = getattr(state, 'cumulative_stats', {})
+    return cumulative_stats.get(cortical_area, {})
 
 
 @router.get("/properties/mappings")
 async def connectome_mapping_report():
     """
     Report result can be used with the following tool to visualize the connectome mapping:
-
     https://csacademy.com/app/graph_editor/
-
-    Note: Use the print out from FEAGI logs for above online editor
     """
-
-    mappings = cortical_mapping()
-    if mappings:
-        return mappings
-    else:
-        return {}
+    mappings = {}
+    for neuron_id in connectome._neuron_id_to_index.keys():
+        mappings[neuron_id] = connectome.get_outgoing_connections(neuron_id)
+    return mappings
 
 
 @router.get("/download")
@@ -170,38 +162,12 @@ async def download_connectome():
     """
     Creates a compressed file containing the entire brain data
     """
-    print("Downloading Genome...")
-
-    file_name = "brain_" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".feagi"
-    print(file_name)
-    brain_data = preserve_brain()
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.gz') as temp_file:
-        temp_file.write(brain_data)
-
-        # Ensure all data is written
-        temp_file.flush()
-
-        # Get the size of the file
-        temp_file_size = temp_file.tell()
-        print(f"Size of data: {temp_file_size} bytes")
-
-        # Seek back to the start of the file
-        temp_file.seek(0)
-
-        # Create the FileResponse inside the with block
-        response = FileResponse(temp_file.name, media_type="application/gzip", filename=file_name)
-
-        return response
+    # TODO: Implement connectome serialization
+    raise NotImplementedError("Connectome download is not yet implemented.")
 
 
 @router.post("/upload")
 async def upload_connectome(file: UploadFile = File(...)):
-
-    set_brain_readiness_to_false(context="Uploading connectome.")
-    runtime_data.genome = {}
-    brain_data = await file.read()
-    revive_brain(brain_data=brain_data)
-    deploy_genome(genome_data=runtime_data.pending_genome)
-    runtime_data.new_genome = True
-    print("\n Brain successfully initialized.")
+    state.set_connectome_state('not_ready')
+    # TODO: Implement connectome upload/restore
+    raise NotImplementedError("Connectome upload is not yet implemented.")
