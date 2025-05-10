@@ -22,12 +22,11 @@ from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
 from feagi.evo.templates import cortical_types
 from feagi.bdu.brain_region import change_cortical_area_parent, create_region, update_region, delete_region_with_members, relocate_region_members
-from feagi.evo.cortical_area import cortical_area_type, cortical_id_gen
-from feagi.evo.mapping_helper import generate_detailed_cortical_map
+from feagi.bdu.mapping_utils import get_detailed_cortical_map
 from feagi.bdu import ConnectomeManager
 from feagi.core.global_objects import connectome
 
-from ...schemas import *
+from ...schemas import CorticalId, CorticalIdList, NewCorticalProperties, NewCustomCorticalProperties, UpdateCorticalProperties, UpdateMultipleCorticalProperties, CorticalName, CorticalList
 from ...commons import *
 
 
@@ -64,7 +63,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             if cortical_area in state.cortical_viz_list:
                 cortical_visibility = False
 
-            cortical_type = cortical_area_type(cortical_area=cortical_area)
+            cortical_type = connectome.get_cortical_area_type(cortical_area)
 
             dim_x = cortical_data["block_boundaries"][0]
             dim_y = cortical_data["block_boundaries"][1]
@@ -237,7 +236,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     message["is_memory"] = is_memory
     message["cortical_dimensions"] = cortical_dimensions
 
-    cortical_id = cortical_id_gen(temp_name[:3], is_memory=is_memory)
+    cortical_id = connectome.generate_cortical_id(temp_name[:3], is_memory=is_memory)
 
     neuron_density = 1
     if copy_of:
@@ -410,7 +409,7 @@ async def current_opu_list():
 
 @router.get("/cortical_map_detailed")
 async def connectome_detailed_cortical_map():
-    cortical_map = generate_detailed_cortical_map()
+    cortical_map = get_detailed_cortical_map(state)
     return cortical_map
 
 
@@ -514,7 +513,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "transforming": False
                 }
 
-                cortical_type = cortical_area_type(cortical_area=cortical_area)
+                cortical_type = connectome.get_cortical_area_type(cortical_area)
                 if cortical_type in ["IPU", "OPU"]:
                     dev_count = state.get_genome()["blueprint"][cortical_area]["dev_count"]
                     unit_dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]

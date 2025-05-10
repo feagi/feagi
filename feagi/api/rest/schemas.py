@@ -165,3 +165,129 @@ class VizThreshold(BaseModel):
 # BrainVisualization model for global activity visualization endpoints
 class BrainVisualization(BaseModel):
     global_visualization: bool
+
+
+class CorticalId(BaseModel):
+    cortical_id: str
+
+
+class CorticalIdList(BaseModel):
+    cortical_id_list: list[str]
+
+
+class CorticalName(BaseModel):
+    cortical_name: str
+
+
+class CorticalList(BaseModel):
+    area_list: list[str]
+
+
+class NewCorticalProperties(BaseModel):
+    """Request model for adding a new core cortical area."""
+    cortical_id: str
+    cortical_type: str
+    cortical_name: str
+    parent_region_id: Optional[str] = None
+    sub_group_id: Optional[str] = None
+    cortical_dimensions: Optional[List[int]] = None
+    coordinates_2d: Optional[List[int]] = None
+    coordinates_3d: Optional[List[int]] = None
+    per_voxel_neuron_cnt: Optional[int] = None
+    dev_count: Optional[int] = None
+
+
+class NewCustomCorticalProperties(BaseModel):
+    """Request model for adding a new custom cortical area."""
+    cortical_name: str
+    parent_region_id: str
+    sub_group_id: Optional[str] = None
+    cortical_dimensions: Optional[List[int]] = None
+    coordinates_2d: Optional[List[int]] = None
+    coordinates_3d: Optional[List[int]] = None
+    per_voxel_neuron_cnt: Optional[int] = None
+    dev_count: Optional[int] = None
+    copy_of: Optional[str] = None
+    is_memory: Optional[bool] = None
+
+
+class UpdateCorticalProperties(BaseModel):
+    """Request model for updating a single cortical area's properties."""
+    cortical_id: str
+    parent_region_id: Optional[str] = None
+    cortical_dimensions: Optional[List[int]] = None
+    cortical_neuron_per_vox_count: Optional[int] = None
+    coordinates_2d: Optional[List[int]] = None
+    coordinates_3d: Optional[List[int]] = None
+    per_voxel_neuron_cnt: Optional[int] = None
+    dev_count: Optional[int] = None
+    sub_group_id: Optional[str] = None
+
+
+class UpdateMultipleCorticalProperties(BaseModel):
+    """Request model for updating multiple cortical areas at once."""
+    cortical_id_list: List[str]
+    parent_region_id: Optional[str] = None
+    cortical_dimensions: Optional[List[int]] = None
+    cortical_neuron_per_vox_count: Optional[int] = None
+    coordinates_2d: Optional[List[int]] = None
+    coordinates_3d: Optional[List[int]] = None
+    per_voxel_neuron_cnt: Optional[int] = None
+    dev_count: Optional[int] = None
+    sub_group_id: Optional[str] = None
+
+
+class CorticalAreaSrcDst(BaseModel):
+    """Model for specifying source and destination cortical area IDs for mapping queries."""
+    source: str
+    destination: str
+
+
+class UpdateCorticalMappingProperties(BaseModel):
+    """Model for updating properties of a cortical mapping between two areas."""
+    source: str
+    destination: str
+    mapping_type: Optional[str] = None
+    weight: Optional[float] = None
+    delay: Optional[float] = None
+    enabled: Optional[bool] = None
+
+
+class SuggestedMapping(BaseModel):
+    """Model for a suggested cortical mapping between two areas."""
+    source: str
+    destination: str
+    weight: Optional[float] = None
+    delay: Optional[float] = None
+    mapping_type: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+class NewRegionProperties(BaseModel):
+    """Request model for creating a new brain region."""
+    region_id: str
+    title: str
+    parent_region_id: str
+    coordinate_2d: Optional[List[int]] = None
+    coordinate_3d: Optional[List[int]] = None
+
+
+class UpdateRegionProperties(BaseModel):
+    """Request model for updating a brain region's properties."""
+    region_id: str
+    title: Optional[str] = None
+    region_description: Optional[str] = None
+    parent_region_id: Optional[str] = None
+    coordinate_2d: Optional[List[int]] = None
+    coordinate_3d: Optional[List[int]] = None
+
+
+class Id(BaseModel):
+    """Simple model for returning or receiving an ID string."""
+    id: str
+
+
+class RegionAssociation(BaseModel):
+    """Model for associating a cortical area with a brain region."""
+    cortical_area_id: str
+    region_id: str

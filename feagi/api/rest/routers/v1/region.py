@@ -23,8 +23,7 @@ from ...commons import *
 from feagi.bdu.brain_region import create_region, update_region, delete_region_with_members, change_cortical_area_parent, change_brain_region_parent, relocate_region_members
 from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
-from feagi.bdu.neuroembryogenesis import cortical_name_list, cortical_name_to_id
-from feagi.bdu.templates import cortical_types
+from feagi.evo.templates import cortical_types
 from feagi.core.state_manager import FeagiStateManager
 
 

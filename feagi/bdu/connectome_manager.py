@@ -14,6 +14,7 @@ import time
 from enum import Enum
 from dataclasses import dataclass
 import scipy.sparse as sp
+import string, random
 
 from feagi.core.backend import get_backend, BackendType
 from feagi.utils.config import FeagiConfig
@@ -241,9 +242,12 @@ class ConnectomeManager:
             # Special handling for very large areas
             self._extreme_dimension_areas.add(cortical_idx)
             self._area_lookup_tables[cortical_idx] = {
-                'x_indices': {},
-                'y_indices': {},
-                'z_indices': {}
+                'dimension_occupancy': {
+                    'x': BitMap(),
+                    'y': BitMap(),
+                    'z': BitMap()
+                },
+                'position_mapping': {}
             }
         elif width * height * depth <= 1000:
             # Small regular areas
@@ -1965,3 +1969,40 @@ class ConnectomeManager:
             if area.name == cortical_name:
                 return area_id
         raise ValueError(f"Cortical name '{cortical_name}' not found in connectome.")
+
+    def get_cortical_area_type(self, cortical_area_id: str) -> str:
+        """
+        Returns the type of the given cortical area (e.g., 'SENSORY', 'MOTOR', 'CUSTOM').
+        Looks up the area type in self._area_types or defaults to 'CUSTOM'.
+        """
+        # Example: self._area_types = {'SENSORY': {'supported_devices': [...]}, ...}
+        for area_type, props in getattr(self, '_area_types', {}).items():
+            if 'supported_devices' in props:
+                if cortical_area_id in props['supported_devices']:
+                    return area_type
+        return 'CUSTOM'
+
+    def is_system_area(self, cortical_area_id: str) -> bool:
+        """
+        Returns True if the area is a system area (i.e., listed in any supported_devices), False otherwise.
+        """
+        for props in getattr(self, '_area_types', {}).values():
+            if 'supported_devices' in props and cortical_area_id in props['supported_devices']:
+                return True
+        return False
+
+    def generate_cortical_id(self, seed: str = '___', is_memory: bool = False) -> str:
+        """
+        Generates a unique cortical area ID, using the connectome's current area IDs for uniqueness.
+        """
+        seed = seed.replace('-', '_')
+        chars = string.ascii_uppercase + string.digits
+        prefix = 'M' if is_memory else 'C'
+        existing_ids = set(self._areas.keys())
+        while True:
+            random_id = prefix + ''.join(random.choice(chars) for _ in range(2)) + seed
+            if random_id not in existing_ids:
+                return random_id
+
+# Global singleton instance for use throughout the codebase
+connectome = ConnectomeManager()
