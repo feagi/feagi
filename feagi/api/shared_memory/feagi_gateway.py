@@ -11,26 +11,24 @@ import logging
 import threading
 from typing import Dict, List, Any, Optional, Union, Tuple
 
-from feagi.core import FEAGI
-from feagi.api.core.service import APIGateway
 from .manager import SharedMemoryManager
 from .events import EventNotificationSystem, EventType, Event
 from .data_structures import SharedConfigDict
 
 
-class SharedMemoryFEAGIGateway(APIGateway):
+class SharedMemoryFEAGIGateway:
     """
-    Gateway implementation that uses shared memory for communication with FEAGI core.
+    Standalone gateway implementation that uses shared memory for communication with FEAGI core.
     
     This class replaces the ZMQ-based gateway with a more efficient IPC mechanism
-    using memory-mapped files and event notifications.
+    using memory-mapped files and event notifications. It is designed as a reference
+    for both Python and Rust implementations, and is fully RTOS/embedded compatible.
     """
     
     def __init__(
         self,
         process_name: str = "api_server",
-        temp_dir: Optional[str] = None,
-        feagi_instance: Optional[FEAGI] = None
+        temp_dir: Optional[str] = None
     ):
         """
         Initialize the shared memory gateway.
@@ -38,7 +36,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         Args:
             process_name: Unique name for this process (used in event notifications)
             temp_dir: Directory to store shared memory files
-            feagi_instance: Optional FEAGI instance (for in-process mode)
         """
         self.logger = logging.getLogger("feagi.api.shared_memory.gateway")
         self.process_name = process_name
@@ -49,9 +46,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         
         # Create shared configuration dictionary
         self.config_dict = SharedConfigDict("feagi_config", manager=self.memory_manager)
-        
-        # Direct reference to FEAGI instance (if running in-process)
-        self._feagi = feagi_instance
         
         # Cache for frequently accessed data
         self._cache = {}
@@ -145,12 +139,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         if cached is not None:
             return cached
         
-        # If running in-process, use direct FEAGI instance
-        if self._feagi and hasattr(self._feagi, "get_cortical_areas"):
-            result = self._feagi.get_cortical_areas()
-            self._set_cache("cortical_areas", result)
-            return result
-        
         # Otherwise, get from shared memory
         # Get from shared config dictionary
         areas = self.config_dict.get("cortical_areas", [])
@@ -173,12 +161,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         if cached is not None:
             return cached
         
-        # If running in-process, use direct FEAGI instance
-        if self._feagi and hasattr(self._feagi, "get_cortical_area"):
-            result = self._feagi.get_cortical_area(area_id)
-            self._set_cache(cache_key, result)
-            return result
-        
         # Otherwise, get from shared memory
         areas = self.get_cortical_areas()
         for area in areas:
@@ -200,12 +182,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         if cached is not None:
             return cached
         
-        # If running in-process, use direct FEAGI instance
-        if self._feagi and hasattr(self._feagi, "get_cortical_area_types"):
-            result = self._feagi.get_cortical_area_types()
-            self._set_cache("cortical_area_types", result)
-            return result
-        
         # Otherwise, get from shared memory
         area_types = self.config_dict.get("cortical_area_types", {"cortical": [], "subcortical": []})
         self._set_cache("cortical_area_types", area_types)
@@ -222,12 +198,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         cached = self._get_cached("burst_engine_config")
         if cached is not None:
             return cached
-        
-        # If running in-process, use direct FEAGI instance
-        if self._feagi and hasattr(self._feagi, "get_burst_engine_config"):
-            result = self._feagi.get_burst_engine_config()
-            self._set_cache("burst_engine_config", result)
-            return result
         
         # Otherwise, get from shared memory
         config = self.config_dict.get("burst_engine_config", {
@@ -255,12 +225,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         if cached is not None:
             return cached
         
-        # If running in-process, use direct FEAGI instance
-        if self._feagi and hasattr(self._feagi, "get_genome_filename"):
-            result = self._feagi.get_genome_filename()
-            self._set_cache("genome_filename", result)
-            return result
-        
         # Otherwise, get from shared memory
         filename = self.config_dict.get("genome_filename", None)
         self._set_cache("genome_filename", filename)
@@ -276,14 +240,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         Returns:
             True if successful, False otherwise
         """
-        # If running in-process, use direct FEAGI instance
-        if self._feagi and hasattr(self._feagi, "set_burst_engine_config"):
-            result = self._feagi.set_burst_engine_config(config)
-            if result:
-                self._invalidate_cache("burst_engine_config")
-                self.event_system.send_event(EventType.CONFIG_UPDATED, data={"type": "burst_engine"})
-            return result
-        
         # Otherwise, set in shared memory
         result = self.config_dict.set("burst_engine_config", config)
         if result:
@@ -302,14 +258,6 @@ class SharedMemoryFEAGIGateway(APIGateway):
         Returns:
             True if successful, False otherwise
         """
-        # If running in-process, use direct FEAGI instance
-        if self._feagi and hasattr(self._feagi, "load_genome"):
-            result = self._feagi.load_genome(genome_data, filename)
-            if result:
-                self._invalidate_cache_all()
-                self.event_system.send_event(EventType.GENOME_LOADED, data={"filename": filename})
-            return result
-        
         # Otherwise, set in shared memory
         result = self.config_dict.set("genome", genome_data)
         if result:
@@ -318,11 +266,15 @@ class SharedMemoryFEAGIGateway(APIGateway):
             self.event_system.send_event(EventType.GENOME_LOADED, data={"filename": filename})
         return result
     
-    def shutdown(self):
-        """Shut down the gateway and clean up resources."""
+    def shutdown(self, delete_shared_memory: bool = False):
+        """
+        Shutdown the gateway and clean up resources.
+        Args:
+            delete_shared_memory: If True, delete shared memory files (default: False)
+        """
         self.logger.info("Shutting down SharedMemoryFEAGIGateway")
-        self.event_system.cleanup()
-        self.memory_manager.cleanup()
+        self.event_system.stop()
+        self.config_dict.region.close(delete_file=delete_shared_memory)
         self.logger.info("SharedMemoryFEAGIGateway shutdown complete")
     
     def __del__(self):

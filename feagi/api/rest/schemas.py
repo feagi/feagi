@@ -2,7 +2,7 @@
 Pydantic schemas for the REST API.
 """
 
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Union, Tuple
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -291,3 +291,17 @@ class RegionAssociation(BaseModel):
     """Model for associating a cortical area with a brain region."""
     cortical_area_id: str
     region_id: str
+
+
+class VisionSettings(BaseModel):
+    central_vision_resolution: Tuple[Optional[int], Optional[int]]
+    peripheral_vision_resolution: Tuple[Optional[int], Optional[int]]
+    flicker_period: Optional[int]
+    color_vision: Optional[bool]
+    eccentricity: Optional[Tuple[Optional[float], Optional[float]]]
+    modulation: Optional[Tuple[Optional[float], Optional[float]]]
+    brightness: Optional[float]
+    contrast: Optional[float]
+    shadows: Optional[float]
+    pixel_change_limit: Optional[float]
+    horizontal_flip: Optional[bool] = None

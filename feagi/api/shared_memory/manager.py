@@ -160,7 +160,11 @@ class SharedMemoryRegion:
         """
         with self._lock:
             self.mmap.seek(offset)
-            return self.mmap.write(data)
+            written = self.mmap.write(data)
+            self.mmap.flush()
+            self.file.flush()
+            os.fsync(self.file.fileno())
+            return written
     
     def as_array(self, shape: Tuple[int, ...], dtype: np.dtype = np.float32) -> np.ndarray:
         """
@@ -181,19 +185,31 @@ class SharedMemoryRegion:
         # Create a numpy array that views the shared memory
         return np.frombuffer(self.mmap, dtype=dtype).reshape(shape)
     
-    def close(self):
-        """Close the shared memory region."""
+    def close(self, delete_file: bool = False):
+        """
+        Close the shared memory region. Optionally delete the file.
+        Args:
+            delete_file: If True, delete the file from disk (default: False)
+        """
         try:
-            if hasattr(self, 'mmap') and self.mmap:
-                self.mmap.close()
-            if hasattr(self, 'file') and self.file:
-                self.file.close()
+            self.mmap.close()
+            self.file.close()
+            if delete_file and os.path.exists(self.file_path):
+                os.remove(self.file_path)
         except Exception as e:
             self.logger.error(f"Error closing shared memory region: {e}")
     
     def __del__(self):
         """Ensure resources are cleaned up."""
         self.close()
+    
+    def reload(self):
+        """Reload the memory map from disk (for cross-process consistency)."""
+        with self._lock:
+            self.mmap.close()
+            self.file.close()
+            self.file = open(self.file_path, "r+b")
+            self.mmap = mmap.mmap(self.file.fileno(), self.size)
 
 
 class SharedMemoryManager:
@@ -259,25 +275,9 @@ class SharedMemoryManager:
         return self.regions[name]
     
     def delete_region(self, name: str):
-        """
-        Delete a shared memory region.
-        
-        Args:
-            name: Identifier for the region to delete
-        """
+        """Explicitly delete a shared memory region file."""
         if name in self.regions:
-            region = self.regions[name]
-            region.close()
-            
-            # Delete the files
-            try:
-                os.remove(region.file_path)
-                if os.path.exists(region.lock_path):
-                    os.remove(region.lock_path)
-                self.logger.info(f"Deleted shared memory region '{name}'")
-            except Exception as e:
-                self.logger.error(f"Error deleting shared memory region '{name}': {e}")
-                
+            self.regions[name].close(delete_file=True)
             del self.regions[name]
     
     def list_regions(self) -> Dict[str, int]:
@@ -297,4 +297,8 @@ class SharedMemoryManager:
     def __del__(self):
         """Ensure all regions are properly closed."""
         for region in self.regions.values():
-            region.close() 
+            region.close()
+    
+    def region_path(self, name: str) -> str:
+        """Return the file path for a given shared memory region name."""
+        return os.path.join(self.temp_dir, f"feagi_shared_{name}.dat") 

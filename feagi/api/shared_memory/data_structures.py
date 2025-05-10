@@ -562,13 +562,14 @@ class SharedConfigDict:
         self._manager = manager or SharedMemoryManager()
         
         # Create the shared memory region
+        file_exists = os.path.exists(self._manager.region_path(name))
         self.region = self._manager.create_region(name, size=initial_size)
         
-        # Initialize with data if provided
+        # Initialize with data if provided, or only if file is new
         if initial_data:
             self.update(initial_data)
-        else:
-            # Initialize with empty dictionary
+        elif not file_exists:
+            # Only initialize with empty dictionary if file is new
             self._write_dict({})
     
     def _read_dict(self) -> Dict[str, Any]:
@@ -615,12 +616,12 @@ class SharedConfigDict:
         Returns:
             Value for the key, or default if not found
         """
-        # Acquire lock to ensure consistent read
         if not self.region.acquire_lock(timeout=1.0):
             self.logger.warning("Could not acquire lock for reading config dictionary")
             return default
         
         try:
+            self.region.reload()
             data = self._read_dict()
             return data.get(key, default)
         finally:
@@ -637,15 +638,18 @@ class SharedConfigDict:
         Returns:
             True if successful, False otherwise
         """
-        # Acquire lock to ensure atomic update
         if not self.region.acquire_lock(timeout=1.0):
-            self.logger.warning("Could not acquire lock for updating config dictionary")
+            self.logger.warning("Could not acquire lock for writing config dictionary")
             return False
-        
         try:
             data = self._read_dict()
             data[key] = value
-            return self._write_dict(data)
+            self._write_dict(data)
+            self.region.mmap.flush()
+            self.region.file.flush()
+            os.fsync(self.region.file.fileno())
+            self.region.reload()
+            return True
         finally:
             self.region.release_lock()
     
@@ -702,12 +706,12 @@ class SharedConfigDict:
         Returns:
             Dictionary containing all key-value pairs
         """
-        # Acquire lock to ensure consistent read
         if not self.region.acquire_lock(timeout=1.0):
             self.logger.warning("Could not acquire lock for reading config dictionary")
             return {}
         
         try:
+            self.region.reload()
             return self._read_dict()
         finally:
             self.region.release_lock()

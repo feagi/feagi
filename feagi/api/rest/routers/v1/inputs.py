@@ -16,6 +16,8 @@
 
 import os
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional, Tuple
 
 from ...commons import *
 from ...schemas import *
@@ -23,6 +25,7 @@ from ...schemas import *
 from feagi.version import __version__
 from feagi.evo.templates import cortical_types
 from feagi.pns.vision import generate_vision_configuration
+from feagi.api.rest.schemas import VisionSettings
 
 
 router = APIRouter()

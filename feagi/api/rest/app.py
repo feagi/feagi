@@ -18,9 +18,11 @@ import traceback
 import time
 import string
 import random
+import logging
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from threading import Thread
 
 from .config import settings
@@ -70,18 +72,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
 )
-
-state = FeagiStateManager.instance()
-
-
-def kickstart_feagi_thread():
-    print("<>--" * 20)
-    print("Starting FEAGI thread..")
-    state.feagi_thread = Thread(target=start_feagi, args=(api_queue,))
-    state.feagi_thread.start()
-
-
-kickstart_feagi_thread()
 
 
 @app.middleware("http")
@@ -283,4 +273,12 @@ app.include_router(
     dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
+
+def create_rest_app():
+    """Factory function to return the FastAPI app instance."""
+    return app
+
+def get_core_api():
+    """Dependency placeholder for the core API service. Should be overridden in tests."""
+    raise NotImplementedError("get_core_api must be overridden in tests with a mock implementation.")
 
