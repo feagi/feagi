@@ -12,6 +12,7 @@ from enum import IntEnum
 from typing import Optional
 import time
 import logging
+import datetime
 
 
 # ===== State Definitions =====
@@ -118,8 +119,10 @@ class FeagiStateManager:
     
     def set_genome_state(self, state: GenomeState) -> None:
         """Set genome state using enum value"""
+        old = GenomeState(self.state_ptr.contents.genome_state)
         self.state_ptr.contents.genome_state = int(state)
         self.state_ptr.contents.state_version += 1
+        _log_state_change("🧬", f"Genome state changed: {old.name} → {state.name}")
     
     # ===== Connectome State =====
     def get_connectome_state(self) -> ConnectomeState:
@@ -129,8 +132,10 @@ class FeagiStateManager:
     
     def set_connectome_state(self, state: ConnectomeState) -> None:
         """Set connectome state using enum value"""
+        old = ConnectomeState(self.state_ptr.contents.connectome_state)
         self.state_ptr.contents.connectome_state = int(state)
         self.state_ptr.contents.state_version += 1
+        _log_state_change("🕸️", f"Connectome state changed: {old.name} → {state.name}")
 
     # ===== API State =====
     def get_api_state(self) -> ServiceState:
@@ -140,8 +145,10 @@ class FeagiStateManager:
     
     def set_api_state(self, state: ServiceState) -> None:
         """Set API state using enum value"""
+        old = ServiceState(self.state_ptr.contents.api_state)
         self.state_ptr.contents.api_state = int(state)
         self.state_ptr.contents.state_version += 1
+        _log_state_change("🚦", f"REST API state changed: {old.name} → {state.name}")
 
     # ===== ZMQ State =====
     def get_zmq_state(self) -> ServiceState:
@@ -151,8 +158,10 @@ class FeagiStateManager:
     
     def set_zmq_state(self, state: ServiceState) -> None:
         """Set ZMQ state using enum value"""
+        old = ServiceState(self.state_ptr.contents.zmq_state)
         self.state_ptr.contents.zmq_state = int(state)
         self.state_ptr.contents.state_version += 1
+        _log_state_change("📬", f"ZMQ state changed: {old.name} → {state.name}")
 
     # ===== Agent Count =====
     def get_agent_count(self) -> int:
@@ -172,8 +181,10 @@ class FeagiStateManager:
     
     def set_burst_engine_state(self, state: ServiceState) -> None:
         """Set burst engine state using enum value"""
+        old = ServiceState(self.state_ptr.contents.burst_engine_state)
         self.state_ptr.contents.burst_engine_state = int(state)
         self.state_ptr.contents.state_version += 1
+        _log_state_change("💥", f"Burst Engine state changed: {old.name} → {state.name}")
 
     # ===== Burst Frequency =====
     def get_burst_frequency(self) -> float:
@@ -193,8 +204,10 @@ class FeagiStateManager:
     
     def set_simulation_state(self, state: SimulationState) -> None:
         """Set simulation state using enum value"""
+        old = SimulationState(self.state_ptr.contents.simulation_state)
         self.state_ptr.contents.simulation_state = int(state)
         self.state_ptr.contents.state_version += 1
+        _log_state_change("🧪", f"Simulation state changed: {old.name} → {state.name}")
         
     # ===== FCLSampler State =====
     def get_fcl_sampler_state(self) -> ServiceState:
@@ -203,8 +216,10 @@ class FeagiStateManager:
         return ServiceState(raw_value)
     def set_fcl_sampler_state(self, state: ServiceState) -> None:
         """Set FCLSampler state using enum value"""
+        old = ServiceState(self.state_ptr.contents.fcl_sampler_state)
         self.state_ptr.contents.fcl_sampler_state = int(state)
         self.state_ptr.contents.state_version += 1
+        _log_state_change("🎯", f"FCLSampler state changed: {old.name} → {state.name}")
 
     # ===== FCLSampler Frequency =====
     def get_fcl_sampler_frequency(self) -> float:
@@ -268,5 +283,15 @@ class FeagiStateManager:
 
     def set_brain_readiness(self, ready: bool) -> None:
         """Set the brain readiness flag (True if brain is ready)"""
+        old = bool(self.state_ptr.contents.brain_readiness)
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
-        self.state_ptr.contents.state_version += 1 
+        self.state_ptr.contents.state_version += 1
+        _log_state_change("🧠", f"Brain readiness changed: {old} → {ready}")
+
+def _log_state_change(emoji: str, message: str):
+    # Always reserve a 2-character spot for the icon (emoji or spaces)
+    icon = f"{emoji:<2}" if emoji else "  "
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_msg = f"{icon} [{timestamp}] {message}"
+    logging.getLogger(__name__).info(log_msg)
+    print(log_msg) 

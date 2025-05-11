@@ -34,7 +34,7 @@ from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome
 from .routers.v1 import inputs
 from feagi.api.dependencies import *
 from feagi.api.models import *
-from feagi.core.state_manager import FeagiStateManager
+from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +99,13 @@ async def catch_exceptions_middleware(request: Request, call_next):
         return await call_next(request)
     except CustomError as e:
         # Handle CustomError
-        print(f"Exception:\n {e}", traceback.print_exc())
+        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=e.status_code,
             content={"message": f"A custom error occurred: {str(e.message)}"},
         )
     except Exception as e:
-        print(f"Exception:\n {e}", traceback.print_exc())
+        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
             content={
@@ -273,6 +273,11 @@ app.include_router(
     dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
+
+@app.on_event("startup")
+async def set_api_state_ready():
+    state = FeagiStateManager.instance()
+    state.set_api_state(ServiceState.READY)
 
 def create_rest_app():
     """Factory function to return the FastAPI app instance."""

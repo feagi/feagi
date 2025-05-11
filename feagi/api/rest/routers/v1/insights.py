@@ -20,12 +20,14 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
 from feagi.core.global_objects import connectome
 from pydantic import BaseModel
+import logging
 
 from ...schemas import *
 
 
 router = APIRouter()
 state = FeagiStateManager.instance()
+logger = logging.getLogger(__name__)
 
 
 # Define CorticalIdList model for API endpoints
@@ -38,7 +40,7 @@ class CorticalIdList(BaseModel):
 
 @router.post("/neurons/membrane_potential_status")
 async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalIdList):
-    print("Cortical membrane potential monitoring", state.neuron_mp_collection_scope)
+    logger.info(f"Cortical membrane potential monitoring {state.neuron_mp_collection_scope}")
     response = list()
     for cortical_area in cortical_area.cortical_id_list:
         if cortical_area in state.neuron_mp_collection_scope:
@@ -50,7 +52,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalI
 
 @router.post("/neurons/membrane_potential_set")
 async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalIdList, state_flag: bool):
-    print("Cortical membrane potential monitoring", state.neuron_mp_collection_scope)
+    logger.info(f"Cortical membrane potential monitoring {state.neuron_mp_collection_scope}")
     influxdb = state.get_influxdb()
     if influxdb:
         influx_readiness = influxdb.test_influxdb()
@@ -68,7 +70,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalI
 
 @router.post("/neuron/synaptic_potential_status")
 async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList):
-    print("Cortical synaptic potential monitoring flag", state.neuron_psp_collection_scope)
+    logger.info(f"Cortical synaptic potential monitoring flag {state.neuron_psp_collection_scope}")
     response = list()
     for cortical_area in cortical_area.cortical_id_list:
         if cortical_area in state.neuron_psp_collection_scope:
@@ -80,7 +82,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList):
 
 @router.post("/neuron/synaptic_potential_set")
 async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList, state_flag: bool):
-    print("Cortical synaptic potential monitoring flag", state.neuron_psp_collection_scope)
+    logger.info(f"Cortical synaptic potential monitoring flag {state.neuron_psp_collection_scope}")
     influxdb = state.get_influxdb()
     if influxdb:
         if influxdb.test_influxdb():

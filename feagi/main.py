@@ -16,7 +16,7 @@ from feagi.core.state_manager import FeagiStateManager
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format='%(message)s'
 )
 logger = logging.getLogger("feagi.main")
 
