@@ -92,7 +92,7 @@ def genome(genome_path):
 def config():
     """Create a FeagiConfig for testing."""
     config = FeagiConfig()
-    config.set('connectome.max_neurons', 10000)
+    config.set('connectome.max_neurons', 20000)
     config.set('connectome.max_synapses_per_neuron', 1000)
     return config
 

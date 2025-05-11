@@ -306,6 +306,10 @@ class TestBackendInstantiation:
         """Setup for backend instantiation tests."""
         # Clear the backend instances before each test
         monkeypatch.setattr("feagi.core.backend.interface._BACKEND_INSTANCES", {})
+        # Ensure the backend registry is correct and not polluted by previous tests
+        from feagi.core.backend.cpu import CPUBackend
+        from feagi.core.backend.interface import BackendType
+        monkeypatch.setattr("feagi.core.backend.interface._BACKENDS", {BackendType.CPU: CPUBackend})
     
     def test_get_backend_explicit(self):
         """Test getting a backend with explicit backend type."""

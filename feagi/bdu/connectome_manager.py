@@ -261,139 +261,79 @@ class ConnectomeManager:
     
     def create_neuron(self, area_id: int, position: Tuple[int, int, int], 
                       threshold: float = 1.0, refractory_period: int = 5,
-                      decay_rate: float = 0.9, resting_potential: float = 0.0,
-                      neuron_index: int = 0) -> int:
+                      decay_rate: float = 0.9, resting_potential: float = 0.0) -> int:
         """
         Create a new neuron in the specified cortical area.
-        
-        Args:
-            area_id: ID of the cortical area
-            position: Position within the cortical area (x, y, z)
-            threshold: Firing threshold potential
-            refractory_period: Refractory period in timesteps
-            decay_rate: Membrane potential decay rate
-            resting_potential: Resting membrane potential
-            neuron_index: Index of the neuron within the voxel (default 0, allows multiple neurons per voxel)
-            
-        Returns:
-            ID of the newly created neuron
+        Always auto-assign the next available neuron_index for the voxel.
+        """
+        neuron_index = self.get_next_neuron_index(area_id, *position)
+        return self._create_neuron_with_index(
+            area_id=area_id,
+            position=position,
+            threshold=threshold,
+            refractory_period=refractory_period,
+            decay_rate=decay_rate,
+            resting_potential=resting_potential,
+            neuron_index=neuron_index
+        )
+
+    def _create_neuron_with_index(self, area_id: int, position: Tuple[int, int, int], 
+                                  threshold: float = 1.0, refractory_period: int = 5,
+                                  decay_rate: float = 0.9, resting_potential: float = 0.0,
+                                  neuron_index: int = 0) -> int:
+        """
+        Internal: Create a new neuron in the specified cortical area with a specific neuron_index.
+        Used for deserialization and advanced use only.
         """
         if area_id not in self._areas:
             raise ValueError(f"Cortical area with ID {area_id} does not exist")
-        
         area = self._areas[area_id]
         width, height, depth = area.dimensions
         x, y, z = position
-        
         # Validate position within area bounds
         if not (0 <= x < width and 0 <= y < height and 0 <= z < depth):
             raise ValueError(f"Position {position} is outside the bounds of area {area.name}")
-        
         # Fast path: Check if we already have a neuron with this position and index
         voxel_key = (area_id, x, y, z)
         voxel_neurons = self._voxel_to_neurons.get(voxel_key, set())
-        
-        # Check if this specific neuron already exists (fast path using direct index access)
         for existing_id in voxel_neurons:
             if self._neuron_to_position.get(existing_id, (None, None, None, None, -1))[4] == neuron_index:
                 raise ValueError(f"Neuron with index {neuron_index} already exists at position {position} in area {area_id}")
-        
         with self._neuron_lock:
-            # Find a free index in the neuron arrays (optimized)
             if self._free_neuron_indices:
                 array_index = self._free_neuron_indices.pop()
             else:
-                # Use cached count instead of recalculating sum each time
                 active_count = np.sum(self.is_active)
                 array_index = active_count
                 if array_index >= self._max_neurons:
                     raise RuntimeError(f"Maximum neuron capacity ({self._max_neurons}) reached")
-            
-            # Generate a unique neuron ID
             neuron_id = self._next_neuron_id
             self._next_neuron_id += 1
-            
-            # Store neuron properties in the SoA arrays
             self.membrane_potentials[array_index] = resting_potential
             self.thresholds[array_index] = threshold
             self.refractory_periods[array_index] = refractory_period
             self.decay_rates[array_index] = decay_rate
             self.resting_potentials[array_index] = resting_potential
-            self.last_fired[array_index] = -refractory_period  # Initialize to ensure not in refractory period
-            
-            # Store position
+            self.last_fired[array_index] = -refractory_period
             self.positions_x[array_index] = x
             self.positions_y[array_index] = y
             self.positions_z[array_index] = z
-            
-            # Store neuron index within voxel
             self.neuron_indices[array_index] = neuron_index
-            
-            # Mark neuron as active and store area info
             self.is_active[array_index] = True
             self.area_ids[array_index] = area_id
-            
-            # Update mappings (optimized for common case)
             self._neuron_id_to_index[neuron_id] = array_index
             self.index_to_neuron_id[array_index] = neuron_id
             self._neuron_to_area[neuron_id] = area_id
-            
-            # Update neuron position map directly without expensive function call
             self._neuron_to_position[neuron_id] = (area_id, x, y, z, neuron_index)
-            
-            # Update voxel tracking (fast path for common case)
             if voxel_key not in self._voxel_to_neurons:
                 self._voxel_to_neurons[voxel_key] = {neuron_id}
             else:
                 self._voxel_to_neurons[voxel_key].add(neuron_id)
-            
-            # Only do more expensive bitmap tracking for specific area types
-            # that benefit from this representation
-            if area_id in self._large_regular_areas:
-                # For large regular areas, use bitmap-based tracking (optimized)
-                linearized_pos = self._linearize_position(area_id, x, y, z)
-                
-                # Ensure area is initialized in occupied_voxels
-                if area_id not in self._occupied_voxels:
-                    self._occupied_voxels[area_id] = BitMap()
-                    
-                # Mark position as occupied
-                self._occupied_voxels[area_id].add(linearized_pos)
-                
-                # Update position to neurons mapping
-                pos_key = (area_id, linearized_pos)
-                if pos_key not in self._position_to_neurons:
-                    self._position_to_neurons[pos_key] = BitMap()
-                    
-                self._position_to_neurons[pos_key].add(neuron_id)
-            elif area_id in self._extreme_dimension_areas:
-                # Only update specialized lookup for extreme dimension areas
-                lookup = self._area_lookup_tables[area_id]
-                
-                # Mark dimensions as occupied
-                lookup['dimension_occupancy']['x'].add(x)
-                lookup['dimension_occupancy']['y'].add(y)
-                lookup['dimension_occupancy']['z'].add(z)
-                
-                # Use hierarchical tracking (block-based)
-                block_size = 1000
-                block_key = (x // block_size, y // block_size, z // block_size)
-                
-                if block_key not in lookup['position_mapping']:
-                    lookup['position_mapping'][block_key] = {}
-                    
-                local_pos = (x % block_size, y % block_size, z % block_size)
-                
-                if local_pos not in lookup['position_mapping'][block_key]:
-                    lookup['position_mapping'][block_key][local_pos] = set()
-                    
-                lookup['position_mapping'][block_key][local_pos].add(neuron_id)
-            
-            # Log only when useful for debugging (reduces logging overhead)
+            # Ensure position tracking is updated for all area types
+            self._update_position_tracking(area_id, position, neuron_index, neuron_id)
             if logger.level <= logging.DEBUG and neuron_id % 1000 == 0:
                 logger.debug(f"Created neuron {neuron_id} in area {area.name} at position {position} (index {neuron_index})")
-            
-            return neuron_id
+        return neuron_id
     
     def _generate_neuron_id(self, area_id: int, position: Tuple[int, int, int], neuron_index: int = 0) -> int:
         """
@@ -805,6 +745,8 @@ class ConnectomeManager:
                         int(self.positions_y[idx]),
                         int(self.positions_z[idx])
                     ),
+                    # Store neuron_idx for uniqueness
+                    'neuron_idx': int(self.neuron_indices[idx]),
                     'properties': {
                         'membrane_potential': float(self.membrane_potentials[idx]),
                         'threshold': float(self.thresholds[idx]),
@@ -902,12 +844,14 @@ class ConnectomeManager:
                 neuron_id = int(neuron_id_str)
                 area_id = neuron_data['area_id']
                 position = neuron_data['position']
+                neuron_idx = neuron_data.get('neuron_idx', 0)  # Default to 0 if missing
                 properties = neuron_data['properties']
                 
-                # Create neuron with basic properties
-                self.create_neuron(
+                # Create neuron with basic properties and neuron_idx
+                self._create_neuron_with_index(
                     area_id=area_id,
                     position=position,
+                    neuron_index=neuron_idx,
                     threshold=properties['threshold'],
                     refractory_period=properties['refractory_period'],
                     decay_rate=properties['decay_rate'],
@@ -915,7 +859,7 @@ class ConnectomeManager:
                 )
                 
                 # Set additional properties
-                idx = self._neuron_id_to_index[neuron_id]
+                idx = self._neuron_id_to_index[self._next_neuron_id - 1]  # Last created neuron
                 self.membrane_potentials[idx] = properties['membrane_potential']
                 self.last_fired[idx] = properties['last_fired']
             
@@ -1689,12 +1633,7 @@ class ConnectomeManager:
                            decay_rate: float = 0.9, resting_potential: float = 0.0) -> List[int]:
         """
         Create multiple neurons in the specified cortical area in a single batch operation.
-        
-        This is much faster than creating neurons one at a time because it:
-        1. Acquires the lock only once for the entire batch
-        2. Pre-allocates all array indices at once
-        3. Uses vectorized operations where possible
-        
+        Always auto-assign the next available neuron_index for each voxel.
         Args:
             area_id: ID of the cortical area
             positions: List of (x, y, z) positions within the cortical area
@@ -1702,147 +1641,38 @@ class ConnectomeManager:
             refractory_period: Refractory period in timesteps for all neurons
             decay_rate: Membrane potential decay rate for all neurons
             resting_potential: Resting membrane potential for all neurons
-            
         Returns:
             List of neuron IDs created
         """
         if area_id not in self._areas:
             raise ValueError(f"Cortical area with ID {area_id} does not exist")
-        
         area = self._areas[area_id]
         width, height, depth = area.dimensions
-        
         # Validate positions within area bounds
         for x, y, z in positions:
             if not (0 <= x < width and 0 <= y < height and 0 <= z < depth):
                 raise ValueError(f"Position {(x, y, z)} is outside the bounds of area {area.name}")
-        
-        # Create a dictionary to track neuron indices at each position
-        # This helps detect collisions efficiently
-        voxel_to_indices = {}
-        for x, y, z in positions:
-            voxel_key = (area_id, x, y, z)
-            if voxel_key not in voxel_to_indices:
-                # Get existing neurons at this position
-                existing_indices = {
-                    self._neuron_to_position.get(nid, (None, None, None, None, -1))[4]
-                    for nid in self._voxel_to_neurons.get(voxel_key, set())
-                }
-                voxel_to_indices[voxel_key] = existing_indices
-                
-            # Default to neuron_index 0 for each position in batch creation
-            if 0 in voxel_to_indices[voxel_key]:
-                raise ValueError(f"Neuron already exists at position {(x, y, z)} in area {area_id}")
-            
-            # Track this position will have a neuron index 0
-            voxel_to_indices[voxel_key].add(0)
-        
-        with self._neuron_lock:
-            # Calculate how many neurons need to be created
-            count = len(positions)
-            
-            # Find contiguous free indices if possible
-            if len(self._free_neuron_indices) >= count:
-                array_indices = [self._free_neuron_indices.pop() for _ in range(count)]
-            else:
-                # Use a mix of free indices and new indices
-                array_indices = []
-                free_count = len(self._free_neuron_indices)
-                
-                # Use all available free indices
-                for _ in range(free_count):
-                    array_indices.append(self._free_neuron_indices.pop())
-                
-                # Calculate the start index for new indices
-                active_count = np.sum(self.is_active)
-                if active_count + count - free_count > self._max_neurons:
-                    raise RuntimeError(f"Maximum neuron capacity ({self._max_neurons}) exceeded")
-                
-                # Add new indices
-                for i in range(count - free_count):
-                    array_indices.append(active_count + i)
-            
-            # Generate neuron IDs
-            neuron_ids = [self._next_neuron_id + i for i in range(count)]
-            self._next_neuron_id += count
-            
-            # Store neuron properties in batches
-            # We'll need to manually update each array since we're using non-contiguous indices
-            for i, array_index in enumerate(array_indices):
-                # Store core properties
-                self.membrane_potentials[array_index] = resting_potential
-                self.thresholds[array_index] = threshold
-                self.refractory_periods[array_index] = refractory_period
-                self.decay_rates[array_index] = decay_rate
-                self.resting_potentials[array_index] = resting_potential
-                self.last_fired[array_index] = -refractory_period
-                
-                # Store position
-                x, y, z = positions[i]
-                self.positions_x[array_index] = x
-                self.positions_y[array_index] = y
-                self.positions_z[array_index] = z
-                
-                # Store neuron index (0 for batch operations)
-                self.neuron_indices[array_index] = 0
-                
-                # Mark neuron as active and store area info
-                self.is_active[array_index] = True
-                self.area_ids[array_index] = area_id
-                
-                # Update mappings
-                neuron_id = neuron_ids[i]
-                self._neuron_id_to_index[neuron_id] = array_index
-                self.index_to_neuron_id[array_index] = neuron_id
-                self._neuron_to_area[neuron_id] = area_id
-                
-                # Update neuron position directly 
-                self._neuron_to_position[neuron_id] = (area_id, x, y, z, 0)
-                
-                # Update voxel tracking
-                voxel_key = (area_id, x, y, z)
-                if voxel_key not in self._voxel_to_neurons:
-                    self._voxel_to_neurons[voxel_key] = {neuron_id}
-                else:
-                    self._voxel_to_neurons[voxel_key].add(neuron_id)
-                
-                # Only update specialized tracking for areas that need it
-                if area_id in self._large_regular_areas:
-                    linearized_pos = self._linearize_position(area_id, x, y, z)
-                    
-                    if area_id not in self._occupied_voxels:
-                        self._occupied_voxels[area_id] = BitMap()
-                    
-                    self._occupied_voxels[area_id].add(linearized_pos)
-                    
-                    pos_key = (area_id, linearized_pos)
-                    if pos_key not in self._position_to_neurons:
-                        self._position_to_neurons[pos_key] = BitMap()
-                    
-                    self._position_to_neurons[pos_key].add(neuron_id)
-                elif area_id in self._extreme_dimension_areas:
-                    lookup = self._area_lookup_tables[area_id]
-                    lookup['dimension_occupancy']['x'].add(x)
-                    lookup['dimension_occupancy']['y'].add(y)
-                    lookup['dimension_occupancy']['z'].add(z)
-                    
-                    block_size = 1000
-                    block_key = (x // block_size, y // block_size, z // block_size)
-                    
-                    if block_key not in lookup['position_mapping']:
-                        lookup['position_mapping'][block_key] = {}
-                    
-                    local_pos = (x % block_size, y % block_size, z % block_size)
-                    
-                    if local_pos not in lookup['position_mapping'][block_key]:
-                        lookup['position_mapping'][block_key][local_pos] = set()
-                    
-                    lookup['position_mapping'][block_key][local_pos].add(neuron_id)
-            
-            # Log batch creation
-            logger.debug(f"Created {count} neurons in area {area.name} in batch mode")
-            
-            return neuron_ids
+        # Check for duplicate positions in the batch
+        seen = set()
+        for pos in positions:
+            if pos in seen:
+                raise ValueError(f"Duplicate neuron creation at position {pos} in batch is not allowed")
+            seen.add(pos)
+        neuron_ids = []
+        for pos in positions:
+            neuron_index = self.get_next_neuron_index(area_id, *pos)
+            neuron_id = self._create_neuron_with_index(
+                area_id=area_id,
+                position=pos,
+                threshold=threshold,
+                refractory_period=refractory_period,
+                decay_rate=decay_rate,
+                resting_potential=resting_potential,
+                neuron_index=neuron_index
+            )
+            neuron_ids.append(neuron_id)
+        logger.debug(f"Created {len(positions)} neurons in area {area.name} in batch mode")
+        return neuron_ids
 
     def add_core_cortical_area(self, cortical_properties):
         """
@@ -2003,6 +1833,111 @@ class ConnectomeManager:
             random_id = prefix + ''.join(random.choice(chars) for _ in range(2)) + seed
             if random_id not in existing_ids:
                 return random_id
+
+    def check_neuron_index_uniqueness(self) -> bool:
+        """
+        Check that no two neurons share the same (area_id, x, y, z, neuron_index).
+        Returns True if unique, raises AssertionError if not.
+        """
+        seen = set()
+        for neuron_id, pos in self._neuron_to_position.items():
+            key = (pos[0], pos[1], pos[2], pos[3], pos[4])
+            if key in seen:
+                raise AssertionError(f"Duplicate neuron index found at {key}")
+            seen.add(key)
+        return True
+
+    def get_next_neuron_index(self, area_id: int, x: int, y: int, z: int) -> int:
+        """
+        Return the next available neuron_index for a given voxel.
+        """
+        voxel_key = (area_id, x, y, z)
+        used_indices = {
+            self._neuron_to_position.get(nid, (None, None, None, None, -1))[4]
+            for nid in self._voxel_to_neurons.get(voxel_key, set())
+        }
+        idx = 0
+        while idx in used_indices:
+            idx += 1
+        return idx
+
+    def deserialize_brain_state(self, filepath: str) -> bool:
+        """
+        Deserialize brain state from a file.
+        Args:
+            filepath: Path to load the brain state from
+        Returns:
+            True if deserialization was successful, False otherwise
+        """
+        try:
+            # Load the brain state
+            with np.load(filepath, allow_pickle=True) as data:
+                brain_state = data['brain_state'].item()
+            # Check version
+            version = brain_state.get('version', '0.0')
+            if version != '1.0':
+                logger.warning(f"Brain state version mismatch: {version} (expected 1.0)")
+            # Clear current state
+            self._clear_brain_state()
+            # Restore cortical areas
+            for area_id_str, area_data in brain_state['areas'].items():
+                area_id = int(area_id_str)
+                self.add_cortical_area(
+                    area_id=area_id,
+                    name=area_data['name'],
+                    area_type=area_data['type'],
+                    dimensions=area_data['dimensions'],
+                    position=area_data['position'],
+                    properties=area_data['properties']
+                )
+            # Restore neurons
+            for neuron_id_str, neuron_data in brain_state['neurons'].items():
+                neuron_id = int(neuron_id_str)
+                area_id = neuron_data['area_id']
+                position = neuron_data['position']
+                neuron_idx = neuron_data.get('neuron_idx', 0)  # Default to 0 if missing
+                properties = neuron_data['properties']
+                # Create neuron with basic properties and neuron_idx
+                self._create_neuron_with_index(
+                    area_id=area_id,
+                    position=position,
+                    neuron_index=neuron_idx,
+                    threshold=properties['threshold'],
+                    refractory_period=properties['refractory_period'],
+                    decay_rate=properties['decay_rate'],
+                    resting_potential=properties['resting_potential']
+                )
+                # Set additional properties
+                idx = self._neuron_id_to_index[self._next_neuron_id - 1]  # Last created neuron
+                self.membrane_potentials[idx] = properties['membrane_potential']
+                self.last_fired[idx] = properties['last_fired']
+            # Restore synapses
+            for synapse_key, synapse_data in brain_state['synapses'].items():
+                pre_id, post_id = map(int, synapse_key.split(':'))
+                if synapse_data['plastic']:
+                    self.create_synapse(
+                        pre_neuron_id=pre_id,
+                        post_neuron_id=post_id,
+                        weight=synapse_data['weight'],
+                        is_plastic=True,
+                        plasticity_coeff=synapse_data.get('plasticity_coeff', 0.0),
+                        plasticity_decay=synapse_data.get('plasticity_decay', 0.0)
+                    )
+                else:
+                    self.create_synapse(
+                        pre_neuron_id=pre_id,
+                        post_neuron_id=post_id,
+                        weight=synapse_data['weight'],
+                        is_plastic=False
+                    )
+            # Optimize storage
+            self.synapse_manager.optimize_storage()
+            logger.info(f"Brain state deserialized from {filepath}: {len(brain_state['neurons'])} neurons, "
+                       f"{len(brain_state['synapses'])} synapses")
+            return True
+        except Exception as e:
+            logger.error(f"Error deserializing brain state: {e}")
+            return False
 
 # Global singleton instance for use throughout the codebase
 connectome = ConnectomeManager()

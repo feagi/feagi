@@ -103,8 +103,7 @@ def test_multiple_neurons_per_voxel(connectome_medium, dense_area):
         for i in range(num_neurons_per_pos):
             neuron_id = connectome_medium.create_neuron(
                 area_id=area_id,
-                position=pos,
-                neuron_index=i  # Multiple neurons at same position with different indices
+                position=pos
             )
             neuron_ids.append((neuron_id, pos, i))
     
@@ -235,8 +234,7 @@ def test_serialization(connectome_medium, dense_area, tmp_path):
         z = (i // 9) % 3
         neuron_id = connectome_medium.create_neuron(
             area_id=area_id,
-            position=(x, y, z),
-            neuron_index=i % 100  # Create multiple neurons per voxel
+            position=(x, y, z)
         )
         neuron_ids.append(neuron_id)
     

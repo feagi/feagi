@@ -29,7 +29,7 @@ def test_configure_logger_with_file():
             console=False
         )
         assert logger.name == "test_file"
-        assert len(logger.handlers) == 2  # Console and file handlers
+        assert len(logger.handlers) == 1  # Only file handler when console=False
         assert os.path.exists(log_file)
 
 

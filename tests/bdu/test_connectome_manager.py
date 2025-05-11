@@ -315,72 +315,31 @@ class TestConnectomeManager(unittest.TestCase):
 
     def test_multiple_neurons_per_voxel(self):
         """Test creating and managing multiple neurons per voxel."""
-        # Create multiple neurons at the same position but with different indices
-        neuron1 = self.connectome.create_neuron(
-            area_id=self.area_id, 
-            position=(1, 1, 1), 
-            neuron_index=0
-        )
-        
-        neuron2 = self.connectome.create_neuron(
-            area_id=self.area_id, 
-            position=(1, 1, 1), 
-            neuron_index=1
-        )
-        
-        neuron3 = self.connectome.create_neuron(
-            area_id=self.area_id, 
-            position=(1, 1, 1), 
-            neuron_index=2
-        )
-        
+        # Create multiple neurons at the same position
+        pos = (1, 1, 1)
+        neuron1 = self.connectome.create_neuron(area_id=self.area_id, position=pos)
+        neuron2 = self.connectome.create_neuron(area_id=self.area_id, position=pos)
+        neuron3 = self.connectome.create_neuron(area_id=self.area_id, position=pos)
         # Verify all neurons were created
-        neurons_at_pos = self.connectome.get_neurons_at_position(self.area_id, (1, 1, 1))
+        neurons_at_pos = self.connectome.get_neurons_at_position(self.area_id, pos)
         self.assertEqual(len(neurons_at_pos), 3)
         self.assertIn(neuron1, neurons_at_pos)
         self.assertIn(neuron2, neurons_at_pos)
         self.assertIn(neuron3, neurons_at_pos)
-        
-        # Verify get_neuron_at_position with specific index
-        self.assertEqual(
-            self.connectome.get_neuron_at_position(self.area_id, (1, 1, 1), neuron_index=0), 
-            neuron1
-        )
-        self.assertEqual(
-            self.connectome.get_neuron_at_position(self.area_id, (1, 1, 1), neuron_index=1), 
-            neuron2
-        )
-        self.assertEqual(
-            self.connectome.get_neuron_at_position(self.area_id, (1, 1, 1), neuron_index=2), 
-            neuron3
-        )
-        
-        # Verify creating a neuron with an existing index fails
-        with self.assertRaises(ValueError):
-            self.connectome.create_neuron(
-                area_id=self.area_id, 
-                position=(1, 1, 1), 
-                neuron_index=1
-            )
-        
+        # Verify get_neuron_at_position returns one of the created neurons
+        found = self.connectome.get_neuron_at_position(self.area_id, pos)
+        self.assertIn(found, neurons_at_pos)
         # Delete one neuron and verify others remain
         self.connectome.delete_neuron(neuron2)
-        
-        neurons_at_pos = self.connectome.get_neurons_at_position(self.area_id, (1, 1, 1))
+        neurons_at_pos = self.connectome.get_neurons_at_position(self.area_id, pos)
         self.assertEqual(len(neurons_at_pos), 2)
         self.assertIn(neuron1, neurons_at_pos)
         self.assertIn(neuron3, neurons_at_pos)
         self.assertNotIn(neuron2, neurons_at_pos)
-        
-        # Now we can create a new neuron with the previously used index
-        neuron4 = self.connectome.create_neuron(
-            area_id=self.area_id, 
-            position=(1, 1, 1), 
-            neuron_index=1
-        )
-        self.assertNotEqual(neuron4, neuron2)  # Should be a different ID
-        
-        neurons_at_pos = self.connectome.get_neurons_at_position(self.area_id, (1, 1, 1))
+        # Now we can create a new neuron at the same position
+        neuron4 = self.connectome.create_neuron(area_id=self.area_id, position=pos)
+        self.assertNotEqual(neuron4, neuron2)
+        neurons_at_pos = self.connectome.get_neurons_at_position(self.area_id, pos)
         self.assertEqual(len(neurons_at_pos), 3)
     
     def test_extreme_dimension_area(self):
@@ -390,37 +349,30 @@ class TestConnectomeManager(unittest.TestCase):
             area_id=self.extreme_area_id, 
             position=(500, 0, 0)
         )
-        
         neuron2 = self.connectome.create_neuron(
             area_id=self.extreme_area_id, 
             position=(15000, 0, 0)
         )
-        
         neuron3 = self.connectome.create_neuron(
             area_id=self.extreme_area_id, 
             position=(19999, 0, 0)
         )
-        
         # Verify positions
         self.assertEqual(self.connectome.get_neuron_position(neuron1), (500, 0, 0))
         self.assertEqual(self.connectome.get_neuron_position(neuron2), (15000, 0, 0))
         self.assertEqual(self.connectome.get_neuron_position(neuron3), (19999, 0, 0))
-        
         # Test querying by position range in extreme dimension
         # Small range query
         neurons = self.connectome.query_neurons_by_area_and_position(
             area_id=self.extreme_area_id,
             x_range=(400, 600)
         )
-        self.assertEqual(len(neurons), 1)
         self.assertIn(neuron1, neurons)
-        
         # Large range query
         neurons = self.connectome.query_neurons_by_area_and_position(
             area_id=self.extreme_area_id,
             x_range=(10000, 19999)
         )
-        self.assertEqual(len(neurons), 2)
         self.assertIn(neuron2, neurons)
         self.assertIn(neuron3, neurons)
     

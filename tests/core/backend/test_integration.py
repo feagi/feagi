@@ -33,15 +33,16 @@ class TestResourceBackendIntegration(unittest.TestCase):
             "webgpu_available": False,
             "memory": 16000000000,
         }
-        
+        # Patch _BACKENDS to include CUDA
+        from feagi.core.backend import interface as backend_interface
+        backend_interface._BACKENDS[BackendType.CUDA] = MagicMock()
+        backend_interface._BACKENDS[BackendType.CPU] = MagicMock()
         # Create ResourceManager instance with mocked resources
         resource_mgr = ResourceManager()
-        
         # Test that backends are correctly detected
         backends = get_available_backends()
         self.assertIn(BackendType.CPU, backends)
         self.assertIn(BackendType.CUDA, backends)
-        
         # Test that best backend is CUDA
         best = determine_best_backend()
         self.assertEqual(best, BackendType.CUDA)
@@ -58,15 +59,16 @@ class TestResourceBackendIntegration(unittest.TestCase):
             "webgpu_available": False,
             "memory": 16000000000,
         }
-        
+        # Patch _BACKENDS to include METAL
+        from feagi.core.backend import interface as backend_interface
+        backend_interface._BACKENDS[BackendType.METAL] = MagicMock()
+        backend_interface._BACKENDS[BackendType.CPU] = MagicMock()
         # Create ResourceManager instance with mocked resources
         resource_mgr = ResourceManager()
-        
         # Test backends detection
         backends = get_available_backends()
         self.assertIn(BackendType.CPU, backends)
         self.assertIn(BackendType.METAL, backends)
-        
         # Test that best backend is Metal
         best = determine_best_backend()
         self.assertEqual(best, BackendType.METAL)
@@ -83,22 +85,19 @@ class TestResourceBackendIntegration(unittest.TestCase):
             "webgpu_available": True,
             "memory": 16000000000,
         }
-        
+        # Patch _BACKENDS to include WEBGPU
+        from feagi.core.backend import interface as backend_interface
+        backend_interface._BACKENDS[BackendType.WEBGPU] = MagicMock()
+        backend_interface._BACKENDS[BackendType.CPU] = MagicMock()
         # Create ResourceManager instance with mocked resources
         resource_mgr = ResourceManager()
-        
-        # Register WebGPU backend (without this it won't be in available backends)
-        with patch('feagi.core.backend.interface._BACKENDS') as mock_backends:
-            mock_backends.__contains__.return_value = True
-            
-            # Test backends detection
-            backends = get_available_backends()
-            self.assertIn(BackendType.CPU, backends)
-            self.assertIn(BackendType.WEBGPU, backends)
-            
-            # Test best backend detection
-            best = determine_best_backend()
-            self.assertEqual(best, BackendType.WEBGPU)
+        # Test backends detection
+        backends = get_available_backends()
+        self.assertIn(BackendType.CPU, backends)
+        self.assertIn(BackendType.WEBGPU, backends)
+        # Test best backend detection
+        best = determine_best_backend()
+        self.assertEqual(best, BackendType.WEBGPU)
 
 
 if __name__ == '__main__':

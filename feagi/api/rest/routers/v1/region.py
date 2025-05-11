@@ -47,7 +47,7 @@ state = FeagiStateManager.instance()
 
 @router.post("/region")
 async def create_brain_region(region_data: NewRegionProperties):
-    if region_data.parent_region_id not in state.get_genome()["brain_regions"]:
+    if region_data.parent_region_id not in state.genome["brain_regions"]:
         raise HTTPException(status_code=400, detail=f"{region_data.parent_region_id} is not a valid region id")
     else:
         region_id = create_region(region_data)
@@ -70,8 +70,8 @@ async def update_region_properties(region_data: UpdateRegionProperties):
 
 @router.get("/region")
 async def view_region_properties(region_id):
-    if region_id in state.get_genome()["brain_regions"]:
-        return state.get_genome()["brain_regions"][region_id]
+    if region_id in state.genome["brain_regions"]:
+        return state.genome["brain_regions"][region_id]
     else:
         raise HTTPException(status_code=400, detail=f"{region_id} is not a valid region id")
 
@@ -80,17 +80,17 @@ async def view_region_properties(region_id):
 async def delete_region(region_id: Id):
     if region_id.id == "root":
         raise HTTPException(status_code=400, detail="Root region cannot be deleted")
-    elif region_id.id in state.get_genome()["brain_regions"]:
-        region_parent = state.get_genome()["brain_regions"][region_id.id]["parent_region_id"]
-        for area_id in state.get_genome()["brain_regions"][region_id.id]["areas"]:
+    elif region_id.id in state.genome["brain_regions"]:
+        region_parent = state.genome["brain_regions"][region_id.id]["parent_region_id"]
+        for area_id in state.genome["brain_regions"][region_id.id].get("areas", []):
             change_cortical_area_parent(cortical_area_id=area_id,
                                         new_parent_id=region_parent)
             state.cortical_area_region_association[area_id] = region_parent
-        for region_id_ in state.get_genome()["brain_regions"][region_id.id]["regions"]:
+        for region_id_ in state.genome["brain_regions"][region_id.id].get("regions", []):
             change_brain_region_parent(region_id=region_id_,
                                        new_parent_id=region_parent)
-        state.get_genome()["brain_regions"].pop(region_id.id)
-        state.get_genome()["brain_regions"][region_parent]["regions"].remove(region_id.id)
+        state.genome["brain_regions"].pop(region_id.id)
+        state.genome["brain_regions"][region_parent]["regions"].remove(region_id.id)
 
     else:
         raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
@@ -100,7 +100,7 @@ async def delete_region(region_id: Id):
 async def delete_region_and_members(region_id: Id):
     if region_id.id == "root":
         raise HTTPException(status_code=400, detail="Root region cannot be deleted")
-    elif region_id.id in state.get_genome()["brain_regions"]:
+    elif region_id.id in state.genome["brain_regions"]:
         delete_region_with_members(region_id=region_id)
     else:
         raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
@@ -109,36 +109,36 @@ async def delete_region_and_members(region_id: Id):
 @router.get("/regions")
 async def list_all_regions():
     region_summary = dict()
-    region_list = state.get_genome()["brain_regions"].keys()
+    region_list = state.genome["brain_regions"].keys()
     for region in region_list:
         region_summary[region] = {}
-        region_summary[region]["coordinate_2d"] = state.get_genome()["brain_regions"][region]["coordinate_2d"]
-        region_summary[region]["coordinate_3d"] = state.get_genome()["brain_regions"][region]["coordinate_3d"]
+        region_summary[region]["coordinate_2d"] = state.genome["brain_regions"][region].get("coordinate_2d")
+        region_summary[region]["coordinate_3d"] = state.genome["brain_regions"][region].get("coordinate_3d")
 
     return region_summary
 
 
 @router.get("/regions_members")
 async def list_all_regions_and_members():
-    return state.get_genome()["brain_regions"]
+    return state.genome["brain_regions"]
 
 
 @router.get("/region_titles")
 async def list_all_region_titles():
     title_list = []
-    for region_id in state.get_genome()["brain_regions"]:
+    for region_id in state.genome["brain_regions"]:
         title_list.append((region_id, region_id_2_title(region_id=region_id)))
     return title_list
 
 
 @router.put("/change_cortical_area_region")
 async def update_cortical_area_region_association(association_data: RegionAssociation):
-    if association_data.id not in state.get_genome()["blueprint"]:
+    if association_data.id not in state.genome["blueprint"]:
         raise HTTPException(status_code=400, detail=f"{association_data.id} is not a valid cortical area id")
-    elif state.get_genome()["blueprint"][association_data.id]["group_id"] in ["IPU", "OPU", "CORE"]:
+    elif state.genome["blueprint"][association_data.id]["group_id"] in ["IPU", "OPU", "CORE"]:
         raise HTTPException(status_code=400, detail=f"{association_data.id} is not custom area and "
                                                     f"restricted to move")
-    elif association_data.new_region_id not in state.get_genome()["brain_regions"]:
+    elif association_data.new_region_id not in state.genome["regions"]:
         raise HTTPException(status_code=400, detail=f"{association_data.new_region_id} is not a valid brain region  id")
     else:
         change_cortical_area_parent(cortical_area_id=association_data.id,
@@ -147,9 +147,9 @@ async def update_cortical_area_region_association(association_data: RegionAssoci
 
 @router.put("/change_region_parent")
 async def update_brain_region_parent(association_data: RegionAssociation):
-    if association_data.id not in state.get_genome()["brain_regions"]:
+    if association_data.id not in state.genome["regions"]:
         raise HTTPException(status_code=400, detail=f"{association_data.id} is not a valid brain region id")
-    elif association_data.new_region_id not in state.get_genome()["brain_regions"]:
+    elif association_data.new_region_id not in state.genome["regions"]:
         raise HTTPException(status_code=400, detail=f"{association_data.new_region_id} is not a valid brain region  id")
     else:
         change_brain_region_parent(region_id=association_data.id,

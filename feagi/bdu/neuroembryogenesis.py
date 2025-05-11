@@ -567,7 +567,7 @@ class Neuroembryogenesis:
                             
                             # Create neurons_per_voxel neurons at this position
                             for n_idx in range(neurons_per_voxel):
-                                neuron_id = self.connectome_manager.create_neuron(
+                                neuron_id = self.connectome_manager._create_neuron_with_index(
                                     area_id=area_id,
                                     position=position,
                                     threshold=neuron_properties["threshold"],

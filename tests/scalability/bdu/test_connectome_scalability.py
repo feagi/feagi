@@ -125,8 +125,7 @@ def test_multiple_neurons_per_voxel(connectome_medium, dense_area):
         for i in range(num_neurons_per_pos):
             neuron_id = connectome_medium.create_neuron(
                 area_id=area_id,
-                position=pos,
-                neuron_index=i  # Multiple neurons at same position with different indices
+                position=pos
             )
             neuron_ids.append((neuron_id, pos, i))
     
@@ -240,25 +239,27 @@ def test_many_synapses(connectome_medium):
 
 
 @pytest.mark.scalability
-def test_serialization(connectome_medium, dense_area):
+def test_serialization(connectome_medium, dense_area, medium_config):
     """Test serialization and deserialization of a brain with significant data."""
     area_id = dense_area[0]
-    
     # Create some neurons and synapses
     num_neurons = 1000
     neuron_ids = []
-    
+    # Track how many neurons have been created at each voxel
+    voxel_counters = {}
     # Create neurons
     for i in range(num_neurons):
         x = i % 3
         y = (i // 3) % 3
         z = (i // 9) % 3
+        pos = (x, y, z)
+        idx = voxel_counters.get(pos, 0)
         neuron_id = connectome_medium.create_neuron(
             area_id=area_id,
-            position=(x, y, z),
-            neuron_index=i % 100  # Create multiple neurons per voxel
+            position=pos
         )
         neuron_ids.append(neuron_id)
+        voxel_counters[pos] = idx + 1
     
     # Create some synapses (connect every 10th neuron to the next 5)
     for i in range(0, num_neurons, 10):
@@ -278,7 +279,6 @@ def test_serialization(connectome_medium, dense_area):
     # Serialize
     connectome_medium.serialize_brain_state(filename)
     
-    # Create a new connectome and deserialize
     new_connectome = ConnectomeManager(medium_config)
     new_connectome.deserialize_brain_state(filename)
     

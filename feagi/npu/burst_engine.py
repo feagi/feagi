@@ -1,5 +1,6 @@
 import time
 import signal
+import threading
 from feagi.core.state_manager import FeagiStateManager
 
 class BurstEngine:
@@ -25,9 +26,10 @@ class BurstEngine:
         def handle_signal(signum, frame):
             print(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
             self.stop()
-        # Register signal handlers for graceful shutdown
-        signal.signal(signal.SIGINT, handle_signal)
-        signal.signal(signal.SIGTERM, handle_signal)
+        # Register signal handlers for graceful shutdown only in main thread
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, handle_signal)
+            signal.signal(signal.SIGTERM, handle_signal)
         while self.running:
             start = time.perf_counter()
             # 1. Process neuron firing (update membrane potentials and FCL)

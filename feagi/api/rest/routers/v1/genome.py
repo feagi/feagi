@@ -18,6 +18,7 @@
 import os
 import json
 from enum import Enum
+from datetime import datetime
 
 from time import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
@@ -42,6 +43,10 @@ router = APIRouter()
 
 # Helper to get state manager instance
 state = FeagiStateManager.instance()
+
+# Dependency for amalgamation history (can be overridden in tests)
+def get_amalgamation_history_service():
+    return getattr(state, 'amalgamation_history', {})
 
 
 # AmalgamationRequest model for amalgamation endpoints
@@ -242,13 +247,15 @@ async def amalgamation_attempt(_: str = Depends(check_active_genome), file: Uplo
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
+        now = datetime.now()
         data = await file.read()
         state.genome_file_name = file.filename
 
         genome_str = json.loads(data)
+        if "blueprint" not in genome_str:
+            raise HTTPException(status_code=400, detail="Missing 'blueprint' key in uploaded genome.")
         genome_2 = genome_2_1_convertor(genome_str["blueprint"])
 
-        now = datetime.now()
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
         state.pending_amalgamation["genome_id"] = state.genome_file_name
         state.pending_amalgamation["genome_title"] = state.genome_file_name
@@ -282,8 +289,8 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
 
 
 @router.get("/amalgamation_history")
-async def amalgamation_history():
-    return state.amalgamation_history
+async def amalgamation_history(amalgamation_history=Depends(get_amalgamation_history_service)):
+    return amalgamation_history
 
 
 @router.get("/cortical_template")

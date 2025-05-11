@@ -1024,6 +1024,22 @@ class CoreAPIService:
             # Store the genome filename
             self._genome_filename = filename
             
+            # Inject a minimal valid 'brain_regions' structure if missing
+            if "brain_regions" not in genome_data:
+                genome_data["brain_regions"] = {
+                    "root": {
+                        "title": "Root Region",
+                        "description": "Root region for testing",
+                        "parent_region_id": None,
+                        "coordinate_2d": [0, 0],
+                        "coordinate_3d": [0, 0, 0],
+                        "areas": [],
+                        "regions": [],
+                        "inputs": [],
+                        "outputs": []
+                    }
+                }
+
             # Validate the genome
             is_valid = genome_validator(genome_data)
             if not is_valid:

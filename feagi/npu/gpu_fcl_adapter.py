@@ -367,12 +367,12 @@ def create_gpu_accelerated_fcl(window_size: int = 20):
     
     # Check if backend supports bitmap operations
     if not hasattr(backend, 'bitmap_or') or not backend.supports_capability("bitmap_operations"):
-        logger.info(f"Backend {backend.name} does not support bitmap operations, using CPU FCL manager")
+        logger.info(f"Backend {getattr(backend, 'name', type(backend).__name__)} does not support bitmap operations, using CPU FCL manager")
         return EnhancedHierarchicalFCL(default_window_size=window_size)
     
     # Create GPU-accelerated FCL manager
-    logger.info(f"Using GPU-accelerated FCL manager with {backend.name} backend")
-    return GPUAcceleratedFCL(default_window_size=window_size, backend=backend)
+    logger.info(f"Using GPU-accelerated FCL manager with {getattr(backend, 'name', type(backend).__name__)} backend")
+    return GPUAcceleratedFCL(backend, window_size)
 
 
 class GPUAcceleratedFCL:
@@ -383,13 +383,13 @@ class GPUAcceleratedFCL:
     but uses GPU operations for performance-critical bitmap operations.
     """
     
-    def __init__(self, default_window_size: int = 20, backend: Optional[BackendInterface] = None):
+    def __init__(self, backend: Optional[BackendInterface], default_window_size: int = 20):
         """
         Initialize the GPU-accelerated FCL manager.
         
         Args:
-            default_window_size: Default window size for FCL history
             backend: GPU backend to use for operations
+            default_window_size: Default window size for FCL history
         """
         from feagi.npu.fcl_manager import EnhancedHierarchicalFCL
         
@@ -398,10 +398,14 @@ class GPUAcceleratedFCL:
         if self.backend is None:
             raise RuntimeError("No GPU backend available")
         
+        # Ensure backend supports required bitmap operations
+        if not hasattr(self.backend, 'bitmap_or') or not self.backend.supports_capability('bitmap_operations'):
+            raise TypeError('Backend does not support required bitmap operations for GPUAcceleratedFCL')
+        
         # Create a CPU FCL manager as a delegate for operations that can't be accelerated
         self.cpu_fcl = EnhancedHierarchicalFCL(default_window_size=default_window_size)
         
-        logger.info(f"Initialized GPU-accelerated FCL manager with {self.backend.name} backend")
+        logger.info(f"Initialized GPU-accelerated FCL manager with {getattr(self.backend, 'name', type(self.backend).__name__)} backend")
     
     def __getattr__(self, name):
         """

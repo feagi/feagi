@@ -86,16 +86,13 @@ def connectome_manager(config):
 def embryo(connectome_manager, config):
     """Create a Neuroembryogenesis instance for testing."""
     progress_logs = []
-    
     def progress_callback(stage, progress, message):
         progress_logs.append((stage, progress, message))
-    
-        embryo = Neuroembryogenesis(
-            connectome_manager=connectome_manager,
-            config=config,
-            progress_callback=progress_callback
-        )
-    
+    embryo = Neuroembryogenesis(
+        connectome_manager=connectome_manager,
+        config=config,
+        progress_callback=progress_callback
+    )
     embryo.progress_logs = progress_logs
     return embryo
 
