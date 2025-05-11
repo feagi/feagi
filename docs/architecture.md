@@ -504,3 +504,56 @@ Additional planned extensions include:
    - Homeostatic scaling
    - Structural plasticity (dynamic synapse creation/pruning)
    - Neuromodulation effects on learning
+
+# FEAGI Architecture
+
+## Process Priority System
+
+FEAGI employs a three-tiered process priority system:
+
+1. **Critical Processes (Priority 1)**:
+   - Essential for neural simulation: Burst Engine, Connectome Manager, FCL Manager
+   - Now initialize in standby mode without requiring genome loading
+   - Receive highest resource priority
+   
+2. **Important Processes (Priority 2)**:
+   - Services needed for full operation: FCL Sampler, PNS Message Broker (ZMQ)
+   - Near real-time performance requirements
+   
+3. **Background Processes (Priority 3)**:
+   - Non-critical services: REST API, monitoring, visualization
+   - Lowest priority, will yield resources when needed
+
+## Initialization Sequence
+
+The new bottom-up initialization sequence:
+
+1. ConnectomeManager initialized with arrays
+2. CoreAPIService created with ConnectomeManager
+3. BurstEngine initialized in standby mode
+4. FCLSampler configured with BurstEngine
+5. REST API and ZMQ services start with dependency injection
+
+This sequence ensures all components can start without circular dependencies.
+
+## Dependency Injection
+
+FEAGI now uses explicit dependency injection rather than global variables:
+
+```python
+# Provider function in dependencies.py
+def get_core_api_service():
+    if _core_api_service is None:
+        raise RuntimeError("Core API service not initialized")
+    return _core_api_service
+
+# Usage in routers
+from feagi.api.rest.dependencies import get_core_api_service
+
+@router.post("/endpoint")
+async def endpoint_handler():
+    api = get_core_api_service()
+    # Use the API...
+```
+
+This approach eliminates issues with global state and improves testability.

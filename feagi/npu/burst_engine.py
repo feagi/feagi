@@ -6,6 +6,32 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+"""
+Burst Engine Implementation for FEAGI.
+
+The BurstEngine is FEAGI's primary neural simulation component. It drives the dynamics 
+of neuron firing, manages membrane potentials, and coordinates the Fire Candidate List (FCL).
+
+Key features:
+- Standby Mode: Initializes without requiring a genome
+- RTOS-Friendly: Designed for real-time operating systems with predictable timing  
+- State-Driven: Uses explicit state transitions with consistent logging
+- Dependency Injected: No global state, all dependencies passed explicitly
+
+Usage:
+    # Create and initialize
+    engine = BurstEngine(connectome_manager)
+    
+    # Start the engine
+    engine.run()
+    
+    # When genome is loaded
+    engine.update_with_genome()
+    
+    # Graceful shutdown
+    engine.stop()
+"""
+
 class BurstEngine:
     """
     RTOS/Rust-friendly burst engine for FEAGI neural simulation.
@@ -13,6 +39,7 @@ class BurstEngine:
     - All configuration and memory allocation happens before entering the loop
     - Main loop is a single, clear sequence of steps
     - Supports graceful shutdown
+    - New: Initializes in standby mode without requiring a genome
     """
     def __init__(self, connectome_manager, fcl_manager=None, memory_manager=None, config=None):
         """

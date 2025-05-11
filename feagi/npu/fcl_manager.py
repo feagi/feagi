@@ -1,9 +1,15 @@
 """
-Fire Candidate List (FCL) Manager Implementation
+Fire Candidate List (FCL) Manager for FEAGI.
 
-This module implements the hierarchical Fire Candidate List (FCL) management system,
-which tracks neuron activations while preserving their cortical area associations.
-The implementation uses Roaring Bitmaps for efficient storage and operations.
+The FCL Manager maintains the temporal queue of neurons that are scheduled to fire.
+It provides efficient access to current and historical firing patterns.
+
+Key features:
+- Maintains multi-timestep FCL history
+- Thread-safe operations
+- Optimized for fast lookups and modifications
+- Area-specific sampling capabilities
+- Dependency-injected design
 """
 
 from typing import Dict, List, Set, Optional, Union, Tuple, Any, Protocol, TypeVar, Generic, cast, Iterator
@@ -222,13 +228,17 @@ class NeuronCollection:
             return BitMap(self.data)
 
 
-class HierarchicalFCL:
+class FCLManager:
     """
-    Hierarchical Fire Candidate List Manager
+    Manager for the Fire Candidate List (FCL) queue.
     
-    This class maintains a record of firing neurons while preserving their
-    cortical area associations, enabling efficient area-based queries.
-    It uses Roaring Bitmaps for memory-efficient storage and fast operations.
+    The FCLManager maintains data structures for tracking which neurons are firing
+    at the current timestep and which have fired in previous timesteps. It provides
+    methods for adding neurons to the FCL, advancing the temporal window, and
+    querying firing history.
+    
+    This implementation is designed to be thread-safe and efficient for large-scale
+    neural simulations.
     """
     
     def __init__(self, window_size: int = 20):
@@ -754,18 +764,18 @@ class HierarchicalFCL:
         return self.get_global_fcl(self.current_timestep + offset if offset else None)
 
 
-class EnhancedHierarchicalFCL:
+class EnhancedFCLManager:
     """
-    Enhanced Hierarchical Fire Candidate List Manager with support for memory cortical areas
+    Enhanced FCL Manager with support for memory cortical areas
     
-    This class extends the HierarchicalFCL functionality to support custom window sizes
+    This class extends the FCLManager functionality to support custom window sizes
     for memory-type cortical areas, enabling longer temporal pattern analysis for specific
     brain regions while maintaining memory efficiency.
     """
     
     def __init__(self, default_window_size: int = 20):
         """
-        Initialize an enhanced hierarchical FCL with support for area-specific window sizes.
+        Initialize an enhanced FCL manager with support for area-specific window sizes.
         
         Args:
             default_window_size: Default number of timesteps to maintain for standard areas
@@ -1465,7 +1475,7 @@ def example_fcl_usage() -> None:
     """Example usage of the FCL manager."""
     
     # Create FCL manager with window size of 3
-    fcl_manager = HierarchicalFCL(window_size=3)
+    fcl_manager = FCLManager(window_size=3)
     
     # Example data for first timestep: cortical_idx -> neurons firing
     firing_neurons_t1: Dict[CorticalIdx, BitMap] = {
@@ -1526,7 +1536,7 @@ def example_enhanced_fcl_usage() -> None:
     """Example usage of the enhanced FCL manager with memory areas."""
     
     # Create FCL manager with default window size of 5
-    fcl_manager = EnhancedHierarchicalFCL(default_window_size=5)
+    fcl_manager = EnhancedFCLManager(default_window_size=5)
     
     # Register some memory areas with custom window sizes
     fcl_manager.register_memory_area(cortical_idx=400, window_size=20)  # Memory area 1 with 20-step window
@@ -1629,7 +1639,7 @@ if __name__ == "__main__":
     example_enhanced_fcl_usage()
 
     # Initialize the enhanced FCL
-    fcl = EnhancedHierarchicalFCL(default_window_size=5)
+    fcl = EnhancedFCLManager(default_window_size=5)
 
     # Register a memory area
     fcl.register_memory_area(cortical_idx=500, window_size=100)
