@@ -8,6 +8,9 @@ import os
 import argparse
 import logging
 import uvicorn
+from feagi.logging_config import setup_feagi_logging
+
+setup_feagi_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +40,13 @@ def main():
         os.environ["FEAGI_ZMQ_PUSH_PORT"] = str(args.zmq_push_port)
         os.environ["FEAGI_ZMQ_STREAM_PORT"] = str(args.zmq_stream_port)
     
-    print(f"Starting FEAGI API server on {args.host}:{args.port}")
+    logger.info(f"Starting FEAGI API server on {args.host}:{args.port}", emoji="🚀")
     if args.zmq:
-        print(f"ZeroMQ client mode enabled, connecting to {args.zmq_host}")
-        print(f"  - Request-Reply port: {args.zmq_req_port}")
-        print(f"  - Publish-Subscribe port: {args.zmq_pub_port}")
-        print(f"  - Push-Pull port: {args.zmq_push_port}")
-        print(f"  - Stream port: {args.zmq_stream_port}")
+        logger.info(f"ZeroMQ client mode enabled, connecting to {args.zmq_host}", emoji="  ")
+        logger.info(f"  - Request-Reply port: {args.zmq_req_port}", emoji="  ")
+        logger.info(f"  - Publish-Subscribe port: {args.zmq_pub_port}", emoji="  ")
+        logger.info(f"  - Push-Pull port: {args.zmq_push_port}", emoji="  ")
+        logger.info(f"  - Stream port: {args.zmq_stream_port}", emoji="  ")
     
     # Run the API server
     uvicorn.run(

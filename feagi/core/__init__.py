@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-def create_core_api(config: Dict[str, Any] = None):
+def create_core_api(connectome, config: Dict[str, Any] = None):
     """
     Create and initialize the Core API with all critical (Priority 1) processes.
     
@@ -22,12 +22,12 @@ def create_core_api(config: Dict[str, Any] = None):
     4. Memory & Learning Manager
     
     Args:
-        config: Configuration parameters for core components
+        connectome: The singleton, already-initialized ConnectomeManager instance.
+        config: Configuration parameters for core components (optional)
         
     Returns:
         CoreAPIService instance with all core components initialized
     """
-    from .feagi import FEAGI
     from feagi.api.core.services.core_api_service import CoreAPIService
     
     # Create and initialize the FEAGI core instance
@@ -40,11 +40,8 @@ def create_core_api(config: Dict[str, Any] = None):
     # Get GPU settings
     use_gpu = config.get("core", {}).get("use_gpu", False)
     
-    # Initialize FEAGI core
-    feagi_core = FEAGI(use_gpu=use_gpu)
-    
     # Create the CoreAPIService wrapper around the FEAGI core
-    core_api = CoreAPIService(feagi_core)
+    core_api = CoreAPIService(connectome)
     
     logger.info("FEAGI core components initialized successfully")
     return core_api 

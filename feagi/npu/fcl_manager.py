@@ -1499,27 +1499,27 @@ def example_fcl_usage() -> None:
     
     # Get global FCL for current timestep
     global_fcl = fcl_manager.get_global_fcl()
-    print(f"All firing neurons at timestep 3: {global_fcl}")
+    self.logger.info(f"All firing neurons at timestep 3: {global_fcl}")
     
     # Get FCL for a specific cortical area
     area_fcl = fcl_manager.get_area_fcl(cortical_idx=100)
-    print(f"Firing neurons in cortical area 100: {area_fcl}")
+    self.logger.info(f"Firing neurons in cortical area 100: {area_fcl}")
     
     # Get FCL for timestep 2
     prev_fcl = fcl_manager.get_global_fcl(timestep=2)
-    print(f"All firing neurons at timestep 2: {prev_fcl}")
+    self.logger.info(f"All firing neurons at timestep 2: {prev_fcl}")
     
     # Get all firing neurons across areas 100 and 300
     selected_areas_fcl = fcl_manager.get_neurons_by_areas([100, 300])
-    print(f"Firing neurons in areas 100 and 300: {selected_areas_fcl}")
+    self.logger.info(f"Firing neurons in areas 100 and 300: {selected_areas_fcl}")
     
     # Get neurons that fired in any of the last 2 timesteps (3 and 2)
     recent_fcl = fcl_manager.get_neurons_fired_in_last_n_steps(2)
-    print(f"Neurons firing in recent 2 timesteps: {recent_fcl}")
+    self.logger.info(f"Neurons firing in recent 2 timesteps: {recent_fcl}")
     
     # Get active cortical areas
     active_areas = fcl_manager.get_active_areas()
-    print(f"Active cortical areas: {active_areas}")
+    self.logger.info(f"Active cortical areas: {active_areas}")
 
 
 def example_enhanced_fcl_usage() -> None:
@@ -1564,25 +1564,25 @@ def example_enhanced_fcl_usage() -> None:
         # Update the FCL with this timestep's data
         fcl_manager.update_fcl(timestep, firing_neurons)
         
-        print(f"\nTimestep {timestep}:")
-        print(f"Active areas: {fcl_manager.get_active_areas()}")
+        self.logger.info(f"\nTimestep {timestep}:")
+        self.logger.info(f"Active areas: {fcl_manager.get_active_areas()}")
         
         # Perform some analysis at specific timesteps
         if timestep == 15:
             # At timestep 15, examine memory area patterns
             memory_fcl = fcl_manager.get_area_fcl(cortical_idx=400)
-            print(f"Memory area 400 current neurons: {memory_fcl}")
+            self.logger.info(f"Memory area 400 current neurons: {memory_fcl}")
             
             # Look back to a much earlier timestep for memory area (only possible in memory areas)
             old_memory_fcl = fcl_manager.get_area_fcl(cortical_idx=400, timestep=5)
-            print(f"Memory area 400 at timestep 5: {old_memory_fcl}")
+            self.logger.info(f"Memory area 400 at timestep 5: {old_memory_fcl}")
             
             # Looking back at regular areas is limited to the default window size
             try:
                 old_regular_fcl = fcl_manager.get_area_fcl(cortical_idx=100, timestep=5)
-                print(f"Regular area 100 at timestep 5: {old_regular_fcl}")
+                self.logger.info(f"Regular area 100 at timestep 5: {old_regular_fcl}")
             except TimestepOutOfRangeError:
-                print("Cannot look back that far for regular areas")
+                self.logger.warning("Cannot look back that far for regular areas")
     
     # Check memory consistency for the first memory area
     pattern_consistency = fcl_manager.get_memory_area_consistency(
@@ -1590,19 +1590,19 @@ def example_enhanced_fcl_usage() -> None:
         pattern_duration=3,  # How long a pattern typically lasts
         window_duration=15  # How far back to look
     )
-    print(f"\nPattern consistency in memory area 400: {pattern_consistency:.2f}")
+    self.logger.info(f"\nPattern consistency in memory area 400: {pattern_consistency:.2f}")
     
     # Look for consistently active neurons in the past 6 timesteps
     consistent_neurons = fcl_manager.get_consistent_neurons_in_memory_area(
         cortical_idx=500,  # The area to check
         n_steps=5  # Number of consecutive steps neurons must be active
     )
-    print(f"\nConsistently active neurons in memory area 500: {consistent_neurons}")
+    self.logger.info(f"\nConsistently active neurons in memory area 500: {consistent_neurons}")
     
     # Get neurons that fired in any memory area in the past 10 timesteps
     memory_areas = [400, 500]
     recent_memory_fcl = fcl_manager.get_neurons_fired_in_last_n_steps(10, memory_areas)
-    print(f"\nRecent memory neurons: {recent_memory_fcl}")
+    self.logger.info(f"\nRecent memory neurons: {recent_memory_fcl}")
 
 def inject_neurons_into_fcl(fcl_manager, cortical_idx, neuron_ids, timestep=None):
     """
@@ -1640,4 +1640,4 @@ if __name__ == "__main__":
 
     # Check the injected neurons
     result = fcl.get_area_fcl(cortical_idx=500)
-    print(f"Neurons in hippocampus: {result}") 
+    self.logger.info(f"Neurons in hippocampus: {result}") 

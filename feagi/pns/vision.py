@@ -18,7 +18,6 @@
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu.mapping_utils import build_power_connections
 from feagi.bdu.synaptogenesis_rules import neighbor_finder
-from feagi.bdu.connectome_manager import connectome
 
 central_vision_cortical_area = "iv00_C"
 peripheral_vision_cortical_areas = ["iv00TR", "iv00TL", "iv00TM", "iv00MR", "iv00ML", "iv00BR", "iv00BL", "iv00BM"]
@@ -60,7 +59,7 @@ def generate_vision_configuration():
     return vision_configuration
 
 
-def reconfigure_vision(vision_parameters):
+def reconfigure_vision(vision_parameters, connectome):
     central_vision_dim = get_central_vision_dimension()
     peripheral_vision_dim = get_peripheral_vision_dimension()
 
@@ -99,7 +98,7 @@ def reconfigure_vision(vision_parameters):
             })
 
     # Vision Enhancement
-    build_power_connections(target_area_id="ov_enh",
+    build_power_connections(connectome, target_area_id="ov_enh",
                             cortical_type="OPU",
                             mapping_dict={
                                 "0": vision_parameters.get("brightness"),
@@ -108,14 +107,14 @@ def reconfigure_vision(vision_parameters):
                             })
 
     # Vision Thresholds
-    build_power_connections(target_area_id="ovtune",
+    build_power_connections(connectome, target_area_id="ovtune",
                             cortical_type="OPU",
                             mapping_dict={
                                 "0": vision_parameters.get("pixel_change_limit"),
                             })
 
     # Eccentricity
-    build_power_connections(target_area_id="ov_ecc",
+    build_power_connections(connectome, target_area_id="ov_ecc",
                             cortical_type="OPU",
                             mapping_dict={
                                 "0": vision_parameters.get("eccentricity")[0],
@@ -123,7 +122,7 @@ def reconfigure_vision(vision_parameters):
                             })
 
     # Modulation
-    build_power_connections(target_area_id="ov_mod",
+    build_power_connections(connectome, target_area_id="ov_mod",
                             cortical_type="OPU",
                             mapping_dict={
                                 "0": vision_parameters.get("modulation")[0],
@@ -132,7 +131,7 @@ def reconfigure_vision(vision_parameters):
 
     # Horizontal Flip
     if vision_parameters.get("horizontal_flip"):
-        build_power_connections(target_area_id="ovflph",
+        build_power_connections(connectome, target_area_id="ovflph",
                                 cortical_type="OPU",
                                 mapping_dict={
                                     "0": 0
@@ -140,7 +139,7 @@ def reconfigure_vision(vision_parameters):
 
     # Vertical Flip
     if vision_parameters.get("horizontal_flip"):
-        build_power_connections(target_area_id="ovflpv",
+        build_power_connections(connectome, target_area_id="ovflpv",
                                 cortical_type="OPU",
                                 mapping_dict={
                                     "0": 0
@@ -149,7 +148,7 @@ def reconfigure_vision(vision_parameters):
     # Flicker (Blink)
     flicker_period = vision_parameters.get("flicker_period")
     if flicker_period > 0:
-        build_power_connections(target_area_id="o_blnk",
+        build_power_connections(connectome, target_area_id="o_blnk",
                                 cortical_type="OPU",
                                 mapping_dict={
                                     "0": 0

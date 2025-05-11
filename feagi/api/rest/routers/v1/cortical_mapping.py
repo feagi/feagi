@@ -22,7 +22,7 @@ from ...schemas import *
 
 from feagi.evo.genome_properties import genome_properties
 from feagi.bdu import ConnectomeManager
-from feagi.core.global_objects import connectome
+from feagi.api.rest.dependencies import get_connectome
 
 
 router = APIRouter()
@@ -41,7 +41,7 @@ router = APIRouter()
 
 
 @router.post("/efferents")
-async def fetch_cortical_mappings(cortical_id: CorticalId):
+async def fetch_cortical_mappings(cortical_id: CorticalId, connectome: ConnectomeManager = Depends(get_connectome)):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
@@ -50,7 +50,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
 
 
 @router.post("/afferents")
-async def fetch_cortical_mappings(cortical_id: CorticalId):
+async def fetch_cortical_mappings(cortical_id: CorticalId, connectome: ConnectomeManager = Depends(get_connectome)):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
@@ -59,7 +59,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
 
 
 @router.post("/cortical_mappings_by_name")
-async def fetch_cortical_mappings(cortical_id: CorticalId):
+async def fetch_cortical_mappings(cortical_id: CorticalId, connectome: ConnectomeManager = Depends(get_connectome)):
     """
     Returns the list of cortical names being downstream to the given cortical areas
     """
@@ -72,11 +72,11 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
             mappings.add(area.name)
         else:
             mappings.add(str(dst_id))
-    return mappings
+    return list(mappings)
 
 
 @router.post("/cortical_mappings_detailed")
-async def fetch_cortical_mappings(cortical_id: CorticalId):
+async def fetch_cortical_mappings(cortical_id: CorticalId, connectome: ConnectomeManager = Depends(get_connectome)):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
@@ -89,7 +89,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
 
 
 @router.post("/mapping_properties")
-async def fetch_cortical_mapping_properties(source_destination: CorticalAreaSrcDst):
+async def fetch_cortical_mapping_properties(source_destination: CorticalAreaSrcDst, connectome: ConnectomeManager = Depends(get_connectome)):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """

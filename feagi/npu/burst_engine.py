@@ -2,6 +2,9 @@ import time
 import signal
 import threading
 from feagi.core.state_manager import FeagiStateManager, ServiceState
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BurstEngine:
     """
@@ -25,7 +28,7 @@ class BurstEngine:
         self.running = True
         self.state_manager.set_burst_engine_state(ServiceState.READY)
         def handle_signal(signum, frame):
-            print(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
+            logger.info(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
             self.stop()
         # Register signal handlers for graceful shutdown only in main thread
         if threading.current_thread() is threading.main_thread():
@@ -48,7 +51,7 @@ class BurstEngine:
             # 4. Sleep for the remainder of the interval
             if elapsed < self.burst_interval:
                 time.sleep(self.burst_interval - elapsed)
-        print("BurstEngine stopped.")
+        logger.info("BurstEngine stopped.")
         self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
 
     def stop(self):
@@ -100,7 +103,7 @@ class FCLSampler:
                             except Exception:
                                 pass  # Optionally log dropped samples
                         except Exception as e:
-                            print(f"FCLSampler error (area {area_id}): {e}")
+                            logger.error(f"FCLSampler error (area {area_id}): {e}")
                         self._last_sample_time_per_area[area_id] = now
             else:
                 # Global sampling (legacy behavior)
@@ -111,12 +114,12 @@ class FCLSampler:
                     except Exception:
                         pass
                 except Exception as e:
-                    print(f"FCLSampler error: {e}")
+                    logger.error(f"FCLSampler error: {e}")
             # Sleep for the remainder of the global sample interval
             elapsed = time.perf_counter() - start
             if elapsed < self.sample_interval:
                 time.sleep(self.sample_interval - elapsed)
-        print("FCLSampler stopped.")
+        logger.info("FCLSampler stopped.")
 
     def stop(self):
         self.running = False

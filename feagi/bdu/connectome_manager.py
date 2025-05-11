@@ -91,48 +91,39 @@ class ConnectomeManager:
         self._areas: Dict[int, CorticalArea] = {}
         self._neuron_to_area: Dict[int, int] = {}
         
-        # Structure of Arrays for neuron properties
         self.initialized = False
+        self._max_neurons = None
+        self._max_synapses_per_neuron = None
+        self.synapse_manager = None
+        self.fcl_manager = None
+        self._next_neuron_id = 1
+        self._area_lookup_tables = {}
+        self._occupied_voxels = {}
+        self._position_to_neurons = {}
+        self._voxel_to_neurons = {}
+        self._neuron_to_position = {}
+        self._small_regular_areas = set()
+        self._large_regular_areas = set()
+        self._extreme_dimension_areas = set()
+        self.current_timestep = 0
+        # Do NOT call _init_neuron_arrays or create SynapseManager here
+    
+    def initialize_arrays(self, max_test_neurons: Optional[int] = None):
+        if self.initialized:
+            return
         if max_test_neurons is not None:
             self._max_neurons = max_test_neurons
         else:
             self._max_neurons = self.config.get("connectome.max_neurons", 10000000)
         self._max_synapses_per_neuron = self.config.get("connectome.max_synapses_per_neuron", 1000)
-        
-        # FCL window size (how many timesteps of firing history to maintain)
         fcl_window_size = self.config.get("connectome.fcl_window_size", 10)
-        
-        # Initialize FCL Manager
         self.fcl_manager = HierarchicalFCL(window_size=fcl_window_size)
-        
-        # Counter for generating unique neuron IDs
-        self._next_neuron_id = 1
-        
-        # Bitmap-based position tracking for efficient lookups
-        self._area_lookup_tables = {}  # area_id -> lookup structure based on area characteristics
-        self._occupied_voxels = {}  # area_id -> BitMap of linearized positions
-        self._position_to_neurons = {}  # (area_id, linearized_pos) -> BitMap of neuron IDs
-        self._voxel_to_neurons = {}  # (area_id, x, y, z) -> set of neuron IDs
-        
-        # Mapping from neuron ID to its position and details
-        self._neuron_to_position = {}  # neuron_id -> (area_id, x, y, z, neuron_index)
-        
-        # Area classification for optimized lookups
-        self._small_regular_areas = set()  # area_ids with dimensions ≤ 100³
-        self._large_regular_areas = set()  # area_ids with dimensions > 100³
-        self._extreme_dimension_areas = set()  # area_ids with any dimension > 10000
-        
-        # Initialize neuron arrays
         self._init_neuron_arrays()
-        
-        # Initialize synapse manager with test-size limits if applicable
         if max_test_neurons is not None:
             self.synapse_manager = SynapseManager(max_test_neurons, min(100, self._max_synapses_per_neuron))
         else:
             self.synapse_manager = SynapseManager(self._max_neurons, self._max_synapses_per_neuron)
-        
-        # Current simulation timestep
-        self.current_timestep = 0
+        self.initialized = True
     
     def _init_neuron_arrays(self):
         """Initialize the neuron arrays using Structure of Arrays approach."""
@@ -183,7 +174,6 @@ class ConnectomeManager:
         # Array to store neuron IDs for each index (reverse mapping)
         self.index_to_neuron_id = np.zeros(self._max_neurons, dtype=np.int64)
         
-        self.initialized = True
         logger.info(f"Initialized neuron arrays with capacity for {self._max_neurons} neurons")
     
     def add_cortical_area(
@@ -1938,6 +1928,3 @@ class ConnectomeManager:
         except Exception as e:
             logger.error(f"Error deserializing brain state: {e}")
             return False
-
-# Global singleton instance for use throughout the codebase
-connectome = ConnectomeManager()

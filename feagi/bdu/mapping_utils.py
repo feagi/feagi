@@ -5,7 +5,6 @@ from typing import Dict, Any
 from math import floor
 from random import randrange
 from feagi.core.state_manager import FeagiStateManager
-from feagi.bdu.connectome_manager import connectome
 from feagi.evo.templates import cortical_types
 
 def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
@@ -26,10 +25,11 @@ def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:
                 cortical_map[cortical_area][dst].append(mapping)
     return cortical_map 
 
-def build_power_connections(target_area_id: str, cortical_type: str, mapping_dict: dict) -> None:
+def build_power_connections(connectome, target_area_id: str, cortical_type: str, mapping_dict: dict) -> None:
     """
     Create or update power connections for a target cortical area, based on mapping_dict.
     Args:
+        connectome: The ConnectomeManager instance to use.
         target_area_id: The cortical area to connect to.
         cortical_type: The type of the cortical area (e.g., 'OPU').
         mapping_dict: Dict of {entry: value} for mapping patterns.

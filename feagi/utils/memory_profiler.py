@@ -73,15 +73,13 @@ class MemorySnapshot:
         Args:
             limit: Number of top memory blocks to display
         """
-        print(f"--- Memory Snapshot: {self.label} ---")
-        print(f"Process memory: {self.process_memory / (1024 * 1024):.2f} MB")
-        print(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.timestamp))}")
-        
-        # Print top memory blocks
+        logger.info(f"--- Memory Snapshot: {self.label} ---")
+        logger.info(f"Process memory: {self.process_memory / (1024 * 1024):.2f} MB")
+        logger.info(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.timestamp))}")
         top_stats = self.snapshot.statistics('lineno')
-        print(f"\nTop {limit} memory blocks:")
+        logger.info(f"Top {limit} memory blocks:")
         for stat in top_stats[:limit]:
-            print(f"{stat.size / 1024:.1f} KB - {stat.count} objects - {stat.traceback.format()[0]}")
+            logger.info(f"{stat.size / 1024:.1f} KB - {stat.count} objects - {stat.traceback.format()[0]}")
 
 
 class MemoryProfiler:
@@ -177,14 +175,12 @@ class MemoryProfiler:
             limit: Number of top memory blocks to display
         """
         comparison = self.compare(start_label, end_label)
-        
-        print(f"--- Memory Comparison: {start_label} → {end_label} ---")
-        print(f"Memory change: {comparison['memory_diff'] / (1024 * 1024):.2f} MB")
-        print(f"Time difference: {comparison['time_diff']:.2f} seconds")
-        
-        print(f"\nTop {limit} memory changes:")
+        logger.info(f"--- Memory Comparison: {start_label} → {end_label} ---")
+        logger.info(f"Memory change: {comparison['memory_diff'] / (1024 * 1024):.2f} MB")
+        logger.info(f"Time difference: {comparison['time_diff']:.2f} seconds")
+        logger.info(f"Top {limit} memory changes:")
         for stat in comparison['top_stats'][:limit]:
-            print(f"{stat.size / 1024:.1f} KB - {stat.count} objects - {stat.traceback.format()[0]}")
+            logger.info(f"{stat.size / 1024:.1f} KB - {stat.count} objects - {stat.traceback.format()[0]}")
 
 
 def profile_memory(label: Optional[str] = None) -> Callable:

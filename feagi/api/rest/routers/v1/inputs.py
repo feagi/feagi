@@ -18,6 +18,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Tuple
+import logging
 
 from ...commons import *
 from ...schemas import *
@@ -27,6 +28,7 @@ from feagi.evo.templates import cortical_types
 from feagi.pns.vision import generate_vision_configuration
 from feagi.api.rest.schemas import VisionSettings
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -45,6 +47,6 @@ async def get_vision_tuning_parameters():
 async def set_vision_tuning_parameters(vision_settings: VisionSettings):
     vision_configuration_params = vision_settings.dict(exclude_none=True)
     vision_configuration_params = {'vision': vision_configuration_params}
-    print("*-----* " * 200 + "\n", vision_configuration_params)
+    logger.info("*-----* " * 200 + "\n" + str(vision_configuration_params))
     api_queue.put(item=vision_configuration_params)
 

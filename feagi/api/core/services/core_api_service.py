@@ -100,13 +100,12 @@ class CoreAPIService:
       - These are converted to strings in the API layer and back to ints internally
     """
     
-    def __init__(self, feagi_instance: Optional[FEAGI] = None):
+    def __init__(self, connectome_manager: ConnectomeManager, feagi_instance: Optional[FEAGI] = None):
         """
         Initialize the Core API Service.
-        
         Args:
-            feagi_instance: An optional FEAGI instance. If not provided,
-                            a new instance will be created.
+            connectome_manager: The singleton/main ConnectomeManager instance.
+            feagi_instance: An optional FEAGI instance. If not provided, a new instance will be created.
         """
         self.logger = logging.getLogger(__name__)
         self._feagi = feagi_instance or FEAGI()
@@ -114,20 +113,14 @@ class CoreAPIService:
         self._genome_filename = None
         self._pending_amalgamation = {}
         self._amalgamation_history = {}
-        
-        # Initialize the connectome manager
-        self._connectome_manager = ConnectomeManager()
-        
-        # Wire up the FCL Manager from the connectome manager
+        self._connectome_manager = connectome_manager
+        if not hasattr(self._connectome_manager, 'fcl_manager'):
+            raise RuntimeError("ConnectomeManager instance does not have an fcl_manager. Did you forget to call initialize_arrays() before passing it to CoreAPIService?")
         self._fcl_manager = self._connectome_manager.fcl_manager
-        
-        # Initialize the neuroembryogenesis module
         self._neuroembryogenesis = Neuroembryogenesis(
             connectome_manager=self._connectome_manager,
             progress_callback=self._handle_embryogenesis_progress
         )
-        
-        # Current genome state
         self._current_genome = None
         self._test_area_id = 999999999  # Very large ID to avoid conflicts
         
@@ -147,7 +140,7 @@ class CoreAPIService:
         
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
-        self.logger.info(f"[{stage}] {percentage:.1f}% - {message}")
+        self.logger.info(f"{stage} {percentage:.1f}% - {message}", emoji="  ")
         
     @property
     def feagi(self) -> FEAGI:

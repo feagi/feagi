@@ -47,9 +47,9 @@ def genome_ver_check(genome):
             # print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
             try:
                 state.genome_validity = genome_validator(genome)
-                print("Genome validity=", state.genome_validity)
+                logger.info(f"Genome validity={state.genome_validity}")
             except Exception as e:
-                print("Error during genome validation!!\n", traceback.print_exc(), e)
+                logger.error(f"Error during genome validation!! {e}")
             genome = merge_core_morphologies(genome)
             genome = genome_morphology_updator(genome)
             genome = genome_physiology_updator(genome=genome)
@@ -61,9 +61,9 @@ def genome_ver_check(genome):
             update_template()
             return genome
         else:
-            print("ERROR! Genome is not compatible with 2.0 standard")
+            logger.error("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
-        print("Exception during genome version check", e, traceback.print_exc())
+        logger.error(f"Exception during genome version check {e}")
         pass
 
 
@@ -114,10 +114,10 @@ def update_template():
 
 def genome_2_print(genome):
     for cortical_area in genome:
-        print(cortical_area)
+        logger.info(cortical_area)
         for gene in genome[cortical_area]:
             try:
-                print("       ", genome_2_to_1[gene], "\n\t\t\t", genome[cortical_area][gene])
+                logger.info(f"       {genome_2_to_1[gene]} \n\t\t\t {genome[cortical_area][gene]}")
             except:
                 pass
 
@@ -135,12 +135,12 @@ def genome_2_validator(genome_2):
         gene_anomalies = 0
         for key in genome_2:
             if len(key) != standard_gene_length:
-                print("Warning! Key did not meet length requirement:", key)
+                logger.warning(f"Warning! Key did not meet length requirement: {key}")
                 gene_anomalies += 1
         if gene_anomalies == 0:
-            print("\nGene length verification ...... PASSED!")
+            logger.info("\nGene length verification ...... PASSED!")
         else:
-            print("\nGene length verification...... Failed!   ", gene_anomalies, " anomalies detected")
+            logger.info("\nGene length verification...... Failed!   ", gene_anomalies, " anomalies detected")
         return gene_anomalies
 
 
@@ -181,7 +181,7 @@ def genome_2_cortical_list(flat_genome):
                     cortical_list.append(cortical_id)
         return cortical_list
     except Exception as e:
-        print("Exception during genome_2_cortical_list", e, traceback.print_exc())
+        logger.error("Exception during genome_2_cortical_list", e, traceback.print_exc())
 
 
 def genome_1_cortical_list(genome):
@@ -229,8 +229,8 @@ def genome_2_1_convertor(flat_genome):
     genome = dict()
     genome['blueprint'] = dict()
     cortical_list = genome_2_cortical_list(flat_genome)
-    print("%" * 30)
-    print(cortical_list)
+    logger.info("%" * 30)
+    logger.info(cortical_list)
     # Assign a blank template to each cortical area
     for cortical_area in cortical_list:
         genome['blueprint'][cortical_area_id_update_checker(cortical_id=cortical_area)] = \
@@ -325,10 +325,10 @@ def genome_2_1_convertor(flat_genome):
                                 try:
                                     genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
                                 except Exception as e:
-                                    print("Key not processed: ", cortical_area, e, traceback.print_exc())
+                                    logger.error(f"Key not processed: {cortical_area} {e} {traceback.print_exc()}")
 
         except Exception as e:
-            print(f"Exception during gene translation of {cortical_area}", e, traceback.print_exc())
+            logger.error(f"Exception during gene translation of {cortical_area}", e, traceback.print_exc())
     return genome
 
 
@@ -415,7 +415,7 @@ def genome_v1_v2_converter(genome_v1):
 
                 genome_v2['blueprint'][gene] = destination_map
             else:
-                print("Warning! ", key, " not found in genome_1_template!")
+                logger.warning(f"Warning! {key} not found in genome_1_template!")
 
     return genome_v2
 
@@ -430,7 +430,7 @@ def morphology_convertor(morphology_in):
         if "vectors" in morphology_in:
             morphology_out["type"] = "vectors"
             morphology_out["parameters"]["vectors"] = morphology_in["vectors"]
-            print("morphology_out:", morphology_out)
+            logger.info(f"morphology_out: {morphology_out}")
         elif "patterns" in morphology_in:
             morphology_out["type"] = "patterns"
             morphology_out["parameters"]["patterns"] = morphology_in["patterns"]
@@ -449,11 +449,11 @@ def morphology_convertor(morphology_in):
     if "patterns" in morphology_out["parameters"]:
         for pattern in morphology_out["parameters"]["patterns"]:
             if not valid_pattern(pattern):
-                print("#### >>>", pattern)
+                logger.info(f"#### >>> {pattern}")
                 if len(pattern) == 3:
-                    print("> >", morphology_in)
+                    logger.info(f"> > {morphology_in}")
                     morphology_out["parameters"]["patterns"] = [morphology_out["parameters"]["patterns"]]
-                    print("> >", morphology_out)
+                    logger.info(f"> > {morphology_out}")
 
     if "class" not in morphology_out:
         morphology_out["class"] = "custom"
@@ -491,7 +491,7 @@ def genome_morphology_updator(genome):
             genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
         state.genome_validity = genome_validator(genome)
     except Exception as e:
-        print("Error during genome morphology update!", e, traceback.print_exc())
+        logger.error("Error during genome morphology update!", e, traceback.print_exc())
 
     return genome
 

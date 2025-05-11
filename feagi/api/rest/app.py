@@ -35,6 +35,9 @@ from .routers.v1 import inputs
 from feagi.api.dependencies import *
 from feagi.api.models import *
 from feagi.core.state_manager import FeagiStateManager, ServiceState
+from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.api.core.services.core_api_service import CoreAPIService
+from feagi.api.rest.dependencies import get_connectome
 
 logger = logging.getLogger(__name__)
 
@@ -80,14 +83,14 @@ async def log_requests(request: Request, call_next):
     Credit: Phil Girard
     """
     idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    logger.info(f"rid={idem} start request path={request.url.path}")
+    logger.info(f"rid={idem} start request path={request.url.path}", emoji="🌐")
     start_time = time.time()
 
     response = await call_next(request)
 
     process_time = (time.time() - start_time) * 1000
     formatted_process_time = '{0:.2f}'.format(process_time)
-    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}")
+    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}", emoji="✅")
 
     # print(response.status_code, ":", request.method, ":", request.url.path)
     return response
@@ -99,13 +102,13 @@ async def catch_exceptions_middleware(request: Request, call_next):
         return await call_next(request)
     except CustomError as e:
         # Handle CustomError
-        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}")
+        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}", emoji="❌")
         return JSONResponse(
             status_code=e.status_code,
             content={"message": f"A custom error occurred: {str(e.message)}"},
         )
     except Exception as e:
-        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}")
+        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}", emoji="❌")
         return JSONResponse(
             status_code=500,
             content={
@@ -279,8 +282,23 @@ async def set_api_state_ready():
     state = FeagiStateManager.instance()
     state.set_api_state(ServiceState.READY)
 
-def create_rest_app():
-    """Factory function to return the FastAPI app instance."""
+def create_rest_app(connectome: ConnectomeManager = None):
+    """Factory function to return the FastAPI app instance, with connectome dependency injection."""
+    
+    # If no connectome was provided, create a new one
+    if connectome is None:
+        connectome = ConnectomeManager()
+        connectome.initialize_arrays()
+    # If connectome was provided but isn't initialized, initialize it
+    elif not hasattr(connectome, 'fcl_manager') or connectome.fcl_manager is None:
+        connectome.initialize_arrays()
+        
+    # Set the connectome in the dependencies module, not in a local variable
+    from feagi.api.rest.dependencies import set_connectome_instance
+    set_connectome_instance(connectome)
+    
+    # Create the core API service with the initialized connectome
+    core_api_service = CoreAPIService(connectome)
     return app
 
 def get_core_api():

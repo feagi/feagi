@@ -25,8 +25,9 @@ from ...schemas import *
 from feagi.version import __version__
 from feagi.evo.templates import cortical_types
 from feagi.core.state_manager import FeagiStateManager
-from feagi.core.global_objects import connectome
+import logging
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -55,7 +56,7 @@ async def update_user_preferences(payload: UserPreferences):
 
 
 def human_readable_version(version):
-    print(version)
+    logger.info(version, emoji="  ")
     time_portion = str(version)[-10:]
     reminder = str(version)[:-10]
     human_readable_time = datetime.utcfromtimestamp(int(time_portion))

@@ -12,6 +12,9 @@ import signal
 import sys
 import time
 from typing import Dict, Any, Optional
+from feagi.logging_config import setup_feagi_logging
+
+setup_feagi_logging()
 
 # Configure logging
 logging.basicConfig(
@@ -43,14 +46,14 @@ def main():
     if args.mock:
         from unittest.mock import MagicMock
         core_api = MagicMock()
-        logger.info("Using mock core API")
+        logger.info("Using mock core API", emoji="🔌")
     else:
         try:
             from feagi.core import create_core_api
             core_api = create_core_api({})
-            logger.info("Using real core API")
+            logger.info("Using real core API", emoji="🔌")
         except ImportError:
-            logger.error("Failed to import core API, using mock instead")
+            logger.error("Failed to import core API, using mock instead", emoji="⚠ ")
             from unittest.mock import MagicMock
             core_api = MagicMock()
     
@@ -67,7 +70,7 @@ def main():
     
     # Setup signal handlers
     def signal_handler(sig, frame):
-        logger.info("Shutting down ZMQ server...")
+        logger.info("Shutting down ZMQ server...", emoji="  ")
         zmq_server.shutdown()
         sys.exit(0)
     
@@ -75,12 +78,11 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Start the server
-    print(f"Starting ZMQ server on {args.host}")
-    print(f"  - REQ/REP port: {args.req_port}")
-    print(f"  - PUB/SUB port: {args.pub_port}")
-    print(f"  - PUSH/PULL port: {args.push_port}")
-    print(f"  - Sensorimotor port: {args.sensorimotor_port}")
-    print(f"  - Visualization base port: {args.vis_base_port}")
+    logger.info(f"Starting ZMQ server on {args.host}:{args.req_port}", emoji="🚀")
+    logger.info(f"    - PUB/SUB port: {args.pub_port}")
+    logger.info(f"    - PUSH/PULL port: {args.push_port}")
+    logger.info(f"    - Sensorimotor port: {args.sensorimotor_port}")
+    logger.info(f"    - Visualization base port: {args.vis_base_port}")
     
     success = zmq_server.start()
     if not success:

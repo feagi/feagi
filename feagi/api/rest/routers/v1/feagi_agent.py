@@ -16,6 +16,7 @@
 
 
 import os
+import logging
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 
@@ -25,11 +26,11 @@ from feagi.api.rest.schemas import AgentRegistration
 
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
-from feagi.core.global_objects import connectome
 
 
 router = APIRouter()
 state = FeagiStateManager.instance()
+logger = logging.getLogger(__name__)
 
 
 # ######  Peripheral Nervous System Endpoints #########
@@ -39,10 +40,10 @@ def assign_available_port():
     ports_used = []
     port_ranges = (40001, 40050)
     for agent_id, agent_info in state.agent_registry.items():
-        print(agent_id, agent_info, agent_info['agent_type'], type(agent_info['agent_type']))
+        logger.info(f"{agent_id} {agent_info} {agent_info['agent_type']} {type(agent_info['agent_type'])}")
         if agent_info['agent_type'] != 'monitor':
             ports_used.append(agent_info['agent_data_port'])
-    print("ports_used", ports_used)
+    logger.info(f"ports_used {ports_used}")
     for port in range(port_ranges[0], port_ranges[1]):
         if port not in ports_used:
             return port
@@ -60,8 +61,8 @@ async def agent_list():
 
 @router.get("/properties")
 async def agent_properties(agent_id: str):
-    print("agent_id", agent_id)
-    print("agent_registry", state.agent_registry)
+    logger.info(f"agent_id {agent_id}")
+    logger.info(f"agent_registry {state.agent_registry}")
     agent_info = {}
     if agent_id in state.agent_registry:
         agent_info["agent_type"] = state.agent_registry[agent_id]["agent_type"]
@@ -89,7 +90,7 @@ async def agent_registration(request: Request, data: AgentRegistration):
     agent_info["agent_ip"] = request.client.host
     if data.agent_type == 'monitor':
         agent_router_address = f"tcp://{request.client.host}:{data.agent_data_port}"
-        print("Publication of brain activity turned on!")
+        logger.info("Publication of brain activity turned on!")
         state.brain_activity_pub = True
     else:
         agent_data_port = assign_available_port()
@@ -108,7 +109,7 @@ async def agent_registration(request: Request, data: AgentRegistration):
         message = {'update_pns_areas': capabilities}
         api_queue.put(item=message)
 
-    print("New agent has been successfully registered:", state.agent_registry[data.agent_id])
+    logger.info(f"New agent has been successfully registered: {state.agent_registry[data.agent_id]}")
 
     state.evo_change_register["agent"] += 1
 

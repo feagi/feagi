@@ -17,7 +17,6 @@
 from fastapi import APIRouter
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
-from feagi.core.global_objects import connectome
 from pydantic import BaseModel
 
 from ...schemas import *

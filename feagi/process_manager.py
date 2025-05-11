@@ -35,7 +35,7 @@ class ProcessManager:
     4. Fault Tolerance: Restarts failed processes and maintains system integrity.
     """
     
-    def __init__(self):
+    def __init__(self, connectome=None):
         """Initialize the Process Manager."""
         self._processes = {}
         self._resource_allocations = {}
@@ -46,7 +46,7 @@ class ProcessManager:
         
         # Internal references for critical components
         self._burst_engine = None
-        self._connectome_manager = None
+        self._connectome_manager = connectome
         self._fcl_manager = None
         self._memory_manager = None
         
@@ -112,7 +112,7 @@ class ProcessManager:
             from feagi.core import create_core_api
             
             # Create the core API with all critical components
-            self._core_api = create_core_api(config)
+            self._core_api = create_core_api(self._connectome_manager, config)
             
             # Get references to individual critical components
             if self._core_api:
@@ -121,7 +121,7 @@ class ProcessManager:
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
             
-            logger.info("✓ Critical processes initialized successfully")
+            logger.info("✓ Critical processes initialized successfully", emoji="✓ ")
             return True
             
         except Exception as e:
@@ -171,7 +171,7 @@ class ProcessManager:
             self._fcl_sampler_thread = threading.Thread(target=self._fcl_sampler.run, daemon=True)
             self._fcl_sampler_thread.start()
             state_manager.set_fcl_sampler_state(ServiceState.READY)
-            logger.info("FCLSampler started successfully.")
+            logger.info("FCLSampler started successfully.", emoji="✓ ")
             # --- FCLSampler Integration ---
             # If you add dynamic reconfiguration of frequency/consumer, update state manager here as well.
             
@@ -213,7 +213,7 @@ class ProcessManager:
                 logger.error("Failed to start ZMQ server")
                 return False
                 
-            logger.info("✓ Important processes initialized successfully")
+            logger.info("✓ Important processes initialized successfully", emoji="✓ ")
             return True
             
         except Exception as e:
@@ -285,8 +285,7 @@ class ProcessManager:
                 env["FEAGI_CORE_API_AVAILABLE"] = "0"
                 
             # Start the API server process
-            logger.info(f"Starting FEAGI API server on {api_host}:{api_port}")
-            print(f"Starting FEAGI API server on {api_host}:{api_port}")
+            logger.info(f"Starting FEAGI API server on {api_host}:{api_port}", emoji="  ")
             
             process = subprocess.Popen(
                 cmd, 
@@ -326,7 +325,7 @@ class ProcessManager:
             # Initialize additional background processes here in the future
             # such as Stem Cell Manager, Sleep Manager, etc.
             
-            logger.info("✓ Background processes initialized successfully")
+            logger.info("✓ Background processes initialized successfully", emoji="✓ ")
             return True
             
         except Exception as e:
@@ -341,7 +340,7 @@ class ProcessManager:
                 break
             if line:
                 line = line.rstrip()
-                logger.info(f"[{process_name}] {line}")
+                logger.info(f"{process_name} {line}", emoji="  ")
         
         rc = process.poll()
         if rc != 0:
@@ -352,7 +351,7 @@ class ProcessManager:
         output, _ = process.communicate()
         if output:
             for line in output.splitlines():
-                logger.error(f"[process output] {line}")
+                logger.error(f"process output {line}", emoji="❌")
         else:
             logger.error("No output available from the process")
     
@@ -492,11 +491,11 @@ class ProcessManager:
 # Global instance for the process manager
 _process_manager = None
 
-def get_process_manager() -> ProcessManager:
+def get_process_manager(connectome=None) -> ProcessManager:
     """Get the global ProcessManager instance."""
     global _process_manager
     if _process_manager is None:
-        _process_manager = ProcessManager()
+        _process_manager = ProcessManager(connectome=connectome)
     return _process_manager
 
-process_manager = get_process_manager() 
+# Removed the global process_manager instantiation that was here 

@@ -312,7 +312,7 @@ def main():
     is_compatible = verify_dependencies(requirements_path)
     
     if is_compatible:
-        print("All dependencies are compatible!")
+        logger.info("All dependencies are compatible!")
         return 0
     else:
         return 1

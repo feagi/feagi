@@ -289,9 +289,11 @@ class FeagiStateManager:
         _log_state_change("🧠", f"Brain readiness changed: {old} → {ready}")
 
 def _log_state_change(emoji: str, message: str):
+    logging.getLogger(__name__).info(message, emoji=emoji)
+
     # Always reserve a 2-character spot for the icon (emoji or spaces)
-    icon = f"{emoji:<2}" if emoji else "  "
+    icon = f"{emoji:<2}" if emoji else "   "
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     log_msg = f"{icon} [{timestamp}] {message}"
     logging.getLogger(__name__).info(log_msg)
-    print(log_msg) 
+    # print(log_msg)  # Removed, all output goes through logger 

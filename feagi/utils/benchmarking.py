@@ -152,13 +152,12 @@ class Benchmark:
             name2: Name of the second benchmark
         """
         comparison = self.compare(name1, name2)
-        
-        print(f"Benchmark Comparison: {name1} vs {name2}")
-        print(f"{name1} mean: {comparison['mean1'] * 1000:.2f} ms")
-        print(f"{name2} mean: {comparison['mean2'] * 1000:.2f} ms")
-        print(f"Ratio: {comparison['ratio']:.2f}x")
-        print(f"Difference: {comparison['diff'] * 1000:.2f} ms")
-        print(f"Percent change: {comparison['percent']:.2f}%")
+        logger.info(f"Benchmark Comparison: {name1} vs {name2}")
+        logger.info(f"{name1} mean: {comparison['mean1'] * 1000:.2f} ms")
+        logger.info(f"{name2} mean: {comparison['mean2'] * 1000:.2f} ms")
+        logger.info(f"Ratio: {comparison['ratio']:.2f}x")
+        logger.info(f"Difference: {comparison['diff'] * 1000:.2f} ms")
+        logger.info(f"Percent change: {comparison['percent']:.2f}%")
 
 
 def benchmark(
@@ -197,7 +196,7 @@ def benchmark(
             )
             
             # Print the result
-            print(result)
+            logger.info(result)
             
             # Return the original function result
             return func(*args, **kwargs)
@@ -257,8 +256,8 @@ def benchmark_comparison_example():
     )
     
     # Print results
-    print(result1)
-    print(result2)
+    logger.info(result1)
+    logger.info(result2)
     
     # Compare results
     benchmark_runner.print_comparison("python_matmul", "numpy_matmul")

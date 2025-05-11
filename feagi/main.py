@@ -12,6 +12,9 @@ import sys
 import time
 import logging
 from feagi.core.state_manager import FeagiStateManager
+from feagi.logging_config import setup_feagi_logging
+
+setup_feagi_logging()
 
 # Configure logging
 logging.basicConfig(
@@ -30,7 +33,7 @@ def check_dependencies():
     Returns:
         bool: True if all dependencies are compatible, False otherwise.
     """
-    logger.info("Checking dependency versions...")
+    logger.info("Checking dependency versions...", emoji="  ")
     
     try:
         # Import here to avoid circular imports
@@ -39,7 +42,7 @@ def check_dependencies():
         # Check if FEAGI_SKIP_VERSION_CHECK environment variable is set
         skip_check = os.environ.get("FEAGI_SKIP_VERSION_CHECK", "").lower() in ("1", "true", "yes")
         if skip_check:
-            logger.info("Dependency version check skipped (FEAGI_SKIP_VERSION_CHECK is set)")
+            logger.info("Dependency version check skipped (FEAGI_SKIP_VERSION_CHECK is set)", emoji="✓")
             return True
             
         # Get the path to requirements.txt
@@ -49,14 +52,14 @@ def check_dependencies():
         is_compatible = verify_dependencies(requirements_path, raise_exception=False)
         
         if is_compatible:
-            logger.info("✓ All dependencies are compatible with requirements")
+            logger.info("All dependencies are compatible with requirements", emoji="✓ ")
         else:
-            logger.warning("⚠ Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.")
+            logger.warning("Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.", emoji="⚠ ")
             
         return is_compatible
         
     except Exception as e:
-        logger.error(f"Error checking dependencies: {e}")
+        logger.error(f"Error checking dependencies: {e}", emoji="❌")
         return True  # Continue execution despite the error
 
 def main():
@@ -98,14 +101,22 @@ def main():
         logger.error("Dependency check failed. Please install required dependencies.")
         return 1
     
-    # Initialize process manager
+    # Initialize the main connectome instance
+    from feagi.bdu.connectome_manager import ConnectomeManager
+    connectome = ConnectomeManager()
+    connectome.initialize_arrays()
+    # Set the connectome instance for FastAPI dependency injection
+    from feagi.api.rest.dependencies import set_connectome_instance
+    set_connectome_instance(connectome)
+    
+    # Initialize process manager with the singleton connectome
     from feagi.process_manager import get_process_manager
-    process_manager = get_process_manager()
+    process_manager = get_process_manager(connectome=connectome)
     
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):
-        logger.info("\nShutting down FEAGI servers...")
-        process_manager.shutdown()
+        logger.info("\nShutting down FEAGI servers...", emoji="  ")
+        process_manager.shutdown_all()
         FeagiStateManager.instance().cleanup()
         sys.exit(0)
         

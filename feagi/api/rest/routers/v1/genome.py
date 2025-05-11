@@ -19,6 +19,7 @@ import os
 import json
 from enum import Enum
 from datetime import datetime
+import logging
 
 from time import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
@@ -36,8 +37,6 @@ from feagi.bdu.brain_region import region_id_2_title, construct_genome_from_regi
 from feagi.evo.templates import cortical_template
 from feagi.core.state_manager import FeagiStateManager, ConnectomeState
 from feagi.bdu import ConnectomeManager
-from feagi.core.global_objects import connectome
-from feagi.api.core.services.core_api_service import CoreAPIService
 
 
 router = APIRouter()
@@ -49,7 +48,6 @@ state = FeagiStateManager.instance()
 def get_amalgamation_history_service():
     return getattr(state, 'amalgamation_history', {})
 
-core_api_service = CoreAPIService()
 
 # AmalgamationRequest model for amalgamation endpoints
 class AmalgamationRequest(BaseModel):
@@ -148,12 +146,12 @@ async def genome_string_upload(genome: dict):
 
 @router.get("/download")
 async def genome_download(_: str = Depends(check_active_genome)):
-    print("Downloading Genome...")
+    logger.info("Downloading Genome...")
     genome = core_api_service.get_genome()
     save_genome(genome=genome_v1_v2_converter(genome),
                 file_name=state.connectome_path + "genome.json")
     file_name = "genome-" + genome.get("genome_title", "unknown").replace(" ", "_") + ".json"
-    print(file_name)
+    logger.info(file_name)
 
     if genome and genome.get("blueprint"):
         state.changes_saved_externally = True
@@ -171,7 +169,7 @@ async def genome_download(_: str = Depends(check_active_genome)):
 
 @router.get("/download_region")
 async def genome_download_from_region(region_id, _: str = Depends(check_active_genome)):
-    print(f"Downloading genome associated with {region_id} ...")
+    logger.info(f"Downloading genome associated with {region_id} ...")
 
     region_title = region_id_2_title(region_id=region_id)
     genome_payload = construct_genome_from_region(region_id=region_id)
@@ -221,7 +219,7 @@ async def genome_number():
 
 @router.post("/reset")
 async def reset_genome():
-    print("API call has triggered a genome reset")
+    logger.info("API call has triggered a genome reset")
     state.genome_reset_flag = True
 
 
@@ -318,7 +316,7 @@ async def amalgamation_conclusion(circuit_origin_x,
         payload["parent_brain_region"] = brain_region_id
         payload["rewire_mode"] = rewire_mode.value
         data = {'append_circuit': payload}
-        print(data)
+        logger.info(data)
         api_queue.put(item=data)
         genome_title = state.pending_amalgamation["genome_title"]
 

@@ -41,7 +41,7 @@ def main():
         is_compatible = verify_dependencies(requirements_path, raise_exception=False)
         
         if is_compatible:
-            logger.info("✓ All dependencies are compatible with requirements")
+            logger.info("✓","All dependencies are compatible with requirements")
             return 0
         else:
             if args.strict:

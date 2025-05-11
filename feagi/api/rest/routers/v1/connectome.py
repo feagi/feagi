@@ -16,7 +16,7 @@
 
 
 import tempfile
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, UploadFile, Depends
 from fastapi import HTTPException
 from starlette.responses import FileResponse
 
@@ -25,25 +25,24 @@ from threading import Thread
 
 from ...commons import *
 from feagi.bdu import ConnectomeManager
-from feagi.core.global_objects import connectome
 from feagi.core.state_manager import FeagiStateManager
 from feagi.api.core.services.core_api_service import CoreAPIService
+import logging
+from feagi.api.rest.dependencies import get_connectome
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # Helper to get state manager instance
 state = FeagiStateManager.instance()
 
-# Helper to get CoreAPIService instance
-core_api_service = CoreAPIService()
-
 
 # ######  Connectome Endpoints #########
 # ######################################
 @router.get("/cortical_areas/list/summary")
 async def connectome_cortical_areas_summary():
-    areas = core_api_service.get_cortical_areas()
+    areas = CoreAPIService.get_instance().get_cortical_areas()
     if not areas:
         raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
     return [area["id"] for area in areas]
@@ -57,7 +56,7 @@ async def transforming_cortical_areas_summary():
 
 @router.get("/cortical_areas/list/detailed")
 async def connectome_cortical_areas():
-    areas = core_api_service.get_cortical_areas()
+    areas = CoreAPIService.get_instance().get_cortical_areas()
     if not areas:
         raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
     return areas
@@ -102,15 +101,15 @@ async def connectome_system_path():
 @router.post("/snapshot")
 async def connectome_snapshot(connectome_storage_path: str):
     message = {'connectome_path': connectome_storage_path}
-    print("Snapshot path:", message)
+    logger.info(f"Snapshot path: {message}")
     api_queue.put(item=message)
 
 
 @router.get("/download-cortical-area")
 async def connectome_download(cortical_area: str):
-    print("Downloading Connectome...")
+    logger.info("Downloading Connectome...")
     file_name = "connectome_" + cortical_area + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
-    print(file_name)
+    logger.info(file_name)
     if state.get_brain().get(cortical_area):
         # TODO: Add connectome_path to state manager if needed
         connectome_path = getattr(state, 'connectome_path', '')
@@ -143,7 +142,7 @@ async def connectome_dimensions_report(cortical_area: str):
 
 
 @router.get("/properties/mappings")
-async def connectome_mapping_report():
+async def connectome_mapping_report(connectome: ConnectomeManager = Depends(get_connectome)):
     """
     Report result can be used with the following tool to visualize the connectome mapping:
     https://csacademy.com/app/graph_editor/

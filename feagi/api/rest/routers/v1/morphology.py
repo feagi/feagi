@@ -18,16 +18,17 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+import logging
 
 from ...commons import *
 from ...schemas import *
 
 from feagi.bdu import synaptogenesis_rules
 from feagi.bdu import ConnectomeManager
-from feagi.core.global_objects import connectome
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # MorphologyName model for endpoints
@@ -147,7 +148,7 @@ async def genome_update_neuron_morphology(morphology_input: MorphologyInput):
         message["parameters"] = morphology_input.morphology_parameters
 
         message = {'update_morphology_properties': message}
-        print("*" * 50 + "\n", message)
+        logger.info("*" * 50 + "\n" + str(message))
         api_queue.put(item=message)
 
 
