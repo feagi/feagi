@@ -25,22 +25,21 @@ from feagi.core.state_manager import FeagiStateManager
 state = FeagiStateManager.instance()
 
 def check_burst_engine():
-    burst_engine_running = not getattr(state, 'exit_condition', False)
-    if burst_engine_running:
+    if state.is_burst_engine_ready():
         return True
     else:
         raise HTTPException(status_code=400, detail="Burst engine is not running!")
 
 
 def check_active_genome(_: bool = Depends(check_burst_engine)):
-    if getattr(state, 'genome', False):
+    if state.is_genome_loaded():
         return True
     else:
         raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
 
 
 def check_brain_running(_: bool = Depends(check_active_genome)):
-    if getattr(state, 'brain_readiness', False):
+    if state.get_brain_readiness():
         return True
     else:
         raise HTTPException(status_code=400, detail="Brain not yet ready! Please try again later.")

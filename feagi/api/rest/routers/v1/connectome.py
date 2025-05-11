@@ -27,6 +27,7 @@ from ...commons import *
 from feagi.bdu import ConnectomeManager
 from feagi.core.global_objects import connectome
 from feagi.core.state_manager import FeagiStateManager
+from feagi.api.core.services.core_api_service import CoreAPIService
 
 
 router = APIRouter()
@@ -34,16 +35,18 @@ router = APIRouter()
 # Helper to get state manager instance
 state = FeagiStateManager.instance()
 
+# Helper to get CoreAPIService instance
+core_api_service = CoreAPIService()
+
 
 # ######  Connectome Endpoints #########
 # ######################################
 @router.get("/cortical_areas/list/summary")
 async def connectome_cortical_areas_summary():
-    # TODO: Replace with actual brain structure from state manager
-    cortical_list = set()
-    for cortical_area in state.get_brain():
-        cortical_list.add(cortical_area)
-    return cortical_list
+    areas = core_api_service.get_cortical_areas()
+    if not areas:
+        raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
+    return [area["id"] for area in areas]
 
 
 @router.get("/cortical_areas/list/transforming")
@@ -54,16 +57,10 @@ async def transforming_cortical_areas_summary():
 
 @router.get("/cortical_areas/list/detailed")
 async def connectome_cortical_areas():
-    cortical_list = dict()
-    for cortical_area in state.get_brain():
-        cortical_list[cortical_area] = {}
-        # TODO: Map genome access to state manager
-        genome = state.get_genome()
-        cortical_list[cortical_area]["name"] = genome["blueprint"][cortical_area]["cortical_name"]
-        cortical_list[cortical_area]["type"] = genome["blueprint"][cortical_area]["group_id"]
-        cortical_list[cortical_area]["sub_type"] = genome["blueprint"][cortical_area]["sub_group_id"]
-        cortical_list[cortical_area]["position"] = []
-    return cortical_list
+    areas = core_api_service.get_cortical_areas()
+    if not areas:
+        raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
+    return areas
 
 
 @router.get("/cortical_info")

@@ -1,7 +1,7 @@
 import time
 import signal
 import threading
-from feagi.core.state_manager import FeagiStateManager
+from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 class BurstEngine:
     """
@@ -23,6 +23,7 @@ class BurstEngine:
 
     def run(self):
         self.running = True
+        self.state_manager.set_burst_engine_state(ServiceState.READY)
         def handle_signal(signum, frame):
             print(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
             self.stop()
@@ -48,6 +49,7 @@ class BurstEngine:
             if elapsed < self.burst_interval:
                 time.sleep(self.burst_interval - elapsed)
         print("BurstEngine stopped.")
+        self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
 
     def stop(self):
         self.running = False

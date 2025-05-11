@@ -34,9 +34,10 @@ from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
 from feagi.bdu.brain_region import region_id_2_title, construct_genome_from_region
 from feagi.evo.templates import cortical_template
-from feagi.core.state_manager import FeagiStateManager
+from feagi.core.state_manager import FeagiStateManager, ConnectomeState
 from feagi.bdu import ConnectomeManager
 from feagi.core.global_objects import connectome
+from feagi.api.core.services.core_api_service import CoreAPIService
 
 
 router = APIRouter()
@@ -48,6 +49,7 @@ state = FeagiStateManager.instance()
 def get_amalgamation_history_service():
     return getattr(state, 'amalgamation_history', {})
 
+core_api_service = CoreAPIService()
 
 # AmalgamationRequest model for amalgamation endpoints
 class AmalgamationRequest(BaseModel):
@@ -67,24 +69,28 @@ class RewiringMode(str, Enum):
 # ##################################
 @router.post("/upload/barebones")
 async def upload_barebones_genome():
-
-    with open("./evo/defaults/genome/barebones_genome.json", "r") as genome_file:
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
+    barebones_genome_path = os.path.join(project_root, "feagi/evo/defaults/genome/barebones_genome.json")
+    with open(barebones_genome_path, "r") as genome_file:
         genome_data = json.load(genome_file)
         state.genome_file_name = "barebones_genome.json"
-    state.set_connectome_state('not_ready')
-    message = {'genome': genome_data}
-
-    api_queue.put(item=message)
+    state.set_connectome_state(ConnectomeState.INITIALIZING)
+    result = core_api_service.load_genome(genome_data, filename="barebones_genome.json")
+    result["genome_number"] = state.get_genome_counter()
+    return result
 
 
 @router.post("/upload/essential")
 async def genome_default_upload():
-    with open("./evo/defaults/genome/essential_genome.json", "r") as genome_file:
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
+    essential_genome_path = os.path.join(project_root, "feagi/evo/defaults/genome/essential_genome.json")
+    with open(essential_genome_path, "r") as genome_file:
         genome_data = json.load(genome_file)
         state.genome_file_name = "essential_genome.json"
-    state.set_connectome_state('not_ready')
-    message = {'genome': genome_data}
-    api_queue.put(item=message)
+    state.set_connectome_state(ConnectomeState.INITIALIZING)
+    result = core_api_service.load_genome(genome_data, filename="essential_genome.json")
+    result["genome_number"] = state.get_genome_counter()
+    return result
 
 
 @router.post("/upload/file")
@@ -94,7 +100,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
     The genome must be in the form of a python file.
     """
     data = await file.read()
-    state.set_connectome_state('not_ready')
+    state.set_connectome_state(ConnectomeState.INITIALIZING)
     state.genome_file_name = file.filename
 
     genome_str = json.loads(data)
@@ -107,8 +113,10 @@ async def genome_file_upload(file: UploadFile = File(...)):
 
     # genome_str = genome_str.replace('\'', '\"')
     # genome_str = data.decode("utf-8").split(" = ")[1]
-    message = {'genome': genome_str}
-    api_queue.put(item=message)
+    result = core_api_service.load_genome(genome_str, filename=file.filename)
+    # message = {'genome': genome_str}
+    # api_queue.put(item=message)
+    return {"loaded": result, "genome_counter": state.get_genome_counter()}
 
 
 @router.get("/file_name")
@@ -132,19 +140,22 @@ async def genome_string_upload(genome: dict):
     if "genome_description" not in genome:
         genome["genome_description"] = ""
 
-    message = {'genome': genome}
-    api_queue.put(item=message)
+    result = core_api_service.load_genome(genome)
+    # message = {'genome': genome}
+    # api_queue.put(item=message)
+    return {"loaded": result, "genome_counter": state.get_genome_counter()}
 
 
 @router.get("/download")
 async def genome_download(_: str = Depends(check_active_genome)):
     print("Downloading Genome...")
-    save_genome(genome=genome_v1_v2_converter(state.genome),
+    genome = core_api_service.get_genome()
+    save_genome(genome=genome_v1_v2_converter(genome),
                 file_name=state.connectome_path + "genome.json")
-    file_name = "genome-" + state.genome["genome_title"].replace(" ", "_") + ".json"
+    file_name = "genome-" + genome.get("genome_title", "unknown").replace(" ", "_") + ".json"
     print(file_name)
 
-    if state.genome:
+    if genome and genome.get("blueprint"):
         state.changes_saved_externally = True
         file_path = state.connectome_path + "genome.json"
         headers = {"Content-Disposition": f"attachment; filename={file_name}"}
@@ -153,8 +164,6 @@ async def genome_download(_: str = Depends(check_active_genome)):
                                 filename=file_name,
                                 headers=headers
                                 )
-        # response.headers["Content-Disposition"] = f'attachment; filename=\"{file_name}\"'
-        # print("response headers", response.headers)
         return response
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
@@ -207,12 +216,7 @@ async def genome_number():
     """
     Return the number associated with current Genome instance.
     """
-    # TODO: Map genome_counter to state manager if needed
-    genome_counter = getattr(state, 'genome_counter', None)
-    if genome_counter:
-        return genome_counter
-    else:
-        return 0
+    return state.get_genome_counter()
 
 
 @router.post("/reset")

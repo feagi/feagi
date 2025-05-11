@@ -6,7 +6,7 @@ import os
 import json
 import tempfile
 from datetime import datetime
-from time import time
+import time
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +14,7 @@ import numpy as np
 from feagi.core.feagi import FEAGI
 from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, develop_brain_from_genome
 from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
+from feagi.core.state_manager import FeagiStateManager
 try:
     # Try to import these from the new location
     from feagi.evo.genome_validator import genome_validator
@@ -117,6 +118,9 @@ class CoreAPIService:
         # Initialize the connectome manager
         self._connectome_manager = ConnectomeManager()
         
+        # Wire up the FCL Manager from the connectome manager
+        self._fcl_manager = self._connectome_manager.fcl_manager
+        
         # Initialize the neuroembryogenesis module
         self._neuroembryogenesis = Neuroembryogenesis(
             connectome_manager=self._connectome_manager,
@@ -161,8 +165,7 @@ class CoreAPIService:
         
     def get_fcl_manager(self):
         """Get the FCL Manager component."""
-        # For now, return None as this component isn't fully implemented
-        return None
+        return self._fcl_manager
         
     def get_memory_manager(self):
         """Get the Memory & Learning Manager component."""
@@ -863,7 +866,7 @@ class CoreAPIService:
             "running": False,
             "step": 0,
             "time": 0.0,
-            "timestamp": time()
+            "timestamp": time.time()
         }
         
     async def get_performance_stats(self) -> Dict[str, Any]:
@@ -880,7 +883,7 @@ class CoreAPIService:
             "synapses_active": 0,
             "memory_usage": 0.0,
             "cpu_usage": 0.0,
-            "timestamp": time()
+            "timestamp": time.time()
         }
         
     async def get_system_metrics(self) -> Dict[str, Any]:
@@ -894,7 +897,7 @@ class CoreAPIService:
         return {
             "cpu_usage": 0.0,
             "memory_usage": 0.0,
-            "timestamp": time()
+            "timestamp": time.time()
         }
         
     async def get_brain_structure(self) -> Dict[str, Any]:
@@ -918,7 +921,7 @@ class CoreAPIService:
         return {
             "areas": areas,
             "area_types": area_types,
-            "timestamp": time()
+            "timestamp": time.time()
         }
         
     # Configuration methods
@@ -1007,17 +1010,14 @@ class CoreAPIService:
     
     # Genome methods
     
-    def load_genome(self, genome_data: Dict[str, Any], filename: Optional[str] = None) -> bool:
+    def load_genome(self, genome_data: Dict[str, Any], filename: Optional[str] = None) -> dict:
         """
         Load a genome into FEAGI.
-        
-        Args:
-            genome_data: Dictionary containing the genome data.
-            filename: Optional filename for the genome.
-            
-        Returns:
-            True if successful, False otherwise.
+        Returns a dict with success and duration fields.
         """
+        state = FeagiStateManager.instance()
+        state.set_brain_readiness(False)
+        start_time = time.time()
         try:
             self.logger.info(f"Loading genome: {filename}")
             
@@ -1044,7 +1044,7 @@ class CoreAPIService:
             is_valid = genome_validator(genome_data)
             if not is_valid:
                 self.logger.error("Invalid genome format")
-                return False
+                return {"success": False, "duration": time.time() - start_time, "error": "Invalid genome format"}
                 
             # Process and update the genome
             genome_data = merge_core_morphologies(genome_data)
@@ -1091,7 +1091,10 @@ class CoreAPIService:
                 self.logger.error(traceback.format_exc())
                 
             # Return success - the genome is loaded even if brain development failed
-            return True
+            FeagiStateManager.instance().increment_genome_counter()
+            state.set_brain_readiness(True)
+            duration = time.time() - start_time
+            return {"success": True, "duration": duration}
                 
         except Exception as e:
             # Only on catastrophic failure do we reset the genome loaded status
@@ -1100,7 +1103,9 @@ class CoreAPIService:
             self.logger.error(traceback.format_exc())
             self._current_genome = None
             self._genome_filename = None
-            return False
+            state.set_brain_readiness(False)
+            duration = time.time() - start_time
+            return {"success": False, "duration": duration, "error": str(e)}
     
     def get_genome(self) -> Dict[str, Any]:
         """

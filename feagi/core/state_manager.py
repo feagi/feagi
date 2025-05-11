@@ -11,6 +11,7 @@ import os
 from enum import IntEnum
 from typing import Optional
 import time
+import logging
 
 
 # ===== State Definitions =====
@@ -61,6 +62,8 @@ class FeagiStateStruct(ctypes.Structure):
         ("fcl_sampler_frequency", ctypes.c_float),
         ("fcl_sampler_consumer", ctypes.c_uint8),
         ("state_version", ctypes.c_uint64),
+        ("genome_counter", ctypes.c_uint32),
+        ("brain_readiness", ctypes.c_uint8),  # 0 = False, 1 = True
     ]
 
 
@@ -247,3 +250,23 @@ class FeagiStateManager:
     def is_simulation_running(self) -> bool:
         """Check if simulation is currently running"""
         return self.get_simulation_state() == SimulationState.RUNNING 
+
+    def get_genome_counter(self) -> int:
+        """Get the current genome counter value"""
+        return self.state_ptr.contents.genome_counter
+
+    def increment_genome_counter(self) -> None:
+        """Increment the genome counter by 1"""
+        self.state_ptr.contents.genome_counter += 1
+        self.state_ptr.contents.state_version += 1
+        logging.getLogger(__name__).info(f"Genome counter incremented to {self.state_ptr.contents.genome_counter}")
+        self.sync_to_disk()
+
+    def get_brain_readiness(self) -> bool:
+        """Get the brain readiness flag (True if brain is ready)"""
+        return bool(self.state_ptr.contents.brain_readiness)
+
+    def set_brain_readiness(self, ready: bool) -> None:
+        """Set the brain readiness flag (True if brain is ready)"""
+        self.state_ptr.contents.brain_readiness = 1 if ready else 0
+        self.state_ptr.contents.state_version += 1 
