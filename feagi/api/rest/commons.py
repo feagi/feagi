@@ -5,6 +5,7 @@ Common utilities and classes for the REST API.
 import queue
 import logging
 from typing import Dict, Any, Optional
+from fastapi import Request, HTTPException
 
 logger = logging.getLogger("feagi.api.rest.commons")
 
@@ -57,3 +58,21 @@ class CustomError(Exception):
             result["details"] = self.details
             
         return result 
+
+async def check_burst_engine_or_allow_genome_ops(request: Request):
+    """
+    Similar to check_burst_engine, but also allows genome operations 
+    when the burst engine is not yet running.
+    """
+    from feagi.core.state_manager import FeagiStateManager, ServiceState
+    
+    # Skip the check for genome loading/initial operations
+    if request.url.path.endswith("/v1/genome/upload") or \
+       request.url.path.endswith("/v1/genome/download") or \
+       request.url.path.endswith("/v1/genome/genome_number"):
+        return
+        
+    # Otherwise perform the standard check
+    state_manager = FeagiStateManager.instance()
+    if state_manager.get_burst_engine_state() != ServiceState.READY:
+        raise HTTPException(status_code=400, detail="Burst engine is not running!") 

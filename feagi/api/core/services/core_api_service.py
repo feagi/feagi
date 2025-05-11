@@ -15,6 +15,7 @@ from feagi.core.feagi import FEAGI
 from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, develop_brain_from_genome
 from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
 from feagi.core.state_manager import FeagiStateManager
+from feagi.core.state_manager import ServiceState
 try:
     # Try to import these from the new location
     from feagi.evo.genome_validator import genome_validator
@@ -100,22 +101,35 @@ class CoreAPIService:
       - These are converted to strings in the API layer and back to ints internally
     """
     
-    def __init__(self, connectome_manager: ConnectomeManager, feagi_instance: Optional[FEAGI] = None):
+    def __init__(self, connectome_manager: ConnectomeManager):
         """
-        Initialize the Core API Service.
+        Initialize the Core API service.
+        
         Args:
-            connectome_manager: The singleton/main ConnectomeManager instance.
-            feagi_instance: An optional FEAGI instance. If not provided, a new instance will be created.
+            connectome_manager: ConnectomeManager instance
         """
+        # Check that connectome_manager is properly initialized
+        if not hasattr(connectome_manager, 'fcl_manager') or connectome_manager.fcl_manager is None:
+            raise RuntimeError("ConnectomeManager instance does not have an fcl_manager. Did you forget to call initialize_arrays() before passing it to CoreAPIService?")
+        
+        self._connectome_manager = connectome_manager
+        
+        # Initialize state manager
+        self._state_manager = FeagiStateManager.instance()
+        
+        # Initialize burst engine without requiring a genome
+        self._state_manager.set_burst_engine_state(ServiceState.INITIALIZING)
+        self._burst_engine = self._create_burst_engine()
+        self._state_manager.set_burst_engine_state(ServiceState.READY)
+        
+        # Other initializations can follow...
+        
         self.logger = logging.getLogger(__name__)
-        self._feagi = feagi_instance or FEAGI()
+        self._feagi = FEAGI()
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
         self._genome_filename = None
         self._pending_amalgamation = {}
         self._amalgamation_history = {}
-        self._connectome_manager = connectome_manager
-        if not hasattr(self._connectome_manager, 'fcl_manager'):
-            raise RuntimeError("ConnectomeManager instance does not have an fcl_manager. Did you forget to call initialize_arrays() before passing it to CoreAPIService?")
         self._fcl_manager = self._connectome_manager.fcl_manager
         self._neuroembryogenesis = Neuroembryogenesis(
             connectome_manager=self._connectome_manager,
@@ -1654,4 +1668,22 @@ class CoreAPIService:
             "total_bursts": 1000,
             "average_active_neurons": 500,
             "memory_usage": 128.5
-        } 
+        }
+    
+    def _create_burst_engine(self):
+        """
+        Create and initialize a BurstEngine instance.
+        
+        Returns:
+            An initialized BurstEngine instance
+        """
+        from feagi.npu.burst_engine import BurstEngine
+        
+        # Create the burst engine with our connectome manager
+        burst_engine = BurstEngine(
+            connectome_manager=self._connectome_manager,
+            fcl_manager=self._connectome_manager.fcl_manager,
+            config={"desired_frequency_hz": 60.0}  # Reasonable default
+        )
+        
+        return burst_engine 

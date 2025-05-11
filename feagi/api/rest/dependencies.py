@@ -1,0 +1,26 @@
+from feagi.bdu import ConnectomeManager
+
+_connectome_instance = None
+
+def get_connectome() -> ConnectomeManager:
+    if _connectome_instance is None:
+        raise RuntimeError("Connectome instance has not been initialized!")
+    return _connectome_instance
+
+def set_connectome_instance(connectome: ConnectomeManager):
+    global _connectome_instance
+    _connectome_instance = connectome
+
+# Global variable to store the core API service
+_core_api_service = None
+
+def set_core_api_service(api_service):
+    """Set the core API service instance."""
+    global _core_api_service
+    _core_api_service = api_service
+
+def get_core_api_service():
+    """Get the core API service instance."""
+    if _core_api_service is None:
+        raise RuntimeError("Core API service not initialized")
+    return _core_api_service 

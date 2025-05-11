@@ -14,18 +14,37 @@ class BurstEngine:
     - Main loop is a single, clear sequence of steps
     - Supports graceful shutdown
     """
-    def __init__(self, connectome_manager, desired_frequency_hz):
-        self.connectome = connectome_manager
-        self.desired_frequency = desired_frequency_hz
+    def __init__(self, connectome_manager, fcl_manager=None, memory_manager=None, config=None):
+        """
+        Initialize the Burst Engine.
+        
+        Args:
+            connectome_manager: The connectome manager
+            fcl_manager: FCL manager (optional)
+            memory_manager: Memory manager (optional)
+            config: Configuration parameters (optional)
+        """
+        self.connectome_manager = connectome_manager
+        self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
+        self.memory_manager = memory_manager
+        self.config = config or {}
+        self.genome_loaded = False
+        self._running = False
+        
+        # Initialize in a valid but inactive state
+        # Will become fully operational when a genome is loaded
+        logger.info("Burst Engine initialized in standby mode", emoji="⚡ ")
+        
         self.state_manager = FeagiStateManager.instance()
-        self.burst_interval = 1.0 / desired_frequency_hz
-        # Pre-allocate cortical area list and shed area set
-        self.cortical_areas = list(self.connectome.cortical_areas.values())
+        self.desired_frequency = self.config.get('desired_frequency_hz', 100.0)
+        self.burst_interval = 1.0 / self.desired_frequency
+        
+        # Use _areas instead of cortical_areas - fix the attribute name
+        self.cortical_areas = list(self.connectome_manager._areas.values()) if hasattr(self.connectome_manager, '_areas') else []
         self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
-        self.running = False
 
     def run(self):
-        self.running = True
+        self._running = True
         self.state_manager.set_burst_engine_state(ServiceState.READY)
         def handle_signal(signum, frame):
             logger.info(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
@@ -34,10 +53,10 @@ class BurstEngine:
         if threading.current_thread() is threading.main_thread():
             signal.signal(signal.SIGINT, handle_signal)
             signal.signal(signal.SIGTERM, handle_signal)
-        while self.running:
+        while self._running:
             start = time.perf_counter()
             # 1. Process neuron firing (update membrane potentials and FCL)
-            fired_neurons = self.connectome.update_membrane_potentials()
+            fired_neurons = self.connectome_manager.update_membrane_potentials()
             # 2. Measure actual frequency
             end = time.perf_counter()
             elapsed = end - start
@@ -47,7 +66,7 @@ class BurstEngine:
             if actual_freq < self.desired_frequency:
                 for area_id in self.shed_areas:
                     # Clear FCL for this area for the current burst
-                    self.connectome.fcl_manager.area_fcl_history[area_id][self.connectome.fcl_manager.current_window_index].clear()
+                    self.fcl_manager.area_fcl_history[area_id][self.fcl_manager.current_window_index].clear()
             # 4. Sleep for the remainder of the interval
             if elapsed < self.burst_interval:
                 time.sleep(self.burst_interval - elapsed)
@@ -55,12 +74,17 @@ class BurstEngine:
         self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
 
     def stop(self):
-        self.running = False
+        self._running = False
 
     def run_test(self):
         # This method is added for testing purposes
         # It should be implemented to run the burst loop in a test environment
         pass 
+
+    def update_with_genome(self):
+        """Called when a genome is loaded to update burst engine state"""
+        self.genome_loaded = True
+        logger.info("Burst Engine updated with genome information", emoji="⚡ ")
 
 # --- FCLSampler Implementation ---
 
@@ -87,7 +111,7 @@ class FCLSampler:
             now = start
             # If connectome_manager is provided, support per-area sample rates
             if self.connectome_manager is not None:
-                for area in self.connectome_manager.cortical_areas.values():
+                for area in self.connectome_manager._areas.values():
                     area_id = area.id
                     # Get per-area sample rate if set, else use global
                     rate = area.properties.get('fcl_sample_rate', self.sample_frequency)
@@ -130,7 +154,7 @@ class FCLSampler:
         This updates the last sample time and ensures the new rate is used immediately.
         """
         if self.connectome_manager is not None:
-            area = self.connectome_manager.cortical_areas.get(area_id)
+            area = self.connectome_manager._areas.get(area_id)
             if area is not None:
                 area.properties['fcl_sample_rate'] = rate
                 # Optionally reset last sample time to force immediate sample

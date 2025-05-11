@@ -27,7 +27,7 @@ from threading import Thread
 
 from .config import settings
 
-from .commons import CustomError, api_queue
+from .commons import CustomError, api_queue, check_burst_engine_or_allow_genome_ops
 
 from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \
     network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping, region
@@ -102,13 +102,13 @@ async def catch_exceptions_middleware(request: Request, call_next):
         return await call_next(request)
     except CustomError as e:
         # Handle CustomError
-        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}", emoji="❌")
+        logger.error(f"❌ Exception:\n {e}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=e.status_code,
             content={"message": f"A custom error occurred: {str(e.message)}"},
         )
     except Exception as e:
-        logger.error(f"Exception:\n {e}\n{traceback.format_exc()}", emoji="❌")
+        logger.error(f"❌ Exception:\n {e}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
             content={
@@ -154,7 +154,7 @@ app.include_router(
     genome.router,
     prefix="/v1/genome",
     tags=["GENOME"],
-    dependencies=[Depends(check_burst_engine)],
+    dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
     responses=standard_response
 )
 
@@ -294,11 +294,15 @@ def create_rest_app(connectome: ConnectomeManager = None):
         connectome.initialize_arrays()
         
     # Set the connectome in the dependencies module, not in a local variable
-    from feagi.api.rest.dependencies import set_connectome_instance
+    from feagi.api.rest.dependencies import set_connectome_instance, set_core_api_service
     set_connectome_instance(connectome)
     
     # Create the core API service with the initialized connectome
     core_api_service = CoreAPIService(connectome)
+    
+    # Make it available to routers
+    set_core_api_service(core_api_service)
+    
     return app
 
 def get_core_api():

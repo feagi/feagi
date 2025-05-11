@@ -30,6 +30,7 @@ from typing import Optional
 from ...schemas import *
 from ...commons import *
 from feagi.api.dependencies import check_active_genome
+from feagi.api.rest.dependencies import get_core_api_service
 
 from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
@@ -73,8 +74,13 @@ async def upload_barebones_genome():
         genome_data = json.load(genome_file)
         state.genome_file_name = "barebones_genome.json"
     state.set_connectome_state(ConnectomeState.INITIALIZING)
+    core_api_service = get_core_api_service()
     result = core_api_service.load_genome(genome_data, filename="barebones_genome.json")
     result["genome_number"] = state.get_genome_counter()
+    burst_engine = core_api_service.get_burst_engine()
+    if burst_engine:
+        burst_engine.update_with_genome()
+        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
     return result
 
 
@@ -86,8 +92,13 @@ async def genome_default_upload():
         genome_data = json.load(genome_file)
         state.genome_file_name = "essential_genome.json"
     state.set_connectome_state(ConnectomeState.INITIALIZING)
+    core_api_service = get_core_api_service()
     result = core_api_service.load_genome(genome_data, filename="essential_genome.json")
     result["genome_number"] = state.get_genome_counter()
+    burst_engine = core_api_service.get_burst_engine()
+    if burst_engine:
+        burst_engine.update_with_genome()
+        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
     return result
 
 
@@ -111,9 +122,14 @@ async def genome_file_upload(file: UploadFile = File(...)):
 
     # genome_str = genome_str.replace('\'', '\"')
     # genome_str = data.decode("utf-8").split(" = ")[1]
+    core_api_service = get_core_api_service()
     result = core_api_service.load_genome(genome_str, filename=file.filename)
     # message = {'genome': genome_str}
     # api_queue.put(item=message)
+    burst_engine = core_api_service.get_burst_engine()
+    if burst_engine:
+        burst_engine.update_with_genome()
+        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
     return {"loaded": result, "genome_counter": state.get_genome_counter()}
 
 
@@ -138,9 +154,14 @@ async def genome_string_upload(genome: dict):
     if "genome_description" not in genome:
         genome["genome_description"] = ""
 
+    core_api_service = get_core_api_service()
     result = core_api_service.load_genome(genome)
     # message = {'genome': genome}
     # api_queue.put(item=message)
+    burst_engine = core_api_service.get_burst_engine()
+    if burst_engine:
+        burst_engine.update_with_genome()
+        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
     return {"loaded": result, "genome_counter": state.get_genome_counter()}
 
 
