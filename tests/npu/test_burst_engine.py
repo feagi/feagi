@@ -3,6 +3,8 @@ import threading
 import types
 from queue import Queue, Empty
 from feagi.npu.burst_engine import BurstEngine, FCLSampler
+import pytest
+from unittest.mock import Mock
 
 class MockFCLManager:
     def __init__(self):
@@ -27,7 +29,12 @@ class MockConnectomeManager:
 
 def test_burst_engine_runs_and_stops():
     connectome = MockConnectomeManager()
-    engine = BurstEngine(connectome, desired_frequency_hz=20)
+    # Fix: Explicitly provide both connectome_manager and fcl_manager
+    engine = BurstEngine(
+        connectome_manager=connectome, 
+        fcl_manager=connectome.fcl_manager,
+        config={"target_frequency": 20}
+    )
     # Run the burst engine in a separate thread
     t = threading.Thread(target=engine.run)
     t.start()
@@ -35,7 +42,7 @@ def test_burst_engine_runs_and_stops():
     time.sleep(0.1)
     engine.stop()
     t.join(timeout=2)
-    assert not engine.running
+    assert not engine._running
     assert connectome.calls > 0
     print(f"BurstEngine ran for {connectome.calls} bursts and stopped cleanly.")
 
@@ -58,6 +65,15 @@ def test_fcl_sampler_samples_and_stops():
         pass
     assert len(samples) > 0, "FCLSampler did not sample any FCLs."
     print(f"FCLSampler sampled {len(samples)} FCLs: {samples}")
+
+@pytest.fixture
+def engine():
+    """Create a burst engine for testing"""
+    cm = Mock()
+    fcl = Mock()
+    config = {"target_frequency": 60.0}
+    engine = BurstEngine(connectome_manager=cm, fcl_manager=fcl, config=config)
+    return engine
 
 if __name__ == "__main__":
     test_burst_engine_runs_and_stops()

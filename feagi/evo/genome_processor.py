@@ -24,6 +24,7 @@ from feagi.evo.genome_validator import genome_validator
 from feagi.evo.templates import core_morphologies, cortical_types
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.core.state_manager import FeagiStateManager
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -704,3 +705,39 @@ genome_1_to_2 = {
     "temporal_depth": "cx-tmpdpt-i",
     "dev_count": "cx-devcnt-i"
 }
+
+def process_and_load_genome(genome_path, core_api_service):
+    """
+    Process a genome file and load it into FEAGI
+    
+    Args:
+        genome_path: Path to the genome file
+        core_api_service: CoreAPIService instance to load the genome with
+        
+    Returns:
+        Dictionary with success status and duration
+    """
+    import json
+    
+    # Load the genome from file
+    try:
+        with open(genome_path, 'r') as f:
+            genome_data = json.load(f)
+    except Exception as e:
+        return {"success": False, "error": f"Failed to load genome: {str(e)}"}
+    
+    # Process the genome
+    try:
+        genome_data = merge_core_morphologies(genome_data)
+        genome_data = genome_morphology_updator(genome_data)
+        genome_data = genome_physiology_updator(genome_data)
+        genome_data = genome_stat_updator(genome_data)
+    except Exception as e:
+        return {"success": False, "error": f"Failed to process genome: {str(e)}"}
+        
+    # Load the genome
+    try:
+        filename = os.path.basename(genome_path)
+        return core_api_service.load_genome(genome_data, filename)
+    except Exception as e:
+        return {"success": False, "error": f"Failed to load genome: {str(e)}"}

@@ -1,0 +1,42 @@
+import pytest
+from unittest.mock import Mock
+from feagi.core.state_manager import FeagiStateManager, GenomeState, ServiceState
+
+def test_register_notification_callback():
+    """Test registering notification callbacks"""
+    state_manager = FeagiStateManager("/tmp/test_state.bin")
+    callback = Mock()
+    
+    result = state_manager.register_notification_callback("genome", callback)
+    assert result is True
+    assert callback in state_manager._notification_callbacks["genome"]
+    
+    # Test invalid category
+    result = state_manager.register_notification_callback("invalid", callback)
+    assert result is False
+
+def test_notification_callback_execution():
+    """Test that callbacks are executed when state changes"""
+    state_manager = FeagiStateManager("/tmp/test_state.bin")
+    callback = Mock()
+    
+    state_manager.register_notification_callback("genome", callback)
+    
+    # Change state to trigger notification
+    old_state = state_manager.get_genome_state()
+    new_state = GenomeState.LOADED
+    state_manager.set_genome_state(new_state)
+    
+    callback.assert_called_once_with(old_state, new_state)
+
+def test_notification_error_handling():
+    """Test that errors in callbacks don't crash the state manager"""
+    state_manager = FeagiStateManager("/tmp/test_state.bin")
+    
+    def failing_callback(old, new):
+        raise RuntimeError("Test error")
+    
+    state_manager.register_notification_callback("genome", failing_callback)
+    
+    # Should not raise exception
+    state_manager.set_genome_state(GenomeState.LOADED) 

@@ -17,7 +17,7 @@ from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
 from feagi.core.state_manager import FeagiStateManager
 from feagi.core.state_manager import ServiceState
 from feagi.core.genome_transaction import GenomeTransaction
-from feagi.core.genome_state import GenomeState
+from feagi.core.state_manager import GenomeState
 try:
     # Try to import these from the new location
     from feagi.evo.genome_validator import genome_validator
@@ -1724,8 +1724,8 @@ class CoreAPIService:
         success = transaction.commit()
         
         if success:
-            # Notify any listeners about genome changes
-            self.state_manager.set_genome_state(GenomeState.MODIFIED)
+            # Notify any listeners about genome changes - use LOADED instead of MODIFIED
+            self.state_manager.set_genome_state(GenomeState.LOADED)
         
         return success
 
@@ -1744,3 +1744,19 @@ class CoreAPIService:
         # Clear any caches that might be stale after genome changes
         if hasattr(self, '_cached_cortical_areas'):
             del self._cached_cortical_areas 
+
+    def genome_is_loaded(self) -> bool:
+        """Check if a genome is currently loaded.
+        
+        Returns:
+            True if a genome is loaded, False otherwise.
+        """
+        # Check our internal state first
+        if self._current_genome is not None:
+            return True
+        
+        # Then check the state manager
+        if self.state_manager:
+            return self.state_manager.is_genome_loaded()
+        
+        return False 

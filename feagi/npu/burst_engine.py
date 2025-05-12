@@ -41,19 +41,17 @@ class BurstEngine:
     - Supports graceful shutdown
     - New: Initializes in standby mode without requiring a genome
     """
-    def __init__(self, connectome_manager, fcl_manager=None, memory_manager=None, config=None):
+    def __init__(self, connectome_manager, fcl_manager, config=None):
         """
         Initialize the Burst Engine.
         
         Args:
             connectome_manager: The connectome manager
             fcl_manager: FCL manager (optional)
-            memory_manager: Memory manager (optional)
             config: Configuration parameters (optional)
         """
         self.connectome_manager = connectome_manager
         self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
-        self.memory_manager = memory_manager
         self.config = config or {}
         self.genome_loaded = False
         self._running = False
@@ -63,7 +61,11 @@ class BurstEngine:
         logger.info("Burst Engine initialized in standby mode", emoji="⚡ ")
         
         self.state_manager = FeagiStateManager.instance()
-        self.desired_frequency = self.config.get('desired_frequency_hz', 100.0)
+        
+        # Support both parameter names for backward compatibility
+        self.desired_frequency = self.config.get('desired_frequency_hz', 
+                                              self.config.get('target_frequency', 100.0))
+        self.target_frequency = self.desired_frequency  # For backward compatibility
         self.burst_interval = 1.0 / self.desired_frequency
         
         # Use _areas instead of cortical_areas - fix the attribute name
@@ -111,6 +113,10 @@ class BurstEngine:
     def update_with_genome(self):
         """Called when a genome is loaded to update burst engine state"""
         self.genome_loaded = True
+        # Use is_ready instead of is_active to check connectome status
+        if hasattr(self.connectome_manager, 'is_ready') and self.connectome_manager.is_ready():
+            self.cortical_areas = list(self.connectome_manager._areas.values())
+            self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
         logger.info("Burst Engine updated with genome information", emoji="⚡ ")
 
 # --- FCLSampler Implementation ---

@@ -15,6 +15,8 @@ import logging
 import datetime
 from contextlib import contextmanager
 
+# Need to add this at the top of the file with the other imports
+logger = logging.getLogger(__name__)
 
 # ===== State Definitions =====
 class GenomeState(IntEnum):
@@ -74,6 +76,65 @@ class FeagiStateStruct(ctypes.Structure):
         ("brain_readiness", ctypes.c_uint8),  # 0 = False, 1 = True
     ]
 
+
+# Define a mapping between integer values and ServiceState values
+_SERVICE_STATE_VALUES = {
+    0: "UNAVAILABLE",
+    1: "INITIALIZING", 
+    2: "READY",
+    3: "DEGRADED",
+    4: "ERROR",
+    5: "UNINITIALIZED",
+    6: "FAILED",
+    7: "STOPPED",
+    8: "SYNCING",
+    9: "SYNC_COMPLETE",
+    10: "SYNC_ERROR"
+}
+
+# And the reverse mapping
+_SERVICE_STATE_INTS = {v: k for k, v in _SERVICE_STATE_VALUES.items()}
+
+class ServiceState(Enum):
+    UNAVAILABLE = "UNAVAILABLE"
+    INITIALIZING = "INITIALIZING"
+    READY = "READY"
+    DEGRADED = "DEGRADED"
+    ERROR = "ERROR"
+    UNINITIALIZED = "UNINITIALIZED"
+    FAILED = "FAILED"
+    STOPPED = "STOPPED"
+    SYNCING = "SYNCING"
+    SYNC_COMPLETE = "SYNC_COMPLETE"
+    SYNC_ERROR = "SYNC_ERROR"
+    
+    @classmethod
+    def _missing_(cls, value):
+        # Convert integers to their string values
+        if isinstance(value, int) and value in _SERVICE_STATE_VALUES:
+            return cls(_SERVICE_STATE_VALUES[value])
+        return None
+    
+    def __int__(self):
+        """Convert the enum to its integer representation."""
+        for k, v in _SERVICE_STATE_VALUES.items():
+            if v == self.value:
+                return k
+        return 0  # Default to UNAVAILABLE
+        
+    def __hash__(self):
+        """Make ServiceState hashable."""
+        return hash(self.value)
+        
+    def __eq__(self, other):
+        """Properly compare ServiceState with other types."""
+        if isinstance(other, int):
+            return self.value == _SERVICE_STATE_VALUES.get(other)
+        elif isinstance(other, str):
+            return self.value == other
+        elif isinstance(other, ServiceState):
+            return self.value == other.value
+        return False
 
 class FeagiStateManager:
     _instance = None
@@ -161,29 +222,33 @@ class FeagiStateManager:
 
     # ===== API State =====
     def get_api_state(self) -> ServiceState:
-        """Get current API state as enum value"""
+        """Get the current API service state."""
         raw_value = self.state_ptr.contents.api_state
-        return ServiceState(raw_value)
+        return ServiceState(_SERVICE_STATE_VALUES.get(raw_value, "UNAVAILABLE"))
     
     def set_api_state(self, state: ServiceState) -> None:
-        """Set API state using enum value"""
-        old = ServiceState(self.state_ptr.contents.api_state)
+        """Set the API service state."""
+        self._verify_enum(state, ServiceState)
+        old_state = self.get_api_state()
         self.state_ptr.contents.api_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🚦", f"REST API state changed: {old.name} → {state.name}")
+        _log_state_change("🚦", f"REST API state changed: {old_state.name} → {state.name}")
+        self._notify_state_change("API", old_state, state)
 
     # ===== ZMQ State =====
     def get_zmq_state(self) -> ServiceState:
-        """Get current ZMQ state as enum value"""
+        """Get the current ZMQ service state."""
         raw_value = self.state_ptr.contents.zmq_state
-        return ServiceState(raw_value)
+        return ServiceState(_SERVICE_STATE_VALUES.get(raw_value, "UNAVAILABLE"))
     
     def set_zmq_state(self, state: ServiceState) -> None:
-        """Set ZMQ state using enum value"""
-        old = ServiceState(self.state_ptr.contents.zmq_state)
+        """Set the ZMQ service state."""
+        self._verify_enum(state, ServiceState)
+        old_state = self.get_zmq_state()
         self.state_ptr.contents.zmq_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("📬", f"ZMQ state changed: {old.name} → {state.name}")
+        _log_state_change("📬", f"ZMQ state changed: {old_state.name} → {state.name}")
+        self._notify_state_change("ZMQ", old_state, state)
 
     # ===== Agent Count =====
     def get_agent_count(self) -> int:
@@ -197,16 +262,26 @@ class FeagiStateManager:
 
     # ===== Burst Engine State =====
     def get_burst_engine_state(self) -> ServiceState:
-        """Get current burst engine state as enum value"""
+        """Get the current burst engine state."""
         raw_value = self.state_ptr.contents.burst_engine_state
-        return ServiceState(raw_value)
+        return ServiceState(_SERVICE_STATE_VALUES.get(raw_value, "UNAVAILABLE"))
     
     def set_burst_engine_state(self, state: ServiceState) -> None:
-        """Set burst engine state using enum value"""
-        old = ServiceState(self.state_ptr.contents.burst_engine_state)
-        self.state_ptr.contents.burst_engine_state = int(state)
+        """Set the burst engine state."""
+        self._verify_enum(state, ServiceState)
+        old_state = self.get_burst_engine_state()
+        # Convert to int for storage
+        int_value = 0  # Default to UNAVAILABLE
+        for k, v in _SERVICE_STATE_VALUES.items():
+            if v == state.value:
+                int_value = k
+                break
+        
+        self.state_ptr.contents.burst_engine_state = int_value
         self.state_ptr.contents.state_version += 1
-        _log_state_change("💥", f"Burst Engine state changed: {old.name} → {state.name}")
+        _log_state_change("💥", f"Burst Engine state changed: {old_state.name} → {state.name}")
+        # Use the category key from the notification callbacks dict
+        self._notify_state_change("burst_engine", old_state, state)
 
     # ===== Burst Frequency =====
     def get_burst_frequency(self) -> float:
@@ -233,15 +308,18 @@ class FeagiStateManager:
         
     # ===== FCLSampler State =====
     def get_fcl_sampler_state(self) -> ServiceState:
-        """Get current FCLSampler state as enum value"""
+        """Get the current FCL sampler state."""
         raw_value = self.state_ptr.contents.fcl_sampler_state
-        return ServiceState(raw_value)
+        return ServiceState(_SERVICE_STATE_VALUES.get(raw_value, "UNAVAILABLE"))
+    
     def set_fcl_sampler_state(self, state: ServiceState) -> None:
-        """Set FCLSampler state using enum value"""
-        old = ServiceState(self.state_ptr.contents.fcl_sampler_state)
+        """Set the FCL sampler state."""
+        self._verify_enum(state, ServiceState)
+        old_state = self.get_fcl_sampler_state()
         self.state_ptr.contents.fcl_sampler_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🎯", f"FCLSampler state changed: {old.name} → {state.name}")
+        _log_state_change("🎯", f"FCLSampler state changed: {old_state.name} → {state.name}")
+        self._notify_state_change("FCL Sampler", old_state, state)
 
     # ===== FCLSampler Frequency =====
     def get_fcl_sampler_frequency(self) -> float:
@@ -364,7 +442,16 @@ class FeagiStateManager:
                 try:
                     callback(old_state, new_state)
                 except Exception as e:
-                    logger.error(f"Error in notification callback: {e}", emoji="⚠️")
+                    # Use try/except to maintain compatibility with both custom and standard loggers
+                    try:
+                        logger.error(f"Error in notification callback: {e}", emoji="⚠️")
+                    except TypeError:
+                        # Fall back to standard logger if emoji param isn't supported
+                        logger.error(f"⚠️ Error in notification callback: {e}")
+
+    def _verify_enum(self, state, enum_type):
+        if not isinstance(state, enum_type):
+            raise ValueError(f"{state} is not a valid {enum_type.__name__}")
 
 def _log_state_change(emoji: str, message: str):
     logging.getLogger(__name__).info(message, emoji=emoji)
@@ -375,3 +462,7 @@ def _log_state_change(emoji: str, message: str):
     log_msg = f"{icon} [{timestamp}] {message}"
     logging.getLogger(__name__).info(log_msg)
     # print(log_msg)  # Removed, all output goes through logger 
+
+def get_state_manager():
+    """Get the singleton instance of FeagiStateManager"""
+    return FeagiStateManager.instance() 
