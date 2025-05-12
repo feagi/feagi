@@ -507,53 +507,23 @@ Additional planned extensions include:
 
 # FEAGI Architecture
 
-## Process Priority System
+## Component Relationships
 
-FEAGI employs a three-tiered process priority system:
+FEAGI follows a modular architecture built around these core components:
 
-1. **Critical Processes (Priority 1)**:
-   - Essential for neural simulation: Burst Engine, Connectome Manager, FCL Manager
-   - Now initialize in standby mode without requiring genome loading
-   - Receive highest resource priority
-   
-2. **Important Processes (Priority 2)**:
-   - Services needed for full operation: FCL Sampler, PNS Message Broker (ZMQ)
-   - Near real-time performance requirements
-   
-3. **Background Processes (Priority 3)**:
-   - Non-critical services: REST API, monitoring, visualization
-   - Lowest priority, will yield resources when needed
+- **State Manager**: Central authority for system state
+- **Core API Service**: Gateway for all genome operations
+- **Connectome Manager**: Runtime implementation of the brain
+- **Burst Engine**: Handles neuron activation cycles
+- **Process Manager**: Coordinates critical system processes
 
-## Initialization Sequence
+## Genome-Connectome Synchronization
 
-The new bottom-up initialization sequence:
+The genome (blueprint) and connectome (runtime implementation) are kept synchronized through a transaction-based system:
 
-1. ConnectomeManager initialized with arrays
-2. CoreAPIService created with ConnectomeManager
-3. BurstEngine initialized in standby mode
-4. FCLSampler configured with BurstEngine
-5. REST API and ZMQ services start with dependency injection
+1. All genome modifications are channeled through the CoreAPIService
+2. Modifications are wrapped in transactions that handle atomic updates
+3. The state manager tracks synchronization state and notifies observers
+4. Components register as observers to react to genome changes
 
-This sequence ensures all components can start without circular dependencies.
-
-## Dependency Injection
-
-FEAGI now uses explicit dependency injection rather than global variables:
-
-```python
-# Provider function in dependencies.py
-def get_core_api_service():
-    if _core_api_service is None:
-        raise RuntimeError("Core API service not initialized")
-    return _core_api_service
-
-# Usage in routers
-from feagi.api.rest.dependencies import get_core_api_service
-
-@router.post("/endpoint")
-async def endpoint_handler():
-    api = get_core_api_service()
-    # Use the API...
-```
-
-This approach eliminates issues with global state and improves testability.
+### Data Flow

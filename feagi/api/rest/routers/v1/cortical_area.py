@@ -24,7 +24,9 @@ from feagi.evo.templates import cortical_types
 from feagi.bdu.brain_region import change_cortical_area_parent, create_region, update_region, delete_region_with_members, relocate_region_members
 from feagi.bdu.mapping_utils import get_detailed_cortical_map
 from feagi.bdu import ConnectomeManager
-from feagi.api.rest.dependencies import get_connectome
+from feagi.api.rest.dependencies import get_connectome, get_core_api_service
+from feagi.core.state_manager import get_state_manager
+from feagi.core.state_manager import ServiceState
 
 from ...schemas import CorticalId, CorticalIdList, NewCorticalProperties, NewCustomCorticalProperties, UpdateCorticalProperties, UpdateMultipleCorticalProperties, CorticalName, CorticalList
 from ...commons import *
@@ -259,24 +261,46 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 
 
 @router.delete("/cortical_area")
-async def delete_cortical_area(cortical_id: CorticalId, connectome: ConnectomeManager = Depends(get_connectome)):
+async def delete_cortical_area(
+    cortical_id: CorticalId, 
+    core_api_service = Depends(get_core_api_service)
+):
     """
     Deletes a single cortical area
     """
     cortical_id = cortical_id.cortical_id
-    if cortical_id in connectome.genome["blueprint"]:
-
-        message = {'delete_cortical_area': cortical_id}
-        api_queue.put(item=message)
+    
+    # Use our new transaction-based approach
+    result = core_api_service.modify_genome(
+        "delete_cortical_area", 
+        cortical_id=cortical_id
+    )
+    
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to delete cortical area")
+    
+    return {"status": "success"}
 
 
 @router.get("/cortical_area_id_list")
-async def genome_cortical_ids(connectome: ConnectomeManager = Depends(get_connectome)):
-    """
-    Returns a comprehensive list of all cortical area names.
-    """
-    if connectome.cortical_list:
-        return sorted(connectome.cortical_list)
+async def cortical_area_id_list(
+    state_manager = Depends(get_state_manager),
+    core_api_service = Depends(get_core_api_service)
+):
+    """Returns the list of cortical area IDs in the connectome"""
+    # Check if we're in the middle of a sync operation
+    if state_manager.genome_sync_state == ServiceState.SYNCING:
+        raise HTTPException(
+            status_code=503, 
+            detail="Genome synchronization in progress, please try again."
+        )
+    
+    # Get the genome from the core API service
+    genome = core_api_service.get_genome()
+    
+    # Return the cortical area IDs from the blueprint
+    if genome and "blueprint" in genome:
+        return list(genome["blueprint"].keys())
     else:
         return []
 

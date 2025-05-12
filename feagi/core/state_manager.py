@@ -8,11 +8,12 @@ for tracking FEAGI's internal states with near-zero overhead access.
 import ctypes
 import mmap
 import os
-from enum import IntEnum
+from enum import IntEnum, Enum
 from typing import Optional
 import time
 import logging
 import datetime
+from contextlib import contextmanager
 
 
 # ===== State Definitions =====
@@ -33,12 +34,18 @@ class ConnectomeState(IntEnum):
     ERROR = 5
 
 
-class ServiceState(IntEnum):
-    UNAVAILABLE = 0
-    INITIALIZING = 1
-    READY = 2
-    DEGRADED = 3
-    ERROR = 4
+class ServiceState(Enum):
+    UNAVAILABLE = "UNAVAILABLE"
+    INITIALIZING = "INITIALIZING"
+    READY = "READY"
+    DEGRADED = "DEGRADED"
+    ERROR = "ERROR"
+    UNINITIALIZED = "UNINITIALIZED"
+    FAILED = "FAILED"
+    STOPPED = "STOPPED"
+    SYNCING = "SYNCING"
+    SYNC_COMPLETE = "SYNC_COMPLETE"
+    SYNC_ERROR = "SYNC_ERROR"
 
 
 class SimulationState(IntEnum):
@@ -96,6 +103,19 @@ class FeagiStateManager:
         )
         self.path = path
 
+        # Add synchronization tracking
+        self.genome_sync_state = ServiceState.UNINITIALIZED
+        self.pending_sync_operations = []
+        self.sync_observers = []
+
+        # Add notification hooks
+        self._notification_callbacks = {
+            "genome": [],
+            "connectome": [],
+            "burst_engine": [],
+            "simulation": []
+        }
+
     def cleanup(self):
         """Clean up resources and delete the state file on shutdown"""
         try:
@@ -123,6 +143,7 @@ class FeagiStateManager:
         self.state_ptr.contents.genome_state = int(state)
         self.state_ptr.contents.state_version += 1
         _log_state_change("🧬", f"Genome state changed: {old.name} → {state.name}")
+        self._notify_state_change("genome", old, state)
     
     # ===== Connectome State =====
     def get_connectome_state(self) -> ConnectomeState:
@@ -136,6 +157,7 @@ class FeagiStateManager:
         self.state_ptr.contents.connectome_state = int(state)
         self.state_ptr.contents.state_version += 1
         _log_state_change("🕸️", f"Connectome state changed: {old.name} → {state.name}")
+        self._notify_state_change("connectome", old, state)
 
     # ===== API State =====
     def get_api_state(self) -> ServiceState:
@@ -287,6 +309,62 @@ class FeagiStateManager:
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
         self.state_ptr.contents.state_version += 1
         _log_state_change("🧠", f"Brain readiness changed: {old} → {ready}")
+
+    def register_sync_observer(self, observer):
+        """Register a component to be notified of sync events"""
+        self.sync_observers.append(observer)
+        
+    def set_genome_sync_state(self, state, details=None):
+        """Update the genome synchronization state"""
+        old_state = self.genome_sync_state
+        self.genome_sync_state = state
+        logger.info(f"Genome-Connectome sync state changed: {old_state} → {state}", emoji="🔄")
+        
+        # Notify observers
+        for observer in self.sync_observers:
+            observer.on_sync_state_change(old_state, state, details)
+            
+    def begin_genome_transaction(self):
+        """Begin a new genome modification transaction"""
+        self.set_genome_sync_state(ServiceState.SYNCING)
+        return GenomeTransaction(self)
+
+    def begin_genome_transaction_context(self):
+        """Context manager for genome transactions"""
+        from feagi.core.genome_transaction import GenomeTransaction
+        
+        @contextmanager
+        def transaction_context():
+            transaction = GenomeTransaction(self)
+            try:
+                yield transaction
+                transaction.commit()
+            except Exception:
+                transaction.rollback()
+                raise
+        
+        return transaction_context()
+
+    def register_notification_callback(self, state_type: str, callback):
+        """Register a callback to be notified when a particular state changes.
+        
+        Args:
+            state_type: The state to monitor (e.g. "genome", "connectome")
+            callback: Function to call when state changes
+        """
+        if state_type in self._notification_callbacks:
+            self._notification_callbacks[state_type].append(callback)
+            return True
+        return False
+        
+    def _notify_state_change(self, state_type, old_state, new_state):
+        """Notify all registered callbacks about a state change."""
+        if state_type in self._notification_callbacks:
+            for callback in self._notification_callbacks[state_type]:
+                try:
+                    callback(old_state, new_state)
+                except Exception as e:
+                    logger.error(f"Error in notification callback: {e}", emoji="⚠️")
 
 def _log_state_change(emoji: str, message: str):
     logging.getLogger(__name__).info(message, emoji=emoji)

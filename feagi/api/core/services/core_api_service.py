@@ -16,6 +16,8 @@ from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, develop_brain_from_
 from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
 from feagi.core.state_manager import FeagiStateManager
 from feagi.core.state_manager import ServiceState
+from feagi.core.genome_transaction import GenomeTransaction
+from feagi.core.genome_state import GenomeState
 try:
     # Try to import these from the new location
     from feagi.evo.genome_validator import genome_validator
@@ -101,12 +103,13 @@ class CoreAPIService:
       - These are converted to strings in the API layer and back to ints internally
     """
     
-    def __init__(self, connectome_manager: ConnectomeManager):
+    def __init__(self, connectome_manager: ConnectomeManager, state_manager=None):
         """
         Initialize the Core API service.
         
         Args:
             connectome_manager: ConnectomeManager instance
+            state_manager: FeagiStateManager instance
         """
         # Check that connectome_manager is properly initialized
         if not hasattr(connectome_manager, 'fcl_manager') or connectome_manager.fcl_manager is None:
@@ -115,12 +118,14 @@ class CoreAPIService:
         self._connectome_manager = connectome_manager
         
         # Initialize state manager
-        self._state_manager = FeagiStateManager.instance()
+        self.state_manager = state_manager or FeagiStateManager.instance()
+        # Register as observer
+        self.state_manager.register_sync_observer(self)
         
         # Initialize burst engine without requiring a genome
-        self._state_manager.set_burst_engine_state(ServiceState.INITIALIZING)
+        self.state_manager.set_burst_engine_state(ServiceState.INITIALIZING)
         self._burst_engine = self._create_burst_engine()
-        self._state_manager.set_burst_engine_state(ServiceState.READY)
+        self.state_manager.set_burst_engine_state(ServiceState.READY)
         
         # Other initializations can follow...
         
@@ -1686,4 +1691,56 @@ class CoreAPIService:
             config={"desired_frequency_hz": 60.0}  # Reasonable default
         )
         
-        return burst_engine 
+        return burst_engine
+
+    def on_sync_state_change(self, old_state, new_state, details):
+        """React to sync state changes"""
+        if new_state == ServiceState.SYNC_COMPLETE:
+            # Update any cached data or notify dependent systems
+            self.refresh_cached_data()
+        
+    def begin_transaction(self):
+        """Begin a new genome modification transaction"""
+        return GenomeTransaction(self.state_manager)
+    
+    def modify_genome(self, transaction):
+        """Apply changes from a genome transaction.
+        
+        Args:
+            transaction: The GenomeTransaction object with recorded changes
+            
+        Returns:
+            bool: Success or failure
+        """
+        if not self.state_manager:
+            logger.error("Cannot modify genome - state manager not initialized", emoji="❌")
+            return False
+        
+        if not self.genome_is_loaded():
+            logger.error("Cannot modify genome - no genome loaded", emoji="❌")
+            return False
+        
+        # Apply transaction
+        success = transaction.commit()
+        
+        if success:
+            # Notify any listeners about genome changes
+            self.state_manager.set_genome_state(GenomeState.MODIFIED)
+        
+        return success
+
+    def register_genome_change_listener(self, callback):
+        """Register a function to be called when the genome changes.
+        
+        Args:
+            callback: Function to call when genome changes
+        """
+        if self.state_manager:
+            return self.state_manager.register_notification_callback("genome", callback)
+        return False
+    
+    def refresh_cached_data(self):
+        """Refresh any cached data after a genome modification"""
+        # Clear any caches that might be stale after genome changes
+        if hasattr(self, '_cached_cortical_areas'):
+            del self._cached_cortical_areas 

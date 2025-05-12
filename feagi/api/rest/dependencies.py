@@ -1,4 +1,5 @@
 from feagi.bdu import ConnectomeManager
+from feagi.core.state_manager import FeagiStateManager
 
 _connectome_instance = None
 
@@ -23,4 +24,8 @@ def get_core_api_service():
     """Get the core API service instance."""
     if _core_api_service is None:
         raise RuntimeError("Core API service not initialized")
-    return _core_api_service 
+    return _core_api_service
+
+def get_state_manager():
+    """Dependency provider for FeagiStateManager"""
+    return FeagiStateManager.instance() 
