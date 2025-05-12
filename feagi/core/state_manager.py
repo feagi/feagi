@@ -356,8 +356,8 @@ class FeagiStateManager:
         
     # ===== High-level status helpers =====
     def is_genome_loaded(self) -> bool:
-        """Check if genome is fully loaded"""
-        return self.get_genome_state() == GenomeState.LOADED
+        """Check if genome is in LOADED state"""
+        return self.get_genome_state() == ServiceState.LOADED
         
     def is_connectome_ready(self) -> bool:
         """Check if connectome is ready for operation"""

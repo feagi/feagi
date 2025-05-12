@@ -31,11 +31,15 @@ def check_burst_engine():
         raise HTTPException(status_code=400, detail="Burst engine is not running!")
 
 
-def check_active_genome(_: bool = Depends(check_burst_engine)):
-    if state.is_genome_loaded():
-        return True
-    else:
+def check_active_genome():
+    """Check if there is an active genome loaded."""
+    state_manager = FeagiStateManager.instance()
+    
+    # Check if genome is loaded based on state manager's genome state
+    if not state_manager.is_genome_loaded():
         raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
+    
+    return True
 
 
 def check_brain_running(_: bool = Depends(check_active_genome)):

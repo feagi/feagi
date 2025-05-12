@@ -23,8 +23,9 @@ from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_validator import genome_validator
 from feagi.evo.templates import core_morphologies, cortical_types
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.core.state_manager import FeagiStateManager
+from feagi.core.state_manager import FeagiStateManager, GenomeState
 import os
+from time import time
 
 
 logger = logging.getLogger(__name__)
@@ -706,38 +707,56 @@ genome_1_to_2 = {
     "dev_count": "cx-devcnt-i"
 }
 
-def process_and_load_genome(genome_path, core_api_service):
+def process_and_load_genome(genome_data, core_api_service):
     """
-    Process a genome file and load it into FEAGI
+    Process and load a genome with comprehensive state management.
     
     Args:
-        genome_path: Path to the genome file
-        core_api_service: CoreAPIService instance to load the genome with
+        genome_data: The genome data to process and load
+        core_api_service: CoreAPIService instance for genome loading
         
     Returns:
-        Dictionary with success status and duration
+        dict: Result containing success status, load time, and metadata
     """
-    import json
+    start_time = time()
     
-    # Load the genome from file
-    try:
-        with open(genome_path, 'r') as f:
-            genome_data = json.load(f)
-    except Exception as e:
-        return {"success": False, "error": f"Failed to load genome: {str(e)}"}
+    # Get state manager
+    state_manager = FeagiStateManager.instance()
     
-    # Process the genome
+    # Set loading state
+    state_manager.set_genome_state(GenomeState.LOADING)
+    
     try:
-        genome_data = merge_core_morphologies(genome_data)
-        genome_data = genome_morphology_updator(genome_data)
-        genome_data = genome_physiology_updator(genome_data)
-        genome_data = genome_stat_updator(genome_data)
-    except Exception as e:
-        return {"success": False, "error": f"Failed to process genome: {str(e)}"}
+        # Process and load the genome
+        load_result = core_api_service.load_genome(genome_data)
         
-    # Load the genome
-    try:
-        filename = os.path.basename(genome_path)
-        return core_api_service.load_genome(genome_data, filename)
+        # Extract success value from the result
+        if isinstance(load_result, dict) and "success" in load_result:
+            success = load_result["success"]
+        else:
+            # Handle case where result might be a boolean or something else
+            success = bool(load_result)
+        
+        # Update state based on result
+        if success:
+            state_manager.set_genome_state(GenomeState.LOADED)
+            # Increment the genome counter
+            state_manager.increment_genome_counter()
+        else:
+            state_manager.set_genome_state(GenomeState.ERROR)
+            
+        # Calculate load time
+        load_time = time() - start_time
+        
+        # Return a clean, professional result
+        return {
+            "success": success,
+            "load_time": round(load_time, 3),
+            "genome_counter": state_manager.get_genome_counter()
+        }
+        
     except Exception as e:
-        return {"success": False, "error": f"Failed to load genome: {str(e)}"}
+        # Set error state and re-raise
+        state_manager.set_genome_state(GenomeState.ERROR)
+        logger.error(f"Error during genome processing: {str(e)}", emoji="❌")
+        raise

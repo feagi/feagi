@@ -37,7 +37,7 @@ from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter, process_and_load_genome
 from feagi.bdu.brain_region import region_id_2_title, construct_genome_from_region
 from feagi.evo.templates import cortical_template
-from feagi.core.state_manager import FeagiStateManager, ConnectomeState, ServiceState
+from feagi.core.state_manager import FeagiStateManager, ConnectomeState, ServiceState, GenomeState
 from feagi.bdu import ConnectomeManager
 
 
@@ -96,10 +96,20 @@ async def genome_default_upload(core_api_service: CoreAPIService = Depends(get_c
     with open(essential_path, 'r') as f:
         genome_data = json.load(f)
     
-    # Pass the core_api_service to the process_and_load_genome function
+    # Set the genome file name
+    state_manager = FeagiStateManager.instance()
+    state_manager.genome_file_name = "essential_genome.json"
+    
+    # Process and load the genome - all state management handled centrally
     result = process_and_load_genome(genome_data, core_api_service)
     
-    return {"status": "success", "message": "Essential genome uploaded successfully"}
+    # Update burst engine with new genome
+    burst_engine = core_api_service.get_burst_engine()
+    if burst_engine and result["loaded"]:
+        burst_engine.update_with_genome()
+        logger.info("Burst Engine updated with new genome", emoji="⚡")
+    
+    return result
 
 
 @router.post("/upload/file")
