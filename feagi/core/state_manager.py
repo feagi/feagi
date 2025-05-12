@@ -3,6 +3,11 @@ FEAGI Global State Manager
 
 Provides a high-performance memory-mapped state management system
 for tracking FEAGI's internal states with near-zero overhead access.
+
+Logging Patterns:
+- All state change logs should go through _log_state_change function
+- Never call logger directly with emoji parameter outside of _log_state_change
+- State transitions are logged with appropriate emojis
 """
 
 import ctypes
@@ -396,7 +401,7 @@ class FeagiStateManager:
         """Update the genome synchronization state"""
         old_state = self.genome_sync_state
         self.genome_sync_state = state
-        logger.info(f"Genome-Connectome sync state changed: {old_state} → {state}", emoji="🔄")
+        _log_state_change("🔄", f"Genome-Connectome sync state changed: {old_state} → {state}")
         
         # Notify observers
         for observer in self.sync_observers:
@@ -436,32 +441,56 @@ class FeagiStateManager:
         return False
         
     def _notify_state_change(self, state_type, old_state, new_state):
-        """Notify all registered callbacks about a state change."""
+        """
+        Notify all registered callbacks about a state change.
+        
+        This method intentionally avoids using the emoji parameter in logging
+        to ensure compatibility with all loggers.
+        
+        Args:
+            state_type: The type of state that changed (e.g., "genome")
+            old_state: The previous state
+            new_state: The new state
+        """
         if state_type in self._notification_callbacks:
             for callback in self._notification_callbacks[state_type]:
                 try:
                     callback(old_state, new_state)
                 except Exception as e:
-                    # Use try/except to maintain compatibility with both custom and standard loggers
-                    try:
-                        logger.error(f"Error in notification callback: {e}", emoji="⚠️")
-                    except TypeError:
-                        # Fall back to standard logger if emoji param isn't supported
-                        logger.error(f"⚠️ Error in notification callback: {e}")
+                    # Do NOT use the emoji parameter here
+                    logger.error(f"⚠️ Error in notification callback: {e}")
 
     def _verify_enum(self, state, enum_type):
         if not isinstance(state, enum_type):
             raise ValueError(f"{state} is not a valid {enum_type.__name__}")
 
 def _log_state_change(emoji: str, message: str):
-    logging.getLogger(__name__).info(message, emoji=emoji)
+    """
+    Central function for logging state changes with emoji support.
+    
+    This function handles emoji logging in a way that works with both:
+    1. Custom loggers that support the emoji parameter
+    2. Standard loggers that don't support this parameter
+    
+    All code that logs state changes should use this function rather than
+    calling logger.info() directly.
+    
+    Args:
+        emoji: The emoji to prefix the log message with
+        message: The log message content
+    """
+    try:
+        # Try with emoji parameter first
+        logging.getLogger(__name__).info(message, emoji=emoji)
+    except TypeError:
+        # Fall back to standard logging if emoji not supported
+        logging.getLogger(__name__).info(f"{emoji} {message}")
 
-    # Always reserve a 2-character spot for the icon (emoji or spaces)
+    # Always also log with standard formatting for consistency
     icon = f"{emoji:<2}" if emoji else "   "
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     log_msg = f"{icon} [{timestamp}] {message}"
-    logging.getLogger(__name__).info(log_msg)
-    # print(log_msg)  # Removed, all output goes through logger 
+    logger.info(log_msg)
 
 def get_state_manager():
     """Get the singleton instance of FeagiStateManager"""

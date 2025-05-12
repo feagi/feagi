@@ -85,18 +85,21 @@ async def upload_barebones_genome():
     return result
 
 
-@router.post("/upload/essential")
-async def genome_default_upload():
-    from feagi.evo.genome_processor import process_and_load_genome
+@router.post("/upload/essential", status_code=200)
+async def genome_default_upload(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """Upload the essential genome template"""
+    essential_path = os.path.join(os.path.dirname(__file__), "../../../../../feagi/evo/defaults/genome/essential_genome.json")
     
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
-    essential_genome_path = os.path.join(project_root, "feagi/evo/defaults/genome/essential_genome.json")
-    with open(essential_genome_path, "r") as genome_file:
-        genome_data = json.load(genome_file)
+    if not os.path.exists(essential_path):
+        raise HTTPException(status_code=404, detail="Essential genome template not found!")
+        
+    with open(essential_path, 'r') as f:
+        genome_data = json.load(f)
     
-    result = process_and_load_genome(genome_data, filename="essential_genome.json")
-    result["genome_number"] = state.get_genome_counter()
-    return result
+    # Pass the core_api_service to the process_and_load_genome function
+    result = process_and_load_genome(genome_data, core_api_service)
+    
+    return {"status": "success", "message": "Essential genome uploaded successfully"}
 
 
 @router.post("/upload/file")

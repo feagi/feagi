@@ -88,4 +88,38 @@ State transitions are logged with distinct emoji prefixes for visibility:
 | Genome | Current genome status | 🧬 |
 | Brain Readiness | Overall system readiness | 🟢 |
 
-## Logging Format 
+## Logging Format
+
+FEAGI uses a standardized approach to logging state changes:
+
+1. **The `_log_state_change` Function**:
+   - All state change logs must go through this function
+   - Takes an emoji parameter and message parameter
+   - Handles compatibility with both custom and standard loggers
+
+2. **Emoji Format**:
+   - Each subsystem has a dedicated emoji:
+     - 🧬 Genome
+     - 🕸️ Connectome
+     - 💥 Burst Engine
+     - 🚦 REST API
+     - 📬 ZMQ
+     - 🧪 Simulation
+     - 🎯 FCL Sampler
+     - 🔄 Synchronization
+
+3. **Implementation Pattern**:
+   ```python
+   def set_some_state(self, state):
+       old_state = self.get_some_state()
+       # Update state storage
+       self.storage.value = state
+       # Log with emoji
+       _log_state_change("🔄", f"State changed: {old_state} → {state}")
+   ```
+
+4. **Never**:
+   - Call logger directly with emoji parameter outside _log_state_change
+   - Pass emoji parameter to notify methods
+
+This approach ensures consistent logging across all components. 
