@@ -12,7 +12,7 @@ from typing import Dict, List, Set, Optional, Union, Tuple, Any, cast
 
 from feagi.core.backend import BackendType, get_backend
 from feagi.core.backend.interface import BackendInterface
-from feagi.npu.fcl_manager import BitMap, BitMapProtocol, NeuronId, AreaId, MembraneUpdate
+from feagi.npu.fcl_manager import BitMap, BitMapProtocol, NeuronId, AreaId, MembraneUpdate, EnhancedFCLManager
 
 logger = logging.getLogger(__name__)
 
@@ -357,18 +357,18 @@ def create_gpu_accelerated_fcl(window_size: int = 20):
         An FCL manager instance that uses GPU acceleration if available,
         otherwise returns a standard FCL manager.
     """
-    from feagi.npu.fcl_manager import EnhancedHierarchicalFCL
+    from feagi.npu.fcl_manager import EnhancedFCLManager
     
     # Check if GPU backend is available
     backend = get_backend()
     if backend is None:
         logger.info("No backend available, falling back to CPU FCL manager")
-        return EnhancedHierarchicalFCL(default_window_size=window_size)
+        return EnhancedFCLManager(default_window_size=window_size)
     
     # Check if backend supports bitmap operations
     if not hasattr(backend, 'bitmap_or') or not backend.supports_capability("bitmap_operations"):
         logger.info(f"Backend {getattr(backend, 'name', type(backend).__name__)} does not support bitmap operations, using CPU FCL manager")
-        return EnhancedHierarchicalFCL(default_window_size=window_size)
+        return EnhancedFCLManager(default_window_size=window_size)
     
     # Create GPU-accelerated FCL manager
     logger.info(f"Using GPU-accelerated FCL manager with {getattr(backend, 'name', type(backend).__name__)} backend")
@@ -379,7 +379,7 @@ class GPUAcceleratedFCL:
     """
     GPU-accelerated implementation of Fire Candidate List Manager.
     
-    This class provides the same interface as EnhancedHierarchicalFCL,
+    This class provides the same interface as EnhancedFCLManager,
     but uses GPU operations for performance-critical bitmap operations.
     """
     
@@ -391,7 +391,7 @@ class GPUAcceleratedFCL:
             backend: GPU backend to use for operations
             default_window_size: Default window size for FCL history
         """
-        from feagi.npu.fcl_manager import EnhancedHierarchicalFCL
+        from feagi.npu.fcl_manager import EnhancedFCLManager
         
         # Get backend if not provided
         self.backend = backend or get_backend()
@@ -403,7 +403,7 @@ class GPUAcceleratedFCL:
             raise TypeError('Backend does not support required bitmap operations for GPUAcceleratedFCL')
         
         # Create a CPU FCL manager as a delegate for operations that can't be accelerated
-        self.cpu_fcl = EnhancedHierarchicalFCL(default_window_size=default_window_size)
+        self.cpu_fcl = EnhancedFCLManager(default_window_size=default_window_size)
         
         logger.info(f"Initialized GPU-accelerated FCL manager with {getattr(self.backend, 'name', type(self.backend).__name__)} backend")
     
@@ -426,7 +426,7 @@ class GPUAcceleratedFCL:
         """
         # For now, delegate to CPU implementation
         # A fully GPU-accelerated version would require more complex data structures
-        # that match the HierarchicalFCL implementation
+        # that match the FCL implementation
         self.cpu_fcl.update_fcl(current_timestep, neurons_by_area)
     
     def get_fcl_delta(self, start_time: int, end_time: int, area_ids: Optional[List[AreaId]] = None) -> BitMap:

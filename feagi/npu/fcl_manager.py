@@ -1650,4 +1650,8 @@ if __name__ == "__main__":
 
     # Check the injected neurons
     result = fcl.get_area_fcl(cortical_idx=500)
-    self.logger.info(f"Neurons in hippocampus: {result}") 
+    self.logger.info(f"Neurons in hippocampus: {result}")
+
+# Compatibility aliases for backward compatibility
+HierarchicalFCL = FCLManager
+EnhancedHierarchicalFCL = EnhancedFCLManager 

@@ -23,7 +23,8 @@ from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_validator import genome_validator
 from feagi.evo.templates import core_morphologies, cortical_types
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.core.state_manager import FeagiStateManager
+from feagi.core.state_manager import FeagiStateManager, ServiceState
+from feagi.api.rest.dependencies import get_core_api_service
 
 
 logger = logging.getLogger(__name__)
@@ -704,3 +705,38 @@ genome_1_to_2 = {
     "temporal_depth": "cx-tmpdpt-i",
     "dev_count": "cx-devcnt-i"
 }
+
+def process_and_load_genome(genome_data: dict, filename: str = None):
+    """
+    Central function to process and load a genome, handling all state transitions.
+    
+    Args:
+        genome_data: The genome data to load
+        filename: Optional filename for the genome
+        
+    Returns:
+        Dictionary with the result of loading the genome
+    """
+    state_manager = FeagiStateManager.instance()
+    
+    # Set state to indicate genome is being initialized
+    state_manager.set_genome_state(ServiceState.INITIALIZING)
+    
+    # Store filename
+    if filename:
+        state_manager.genome_file_name = filename
+    
+    # Load the genome
+    core_api_service = get_core_api_service()
+    result = core_api_service.load_genome(genome_data, filename=filename)
+    
+    # Set to READY after success
+    state_manager.set_genome_state(ServiceState.READY)
+    
+    # Update burst engine
+    burst_engine = core_api_service.get_burst_engine()
+    if burst_engine:
+        burst_engine.update_with_genome()
+        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
+    
+    return result

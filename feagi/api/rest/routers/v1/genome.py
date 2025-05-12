@@ -31,12 +31,13 @@ from ...schemas import *
 from ...commons import *
 from feagi.api.dependencies import check_active_genome
 from feagi.api.rest.dependencies import get_core_api_service
+from feagi.api.core.services.core_api_service import CoreAPIService
 
 from feagi.evo.genome_editor import save_genome
-from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
+from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter, process_and_load_genome
 from feagi.bdu.brain_region import region_id_2_title, construct_genome_from_region
 from feagi.evo.templates import cortical_template
-from feagi.core.state_manager import FeagiStateManager, ConnectomeState
+from feagi.core.state_manager import FeagiStateManager, ConnectomeState, ServiceState
 from feagi.bdu import ConnectomeManager
 
 
@@ -86,19 +87,15 @@ async def upload_barebones_genome():
 
 @router.post("/upload/essential")
 async def genome_default_upload():
+    from feagi.evo.genome_processor import process_and_load_genome
+    
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
     essential_genome_path = os.path.join(project_root, "feagi/evo/defaults/genome/essential_genome.json")
     with open(essential_genome_path, "r") as genome_file:
         genome_data = json.load(genome_file)
-        state.genome_file_name = "essential_genome.json"
-    state.set_connectome_state(ConnectomeState.INITIALIZING)
-    core_api_service = get_core_api_service()
-    result = core_api_service.load_genome(genome_data, filename="essential_genome.json")
+    
+    result = process_and_load_genome(genome_data, filename="essential_genome.json")
     result["genome_number"] = state.get_genome_counter()
-    burst_engine = core_api_service.get_burst_engine()
-    if burst_engine:
-        burst_engine.update_with_genome()
-        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
     return result
 
 
@@ -166,26 +163,24 @@ async def genome_string_upload(genome: dict):
 
 
 @router.get("/download")
-async def genome_download(_: str = Depends(check_active_genome)):
-    logger.info("Downloading Genome...")
-    genome = core_api_service.get_genome()
-    save_genome(genome=genome_v1_v2_converter(genome),
-                file_name=state.connectome_path + "genome.json")
-    file_name = "genome-" + genome.get("genome_title", "unknown").replace(" ", "_") + ".json"
-    logger.info(file_name)
+def download_genome():
+    """Download active genome."""
+    # First check if we have a filename
+    if not hasattr(state, 'genome_file_name') or not state.genome_file_name:
+        raise HTTPException(status_code=404, detail="No genome file name found")
 
-    if genome and genome.get("blueprint"):
-        state.changes_saved_externally = True
-        file_path = state.connectome_path + "genome.json"
-        headers = {"Content-Disposition": f"attachment; filename={file_name}"}
-        response = FileResponse(path=file_path,
-                                media_type="application/json",
-                                filename=file_name,
-                                headers=headers
-                                )
-        return response
-    else:
-        raise HTTPException(status_code=400, detail="No running genome found!")
+    # Get project root path
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../"))
+    
+    # Try default genomes path first
+    default_genomes_path = os.path.join(project_root, "feagi", "evo", "defaults", "genome")
+    genome_filepath = os.path.join(default_genomes_path, state.genome_file_name)
+    
+    if os.path.exists(genome_filepath):
+        return FileResponse(genome_filepath, filename=state.genome_file_name)
+    
+    # If we get here, we couldn't find the file
+    raise HTTPException(status_code=404, detail=f"Genome file '{state.genome_file_name}' not found in any expected location")
 
 
 @router.get("/download_region")
@@ -484,3 +479,37 @@ def circuit_size(blueprint):
             dimensions[2] = z_coord
 
     return dimensions
+
+
+@router.post("/deploy", response_model=dict)
+async def deploy_genome(genome_file: UploadFile, 
+                       core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """Deploy a genome file."""
+    try:
+        # Get the state manager
+        state_manager = core_api_service.get_state_manager()
+        
+        # Update state to LOADING
+        state_manager.set_genome_state(ServiceState.LOADING)
+        
+        # Deploy the genome
+        genome_filepath = await save_upload_file(genome_file)
+        result = core_api_service.deploy_genome(genome_filepath)
+        
+        # Update state to LOADED if successful
+        if result:
+            state_manager.set_genome_state(ServiceState.LOADED)
+            
+            # Update burst engine with new genome
+            burst_engine = core_api_service.get_burst_engine()
+            if burst_engine:
+                burst_engine.update_with_genome()
+            
+            return {"status": "success", "message": "Genome deployed successfully"}
+        else:
+            state_manager.set_genome_state(ServiceState.UNAVAILABLE)
+            return {"status": "error", "message": "Failed to deploy genome"}
+    except Exception as e:
+        # Ensure state is reverted on error
+        core_api_service.get_state_manager().set_genome_state(ServiceState.UNAVAILABLE)
+        raise HTTPException(status_code=500, detail=f"Error deploying genome: {str(e)}")
