@@ -18,7 +18,7 @@ import string, random
 
 from feagi.core.backend import get_backend, BackendType
 from feagi.utils.config import FeagiConfig
-from feagi.npu.fcl_manager import HierarchicalFCL, BitMap
+from feagi.npu.fcl_manager import FCLManager, BitMap
 from feagi.bdu.synapse_manager import SynapseManager
 
 logger = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ class ConnectomeManager:
             self._max_neurons = self.config.get("connectome.max_neurons", 10000000)
         self._max_synapses_per_neuron = self.config.get("connectome.max_synapses_per_neuron", 1000)
         fcl_window_size = self.config.get("connectome.fcl_window_size", 10)
-        self.fcl_manager = HierarchicalFCL(window_size=fcl_window_size)
+        self.fcl_manager = FCLManager(window_size=fcl_window_size)
         self._init_neuron_arrays()
         if max_test_neurons is not None:
             self.synapse_manager = SynapseManager(max_test_neurons, min(100, self._max_synapses_per_neuron))
