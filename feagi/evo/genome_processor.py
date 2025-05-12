@@ -716,7 +716,7 @@ def process_and_load_genome(genome_data, core_api_service):
         core_api_service: CoreAPIService instance for genome loading
         
     Returns:
-        dict: Result containing success status, load time, and metadata
+        dict: Result containing load time and metadata
     """
     start_time = time()
     
@@ -727,7 +727,7 @@ def process_and_load_genome(genome_data, core_api_service):
     state_manager.set_genome_state(GenomeState.LOADING)
     
     try:
-        # Process and load the genome
+        # Process and load the genome 
         load_result = core_api_service.load_genome(genome_data)
         
         # Extract success value from the result
@@ -740,17 +740,16 @@ def process_and_load_genome(genome_data, core_api_service):
         # Update state based on result
         if success:
             state_manager.set_genome_state(GenomeState.LOADED)
-            # Increment the genome counter
-            state_manager.increment_genome_counter()
+            # Don't increment the counter here - core_api_service already does it
+            # state_manager.increment_genome_counter()
         else:
             state_manager.set_genome_state(GenomeState.ERROR)
             
         # Calculate load time
         load_time = time() - start_time
         
-        # Return a clean, professional result
+        # Return a clean result without redundant success field
         return {
-            "success": success,
             "load_time": round(load_time, 3),
             "genome_counter": state_manager.get_genome_counter()
         }
@@ -758,5 +757,6 @@ def process_and_load_genome(genome_data, core_api_service):
     except Exception as e:
         # Set error state and re-raise
         state_manager.set_genome_state(GenomeState.ERROR)
-        logger.error(f"Error during genome processing: {str(e)}", emoji="❌")
+        # Remove emoji parameter that's causing the error
+        logger.error(f"Error during genome processing: {str(e)}")
         raise

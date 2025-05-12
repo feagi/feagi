@@ -23,7 +23,7 @@ import logging
 
 from time import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 
@@ -39,6 +39,7 @@ from feagi.bdu.brain_region import region_id_2_title, construct_genome_from_regi
 from feagi.evo.templates import cortical_template
 from feagi.core.state_manager import FeagiStateManager, ConnectomeState, ServiceState, GenomeState
 from feagi.bdu import ConnectomeManager
+from feagi.api.rest.response_utils import success_response, error_response, raw_response
 
 
 router = APIRouter()
@@ -88,28 +89,42 @@ async def upload_barebones_genome():
 @router.post("/upload/essential", status_code=200)
 async def genome_default_upload(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """Upload the essential genome template"""
-    essential_path = os.path.join(os.path.dirname(__file__), "../../../../../feagi/evo/defaults/genome/essential_genome.json")
-    
-    if not os.path.exists(essential_path):
-        raise HTTPException(status_code=404, detail="Essential genome template not found!")
+    try:
+        essential_path = os.path.join(os.path.dirname(__file__), "../../../../../feagi/evo/defaults/genome/essential_genome.json")
         
-    with open(essential_path, 'r') as f:
-        genome_data = json.load(f)
-    
-    # Set the genome file name
-    state_manager = FeagiStateManager.instance()
-    state_manager.genome_file_name = "essential_genome.json"
-    
-    # Process and load the genome - all state management handled centrally
-    result = process_and_load_genome(genome_data, core_api_service)
-    
-    # Update burst engine with new genome
-    burst_engine = core_api_service.get_burst_engine()
-    if burst_engine and result["loaded"]:
-        burst_engine.update_with_genome()
-        logger.info("Burst Engine updated with new genome", emoji="⚡")
-    
-    return result
+        if not os.path.exists(essential_path):
+            return JSONResponse(
+                status_code=404,
+                content=error_response(message="Essential genome template not found!", error_code="RESOURCE_NOT_FOUND")
+            )
+            
+        with open(essential_path, 'r') as f:
+            genome_data = json.load(f)
+        
+        # Set the genome file name
+        state_manager = FeagiStateManager.instance()
+        state_manager.genome_file_name = "essential_genome.json"
+        
+        # Process and load the genome
+        result = process_and_load_genome(genome_data, core_api_service)
+        
+        # Update burst engine with new genome
+        burst_engine = core_api_service.get_burst_engine()
+        if burst_engine and result["success"]:
+            burst_engine.update_with_genome()
+            logger.info("Burst Engine updated with new genome", emoji="⚡")
+        
+        return success_response(
+            data=result,
+            message="Essential genome uploaded successfully"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to upload essential genome: {str(e)}", emoji="❌")
+        return JSONResponse(
+            status_code=500,
+            content=error_response(message=f"Failed to upload essential genome: {str(e)}", error_code="GENOME_UPLOAD_ERROR")
+        )
 
 
 @router.post("/upload/file")
@@ -118,29 +133,38 @@ async def genome_file_upload(file: UploadFile = File(...)):
     This API allows you to browse files from your computer and upload a genome to FEAGI.
     The genome must be in the form of a python file.
     """
-    data = await file.read()
-    state.set_connectome_state(ConnectomeState.INITIALIZING)
-    state.genome_file_name = file.filename
+    try:
+        data = await file.read()
+        state.set_connectome_state(ConnectomeState.INITIALIZING)
+        state.genome_file_name = file.filename
 
-    genome_str = json.loads(data)
+        genome_str = json.loads(data)
 
-    if "genome_title" not in genome_str:
-        genome_str["genome_title"] = state.genome_file_name
+        if "genome_title" not in genome_str:
+            genome_str["genome_title"] = state.genome_file_name
 
-    if "genome_description" not in genome_str:
-        genome_str["genome_description"] = ""
+        if "genome_description" not in genome_str:
+            genome_str["genome_description"] = ""
 
-    # genome_str = genome_str.replace('\'', '\"')
-    # genome_str = data.decode("utf-8").split(" = ")[1]
-    core_api_service = get_core_api_service()
-    result = core_api_service.load_genome(genome_str, filename=file.filename)
-    # message = {'genome': genome_str}
-    # api_queue.put(item=message)
-    burst_engine = core_api_service.get_burst_engine()
-    if burst_engine:
-        burst_engine.update_with_genome()
-        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
-    return {"loaded": result, "genome_counter": state.get_genome_counter()}
+        core_api_service = get_core_api_service()
+        result = core_api_service.load_genome(genome_str, filename=file.filename)
+        
+        burst_engine = core_api_service.get_burst_engine()
+        if burst_engine:
+            burst_engine.update_with_genome()
+            logger.info("Burst Engine updated with new genome", emoji="⚡")
+            
+        # Return raw response for v1 compatibility
+        return raw_response({
+            "loaded": result, 
+            "genome_counter": state.get_genome_counter()
+        })
+    except Exception as e:
+        logger.error(f"Failed to upload genome: {str(e)}", emoji="❌")
+        return JSONResponse(
+            status_code=500,
+            content=error_response(message=f"Failed to upload genome: {str(e)}", error_code="GENOME_UPLOAD_ERROR")
+        )
 
 
 @router.get("/file_name")

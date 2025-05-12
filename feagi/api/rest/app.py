@@ -19,11 +19,14 @@ import time
 import string
 import random
 import logging
+import json
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from threading import Thread
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException
 
 from .config import settings
 
@@ -38,6 +41,11 @@ from feagi.core.state_manager import FeagiStateManager, ServiceState
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.rest.dependencies import get_connectome
+from .response_utils import success_response, error_response
+
+# Import the v2 routers
+from .routers.v2 import genome as genome_v2
+# ... other v2 imports
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +285,15 @@ app.include_router(
     responses=standard_response
 )
 
+# Register v2 routes
+app.include_router(
+    genome_v2.router,
+    prefix="/v2/genome",
+    tags=["GENOME V2"],
+    dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
+    responses=standard_response
+)
+
 @app.on_event("startup")
 async def set_api_state_ready():
     state = FeagiStateManager.instance()
@@ -308,4 +325,94 @@ def create_rest_app(connectome: ConnectomeManager = None):
 def get_core_api():
     """Dependency placeholder for the core API service. Should be overridden in tests."""
     raise NotImplementedError("get_core_api must be overridden in tests with a mock implementation.")
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(message=exc.detail, error_code=f"HTTP_{exc.status_code}")
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=422,
+        content=error_response(
+            message="Validation error",
+            error_code="VALIDATION_ERROR",
+            metadata={"errors": exc.errors()}
+        )
+    )
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request, exc):
+    # Log the exception here
+    return JSONResponse(
+        status_code=500,
+        content=error_response(message=str(exc), error_code="INTERNAL_ERROR")
+    )
+
+@app.middleware("http")
+async def standardize_response_format(request, call_next):
+    """
+    Middleware that standardizes API responses.
+    - Skips standardization for v1 routes
+    - Applies standardization to v2+ routes
+    - Honors raw_response() markers 
+    """
+    response = await call_next(request)
+    
+    # Skip if response is already in our format or for non-JSON responses
+    if response.headers.get("content-type") != "application/json":
+        return response
+        
+    # First check if this is a raw response that should bypass standardization
+    try:
+        body = await response.body()
+        content = json.loads(body)
+        
+        # Check for raw response marker
+        if isinstance(content, dict) and content.get("__raw_response__"):
+            # Remove the marker and return raw response
+            if "__raw_response__" in content:
+                del content["__raw_response__"]
+            return JSONResponse(content=content, status_code=response.status_code)
+    except:
+        # If we can't parse JSON or other issues, just return original response
+        return response
+        
+    # Skip standardization for v1 routes to maintain backward compatibility
+    if "/v1/" in request.url.path:
+        # Need to rebuild the response since we've consumed the body
+        return Response(
+            content=body,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.media_type
+        )
+    
+    # For v2+ routes, apply standardization for success responses
+    if response.status_code < 400:
+        try:
+            content = json.loads(body)
+            return JSONResponse(
+                content=success_response(data=content),
+                status_code=response.status_code
+            )
+        except:
+            # If we can't standardize, return original response rebuilt
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.media_type
+            )
+    
+    # For any other case, rebuild the original response
+    return Response(
+        content=body,
+        status_code=response.status_code,
+        headers=dict(response.headers),
+        media_type=response.media_type
+    )
 
