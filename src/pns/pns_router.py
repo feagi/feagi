@@ -24,7 +24,7 @@ import traceback
 from datetime import datetime
 from src.evo.voxels import *
 from src.evo.stats import opu_activity_report
-from src.inf.byte_processor import bytes_to_feagi_data
+from src.inf.byte_processor import bytes_to_feagi_data, parse_byte_structure_xyz_to_dict_with_tuples
 
 
 logger = logging.getLogger(__name__)
@@ -178,6 +178,19 @@ def stimuli_router(ipu_data):
                     try:
                         byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu_b']
                         dict_ipu_data = bytes_to_feagi_data(byte_ipu_data)
+
+                        if "iv00CC" in dict_ipu_data:
+                            runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
+                        stimuli_translator.generic_ipu_translator(
+                            ipu_data=dict_ipu_data)
+                    except Exception:
+                        print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
+
+
+                if 'generic_ipu_b2' == sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                    try:
+                        byte_ipu_data = ipu_data["data"]["sensory_data"]['generic_ipu_b']
+                        dict_ipu_data = parse_byte_structure_xyz_to_dict_with_tuples(byte_ipu_data)
 
                         if "iv00CC" in dict_ipu_data:
                             runtime_data.color_img_feed = dict_ipu_data["iv00CC"]
