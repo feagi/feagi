@@ -143,21 +143,6 @@ class CoreAPIService:
             progress_callback=self._handle_embryogenesis_progress
         )
         self._current_genome = None
-        self._test_area_id = 999999999  # Very large ID to avoid conflicts
-        
-        # Add a sample cortical area for testing
-        if not self._connectome_manager._areas:
-            try:
-                self._connectome_manager.add_cortical_area(
-                    area_id=self._test_area_id,
-                    name="Test Area",
-                    area_type="interconnect",
-                    dimensions=(10, 10, 5),
-                    position=(0, 0, 0),
-                    properties={"is_test_area": True}  # Flag to identify test areas
-                )
-            except Exception as e:
-                self.logger.warning(f"Failed to create test cortical area: {str(e)}")
         
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
@@ -237,26 +222,8 @@ class CoreAPIService:
                 self.logger.warning("No cortical areas available in connectome manager, trying FEAGI instance")
                 return self._feagi.get_cortical_areas()
             
-            has_non_test_areas = any(
-                area_id != self._test_area_id and not area.properties.get("is_test_area", False)
-                for area_id, area in self._connectome_manager._areas.items()
-            )
-            
-            # If the genome is loaded but no non-test areas exist, that's a problem
-            if self._current_genome is not None and not has_non_test_areas:
-                self.logger.warning("Genome is loaded but no cortical areas from genome exist")
-                
-                # Try getting areas from FEAGI as a fallback
-                feagi_areas = self._feagi.get_cortical_areas()
-                if feagi_areas:
-                    return feagi_areas
-            
             # Convert all areas to API format
             for area_id, area in self._connectome_manager._areas.items():
-                # Skip test areas if we have real areas from a genome
-                if has_non_test_areas and (area_id == self._test_area_id or area.properties.get("is_test_area", False)):
-                    continue
-                    
                 try:
                     # Get neuron count (safely)
                     try:
@@ -314,17 +281,6 @@ class CoreAPIService:
             area = self._connectome_manager._areas.get(cortical_idx)
             if not area:
                 self.logger.warning(f"Cortical area {area_id} not found")
-                return None
-            
-            # Check if we should hide test areas when we have genome-loaded areas
-            has_non_test_areas = any(
-                idx != self._test_area_id and not a.properties.get("is_test_area", False)
-                for idx, a in self._connectome_manager._areas.items()
-            )
-            
-            # Skip test areas if we have real areas from a genome
-            if has_non_test_areas and (cortical_idx == self._test_area_id or area.properties.get("is_test_area", False)):
-                self.logger.info(f"Hiding test area {area_id} since genome is loaded")
                 return None
             
             # Return area information
@@ -1077,18 +1033,8 @@ class CoreAPIService:
             with open(genome_path, 'w') as f:
                 json.dump(genome_data, f, indent=2)
 
-            # Backup any test areas by ID before clearing
-            test_areas = {}
-            for area_id, area in self._connectome_manager._areas.items():
-                if area_id == self._test_area_id or area.properties.get("is_test_area"):
-                    test_areas[area_id] = area
-                    
             # Clear the connectome manager's state to start fresh
             self._connectome_manager._areas.clear()
-            
-            # Restore test areas
-            for area_id, area in test_areas.items():
-                self._connectome_manager._areas[area_id] = area
             
             try:
                 # Try to develop the brain from genome

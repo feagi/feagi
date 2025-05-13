@@ -474,7 +474,8 @@ class Neuroembryogenesis:
                         area_type=area_type,
                         dimensions=dimensions,
                         position=position,
-                        properties=properties
+                        properties=properties,
+                        cortical_id=cortical_id  # Pass the 6-letter cortical ID from the genome
                     )
                     
                     # Store in our tracking maps
