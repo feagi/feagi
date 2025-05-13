@@ -2,8 +2,8 @@
 import logging
 import os
 import sys
-from typing import Optional
 import unicodedata
+from typing import Optional
 
 
 # -----------------------------------------------------------------------------
@@ -31,6 +31,20 @@ def pad_display(text: str, width: int) -> str:
     return text + ' ' * pad_len
 
 # -----------------------------------------------------------------------------
+# Custom LoggerAdapter
+# -----------------------------------------------------------------------------
+
+class EmojiAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        emoji1 = kwargs.pop("emoji1", '')
+        emoji2 = kwargs.pop("emoji2", '')
+        extra = kwargs.setdefault("extra", {})
+        extra["emoji1"] = emoji1
+        extra["emoji2"] = emoji2
+        extra["label"] = self.extra.get("label", "")
+        return msg, kwargs
+
+# -----------------------------------------------------------------------------
 # Logger setup with emoji-aligned formatting
 # -----------------------------------------------------------------------------
 
@@ -40,12 +54,12 @@ def setup_logger(
     log_file: Optional[str] = None,
     console: bool = True,
     tag: Optional[str] = None,
-) -> logging.Logger:
+) -> EmojiAdapter:
     LEVEL_MAP = {
-        "DEBUG": "DEBUG",
-        "INFO": "INFO",
-        "WARNING": "WARNING",
-        "ERROR": "ERROR",
+        "DEBUG":    "DEBUG   ",
+        "INFO":     "INFO    ",
+        "WARNING":  "WARNING ",
+        "ERROR":    "ERROR   ",
         "CRITICAL": "CRITICAL"
     }
 
@@ -57,21 +71,10 @@ def setup_logger(
 
             level = pad_display(LEVEL_MAP.get(record.levelname, record.levelname), 8)
             timestamp = self.formatTime(record, self.datefmt)
-            logger_name = record.name
             tag_str = f"[{record.__dict__.get('label', '')}] " if record.__dict__.get('label') else ""
             message = record.getMessage()
 
             return f"{emoji_block}{level}  {timestamp} {tag_str}{message}"
-
-    class EmojiAdapter(logging.LoggerAdapter):
-        def process(self, msg, kwargs):
-            emoji1 = kwargs.pop("emoji1", '')
-            emoji2 = kwargs.pop("emoji2", '')
-            extra = kwargs.setdefault("extra", {})
-            extra["emoji1"] = emoji1
-            extra["emoji2"] = emoji2
-            extra["label"] = self.extra.get("label", "")
-            return msg, kwargs
 
     logger = logging.getLogger(name)
     logger.setLevel(level)

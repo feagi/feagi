@@ -281,7 +281,7 @@ class ConnectomeManager:
             # Large regular areas
             self._large_regular_areas.add(cortical_idx)
         
-        logger.info(f"Added cortical area {name} (ID: {cortical_idx}) with dimensions {dimensions}")
+        logger.debug(f"Added cortical area {name} (ID: {cortical_idx}) with dimensions {dimensions}")
         return area
     
     def create_neuron(self, area_id: int, position: Tuple[int, int, int], 

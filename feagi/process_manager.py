@@ -18,6 +18,7 @@ import time
 from typing import Dict, Any, Optional, List, Tuple, Set
 from feagi.npu.burst_engine import FCLSampler
 from queue import Queue
+import re
 
 
 # Process priority levels
@@ -335,13 +336,66 @@ class ProcessManager:
             
     def _monitor_process_output(self, process, process_name):
         """Monitor and log output from a subprocess."""
+        # Pattern to match log lines with emoji and log level
+        # Format: [emoji1]  [level]  [timestamp] [label] message
+        emoji_log_pattern = re.compile(r'^([^\s]{1,2})\s+(?:INFO|DEBUG|WARNING|ERROR|CRITICAL)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})(?:\s+\[[^\]]+\])?\s*(.*)')
+        
+        # Fallback pattern for standard log lines without emoji
+        std_log_pattern = re.compile(r'^\s*(?:DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})(?:\s+\[[^\]]+\])?\s*(.*)')
+        
+        # Pattern to detect nested logs within a message
+        nested_emoji_pattern = re.compile(r'([^\s]{1,2})\s+(?:INFO|DEBUG|WARNING|ERROR|CRITICAL)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\s+\[[^\]]+\])?\s*(.*)')
+        nested_std_pattern = re.compile(r'(?:DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\s+\[[^\]]+\])?\s*(.*)')
+        
         while True:
             line = process.stdout.readline()
             if not line and process.poll() is not None:
                 break
             if line:
                 line = line.rstrip()
-                logger.info(f"{process_name} {line}", emoji1="  ")
+                
+                # First try to match log lines with emoji
+                match = emoji_log_pattern.search(line)
+                if match:
+                    emoji = match.group(1)
+                    message = match.group(3).strip()
+                    
+                    # Check for nested logs in the message
+                    nested_emoji_match = nested_emoji_pattern.search(message)
+                    if nested_emoji_match:
+                        # Use the emoji from the nested log if available
+                        nested_emoji = nested_emoji_match.group(1)
+                        nested_message = nested_emoji_match.group(2).strip()
+                        logger.info(f"{process_name}: {nested_message}", emoji1=nested_emoji)
+                    else:
+                        nested_std_match = nested_std_pattern.search(message)
+                        if nested_std_match:
+                            nested_message = nested_std_match.group(1).strip()
+                            logger.info(f"{process_name}: {nested_message}", emoji1=emoji)
+                        else:
+                            logger.info(f"{process_name}: {message}", emoji1=emoji)
+                else:
+                    # Try standard log pattern
+                    std_match = std_log_pattern.search(line)
+                    if std_match:
+                        message = std_match.group(2).strip()
+                        
+                        # Check for nested logs in the message
+                        nested_emoji_match = nested_emoji_pattern.search(message)
+                        if nested_emoji_match:
+                            nested_emoji = nested_emoji_match.group(1)
+                            nested_message = nested_emoji_match.group(2).strip()
+                            logger.info(f"{process_name}: {nested_message}", emoji1=nested_emoji)
+                        else:
+                            nested_std_match = nested_std_pattern.search(message)
+                            if nested_std_match:
+                                nested_message = nested_std_match.group(1).strip()
+                                logger.info(f"{process_name}: {nested_message}")
+                            else:
+                                logger.info(f"{process_name}: {message}")
+                    else:
+                        # If no log pattern matches, log the full line
+                        logger.info(f"{process_name} {line}")
         
         rc = process.poll()
         if rc != 0:
