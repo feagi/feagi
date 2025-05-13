@@ -9,7 +9,8 @@ This module handles detection of various hardware components including:
 """
 import os
 import platform
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 from typing import Dict, List, Optional, Any, Tuple, Union
 
 logger = logging.getLogger("feagi.hardware")

@@ -1,11 +1,11 @@
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 from contextlib import contextmanager
 import uuid
 import time
 
 from feagi.core.state_manager import ServiceState, GenomeState
 
-logger = logging.getLogger(__name__)
 
 class GenomeTransaction:
     """Handles atomic genome modifications with connectome synchronization"""
@@ -45,7 +45,7 @@ class GenomeTransaction:
         """Commit all changes and synchronize with connectome"""
         if self._has_committed:
             try:
-                logger.warning("Transaction already committed", emoji="⚠️")
+                logger.warning("Transaction already committed", emoji1="⚠️")
             except TypeError:
                 logger.warning("⚠️ Transaction already committed")
             return False
@@ -66,7 +66,7 @@ class GenomeTransaction:
         except Exception as e:
             # Roll back changes
             try:
-                logger.error(f"Transaction failed: {e}", emoji="❌")
+                logger.error(f"Transaction failed: {e}", emoji1="❌")
             except TypeError:
                 logger.error(f"❌ Transaction failed: {e}")
             self.rollback()
@@ -82,7 +82,7 @@ class GenomeTransaction:
         genome = self._get_core_api_service().get_genome()
         if not genome:
             try:
-                logger.error("Cannot rollback - no genome loaded", emoji="⚠️")
+                logger.error("Cannot rollback - no genome loaded", emoji1="⚠️")
             except TypeError:
                 logger.error("⚠️ Cannot rollback - no genome loaded")
             return
@@ -103,7 +103,7 @@ class GenomeTransaction:
                 
             except Exception as e:
                 try:
-                    logger.error(f"Error during rollback: {e}", emoji="⚠️")
+                    logger.error(f"Error during rollback: {e}", emoji1="⚠️")
                 except TypeError:
                     logger.error(f"⚠️ Error during rollback: {e}")
         
@@ -112,7 +112,7 @@ class GenomeTransaction:
         # Update state
         self._get_state_manager().set_genome_state(GenomeState.LOADED)
         try:
-            logger.info(f"Transaction {self._transaction_id} rolled back: {self.description}", emoji="↩️")
+            logger.info(f"Transaction {self._transaction_id} rolled back: {self.description}", emoji1="↩️")
         except TypeError:
             logger.info(f"↩️ Transaction {self._transaction_id} rolled back: {self.description}")
 
@@ -139,7 +139,7 @@ class GenomeTransaction:
 
     def _apply_to_genome(self, operation, path, old_value, new_value):
         """Apply a change to the genome"""
-        logger.info(f"Applying genome operation: {operation}", emoji="🧬")
+        logger.info(f"Applying genome operation: {operation}", emoji1="🧬")
         
         # Handle different operation types
         if operation == "update_cortical_area":
@@ -164,7 +164,7 @@ class GenomeTransaction:
             genome: Optional genome data. If not provided, will get from core_api_service
         """
         try:
-            logger.info("Synchronizing changes with connectome", emoji="🔄")
+            logger.info("Synchronizing changes with connectome", emoji1="🔄")
         except TypeError:
             logger.info("🔄 Synchronizing changes with connectome")
         

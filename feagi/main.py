@@ -10,18 +10,18 @@ import os
 import signal
 import sys
 import time
-import logging
+from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager
 from feagi.logging_config import setup_feagi_logging
 
 setup_feagi_logging()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(message)s'
-)
-logger = logging.getLogger("feagi.main")
+# # Configure logging
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='%(message)s'
+# )
+logger = setup_logger("feagi.main")
 
 def check_dependencies():
     """
@@ -33,7 +33,7 @@ def check_dependencies():
     Returns:
         bool: True if all dependencies are compatible, False otherwise.
     """
-    logger.info("Checking dependency versions...", emoji="  ")
+    logger.info("Checking dependency versions...", emoji1="  ")
     
     try:
         # Import here to avoid circular imports
@@ -42,7 +42,7 @@ def check_dependencies():
         # Check if FEAGI_SKIP_VERSION_CHECK environment variable is set
         skip_check = os.environ.get("FEAGI_SKIP_VERSION_CHECK", "").lower() in ("1", "true", "yes")
         if skip_check:
-            logger.info("Dependency version check skipped (FEAGI_SKIP_VERSION_CHECK is set)", emoji="✓")
+            logger.info("Dependency version check skipped (FEAGI_SKIP_VERSION_CHECK is set)", emoji1="✓")
             return True
             
         # Get the path to requirements.txt
@@ -52,14 +52,14 @@ def check_dependencies():
         is_compatible = verify_dependencies(requirements_path, raise_exception=False)
         
         if is_compatible:
-            logger.info("All dependencies are compatible with requirements", emoji="✓ ")
+            logger.info("All dependencies are compatible with requirements", emoji1="✓ ")
         else:
-            logger.warning("Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.", emoji="⚠ ")
+            logger.warning("Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.", emoji1="⚠ ")
             
         return is_compatible
         
     except Exception as e:
-        logger.error(f"Error checking dependencies: {e}", emoji="❌")
+        logger.error(f"Error checking dependencies: {e}", emoji1="❌")
         return True  # Continue execution despite the error
 
 def main():
@@ -115,7 +115,7 @@ def main():
     
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):
-        logger.info("\nShutting down FEAGI servers...", emoji="  ")
+        logger.info("\nShutting down FEAGI servers...", emoji1="  ")
         process_manager.shutdown_all()
         FeagiStateManager.instance().cleanup()
         sys.exit(0)

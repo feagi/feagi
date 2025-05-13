@@ -21,7 +21,8 @@ A tool to help add custom keys to genome
 Todo: Make improvements to this tool as it will have further use-cases.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import traceback
 
 import hashlib
@@ -32,7 +33,6 @@ import json
 from feagi.core.state_manager import FeagiStateManager
 
 
-logger = logging.getLogger(__name__)
 
 
 def set_default(obj):

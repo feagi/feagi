@@ -6,7 +6,8 @@ providing high-performance implementations of FCL operations when a GPU backend
 is available.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import numpy as np
 from typing import Dict, List, Set, Optional, Union, Tuple, Any, cast
 
@@ -14,7 +15,7 @@ from feagi.core.backend import BackendType, get_backend
 from feagi.core.backend.interface import BackendInterface
 from feagi.npu.fcl_manager import BitMap, BitMapProtocol, NeuronId, AreaId, MembraneUpdate, EnhancedFCLManager
 
-logger = logging.getLogger(__name__)
+
 
 
 class GPUBitMap:

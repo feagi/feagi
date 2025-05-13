@@ -9,7 +9,8 @@ It provides:
 """
 
 import asyncio
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import time
 import uuid
 from typing import Dict, Any, List, Optional, Set, Tuple, Union
@@ -21,8 +22,6 @@ import numpy as np
 from ...core.service import CoreApiService
 from ..serialization import serialize_message, deserialize_message
 from ...utils.rate_limit import RateLimiter
-
-logger = logging.getLogger(__name__)
 
 
 class VisualizationStream:

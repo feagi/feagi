@@ -5,7 +5,8 @@ This module provides a CPU-based implementation of the backend interface
 using NumPy for tensor operations.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger("feagi.core.backend.cpu")
 import platform
 from typing import Any, Optional, Set, Tuple, Union
 
@@ -18,7 +19,6 @@ from feagi.core.backend.interface import (
     register_backend,
 )
 
-logger = logging.getLogger("feagi.core.backend.cpu")
 
 
 class CPUBackend(BackendInterface):

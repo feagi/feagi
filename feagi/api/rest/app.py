@@ -18,7 +18,8 @@ import traceback
 import time
 import string
 import random
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import json
 
 from fastapi import FastAPI, Depends, Request
@@ -47,7 +48,7 @@ from .response_utils import success_response, error_response
 from .routers.v2 import genome as genome_v2
 # ... other v2 imports
 
-logger = logging.getLogger(__name__)
+
 
 
 description = """FEAGI REST API will help you integrate FEAGI into other applications and 
@@ -91,14 +92,14 @@ async def log_requests(request: Request, call_next):
     Credit: Phil Girard
     """
     idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    logger.info(f"rid={idem} start request path={request.url.path}", emoji="🌐")
+    logger.info(f"rid={idem} start request path={request.url.path}", emoji1="🌐")
     start_time = time.time()
 
     response = await call_next(request)
 
     process_time = (time.time() - start_time) * 1000
     formatted_process_time = '{0:.2f}'.format(process_time)
-    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}", emoji="✅")
+    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}", emoji1="✅")
 
     # print(response.status_code, ":", request.method, ":", request.url.path)
     return response

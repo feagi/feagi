@@ -18,7 +18,8 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from ...commons import *
 from ...schemas import *
@@ -28,7 +29,7 @@ from feagi.bdu import ConnectomeManager
 
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+
 
 
 # MorphologyName model for endpoints

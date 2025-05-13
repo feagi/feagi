@@ -15,7 +15,8 @@
 # ==============================================================================
 
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import copy
 import traceback
 import datetime
@@ -27,8 +28,6 @@ from feagi.core.state_manager import FeagiStateManager, GenomeState
 import os
 from time import time
 
-
-logger = logging.getLogger(__name__)
 
 # Helper to get state manager instance
 state = FeagiStateManager.instance()

@@ -6,10 +6,10 @@ This module provides the critical (Priority 1) components of the FEAGI framework
 - FCL Manager: Maintains the Fire Candidate List
 - Memory & Learning Manager: Applies plasticity rules to synaptic weights
 """
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 from typing import Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
 
 def create_core_api(connectome, config: Dict[str, Any] = None):
     """

@@ -18,7 +18,8 @@ import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Tuple
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from ...commons import *
 from ...schemas import *
@@ -28,7 +29,7 @@ from feagi.evo.templates import cortical_types
 from feagi.pns.vision import generate_vision_configuration
 from feagi.api.rest.schemas import VisionSettings
 
-logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 

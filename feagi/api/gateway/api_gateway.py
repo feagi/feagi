@@ -5,14 +5,14 @@ to access core FEAGI functionality. It serves as a connection point between
 different API interfaces (REST, ZMQ, etc.) and the underlying core components.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
 import os
 from typing import Dict, Any, Optional, List
 
 from feagi.api.core.services import CoreAPIService
 from feagi.api.zmq.client import ZmqClient
 
-logger = logging.getLogger(__name__)
+
 
 
 class APIGateway:

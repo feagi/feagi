@@ -19,7 +19,8 @@ import os
 import json
 from enum import Enum
 from datetime import datetime
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from time import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
@@ -82,7 +83,7 @@ async def upload_barebones_genome():
     burst_engine = core_api_service.get_burst_engine()
     if burst_engine:
         burst_engine.update_with_genome()
-        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
+        logger.info("Burst Engine updated with new genome", emoji1="⚡ ")
     return result
 
 
@@ -112,7 +113,7 @@ async def genome_default_upload(core_api_service: CoreAPIService = Depends(get_c
         burst_engine = core_api_service.get_burst_engine()
         if burst_engine and result["success"]:
             burst_engine.update_with_genome()
-            logger.info("Burst Engine updated with new genome", emoji="⚡")
+            logger.info("Burst Engine updated with new genome", emoji1="⚡")
         
         return success_response(
             data=result,
@@ -120,7 +121,7 @@ async def genome_default_upload(core_api_service: CoreAPIService = Depends(get_c
         )
         
     except Exception as e:
-        logger.error(f"Failed to upload essential genome: {str(e)}", emoji="❌")
+        logger.error(f"Failed to upload essential genome: {str(e)}", emoji1="❌")
         return JSONResponse(
             status_code=500,
             content=error_response(message=f"Failed to upload essential genome: {str(e)}", error_code="GENOME_UPLOAD_ERROR")
@@ -152,7 +153,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
         burst_engine = core_api_service.get_burst_engine()
         if burst_engine:
             burst_engine.update_with_genome()
-            logger.info("Burst Engine updated with new genome", emoji="⚡")
+            logger.info("Burst Engine updated with new genome", emoji1="⚡")
             
         # Return raw response for v1 compatibility
         return raw_response({
@@ -160,7 +161,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
             "genome_counter": state.get_genome_counter()
         })
     except Exception as e:
-        logger.error(f"Failed to upload genome: {str(e)}", emoji="❌")
+        logger.error(f"Failed to upload genome: {str(e)}", emoji1="❌")
         return JSONResponse(
             status_code=500,
             content=error_response(message=f"Failed to upload genome: {str(e)}", error_code="GENOME_UPLOAD_ERROR")
@@ -195,7 +196,7 @@ async def genome_string_upload(genome: dict):
     burst_engine = core_api_service.get_burst_engine()
     if burst_engine:
         burst_engine.update_with_genome()
-        logger.info("Burst Engine updated with new genome", emoji="⚡ ")
+        logger.info("Burst Engine updated with new genome", emoji1="⚡ ")
     return {"loaded": result, "genome_counter": state.get_genome_counter()}
 
 

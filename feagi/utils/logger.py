@@ -3,50 +3,93 @@ import logging
 import os
 import sys
 from typing import Optional
+import unicodedata
+
+
+# -----------------------------------------------------------------------------
+# Width-aware string utilities
+# -----------------------------------------------------------------------------
+
+def display_width(text: str) -> int:
+    """
+    Compute the visual width of a string, treating wide and fullwidth Unicode
+    characters (e.g., CJK, emojis) as 2 columns, and others as 1.
+    """
+    width = 0
+    for char in text:
+        if unicodedata.east_asian_width(char) in ('F', 'W'):
+            width += 2
+        else:
+            width += 1
+    return width
+
+def pad_display(text: str, width: int) -> str:
+    """
+    Pads a string with spaces to match a desired display width.
+    """
+    pad_len = max(0, width - display_width(text))
+    return text + ' ' * pad_len
+
+# -----------------------------------------------------------------------------
+# Logger setup with emoji-aligned formatting
+# -----------------------------------------------------------------------------
 
 def setup_logger(
     name: str = "feagi",
     level: int = logging.INFO,
     log_file: Optional[str] = None,
     console: bool = True,
+    tag: Optional[str] = None
 ) -> logging.Logger:
-    """
-    Set up a logger with the given name and level.
-    
-    Args:
-        name: Name of the logger.
-        level: Logging level (default: INFO).
-        log_file: Optional path to a log file.
-        console: Whether to log to console (default: True).
-        
-    Returns:
-        Configured logger.
-    """
+    LEVEL_MAP = {
+        "DEBUG":    "DEBUG",
+        "INFO":     "INFO",
+        "WARNING":  "WARNING",
+        "ERROR":    "ERROR",
+        "CRITICAL": "CRITICAL",
+    }
+
+    class AlignedFormatter(logging.Formatter):
+        def format(self, record):
+            emoji1 = getattr(record, 'emoji1', '')
+            emoji2 = getattr(record, 'emoji2', '')
+            emoji_block = pad_display(f"{emoji1}{emoji2}", 4)
+
+            level = pad_display(LEVEL_MAP.get(record.levelname, record.levelname), 8)
+            timestamp = self.formatTime(record, self.datefmt)
+            logger_name = record.name
+            message = record.getMessage()
+
+            tag_str = f"[{tag}] " if tag else ""
+
+            return f"{emoji_block}{level}  {timestamp} {logger_name} {tag_str}{message}"
+
+    class EmojiAdapter(logging.LoggerAdapter):
+        def process(self, msg, kwargs):
+            emoji1 = kwargs.pop('emoji1', '')
+            emoji2 = kwargs.pop('emoji2', '')
+            kwargs.setdefault('extra', {})['emoji1'] = emoji1
+            kwargs['extra']['emoji2'] = emoji2
+            return msg, kwargs
+
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    
-    # Create formatters
-    detailed_formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s"
-    )
-    simple_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    
-    # Remove existing handlers
-    logger.handlers = []
-    
-    # Add file handler if log_file is provided
+    logger.handlers.clear()
+    logger.propagate = False
+
+    formatter = AlignedFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+
     if log_file:
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(level)
-        file_handler.setFormatter(detailed_formatter)
+        file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-    
-    # Add console handler if console is True
+
     if console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(level)
-        console_handler.setFormatter(simple_formatter)
+        console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
-    
-    return logger 
+
+    return EmojiAdapter(logger, {})

@@ -25,9 +25,10 @@ from ...schemas import *
 from feagi.version import __version__
 from feagi.evo.templates import cortical_types
 from feagi.core.state_manager import FeagiStateManager
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
-logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 

@@ -17,6 +17,8 @@
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
@@ -25,8 +27,10 @@ from feagi.bdu.brain_region import change_cortical_area_parent, create_region, u
 from feagi.bdu.mapping_utils import get_detailed_cortical_map
 from feagi.bdu import ConnectomeManager
 from feagi.api.rest.dependencies import get_connectome, get_core_api_service
-from feagi.core.state_manager import get_state_manager
-from feagi.core.state_manager import ServiceState
+from feagi.core.state_manager import get_state_manager, ServiceState
+from feagi.core.state_manager import FeagiStateManager
+from feagi.api.core.services import CoreAPIService
+from feagi.api.rest.common import raw_response
 
 from ...schemas import CorticalId, CorticalIdList, NewCorticalProperties, NewCustomCorticalProperties, UpdateCorticalProperties, UpdateMultipleCorticalProperties, CorticalName, CorticalList
 from ...commons import *
@@ -284,25 +288,48 @@ async def delete_cortical_area(
 
 @router.get("/cortical_area_id_list")
 async def cortical_area_id_list(
-    state_manager = Depends(get_state_manager),
-    core_api_service = Depends(get_core_api_service)
+    connectome: ConnectomeManager = Depends(get_connectome)
 ):
-    """Returns the list of cortical area IDs in the connectome"""
-    # Check if we're in the middle of a sync operation
-    if state_manager.genome_sync_state == ServiceState.SYNCING:
-        raise HTTPException(
-            status_code=503, 
-            detail="Genome synchronization in progress, please try again."
-        )
-    
-    # Get the genome from the core API service
-    genome = core_api_service.get_genome()
-    
-    # Return the cortical area IDs from the blueprint
-    if genome and "blueprint" in genome:
-        return list(genome["blueprint"].keys())
-    else:
-        return []
+    """Return the list of cortical area IDs (6-letter strings) present in the current genome"""
+    try:
+        # Direct access to connectome._areas which has the 6-letter IDs
+        print("1")
+        if hasattr(connectome, '_areas') and connectome._areas:
+            print("2")
+            print(connectome._areas, "connectome._areas")
+            return list(connectome._areas.keys())
+        
+        # If we got this far, we couldn't find any cortical areas
+        raise HTTPException(status_code=400, detail="No cortical areas found!")
+        
+    except Exception as e:
+        # Log the error for debugging
+
+        logger.error(f"Error fetching cortical area list: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to get cortical area list: {str(e)}")
+
+
+@router.get("/cortical_area_index_list")
+async def cortical_area_index_list(
+    connectome: ConnectomeManager = Depends(get_connectome)
+):
+    """Return the list of cortical area indices (integers) used by the FCL"""
+    try:
+        # Try different possible attribute names based on the documentation
+        for attr_name in ['cortical_indices', 'area_indices', 'fcl_indices']:
+            if hasattr(connectome, attr_name):
+                indices = getattr(connectome, attr_name)
+                if indices:
+                    return list(indices)
+        
+        # If we got this far, we couldn't find any cortical indices
+        raise HTTPException(status_code=400, detail="No cortical area indices found!")
+        
+    except Exception as e:
+        # Log the error for debugging
+
+        logger.error(f"Error fetching cortical area indices: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to get cortical area indices: {str(e)}")
 
 
 @router.post("/cortical_name_location")

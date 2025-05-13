@@ -5,12 +5,12 @@ This module provides functions for loading configuration from various sources.
 """
 
 import os
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger("feagi.config")
 from typing import Dict, Any, Optional
 import yaml
 import copy
 
-logger = logging.getLogger("feagi.config")
 
 DEFAULT_CONFIG = {
     "npu": {

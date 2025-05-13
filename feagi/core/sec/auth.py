@@ -1,6 +1,7 @@
 """Authentication module for FEAGI."""
 import os
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import secrets
 import time
 from typing import Dict, Optional, Union

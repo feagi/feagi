@@ -9,7 +9,8 @@ This module provides mechanisms for:
 """
 import os
 import time
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import threading
 from typing import Dict, List, Optional, Any, Callable, Set, Tuple
 from dataclasses import dataclass, field

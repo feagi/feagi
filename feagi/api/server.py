@@ -6,13 +6,13 @@ entry point should be used for running the complete system.
 """
 import os
 import argparse
-import logging
+from feagi.utils.logger import setup_logger
 import uvicorn
 from feagi.logging_config import setup_feagi_logging
 
 setup_feagi_logging()
 
-logger = logging.getLogger(__name__)
+logger = setup_logger()
 
 def main():
     """Run the FEAGI API server in standalone mode."""
@@ -40,13 +40,13 @@ def main():
         os.environ["FEAGI_ZMQ_PUSH_PORT"] = str(args.zmq_push_port)
         os.environ["FEAGI_ZMQ_STREAM_PORT"] = str(args.zmq_stream_port)
     
-    logger.info(f"Starting FEAGI API server on {args.host}:{args.port}", emoji="🚀")
+    logger.info(f"Starting FEAGI API server on {args.host}:{args.port}", emoji1="🚀")
     if args.zmq:
-        logger.info(f"ZeroMQ client mode enabled, connecting to {args.zmq_host}", emoji="  ")
-        logger.info(f"  - Request-Reply port: {args.zmq_req_port}", emoji="  ")
-        logger.info(f"  - Publish-Subscribe port: {args.zmq_pub_port}", emoji="  ")
-        logger.info(f"  - Push-Pull port: {args.zmq_push_port}", emoji="  ")
-        logger.info(f"  - Stream port: {args.zmq_stream_port}", emoji="  ")
+        logger.info(f"ZeroMQ client mode enabled, connecting to {args.zmq_host}", emoji1="  ")
+        logger.info(f"  - Request-Reply port: {args.zmq_req_port}", emoji1="  ")
+        logger.info(f"  - Publish-Subscribe port: {args.zmq_pub_port}", emoji1="  ")
+        logger.info(f"  - Push-Pull port: {args.zmq_push_port}", emoji1="  ")
+        logger.info(f"  - Stream port: {args.zmq_stream_port}", emoji1="  ")
     
     # Run the API server
     uvicorn.run(

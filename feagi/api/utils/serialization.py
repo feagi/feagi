@@ -8,11 +8,11 @@ different data formats used in the API.
 import json
 import struct
 import zlib
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import numpy as np
 from typing import Any, Dict, List, Union, Optional, Tuple
 
-logger = logging.getLogger(__name__)
 
 def serialize_data(
     data: Any,

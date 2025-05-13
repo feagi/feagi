@@ -6,7 +6,8 @@ allowing for transparent switching between different computational backends.
 """
 
 import enum
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger("feagi.core.backend")
 import threading
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Set, Tuple, Union, Any, Type
@@ -15,7 +16,6 @@ import numpy as np
 
 from feagi.config import config
 
-logger = logging.getLogger("feagi.core.backend")
 
 
 class BackendType(enum.Enum):

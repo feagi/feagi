@@ -8,7 +8,8 @@ a brain from a genome file.
 
 import os
 import sys
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import datetime
 from pathlib import Path
 import traceback

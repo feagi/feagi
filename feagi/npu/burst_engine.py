@@ -2,9 +2,10 @@ import time
 import signal
 import threading
 from feagi.core.state_manager import FeagiStateManager, ServiceState
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
-logger = logging.getLogger(__name__)
+
 
 """
 Burst Engine Implementation for FEAGI.
@@ -58,7 +59,7 @@ class BurstEngine:
         
         # Initialize in a valid but inactive state
         # Will become fully operational when a genome is loaded
-        logger.info("Burst Engine initialized in standby mode", emoji="⚡ ")
+        logger.info("Burst Engine initialized in standby mode", emoji1="⚡ ")
         
         self.state_manager = FeagiStateManager.instance()
         
@@ -117,7 +118,7 @@ class BurstEngine:
         if hasattr(self.connectome_manager, 'is_ready') and self.connectome_manager.is_ready():
             self.cortical_areas = list(self.connectome_manager._areas.values())
             self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
-        logger.info("Burst Engine updated with genome information", emoji="⚡ ")
+        logger.info("Burst Engine updated with genome information", emoji1="⚡ ")
 
 # --- FCLSampler Implementation ---
 

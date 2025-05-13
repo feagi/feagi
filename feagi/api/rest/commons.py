@@ -3,11 +3,11 @@ Common utilities and classes for the REST API.
 """
 
 import queue
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger("feagi.api.rest.commons")
 from typing import Dict, Any, Optional
 from fastapi import Request, HTTPException
 
-logger = logging.getLogger("feagi.api.rest.commons")
 
 # Queue for API requests processing
 api_queue = queue.Queue()

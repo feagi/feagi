@@ -7,13 +7,12 @@ It supports sparse synaptic connectivity, plasticity modeling, and
 efficient operations for CPU and GPU execution.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import numpy as np
 import threading
 import scipy.sparse as sp
 from typing import Dict, List, Tuple, Optional, Set, Union, Any
-
-logger = logging.getLogger(__name__)
 
 
 class SynapseManager:

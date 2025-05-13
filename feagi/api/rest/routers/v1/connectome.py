@@ -27,10 +27,11 @@ from ...commons import *
 from feagi.bdu import ConnectomeManager
 from feagi.core.state_manager import FeagiStateManager
 from feagi.api.core.services.core_api_service import CoreAPIService
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 from feagi.api.rest.dependencies import get_connectome
 
-logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 

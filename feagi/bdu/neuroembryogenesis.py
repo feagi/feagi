@@ -28,7 +28,8 @@ and focuses on memory efficiency and thread-safety.
 import os
 import sys
 import json
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import random
 import concurrent.futures
 import types
@@ -74,8 +75,6 @@ except ImportError:
             def __len__(self):
                 return len(self.bits)
 
-# Configure logging
-logger = logging.getLogger(__name__)
 
 # Handle import from either new or old structure
 try:
@@ -313,7 +312,9 @@ class Neuroembryogenesis:
         """
         # In FEAGI 2.1, blueprint entries follow the pattern:
         # _____10c-<cortical_id>-<gene_type>-<property>-<value_type>
-        
+
+        print(">>>>> cortical_id", cortical_id)
+
         properties = {}
         blueprint = self.genome["blueprint"]
         

@@ -4,11 +4,11 @@ Rate limiting utilities for FEAGI API.
 This module provides rate limiting mechanisms for API requests.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import time
 from typing import Dict, Optional, List, Any, Union
 
-logger = logging.getLogger(__name__)
 
 class RateLimiter:
     """

@@ -5,11 +5,11 @@ This module provides configuration management for FEAGI components,
 allowing settings to be loaded from files or environment variables.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import os
 from typing import Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
 
 class FeagiConfig:
     """

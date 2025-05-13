@@ -5,7 +5,8 @@ This module provides a WebGPU-based backend for tensor operations in FEAGI,
 enabling GPU acceleration across different platforms without vendor lock-in.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import numpy as np
 from typing import Optional, Tuple, Union, List, Dict, Any
 
@@ -17,7 +18,6 @@ except ImportError:
 
 from feagi.core.backend.interface import BackendInterface, BackendType, register_backend
 
-logger = logging.getLogger(__name__)
 
 class WebGPUTensor:
     """A tensor implementation using WebGPU for storage and computation."""

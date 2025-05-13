@@ -6,7 +6,8 @@ used for running the complete system.
 """
 import argparse
 import asyncio
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import os
 import signal
 import sys
@@ -46,14 +47,14 @@ def main():
     if args.mock:
         from unittest.mock import MagicMock
         core_api = MagicMock()
-        logger.info("Using mock core API", emoji="🔌")
+        logger.info("Using mock core API", emoji1="🔌")
     else:
         try:
             from feagi.core import create_core_api
             core_api = create_core_api({})
-            logger.info("Using real core API", emoji="🔌")
+            logger.info("Using real core API", emoji1="🔌")
         except ImportError:
-            logger.error("Failed to import core API, using mock instead", emoji="⚠ ")
+            logger.error("Failed to import core API, using mock instead", emoji1="⚠ ")
             from unittest.mock import MagicMock
             core_api = MagicMock()
     
@@ -70,7 +71,7 @@ def main():
     
     # Setup signal handlers
     def signal_handler(sig, frame):
-        logger.info("Shutting down ZMQ server...", emoji="  ")
+        logger.info("Shutting down ZMQ server...", emoji1="  ")
         zmq_server.shutdown()
         sys.exit(0)
     
@@ -78,7 +79,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Start the server
-    logger.info(f"Starting ZMQ server on {args.host}:{args.req_port}", emoji="🚀")
+    logger.info(f"Starting ZMQ server on {args.host}:{args.req_port}", emoji1="🚀")
     logger.info(f"    - PUB/SUB port: {args.pub_port}")
     logger.info(f"    - PUSH/PULL port: {args.push_port}")
     logger.info(f"    - Sensorimotor port: {args.sensorimotor_port}")

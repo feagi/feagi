@@ -4,14 +4,13 @@ This module implements a ZeroMQ client for connecting to a remote FEAGI ZMQ serv
 """
 
 import asyncio
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import time
 from typing import Any, Dict, List, Optional, Callable
 
 import zmq
 import zmq.asyncio
-
-logger = logging.getLogger(__name__)
 
 class ZmqClient:
     """

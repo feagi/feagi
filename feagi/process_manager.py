@@ -5,7 +5,9 @@ architecture described in feagi_processes.md. It handles starting, monitoring, a
 stopping processes according to their priority levels.
 """
 import asyncio
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
+
 import os
 import signal
 import socket
@@ -17,7 +19,6 @@ from typing import Dict, Any, Optional, List, Tuple, Set
 from feagi.npu.burst_engine import FCLSampler
 from queue import Queue
 
-logger = logging.getLogger(__name__)
 
 # Process priority levels
 PRIORITY_CRITICAL = 1  # Real-time critical processes
@@ -121,7 +122,7 @@ class ProcessManager:
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
             
-            logger.info("✓ Critical processes initialized successfully", emoji="✓ ")
+            logger.info("✓ Critical processes initialized successfully", emoji1="✓ ")
             return True
             
         except Exception as e:
@@ -171,7 +172,7 @@ class ProcessManager:
             self._fcl_sampler_thread = threading.Thread(target=self._fcl_sampler.run, daemon=True)
             self._fcl_sampler_thread.start()
             state_manager.set_fcl_sampler_state(ServiceState.READY)
-            logger.info("FCLSampler started successfully.", emoji="✓ ")
+            logger.info("FCLSampler started successfully.", emoji1="✓ ")
             # --- FCLSampler Integration ---
             # If you add dynamic reconfiguration of frequency/consumer, update state manager here as well.
             
@@ -213,7 +214,7 @@ class ProcessManager:
                 logger.error("Failed to start ZMQ server")
                 return False
                 
-            logger.info("✓ Important processes initialized successfully", emoji="✓ ")
+            logger.info("✓ Important processes initialized successfully", emoji1="✓ ")
             return True
             
         except Exception as e:
@@ -285,7 +286,7 @@ class ProcessManager:
                 env["FEAGI_CORE_API_AVAILABLE"] = "0"
                 
             # Start the API server process
-            logger.info(f"Starting FEAGI API server on {api_host}:{api_port}", emoji="  ")
+            logger.info(f"Starting FEAGI API server on {api_host}:{api_port}", emoji1="  ")
             
             process = subprocess.Popen(
                 cmd, 
@@ -325,7 +326,7 @@ class ProcessManager:
             # Initialize additional background processes here in the future
             # such as Stem Cell Manager, Sleep Manager, etc.
             
-            logger.info("✓ Background processes initialized successfully", emoji="✓ ")
+            logger.info("✓ Background processes initialized successfully", emoji1="✓ ")
             return True
             
         except Exception as e:
@@ -340,7 +341,7 @@ class ProcessManager:
                 break
             if line:
                 line = line.rstrip()
-                logger.info(f"{process_name} {line}", emoji="  ")
+                logger.info(f"{process_name} {line}", emoji1="  ")
         
         rc = process.poll()
         if rc != 0:
@@ -351,7 +352,7 @@ class ProcessManager:
         output, _ = process.communicate()
         if output:
             for line in output.splitlines():
-                logger.error(f"process output {line}", emoji="❌")
+                logger.error(f"process output {line}", emoji1="❌")
         else:
             logger.error("No output available from the process")
     

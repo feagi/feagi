@@ -7,7 +7,8 @@ The implementation is optimized for performance and compatibility with Rust.
 """
 
 import re
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import traceback
 from typing import Dict, List, Tuple, Set, Optional, Union, Any, Callable, Iterator, Generator
 from enum import Enum
@@ -43,8 +44,6 @@ VoxelIndex = Tuple[int, int, int, int]  # area_id, x, y, z
 LinearPosition = int
 BoundingBox = Tuple[Tuple[int, int, int], Tuple[int, int, int]]  # ((min_x, min_y, min_z), (max_x, max_y, max_z))
 MorphologyParams = Dict[str, Any]
-
-logger = logging.getLogger(__name__)
 
 
 class RuleType(Enum):

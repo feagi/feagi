@@ -7,7 +7,8 @@ high-performance, real-time communication with clients.
 
 import os
 import time
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import threading
 import asyncio
 import concurrent.futures
@@ -19,7 +20,6 @@ from zmq.auth.thread import ThreadAuthenticator
 
 from ..core.service import CoreApiService
 
-logger = logging.getLogger(__name__)
 
 class ZmqServer:
     """

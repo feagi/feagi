@@ -19,14 +19,15 @@ from fastapi import APIRouter, HTTPException
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
 from pydantic import BaseModel
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from ...schemas import *
 
 
 router = APIRouter()
 state = FeagiStateManager.instance()
-logger = logging.getLogger(__name__)
+
 
 
 # Define CorticalIdList model for API endpoints

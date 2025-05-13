@@ -4,10 +4,10 @@ Configuration validation for FEAGI.
 This module provides functions for validating configuration settings.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger("feagi.config")
 from typing import Dict, Any, Tuple, List
 
-logger = logging.getLogger("feagi.config")
 
 
 def validate_config(config: Dict[str, Any]) -> bool:

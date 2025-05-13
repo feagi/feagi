@@ -2,9 +2,10 @@
 
 import time
 from typing import Dict, Tuple, Optional
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
-logger = logging.getLogger(__name__)
+
 
 class RateLimiter:
     """Rate limiter for API endpoints."""

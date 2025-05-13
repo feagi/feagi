@@ -6,7 +6,8 @@ which helps identify areas that would benefit from Rust implementation.
 import time
 import functools
 import statistics
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 from typing import Dict, List, Optional, Any, Callable, Union, Tuple
 import numpy as np
 

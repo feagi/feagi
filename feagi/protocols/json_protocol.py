@@ -1,12 +1,13 @@
 """JSON protocol implementation for FEAGI."""
 
 import json
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 from typing import Any, Dict, Optional
 
 from feagi.protocols.protocol_factory import Protocol, register_protocol
 
-logger = logging.getLogger(__name__)
+
 
 @register_protocol
 class JSONProtocol(Protocol):

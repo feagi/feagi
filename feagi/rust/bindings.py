@@ -6,7 +6,7 @@ performance-critical components to Rust.
 """
 from typing import Dict, List, Optional, Any, Union, Tuple, Callable
 import importlib.util
-import logging
+from feagi.utils.logger import setup_logger
 import numpy as np
 
 logger = logging.getLogger("feagi.rust.bindings")

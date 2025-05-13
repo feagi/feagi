@@ -16,7 +16,8 @@
 
 
 import os
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 
@@ -30,7 +31,7 @@ from feagi.bdu import ConnectomeManager
 
 router = APIRouter()
 state = FeagiStateManager.instance()
-logger = logging.getLogger(__name__)
+
 
 
 # ######  Peripheral Nervous System Endpoints #########

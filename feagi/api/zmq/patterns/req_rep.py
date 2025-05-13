@@ -10,7 +10,8 @@ It provides:
 
 import asyncio
 import json
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import time
 import uuid
 import zmq
@@ -21,7 +22,6 @@ from ...core.service import CoreApiService
 from ..serialization import serialize_message, deserialize_message
 from ...utils.auth import validate_token
 
-logger = logging.getLogger(__name__)
 
 
 class RequestReplyServer:

@@ -4,7 +4,8 @@ This module handles the process orchestration, resource allocation, and initiali
 of critical data structures in FEAGI.
 """
 import os
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import multiprocessing as mp
 import threading
 import time
@@ -88,7 +89,7 @@ class ResourceManager:
             # Thread safety
             self._lock = threading.RLock()
             # Set up logger early
-            self.logger = logging.getLogger("feagi.resource_mgr")
+            self.logger = setup_logger("feagi.resource_mgr")
             # Use weak references to processes to avoid memory leaks
             self.processes: Dict[str, weakref.ReferenceType] = {}
             self.threads: Dict[str, weakref.ReferenceType] = {}

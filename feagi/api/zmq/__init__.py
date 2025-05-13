@@ -11,7 +11,8 @@ communication with FEAGI, including:
 """
 
 import os
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import asyncio
 import threading
 from typing import Optional, List, Any
@@ -30,7 +31,7 @@ from .streams import (
     VisualizationStream, VisualizationClient
 )
 
-logger = logging.getLogger(__name__)
+
 
 def create_zmq_server(
     host: str = None,

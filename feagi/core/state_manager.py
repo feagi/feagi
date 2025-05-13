@@ -16,12 +16,56 @@ import os
 from enum import IntEnum, Enum
 from typing import Optional
 import time
-import logging
+from feagi.utils.logger import setup_logger
 import datetime
 from contextlib import contextmanager
 
 # Need to add this at the top of the file with the other imports
-logger = logging.getLogger(__name__)
+logger = setup_logger()
+
+
+# def feagi_logger(name="app", level=logging.DEBUG):
+#     LEVEL_MAP = {
+#         "DEBUG":    "DEBUG   ",
+#         "INFO":     "INFO    ",
+#         "WARNING":  "WARNING ",
+#         "ERROR":    "ERROR   ",
+#         "CRITICAL": "CRITICL ",
+#     }
+#
+#     class BuiltinFormatter(logging.Formatter):
+#         def format(self, record):
+#             emoji1 = getattr(record, 'emoji1', '')
+#             emoji2 = getattr(record, 'emoji2', '')
+#             # Ensure emoji block is 4 characters wide
+#             emoji_block = f"{emoji1}{emoji2}".ljust(4)
+#
+#             level = LEVEL_MAP.get(record.levelname, record.levelname.ljust(8))
+#             timestamp = self.formatTime(record, self.datefmt)
+#             message = record.getMessage()
+#
+#             return f"{emoji_block}{level} {timestamp} {message}"
+#
+#     class EmojiAdapter(logging.LoggerAdapter):
+#         def process(self, msg, kwargs):
+#             emoji1 = kwargs.pop('emoji1', '')
+#             emoji2 = kwargs.pop('emoji2', '')
+#             kwargs.setdefault('extra', {})['emoji1'] = emoji1
+#             kwargs['extra']['emoji2'] = emoji2
+#             return msg, kwargs
+#
+#     logger = logging.getLogger(name)
+#     if not logger.handlers:
+#         handler = logging.StreamHandler()
+#         formatter = BuiltinFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+#         handler.setFormatter(formatter)
+#         logger.addHandler(handler)
+#         logger.setLevel(level)
+#
+#     return EmojiAdapter(logger, {})
+#
+# flog = feagi_logger()
+
 
 # ===== State Definitions =====
 class GenomeState(IntEnum):
@@ -208,7 +252,7 @@ class FeagiStateManager:
         old = GenomeState(self.state_ptr.contents.genome_state)
         self.state_ptr.contents.genome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🧬", f"Genome state changed: {old.name} → {state.name}")
+        logger.info(f"Genome state changed: {old.name} → {state.name}", emoji1="🧬")
         self._notify_state_change("genome", old, state)
     
     # ===== Connectome State =====
@@ -222,7 +266,7 @@ class FeagiStateManager:
         old = ConnectomeState(self.state_ptr.contents.connectome_state)
         self.state_ptr.contents.connectome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🕸️", f"Connectome state changed: {old.name} → {state.name}")
+        logger.info(f"Connectome state changed: {old.name} → {state.name}", emoji1="🕸️")
         self._notify_state_change("connectome", old, state)
 
     # ===== API State =====
@@ -237,7 +281,7 @@ class FeagiStateManager:
         old_state = self.get_api_state()
         self.state_ptr.contents.api_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🚦", f"REST API state changed: {old_state.name} → {state.name}")
+        logger.info(f"REST API state changed: {old_state.name} → {state.name}", emoji1="🚦")
         self._notify_state_change("API", old_state, state)
 
     # ===== ZMQ State =====
@@ -252,7 +296,7 @@ class FeagiStateManager:
         old_state = self.get_zmq_state()
         self.state_ptr.contents.zmq_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("📬", f"ZMQ state changed: {old_state.name} → {state.name}")
+        logger.info(f"ZMQ state changed: {old_state.name} → {state.name}", emoji1="📬")
         self._notify_state_change("ZMQ", old_state, state)
 
     # ===== Agent Count =====
@@ -284,7 +328,12 @@ class FeagiStateManager:
         
         self.state_ptr.contents.burst_engine_state = int_value
         self.state_ptr.contents.state_version += 1
-        _log_state_change("💥", f"Burst Engine state changed: {old_state.name} → {state.name}")
+        # _log_state_change("💥", f"Burst Engine state changed: {old_state.name} → {state.name}")
+        logger.info(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
+        logger.warning(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥", emoji2="💥")
+        logger.error(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
+        logger.debug(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
+        logger.critical(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
         # Use the category key from the notification callbacks dict
         self._notify_state_change("burst_engine", old_state, state)
 
@@ -323,7 +372,7 @@ class FeagiStateManager:
         old_state = self.get_fcl_sampler_state()
         self.state_ptr.contents.fcl_sampler_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🎯", f"FCLSampler state changed: {old_state.name} → {state.name}")
+        logger.info(f"FCLSampler state changed: {old_state.name} → {state.name}", emoji1="🎯")
         self._notify_state_change("FCL Sampler", old_state, state)
 
     # ===== FCLSampler Frequency =====
@@ -379,7 +428,7 @@ class FeagiStateManager:
         """Increment the genome counter by 1"""
         self.state_ptr.contents.genome_counter += 1
         self.state_ptr.contents.state_version += 1
-        logging.getLogger(__name__).info(f"Genome counter incremented to {self.state_ptr.contents.genome_counter}")
+        logger.info(f"Genome counter incremented to {self.state_ptr.contents.genome_counter}")
         self.sync_to_disk()
 
     def get_brain_readiness(self) -> bool:
@@ -391,7 +440,7 @@ class FeagiStateManager:
         old = bool(self.state_ptr.contents.brain_readiness)
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🧠", f"Brain readiness changed: {old} → {ready}")
+        logger.info(f"Brain readiness changed: {old} → {ready}", emoji1="🧠")
 
     def register_sync_observer(self, observer):
         """Register a component to be notified of sync events"""
@@ -401,7 +450,7 @@ class FeagiStateManager:
         """Update the genome synchronization state"""
         old_state = self.genome_sync_state
         self.genome_sync_state = state
-        _log_state_change("🔄", f"Genome-Connectome sync state changed: {old_state} → {state}")
+        logger.info(f"Genome-Connectome sync state changed: {old_state} → {state}", emoji1="🔄")
         
         # Notify observers
         for observer in self.sync_observers:
@@ -464,33 +513,33 @@ class FeagiStateManager:
         if not isinstance(state, enum_type):
             raise ValueError(f"{state} is not a valid {enum_type.__name__}")
 
-def _log_state_change(emoji: str, message: str):
-    """
-    Central function for logging state changes with emoji support.
-    
-    This function handles emoji logging in a way that works with both:
-    1. Custom loggers that support the emoji parameter
-    2. Standard loggers that don't support this parameter
-    
-    All code that logs state changes should use this function rather than
-    calling logger.info() directly.
-    
-    Args:
-        emoji: The emoji to prefix the log message with
-        message: The log message content
-    """
-    try:
-        # Try with emoji parameter first
-        logging.getLogger(__name__).info(message, emoji=emoji)
-    except TypeError:
-        # Fall back to standard logging if emoji not supported
-        logging.getLogger(__name__).info(f"{emoji} {message}")
-
-    # Always also log with standard formatting for consistency
-    icon = f"{emoji:<2}" if emoji else "   "
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    log_msg = f"{icon} [{timestamp}] {message}"
-    logger.info(log_msg)
+# def _log_state_change(emoji: str, message: str):
+#     """
+#     Central function for logging state changes with emoji support.
+#
+#     This function handles emoji logging in a way that works with both:
+#     1. Custom loggers that support the emoji parameter
+#     2. Standard loggers that don't support this parameter
+#
+#     All code that logs state changes should use this function rather than
+#     calling logger.info() directly.
+#
+#     Args:
+#         emoji: The emoji to prefix the log message with
+#         message: The log message content
+#     """
+#     try:
+#         # Try with emoji parameter first
+#         logging.getLogger(__name__).info(message, emoji=emoji)
+#     except TypeError:
+#         # Fall back to standard logging if emoji not supported
+#         logging.getLogger(__name__).info(f"{emoji} {message}")
+#
+#     # Always also log with standard formatting for consistency
+#     icon = f"{emoji:<2}" if emoji else "   "
+#     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+#     log_msg = f"{icon} [{timestamp}] {message}"
+#     logger.info(log_msg)
 
 def get_state_manager():
     """Get the singleton instance of FeagiStateManager"""

@@ -1,6 +1,7 @@
 """Protocol factory for FEAGI."""
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 from typing import Dict, Optional, Type
 
 # Protocol base class definition
@@ -20,7 +21,7 @@ class Protocol:
         """Deserialize bytes to data."""
         raise NotImplementedError
 
-logger = logging.getLogger(__name__)
+
 
 # Protocol registry
 _protocols: Dict[str, Type[Protocol]] = {}

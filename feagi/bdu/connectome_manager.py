@@ -6,7 +6,8 @@ responsible for managing neuron and synapse data structures, as well as
 providing CRUD operations for connectome elements.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Set, Union, Any
 import threading
@@ -21,7 +22,6 @@ from feagi.utils.config import FeagiConfig
 from feagi.npu.fcl_manager import FCLManager, BitMap
 from feagi.bdu.synapse_manager import SynapseManager
 
-logger = logging.getLogger(__name__)
 
 class NeuronPropertyType(Enum):
     """Types of neuron properties that can be stored."""

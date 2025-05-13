@@ -1,14 +1,15 @@
 """Binary protocol implementation for FEAGI."""
 
 import struct
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import zlib
 import numpy as np
 from typing import Any, Dict, Optional, Tuple, Union
 
 from feagi.protocols.protocol_factory import Protocol, register_protocol
 
-logger = logging.getLogger(__name__)
+
 
 @register_protocol
 class BinaryProtocol(Protocol):

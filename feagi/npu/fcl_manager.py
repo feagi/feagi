@@ -14,7 +14,8 @@ Key features:
 
 from typing import Dict, List, Set, Optional, Union, Tuple, Any, Protocol, TypeVar, Generic, cast, Iterator
 from enum import Enum
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 from collections import defaultdict
 from dataclasses import dataclass
 try:
@@ -261,7 +262,7 @@ class FCLManager:
         self.neurons_per_area: Dict[CorticalIdx, int] = {}
         
         # Logger
-        self.logger = logging.getLogger("feagi.npu.fcl_manager")
+        self.logger = setup_logger("feagi.npu.fcl_manager")
         
     def _ensure_area_initialized(self, cortical_idx: CorticalIdx) -> None:
         """

@@ -6,7 +6,8 @@ identify memory-intensive operations that would benefit from Rust's ownership mo
 import os
 import sys
 import time
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import functools
 import tracemalloc
 from typing import Dict, List, Optional, Any, Callable, Union, Tuple

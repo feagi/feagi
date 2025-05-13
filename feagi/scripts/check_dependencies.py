@@ -6,7 +6,8 @@ It can be run directly to verify that the environment is properly set up.
 """
 import sys
 import os
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import argparse
 from pathlib import Path
 

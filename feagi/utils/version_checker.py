@@ -5,14 +5,14 @@ match the required versions specified in requirements.txt.
 """
 import re
 import sys
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import importlib
 import importlib.metadata
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from packaging import version, specifiers
 
-logger = logging.getLogger(__name__)
 
 class VersionMismatchError(Exception):
     """Exception raised when a package version doesn't match the requirements."""

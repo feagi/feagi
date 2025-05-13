@@ -4,12 +4,12 @@ Authentication utilities for FEAGI API.
 This module provides authentication mechanisms for API access.
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import os
 import time
 from typing import Dict, Optional, List, Any, Union
 
-logger = logging.getLogger(__name__)
 
 # Simple in-memory token store for demonstration
 # In a real implementation, this would use a more secure method

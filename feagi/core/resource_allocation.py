@@ -5,7 +5,8 @@ This module implements advanced CPU allocation strategies and load balancing
 for optimal performance across different process priorities.
 """
 import os
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 import threading
 import time
 from typing import Dict, List, Set, Optional, Any, Tuple

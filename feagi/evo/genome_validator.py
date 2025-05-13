@@ -21,7 +21,8 @@ Provides a series of methods to validate genome syntax
 Supporting Genome Versions: 2.0
 """
 
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 import traceback
 
 # Terminal color codes for pretty printing
@@ -32,9 +33,6 @@ class Bcolors:
 
 from feagi.evo.genome_properties import *
 from feagi.evo.templates import cortical_types
-
-
-logger = logging.getLogger(__name__)
 
 
 def cortical_list_gen(blueprint):

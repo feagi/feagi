@@ -1,7 +1,7 @@
 """Core API service implementation for FEAGI."""
 
 from typing import Dict, Any, List, Optional, Tuple, Union
-import logging
+from feagi.utils.logger import setup_logger
 import os
 import json
 import tempfile
@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 
 import numpy as np
+
+logger = setup_logger()
 
 from feagi.core.feagi import FEAGI
 from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, develop_brain_from_genome
@@ -129,7 +131,7 @@ class CoreAPIService:
         
         # Other initializations can follow...
         
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger
         self._feagi = FEAGI()
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
         self._genome_filename = None
@@ -159,7 +161,7 @@ class CoreAPIService:
         
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
-        self.logger.info(f"{stage} {percentage:.1f}% - {message}", emoji="  ")
+        self.logger.info(f"{stage} {percentage:.1f}% - {message}", emoji1="  ")
         
     @property
     def feagi(self) -> FEAGI:
@@ -1028,6 +1030,9 @@ class CoreAPIService:
         Returns a dict with success and duration fields.
         """
         state = FeagiStateManager.instance()
+        print("setting genome state to loading")
+        state.set_genome_state(state=GenomeState.LOADING)
+        print("done setting genome state to loading")
         state.set_brain_readiness(False)
         start_time = time.time()
         try:
@@ -1067,11 +1072,11 @@ class CoreAPIService:
             # IMPORTANT: Set the current genome here - this is what makes the genome "loaded"
             self._current_genome = genome_data
             
-            # Save the genome to a temporary file to load it with neuroembryogenesis
+            # Save the pre-processed genome to a temporary file to load it with neuroembryogenesis
             genome_path = os.path.join(self._temp_dir, filename or "current_genome.json")
             with open(genome_path, 'w') as f:
                 json.dump(genome_data, f, indent=2)
-            
+
             # Backup any test areas by ID before clearing
             test_areas = {}
             for area_id, area in self._connectome_manager._areas.items():
@@ -1104,6 +1109,7 @@ class CoreAPIService:
                 
             # Return success - the genome is loaded even if brain development failed
             FeagiStateManager.instance().increment_genome_counter()
+            state.set_genome_state(state=GenomeState.LOADED)
             state.set_brain_readiness(True)
             duration = time.time() - start_time
             return {"success": True, "duration": duration}
@@ -1111,6 +1117,7 @@ class CoreAPIService:
         except Exception as e:
             # Only on catastrophic failure do we reset the genome loaded status
             self.logger.error(f"Error loading genome: {str(e)}")
+            state.set_genome_state(state=GenomeState.ERROR)
             import traceback
             self.logger.error(traceback.format_exc())
             self._current_genome = None
@@ -1713,11 +1720,11 @@ class CoreAPIService:
             bool: Success or failure
         """
         if not self.state_manager:
-            logger.error("Cannot modify genome - state manager not initialized", emoji="❌")
+            logger.error("Cannot modify genome - state manager not initialized", emoji1="❌")
             return False
         
         if not self.genome_is_loaded():
-            logger.error("Cannot modify genome - no genome loaded", emoji="❌")
+            logger.error("Cannot modify genome - no genome loaded", emoji1="❌")
             return False
         
         # Apply transaction

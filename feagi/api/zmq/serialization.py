@@ -6,10 +6,10 @@ different content types used in ZeroMQ communication.
 """
 
 import json
-import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
 from typing import Any, Dict, List, Optional, Union
 
-logger = logging.getLogger(__name__)
 
 def serialize_message(
     data: Any, 
