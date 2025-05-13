@@ -218,9 +218,12 @@ class CoreAPIService:
         result = []
         try:
             if not self._connectome_manager._areas:
-                # No areas exist at all, try getting them from FEAGI
-                self.logger.warning("No cortical areas available in connectome manager, trying FEAGI instance")
-                return self._feagi.get_cortical_areas()
+                # No areas exist at all, just return an empty list
+                # This is normal when no genome has been loaded yet
+                if self._current_genome is not None:
+                    # Only log a warning if we expected to have areas (genome is loaded)
+                    self.logger.debug("No cortical areas available in connectome manager despite genome being loaded")
+                return []
             
             # Convert all areas to API format
             for area_id, area in self._connectome_manager._areas.items():
