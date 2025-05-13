@@ -328,12 +328,7 @@ class FeagiStateManager:
         
         self.state_ptr.contents.burst_engine_state = int_value
         self.state_ptr.contents.state_version += 1
-        # _log_state_change("💥", f"Burst Engine state changed: {old_state.name} → {state.name}")
         logger.info(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
-        logger.warning(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥", emoji2="💥")
-        logger.error(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
-        logger.debug(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
-        logger.critical(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
         # Use the category key from the notification callbacks dict
         self._notify_state_change("burst_engine", old_state, state)
 

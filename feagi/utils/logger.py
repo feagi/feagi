@@ -39,14 +39,14 @@ def setup_logger(
     level: int = logging.INFO,
     log_file: Optional[str] = None,
     console: bool = True,
-    tag: Optional[str] = None
+    tag: Optional[str] = None,
 ) -> logging.Logger:
     LEVEL_MAP = {
-        "DEBUG":    "DEBUG",
-        "INFO":     "INFO",
-        "WARNING":  "WARNING",
-        "ERROR":    "ERROR",
-        "CRITICAL": "CRITICAL",
+        "DEBUG": "DEBUG",
+        "INFO": "INFO",
+        "WARNING": "WARNING",
+        "ERROR": "ERROR",
+        "CRITICAL": "CRITICAL"
     }
 
     class AlignedFormatter(logging.Formatter):
@@ -58,18 +58,19 @@ def setup_logger(
             level = pad_display(LEVEL_MAP.get(record.levelname, record.levelname), 8)
             timestamp = self.formatTime(record, self.datefmt)
             logger_name = record.name
+            tag_str = f"[{record.__dict__.get('label', '')}] " if record.__dict__.get('label') else ""
             message = record.getMessage()
 
-            tag_str = f"[{tag}] " if tag else ""
-
-            return f"{emoji_block}{level}  {timestamp} {logger_name} {tag_str}{message}"
+            return f"{emoji_block}{level}  {timestamp} {tag_str}{message}"
 
     class EmojiAdapter(logging.LoggerAdapter):
         def process(self, msg, kwargs):
-            emoji1 = kwargs.pop('emoji1', '')
-            emoji2 = kwargs.pop('emoji2', '')
-            kwargs.setdefault('extra', {})['emoji1'] = emoji1
-            kwargs['extra']['emoji2'] = emoji2
+            emoji1 = kwargs.pop("emoji1", '')
+            emoji2 = kwargs.pop("emoji2", '')
+            extra = kwargs.setdefault("extra", {})
+            extra["emoji1"] = emoji1
+            extra["emoji2"] = emoji2
+            extra["label"] = self.extra.get("label", "")
             return msg, kwargs
 
     logger = logging.getLogger(name)
@@ -92,4 +93,4 @@ def setup_logger(
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
-    return EmojiAdapter(logger, {})
+    return EmojiAdapter(logger, {"label": tag or name})

@@ -19,7 +19,8 @@ import time
 import string
 import random
 from feagi.utils.logger import setup_logger
-logger = setup_logger()
+logger = setup_logger(name="api__server")
+logger.info("...")
 import json
 
 from fastapi import FastAPI, Depends, Request
