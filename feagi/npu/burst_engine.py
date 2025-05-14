@@ -59,7 +59,7 @@ class BurstEngine:
         
         # Initialize in a valid but inactive state
         # Will become fully operational when a genome is loaded
-        logger.info("Burst Engine initialized in standby mode", emoji1="⚡ ")
+        logger.info("Burst Engine initialized in standby mode", emoji1="⚡️")
         
         self.state_manager = FeagiStateManager.instance()
         

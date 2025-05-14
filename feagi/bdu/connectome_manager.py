@@ -36,7 +36,8 @@ class NeuronPropertyType(Enum):
 @dataclass
 class CorticalArea:
     """Represents a cortical area in the brain."""
-    id: int
+    id: int  # Internal integer ID (cortical_idx)
+    cortical_id: str  # 6-letter string ID from the genome
     name: str
     type: str  # 'ipu', 'opu', 'interconnect', 'memory'
     dimensions: Tuple[int, int, int]  # width, height, depth
@@ -90,6 +91,10 @@ class ConnectomeManager:
         # Cortical area management
         self._areas: Dict[int, CorticalArea] = {}
         self._neuron_to_area: Dict[int, int] = {}
+        
+        # Mapping between cortical_id (string) and cortical_idx (int)
+        self._cortical_id_to_idx: Dict[str, int] = {}
+        self._cortical_idx_to_id: Dict[int, str] = {}
         
         self.initialized = False
         # Set default max_neurons immediately to avoid None issues in tests
@@ -218,7 +223,8 @@ class ConnectomeManager:
         area_type: str,
         dimensions: Tuple[int, int, int],
         position: Tuple[int, int, int],
-        properties: Optional[Dict[str, Any]] = None
+        properties: Optional[Dict[str, Any]] = None,
+        cortical_id: Optional[str] = None  # New parameter for 6-letter string ID
     ) -> CorticalArea:
         """
         Add a new cortical area to the connectome.
@@ -230,6 +236,7 @@ class ConnectomeManager:
             dimensions: (width, height, depth) dimensions in voxels
             position: (x, y, z) position in the 3D space
             properties: Optional additional properties for the area
+            cortical_id: 6-letter string ID from the genome (optional)
             
         Returns:
             The created CorticalArea object
@@ -243,9 +250,14 @@ class ConnectomeManager:
         if cortical_idx in self._areas:
             raise ValueError(f"Cortical area with ID {cortical_idx} already exists")
         
+        # Default to using the integer ID as a string if no cortical_id provided
+        if cortical_id is None:
+            cortical_id = str(cortical_idx)
+        
         # Create the cortical area object
         area = CorticalArea(
             id=cortical_idx,
+            cortical_id=cortical_id,
             name=name,
             type=area_type,
             dimensions=dimensions,
@@ -255,6 +267,10 @@ class ConnectomeManager:
         
         # Add the area to the connectome
         self._areas[cortical_idx] = area
+        
+        # Update ID mappings
+        self._cortical_id_to_idx[cortical_id] = cortical_idx
+        self._cortical_idx_to_id[cortical_idx] = cortical_id
         
         # Add to positional tracking
         width, height, depth = dimensions
@@ -281,7 +297,7 @@ class ConnectomeManager:
             # Large regular areas
             self._large_regular_areas.add(cortical_idx)
         
-        logger.info(f"Added cortical area {name} (ID: {cortical_idx}) with dimensions {dimensions}")
+        logger.debug(f"Added cortical area {name} (ID: {cortical_idx}, Cortical ID: {cortical_id}) with dimensions {dimensions}")
         return area
     
     def create_neuron(self, area_id: int, position: Tuple[int, int, int], 
@@ -1713,7 +1729,7 @@ class ConnectomeManager:
         # Use templates from new codebase
         from feagi.evo.templates import cortical_template, cortical_types
         # Check if area already exists
-        if cortical_id_ in self._areas:
+        if cortical_id_ in self._cortical_id_to_idx:
             # Already exists, do nothing
             return None
         # Get device count
@@ -1732,7 +1748,7 @@ class ConnectomeManager:
         pos = tuple(cortical_properties['coordinates_3d'])
         # Add to connectome
         area = self.add_cortical_area(
-            area_id=cortical_id_,
+            area_id=len(self._areas),  # Use next available index
             name=cortical_name,
             area_type=cortical_type,
             dimensions=dims,
@@ -1741,7 +1757,8 @@ class ConnectomeManager:
                 'coordinates_2d': cortical_properties.get('coordinates_2d', [0, 0]),
                 'visualization': True,
                 # Add more properties as needed
-            }
+            },
+            cortical_id=cortical_id_  # Pass the 6-letter string ID
         )
         # TODO: Region association, stats, FCL, neurogenesis, voxelogenesis
         # self._region_manager.associate_area_with_region(cortical_id_, 'root')
@@ -1771,21 +1788,32 @@ class ConnectomeManager:
         """
         # TODO: Validate inputs
         # If cloning, copy properties from source
-        if copy_of and copy_of in self._areas:
-            template = self._areas[copy_of].properties.copy()
+        if copy_of and copy_of in self._cortical_id_to_idx:
+            source_idx = self._cortical_id_to_idx[copy_of]
+            template = self._areas[source_idx].properties.copy()
             template['cortical_name'] = cortical_name
             template['cortical_mapping_dst'] = {}
         else:
             from feagi.evo.templates import cortical_template
             template = cortical_template.copy()
+        
+        # Use the provided ID or a default
+        final_cortical_id = cortical_id_overwrite or cortical_area_id
+        
         # Check for duplicate name
         for area in self._areas.values():
             if area.name == cortical_name:
                 # Already exists
                 return None
+        
+        # Check if ID already exists
+        if final_cortical_id in self._cortical_id_to_idx:
+            # Already exists
+            return None
+        
         # Add to connectome
         area = self.add_cortical_area(
-            area_id=cortical_area_id,
+            area_id=len(self._areas),  # Use next available index
             name=cortical_name,
             area_type="CUSTOM",
             dimensions=tuple(cortical_dimensions),
@@ -1796,7 +1824,8 @@ class ConnectomeManager:
                 'visualization': True,
                 'sub_group_id': "MEMORY" if is_memory else "",
                 # Add more properties as needed
-            }
+            },
+            cortical_id=final_cortical_id  # Pass the 6-letter string ID
         )
         # TODO: Region association, stats, FCL, neurogenesis, voxelogenesis, memory register
         # self._region_manager.associate_area_with_region(cortical_area_id, parent_region_id)
@@ -1807,7 +1836,7 @@ class ConnectomeManager:
         # self._neurogenesis(cortical_area_id)
         # self._voxelogenesis(cortical_area_id)
         # TODO: Save genome if needed
-        return cortical_area_id
+        return final_cortical_id
 
     def get_cortical_name_list(self):
         """

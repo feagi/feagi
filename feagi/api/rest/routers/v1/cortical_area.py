@@ -190,7 +190,7 @@ async def update_cortical_properties(message: UpdateCorticalProperties, connecto
     if connectome.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
             max_allowable_neuron_count:
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
-                                                                 f" exceed {max_allowable_neuron_count} threshold"})
+                                                         f" exceed {max_allowable_neuron_count} threshold"})
 
     if message.cortical_id in connectome.transforming_areas:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
@@ -255,7 +255,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     max_allowable_neuron_count = int(connectome.parameters["Limits"]["max_neuron_count"])
     if neuron_count + connectome.brain_stats["neuron_count"] > max_allowable_neuron_count:
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
-                                                                 f" exceed {max_allowable_neuron_count} threshold"})
+                                                         f" exceed {max_allowable_neuron_count} threshold"})
 
     message = {'add_custom_cortical_area': message}
     print("*-----* " * 200 + "\n", message)
@@ -292,21 +292,32 @@ async def cortical_area_id_list(
 ):
     """Return the list of cortical area IDs (6-letter strings) present in the current genome"""
     try:
-        # Direct access to connectome._areas which has the 6-letter IDs
-        print("1")
+        # Now that CorticalArea objects have cortical_id attribute, use it directly
         if hasattr(connectome, '_areas') and connectome._areas:
-            print("2")
-            print(connectome._areas, "connectome._areas")
-            return list(connectome._areas.keys())
+            # Extract the cortical_id attribute from each CorticalArea object
+            return [area.cortical_id for area in connectome._areas.values() 
+                    if hasattr(area, 'cortical_id') and area.cortical_id]
         
-        # If we got this far, we couldn't find any cortical areas
-        raise HTTPException(status_code=400, detail="No cortical areas found!")
+        # Fallback: Use the mapping if available
+        if hasattr(connectome, '_cortical_id_to_idx') and connectome._cortical_id_to_idx:
+            return list(connectome._cortical_id_to_idx.keys())
         
-    except Exception as e:
-        # Log the error for debugging
+        # Fallback: Try the genome blueprint
+        if hasattr(connectome, 'genome') and connectome.genome and 'blueprint' in connectome.genome:
+            # Extract unique cortical IDs from the blueprint
+            cortical_ids = set()
+            for gene_key in connectome.genome['blueprint']:
+                if isinstance(gene_key, str) and '-' in gene_key:
+                    parts = gene_key.split('-')
+                    if len(parts) >= 2:
+                        cortical_ids.add(parts[1])
+            return list(cortical_ids)
 
-        logger.error(f"Error fetching cortical area list: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Failed to get cortical area list: {str(e)}")
+        # Last resort - return empty list
+        return []
+    except Exception as e:
+        logger.error(f"Error getting cortical area ID list: {str(e)}")
+        return []
 
 
 @router.get("/cortical_area_index_list")
@@ -315,21 +326,19 @@ async def cortical_area_index_list(
 ):
     """Return the list of cortical area indices (integers) used by the FCL"""
     try:
-        # Try different possible attribute names based on the documentation
-        for attr_name in ['cortical_indices', 'area_indices', 'fcl_indices']:
-            if hasattr(connectome, attr_name):
-                indices = getattr(connectome, attr_name)
-                if indices:
-                    return list(indices)
+        # Use the _cortical_idx_to_id dict which contains the integer indices as keys
+        if hasattr(connectome, '_cortical_idx_to_id') and connectome._cortical_idx_to_id:
+            return list(connectome._cortical_idx_to_id.keys())
         
-        # If we got this far, we couldn't find any cortical indices
-        raise HTTPException(status_code=400, detail="No cortical area indices found!")
-        
+        # Fallback: If we have _areas with integer keys, use those
+        if hasattr(connectome, '_areas') and connectome._areas:
+            return list(connectome._areas.keys())
+            
+        # Last resort - return empty list
+        return []
     except Exception as e:
-        # Log the error for debugging
-
-        logger.error(f"Error fetching cortical area indices: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Failed to get cortical area indices: {str(e)}")
+        logger.error(f"Error getting cortical area index list: {str(e)}")
+        return []
 
 
 @router.post("/cortical_name_location")
@@ -379,10 +388,61 @@ async def cortical_area_types(cortical_type: CorticalId, connectome: ConnectomeM
 
 @router.get("/cortical_id_name_mapping")
 async def connectome_cortical_id_name_mapping_table(connectome: ConnectomeManager = Depends(get_connectome)):
-    mapping_table = dict()
-    for area_id, area in connectome._areas.items():
-        mapping_table[area_id] = area.name
-    return mapping_table
+    """Return a mapping of cortical IDs to their corresponding names"""
+    try:
+        mapping_table = {}
+        
+        # Directly use the cortical_id and name attributes from CorticalArea objects
+        if hasattr(connectome, '_areas') and connectome._areas:
+            for area in connectome._areas.values():
+                if hasattr(area, 'cortical_id') and hasattr(area, 'name'):
+                    mapping_table[area.cortical_id] = area.name
+            
+            if mapping_table:
+                return mapping_table
+        
+        # Fallback: Use the _cortical_id_to_idx mapping if available
+        if (hasattr(connectome, '_cortical_id_to_idx') and connectome._cortical_id_to_idx and 
+            hasattr(connectome, '_areas') and connectome._areas):
+            for cortical_id, idx in connectome._cortical_id_to_idx.items():
+                if idx in connectome._areas:
+                    mapping_table[cortical_id] = connectome._areas[idx].name
+            
+            if mapping_table:
+                return mapping_table
+        
+        # Fallback: Try the genome blueprint
+        if hasattr(connectome, 'genome') and connectome.genome and 'blueprint' in connectome.genome:
+            # Extract unique cortical IDs from the blueprint
+            cortical_ids = set()
+            blueprint = connectome.genome['blueprint']
+            
+            # First identify all cortical IDs
+            for gene_key in blueprint:
+                if isinstance(gene_key, str) and '-' in gene_key:
+                    parts = gene_key.split('-')
+                    if len(parts) >= 2:
+                        cortical_ids.add(parts[1])
+            
+            # Then find names for each ID
+            for cortical_id in cortical_ids:
+                for gene_key in blueprint:
+                    if isinstance(gene_key, str) and f"-{cortical_id}-" in gene_key:
+                        parts = gene_key.split("-")
+                        if len(parts) >= 4 and parts[3] == "__name":
+                            mapping_table[cortical_id] = blueprint[gene_key]
+                            break
+                # If no name found, use the ID as the name
+                if cortical_id not in mapping_table:
+                    mapping_table[cortical_id] = cortical_id
+            
+            return mapping_table
+
+        # Return empty dict if we couldn't find any mappings
+        return {}
+    except Exception as e:
+        logger.error(f"Error getting cortical ID-name mapping: {str(e)}")
+        return {}
 
 
 @router.get("/cortical_locations_2d")
@@ -607,7 +667,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
                 transforming = True
     if len(type_list) > 1:
         return JSONResponse(status_code=400, content={'message': f"Memory and non-memory type cortical areas cannot"
-                                                                 f"be edited at the same time"})
+                                                         f"be edited at the same time"})
 
     if transforming:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")

@@ -474,7 +474,8 @@ class Neuroembryogenesis:
                         area_type=area_type,
                         dimensions=dimensions,
                         position=position,
-                        properties=properties
+                        properties=properties,
+                        cortical_id=cortical_id  # Pass the 6-letter cortical ID from the genome
                     )
                     
                     # Store in our tracking maps
@@ -482,7 +483,7 @@ class Neuroembryogenesis:
                     self.cortical_id_map[cortical_idx] = cortical_id
                     self.reverse_cortical_id_map[cortical_id] = cortical_idx
                     
-                    logger.info(f"Created cortical area {name} (internal ID {cortical_idx}, genome ID {cortical_id})")
+                    logger.debug(f"Created cortical area {name} (internal ID {cortical_idx}, genome ID {cortical_id})")
                 except Exception as e:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
