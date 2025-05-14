@@ -84,11 +84,57 @@
       background-size: 14px;
       min-width: 140px;
     }
+    
+    /* Custom filter container */
+    .custom-filter-container {
+      width: 100%;
+      padding: 10px 20px;
+      background: var(--filter-bg, #f0f0f0); 
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+    }
+    
+    /* Filter input styling */
+    .custom-filter-input {
+      width: 300px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 2px solid #007acc;
+      font-size: 14px;
+      background-color: white;
+      color: #333;
+      transition: all 0.2s ease;
+    }
+    
+    .custom-filter-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+    }
+    
+    .custom-filter-label {
+      font-weight: 600;
+      margin-right: 10px;
+      color: var(--filter-text, #333);
+    }
 
     @media (prefers-color-scheme: dark) {
       :root {
         --header-bg: #222;
         --header-text: #fff;
+        --filter-bg: #333;
+        --filter-text: #fff;
+      }
+      
+      /* Dark mode filter input */
+      .custom-filter-input {
+        background-color: #444;
+        color: #fff;
+        border-color: #007acc;
+      }
+      
+      .custom-filter-input::placeholder {
+        color: #aaa;
       }
     }
   </style>
@@ -109,6 +155,12 @@
         </select>
       </div>
     </div>
+  </div>
+  
+  <!-- Custom filter section -->
+  <div class="custom-filter-container" id="custom-filter-container">
+    <span class="custom-filter-label">Filter:</span>
+    <input type="text" class="custom-filter-input" id="custom-filter-input" placeholder="Filter by tag, operation, or path...">
   </div>
 
   <div id="swagger-ui"></div>
@@ -139,9 +191,11 @@
         localStorage.setItem('feagi-theme', 'light');
       }
 
-      // Apply header colors dynamically
+      // Apply theme colors dynamically
       document.documentElement.style.setProperty('--header-bg', theme === 'dark' ? '#222' : '#f9f9f9');
       document.documentElement.style.setProperty('--header-text', theme === 'dark' ? '#fff' : '#000');
+      document.documentElement.style.setProperty('--filter-bg', theme === 'dark' ? '#333' : '#f0f0f0');
+      document.documentElement.style.setProperty('--filter-text', theme === 'dark' ? '#fff' : '#333');
     }
 
     document.getElementById('theme-select').addEventListener('change', (e) => {
@@ -152,6 +206,7 @@
       const savedTheme = localStorage.getItem('feagi-theme') || 'system';
       setTheme(savedTheme);
 
+      // Create Swagger UI instance
       const ui = SwaggerUIBundle({
         url: "{{ openapi_url }}",
         dom_id: '#swagger-ui',
@@ -162,13 +217,14 @@
         ],
         layout: "BaseLayout",
         docExpansion: "none",
-        filter: true,
+        filter: false, // Disable built-in filter since we're using our own
         persistAuthorization: true,
         tryItOutEnabled: true
       });
 
       window.ui = ui;
 
+      // Expand/collapse functionality
       document.getElementById('expand-all').addEventListener('click', () => {
         document.querySelectorAll('.opblock-tag-section').forEach(tag => {
           if (!tag.classList.contains('is-open')) {
@@ -180,6 +236,116 @@
       document.getElementById('collapse-all').addEventListener('click', () => {
         document.querySelectorAll('.opblock-tag-section.is-open').forEach(tag => {
           tag.querySelector('.opblock-tag').click();
+        });
+      });
+      
+      // Setup custom filter functionality
+      const filterInput = document.getElementById('custom-filter-input');
+      
+      // Add event listener for filter input
+      filterInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.trim().toLowerCase();
+        
+        // Get the data for the operations once we have SwaggerUI loaded
+        const spec = ui.getSystem().specSelectors.specJson().toJS();
+        
+        // If search term is empty, show everything
+        if (!searchTerm) {
+          document.querySelectorAll('.opblock-tag-section').forEach(tag => {
+            tag.style.display = '';
+          });
+          document.querySelectorAll('.opblock').forEach(op => {
+            op.style.display = '';
+          });
+          return;
+        }
+        
+        // Create a mapping of paths and methods
+        const pathMap = {};
+        
+        // Process the spec to build path information
+        if (spec && spec.paths) {
+          Object.entries(spec.paths).forEach(([path, methods]) => {
+            Object.entries(methods).forEach(([method, operation]) => {
+              if (typeof operation === 'object' && operation.operationId) {
+                pathMap[operation.operationId] = {
+                  path: path,
+                  method: method.toUpperCase(),
+                  summary: operation.summary || '',
+                  description: operation.description || '',
+                  tags: operation.tags || []
+                };
+              }
+            });
+          });
+        }
+        
+        // Track which tags have visible operations
+        const visibleTags = new Set();
+        
+        // Process all operations using the path map
+        document.querySelectorAll('.opblock').forEach(opblock => {
+          let isVisible = false;
+          let operationId = '';
+          
+          // Extract the operation ID from the DOM
+          const opIdElement = opblock.querySelector('.opblock-summary-operation-id');
+          if (opIdElement) {
+            operationId = opIdElement.textContent.trim();
+          } else {
+            // Try to find it in class names
+            Array.from(opblock.classList).forEach(className => {
+              if (className.startsWith('operation-')) {
+                operationId = className.replace('operation-', '');
+              }
+            });
+          }
+          
+          // Get path data from our map
+          const opData = pathMap[operationId];
+          
+          if (opData) {
+            // Check if any data matches the search term
+            const pathMatch = opData.path.toLowerCase().includes(searchTerm);
+            const methodMatch = opData.method.toLowerCase().includes(searchTerm);
+            const summaryMatch = opData.summary.toLowerCase().includes(searchTerm);
+            const descMatch = opData.description.toLowerCase().includes(searchTerm);
+            
+            // Also check the visible text in the DOM
+            const opSummary = opblock.querySelector('.opblock-summary-description');
+            const summaryText = opSummary ? opSummary.textContent.trim().toLowerCase() : '';
+            const domTextMatch = summaryText.includes(searchTerm);
+            
+            isVisible = pathMatch || methodMatch || summaryMatch || descMatch || domTextMatch;
+            
+            // If this operation is visible, track its tag
+            if (isVisible && opData.tags) {
+              opData.tags.forEach(tag => visibleTags.add(tag));
+            }
+          }
+          
+          // Show/hide based on match
+          opblock.style.display = isVisible ? '' : 'none';
+        });
+        
+        // Process tag sections - show if the tag matches or any operation within it is visible
+        document.querySelectorAll('.opblock-tag-section').forEach(section => {
+          const tagElement = section.querySelector('.opblock-tag');
+          if (!tagElement) return;
+          
+          const tagText = tagElement.textContent.trim().toLowerCase();
+          const tagName = section.getAttribute('data-tag');
+          
+          // Show if tag matches search term or contains visible operations
+          const showTag = tagText.includes(searchTerm) || visibleTags.has(tagName);
+          section.style.display = showTag ? '' : 'none';
+          
+          // If the tag itself matches, show all its operations
+          if (tagText.includes(searchTerm)) {
+            section.querySelectorAll('.opblock').forEach(op => {
+              op.style.display = '';
+            });
+          }
         });
       });
     };
