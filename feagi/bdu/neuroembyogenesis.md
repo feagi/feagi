@@ -6,6 +6,8 @@ The neuroembryogenesis module is a core component of FEAGI that transforms genom
 
 This module is responsible for reading the genome, creating the physical structure of the brain (neurons and their positions), and establishing connections between neurons (synapses) according to the genetic blueprint.
 
+Genome <> Neuroembryogenesis <> Connectome 
+
 ## Core Development Processes
 
 The neuroembryogenesis process follows a biologically-inspired, sequential development pattern:
