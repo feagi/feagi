@@ -22,10 +22,15 @@ from feagi.utils.logger import setup_logger
 logger = setup_logger(name="api__server")
 logger.info("...")
 import json
+import os
+from pathlib import Path
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 from threading import Thread
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
@@ -68,8 +73,73 @@ app = FastAPI(
         "defaultModelsExpandDepth": -1,
         "filter": True,  # Enable filtering
         # "jsonEditor": True
+        "syntaxHighlight.theme": "monokai",
+        "docExpansion": "none",
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": False,
+        "tryItOutEnabled": True,
+        "theme": "dark",
+        "defaultModelRendering": "model",
+        "showExtensions": True,
+        "showCommonExtensions": True,
+        "layout": "BaseLayout",
+        "displayRequestDuration": True,
+        "withCredentials": True,
+        "requestSnippetsEnabled": True,
+        "requestSnippets": {
+            "generators": {
+                "curl_bash": {"title": "cURL (bash)", "syntax": "bash"},
+                "curl_powershell": {"title": "cURL (PowerShell)", "syntax": "powershell"},
+                "python_requests": {"title": "Python (requests)", "syntax": "python"}
+            },
+            "defaultExpanded": True,
+            "languages": ["curl_bash", "curl_powershell", "python_requests"]
         }
-    )
+    }
+)
+
+# Get the directory of the current file
+current_dir = Path(__file__).parent
+static_dir = current_dir / "static"
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# Custom Swagger UI with dark theme
+def custom_swagger_ui_html():
+    # Read the custom HTML template directly
+    template_path = Path(__file__).parent / "static" / "custom-swagger-ui.html"
+    print(f"DEBUG: Loading custom Swagger UI template from {template_path}")
+    try:
+        with open(template_path, "r") as f:
+            html_content = f.read()
+        
+        # Replace the OpenAPI URL placeholder with the actual URL
+        html_content = html_content.replace("{{ openapi_url }}", str(app.openapi_url))
+        
+        print("DEBUG: Custom Swagger UI template loaded successfully")
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        print(f"ERROR: Failed to load custom Swagger UI template: {e}")
+        # Fall back to default Swagger UI
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url,
+            title=app.title + " - API Documentation",
+            swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
+            swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css",
+        )
+
+# Add a new route for custom docs
+@app.get("/custom-docs", include_in_schema=False)
+async def custom_swagger_ui_html_route():
+    return custom_swagger_ui_html()
+
+# Keep the original docs route as a fallback
+@app.get("/docs", include_in_schema=False)
+async def swagger_ui_html_route():
+    # Use the same custom UI for the default /docs route
+    return custom_swagger_ui_html()
 
 
 favicon_path = settings.favicon_path

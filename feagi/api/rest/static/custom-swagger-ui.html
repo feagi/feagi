@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FEAGI API Documentation</title>
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css"/>
+  <link rel="stylesheet" type="text/css" href="/static/css/swagger-dark.css" media="(prefers-color-scheme: dark)" id="theme-dark"/>
+  <link rel="stylesheet" type="text/css" href="/static/css/swagger-light.css" media="(prefers-color-scheme: light)" id="theme-light"/>
+  <link rel="icon" type="image/png" href="/static/favicon.ico"/>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .topbar-wrapper img {
+      content: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgODAiPjxwYXRoIGZpbGw9IiM2YzVjZTciIGQ9Ik02MCw3LjYyQzI4LjA0LDcuNjIsMi4yMywzMy40MywyLjIzLDY1LjM4aDExNS41NFYzMy40M0M5Ni40MiwxOC42Niw3OS43Niw3LjYyLDYwLDcuNjJ6Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYwLDcuNjJDMjguMDQsNy42MiwyLjIzLDMzLjQzLDIuMjMsNjUuMzhoMTE1LjU0VjMzLjQzQzk2LjQyLDE4LjY2LDc5Ljc2LDcuNjIsNjAsNy42MnogTTYwLDUwLjc2Yy04Ljk5LDAtMTYuMjctNy4yOC0xNi4yNy0xNi4yN2MwLTguOTksNy4yOC0xNi4yNywxNi4yNy0xNi4yN2M4Ljk5LDAsMTYuMjcsNy4yOCwxNi4yNywxNi4yN0M3Ni4yNyw0My40OCw2OC45OSw1MC43Niw2MCw1MC43NnoiLz48cGF0aCBmaWxsPSIjNmM1Y2U3IiBkPSJNMTgwLDcuNjJjMzEuOTYsMCw1Ny43NywyNS44MSw1Ny43Nyw1Ny43NkgxMjIuMjNWMzMuNDNDMTQzLjU4LDE4LjY2LDE2MC4yNCw3LjYyLDE4MCw3LjYyeiIvPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xODAsNy42MmMzMS45NiwwLDU3Ljc3LDI1LjgxLDU3Ljc3LDU3Ljc2SDEyMi4yM1YzMy40M0MxNDMuNTgsMTguNjYsMTYwLjI0LDcuNjIsMTgwLDcuNjJ6IE0xODAsNTAuNzZjOC45OSwwLDE2LjI3LTcuMjgsMTYuMjctMTYuMjdjMC04Ljk5LTcuMjgtMTYuMjctMTYuMjctMTYuMjdjLTguOTksMC0xNi4yNyw3LjI4LTE2LjI3LDE2LjI3QzE2My43Myw0My40OCwxNzEuMDEsNTAuNzYsMTgwLDUwLjc2eiIvPjwvc3ZnPg==');
+      height: 50px;
+      width: auto;
+      margin-right: 10px;
+    }
+
+    .custom-header {
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #ccc;
+      background: var(--header-bg, #f9f9f9);
+    }
+
+    .custom-header h1 {
+      font-size: 1.5em;
+      margin: 0;
+      flex: 1 1 auto;
+      color: var(--header-text, #000);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .header-button {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      background-color: #007acc;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background-color 0.2s;
+    }
+
+    .header-button:hover {
+      background-color: #005fa3;
+    }
+
+    .theme-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .theme-selector-label {
+      font-weight: 600;
+      font-size: 0.9em;
+    }
+
+    .theme-selector select {
+      padding: 6px 28px 6px 10px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      border: 1px solid #ccc;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg fill='currentColor' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 14px;
+      min-width: 140px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --header-bg: #222;
+        --header-text: #fff;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="custom-header">
+    <h1>FEAGI API Documentation</h1>
+    <div class="header-actions">
+      <button class="header-button" id="expand-all">Expand All</button>
+      <button class="header-button" id="collapse-all">Collapse All</button>
+      <div class="theme-selector">
+        <span class="theme-selector-label">Theme:</span>
+        <select id="theme-select">
+          <option value="system">System</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="swagger-ui"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+  <script>
+    function getSystemTheme() {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function setTheme(theme) {
+      const darkThemeLink = document.getElementById('theme-dark');
+      const lightThemeLink = document.getElementById('theme-light');
+      const themeSelect = document.getElementById('theme-select');
+      themeSelect.value = theme;
+
+      if (theme === 'system') {
+        darkThemeLink.media = '(prefers-color-scheme: dark)';
+        lightThemeLink.media = '(prefers-color-scheme: light)';
+        localStorage.removeItem('feagi-theme');
+      } else if (theme === 'dark') {
+        darkThemeLink.media = 'all';
+        lightThemeLink.media = 'not all';
+        localStorage.setItem('feagi-theme', 'dark');
+      } else {
+        darkThemeLink.media = 'not all';
+        lightThemeLink.media = 'all';
+        localStorage.setItem('feagi-theme', 'light');
+      }
+
+      // Apply header colors dynamically
+      document.documentElement.style.setProperty('--header-bg', theme === 'dark' ? '#222' : '#f9f9f9');
+      document.documentElement.style.setProperty('--header-text', theme === 'dark' ? '#fff' : '#000');
+    }
+
+    document.getElementById('theme-select').addEventListener('change', (e) => {
+      setTheme(e.target.value);
+    });
+
+    window.onload = function () {
+      const savedTheme = localStorage.getItem('feagi-theme') || 'system';
+      setTheme(savedTheme);
+
+      const ui = SwaggerUIBundle({
+        url: "{{ openapi_url }}",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout",
+        docExpansion: "none",
+        filter: true,
+        persistAuthorization: true,
+        tryItOutEnabled: true
+      });
+
+      window.ui = ui;
+
+      document.getElementById('expand-all').addEventListener('click', () => {
+        document.querySelectorAll('.opblock-tag-section').forEach(tag => {
+          if (!tag.classList.contains('is-open')) {
+            tag.querySelector('.opblock-tag').click();
+          }
+        });
+      });
+
+      document.getElementById('collapse-all').addEventListener('click', () => {
+        document.querySelectorAll('.opblock-tag-section.is-open').forEach(tag => {
+          tag.querySelector('.opblock-tag').click();
+        });
+      });
+    };
+  </script>
+</body>
+</html>
