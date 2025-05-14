@@ -69,6 +69,7 @@ app = FastAPI(
     terms_of_service=settings.terms_of_service,
     contact=settings.contact,
     license_info=settings.license_info,
+    docs_url=None,
     swagger_ui_parameters={
         "defaultModelsExpandDepth": -1,
         "filter": True,  # Enable filtering
@@ -130,12 +131,7 @@ def custom_swagger_ui_html():
             swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css",
         )
 
-# Add a new route for custom docs
-@app.get("/custom-docs", include_in_schema=False)
-async def custom_swagger_ui_html_route():
-    return custom_swagger_ui_html()
 
-# Keep the original docs route as a fallback
 @app.get("/docs", include_in_schema=False)
 async def swagger_ui_html_route():
     # Use the same custom UI for the default /docs route
