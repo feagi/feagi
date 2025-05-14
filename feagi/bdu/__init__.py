@@ -7,23 +7,31 @@ based on genomic instructions.
 from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import core models
-from feagi.bdu.models.neuron import Neuron
+from feagi.bdu.models.neuron import Neuron, NeuronArray
 from feagi.bdu.models.cortical_area import CorticalArea
+from feagi.bdu.models.brain_region import BrainRegion
+from feagi.bdu.models.synapse import SynapseManager
 
 # Import connectivity modules
 from feagi.bdu.connectivity.connectivity_rules import ConnectivityRule
 from feagi.bdu.connectivity.cortical_mappings import CorticalMapping
 from feagi.bdu.connectivity.synaptogenesis import SynaptogenesisRule
+from feagi.bdu.connectivity.synaptogenesis_rules import SynapseRule
+from feagi.bdu.connectivity.mapping_utils import get_detailed_cortical_map, build_power_connections
 
 # Import neuroembryogenesis
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 
 __all__ = [
     'ConnectomeManager',
     'Neuron',
+    'NeuronArray',
     'CorticalArea',
+    'BrainRegion',
+    'SynapseManager',
     'ConnectivityRule',
     'CorticalMapping',
     'SynaptogenesisRule',
-    'Neuroembryogenesis'
+    'SynapseRule',
+    'NeuroEmbryogenesis'
 ]

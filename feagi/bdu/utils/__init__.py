@@ -1,5 +1,7 @@
-"""Utility modules for the Brain Development Unit (BDU).
+"""Utility functions for the Brain Development Unit.
 
-This package contains utility modules for operations related to neuron positions,
-linearization/delinearization, validation, and metrics.
-""" 
+This package contains utility functions for positions, metrics, and mappings.
+"""
+
+from feagi.bdu.utils.position import linearize_position, delinearize_position
+from feagi.bdu.utils.metrics import calculate_neuron_density 
