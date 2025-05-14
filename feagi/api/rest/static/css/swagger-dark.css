@@ -235,10 +235,27 @@ body {
 
 .swagger-ui .btn.execute {
   background-color: var(--method-post);
+  color: #003b3b; /* Dark teal text for contrast */
 }
 
 .swagger-ui .btn.execute:hover {
   background-color: #8ef0f0;
+  color: #002222; /* Slightly darker on hover for accessibility */
+}
+
+/* Style for the Clear button */
+button.btn.btn-clear.opblock-control__btn {
+  background-color: var(--method-post); /* Use same background color as Execute button */
+  color: #333333; /* White text to match Execute button */
+  border: 1px solid transparent; /* Border similar to Execute button */
+  padding: 6px 12px; /* Match padding for consistency */
+  font-weight: bold; /* Bold text */
+  border-radius: 5px; /* Rounded corners for consistency */
+}
+
+button.btn.btn-clear.opblock-control__btn:hover {
+  background-color: #8ef0f0; /* Hover effect to match Execute button */
+  color: #333; /* Dark text on hover */
 }
 
 /* Code Blocks */
