@@ -239,115 +239,98 @@
         });
       });
       
-      // Setup custom filter functionality
-      const filterInput = document.getElementById('custom-filter-input');
+      // Set up the filter functionality with a timeout to ensure Swagger UI is fully loaded
+      setTimeout(() => {
+        setupFilter();
+      }, 1000);
       
-      // Add event listener for filter input
-      filterInput.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.trim().toLowerCase();
+      function setupFilter() {
+        const filterInput = document.getElementById('custom-filter-input');
         
-        // Get the data for the operations once we have SwaggerUI loaded
-        const spec = ui.getSystem().specSelectors.specJson().toJS();
-        
-        // If search term is empty, show everything
-        if (!searchTerm) {
-          document.querySelectorAll('.opblock-tag-section').forEach(tag => {
-            tag.style.display = '';
-          });
-          document.querySelectorAll('.opblock').forEach(op => {
-            op.style.display = '';
-          });
-          return;
-        }
-        
-        // Create a mapping of paths and methods
-        const pathMap = {};
-        
-        // Process the spec to build path information
-        if (spec && spec.paths) {
-          Object.entries(spec.paths).forEach(([path, methods]) => {
-            Object.entries(methods).forEach(([method, operation]) => {
-              if (typeof operation === 'object' && operation.operationId) {
-                pathMap[operation.operationId] = {
-                  path: path,
-                  method: method.toUpperCase(),
-                  summary: operation.summary || '',
-                  description: operation.description || '',
-                  tags: operation.tags || []
-                };
-              }
+        filterInput.addEventListener('input', function(e) {
+          const searchTerm = e.target.value.trim().toLowerCase();
+          
+          // If search term is empty, show everything
+          if (!searchTerm) {
+            document.querySelectorAll('.opblock-tag-section').forEach(tag => {
+              tag.style.display = '';
             });
-          });
-        }
-        
-        // Track which tags have visible operations
-        const visibleTags = new Set();
-        
-        // Process all operations using the path map
-        document.querySelectorAll('.opblock').forEach(opblock => {
-          let isVisible = false;
-          let operationId = '';
-          
-          // Extract the operation ID from the DOM
-          const opIdElement = opblock.querySelector('.opblock-summary-operation-id');
-          if (opIdElement) {
-            operationId = opIdElement.textContent.trim();
-          } else {
-            // Try to find it in class names
-            Array.from(opblock.classList).forEach(className => {
-              if (className.startsWith('operation-')) {
-                operationId = className.replace('operation-', '');
-              }
-            });
-          }
-          
-          // Get path data from our map
-          const opData = pathMap[operationId];
-          
-          if (opData) {
-            // Check if any data matches the search term
-            const pathMatch = opData.path.toLowerCase().includes(searchTerm);
-            const methodMatch = opData.method.toLowerCase().includes(searchTerm);
-            const summaryMatch = opData.summary.toLowerCase().includes(searchTerm);
-            const descMatch = opData.description.toLowerCase().includes(searchTerm);
-            
-            // Also check the visible text in the DOM
-            const opSummary = opblock.querySelector('.opblock-summary-description');
-            const summaryText = opSummary ? opSummary.textContent.trim().toLowerCase() : '';
-            const domTextMatch = summaryText.includes(searchTerm);
-            
-            isVisible = pathMatch || methodMatch || summaryMatch || descMatch || domTextMatch;
-            
-            // If this operation is visible, track its tag
-            if (isVisible && opData.tags) {
-              opData.tags.forEach(tag => visibleTags.add(tag));
-            }
-          }
-          
-          // Show/hide based on match
-          opblock.style.display = isVisible ? '' : 'none';
-        });
-        
-        // Process tag sections - show if the tag matches or any operation within it is visible
-        document.querySelectorAll('.opblock-tag-section').forEach(section => {
-          const tagElement = section.querySelector('.opblock-tag');
-          if (!tagElement) return;
-          
-          const tagText = tagElement.textContent.trim().toLowerCase();
-          const tagName = section.getAttribute('data-tag');
-          
-          // Show if tag matches search term or contains visible operations
-          const showTag = tagText.includes(searchTerm) || visibleTags.has(tagName);
-          section.style.display = showTag ? '' : 'none';
-          
-          // If the tag itself matches, show all its operations
-          if (tagText.includes(searchTerm)) {
-            section.querySelectorAll('.opblock').forEach(op => {
+            document.querySelectorAll('.opblock').forEach(op => {
               op.style.display = '';
             });
+            return;
           }
+          
+          // Ensure all tags are expanded to check their operations
+          document.querySelectorAll('.opblock-tag-section:not(.is-open)').forEach(tagSection => {
+            const tagButton = tagSection.querySelector('.opblock-tag');
+            if (tagButton) tagButton.click();
+          });
+          
+          // Process operations one by one
+          document.querySelectorAll('.opblock').forEach(opblock => {
+            let isMatch = false;
+            
+            // 1. Check operation path
+            const pathElement = opblock.querySelector('.opblock-summary-path');
+            const deprecatedPathElement = opblock.querySelector('.opblock-summary-path__deprecated');
+            const pathText = pathElement ? pathElement.textContent.trim().toLowerCase() : 
+                             deprecatedPathElement ? deprecatedPathElement.textContent.trim().toLowerCase() : '';
+            if (pathText.includes(searchTerm)) {
+              console.log('Path match:', pathText);
+              isMatch = true;
+            }
+            
+            // 2. Check operation method (GET, POST, etc.)
+            if (!isMatch) {
+              const methodElement = opblock.querySelector('.opblock-summary-method');
+              const methodText = methodElement ? methodElement.textContent.trim().toLowerCase() : '';
+              if (methodText.includes(searchTerm)) {
+                console.log('Method match:', methodText);
+                isMatch = true;
+              }
+            }
+            
+            // 3. Check operation description
+            if (!isMatch) {
+              const descriptionElement = opblock.querySelector('.opblock-summary-description');
+              const descriptionText = descriptionElement ? descriptionElement.textContent.trim().toLowerCase() : '';
+              if (descriptionText.includes(searchTerm)) {
+                console.log('Description match:', descriptionText);
+                isMatch = true;
+              }
+            }
+            
+            // Show/hide operation based on match
+            opblock.style.display = isMatch ? '' : 'none';
+          });
+          
+          // Process tag sections: show if the tag itself matches or if any of its operations are visible
+          document.querySelectorAll('.opblock-tag-section').forEach(tagSection => {
+            const tagElement = tagSection.querySelector('.opblock-tag');
+            const tagText = tagElement ? tagElement.textContent.trim().toLowerCase() : '';
+            
+            // Check if tag name matches
+            const tagMatches = tagText.includes(searchTerm);
+            
+            // Check if any operations within this tag are visible
+            const hasVisibleOps = Array.from(tagSection.querySelectorAll('.opblock'))
+                                   .some(op => op.style.display !== 'none');
+            
+            // Show the tag section if either condition is met
+            tagSection.style.display = (tagMatches || hasVisibleOps) ? '' : 'none';
+            
+            // If tag name matches, ensure all its operations are visible
+            if (tagMatches) {
+              tagSection.querySelectorAll('.opblock').forEach(op => {
+                op.style.display = '';
+              });
+            }
+          });
         });
-      });
+        
+        console.log('Filter setup complete');
+      }
     };
   </script>
 </body>
