@@ -15,7 +15,7 @@
     }
 
     .topbar-wrapper img {
-      content: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgODAiPjxwYXRoIGZpbGw9IiM2YzVjZTciIGQ9Ik02MCw3LjYyQzI4LjA0LDcuNjIsMi4yMywzMy40MywyLjIzLDY1LjM4aDExNS41NFYzMy40M0M5Ni40MiwxOC42Niw3OS43Niw3LjYyLDYwLDcuNjJ6Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYwLDcuNjJDMjguMDQsNy42MiwyLjIzLDMzLjQzLDIuMjMsNjUuMzhoMTE1LjU0VjMzLjQzQzk2LjQyLDE4LjY2LDc5Ljc2LDcuNjIsNjAsNy42MnogTTYwLDUwLjc2Yy04Ljk5LDAtMTYuMjctNy4yOC0xNi4yNy0xNi4yN2MwLTguOTksNy4yOC0xNi4yNywxNi4yNy0xNi4yN2M4Ljk5LDAsMTYuMjcsNy4yOCwxNi4yNywxNi4yN0M3Ni4yNyw0My40OCw2OC45OSw1MC43Niw2MCw1MC43NnoiLz48cGF0aCBmaWxsPSIjNmM1Y2U3IiBkPSJNMTgwLDcuNjJjMzEuOTYsMCw1Ny43NywyNS44MSw1Ny43Nyw1Ny43NkgxMjIuMjNWMzMuNDNDMTQzLjU4LDE4LjY2LDE2MC4yNCw3LjYyLDE4MCw3LjYyeiIvPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xODAsNy42MmMzMS45NiwwLDU3Ljc3LDI1LjgxLDU3Ljc3LDU3Ljc2SDEyMi4yM1YzMy40M0MxNDMuNTgsMTguNjYsMTYwLjI0LDcuNjIsMTgwLDcuNjJ6IE0xODAsNTAuNzZjOC45OSwwLDE2LjI3LTcuMjgsMTYuMjctMTYuMjdjMC04Ljk5LTcuMjgtMTYuMjctMTYuMjctMTYuMjdjLTguOTksMC0xNi4yNyw3LjI4LTE2LjI3LDE2LjI3QzE2My43Myw0My40OCwxNzEuMDEsNTAuNzYsMTgwLDUwLjc2eiIvPjwvc3ZnPg==');
+      content: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgODAiPjxwYXRoIGZpbGw9IiM2YzVjZTciIGQ9Ik02MCw3LjYyQzI4LjA0LDcuNjIsMi4yMywzMy40MywyLjIzLDY1LjM4aDExNS41NFYzMy40M0M5Ni40MiwxOC42Niw3OS43Niw3LjYyLDYwLDcuNjJ6Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYwLDcuNjJDMjguMDQsNy4yMywyLjIzLDMzLjQzLDIuMjMsNjUuMzhoMTE1LjU0VjMzLjQzQzk2LjQyLDE4LjY2LDc5Ljc2LDcuNjIsNjAsNy42MnogTTYwLDUwLjc2Yy04Ljk5LDAtMTYuMjctNy4yOC0xNi4yNy0xNi4yN2MwLTguOTksNy4yOC0xNi4yNywxNi4yNy0xNi4yN2M4Ljk5LDAsMTYuMjcsNy4yOCwxNi4yNywxNi4yN0M3Ni4yNyw0My40OCw2OC45OSw1MC43Niw2MCw1MC43NnoiLz48cGF0aCBmaWxsPSIjNmM1Y2U3IiBkPSJNMTgwLDcuNjJjMzEuOTYsMCw1Ny43NywyNS44MSw1Ny43Nyw1Ny43NkgxMjIuMjNWMzMuNDNDMTQzLjU4LDE4LjY2LDE2MC4yNCw3LjYyLDE4MCw3LjYyeiIvPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xODAsNy42MmMzMS45NiwwLDU3Ljc3LDI1LjgxLDU3Ljc3LDU3Ljc2SDEyMi4yM1YzMy40M0MxNDMuNTgsMTguNjYsMTYwLjI0LDcuNjIsMTgwLDcuNjJ6IE0xODAsNTAuNzZjOC45OSwwLDE2LjI3LTcuMjgsMTYuMjctMTYuMjdjMC04Ljk5LTcuMjgtMTYuMjctMTYuMjctMTYuMjdjLTguOTksMC0xNi4yNyw3LjI4LTE2LjI3LDE2LjI3QzE2My43Myw0My40OCwxNzEuMDEsNTAuNzYsMTgwLDUwLjc2eiIvPjwvc3ZnPg==');
       height: 50px;
       width: auto;
       margin-right: 10px;
@@ -191,11 +191,17 @@
         localStorage.setItem('feagi-theme', 'light');
       }
 
-      // Apply theme colors dynamically
-      document.documentElement.style.setProperty('--header-bg', theme === 'dark' ? '#222' : '#f9f9f9');
-      document.documentElement.style.setProperty('--header-text', theme === 'dark' ? '#fff' : '#000');
-      document.documentElement.style.setProperty('--filter-bg', theme === 'dark' ? '#333' : '#f0f0f0');
-      document.documentElement.style.setProperty('--filter-text', theme === 'dark' ? '#fff' : '#333');
+      // Determine the actual theme to apply (system, dark, or light)
+      let actualThemeToApply = theme;
+      if (theme === 'system') {
+        actualThemeToApply = getSystemTheme();
+      }
+
+      // Apply theme colors dynamically to custom elements
+      document.documentElement.style.setProperty('--header-bg', actualThemeToApply === 'dark' ? '#222' : '#f9f9f9');
+      document.documentElement.style.setProperty('--header-text', actualThemeToApply === 'dark' ? '#fff' : '#000');
+      document.documentElement.style.setProperty('--filter-bg', actualThemeToApply === 'dark' ? '#333' : '#f0f0f0');
+      document.documentElement.style.setProperty('--filter-text', actualThemeToApply === 'dark' ? '#fff' : '#333');
     }
 
     document.getElementById('theme-select').addEventListener('change', (e) => {
@@ -237,6 +243,13 @@
         document.querySelectorAll('.opblock-tag-section.is-open').forEach(tag => {
           tag.querySelector('.opblock-tag').click();
         });
+      });
+      
+      // Listen for system theme changes to update our custom elements
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (document.getElementById('theme-select').value === 'system') {
+          setTheme('system'); // Re-apply system theme to update colors
+        }
       });
       
       // Set up the filter functionality with a timeout to ensure Swagger UI is fully loaded
