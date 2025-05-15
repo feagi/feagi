@@ -20,6 +20,17 @@ from zmq.auth.thread import ThreadAuthenticator
 
 from ..core.service import CoreApiService
 
+# Import protocol definitions
+from protocol import (
+    ProtocolID, ProtocolHeader, Timestamp,
+    FCPMessageType, FCPMessage, RegisterRequest, RegisterResponse,
+    DeregisterRequest, DeregisterResponse, StatusRequest, StatusResponse,
+    HeartbeatRequest, HeartbeatResponse, ErrorResponse,
+    FSMPMessageType, SensoryChannelType, MotorChannelType, FSMPMessage,
+    SensoryData, MotorData,
+    FVPMessageType, FVPMessage, StructureData, ActivityData
+)
+
 
 class ZmqServer:
     """
@@ -37,6 +48,7 @@ class ZmqServer:
         pub_sub_port: int = 5556,
         push_pull_port: int = 5557,
         sensorimotor_port: int = 5558,
+        control_port: int = 5559,
         vis_base_port: int = 5560,
         context: Optional[zmq.asyncio.Context] = None
     ):
@@ -50,6 +62,7 @@ class ZmqServer:
             pub_sub_port: Port for PUB/SUB pattern
             push_pull_port: Port for PUSH/PULL pattern
             sensorimotor_port: Port for sensorimotor stream
+            control_port: Port for control protocol stream
             vis_base_port: Base port for visualization stream
             context: Optional existing ZMQ context to use
         """
@@ -59,6 +72,7 @@ class ZmqServer:
         self.pub_sub_port = pub_sub_port
         self.push_pull_port = push_pull_port
         self.sensorimotor_port = sensorimotor_port
+        self.control_port = control_port
         self.vis_base_port = vis_base_port
         
         # Thread and event loop management
@@ -74,6 +88,20 @@ class ZmqServer:
         self._push_pull = None
         self._sensorimotor = None
         self._visualization = None
+        self._control = None
+        
+        # Initialize sockets (will be created on start)
+        self.control_socket = None
+        self.sensorimotor_socket = None
+        self.viz_structure_socket = None
+        self.viz_activity_socket = None
+        
+        # State tracking
+        self.agents = {}  # agent_id -> agent_info
+        self.tasks = []
+        
+        # Callbacks
+        self.sensory_callback = None
     
     def start(self) -> bool:
         """
@@ -143,6 +171,7 @@ class ZmqServer:
             from .patterns.push_pull import PushPullManager
             from .streams.sensorimotor import SensorimotorStream
             from .streams.visualization import VisualizationStream
+            from .streams.control import ControlStream
             
             # Initialize all managers with the current thread's event loop
             self._req_rep = RequestReplyManager(
@@ -173,6 +202,13 @@ class ZmqServer:
                 context=self._context
             )
             
+            self._control = ControlStream(
+                core_api=self.core_api,
+                host=self.host,
+                port=self.control_port,
+                context=self._context
+            )
+            
             self._visualization = VisualizationStream(
                 core_api=self.core_api,
                 host=self.host,
@@ -187,7 +223,27 @@ class ZmqServer:
             await self._pub_sub.start()
             await self._push_pull.start()
             await self._sensorimotor.start()
+            await self._control.start()
             await self._visualization.start()
+            
+            # Create control socket (ROUTER)
+            self.control_socket = self._context.socket(zmq.ROUTER)
+            self.control_socket.bind(f"tcp://*:{self.control_port}")
+            
+            # Create sensorimotor socket (XPUB/XSUB pattern)
+            self.sensorimotor_socket = self._context.socket(zmq.XPUB)
+            self.sensorimotor_socket.bind(f"tcp://*:{self.sensorimotor_port}")
+            
+            # Create visualization sockets (PUB)
+            self.viz_structure_socket = self._context.socket(zmq.PUB)
+            self.viz_structure_socket.bind(f"tcp://*:{self.vis_base_port}")
+            
+            self.viz_activity_socket = self._context.socket(zmq.PUB)
+            self.viz_activity_socket.bind(f"tcp://*:{self.vis_base_port + 1}")
+            
+            # Start message handling tasks
+            self.tasks.append(asyncio.create_task(self._handle_control_messages()))
+            self.tasks.append(asyncio.create_task(self._handle_sensorimotor_messages()))
             
             logger.info("ZMQ server started successfully")
         except Exception as e:
@@ -199,177 +255,512 @@ class ZmqServer:
         """
         Monitor loop to keep the server running and handle shutdown requests.
         """
-        while self._running and not self._shutdown_event.is_set():
-            try:
-                # Publish system metrics periodically
-                try:
-                    if self.core_api and self._pub_sub:
-                        metrics = await self.core_api.get_system_metrics()
-                        if metrics:
-                            await self._pub_sub.publish_event("system.metrics", metrics)
-                except Exception as e:
-                    logger.error(f"Error publishing system metrics: {e}")
-                
-                # Sleep a bit to avoid high CPU usage
+        try:
+            while self._running and not self._shutdown_event.is_set():
                 await asyncio.sleep(1.0)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in ZMQ monitor loop: {e}")
-                await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            logger.info("Monitor loop cancelled")
+        except Exception as e:
+            logger.error(f"Error in monitor loop: {e}")
+            self._running = False
     
     def shutdown(self):
         """
-        Shut down the ZMQ server.
+        Shutdown the ZMQ server.
         
-        This method can be called from any thread and will properly signal
-        the server thread to shut down and clean up resources.
+        This method is thread-safe and can be called from any thread.
         """
-        logger.info("Shutting down ZMQ server")
         if not self._running:
-            logger.warning("ZMQ server is not running, nothing to shut down")
+            logger.warning("ZMQ server is not running")
             return
+            
+        logger.info("Shutting down ZMQ server")
         
-        self._running = False
+        # Signal the monitor loop to stop
         self._shutdown_event.set()
         
-        if self._thread and self._thread.is_alive():
-            logger.info("Signaling server thread to stop")
-            if self._loop:
-                # Create a future to run the stop() coroutine in the server thread's event loop
-                future = asyncio.run_coroutine_threadsafe(self._stop_services(), self._loop)
-                try:
-                    # Wait for the stop to complete with a timeout
-                    future.result(timeout=5.0)
-                except concurrent.futures.TimeoutError:
-                    logger.warning("Timeout waiting for ZMQ server to stop")
-                except Exception as e:
-                    logger.error(f"Error stopping ZMQ server: {e}")
+        # Create a new event loop for shutdown if we're not in the server thread
+        if threading.current_thread() != self._thread:
+            # We're in a different thread, create a new event loop
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # Run the shutdown in this new loop
+                loop.run_until_complete(self._stop_services())
+            finally:
+                loop.close()
+        else:
+            # We're in the server thread, use its loop
+            asyncio.ensure_future(self._stop_services())
             
-            # Give the thread some time to clean up
-            self._thread.join(timeout=3.0)
-            if self._thread.is_alive():
-                logger.warning("ZMQ server thread did not exit cleanly")
-        
+        # Wait for the server thread to finish
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5.0)
+            
+        # Final cleanup
+        self._running = False
         logger.info("ZMQ server shutdown complete")
     
     async def _stop_services(self):
         """
-        Stop all ZMQ services.
-        
-        This coroutine is run in the server thread's event loop.
+        Stop all ZMQ services asynchronously.
         """
-        logger.info("Stopping ZMQ services...")
-        try:
-            # Stop all services
-            stop_tasks = []
+        logger.info("Stopping ZMQ services")
+        
+        # Stop all services
+        stop_tasks = []
+        
+        if self._req_rep:
+            stop_tasks.append(self._req_rep.stop())
             
-            if self._req_rep:
-                stop_tasks.append(self._req_rep.stop())
-            if self._pub_sub:
-                stop_tasks.append(self._pub_sub.stop())
-            if self._push_pull:
-                stop_tasks.append(self._push_pull.stop())
-            if self._sensorimotor:
-                stop_tasks.append(self._sensorimotor.stop())
-            if self._visualization:
-                stop_tasks.append(self._visualization.stop())
+        if self._pub_sub:
+            stop_tasks.append(self._pub_sub.stop())
             
-            if stop_tasks:
-                await asyncio.gather(*stop_tasks, return_exceptions=True)
+        if self._push_pull:
+            stop_tasks.append(self._push_pull.stop())
+            
+        if self._sensorimotor:
+            stop_tasks.append(self._sensorimotor.stop())
+            
+        if self._control:
+            stop_tasks.append(self._control.stop())
+            
+        if self._visualization:
+            stop_tasks.append(self._visualization.stop())
+            
+        # Wait for all services to stop
+        if stop_tasks:
+            await asyncio.gather(*stop_tasks, return_exceptions=True)
+            
+        logger.info("All ZMQ services stopped")
+        
+        # Close sockets
+        for socket in [self.control_socket, self.sensorimotor_socket, 
+                      self.viz_structure_socket, self.viz_activity_socket]:
+            if socket:
+                socket.close(linger=0)
                 
-            logger.info("All ZMQ services stopped")
-        except Exception as e:
-            logger.error(f"Error stopping ZMQ services: {e}")
+        self.control_socket = None
+        self.sensorimotor_socket = None
+        self.viz_structure_socket = None
+        self.viz_activity_socket = None
     
     def _cleanup(self):
         """
-        Clean up resources after shutdown.
+        Clean up resources.
         
-        This method is called from the server thread.
+        This is called when the server thread exits.
         """
-        logger.info("Cleaning up ZMQ resources")
         try:
+            # Ensure services are stopped
+            if self._loop and self._running:
+                self._loop.run_until_complete(self._stop_services())
+                
             # Close the event loop
-            if self._loop and not self._loop.is_closed():
-                pending_tasks = asyncio.all_tasks(self._loop)
-                if pending_tasks:
-                    logger.warning(f"Cancelling {len(pending_tasks)} pending tasks")
-                    for task in pending_tasks:
-                        task.cancel()
-                    
-                    # Give tasks a chance to cancel
-                    self._loop.run_until_complete(
-                        asyncio.gather(*pending_tasks, return_exceptions=True)
-                    )
-                
+            if self._loop:
                 self._loop.close()
-                logger.info("Event loop closed")
-            
-            # Term the context
-            if self._context:
-                self._context.term()
-                logger.info("ZMQ context terminated")
-                self._context = None
+                self._loop = None
                 
+            # Clear service references
+            self._req_rep = None
+            self._pub_sub = None
+            self._push_pull = None
+            self._sensorimotor = None
+            self._control = None
+            self._visualization = None
+            
+            # Reset state
+            self._running = False
+            self._shutdown_event.clear()
+            
+            # Clear state tracking
+            self.agents = {}
+            self.tasks = []
+            
+            logger.info("ZMQ server resources cleaned up")
         except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
+            logger.error(f"Error during ZMQ server cleanup: {e}")
     
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
         """
         Publish an event to subscribers.
         
         Args:
-            event_type: The type of event
-            event_data: The event data
+            event_type: Type of event
+            event_data: Event data
         """
-        if not self._running:
-            logger.warning(f"ZMQ server not running, can't publish event: {event_type}")
-            return
-            
-        if not self._pub_sub:
-            logger.warning(f"PubSub manager not initialized, can't publish event: {event_type}")
+        if not self._running or not self._pub_sub:
+            logger.warning("Cannot publish event: ZMQ server not running")
             return
             
         try:
-            # We need to schedule this in the server thread's event loop
-            if self._loop:
-                future = asyncio.run_coroutine_threadsafe(
-                    self._pub_sub.publish_event(event_type, event_data), 
-                    self._loop
-                )
-                future.result(timeout=1.0)  # Wait with timeout to avoid blocking
-            else:
-                logger.warning(f"No event loop available, can't publish event: {event_type}")
+            await self._pub_sub.publish_event(event_type, event_data)
         except Exception as e:
-            logger.error(f"Error publishing event {event_type}: {e}")
+            logger.error(f"Error publishing event: {e}")
     
     async def queue_work(self, work_type: str, data: Any, priority: int = 0) -> None:
         """
         Queue work for processing.
         
         Args:
-            work_type: The type of work
-            data: The work data
-            priority: Work priority (0-9, higher is more important)
+            work_type: Type of work
+            data: Work data
+            priority: Priority level (higher is more important)
         """
-        if not self._running:
-            logger.warning(f"ZMQ server not running, can't queue work: {work_type}")
-            return
-            
-        if not self._push_pull:
-            logger.warning(f"PushPull manager not initialized, can't queue work: {work_type}")
+        if not self._running or not self._push_pull:
+            logger.warning("Cannot queue work: ZMQ server not running")
             return
             
         try:
-            # We need to schedule this in the server thread's event loop
-            if self._loop:
-                future = asyncio.run_coroutine_threadsafe(
-                    self._push_pull.queue_work(work_type, data, priority), 
-                    self._loop
-                )
-                future.result(timeout=1.0)  # Wait with timeout to avoid blocking
-            else:
-                logger.warning(f"No event loop available, can't queue work: {work_type}")
+            await self._push_pull.push_data(work_type, data, priority)
         except Exception as e:
-            logger.error(f"Error queueing work {work_type}: {e}") 
+            logger.error(f"Error queueing work: {e}")
+            
+    async def send_control_message(self, agent_id: str, message_type: str, data: Dict[str, Any] = None) -> bool:
+        """
+        Send a control message to an agent.
+        
+        Args:
+            agent_id: Agent ID
+            message_type: Message type
+            data: Message data
+            
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        if not self._running or not self._control:
+            logger.warning("Cannot send control message: ZMQ server not running")
+            return False
+            
+        try:
+            return await self._control.send_control_message(agent_id, message_type, data)
+        except Exception as e:
+            logger.error(f"Error sending control message: {e}")
+            return False
+    
+    async def _handle_control_messages(self):
+        """Handle incoming control messages."""
+        try:
+            while self._running and self.control_socket:
+                try:
+                    # Receive message
+                    frames = await self.control_socket.recv_multipart()
+                    if len(frames) != 3:  # [identity, empty, message]
+                        logger.warning(f"Invalid frame count: {len(frames)}")
+                        continue
+                    
+                    identity, empty, message_data = frames
+                    
+                    # Parse the message
+                    fcp_message = FCPMessage()
+                    fcp_message.ParseFromString(message_data)
+                    
+                    # Handle different message types
+                    response = None
+                    if fcp_message.type == FCPMessageType.FCP_REGISTER:
+                        response = await self._handle_register(identity, fcp_message.register_request)
+                    elif fcp_message.type == FCPMessageType.FCP_DEREGISTER:
+                        response = await self._handle_deregister(identity, fcp_message.deregister_request)
+                    elif fcp_message.type == FCPMessageType.FCP_HEARTBEAT:
+                        response = await self._handle_heartbeat(identity, fcp_message.heartbeat_request)
+                    elif fcp_message.type == FCPMessageType.FCP_STATUS_REQUEST:
+                        response = await self._handle_status_request(identity, fcp_message.status_request)
+                    else:
+                        logger.warning(f"Unknown control message type: {fcp_message.type}")
+                        continue
+                    
+                    # Send response
+                    if response:
+                        await self.control_socket.send_multipart([identity, empty, response])
+                    
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error handling control message: {e}")
+                    
+        except asyncio.CancelledError:
+            logger.debug("Control message handler cancelled")
+    
+    async def _handle_sensorimotor_messages(self):
+        """Handle incoming sensorimotor messages."""
+        try:
+            while self._running and self.sensorimotor_socket:
+                try:
+                    # Receive message
+                    frames = await self.sensorimotor_socket.recv_multipart()
+                    if len(frames) != 2:  # [topic, message]
+                        logger.warning(f"Invalid sensorimotor frame count: {len(frames)}")
+                        continue
+                    
+                    topic, message_data = frames
+                    
+                    # Handle based on topic
+                    if topic == b"sensory":
+                        await self._handle_sensory_data(message_data)
+                    else:
+                        logger.warning(f"Unknown sensorimotor topic: {topic}")
+                    
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error handling sensorimotor message: {e}")
+                    
+        except asyncio.CancelledError:
+            logger.debug("Sensorimotor message handler cancelled")
+    
+    async def _handle_register(self, identity: bytes, request: RegisterRequest) -> bytes:
+        """Handle agent registration."""
+        agent_id = request.agent_id
+        agent_type = request.agent_type
+        
+        logger.info(f"Registering agent: {agent_id} ({agent_type})")
+        
+        # Store agent information
+        self.agents[agent_id] = {
+            "id": agent_id,
+            "type": agent_type,
+            "identity": identity,
+            "last_seen": time.time(),
+            "protocol_versions": {
+                "FCP": request.protocol_versions.fcp_version,
+                "FSMP": request.protocol_versions.fsmp_version,
+                "FVP": request.protocol_versions.fvp_version
+            }
+        }
+        
+        # Create response
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
+        
+        response = RegisterResponse()
+        response.status = "success"
+        response.message = f"Agent {agent_id} registered successfully"
+        response.timestamp.CopyFrom(current_time)
+        
+        # Create FCP message
+        message = FCPMessage()
+        message.header.protocol_id = ProtocolID.FCP
+        message.header.version = 1
+        message.type = FCPMessageType.FCP_REGISTER_RESPONSE
+        message.register_response.CopyFrom(response)
+        
+        return message.SerializeToString()
+    
+    async def _handle_deregister(self, identity: bytes, request: DeregisterRequest) -> bytes:
+        """Handle agent deregistration."""
+        agent_id = request.agent_id
+        
+        logger.info(f"Deregistering agent: {agent_id}")
+        
+        # Remove agent
+        if agent_id in self.agents:
+            del self.agents[agent_id]
+            status = "success"
+            message = f"Agent {agent_id} deregistered successfully"
+        else:
+            status = "error"
+            message = f"Agent {agent_id} not found"
+        
+        # Create response
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
+        
+        response = DeregisterResponse()
+        response.status = status
+        response.message = message
+        response.timestamp.CopyFrom(current_time)
+        
+        # Create FCP message
+        message = FCPMessage()
+        message.header.protocol_id = ProtocolID.FCP
+        message.header.version = 1
+        message.type = FCPMessageType.FCP_DEREGISTER_RESPONSE
+        message.deregister_response.CopyFrom(response)
+        
+        return message.SerializeToString()
+    
+    async def _handle_heartbeat(self, identity: bytes, request: HeartbeatRequest) -> bytes:
+        """Handle heartbeat message."""
+        agent_id = request.agent_id
+        
+        # Update last seen timestamp
+        if agent_id in self.agents:
+            self.agents[agent_id]["last_seen"] = time.time()
+            status = "ok"
+        else:
+            status = "error"
+            
+        # Create response
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
+        
+        response = HeartbeatResponse()
+        response.status = status
+        response.timestamp.CopyFrom(current_time)
+        
+        # Create FCP message
+        message = FCPMessage()
+        message.header.protocol_id = ProtocolID.FCP
+        message.header.version = 1
+        message.type = FCPMessageType.FCP_HEARTBEAT_RESPONSE
+        message.heartbeat_response.CopyFrom(response)
+        
+        return message.SerializeToString()
+    
+    async def _handle_status_request(self, identity: bytes, request: StatusRequest) -> bytes:
+        """Handle status request message."""
+        # Create response
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
+        
+        response = StatusResponse()
+        response.status = "ok"
+        response.runtime.cpu_usage = 10.0  # Example values
+        response.runtime.memory_usage = 250.5
+        response.runtime.uptime_seconds = 3600
+        response.agent_count = len(self.agents)
+        response.timestamp.CopyFrom(current_time)
+        
+        # Create FCP message
+        message = FCPMessage()
+        message.header.protocol_id = ProtocolID.FCP
+        message.header.version = 1
+        message.type = FCPMessageType.FCP_STATUS_RESPONSE
+        message.status_response.CopyFrom(response)
+        
+        return message.SerializeToString()
+    
+    async def _handle_sensory_data(self, message_data: bytes):
+        """Handle incoming sensory data."""
+        # Parse the message
+        fsmp_message = FSMPMessage()
+        fsmp_message.ParseFromString(message_data)
+        
+        # Verify it's a sensory message
+        if fsmp_message.type != FSMPMessageType.FSMP_SENSORY:
+            logger.warning(f"Received non-sensory message type: {fsmp_message.type}")
+            return
+        
+        # Extract data
+        channel_id = fsmp_message.sensory_data.channel_id
+        data = fsmp_message.sensory_data.data
+        timestamp = fsmp_message.sensory_data.timestamp.time_ms / 1000
+        
+        logger.debug(f"Received sensory data on channel {channel_id}: {len(data)} bytes")
+        
+        # Process the data if callback is registered
+        if self.sensory_callback:
+            await self.sensory_callback(channel_id, data)
+    
+    async def send_motor_data(self, channel_id: int, data: bytes):
+        """
+        Send motor data to agents.
+        
+        Args:
+            channel_id: Motor channel ID
+            data: Motor data
+        """
+        if not self._running or not self.sensorimotor_socket:
+            logger.warning("Cannot send motor data: server not running")
+            return
+        
+        # Create timestamp
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
+        
+        # Create motor data message
+        motor_data = MotorData()
+        motor_data.channel_id = channel_id
+        motor_data.data = data
+        motor_data.timestamp.CopyFrom(current_time)
+        
+        # Create FSMP message
+        message = FSMPMessage()
+        message.header.protocol_id = ProtocolID.FSMP
+        message.header.version = 1
+        message.type = FSMPMessageType.FSMP_MOTOR
+        message.motor_data.CopyFrom(motor_data)
+        
+        # Serialize and send
+        data = message.SerializeToString()
+        await self.sensorimotor_socket.send_multipart([b"motor", data])
+        
+    async def send_activity_data(self, data: bytes):
+        """
+        Send neural activity data to visualization clients.
+        
+        Args:
+            data: Serialized activity data
+        """
+        if not self._running or not self.viz_activity_socket:
+            logger.warning("Cannot send activity data: server not running")
+            return
+        
+        # Create timestamp
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
+        
+        # Create activity data message
+        activity_data = ActivityData()
+        # In a real implementation, you would parse the data and fill in the fields
+        # For this example, we'll assume data is pre-serialized ActivityData
+        activity_data.ParseFromString(data)
+        
+        # Update timestamp
+        activity_data.timestamp.CopyFrom(current_time)
+        
+        # Create FVP message
+        message = FVPMessage()
+        message.header.protocol_id = ProtocolID.FVP
+        message.header.version = 1
+        message.type = FVPMessageType.FVP_ACTIVITY
+        message.activity_data.CopyFrom(activity_data)
+        
+        # Serialize and send
+        data = message.SerializeToString()
+        await self.viz_activity_socket.send_multipart([b"activity", data])
+        
+    async def send_structure_data(self, data: bytes):
+        """
+        Send brain structure data to visualization clients.
+        
+        Args:
+            data: Serialized structure data
+        """
+        if not self._running or not self.viz_structure_socket:
+            logger.warning("Cannot send structure data: server not running")
+            return
+        
+        # Create timestamp
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
+        
+        # Create structure data message
+        structure_data = StructureData()
+        # In a real implementation, you would parse the data and fill in the fields
+        # For this example, we'll assume data is pre-serialized StructureData
+        structure_data.ParseFromString(data)
+        
+        # Update timestamp
+        structure_data.timestamp.CopyFrom(current_time)
+        
+        # Create FVP message
+        message = FVPMessage()
+        message.header.protocol_id = ProtocolID.FVP
+        message.header.version = 1
+        message.type = FVPMessageType.FVP_STRUCTURE
+        message.structure_data.CopyFrom(structure_data)
+        
+        # Serialize and send
+        data = message.SerializeToString()
+        await self.viz_structure_socket.send_multipart([b"structure", data])
+    
+    def register_sensory_callback(self, callback: Callable[[int, bytes], None]):
+        """
+        Register a callback for processing incoming sensory data.
+        
+        Args:
+            callback: Function to call when sensory data is received
+                     (parameters: channel_id, data)
+        """
+        self.sensory_callback = callback 

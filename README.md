@@ -1,165 +1,109 @@
-# FEAGI
+# FEAGI - Flexible & Extensible Artificial General Intelligence
 
-**F**ramework for **E**volutionary **A**rtificial **G**eneral **I**ntelligence
+FEAGI (Flexible & Extensible Artificial General Intelligence) is a brain-inspired cognitive architecture and framework.
 
-## Overview
+## Architecture Overview
 
-FEAGI is a Python-based framework for developing and deploying artificial general intelligence models. It provides a flexible architecture that combines Python's ease of use with Rust's performance for computationally intensive operations.
+FEAGI is built with a modular architecture consisting of:
 
-## Features
+- **Core Cognitive System**: The main FEAGI brain system
+- **Protocol Layer**: Language-agnostic communication protocols
+- **API Layer**: REST, WebSocket and ZeroMQ interfaces
+- **Client Connectors**: Libraries for different languages to connect to FEAGI
 
-- **FastAPI Backend**: High-performance API server for model deployment and interaction
-- **ZMQ Messaging**: Efficient inter-component communication using ZeroMQ
-- **Hybrid Architecture**: Core functionality in Python with performance-critical components in Rust
-- **Extensible Design**: Easily add new model types, training methods, and inference strategies
-- **Comprehensive Testing**: Built with pytest to ensure reliability and stability
-- **Well-Documented**: Complete API documentation and usage examples
-- **Memory Profiling**: Built-in tools for tracking memory usage
-- **Benchmarking**: Performance measurement tools for identifying bottlenecks
+## Communication Protocols
 
-## Installation
+FEAGI uses Protocol Buffers to define language-agnostic communication protocols:
 
-```bash
-pip install feagi
-```
+1. **FCP (FEAGI Control Protocol)**: For agent registration, heartbeats, and control
+2. **FSMP (FEAGI Sensorimotor Protocol)**: For exchanging sensory and motor data
+3. **FVP (FEAGI Visualization Protocol)**: For exchanging brain visualization data
 
-## Running FEAGI
+These protocols are defined in the `protocol/` directory and can be used to generate client libraries for any language that supports Protocol Buffers.
 
-FEAGI provides multiple ways to run the system depending on your needs:
+## Getting Started
 
-### Unified Command (Recommended)
+### Prerequisites
 
-The simplest way to run FEAGI is with the unified command that starts both the API and ZMQ servers:
+- Python 3.9+
+- Protocol Buffers compiler (protoc)
 
-```bash
-# Start both API and ZMQ servers with default settings
-feagi
-
-# Custom configuration
-feagi --api-port 8080 --zmq-pub-port 5566 --zmq-sub-port 5567
-
-# Skip dependency version checking
-feagi --skip-version-check
-```
-
-### Environment Variables
-
-You can configure FEAGI behavior using environment variables:
+### Installation
 
 ```bash
-# Skip dependency version checking
-export FEAGI_SKIP_VERSION_CHECK=1
-feagi
+# Clone the repository
+git clone https://github.com/your-username/feagi.git
+cd feagi
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### Component-Specific Commands
-
-You can also run specific components individually:
+### Running FEAGI
 
 ```bash
-# Run only the API server
-feagi --api-only
-feagi-api
-
-# Run only the ZMQ server
-feagi --zmq-only
-feagi-zmq
+python run_feagi.sh
 ```
 
-### Advanced Configuration
+## Connecting to FEAGI
 
-```bash
-# See all available options
-feagi --help
-feagi-api --help
-feagi-zmq --help
+FEAGI provides client connectors for various languages:
 
-# Run with custom host and port
-feagi --api-host 0.0.0.0 --api-port 8888
-
-# Run ZMQ with specific topics
-feagi --zmq-topics neural metrics heartbeat system
-```
-
-### Python Module Usage
-
-You can also run FEAGI as Python modules:
-
-```bash
-# Full system
-python -m feagi.main
-
-# Individual components
-python -m feagi.api.server
-python -m feagi.zmq.server
-```
-
-## Programming Interface
+### Python
 
 ```python
-from feagi import create_feagi
+from feagi_connector import FeagiClient
 
-# Initialize a new FEAGI instance
-feagi = create_feagi()
+async def main():
+    client = FeagiClient(host="localhost")
+    await client.connect()
+    
+    # Send sensory data
+    await client.send_sensory_data(channel_id=1, data=my_data)
+    
+    await client.disconnect()
+```
 
-# Access components
-resource_mgr = feagi["resource_mgr"]
+### Other Languages
+
+For other languages, use the Protocol Buffer definitions in `protocol/` to generate client libraries:
+
+#### JavaScript
+
+```javascript
+// Using generated protobuf code
+const feagi = require('./generated/feagi_protocol');
+
+// Create client and connect
+const client = new feagi.Client('localhost');
+client.connect();
+
+// Send sensory data
+client.sendSensoryData(1, myData);
+```
+
+#### Rust
+
+```rust
+// Using generated protobuf code
+use feagi_client::FeagiClient;
+
+async fn main() -> Result<(), Box<dyn Error>> {
+    let mut client = FeagiClient::new("localhost").await?;
+    client.connect().await?;
+    
+    // Send sensory data
+    client.send_sensory_data(1, &my_data).await?;
+    
+    client.disconnect().await?;
+    Ok(())
+}
 ```
 
 ## Documentation
 
-Comprehensive documentation is available at [docs/](./docs/).
-
-## Development
-
-### Setup Development Environment
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/feagi.git
-cd feagi
-
-# Create a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install development dependencies
-pip install -e .
-```
-
-### Dependency Management
-
-FEAGI includes tools to help manage dependencies:
-
-```bash
-# Check if installed dependencies match requirements.txt
-python -m feagi.scripts.check_dependencies
-
-# Run with strict mode (exit with error if dependencies don't match)
-python -m feagi.scripts.check_dependencies --strict
-
-# Use a custom requirements file
-python -m feagi.scripts.check_dependencies --requirements path/to/requirements.txt
-```
-
-### Optional: Rust Integration
-
-For performance-critical components, FEAGI can leverage Rust:
-
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Install the project with Rust extensions
-pip install -e .
-```
-
-### Running Tests
-
-```bash
-pytest
-```
+Full documentation is available in the `docs/` directory.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details. 

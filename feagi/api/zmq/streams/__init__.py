@@ -7,6 +7,7 @@ data types used in FEAGI.
 
 from .sensorimotor import SensorimotorStream, SensorimotorClient
 from .visualization import VisualizationStream, VisualizationClient
+from .control import ControlStream
 
 __all__ = [
     # Sensorimotor Stream
@@ -16,4 +17,7 @@ __all__ = [
     # Visualization Stream
     'VisualizationStream',
     'VisualizationClient',
+    
+    # Control Stream
+    'ControlStream',
 ] 
