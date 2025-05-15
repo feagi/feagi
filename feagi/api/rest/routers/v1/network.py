@@ -18,11 +18,23 @@
 from fastapi import APIRouter, HTTPException
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
-
+from feagi.api.core.services.core_api_service import CoreAPIService
+from ...schemas import Network
 from ...commons import *
 
 router = APIRouter()
-state = FeagiStateManager.instance()
+# Get dependencies
+state_manager = FeagiStateManager.instance()
+
+# Get CoreAPIService instance
+def get_api_service():
+    connectome_manager = state_manager.get_connectome()
+    if not connectome_manager:
+        # Create a minimal version if not available
+        from feagi.bdu.connectome_manager import ConnectomeManager
+        connectome_manager = ConnectomeManager()
+        
+    return CoreAPIService(connectome_manager=connectome_manager, state_manager=state_manager)
 
 
 # ######  Networking Endpoints #########
@@ -30,19 +42,31 @@ state = FeagiStateManager.instance()
 
 @router.get("/network")
 async def network_management():
-    if state.parameters['Sockets']:
-        return state.parameters['Sockets']
-    else:
-        raise HTTPException(status_code=400, detail=f"Networking data not available!")
+    """
+    Get current network configuration settings.
+    """
+    api_service = get_api_service()
+    try:
+        network_config = api_service.get_network_config()
+        if network_config:
+            return network_config
+        else:
+            raise HTTPException(status_code=400, detail="Network configuration not available")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Network data not available: {str(e)}")
 
 
-# @router.api_route("/network", methods=['POST'], tags=["Networking"])
-# async def network_management(message: Network):
-#     try:
-#         message = message.dict()
-#         message = {'network_management': message}
-#         api_queue.put(item=message)
-#         return runtime_data.parameters['Sockets']
-#     except Exception as e:
-#         print("API Error:", e)
-#
+@router.post("/network")
+async def update_network_management(message: Network):
+    """
+    Update network configuration settings.
+    """
+    api_service = get_api_service()
+    try:
+        success = api_service.update_network_config(message.dict())
+        if success:
+            return {"status": "success", "message": "Network configuration updated"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to update network configuration")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

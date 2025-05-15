@@ -14,36 +14,28 @@
 # limitations under the License.
 # ==============================================================================
 
-from fastapi import APIRouter
-from feagi.core.state_manager import FeagiStateManager
-from feagi.bdu import ConnectomeManager
+from fastapi import APIRouter, Depends
+
+from feagi.api.rest.dependencies import get_core_api_service
+from feagi.api.core.services.core_api_service import CoreAPIService
 
 router = APIRouter()
-state = FeagiStateManager.instance()
 
 
 # ######  Evolution #########
 # #############################
 
 @router.get("/generations")
-async def list_generations():
+async def list_generations(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """
     Return details about all generations.
     """
-
-    if state.generation_dict:
-        return state.generation_dict
-    else:
-        return {}
+    return core_api_service.get_generations()
 
 
 @router.get("/change_register")
-async def list_generations():
+async def get_change_register(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """
-    Return details about all generations.
+    Return evolution change register details.
     """
-
-    if state.evo_change_register:
-        return state.evo_change_register
-    else:
-        return {}
+    return core_api_service.get_change_register()

@@ -93,9 +93,15 @@ This document tracks the progress of the API refactoring effort to ensure all AP
 
 ## Priority 3: Peripheral Operation Endpoints
 
-- [ ] `/evolution/*`
+- [x] `/evolution/*`
+  - [x] `/evolution/generations` (GET) - Get details about all generations
+  - [x] `/evolution/change_register` (GET) - Get evolution change register
 - [ ] `/agent/*`
-- [ ] `/insight/*`
+- [x] `/insight/*`
+  - [x] `/insight/neurons/membrane_potential_status` (POST) - Get monitoring status
+  - [x] `/insight/neurons/membrane_potential_set` (POST) - Enable/disable monitoring
+  - [x] `/insight/neuron/synaptic_potential_status` (POST) - Get monitoring status
+  - [x] `/insight/neuron/synaptic_potential_set` (POST) - Enable/disable monitoring
 - [x] `/region/*`
   - [x] `/region/region` (POST) - Create a new brain region
   - [x] `/region/region` (PUT) - Update brain region properties
@@ -108,7 +114,15 @@ This document tracks the progress of the API refactoring effort to ensure all AP
   - [x] `/region/change_cortical_area_region` (PUT) - Change area's region
   - [x] `/region/change_region_parent` (PUT) - Change region's parent
   - [x] `/region/relocate_members` (PUT) - Relocate region members
-- [ ] `/cortical_mapping/*`
+- [x] `/cortical_mapping/*`
+  - [x] `/cortical_mapping/efferents` (POST) - Get outgoing connections from area
+  - [x] `/cortical_mapping/afferents` (POST) - Get incoming connections to area
+  - [x] `/cortical_mapping/cortical_mappings_by_name` (POST) - Get mappings by name
+  - [x] `/cortical_mapping/cortical_mappings_detailed` (POST) - Get detailed mappings
+  - [x] `/cortical_mapping/mapping_properties` (POST) - Get mapping properties
+  - [x] `/cortical_mapping/mapping_properties` (PUT) - Update mapping properties
+  - [x] `/cortical_mapping/cortical_map` (GET) - Get the full cortical map
+  - [x] `/cortical_mapping/delete_suggested_mappings` (DELETE) - Remove mappings
 - [x] `/input/*` 
   - [x] `/input/vision` (GET)
   - [x] `/input/vision` (POST)
@@ -156,9 +170,10 @@ This document tracks the progress of the API refactoring effort to ensure all AP
 
 6. **Peripheral System Integration**
    - Added dedicated CoreAPIService methods for peripheral operations
-   - Started with vision configuration (get_vision_config, update_vision_config)
-   - Implemented proper error handling for peripheral operations
-   - Used consistent patterns across all peripheral systems
+   - Implemented vision configuration through CoreAPIService methods
+   - Added comprehensive cortical mapping functionality with proper error handling
+   - Implemented brain region management through CoreAPIService
+   - Integrated monitoring and insights functionality with proper service isolation
 
 7. **Brain Region Management**
    - Implemented comprehensive brain region management through CoreAPIService
@@ -166,6 +181,19 @@ This document tracks the progress of the API refactoring effort to ensure all AP
    - Added support for region hierarchies and parent-child relationships
    - Added region association management between cortical areas and regions
    - Implemented proper validation and error handling for region operations
+
+8. **Cortical Mapping**
+   - Added dedicated methods for retrieving afferent and efferent connections
+   - Implemented mapping property management through CoreAPIService
+   - Added support for mapping visualization and detailed mapping information
+   - Implemented region-level suggested mapping support
+   - Centralized mapping operations through consistent service interfaces
+
+9. **Monitoring and Insights**
+   - Added dedicated methods for membrane potential and synaptic potential monitoring
+   - Implemented safe access to monitoring scopes through CoreAPIService
+   - Added proper error handling for monitoring service dependencies (e.g., InfluxDB)
+   - Centralized monitoring configuration in the service layer
 
 ### Remaining Work
 
@@ -177,13 +205,11 @@ This document tracks the progress of the API refactoring effort to ensure all AP
    - Added proper error handling and state validation
 
 3. **In Progress: Priority 3 Endpoints**
-   - Started refactoring peripheral operation endpoints
    - Completed `/input/vision` endpoints
    - Completed all `/region/*` endpoints
-   - Created new vision configuration and brain region methods in CoreAPIService
-   - Next targets: cortical_mapping, evolution, agent, and insight endpoints
-   - Create new `/monitoring/*` router for system metrics (partial implementation completed)
-
-4. **Testing**
-   - Implement comprehensive tests for refactored endpoints
-   - Verify all functionality works as expected 
+   - Completed all `/cortical_mapping/*` endpoints
+   - Completed all `/evolution/*` endpoints
+   - Completed all `/insight/*` endpoints
+   - Created new methods in CoreAPIService for vision, regions, cortical mappings, and monitoring
+   - Next targets: agent system endpoints
+   - Create new `/monitoring/*` router for system metrics (partial implementation completed) 

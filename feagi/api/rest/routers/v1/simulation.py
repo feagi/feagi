@@ -14,17 +14,29 @@
 # limitations under the License.
 # ==============================================================================
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from feagi.core.state_manager import FeagiStateManager
 from feagi.bdu import ConnectomeManager
 from pydantic import BaseModel
+from feagi.api.core.services.core_api_service import CoreAPIService
 
 from ...schemas import *
 from ...commons import *
 
 
 router = APIRouter()
-state = FeagiStateManager.instance()
+# Get dependencies
+state_manager = FeagiStateManager.instance()
+
+# Get CoreAPIService instance
+def get_api_service():
+    connectome_manager = state_manager.get_connectome()
+    if not connectome_manager:
+        # Create a minimal version if not available
+        from feagi.bdu.connectome_manager import ConnectomeManager
+        connectome_manager = ConnectomeManager()
+        
+    return CoreAPIService(connectome_manager=connectome_manager, state_manager=state_manager)
 
 
 # Stimulation model for endpoints
@@ -38,39 +50,90 @@ class Stimulation(BaseModel):
 @router.post("/upload/string")
 async def stimulation_string_upload(stimulation_script: Stimulation):
     """
-    stimulation_script = {
-    "IR_pain": {
-        "repeat": 10,
-        "definition": [
-            [{"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]}, 10],
-            [{"i__pro": ["0-0-8"]}, 5],
-            [{"i__bat": ["0-0-7"]}, 1],
-            [{}, 50]
-            ]
-    },
-    "exploration": {
-        "definition": []
-    },
-    "move_forward": {
-        "definition": []
-    },
-    "charge_batteries": {
-        "repeat": 1000,
-        "definition": [
-            [{"i__inf": ["2-0-0"]}, 2]
-        ]
-    }
+    Upload a stimulation script to be executed during simulation.
+    
+    The script follows a specified format for defining stimulation patterns.
     """
-
-    state.stimulation_script = stimulation_script.stimulation_script
-
-    # message = stimulation_script.dict()
-    # message = {'stimulation_script': message}
-    # api_queue.put(item=message)
+    api_service = get_api_service()
+    try:
+        success = api_service.set_stimulation_script(stimulation_script.stimulation_script)
+        if success:
+            return {"status": "success", "message": "Stimulation script uploaded"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to set stimulation script")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/reset")
-async def stimulation_string_upload():
-    message = {"stimulation_script": {}}
-    message = {'stimulation_script': message}
-    api_queue.put(item=message)
+async def stimulation_reset():
+    """
+    Reset all stimulation scripts.
+    """
+    api_service = get_api_service()
+    try:
+        success = api_service.reset_stimulation_script()
+        if success:
+            return {"status": "success", "message": "Stimulation scripts reset"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to reset stimulation script")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/start")
+async def start_simulation():
+    """
+    Start or resume the simulation.
+    """
+    api_service = get_api_service()
+    try:
+        success = api_service.start_simulation()
+        if success:
+            return {"status": "success", "message": "Simulation started"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to start simulation")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/stop")
+async def stop_simulation():
+    """
+    Stop the simulation.
+    """
+    api_service = get_api_service()
+    try:
+        success = api_service.stop_simulation()
+        if success:
+            return {"status": "success", "message": "Simulation stopped"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to stop simulation")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/status")
+async def get_simulation_status():
+    """
+    Get current simulation status including running state and burst count.
+    """
+    api_service = get_api_service()
+    try:
+        status = await api_service.get_simulation_status()
+        return status
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/performance")
+async def get_simulation_performance():
+    """
+    Get performance metrics for the running simulation.
+    """
+    api_service = get_api_service()
+    try:
+        stats = await api_service.get_performance_stats()
+        return stats
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

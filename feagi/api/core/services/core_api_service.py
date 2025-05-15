@@ -1,6 +1,6 @@
 """Core API service implementation for FEAGI."""
 
-from typing import Dict, Any, List, Optional, Tuple, Union
+from typing import Dict, Any, List, Optional, Tuple, Union, Set
 from feagi.utils.logger import setup_logger
 import os
 import json
@@ -2390,6 +2390,245 @@ class CoreAPIService:
             self.logger.error(f"Error getting neuron mappings: {str(e)}")
             return {}
     
+    def get_efferent_mappings(self, cortical_id: str) -> List[Tuple[str, float]]:
+        """
+        Get outgoing connections (efferents) from a cortical area.
+        
+        Args:
+            cortical_id: ID of the source cortical area
+            
+        Returns:
+            List of tuples containing (destination_id, weight) for outgoing connections
+        """
+        try:
+            # Check if the cortical area exists
+            if not self._connectome_manager:
+                return []
+            
+            return self._connectome_manager.get_outgoing_connections(cortical_id)
+        except Exception as e:
+            self.logger.error(f"Error getting efferent mappings: {str(e)}")
+            return []
+    
+    def get_afferent_mappings(self, cortical_id: str) -> List[Tuple[str, float]]:
+        """
+        Get incoming connections (afferents) to a cortical area.
+        
+        Args:
+            cortical_id: ID of the destination cortical area
+            
+        Returns:
+            List of tuples containing (source_id, weight) for incoming connections
+        """
+        try:
+            # Check if the cortical area exists
+            if not self._connectome_manager:
+                return []
+            
+            return self._connectome_manager.get_incoming_connections(cortical_id)
+        except Exception as e:
+            self.logger.error(f"Error getting afferent mappings: {str(e)}")
+            return []
+    
+    def get_cortical_mappings_by_name(self, cortical_id: str) -> List[str]:
+        """
+        Get names of cortical areas connected to the specified area.
+        
+        Args:
+            cortical_id: ID of the source cortical area
+            
+        Returns:
+            List of names of connected cortical areas
+        """
+        try:
+            if not self._connectome_manager:
+                return []
+            
+            mappings = set()
+            for dst_id, _ in self._connectome_manager.get_outgoing_connections(cortical_id):
+                # Look up the name from the area if available
+                area = self._connectome_manager._areas.get(dst_id)
+                if area:
+                    mappings.add(area.name)
+                else:
+                    mappings.add(str(dst_id))
+            return list(mappings)
+        except Exception as e:
+            self.logger.error(f"Error getting cortical mappings by name: {str(e)}")
+            return []
+    
+    def get_detailed_mapping_targets(self, cortical_id: str) -> List[str]:
+        """
+        Get detailed list of target cortical area IDs for outgoing connections.
+        
+        Args:
+            cortical_id: ID of the source cortical area
+            
+        Returns:
+            List of destination cortical area IDs
+            
+        Raises:
+            ValueError: If the cortical area is not found
+        """
+        try:
+            if not self._connectome_manager:
+                return []
+                
+            connections = self._connectome_manager.get_outgoing_connections(cortical_id)
+            if connections:
+                return [dst_id for dst_id, _ in connections]
+            else:
+                raise ValueError(f"Cortical area with id={cortical_id} not found or has no outgoing connections")
+        except Exception as e:
+            self.logger.error(f"Error getting detailed mapping targets: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return []
+    
+    def get_cortical_mapping_properties(self, source: str, destination: str) -> Dict[str, Any]:
+        """
+        Get properties of mapping/connections between two cortical areas.
+        
+        Args:
+            source: ID of the source cortical area
+            destination: ID of the destination cortical area
+            
+        Returns:
+            Dictionary of properties for the mapping
+        """
+        try:
+            if not self._connectome_manager or not hasattr(self._connectome_manager, 'synapse_manager'):
+                return {}
+                
+            return self._connectome_manager.synapse_manager.get_synapse_info(source, destination)
+        except Exception as e:
+            self.logger.error(f"Error getting cortical mapping properties: {str(e)}")
+            return {}
+    
+    def update_cortical_mapping_properties(self, source: str, destination: str, mapping_data: Dict[str, Any]) -> bool:
+        """
+        Update properties of mapping/connections between two cortical areas.
+        
+        Args:
+            source: ID of the source cortical area
+            destination: ID of the destination cortical area
+            mapping_data: Dictionary containing mapping properties to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self._connectome_manager or not self.state_manager.is_connectome_ready():
+                self.logger.error("Connectome is not ready")
+                return False
+                
+            # Prepare data for queue
+            data = {
+                "mapping_data": mapping_data,
+                "src_cortical_area": source,
+                "dst_cortical_area": destination
+            }
+            
+            # Submit update to message queue
+            if hasattr(self._connectome_manager, 'api_message_queue'):
+                self._connectome_manager.api_message_queue.put(item={'update_cortical_mappings': data})
+                return True
+            else:
+                self.logger.error("API message queue not available")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error updating cortical mapping properties: {str(e)}")
+            return False
+    
+    def get_cortical_map(self) -> Dict[str, Dict[str, int]]:
+        """
+        Get the full cortical map with connection counts between areas.
+        
+        Returns:
+            Nested dictionary mapping source IDs to dictionaries of target IDs with connection counts
+        """
+        try:
+            if not self._connectome_manager:
+                return {}
+                
+            cortical_map = {}
+            for neuron_id in self._connectome_manager._neuron_id_to_index.keys():
+                cortical_map[neuron_id] = {}
+                for dst_id, _ in self._connectome_manager.get_outgoing_connections(neuron_id):
+                    if dst_id not in cortical_map[neuron_id]:
+                        cortical_map[neuron_id][dst_id] = 0
+                    cortical_map[neuron_id][dst_id] += 1
+                    
+            return cortical_map
+        except Exception as e:
+            self.logger.error(f"Error getting cortical map: {str(e)}")
+            return {}
+    
+    def modify_region_suggested_mappings(self, region_id: str, mapping_type: str, 
+                                      mapping_definitions: List[Dict[str, Any]], 
+                                      operation: str = "add") -> bool:
+        """
+        Add or delete suggested mapping hints associated with a brain region.
+        
+        Args:
+            region_id: ID of the brain region
+            mapping_type: Type of mapping ("inputs" or "outputs")
+            mapping_definitions: List of mapping definitions to add or delete
+            operation: "add" to add mappings, "delete" to delete them
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If the region or mapping type is invalid
+        """
+        try:
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("No genome loaded")
+                return False
+                
+            if region_id not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Brain region id {region_id} is not valid")
+                
+            if mapping_type not in ["inputs", "outputs"]:
+                raise ValueError("Mapping type must be 'inputs' or 'outputs'")
+                
+            region = self._current_genome["brain_regions"][region_id]
+            
+            if operation == "add":
+                # Add mappings
+                if mapping_type not in region:
+                    region[mapping_type] = []
+                    
+                for definition in mapping_definitions:
+                    if definition not in region[mapping_type]:
+                        region[mapping_type].append(definition)
+                        
+            elif operation == "delete":
+                # Delete mappings
+                if mapping_type not in region:
+                    return False
+                    
+                for definition in mapping_definitions:
+                    if definition in region[mapping_type]:
+                        region[mapping_type].remove(definition)
+                    else:
+                        self.logger.warning(f"Mapping definition not found in region {region_id}")
+                        
+            else:
+                raise ValueError(f"Unknown operation: {operation}")
+                
+            # Update genome state
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error modifying region suggested mappings: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return False
+    
     #----------------------------------------------------------------------
     # Cortical Area Methods
     #----------------------------------------------------------------------
@@ -3489,4 +3728,913 @@ class CoreAPIService:
             return False
         except Exception as e:
             self.logger.error(f"Error disabling plasticity for area {area_id}: {str(e)}")
+            return False
+    
+    #----------------------------------------------------------------------
+    # Evolution Methods
+    #----------------------------------------------------------------------
+    
+    def get_generations(self) -> Dict[str, Any]:
+        """
+        Get details about all generations of genomes.
+        
+        Returns:
+            Dictionary containing generation information
+        """
+        try:
+            if not self.state_manager:
+                return {}
+                
+            if hasattr(self.state_manager, 'generation_dict') and self.state_manager.generation_dict:
+                return self.state_manager.generation_dict
+            else:
+                return {}
+        except Exception as e:
+            self.logger.error(f"Error retrieving generations: {str(e)}")
+            return {}
+    
+    def get_change_register(self) -> Dict[str, Any]:
+        """
+        Get the evolution change register showing evolutionary history.
+        
+        Returns:
+            Dictionary containing the evolution change register
+        """
+        try:
+            if not self.state_manager:
+                return {}
+                
+            if hasattr(self.state_manager, 'evo_change_register') and self.state_manager.evo_change_register:
+                return self.state_manager.evo_change_register
+            else:
+                return {}
+        except Exception as e:
+            self.logger.error(f"Error retrieving evolution change register: {str(e)}")
+            return {}
+            
+    def get_membrane_potential_monitoring_status(self, cortical_areas: List[str]) -> List[Tuple[str, bool]]:
+        """
+        Get the monitoring status of membrane potentials for specified cortical areas.
+        
+        Args:
+            cortical_areas: List of cortical area IDs to check
+            
+        Returns:
+            List of tuples containing (cortical_area, is_monitored)
+        """
+        try:
+            if not self.state_manager:
+                return [(area, False) for area in cortical_areas]
+                
+            # Check if monitoring scope attribute exists
+            if not hasattr(self.state_manager, 'neuron_mp_collection_scope'):
+                return [(area, False) for area in cortical_areas]
+                
+            # Check each cortical area
+            result = []
+            for area in cortical_areas:
+                is_monitored = area in self.state_manager.neuron_mp_collection_scope
+                result.append((area, is_monitored))
+                
+            return result
+        except Exception as e:
+            self.logger.error(f"Error retrieving membrane potential monitoring status: {str(e)}")
+            return [(area, False) for area in cortical_areas]
+    
+    def set_membrane_potential_monitoring(self, cortical_areas: List[str], enabled: bool) -> bool:
+        """
+        Enable or disable membrane potential monitoring for specified cortical areas.
+        
+        Args:
+            cortical_areas: List of cortical area IDs to update
+            enabled: True to enable monitoring, False to disable
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If InfluxDB service is not running
+        """
+        try:
+            if not self.state_manager:
+                return False
+                
+            # Check for InfluxDB service
+            influxdb = self.state_manager.get_influxdb()
+            if not influxdb:
+                raise ValueError("InfluxDB service is not running")
+                
+            # Test InfluxDB connection
+            influx_ready = influxdb.test_influxdb()
+            if not influx_ready:
+                raise ValueError("InfluxDB service is not responding")
+                
+            # Ensure neuron_mp_collection_scope attribute exists
+            if not hasattr(self.state_manager, 'neuron_mp_collection_scope'):
+                self.state_manager.neuron_mp_collection_scope = {}
+                
+            # Update monitoring status for each area
+            for area in cortical_areas:
+                # Verify the area exists in the genome
+                if not self._current_genome or 'blueprint' not in self._current_genome:
+                    self.logger.warning(f"Cannot verify cortical area {area} - no genome loaded")
+                    continue
+                    
+                if area not in self._current_genome['blueprint']:
+                    self.logger.warning(f"Cortical area {area} not found in genome blueprint")
+                    continue
+                    
+                # Update the monitoring scope
+                if enabled and area not in self.state_manager.neuron_mp_collection_scope:
+                    self.state_manager.neuron_mp_collection_scope[area] = {}
+                elif not enabled and area in self.state_manager.neuron_mp_collection_scope:
+                    self.state_manager.neuron_mp_collection_scope.pop(area)
+                    
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting membrane potential monitoring: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return False
+    
+    def get_synaptic_potential_monitoring_status(self, cortical_areas: List[str]) -> List[Tuple[str, bool]]:
+        """
+        Get the monitoring status of synaptic potentials for specified cortical areas.
+        
+        Args:
+            cortical_areas: List of cortical area IDs to check
+            
+        Returns:
+            List of tuples containing (cortical_area, is_monitored)
+        """
+        try:
+            if not self.state_manager:
+                return [(area, False) for area in cortical_areas]
+                
+            # Check if monitoring scope attribute exists
+            if not hasattr(self.state_manager, 'neuron_psp_collection_scope'):
+                return [(area, False) for area in cortical_areas]
+                
+            # Check each cortical area
+            result = []
+            for area in cortical_areas:
+                is_monitored = area in self.state_manager.neuron_psp_collection_scope
+                result.append((area, is_monitored))
+                
+            return result
+        except Exception as e:
+            self.logger.error(f"Error retrieving synaptic potential monitoring status: {str(e)}")
+            return [(area, False) for area in cortical_areas]
+    
+    def set_synaptic_potential_monitoring(self, cortical_areas: List[str], enabled: bool) -> bool:
+        """
+        Enable or disable synaptic potential monitoring for specified cortical areas.
+        
+        Args:
+            cortical_areas: List of cortical area IDs to update
+            enabled: True to enable monitoring, False to disable
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If InfluxDB service is not running
+        """
+        try:
+            if not self.state_manager:
+                return False
+                
+            # Check for InfluxDB service
+            influxdb = self.state_manager.get_influxdb()
+            if not influxdb:
+                raise ValueError("InfluxDB service is not running")
+                
+            # Test InfluxDB connection
+            influx_ready = influxdb.test_influxdb()
+            if not influx_ready:
+                raise ValueError("InfluxDB service is not responding")
+                
+            # Ensure neuron_psp_collection_scope attribute exists
+            if not hasattr(self.state_manager, 'neuron_psp_collection_scope'):
+                self.state_manager.neuron_psp_collection_scope = {}
+                
+            # Update monitoring status for each area
+            for area in cortical_areas:
+                # Verify the area exists in the genome
+                if not self._current_genome or 'blueprint' not in self._current_genome:
+                    self.logger.warning(f"Cannot verify cortical area {area} - no genome loaded")
+                    continue
+                    
+                if area not in self._current_genome['blueprint']:
+                    self.logger.warning(f"Cortical area {area} not found in genome blueprint")
+                    continue
+                    
+                # Update the monitoring scope
+                if enabled and area not in self.state_manager.neuron_psp_collection_scope:
+                    self.state_manager.neuron_psp_collection_scope[area] = {}
+                elif not enabled and area in self.state_manager.neuron_psp_collection_scope:
+                    self.state_manager.neuron_psp_collection_scope.pop(area)
+                    
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting synaptic potential monitoring: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return False
+            
+    #----------------------------------------------------------------------
+    # Agent Management Methods
+    #----------------------------------------------------------------------
+    
+    def get_agent_list(self) -> Set[str]:
+        """
+        Get list of registered agents.
+        
+        Returns:
+            Set of agent IDs that are currently registered
+        """
+        try:
+            if not self.state_manager:
+                return set()
+                
+            if hasattr(self.state_manager, 'agent_registry') and self.state_manager.agent_registry:
+                return set(self.state_manager.agent_registry.keys())
+            else:
+                return set()
+        except Exception as e:
+            self.logger.error(f"Error retrieving agent list: {str(e)}")
+            return set()
+    
+    def get_agent_properties(self, agent_id: str) -> Dict[str, Any]:
+        """
+        Get properties of a specific agent.
+        
+        Args:
+            agent_id: ID of the agent to query
+            
+        Returns:
+            Dictionary with agent properties
+            
+        Raises:
+            ValueError: If agent is not found
+        """
+        try:
+            if not self.state_manager or not hasattr(self.state_manager, 'agent_registry'):
+                raise ValueError("Agent registry not available")
+                
+            if agent_id not in self.state_manager.agent_registry:
+                raise ValueError(f"Agent {agent_id} not found")
+                
+            agent_info = {}
+            agent_registry = self.state_manager.agent_registry[agent_id]
+            
+            # Copy relevant properties
+            agent_info["agent_type"] = agent_registry.get("agent_type", "unknown")
+            agent_info["agent_ip"] = agent_registry.get("agent_ip", "")
+            agent_info["agent_data_port"] = agent_registry.get("agent_data_port", 0)
+            agent_info["agent_router_address"] = agent_registry.get("agent_router_address", "")
+            agent_info["agent_version"] = agent_registry.get("agent_version", "")
+            agent_info["controller_version"] = agent_registry.get("controller_version", "")
+            agent_info["capabilities"] = agent_registry.get("capabilities", {})
+            
+            return agent_info
+        except Exception as e:
+            self.logger.error(f"Error retrieving agent properties: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return {}
+    
+    def _assign_available_port(self) -> Optional[int]:
+        """
+        Helper method to assign an available port for a new agent.
+        
+        Returns:
+            Available port number, or None if no ports are available
+        """
+        try:
+            if not self.state_manager or not hasattr(self.state_manager, 'agent_registry'):
+                return None
+                
+            ports_used = []
+            port_ranges = (40001, 40050)
+            
+            # Collect already used ports
+            for agent_id, agent_info in self.state_manager.agent_registry.items():
+                if agent_info.get('agent_type') != 'monitor':
+                    ports_used.append(agent_info.get('agent_data_port', 0))
+                    
+            # Find first available port
+            for port in range(port_ranges[0], port_ranges[1]):
+                if port not in ports_used:
+                    return port
+                    
+            return None
+        except Exception as e:
+            self.logger.error(f"Error assigning available port: {str(e)}")
+            return None
+    
+    def register_agent(
+        self,
+        agent_id: str,
+        agent_type: str,
+        agent_ip: str,
+        agent_data_port: int,
+        agent_version: str,
+        controller_version: str,
+        capabilities: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Register a new agent.
+        
+        Args:
+            agent_id: Unique identifier for the agent
+            agent_type: Type of agent (e.g., 'monitor', 'robot')
+            agent_ip: IP address of the agent
+            agent_data_port: Port for agent data communication
+            agent_version: Version of the agent
+            controller_version: Version of the controller
+            capabilities: Optional dictionary of agent capabilities
+            
+        Returns:
+            Dictionary with agent information including assigned port and router address
+            
+        Raises:
+            ValueError: If agent registration fails
+        """
+        try:
+            if not self.state_manager:
+                raise ValueError("State manager not available")
+                
+            # Ensure agent_registry exists
+            if not hasattr(self.state_manager, 'agent_registry'):
+                self.state_manager.agent_registry = {}
+                
+            if not hasattr(self.state_manager, 'host_info'):
+                self.state_manager.host_info = {}
+                
+            if not capabilities:
+                capabilities = {}
+                
+            # Prepare agent info
+            agent_info = {
+                "agent_id": agent_id,
+                "agent_type": agent_type,
+                "agent_ip": agent_ip,
+                "agent_version": agent_version, 
+                "controller_version": controller_version,
+                "capabilities": capabilities
+            }
+            
+            # Set up different router addresses based on agent type
+            if agent_type == 'monitor':
+                agent_router_address = f"tcp://{agent_ip}:{agent_data_port}"
+                self.state_manager.brain_activity_pub = True
+                self.logger.info("Publication of brain activity turned on!")
+            else:
+                # Assign a port from available range
+                assigned_port = self._assign_available_port()
+                if not assigned_port:
+                    raise ValueError("No available ports for agent registration")
+                agent_data_port = assigned_port
+                agent_router_address = f"tcp://*:{agent_data_port}"
+                
+            # Add port and router address to agent info
+            agent_info["agent_data_port"] = agent_data_port
+            agent_info["agent_router_address"] = agent_router_address
+            
+            # Register the agent
+            self.state_manager.agent_registry[agent_id] = agent_info
+            self.state_manager.host_info[agent_id] = agent_info
+            
+            # Add default listener field
+            if "listener" not in agent_info:
+                agent_info["listener"] = None
+            
+            # If auto PNS area creation is enabled and genome is loaded, update PNS areas
+            if (hasattr(self.state_manager, 'auto_pns_area_creation') and 
+                self.state_manager.auto_pns_area_creation and self._current_genome):
+                # Submit message to API queue
+                if hasattr(self._connectome_manager, 'api_message_queue'):
+                    message = {'update_pns_areas': capabilities}
+                    self._connectome_manager.api_message_queue.put(item=message)
+            
+            # Update evolution change register
+            if hasattr(self.state_manager, 'evo_change_register'):
+                self.state_manager.evo_change_register["agent"] += 1
+            
+            # Return a copy of agent info without the listener field
+            result = agent_info.copy()
+            if "listener" in result:
+                result.pop("listener")
+                
+            self.logger.info(f"Agent {agent_id} successfully registered")
+            return result
+        except Exception as e:
+            self.logger.error(f"Error registering agent: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return {}
+    
+    def deregister_agent(self, agent_id: str) -> bool:
+        """
+        Remove a registered agent.
+        
+        Args:
+            agent_id: ID of the agent to remove
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If agent is not found
+        """
+        try:
+            if not self.state_manager or not hasattr(self.state_manager, 'agent_registry'):
+                raise ValueError("Agent registry not available")
+                
+            if agent_id not in self.state_manager.agent_registry:
+                raise ValueError(f"Agent {agent_id} not found")
+                
+            # Remove the agent from registry
+            agent_info = self.state_manager.agent_registry.pop(agent_id)
+            
+            # Also remove from host info if present
+            if hasattr(self.state_manager, 'host_info') and agent_id in self.state_manager.host_info:
+                self.state_manager.host_info.pop(agent_id)
+                
+            self.logger.info(f"Agent {agent_id} successfully deregistered")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deregistering agent: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return False
+    
+    def update_robot_controller(self, controller_params: Dict[str, Any]) -> bool:
+        """
+        Update robot controller parameters.
+        
+        Args:
+            controller_params: Dictionary containing robot controller parameters
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self._connectome_manager:
+                return False
+                
+            # Submit parameters to API queue
+            if hasattr(self._connectome_manager, 'api_message_queue'):
+                message = {'robot_controller': controller_params}
+                self._connectome_manager.api_message_queue.put(item=message)
+                return True
+            else:
+                self.logger.error("API message queue not available")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error updating robot controller: {str(e)}")
+            return False
+    
+    def update_robot_model(self, model_params: Dict[str, Any]) -> bool:
+        """
+        Update robot model parameters.
+        
+        Args:
+            model_params: Dictionary containing robot model parameters
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self._connectome_manager:
+                return False
+                
+            # Submit parameters to API queue
+            if hasattr(self._connectome_manager, 'api_message_queue'):
+                message = {'robot_model': model_params}
+                self._connectome_manager.api_message_queue.put(item=message)
+                return True
+            else:
+                self.logger.error("API message queue not available")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error updating robot model: {str(e)}")
+            return False
+    
+    def get_gazebo_robot_files(self) -> Dict[str, List[str]]:
+        """
+        Get list of available Gazebo robot files.
+        
+        Returns:
+            Dictionary containing list of available robot files
+        """
+        try:
+            import os
+            
+            # Get the default robots path
+            default_robots_path = os.path.join(self.get_data_path(), "robot")
+            if not os.path.exists(default_robots_path):
+                # Try legacy path
+                default_robots_path = "./evo/defaults/robot/"
+                if not os.path.exists(default_robots_path):
+                    self.logger.warning(f"Robot files directory not found at {default_robots_path}")
+                    return {"robots": []}
+            
+            # List available robot files
+            default_robots = os.listdir(default_robots_path)
+            return {"robots": default_robots}
+        except Exception as e:
+            self.logger.error(f"Error retrieving Gazebo robot files: {str(e)}")
+            return {"robots": []}
+    
+    def trigger_manual_stimulation(self, stimulation_payload: Dict[str, Any]) -> bool:
+        """
+        Trigger a manual stimulation.
+        
+        Args:
+            stimulation_payload: Dictionary containing stimulation parameters
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If connectome is not ready
+        """
+        try:
+            if not self.state_manager or not self.state_manager.is_connectome_ready():
+                raise ValueError("Connectome is not ready")
+                
+            # Submit stimulation to API queue
+            if hasattr(self._connectome_manager, 'api_message_queue'):
+                message = {'manual_stimulation': stimulation_payload}
+                self._connectome_manager.api_message_queue.put(item=message)
+                return True
+            else:
+                self.logger.error("API message queue not available")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error triggering manual stimulation: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return False
+    
+    def trigger_sustained_stimulation(self, stimulation_payload: Dict[str, Any]) -> bool:
+        """
+        Trigger a sustained stimulation.
+        
+        Args:
+            stimulation_payload: Dictionary containing stimulation parameters
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If connectome is not ready
+        """
+        try:
+            if not self.state_manager or not self.state_manager.is_connectome_ready():
+                raise ValueError("Connectome is not ready")
+                
+            # Submit stimulation to API queue
+            if hasattr(self._connectome_manager, 'api_message_queue'):
+                message = {'sustained_stimulation': stimulation_payload}
+                self._connectome_manager.api_message_queue.put(item=message)
+                return True
+            else:
+                self.logger.error("API message queue not available")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error triggering sustained stimulation: {str(e)}")
+            if isinstance(e, ValueError):
+                raise
+            return False
+
+    def get_state_manager(self):
+        """
+        Get the state manager instance.
+        
+        Returns:
+            The state manager instance.
+        """
+        return self.state_manager
+
+    #----------------------------------------------------------------------
+    # Network Management Methods
+    #----------------------------------------------------------------------
+    
+    def get_network_config(self) -> Dict[str, Any]:
+        """
+        Get the current network configuration.
+        
+        Returns:
+            Dictionary containing network configuration settings
+        """
+        try:
+            if self.state_manager:
+                sockets = self.state_manager.parameters.get('Sockets', {})
+                if sockets:
+                    return sockets
+                    
+            # Return a minimal default configuration if no configuration is found
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error retrieving network configuration: {str(e)}")
+            return {}
+            
+    def update_network_config(self, network_config: Dict[str, Any]) -> bool:
+        """
+        Update the network configuration.
+        
+        Args:
+            network_config: Dictionary containing network configuration to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self.state_manager:
+                return False
+                
+            if 'parameters' not in self.state_manager.__dict__ or not isinstance(self.state_manager.parameters, dict):
+                self.state_manager.parameters = {}
+                
+            if 'Sockets' not in self.state_manager.parameters:
+                self.state_manager.parameters['Sockets'] = {}
+                
+            # Update the existing configuration
+            self.state_manager.parameters['Sockets'].update(network_config)
+            
+            # Submit to message queue for any component that needs to react to changes
+            if hasattr(self._connectome_manager, 'api_message_queue'):
+                message = {'network_management': network_config}
+                self._connectome_manager.api_message_queue.put(item=message)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating network configuration: {str(e)}")
+            return False
+    
+    #----------------------------------------------------------------------
+    # Stimulation Methods
+    #----------------------------------------------------------------------
+    
+    def set_stimulation_script(self, script: str) -> bool:
+        """
+        Set a stimulation script to be used during simulation.
+        
+        Args:
+            script: Stimulation script in the required format
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self.state_manager:
+                return False
+                
+            # Store the script in the state manager
+            self.state_manager.stimulation_script = script
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting stimulation script: {str(e)}")
+            return False
+            
+    def reset_stimulation_script(self) -> bool:
+        """
+        Reset all stimulation scripts.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self._connectome_manager:
+                return False
+                
+            # Submit to message queue for any component that needs to react
+            if hasattr(self._connectome_manager, 'api_message_queue'):
+                message = {'stimulation_script': {}}
+                self._connectome_manager.api_message_queue.put(item=message)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error resetting stimulation script: {str(e)}")
+            return False
+    
+    #----------------------------------------------------------------------
+    # System Health & Monitoring Methods
+    #----------------------------------------------------------------------
+    
+    async def get_system_health(self) -> Dict[str, Any]:
+        """
+        Get comprehensive system health information.
+        
+        Returns:
+            Dictionary containing health metrics for all FEAGI components
+        """
+        health = {}
+        try:
+            if not self.state_manager:
+                return {"error": "State manager not available"}
+                
+            # Basic health metrics
+            health["burst_engine"] = not getattr(self.state_manager, 'exit_condition', False)
+            health["connected_agents"] = getattr(self.state_manager, 'connected_agents', None)
+            health["influxdb_availability"] = bool(getattr(self.state_manager, 'influxdb', False))
+            
+            # Resource limits
+            limits = getattr(self.state_manager, 'parameters', {}).get("Limits", {})
+            health["neuron_count_max"] = int(limits.get("max_neuron_count", 0))
+            health["synapse_count_max"] = int(limits.get("max_synapse_count", 0))
+            
+            # Genome-related information
+            health["latest_changes_saved_externally"] = getattr(self.state_manager, 'changes_saved_externally', False)
+            
+            if getattr(self.state_manager, 'genome', None):
+                health["fitness"] = getattr(self.state_manager, 'genome_fitness', None)
+                health["genome_availability"] = True
+                
+                # Brain statistics
+                brain_stats = getattr(self.state_manager, 'brain_stats', {})
+                connectome_neuron_count = brain_stats.get("neuron_count", 0)
+                connectome_synapse_count = brain_stats.get("synapse_count", 0)
+                
+                # Estimate brain size in MB using a formula
+                connectome_size = 3E-08 * connectome_neuron_count ** 2 + 0.0011 * connectome_neuron_count + 2.9073
+                
+                health["cortical_area_count"] = len(getattr(self.state_manager, 'cortical_list', []))
+                health["neuron_count"] = connectome_neuron_count
+                health["synapse_count"] = connectome_synapse_count
+                health["estimated_brain_size_in_MB"] = connectome_size
+            else:
+                health["genome_availability"] = False
+                
+            health["genome_validity"] = getattr(self.state_manager, 'genome_validity', None)
+            health["brain_readiness"] = getattr(self.state_manager, 'brain_readiness', None)
+            
+            # Check for pending amalgamation
+            if self.has_pending_amalgamation():
+                pending = getattr(self.state_manager, 'pending_amalgamation', {})
+                health["amalgamation_pending"] = {
+                    "initiation_time": pending.get("initiation_time", None),
+                    "genome_id": pending.get("genome_id", None),
+                    "amalgamation_id": pending.get("amalgamation_id", None),
+                    "genome_title": pending.get("genome_title", None),
+                    "circuit_size": pending.get("circuit_size", None)
+                }
+                
+            return health
+        except Exception as e:
+            self.logger.error(f"Error retrieving system health: {str(e)}")
+            return {"error": str(e)}
+            
+    def get_user_preferences(self) -> Dict[str, Any]:
+        """
+        Get user interface preferences.
+        
+        Returns:
+            Dictionary containing user preferences
+        """
+        try:
+            if not self.state_manager:
+                return {}
+                
+            return {
+                "bv_advanced_mode": getattr(self.state_manager, 'bv_advanced_mode', None),
+                "ui_magnification": getattr(self.state_manager, 'ui_magnification', None),
+                "auto_pns_area_creation": getattr(self.state_manager, 'auto_pns_area_creation', None)
+            }
+        except Exception as e:
+            self.logger.error(f"Error retrieving user preferences: {str(e)}")
+            return {}
+            
+    def update_user_preferences(self, preferences: Dict[str, Any]) -> bool:
+        """
+        Update user interface preferences.
+        
+        Args:
+            preferences: Dictionary containing user preferences to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self.state_manager:
+                return False
+                
+            # Update individual preferences
+            if "adv_mode" in preferences:
+                self.state_manager.bv_advanced_mode = preferences["adv_mode"]
+                
+            if "ui_magnification" in preferences:
+                self.state_manager.ui_magnification = preferences["ui_magnification"]
+                
+            if "auto_pns_area_creation" in preferences:
+                self.state_manager.auto_pns_area_creation = preferences["auto_pns_area_creation"]
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating user preferences: {str(e)}")
+            return False
+            
+    def get_versions(self) -> Dict[str, Any]:
+        """
+        Get version information for FEAGI and connected agents.
+        
+        Returns:
+            Dictionary containing version information
+        """
+        try:
+            from feagi.version import __version__
+            
+            all_versions = {}
+            all_versions["feagi"] = str(__version__)
+            
+            if not self.state_manager:
+                return all_versions
+                
+            # Add agent versions if available
+            agent_registry = getattr(self.state_manager, 'agent_registry', {})
+            for agent_id in agent_registry:
+                if agent_id not in all_versions:
+                    all_versions[agent_id] = {}
+                all_versions[agent_id]["agent_version"] = str(agent_registry[agent_id]["agent_version"])
+                all_versions[agent_id]["controller_version"] = str(agent_registry[agent_id]["controller_version"])
+                
+            return all_versions
+        except Exception as e:
+            self.logger.error(f"Error retrieving version information: {str(e)}")
+            return {"feagi": "unknown", "error": str(e)}
+            
+    def test_influxdb(self) -> Dict[str, Any]:
+        """
+        Test the connection to InfluxDB.
+        
+        Returns:
+            Dictionary containing test results
+        """
+        try:
+            if not self.state_manager:
+                return {"status": "unavailable", "message": "State manager not available"}
+                
+            influxdb = getattr(self.state_manager, 'influxdb', None)
+            if not influxdb:
+                return {"status": "unavailable", "message": "InfluxDB service not configured"}
+                
+            influx_status = influxdb.test_influxdb()
+            if influx_status:
+                return influx_status
+            else:
+                return {"status": "error", "message": "InfluxDB connection test failed"}
+        except Exception as e:
+            self.logger.error(f"Error testing InfluxDB: {str(e)}")
+            return {"status": "error", "message": str(e)}
+            
+    def set_circuit_library_path(self, path: str) -> bool:
+        """
+        Set the path to the circuit library.
+        
+        Args:
+            path: Path to the circuit library
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If the path does not exist
+        """
+        import os
+        
+        if not os.path.exists(path):
+            raise ValueError(f"{path} is not a valid path")
+            
+        try:
+            if not self.state_manager:
+                return False
+                
+            self.state_manager.circuit_lib_path = path
+            self.logger.info(f"Circuit library path set to {path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting circuit library path: {str(e)}")
+            return False
+            
+    def reset_fcl(self) -> bool:
+        """
+        Reset the Fire Candidate List (FCL).
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self._connectome_manager or not hasattr(self._connectome_manager, 'fcl_manager'):
+                return False
+                
+            # Reset the FCL manager
+            self._connectome_manager.fcl_manager.reset()
+            self.logger.info("Fire Candidate List reset")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error resetting FCL: {str(e)}")
             return False

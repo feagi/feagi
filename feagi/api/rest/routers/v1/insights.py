@@ -15,20 +15,19 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter, HTTPException
-from feagi.core.state_manager import FeagiStateManager
-from feagi.bdu import ConnectomeManager
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from typing import List, Tuple, Dict, Any, Optional
+
 from feagi.utils.logger import setup_logger
+from feagi.api.rest.dependencies import get_core_api_service
+from feagi.api.core.services.core_api_service import CoreAPIService
+
 logger = setup_logger()
 
 from ...schemas import *
 
-
 router = APIRouter()
-state = FeagiStateManager.instance()
-
-
 
 # Define CorticalIdList model for API endpoints
 class CorticalIdList(BaseModel):
@@ -39,62 +38,65 @@ class CorticalIdList(BaseModel):
 # ####################################################
 
 @router.post("/neurons/membrane_potential_status")
-async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalIdList):
-    logger.info(f"Cortical membrane potential monitoring {state.neuron_mp_collection_scope}")
-    response = list()
-    for cortical_area in cortical_area.cortical_id_list:
-        if cortical_area in state.neuron_mp_collection_scope:
-            response.append([cortical_area, True])
-        else:
-            response.append([cortical_area, False])
-    return response
+async def cortical_neuron_membrane_potential_monitoring(
+    cortical_area: CorticalIdList,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get membrane potential monitoring status for specified cortical areas.
+    """
+    result = core_api_service.get_membrane_potential_monitoring_status(cortical_area.cortical_id_list)
+    return result
 
 
 @router.post("/neurons/membrane_potential_set")
-async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalIdList, state_flag: bool):
-    logger.info(f"Cortical membrane potential monitoring {state.neuron_mp_collection_scope}")
-    influxdb = state.get_influxdb()
-    if influxdb:
-        influx_readiness = influxdb.test_influxdb()
-        if influx_readiness:
-            for cortical_area in cortical_area.cortical_id_list:
-                if cortical_area in state.get_genome()['blueprint']:
-                    if state_flag and cortical_area not in state.neuron_mp_collection_scope:
-                        state.neuron_mp_collection_scope[cortical_area] = {}
-                    elif not state_flag and cortical_area in state.neuron_mp_collection_scope:
-                        state.neuron_mp_collection_scope.pop(cortical_area)
-            return True
-    else:
-        raise HTTPException(status_code=400, detail="InfluxDb service is not running!")
+async def cortical_neuron_membrane_potential_monitoring(
+    cortical_area: CorticalIdList, 
+    state_flag: bool,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Enable or disable membrane potential monitoring for specified cortical areas.
+    """
+    try:
+        result = core_api_service.set_membrane_potential_monitoring(
+            cortical_areas=cortical_area.cortical_id_list,
+            enabled=state_flag
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/neuron/synaptic_potential_status")
-async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList):
-    logger.info(f"Cortical synaptic potential monitoring flag {state.neuron_psp_collection_scope}")
-    response = list()
-    for cortical_area in cortical_area.cortical_id_list:
-        if cortical_area in state.neuron_psp_collection_scope:
-            response.append([cortical_area, True])
-        else:
-            response.append([cortical_area, False])
-    return response
+async def cortical_synaptic_potential_monitoring(
+    cortical_area: CorticalIdList,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get synaptic potential monitoring status for specified cortical areas.
+    """
+    result = core_api_service.get_synaptic_potential_monitoring_status(cortical_area.cortical_id_list)
+    return result
 
 
 @router.post("/neuron/synaptic_potential_set")
-async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList, state_flag: bool):
-    logger.info(f"Cortical synaptic potential monitoring flag {state.neuron_psp_collection_scope}")
-    influxdb = state.get_influxdb()
-    if influxdb:
-        if influxdb.test_influxdb():
-            for cortical_area in cortical_area.cortical_id_list:
-                if cortical_area in state.get_genome()['blueprint']:
-                    if state_flag and cortical_area not in state.neuron_psp_collection_scope:
-                        state.neuron_psp_collection_scope[cortical_area] = {}
-                    elif not state_flag and cortical_area in state.neuron_psp_collection_scope:
-                        state.neuron_psp_collection_scope.pop(cortical_area)
-            return True
-    else:
-        raise HTTPException(status_code=400, detail="InfluxDb service is not running!")
+async def cortical_synaptic_potential_monitoring(
+    cortical_area: CorticalIdList, 
+    state_flag: bool,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Enable or disable synaptic potential monitoring for specified cortical areas.
+    """
+    try:
+        result = core_api_service.set_synaptic_potential_monitoring(
+            cortical_areas=cortical_area.cortical_id_list,
+            enabled=state_flag
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # @router.get("/membrane_potential_monitoring/filter_setting")
