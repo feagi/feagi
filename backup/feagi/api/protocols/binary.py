@@ -1,47 +1,17 @@
-#
-# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
 """
 Binary Protocol Serialization for FEAGI
 
 This module provides binary serialization and deserialization functions for
 the FEAGI communication protocols (FCP, FVP, FSMP).
-
-DEPRECATED: This module is deprecated and will be removed in future versions.
-Use Cap'n Proto based implementations from the translator module instead.
 """
 
-import warnings
 import struct
 import time
 from typing import Dict, Any, Tuple, Union, Optional, List
 from enum import IntEnum
 
 from .base import ProtocolID
-from feagi.utils.logger import setup_logger
 
-logger = setup_logger()
-
-# Display deprecation warning
-warnings.warn(
-    "The binary protocol module is deprecated and will be removed in future versions. "
-    "Use Cap'n Proto based implementations from the translator module instead.",
-    DeprecationWarning,
-    stacklevel=2
-)
 
 class BinaryProtocolError(Exception):
     """Exception raised for errors in the binary protocol."""

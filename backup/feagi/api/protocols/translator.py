@@ -17,20 +17,9 @@
 """
 Protocol translator for Cap'n Proto schemas.
 
-This module is the central component of FEAGI's Cap'n Proto based communication 
-architecture. It provides functionality for:
-
-1. Loading Cap'n Proto schemas from the feagi_capnp directory
-2. Creating protocol-specific messages (FCP, FSMP, FVP) with proper formatting
-3. Encoding and decoding messages between Cap'n Proto and internal data structures
-4. Supporting handshake, registration, and other core protocol functions
-
-This implementation replaces the previous Protocol Buffers and custom binary
-serialization approaches with Cap'n Proto's more efficient zero-copy deserialization,
-which significantly improves performance for high-throughput neural data.
-
-For the ZMQ ROUTER-DEALER implementation that uses this module, see the
-feagi.api.zmq.router_server module.
+This module provides functionality for loading Cap'n Proto schemas,
+encoding and decoding messages, and converting between Cap'n Proto
+and internal data structures.
 """
 
 import os
