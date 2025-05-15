@@ -16,8 +16,8 @@ logger = setup_logger()
 
 from feagi.api.core.services import CoreAPIService
 from feagi.api.zmq.client import ZmqClient
-from feagi.api.protocols.translator import ProtocolTranslator
-from feagi.api.protocols.base import ProtocolID
+from feagi.api.protocols.translator import ByteStructureTranslator
+from feagi.api.protocols.constants import ProtocolID
 
 
 class RateLimiter:
@@ -137,7 +137,7 @@ class APIGateway:
         self._auth_handlers = {}
         
         # New components for protocol handling
-        self._protocol_translator = ProtocolTranslator()
+        self._protocol_translator = ByteStructureTranslator()
         self._agent_connections: Dict[str, AgentConnection] = {}
         
         # Message queues for async processing

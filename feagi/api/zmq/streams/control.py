@@ -15,10 +15,26 @@ from typing import Dict, Any, Optional, Callable, List, Tuple
 import zmq
 import zmq.asyncio
 
-from feagi.api.protocols.base import ProtocolID
-from feagi.api.protocols.fcp import FCPMessageType
-from feagi.api.protocols.translator import ProtocolTranslator
+# Update imports to use constants instead of base/fcp modules
+from feagi.api.protocols.constants import ProtocolID, FCPCommandType
+from feagi.api.protocols.translator import ByteStructureTranslator
 
+# Define simplified message types just for compatibility
+class FCPMessageType:
+    """Compatibility class for FCPMessageType constants."""
+    REGISTER = FCPCommandType.REGISTER
+    DEREGISTER = FCPCommandType.DEREGISTER
+    HEARTBEAT = FCPCommandType.HEARTBEAT
+    STATUS_REQUEST = FCPCommandType.STATUS_REQUEST
+    STATUS_RESPONSE = FCPCommandType.STATUS_RESPONSE
+    CONFIGURE = FCPCommandType.CONFIGURE
+    ERROR = FCPCommandType.ERROR
+    
+    # Response types for backwards compatibility
+    REGISTER_RESPONSE = FCPCommandType.STATUS_RESPONSE  # Use STATUS_RESPONSE as a stand-in
+    DEREGISTER_RESPONSE = FCPCommandType.STATUS_RESPONSE
+    HEARTBEAT_RESPONSE = FCPCommandType.STATUS_RESPONSE
+    CONFIGURE_RESPONSE = FCPCommandType.STATUS_RESPONSE
 
 class ControlStream:
     """
@@ -50,12 +66,15 @@ class ControlStream:
         self.port = port
         self.context = context or zmq.asyncio.Context.instance()
         
+        # Initialize server_id
+        self.server_id = "feagi_server"
+        
         # Initialize sockets
         self.router_socket = None
         self.dealer_socket = None
         
         # Protocol translator
-        self.translator = ProtocolTranslator()
+        self.translator = ByteStructureTranslator()
         
         # Tracking
         self._running = False
@@ -161,14 +180,19 @@ class ControlStream:
                     client_id, empty, message = await worker_socket.recv_multipart()
                     
                     # Decode the message
-                    decoded = self.translator.decode(message, ProtocolID.FCP)
+                    # Update to use the new decode method
+                    decoded = self.translator.decode_message(message)
                     
                     # Process the message based on type
                     response = await self._handle_control_message(client_id, decoded)
                     
                     # Encode and send response
                     if response:
-                        encoded_response = self.translator.encode(response, ProtocolID.FCP)
+                        # Update to use the new encode method
+                        encoded_response = self.translator.create_fcp_message(
+                            response.get("type", FCPCommandType.FCP_REGISTER_RESPONSE),
+                            response
+                        )
                         await worker_socket.send_multipart([client_id, b'', encoded_response])
                         
                 except asyncio.CancelledError:

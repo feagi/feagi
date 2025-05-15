@@ -29,6 +29,100 @@ from feagi.api.protocols.translator import ByteStructureTranslator
 from feagi.api.zmq.connection_manager import ConnectionManager
 from feagi.api.zmq.message_handlers import MessageHandler, start_message_handlers, stop_message_handlers
 
+# Define the request/response models needed for ZMQ server
+class Timestamp:
+    """Timestamp for protocol messages."""
+    def __init__(self):
+        self.time_ms = 0  # Time in milliseconds
+        
+    def CopyFrom(self, other):
+        self.time_ms = other.time_ms
+
+class ProtocolVersions:
+    """Protocol versions supported by an agent."""
+    def __init__(self):
+        self.fcp_version = 1
+        self.fsmp_version = 1 
+        self.fvp_version = 1
+
+class RegisterRequest:
+    """Request for agent registration."""
+    def __init__(self):
+        self.agent_id = ""
+        self.agent_type = ""
+        self.protocol_versions = ProtocolVersions()
+
+class RegisterResponse:
+    """Response for agent registration."""
+    def __init__(self):
+        self.status = ""
+        self.message = ""
+        self.timestamp = Timestamp()
+        
+    def CopyFrom(self, other):
+        self.status = other.status
+        self.message = other.message
+        self.timestamp.CopyFrom(other.timestamp)
+
+class DeregisterRequest:
+    """Request for agent deregistration."""
+    def __init__(self):
+        self.agent_id = ""
+
+class DeregisterResponse:
+    """Response for agent deregistration."""
+    def __init__(self):
+        self.status = ""
+        self.message = ""
+        self.timestamp = Timestamp()
+        
+    def CopyFrom(self, other):
+        self.status = other.status
+        self.message = other.message
+        self.timestamp.CopyFrom(other.timestamp)
+
+class HeartbeatRequest:
+    """Request for agent heartbeat."""
+    def __init__(self):
+        self.agent_id = ""
+
+class HeartbeatResponse:
+    """Response for agent heartbeat."""
+    def __init__(self):
+        self.status = ""
+        self.timestamp = Timestamp()
+        
+    def CopyFrom(self, other):
+        self.status = other.status
+        self.timestamp.CopyFrom(other.timestamp)
+
+class RuntimeInfo:
+    """Runtime information for status response."""
+    def __init__(self):
+        self.cpu_usage = 0.0
+        self.memory_usage = 0.0
+        self.uptime_seconds = 0
+
+class StatusRequest:
+    """Request for server status."""
+    def __init__(self):
+        pass
+
+class StatusResponse:
+    """Response with server status."""
+    def __init__(self):
+        self.status = ""
+        self.runtime = RuntimeInfo()
+        self.agent_count = 0
+        self.timestamp = Timestamp()
+        
+    def CopyFrom(self, other):
+        self.status = other.status
+        self.runtime.cpu_usage = other.runtime.cpu_usage
+        self.runtime.memory_usage = other.runtime.memory_usage
+        self.runtime.uptime_seconds = other.runtime.uptime_seconds
+        self.agent_count = other.agent_count
+        self.timestamp.CopyFrom(other.timestamp)
 
 class ZmqServer:
     """
@@ -252,20 +346,15 @@ class ZmqServer:
             await self._control.start()
             await self._visualization.start()
             
-            # Create control socket (ROUTER)
-            self.control_socket = self._context.socket(zmq.ROUTER)
-            self.control_socket.bind(f"tcp://*:{self.control_port}")
+            # Create control socket (ROUTER) - Using existing socket from ControlStream to avoid double binding
+            self.control_socket = self._control.router_socket
             
-            # Create sensorimotor socket (XPUB/XSUB pattern)
-            self.sensorimotor_socket = self._context.socket(zmq.XPUB)
-            self.sensorimotor_socket.bind(f"tcp://*:{self.sensorimotor_port}")
+            # Create sensorimotor socket (XPUB/XSUB pattern) - Using existing socket from SensorimotorStream
+            self.sensorimotor_socket = self._sensorimotor.socket
             
-            # Create visualization sockets (PUB)
-            self.viz_structure_socket = self._context.socket(zmq.PUB)
-            self.viz_structure_socket.bind(f"tcp://*:{self.vis_base_port}")
-            
-            self.viz_activity_socket = self._context.socket(zmq.PUB)
-            self.viz_activity_socket.bind(f"tcp://*:{self.vis_base_port + 1}")
+            # Create visualization sockets (PUB) - Using existing sockets from VisualizationStream
+            self.viz_structure_socket = self._visualization.structure_socket
+            self.viz_activity_socket = self._visualization.activity_socket
             
             # Start message handling tasks
             self.tasks.append(asyncio.create_task(self._handle_control_messages()))

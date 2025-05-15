@@ -107,6 +107,20 @@ class ConnectomeManager:
         # Keep these as LIL during construction for efficient incremental building
         # Will be converted to CSR/CSC when needed for efficient queries
     
+    def initialize_arrays(self):
+        """Initialize or reinitialize the arrays and data structures required for the connectome.
+        
+        This method ensures all necessary components are initialized correctly for use with
+        the FCL manager and other burst engine components.
+        """
+        # Already initialized most arrays in __init__
+        # Create and initialize the FCL manager
+        from feagi.npu.fcl_manager import FCLManager
+        # Initialize with default window size of 20
+        self.fcl_manager = FCLManager(window_size=20)
+        self.is_initialized = True
+        return self
+    
     def _ensure_csr_format_outgoing(self):
         """Ensure outgoing matrix is in CSR format for efficient row access."""
         if not isinstance(self.outgoing_matrix, sparse.csr_matrix):

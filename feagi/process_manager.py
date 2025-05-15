@@ -186,10 +186,11 @@ class ProcessManager:
             pub_sub_port = self.find_available_port(zmq_config.get("pub_port", 5556))
             push_pull_port = self.find_available_port(zmq_config.get("push_port", 5557))
             sensorimotor_port = self.find_available_port(zmq_config.get("sensorimotor_port", 5558))
+            control_port = self.find_available_port(zmq_config.get("control_port", 5559))
             vis_base_port = self.find_available_port(zmq_config.get("vis_base_port", 5560))
             
             # Ensure we found available ports
-            if not all([req_rep_port, pub_sub_port, push_pull_port, sensorimotor_port, vis_base_port]):
+            if not all([req_rep_port, pub_sub_port, push_pull_port, sensorimotor_port, control_port, vis_base_port]):
                 logger.error("Could not find available ports for ZMQ server")
                 return False
                 
@@ -204,6 +205,7 @@ class ProcessManager:
                 pub_sub_port=pub_sub_port,
                 push_pull_port=push_pull_port,
                 sensorimotor_port=sensorimotor_port,
+                control_port=control_port,
                 vis_base_port=vis_base_port
             )
             

@@ -86,6 +86,7 @@ def main():
     parser.add_argument("--zmq-pub-port", type=int, default=5556, help="Port for PUB/SUB ZMQ pattern")
     parser.add_argument("--zmq-push-port", type=int, default=5557, help="Port for PUSH/PULL ZMQ pattern")
     parser.add_argument("--zmq-sensorimotor-port", type=int, default=5558, help="Port for sensorimotor ZMQ stream")
+    parser.add_argument("--zmq-control-port", type=int, default=5559, help="Port for control ZMQ stream")
     parser.add_argument("--zmq-vis-base-port", type=int, default=5560, help="Base port for visualization ZMQ streams")
     
     # Core configuration
@@ -104,7 +105,8 @@ def main():
     # Initialize the main connectome instance
     from feagi.bdu.connectome_manager import ConnectomeManager
     connectome = ConnectomeManager()
-    connectome.initialize_arrays()
+    connectome.initialize_arrays()  # Explicitly initialize arrays before using the connectome
+    
     # Set the connectome instance for FastAPI dependency injection
     from feagi.api.rest.dependencies import set_connectome_instance
     set_connectome_instance(connectome)
@@ -136,6 +138,7 @@ def main():
             "pub_port": args.zmq_pub_port,
             "push_port": args.zmq_push_port,
             "sensorimotor_port": args.zmq_sensorimotor_port,
+            "control_port": args.zmq_control_port,
             "vis_base_port": args.zmq_vis_base_port
         },
         "core": {

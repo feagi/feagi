@@ -18,6 +18,19 @@ class SuccessResponse(BaseModel):
     message: Optional[str] = Field(None, description="Success message")
 
 
+# Add the missing Network schema for the network router
+class Network(BaseModel):
+    """Network configuration model."""
+    zmq_host: Optional[str] = Field(None, description="ZMQ server host")
+    zmq_req_port: Optional[int] = Field(None, description="ZMQ REQ/REP port")
+    zmq_pub_port: Optional[int] = Field(None, description="ZMQ PUB/SUB port")
+    zmq_push_port: Optional[int] = Field(None, description="ZMQ PUSH/PULL port")
+    zmq_sensorimotor_port: Optional[int] = Field(None, description="ZMQ sensorimotor port")
+    zmq_vis_base_port: Optional[int] = Field(None, description="ZMQ visualization base port")
+    api_host: Optional[str] = Field(None, description="API server host")
+    api_port: Optional[int] = Field(None, description="API server port")
+
+
 class BurstEngineConfig(BaseModel):
     """Burst engine configuration model."""
     burst_duration: float = Field(10.0, description="Duration of a burst in milliseconds")
