@@ -28,7 +28,7 @@ sys.path.insert(0, project_root)
 
 # Import the modules to test
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis, DevelopmentStage
 from feagi.utils.config import FeagiConfig
 
 
@@ -88,7 +88,7 @@ def embryo(connectome_manager, config):
     progress_logs = []
     def progress_callback(stage, progress, message):
         progress_logs.append((stage, progress, message))
-    embryo = Neuroembryogenesis(
+    embryo = NeuroEmbryogenesis(
         connectome_manager=connectome_manager,
         config=config,
         progress_callback=progress_callback
