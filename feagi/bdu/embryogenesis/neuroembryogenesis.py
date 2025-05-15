@@ -45,7 +45,7 @@ AreaId = int
 BoundingBox = Tuple[Position, Position]  # ((min_x, min_y, min_z), (max_x, max_y, max_z))
 
 from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
-from feagi.bdu.synaptogenesis_rules import neighbor_finder
+from feagi.bdu.connectivity.synaptogenesis_rules import SynapseRule, neighbor_finder
 
 # Try both the old and new import paths for FCLbitmap
 try:
@@ -182,7 +182,7 @@ class DevelopmentStage(Enum):
     FAILED = "FAILED"
 
 
-class Neuroembryogenesis:
+class NeuroEmbryogenesis:
     """
     Manages the development of a brain from genome instructions.
     
@@ -324,54 +324,69 @@ class Neuroembryogenesis:
                 continue
                 
             parts = gene_key.split("-")
-            if len(parts) < 5:
+            if len(parts) < 4:  # Need at least 4 parts to have a valid key
                 continue
                 
             gene_cortical_id = parts[1]
             if gene_cortical_id != cortical_id:
                 continue
+            
+            # Get the property key and value type
+            if len(parts) >= 5:
+                property_key = parts[3]
+                value_type = parts[4]
+            else:
+                property_key = parts[-2]
+                value_type = parts[-1]
                 
-            property_key = parts[3]
             value = blueprint[gene_key]
             
             # Handle special properties that need processing
-            if property_key == "___bbx":
+            if "___bbx" in property_key:
+                properties["bbx"] = value
                 if "dimensions" not in properties:
                     properties["dimensions"] = [0, 0, 0]
                 properties["dimensions"][0] = value
-            elif property_key == "___bby":
+            elif "___bby" in property_key:
+                properties["bby"] = value
                 if "dimensions" not in properties:
                     properties["dimensions"] = [0, 0, 0]
                 properties["dimensions"][1] = value
-            elif property_key == "___bbz":
+            elif "___bbz" in property_key:
+                properties["bbz"] = value
                 if "dimensions" not in properties:
                     properties["dimensions"] = [0, 0, 0]
                 properties["dimensions"][2] = value
-            elif property_key == "rcordx":
+            elif "rcordx" in property_key:
+                properties["rcordx"] = value
                 if "position" not in properties:
                     properties["position"] = [0, 0, 0]
                 properties["position"][0] = value
-            elif property_key == "rcordy":
+            elif "rcordy" in property_key:
+                properties["rcordy"] = value
                 if "position" not in properties:
                     properties["position"] = [0, 0, 0]
                 properties["position"][1] = value
-            elif property_key == "rcordz":
+            elif "rcordz" in property_key:
+                properties["rcordz"] = value
                 if "position" not in properties:
                     properties["position"] = [0, 0, 0]
                 properties["position"][2] = value
-            elif property_key == "__name":
+            elif "__name" in property_key:
                 properties["name"] = value
-            elif property_key == "_group":
+            elif "_group" in property_key:
                 properties["group"] = value
-            elif property_key == "subgrp":
+            elif "subgrp" in property_key:
                 properties["subgroup"] = value
-            elif property_key == "_n_cnt":
+            elif "_n_cnt" in property_key:
                 properties["neurons_per_voxel"] = value
-            elif property_key == "dstmap":
+                properties["n_cnt"] = value  # Also store with the original name for compatibility
+            elif "dstmap" in property_key:
                 properties["mapping"] = value
             else:
                 # Store other properties directly
-                properties[property_key] = value
+                clean_key = property_key.strip('_')  # Remove leading/trailing underscores
+                properties[clean_key] = value
                 
         return properties
         
@@ -468,22 +483,22 @@ class Neuroembryogenesis:
                 
                 # Add to connectome manager
                 try:
-                    area = self.connectome_manager.add_cortical_area(
-                        area_id=cortical_idx,  # Use sequential IDs internally (cortical_idx)
+                    print(f">>>>> cortical_id {cortical_id}")
+                    # Update to match the new ConnectomeManager API
+                    area_id = self.connectome_manager.add_cortical_area(
                         name=name,
-                        area_type=area_type,
                         dimensions=dimensions,
                         position=position,
-                        properties=properties,
-                        cortical_id=cortical_id  # Pass the 6-letter cortical ID from the genome
+                        area_type=area_type,
+                        properties={**properties, "cortical_id": cortical_id}  # Store cortical_id in properties
                     )
                     
                     # Store in our tracking maps
-                    self.cortical_areas[cortical_idx] = area
-                    self.cortical_id_map[cortical_idx] = cortical_id
-                    self.reverse_cortical_id_map[cortical_id] = cortical_idx
+                    self.cortical_areas[area_id] = self.connectome_manager.get_cortical_area(area_id)
+                    self.cortical_id_map[area_id] = cortical_id
+                    self.reverse_cortical_id_map[cortical_id] = area_id
                     
-                    logger.debug(f"Created cortical area {name} (internal ID {cortical_idx}, genome ID {cortical_id})")
+                    logger.debug(f"Created cortical area {name} (internal ID {area_id}, genome ID {cortical_id})")
                 except Exception as e:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
@@ -534,7 +549,7 @@ class Neuroembryogenesis:
                 properties = self._extract_cortical_properties(cortical_id)
                 
                 # Skip memory areas in initial development if configured
-                if area.type == "memory" and self.config.get("skip_memory_neurogenesis", False):
+                if area.area_type == "memory" and self.config.get("skip_memory_neurogenesis", False):
                     logger.info(f"Skipping neurogenesis for memory area {area.name}")
                     continue
                 
@@ -558,42 +573,67 @@ class Neuroembryogenesis:
                 if area_id not in self.voxel_neuron_map:
                     self.voxel_neuron_map[area_id] = {}
                 
-                # Create progress tracking
-                voxel_increment = max(1, voxel_count // 100)  # Report progress every 1% of voxels
+                # Performance optimization: Batch neuron creation
+                batch_size = 1000  # Create neurons in batches of 1000
+                neuron_specs = []
+                positions_map = {}  # Map to track positions for later assignment to voxel_neuron_map
                 
+                # Progress reporting setup
+                report_interval = max(1, voxel_count // 10)  # Report 10 times during processing
+                voxel_num = 0
+                
+                # Create neuron specifications in batches
                 for x in range(width):
                     for y in range(height):
                         for z in range(depth):
                             position = (x, y, z)
                             voxel_neurons = []
+                            positions_map[voxel_num] = position
                             
-                            # Create neurons_per_voxel neurons at this position
+                            # Add neuron specifications to the batch
                             for n_idx in range(neurons_per_voxel):
-                                neuron_id = self.connectome_manager._create_neuron_with_index(
-                                    area_id=area_id,
-                                    position=position,
-                                    threshold=neuron_properties["threshold"],
-                                    refractory_period=neuron_properties["refractory_period"],
-                                    decay_rate=neuron_properties["decay_rate"],
-                                    resting_potential=neuron_properties["resting_potential"],
-                                    neuron_index=n_idx
-                                )
-                                voxel_neurons.append(neuron_id)
-                                area_neuron_count += 1
+                                neuron_specs.append((
+                                    area_id,
+                                    position,
+                                    neuron_properties["threshold"],
+                                    neuron_properties["refractory_period"],
+                                    neuron_properties["decay_rate"],
+                                    neuron_properties["resting_potential"],
+                                    {"neuron_index": n_idx, "voxel_id": voxel_num}
+                                ))
+                            
+                            # Process batch if it reaches the batch size
+                            if len(neuron_specs) >= batch_size:
+                                # Create neurons in batch
+                                neuron_ids = self._batch_create_neurons(neuron_specs)
                                 
-                            # Store voxel to neuron mapping
-                            self.voxel_neuron_map[area_id][position] = voxel_neurons
+                                # Assign neurons to voxels
+                                self._assign_neurons_to_voxels(neuron_ids, positions_map)
+                                
+                                # Update counts
+                                area_neuron_count += len(neuron_ids)
+                                
+                                # Clear batch data
+                                neuron_specs = []
+                                positions_map = {}
+                            
+                            voxel_num += 1
                             
                             # Report progress periodically
-                            voxel_num = x * height * depth + y * depth + z
-                            if voxel_num % voxel_increment == 0 or voxel_num == voxel_count - 1:
-                                voxel_progress = ((voxel_num + 1) / voxel_count) * 100
+                            if voxel_num % report_interval == 0 or voxel_num == voxel_count:
+                                voxel_progress = (voxel_num / voxel_count) * 100
                                 area_progress = ((i + voxel_progress/100) / total_areas) * 100
                                 self._report_progress(
                                     DevelopmentStage.NEUROGENESIS,
                                     area_progress,
                                     f"Area {i+1}/{total_areas} ({area.name}): {voxel_progress:.1f}% complete"
                                 )
+                
+                # Process any remaining neurons in the batch
+                if neuron_specs:
+                    neuron_ids = self._batch_create_neurons(neuron_specs)
+                    self._assign_neurons_to_voxels(neuron_ids, positions_map)
+                    area_neuron_count += len(neuron_ids)
                 
                 total_neurons += area_neuron_count
                 logger.info(f"Created {area_neuron_count} neurons in area {area.name}")
@@ -611,6 +651,62 @@ class Neuroembryogenesis:
             self._report_progress(DevelopmentStage.FAILED, 0, self.error)
             logger.exception("Error during neurogenesis")
             return False
+            
+    def _batch_create_neurons(self, neuron_specs):
+        """
+        Create multiple neurons in batch for performance optimization.
+        
+        Args:
+            neuron_specs: List of (area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties) tuples
+            
+        Returns:
+            List of created neuron IDs with their associated voxel IDs
+        """
+        neuron_ids = []
+        
+        # Check if ConnectomeManager supports batch operation
+        if hasattr(self.connectome_manager, 'batch_create_neurons'):
+            # Use batch API if available
+            neuron_ids = self.connectome_manager.batch_create_neurons(neuron_specs)
+        else:
+            # Fall back to individual creation
+            for spec in neuron_specs:
+                area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
+                neuron_id = self.connectome_manager.create_neuron(
+                    area_id=area_id,
+                    position=position,
+                    threshold=threshold,
+                    refractory_period=refractory_period,
+                    decay_rate=decay_rate,
+                    resting_potential=resting_potential,
+                    properties=properties
+                )
+                neuron_ids.append((neuron_id, properties["voxel_id"]))
+                
+        return neuron_ids
+        
+    def _assign_neurons_to_voxels(self, neuron_ids, positions_map):
+        """
+        Assign the newly created neurons to their corresponding voxels in the voxel_neuron_map.
+        
+        Args:
+            neuron_ids: List of (neuron_id, voxel_id) tuples
+            positions_map: Dictionary mapping voxel_id to position tuples
+        """
+        # Group neurons by voxel ID
+        voxel_neurons = {}
+        for neuron_id, voxel_id in neuron_ids:
+            if voxel_id not in voxel_neurons:
+                voxel_neurons[voxel_id] = []
+            voxel_neurons[voxel_id].append(neuron_id)
+        
+        # Add neurons to voxel_neuron_map
+        for voxel_id, neurons in voxel_neurons.items():
+            position = positions_map[voxel_id]
+            area_id = self.connectome_manager.get_area_for_neuron(neurons[0])
+            if area_id not in self.voxel_neuron_map:
+                self.voxel_neuron_map[area_id] = {}
+            self.voxel_neuron_map[area_id][position] = neurons
     
     def _perform_synaptogenesis(self) -> bool:
         """
@@ -872,7 +968,7 @@ def develop_brain_from_genome(
         connectome_manager = ConnectomeManager(config)
     
     # Create neuroembryogenesis instance
-    embryo = Neuroembryogenesis(
+    embryo = NeuroEmbryogenesis(
         connectome_manager=connectome_manager,
         config=config,
         progress_callback=progress_callback

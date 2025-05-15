@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 class ConnectivityRule:
     """Base class for connectivity rules between cortical areas."""
     
-    def __init__(self, source_area_id: str, target_area_id: str, rule_type: str, parameters: Dict[str, Any]):
+    def __init__(self, source_area_id: str, target_area_id: str, rule_type: str, parameters: Dict[str, Any],
+                name: str = "", description: str = "", rule_id: Optional[str] = None):
         """Initialize a connectivity rule.
         
         Args:
@@ -22,13 +23,18 @@ class ConnectivityRule:
             target_area_id: ID of the target cortical area
             rule_type: Type of connectivity rule
             parameters: Rule-specific parameters
+            name: Human-readable name for this rule
+            description: Optional description of the rule
+            rule_id: Unique identifier for this rule (optional, generated if not provided)
         """
         self.source_area_id = source_area_id
         self.target_area_id = target_area_id
         self.rule_type = rule_type
         self.parameters = parameters
+        self.name = name
+        self.description = description
         self.enabled = True
-        self.id = f"{source_area_id}_{target_area_id}_{rule_type}"
+        self.id = rule_id if rule_id else f"{source_area_id}_{target_area_id}_{rule_type}"
     
     def apply(self, connectome) -> int:
         """Apply this rule to create connections.
@@ -49,12 +55,54 @@ class ConnectivityRule:
         """
         return {
             "id": self.id,
+            "name": self.name,
             "source_area_id": self.source_area_id,
             "target_area_id": self.target_area_id,
             "rule_type": self.rule_type,
             "parameters": self.parameters,
-            "enabled": self.enabled
+            "enabled": self.enabled,
+            "description": self.description
         }
+    
+    def update(self, updates: Dict[str, Any]) -> None:
+        """Update rule properties.
+        
+        Args:
+            updates: Dictionary of properties to update
+            
+        Raises:
+            KeyError: If an invalid property is specified
+        """
+        valid_props = {"name", "rule_type", "parameters", "description", "enabled"}
+        invalid_props = set(updates.keys()) - valid_props
+        
+        if invalid_props:
+            raise KeyError(f"Invalid properties: {invalid_props}")
+        
+        if "name" in updates:
+            self.name = updates["name"]
+        
+        if "rule_type" in updates:
+            self.rule_type = updates["rule_type"]
+        
+        if "parameters" in updates:
+            self.parameters.update(updates["parameters"])
+        
+        if "description" in updates:
+            self.description = updates["description"]
+        
+        if "enabled" in updates:
+            self.enabled = updates["enabled"]
+    
+    def validate(self) -> bool:
+        """Validate that the rule has all required properties set.
+        
+        Returns:
+            True if the rule is valid, False otherwise
+        """
+        if not self.name or not self.source_area_id or not self.target_area_id or not self.rule_type:
+            return False
+        return True
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
@@ -70,7 +118,10 @@ class ConnectivityRule:
             source_area_id=data["source_area_id"],
             target_area_id=data["target_area_id"],
             rule_type=data["rule_type"],
-            parameters=data["parameters"]
+            parameters=data["parameters"],
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            rule_id=data.get("id")
         )
         rule.enabled = data.get("enabled", True)
         return rule
@@ -81,7 +132,8 @@ class ProbabilisticConnectivityRule(ConnectivityRule):
     
     def __init__(self, source_area_id: str, target_area_id: str, 
                  connection_probability: float, max_connections: Optional[int] = None,
-                 parameters: Optional[Dict[str, Any]] = None):
+                 parameters: Optional[Dict[str, Any]] = None, name: str = "",
+                 description: str = "", rule_id: Optional[str] = None):
         """Initialize a probabilistic connectivity rule.
         
         Args:
@@ -90,13 +142,24 @@ class ProbabilisticConnectivityRule(ConnectivityRule):
             connection_probability: Probability of connection (0.0 to 1.0)
             max_connections: Maximum number of connections to create (optional)
             parameters: Additional parameters (optional)
+            name: Human-readable name for this rule
+            description: Optional description of the rule
+            rule_id: Unique identifier for this rule (optional, generated if not provided)
         """
         params = parameters or {}
         params.update({
             "connection_probability": connection_probability,
             "max_connections": max_connections
         })
-        super().__init__(source_area_id, target_area_id, "probabilistic", params)
+        super().__init__(
+            source_area_id=source_area_id, 
+            target_area_id=target_area_id, 
+            rule_type="probabilistic", 
+            parameters=params,
+            name=name,
+            description=description,
+            rule_id=rule_id
+        )
     
     def apply(self, connectome) -> int:
         """Apply this rule to create connections based on probability.
@@ -156,7 +219,8 @@ class DistanceBasedConnectivityRule(ConnectivityRule):
     
     def __init__(self, source_area_id: str, target_area_id: str, 
                  max_distance: float, connection_probability: float = 1.0,
-                 parameters: Optional[Dict[str, Any]] = None):
+                 parameters: Optional[Dict[str, Any]] = None, name: str = "",
+                 description: str = "", rule_id: Optional[str] = None):
         """Initialize a distance-based connectivity rule.
         
         Args:
@@ -165,13 +229,24 @@ class DistanceBasedConnectivityRule(ConnectivityRule):
             max_distance: Maximum distance for connections
             connection_probability: Probability of connection for neurons within distance
             parameters: Additional parameters (optional)
+            name: Human-readable name for this rule
+            description: Optional description of the rule
+            rule_id: Unique identifier for this rule (optional, generated if not provided)
         """
         params = parameters or {}
         params.update({
             "max_distance": max_distance,
             "connection_probability": connection_probability
         })
-        super().__init__(source_area_id, target_area_id, "distance_based", params)
+        super().__init__(
+            source_area_id=source_area_id, 
+            target_area_id=target_area_id, 
+            rule_type="distance_based", 
+            parameters=params,
+            name=name,
+            description=description,
+            rule_id=rule_id
+        )
     
     def apply(self, connectome) -> int:
         """Apply this rule to create connections based on distance.
@@ -208,7 +283,9 @@ RULE_TYPES = {
 
 
 def create_connectivity_rule(source_area_id: str, target_area_id: str, 
-                           rule_type: str, parameters: Dict[str, Any]) -> ConnectivityRule:
+                           rule_type: str, parameters: Dict[str, Any],
+                           name: str = "", description: str = "",
+                           rule_id: Optional[str] = None) -> ConnectivityRule:
     """Factory function to create a connectivity rule.
     
     Args:
@@ -216,6 +293,9 @@ def create_connectivity_rule(source_area_id: str, target_area_id: str,
         target_area_id: ID of the target cortical area
         rule_type: Type of rule to create
         parameters: Rule-specific parameters
+        name: Human-readable name for this rule
+        description: Optional description of the rule
+        rule_id: Unique identifier for this rule (optional, generated if not provided)
         
     Returns:
         Instantiated rule object
@@ -227,7 +307,40 @@ def create_connectivity_rule(source_area_id: str, target_area_id: str,
         raise ValueError(f"Unknown connectivity rule type: {rule_type}")
     
     rule_class = RULE_TYPES[rule_type]
-    return rule_class(source_area_id, target_area_id, **parameters)
+    
+    if rule_type == "probabilistic":
+        return ProbabilisticConnectivityRule(
+            source_area_id=source_area_id,
+            target_area_id=target_area_id,
+            connection_probability=parameters.get("connection_probability", 0.5),
+            max_connections=parameters.get("max_connections"),
+            parameters=parameters,
+            name=name,
+            description=description,
+            rule_id=rule_id
+        )
+    elif rule_type == "distance_based":
+        return DistanceBasedConnectivityRule(
+            source_area_id=source_area_id,
+            target_area_id=target_area_id,
+            max_distance=parameters.get("max_distance", 5.0),
+            connection_probability=parameters.get("connection_probability", 1.0),
+            parameters=parameters,
+            name=name,
+            description=description,
+            rule_id=rule_id
+        )
+    else:
+        # Generic rule
+        return ConnectivityRule(
+            source_area_id=source_area_id,
+            target_area_id=target_area_id,
+            rule_type=rule_type,
+            parameters=parameters,
+            name=name,
+            description=description,
+            rule_id=rule_id
+        )
 
 
 def register_custom_rule(rule_name: str, rule_class: type) -> None:

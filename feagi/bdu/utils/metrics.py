@@ -5,10 +5,60 @@ and metrics about the connectome structure.
 """
 
 import time
+import numpy as np
 from typing import Dict, Any, List, Tuple, Callable, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+def calculate_neuron_density(positions, dimensions, bin_size=1):
+    """
+    Calculate neuron density from a list of positions.
+    
+    Args:
+        positions: List of (x, y, z) tuples representing neuron positions
+        dimensions: Tuple of (width, height, depth) for the volume
+        bin_size: Size of bins for density calculation
+    
+    Returns:
+        3D numpy array containing neuron counts per bin
+    """
+    # Create a 3D array to hold the counts
+    binned_dimensions = tuple(dim // bin_size + (1 if dim % bin_size > 0 else 0) for dim in dimensions)
+    density_map = np.zeros(dimensions, dtype=np.int32)
+    
+    # Count neurons at each position
+    for pos in positions:
+        x, y, z = pos
+        
+        # Skip positions outside the volume
+        if (x < 0 or x >= dimensions[0] or 
+            y < 0 or y >= dimensions[1] or 
+            z < 0 or z >= dimensions[2]):
+            continue
+            
+        density_map[x, y, z] += 1
+    
+    # If bin_size > 1, perform binning
+    if bin_size > 1:
+        binned_map = np.zeros(binned_dimensions, dtype=np.int32)
+        for x in range(0, dimensions[0], bin_size):
+            for y in range(0, dimensions[1], bin_size):
+                for z in range(0, dimensions[2], bin_size):
+                    # Calculate bin boundaries
+                    x_end = min(x + bin_size, dimensions[0])
+                    y_end = min(y + bin_size, dimensions[1])
+                    z_end = min(z + bin_size, dimensions[2])
+                    
+                    # Sum neurons in this bin
+                    bin_sum = np.sum(density_map[x:x_end, y:y_end, z:z_end])
+                    
+                    # Store in binned map
+                    binned_map[x // bin_size, y // bin_size, z // bin_size] = bin_sum
+        
+        return binned_map
+    
+    return density_map
 
 class PerformanceTimer:
     """A utility class for timing operations and collecting performance metrics."""

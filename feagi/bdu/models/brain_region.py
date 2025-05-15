@@ -23,8 +23,11 @@ import random
 from time import time
 from datetime import datetime
 from feagi.core.state_manager import FeagiStateManager
-from feagi.evo.genome_processor import genome_v1_v2_converter
-from feagi.evo.genome_editor import generate_hash
+
+# To break circular imports, don't import these at the module level
+# Instead, import them when needed in the functions that use them
+# from feagi.evo.genome_processor import genome_v1_v2_converter
+# from feagi.evo.genome_editor import generate_hash
 
 state = FeagiStateManager.instance()
 
@@ -38,6 +41,10 @@ def region_id_2_title(region_id):
 
 def construct_genome_from_region(region_id):
     """Construct a genome payload for a given brain region ID."""
+    from feagi.evo.genome_processor import genome_v1_v2_converter
+    # Use our local implementation instead of importing
+    # from feagi.evo.genome_editor import generate_hash
+    
     genome = state.genome
     brain_regions = genome.get("brain_regions", {})
     if region_id not in brain_regions:
@@ -250,3 +257,131 @@ def relocate_region_members(relocation_data: dict) -> None:
         else:
             raise ValueError(f"{object_id} is not a valid region nor cortical id")
     # Optionally, update cached dimensions or other state as needed 
+
+class BrainRegion:
+    """
+    Represents a brain region containing multiple cortical areas.
+    
+    A brain region is a logical grouping of cortical areas that are 
+    functionally related.
+    """
+    
+    def __init__(self, region_id: str, name: str, region_type: str = "custom", 
+                 properties: dict = None):
+        """
+        Initialize a brain region.
+        
+        Args:
+            region_id: Unique identifier for the region
+            name: Human-readable name of the region
+            region_type: Type of region (e.g., "sensory", "motor", "custom")
+            properties: Additional properties as key-value pairs
+        """
+        self.id = region_id
+        self.name = name
+        self.region_type = region_type
+        self.properties = properties or {}
+        self.cortical_areas = set()  # Set of cortical area IDs
+        
+    def add_area(self, area_id: str) -> None:
+        """
+        Add a cortical area to this region.
+        
+        Args:
+            area_id: ID of the cortical area to add
+        """
+        self.cortical_areas.add(area_id)
+        
+    def remove_area(self, area_id: str) -> bool:
+        """
+        Remove a cortical area from this region.
+        
+        Args:
+            area_id: ID of the cortical area to remove
+            
+        Returns:
+            True if area was removed, False if area was not in the region
+        """
+        if area_id in self.cortical_areas:
+            self.cortical_areas.remove(area_id)
+            return True
+        return False
+        
+    def contains_area(self, area_id: str) -> bool:
+        """
+        Check if the region contains a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area to check
+            
+        Returns:
+            True if the area is in this region, False otherwise
+        """
+        return area_id in self.cortical_areas
+        
+    def get_all_areas(self) -> list:
+        """
+        Get a list of all cortical area IDs in this region.
+        
+        Returns:
+            List of cortical area IDs
+        """
+        return list(self.cortical_areas)
+        
+    def to_dict(self) -> dict:
+        """
+        Convert the brain region to a dictionary representation.
+        
+        Returns:
+            Dictionary representation of the brain region
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "region_type": self.region_type,
+            "cortical_areas": list(self.cortical_areas),
+            "properties": self.properties
+        }
+        
+    def update(self, updates: dict) -> None:
+        """
+        Update brain region properties.
+        
+        Args:
+            updates: Dictionary of properties to update
+            
+        Raises:
+            KeyError: If an invalid property is specified
+        """
+        valid_properties = {"name", "region_type", "properties"}
+        
+        for key, value in updates.items():
+            if key not in valid_properties:
+                raise KeyError(f"Invalid property: {key}")
+            
+            if key == "properties":
+                self.properties.update(value)
+            else:
+                setattr(self, key, value)
+                
+    def clear_areas(self) -> None:
+        """
+        Remove all cortical areas from this region.
+        """
+        self.cortical_areas.clear() 
+
+def generate_hash(data):
+    """Simple placeholder for the hash generation function.
+    This allows us to avoid importing the actual function and breaking the circular imports.
+    """
+    import hashlib
+    import json
+    
+    # Convert the data to a string representation
+    if isinstance(data, (dict, list)):
+        data_str = json.dumps(data, sort_keys=True)
+    else:
+        data_str = str(data)
+    
+    # Generate a hash
+    return hashlib.md5(data_str.encode()).hexdigest() 

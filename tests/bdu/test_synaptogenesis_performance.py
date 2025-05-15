@@ -24,11 +24,12 @@ logging.basicConfig(
 
 # Add the project root to the path if needed
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-sys.path.insert(0, project_root)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Import the modules to test
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis, DevelopmentStage
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
 from feagi.utils.config import FeagiConfig
 
 
@@ -77,7 +78,9 @@ def config():
 def connectome_manager(config):
     """Create a ConnectomeManager for testing."""
     # Create a ConnectomeManager with limited neuron count for faster testing
-    return ConnectomeManager(config, max_test_neurons=100000)  # Increased to handle essential genome
+    max_neurons = 100000  # Increased to handle essential genome
+    max_synapses = config.get('connectome.max_synapses_per_neuron', 1000) * max_neurons
+    return ConnectomeManager(max_neurons=max_neurons, max_synapses=max_synapses)
 
 
 @pytest.fixture
@@ -88,7 +91,7 @@ def embryo(connectome_manager, config):
     def progress_callback(stage, progress, message):
         progress_logs.append((stage, progress, message))
     
-    embryo = Neuroembryogenesis(
+    embryo = NeuroEmbryogenesis(
         connectome_manager=connectome_manager,
         config=config,
         progress_callback=progress_callback

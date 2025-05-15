@@ -41,8 +41,14 @@ class CorticalArea:
         # Cache for neuron positions
         self._position_map: Dict[int, Tuple[int, int, int]] = {}
         
+        # Map positions to neuron IDs
+        self._position_to_neurons: Dict[Tuple[int, int, int], List[int]] = {}
+        
         # Region this area belongs to (if any)
         self.region_id: Optional[str] = None
+        
+        # For test compatibility
+        self.neurons = self._neuron_indices
     
     @property
     def width(self) -> int:
@@ -111,7 +117,15 @@ class CorticalArea:
         for idx in removed_indices:
             self._neuron_indices.discard(idx)
             if idx in self._position_map:
+                pos = self._position_map[idx]
                 del self._position_map[idx]
+                
+                # Also update position_to_neurons map
+                if pos in self._position_to_neurons:
+                    if idx in self._position_to_neurons[pos]:
+                        self._position_to_neurons[pos].remove(idx)
+                    if not self._position_to_neurons[pos]:
+                        del self._position_to_neurons[pos]
         
         return removed_indices
     
@@ -130,6 +144,12 @@ class CorticalArea:
         
         self._neuron_indices.add(neuron_id)
         self._position_map[neuron_id] = position
+        
+        # Update position to neurons mapping
+        if position not in self._position_to_neurons:
+            self._position_to_neurons[position] = []
+        self._position_to_neurons[position].append(neuron_id)
+            
         return True
     
     def remove_neuron(self, neuron_id: int) -> bool:
@@ -145,8 +165,19 @@ class CorticalArea:
             return False
         
         self._neuron_indices.remove(neuron_id)
+        
+        # Update position mapping
         if neuron_id in self._position_map:
+            pos = self._position_map[neuron_id]
             del self._position_map[neuron_id]
+            
+            # Also update position_to_neurons map
+            if pos in self._position_to_neurons:
+                if neuron_id in self._position_to_neurons[pos]:
+                    self._position_to_neurons[pos].remove(neuron_id)
+                if not self._position_to_neurons[pos]:
+                    del self._position_to_neurons[pos]
+                
         return True
     
     def get_neuron_position(self, neuron_id: int) -> Optional[Tuple[int, int, int]]:
@@ -176,16 +207,43 @@ class CorticalArea:
         if not self.contains_position(new_position):
             return False
         
+        # Get the old position for updating position_to_neurons map
+        old_position = self._position_map.get(neuron_id)
+        
+        # Update position in _position_map
         self._position_map[neuron_id] = new_position
+        
+        # Update position_to_neurons map
+        if old_position and old_position in self._position_to_neurons:
+            if neuron_id in self._position_to_neurons[old_position]:
+                self._position_to_neurons[old_position].remove(neuron_id)
+            if not self._position_to_neurons[old_position]:
+                del self._position_to_neurons[old_position]
+        
+        if new_position not in self._position_to_neurons:
+            self._position_to_neurons[new_position] = []
+        self._position_to_neurons[new_position].append(neuron_id)
+        
         return True
     
-    def get_all_neurons(self) -> Set[int]:
+    def get_all_neurons(self) -> List[int]:
         """Get all neurons in this area.
         
         Returns:
-            Set of neuron IDs
+            List of neuron IDs
         """
-        return self._neuron_indices.copy()
+        return list(self._neuron_indices)
+    
+    def get_neurons_at_position(self, position: Tuple[int, int, int]) -> List[int]:
+        """Get all neurons at a specific position.
+        
+        Args:
+            position: 3D coordinates to check
+            
+        Returns:
+            List of neuron IDs at the specified position
+        """
+        return self._position_to_neurons.get(position, [])
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert cortical area to dictionary for serialization.
@@ -200,9 +258,30 @@ class CorticalArea:
             "position": self.position,
             "area_type": self.area_type,
             "properties": self.properties,
-            "region_id": self.region_id
-            # Neuron indices and positions are stored separately
+            "neuron_count": self.neuron_count
         }
+    
+    def update(self, updates: Dict[str, Any]) -> None:
+        """Update cortical area properties.
+        
+        Args:
+            updates: Dictionary of properties to update
+            
+        Raises:
+            KeyError: If an invalid property is specified
+        """
+        valid_properties = {
+            "name", "position", "dimensions", "area_type", "properties"
+        }
+        
+        for key, value in updates.items():
+            if key not in valid_properties:
+                raise KeyError(f"Invalid property: {key}")
+            
+            if key == "properties":
+                self.properties.update(value)
+            else:
+                setattr(self, key, value)
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):

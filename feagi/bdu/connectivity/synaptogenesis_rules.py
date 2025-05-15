@@ -788,14 +788,43 @@ def last_to_first(src_area_id: AreaId, connectome_manager) -> List[Position]:
     return [(0, 0, 0)]
 
 
-def neighbor_finder(src_area_id: AreaId,
-                   dst_area_id: AreaId,
-                   src_neuron_id: NeuronId,
-                   morphology: MorphologyParams,
-                   src_subregion: BoundingBox,
-                   connectome_manager,
-                   memory_register: Dict[AreaId, Set[AreaId]],
-                   morphology_id_overwrite: Optional[str] = None) -> List[Tuple[NeuronId, float]]:
+def neighbor_finder(position, neighbor_range=1, include_self=False):
+    """
+    Find all neighboring positions within a given range.
+    
+    Args:
+        position: 3D position as (x, y, z)
+        neighbor_range: Range of positions to include as neighbors
+        include_self: Whether to include the center position
+        
+    Returns:
+        List of all neighboring positions (x, y, z)
+    """
+    x, y, z = position
+    neighbors = []
+    
+    # Iterate through all possible offsets within the range
+    for dx in range(-neighbor_range, neighbor_range + 1):
+        for dy in range(-neighbor_range, neighbor_range + 1):
+            for dz in range(-neighbor_range, neighbor_range + 1):
+                # Skip the center position if not requested
+                if not include_self and (dx, dy, dz) == (0, 0, 0):
+                    continue
+                    
+                # Add this neighbor position
+                neighbors.append((x + dx, y + dy, z + dz))
+    
+    return neighbors
+
+
+def neighbor_finder_extended(src_area_id: AreaId,
+                     src_position: Position,
+                     src_neuron_id: NeuronId,
+                     dst_area_id: Optional[AreaId] = None,
+                     dst_position: Optional[Position] = None,
+                     radius: Optional[int] = None,
+                     connection_mask: Optional[int] = None,
+                     self_connection: bool = False) -> List[Position]:
     """
     Find candidate neurons in the destination area for synaptic connections.
     
@@ -996,3 +1025,323 @@ def neighbor_finder(src_area_id: AreaId,
         logger.error(f"Error in neighbor_finder: {str(e)}")
         logger.exception("Exception details:")
         return [] 
+
+
+class SynapseRule:
+    """
+    Base class for synaptogenesis rules.
+    
+    This class defines the interface for synapse formation rules that
+    determine how neurons connect between cortical areas.
+    """
+    
+    def __init__(self, rule_type: str, source_area: str, target_area: str, parameters: Dict[str, Any] = None):
+        """
+        Initialize a synapse rule.
+        
+        Args:
+            rule_type: Type of synapse rule (e.g., "one_to_one", "random", "distance_based")
+            source_area: ID of the source cortical area
+            target_area: ID of the target cortical area
+            parameters: Additional parameters specific to this rule type
+        """
+        self.rule_type = rule_type
+        self.source_area = source_area
+        self.target_area = target_area
+        self.parameters = parameters or {}
+        
+    def generate_connections(self, source_neurons: List[int], target_neurons: List[int],
+                             source_positions: Dict[int, Tuple[int, int, int]],
+                             target_positions: Dict[int, Tuple[int, int, int]]) -> Dict[int, List[int]]:
+        """
+        Generate connections between source and target neurons.
+        
+        Args:
+            source_neurons: List of source neuron IDs
+            target_neurons: List of target neuron IDs
+            source_positions: Dictionary mapping source neuron IDs to positions
+            target_positions: Dictionary mapping target neuron IDs to positions
+            
+        Returns:
+            Dictionary mapping source neuron IDs to lists of target neuron IDs
+        """
+        # Base implementation is a no-op
+        # Subclasses should override this method with specific connection logic
+        return {}
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert the rule to a dictionary representation.
+        
+        Returns:
+            Dictionary representation of the rule
+        """
+        return {
+            "rule_type": self.rule_type,
+            "source_area": self.source_area,
+            "target_area": self.target_area,
+            "parameters": self.parameters
+        }
+        
+    @classmethod
+    def from_dict(cls, rule_dict: Dict[str, Any]) -> 'SynapseRule':
+        """
+        Create a synapse rule from a dictionary representation.
+        
+        Args:
+            rule_dict: Dictionary representation of a synapse rule
+            
+        Returns:
+            A new SynapseRule instance or subclass instance
+        """
+        rule_type = rule_dict.get("rule_type", "default")
+        source_area = rule_dict.get("source_area", "")
+        target_area = rule_dict.get("target_area", "")
+        parameters = rule_dict.get("parameters", {})
+        
+        # Create the appropriate rule type based on the rule_type
+        if rule_type == "one_to_one":
+            return OneToOneRule(source_area, target_area, parameters)
+        elif rule_type == "random":
+            return RandomRule(source_area, target_area, parameters)
+        elif rule_type == "distance_based":
+            return DistanceBasedRule(source_area, target_area, parameters)
+        else:
+            # Default to base class if rule_type is unknown
+            return cls(rule_type, source_area, target_area, parameters)
+
+
+class OneToOneRule(SynapseRule):
+    """
+    Rule that connects neurons with the same relative position in source and target areas.
+    
+    This rule creates one-to-one mappings between neurons in source and target areas,
+    matching them based on their relative positions.
+    """
+    
+    def __init__(self, source_area: str, target_area: str, parameters: Dict[str, Any] = None):
+        """
+        Initialize a one-to-one mapping rule.
+        
+        Args:
+            source_area: ID of the source cortical area
+            target_area: ID of the target cortical area
+            parameters:
+                - scale_factor: Factor to scale positions by (default: 1.0)
+                - offset: Position offset to apply (default: (0, 0, 0))
+        """
+        super().__init__("one_to_one", source_area, target_area, parameters)
+        
+    def generate_connections(self, source_neurons: List[int], target_neurons: List[int],
+                             source_positions: Dict[int, Tuple[int, int, int]],
+                             target_positions: Dict[int, Tuple[int, int, int]]) -> Dict[int, List[int]]:
+        """
+        Generate one-to-one connections based on relative positions.
+        
+        Args:
+            source_neurons: List of source neuron IDs
+            target_neurons: List of target neuron IDs
+            source_positions: Dictionary mapping source neuron IDs to positions
+            target_positions: Dictionary mapping target neuron IDs to positions
+            
+        Returns:
+            Dictionary mapping source neuron IDs to lists of target neuron IDs
+        """
+        connections = {}
+        
+        # Get parameter values
+        scale_factor = self.parameters.get("scale_factor", 1.0)
+        offset = self.parameters.get("offset", (0, 0, 0))
+        
+        # Create a lookup of target positions to target neurons
+        target_pos_to_neuron = {}
+        for neuron_id in target_neurons:
+            if neuron_id in target_positions:
+                pos = target_positions[neuron_id]
+                target_pos_to_neuron[pos] = neuron_id
+        
+        # For each source neuron, find a matching target neuron
+        for source_id in source_neurons:
+            if source_id not in source_positions:
+                continue
+                
+            # Get source position and apply scaling/offset
+            sx, sy, sz = source_positions[source_id]
+            tx = int(sx * scale_factor) + offset[0]
+            ty = int(sy * scale_factor) + offset[1]
+            tz = int(sz * scale_factor) + offset[2]
+            
+            # Look for a target neuron at the corresponding position
+            target_pos = (tx, ty, tz)
+            if target_pos in target_pos_to_neuron:
+                target_id = target_pos_to_neuron[target_pos]
+                connections[source_id] = [target_id]
+        
+        return connections
+
+
+class RandomRule(SynapseRule):
+    """
+    Rule that creates random connections between source and target neurons.
+    
+    This rule connects a variable number of source neurons to randomly selected
+    target neurons.
+    """
+    
+    def __init__(self, source_area: str, target_area: str, parameters: Dict[str, Any] = None):
+        """
+        Initialize a random connection rule.
+        
+        Args:
+            source_area: ID of the source cortical area
+            target_area: ID of the target cortical area
+            parameters:
+                - connection_probability: Probability of forming a connection (default: 0.1)
+                - max_connections: Maximum number of connections per source neuron (default: 10)
+                - seed: Random seed for reproducibility (default: None)
+        """
+        super().__init__("random", source_area, target_area, parameters)
+        
+    def generate_connections(self, source_neurons: List[int], target_neurons: List[int],
+                             source_positions: Dict[int, Tuple[int, int, int]],
+                             target_positions: Dict[int, Tuple[int, int, int]]) -> Dict[int, List[int]]:
+        """
+        Generate random connections between source and target neurons.
+        
+        Args:
+            source_neurons: List of source neuron IDs
+            target_neurons: List of target neuron IDs
+            source_positions: Dictionary mapping source neuron IDs to positions
+            target_positions: Dictionary mapping target neuron IDs to positions
+            
+        Returns:
+            Dictionary mapping source neuron IDs to lists of target neuron IDs
+        """
+        connections = {}
+        
+        # Get parameter values
+        connection_prob = self.parameters.get("connection_probability", 0.1)
+        max_connections = self.parameters.get("max_connections", 10)
+        seed = self.parameters.get("seed", None)
+        
+        # Set random seed if provided
+        if seed is not None:
+            random.seed(seed)
+        
+        # For each source neuron, randomly connect to target neurons
+        for source_id in source_neurons:
+            # Determine number of connections for this source neuron
+            num_connections = min(
+                max_connections,
+                int(connection_prob * len(target_neurons))
+            )
+            
+            # Randomly select target neurons without replacement
+            if num_connections > 0:
+                connections[source_id] = random.sample(target_neurons, num_connections)
+        
+        return connections
+
+
+class DistanceBasedRule(SynapseRule):
+    """
+    Rule that connects neurons based on distance between their positions.
+    
+    This rule creates connections where the probability depends on the
+    distance between neurons (closer neurons more likely to connect).
+    """
+    
+    def __init__(self, source_area: str, target_area: str, parameters: Dict[str, Any] = None):
+        """
+        Initialize a distance-based connection rule.
+        
+        Args:
+            source_area: ID of the source cortical area
+            target_area: ID of the target cortical area
+            parameters:
+                - max_distance: Maximum distance for connections (default: 5)
+                - distance_falloff: How quickly connection probability drops with distance (default: 2)
+                - max_connections: Maximum number of connections per source neuron (default: 10)
+                - seed: Random seed for reproducibility (default: None)
+        """
+        super().__init__("distance_based", source_area, target_area, parameters)
+        
+    def generate_connections(self, source_neurons: List[int], target_neurons: List[int],
+                             source_positions: Dict[int, Tuple[int, int, int]],
+                             target_positions: Dict[int, Tuple[int, int, int]]) -> Dict[int, List[int]]:
+        """
+        Generate distance-based connections between source and target neurons.
+        
+        Args:
+            source_neurons: List of source neuron IDs
+            target_neurons: List of target neuron IDs
+            source_positions: Dictionary mapping source neuron IDs to positions
+            target_positions: Dictionary mapping target neuron IDs to positions
+            
+        Returns:
+            Dictionary mapping source neuron IDs to lists of target neuron IDs
+        """
+        connections = {}
+        
+        # Get parameter values
+        max_distance = self.parameters.get("max_distance", 5)
+        distance_falloff = self.parameters.get("distance_falloff", 2)
+        max_connections = self.parameters.get("max_connections", 10)
+        seed = self.parameters.get("seed", None)
+        
+        # Set random seed if provided
+        if seed is not None:
+            random.seed(seed)
+        
+        # For each source neuron, find target neurons within distance range
+        for source_id in source_neurons:
+            if source_id not in source_positions:
+                continue
+                
+            source_pos = source_positions[source_id]
+            
+            # Calculate distances to all target neurons
+            candidates = []
+            for target_id in target_neurons:
+                if target_id in target_positions:
+                    target_pos = target_positions[target_id]
+                    
+                    # Calculate Euclidean distance
+                    distance = ((source_pos[0] - target_pos[0]) ** 2 +
+                                (source_pos[1] - target_pos[1]) ** 2 +
+                                (source_pos[2] - target_pos[2]) ** 2) ** 0.5
+                    
+                    # If within maximum distance, add as candidate with probability weight
+                    if distance <= max_distance:
+                        # Connection probability decreases with distance
+                        weight = 1.0 / (1.0 + distance ** distance_falloff)
+                        candidates.append((target_id, weight))
+            
+            # If we have candidates, select some based on weighted probability
+            if candidates:
+                # Extract IDs and weights
+                ids, weights = zip(*candidates)
+                
+                # Normalize weights to probabilities
+                total_weight = sum(weights)
+                if total_weight > 0:
+                    probs = [w / total_weight for w in weights]
+                    
+                    # Select target neurons with weighted probability
+                    num_connections = min(max_connections, len(candidates))
+                    connections[source_id] = []
+                    
+                    # Use weighted random sampling without replacement
+                    for _ in range(num_connections):
+                        if not ids:
+                            break
+                            
+                        # Select a neuron with probability proportional to its weight
+                        index = random.choices(range(len(ids)), weights=probs, k=1)[0]
+                        connections[source_id].append(ids[index])
+                        
+                        # Remove selected neuron from candidates
+                        ids = ids[:index] + ids[index+1:]
+                        probs = probs[:index] + probs[index+1:]
+        
+        return connections 

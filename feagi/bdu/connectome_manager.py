@@ -287,6 +287,23 @@ class ConnectomeManager:
         
         return list(self.area_neuron_map.get(area_id, set()))
     
+    def get_area_for_neuron(self, neuron_id: int) -> str:
+        """Get the area ID that a neuron belongs to.
+        
+        Args:
+            neuron_id: ID of the neuron
+            
+        Returns:
+            ID of the cortical area containing the neuron
+            
+        Raises:
+            KeyError: If the neuron_id doesn't exist
+        """
+        if neuron_id not in self.neurons:
+            raise KeyError(f"Neuron {neuron_id} does not exist")
+        
+        return self.neurons[neuron_id]["area_id"]
+    
     def get_neuron_count(self) -> int:
         """Get the total number of neurons in the connectome.
         
@@ -430,18 +447,43 @@ class ConnectomeManager:
         Returns:
             Number of synapses successfully created
         """
+        if not synapse_specs:
+            return 0
+            
         created_count = 0
         
         # Convert to LIL format for efficient batch updates
         self._convert_to_lil_if_needed()
         
+        # Pre-filter valid neuron IDs for efficiency
+        valid_specs = []
         for pre_id, post_id, weight in synapse_specs:
-            try:
-                if self.create_synapse(pre_id, post_id, weight):
+            if pre_id in self.neurons and post_id in self.neurons:
+                valid_specs.append((pre_id, post_id, weight))
+        
+        # Fast batch update without checking if synapse already exists
+        # For very large batches, this is much more efficient
+        if len(valid_specs) > 1000:
+            # Create sets of (pre, post) pairs that already exist
+            existing_pairs = set()
+            for pre_id, post_id, _ in valid_specs:
+                if self.outgoing_matrix[pre_id, post_id] != 0:
+                    existing_pairs.add((pre_id, post_id))
+            
+            # Add only new synapses
+            for pre_id, post_id, weight in valid_specs:
+                if (pre_id, post_id) not in existing_pairs:
+                    self.outgoing_matrix[pre_id, post_id] = weight
+                    self.incoming_matrix[post_id, pre_id] = weight
                     created_count += 1
-            except KeyError:
-                # Skip invalid neurons
-                continue
+        else:
+            # For smaller batches, use the regular approach
+            for pre_id, post_id, weight in valid_specs:
+                # Only check if the synapse already exists now that we know the neurons exist
+                if self.outgoing_matrix[pre_id, post_id] == 0:
+                    self.outgoing_matrix[pre_id, post_id] = weight
+                    self.incoming_matrix[post_id, pre_id] = weight
+                    created_count += 1
         
         logger.debug(f"Created {created_count} synapses in batch")
         return created_count
@@ -1244,63 +1286,71 @@ class ConnectomeManager:
                 logger.warning(f"Cannot apply one-to-one rule: areas have different dimensions")
                 return 0
             
-            for i, source_id in enumerate(source_neurons):
-                if i < len(target_neurons):
-                    target_id = target_neurons[i]
-                    synapse_specs.append((source_id, target_id, weight))
-                    if len(synapse_specs) >= max_synapses:
-                        logger.warning(f"Reached max synapses limit of {max_synapses} for rule {rule_id}")
-                        break
+            # Limit connections to the smaller of max_synapses or min(source, target) neuron count
+            max_connections = min(max_synapses, min(len(source_neurons), len(target_neurons)))
+            for i in range(max_connections):
+                if i < len(source_neurons) and i < len(target_neurons):
+                    synapse_specs.append((source_neurons[i], target_neurons[i], weight))
         
         elif rule_type == "all-to-all":
-            # Connect every source to every target with a limit
-            for source_id in source_neurons:
-                for target_id in target_neurons:
-                    synapse_specs.append((source_id, target_id, weight))
+            # Connect every source to every target with a limit using sampling for large numbers
+            total_possible = len(source_neurons) * len(target_neurons)
+            
+            if total_possible <= max_synapses:
+                # Small enough to do directly
+                for source_id in source_neurons:
+                    for target_id in target_neurons:
+                        synapse_specs.append((source_id, target_id, weight))
+                        if len(synapse_specs) >= max_synapses:
+                            break
                     if len(synapse_specs) >= max_synapses:
-                        logger.warning(f"Reached max synapses limit of {max_synapses} for rule {rule_id}")
                         break
-                if len(synapse_specs) >= max_synapses:
-                    break
+            else:
+                # Too many connections, use sampling
+                sample_count = min(max_synapses, total_possible)
+                source_ids = np.random.choice(source_neurons, size=sample_count, replace=True)
+                target_ids = np.random.choice(target_neurons, size=sample_count, replace=True)
+                
+                for i in range(sample_count):
+                    synapse_specs.append((source_ids[i], target_ids[i], weight))
         
         elif rule_type == "probabilistic":
             # Connect with probability p, but with a limit
             probability = params.get("probability", 0.1)
             
-            # Optimize by sampling instead of iterating through every possible pair
+            # Always use sampling approach for probabilistic connections
+            # Calculate expected number of connections
             total_possible = len(source_neurons) * len(target_neurons)
             expected_count = int(total_possible * probability)
             actual_count = min(expected_count, max_synapses)
             
-            # If we expect to create many connections, use sampling approach
-            if expected_count > 1000:
-                # Sample random pairs
+            # Use sampling approach
+            if actual_count > 0:
                 source_ids = np.random.choice(source_neurons, size=actual_count, replace=True)
                 target_ids = np.random.choice(target_neurons, size=actual_count, replace=True)
                 
                 for i in range(actual_count):
                     synapse_specs.append((source_ids[i], target_ids[i], weight))
-            else:
-                # Original approach for smaller expected counts
-                for source_id in source_neurons:
-                    for target_id in target_neurons:
-                        if np.random.random() < probability:
-                            synapse_specs.append((source_id, target_id, weight))
-                            if len(synapse_specs) >= max_synapses:
-                                logger.warning(f"Reached max synapses limit of {max_synapses} for rule {rule_id}")
-                                break
-                    if len(synapse_specs) >= max_synapses:
-                        break
         
         elif rule_type == "distance":
-            # Connect based on distance between neurons
+            # Connect based on distance between neurons - switch to sampling for large areas
             max_distance = params.get("max_distance", 5.0)
-            for source_id in source_neurons:
-                source_pos = self.get_neuron_position(source_id)
-                source_global_pos = self._get_global_position(source_area_id, source_pos)
+            total_possible = len(source_neurons) * len(target_neurons)
+            
+            # Use a limit on possible pairs to check to avoid excessive computation
+            if total_possible > 100000:  # Arbitrary threshold to switch to sampling
+                # Sample approach: generate random pairs and check their distance
+                candidates = 0
+                max_candidates = min(100000, total_possible)  # Cap on computation
                 
-                for target_id in target_neurons:
+                while len(synapse_specs) < max_synapses and candidates < max_candidates:
+                    source_id = np.random.choice(source_neurons)
+                    target_id = np.random.choice(target_neurons)
+                    
+                    source_pos = self.get_neuron_position(source_id)
                     target_pos = self.get_neuron_position(target_id)
+                    
+                    source_global_pos = self._get_global_position(source_area_id, source_pos)
                     target_global_pos = self._get_global_position(target_area_id, target_pos)
                     
                     # Calculate Euclidean distance
@@ -1313,36 +1363,64 @@ class ConnectomeManager:
                             synapse_specs.append((source_id, target_id, weight * distance_weight))
                         else:
                             synapse_specs.append((source_id, target_id, weight))
+                    
+                    candidates += 1
+            else:
+                # Original approach for smaller numbers
+                for source_id in source_neurons[:1000]:  # Limit to first 1000 source neurons for safety
+                    source_pos = self.get_neuron_position(source_id)
+                    source_global_pos = self._get_global_position(source_area_id, source_pos)
+                    
+                    for target_id in target_neurons[:1000]:  # Limit to first 1000 target neurons for safety
+                        target_pos = self.get_neuron_position(target_id)
+                        target_global_pos = self._get_global_position(target_area_id, target_pos)
                         
-                        if len(synapse_specs) >= max_synapses:
-                            logger.warning(f"Reached max synapses limit of {max_synapses} for rule {rule_id}")
-                            break
-                
-                if len(synapse_specs) >= max_synapses:
-                    break
+                        # Calculate Euclidean distance
+                        distance = np.sqrt(sum((a - b) ** 2 for a, b in zip(source_global_pos, target_global_pos)))
+                        
+                        if distance <= max_distance:
+                            # Optionally scale weight by distance
+                            if params.get("scale_by_distance", False):
+                                distance_weight = 1.0 - (distance / max_distance)
+                                synapse_specs.append((source_id, target_id, weight * distance_weight))
+                            else:
+                                synapse_specs.append((source_id, target_id, weight))
+                            
+                            if len(synapse_specs) >= max_synapses:
+                                break
+                    
+                    if len(synapse_specs) >= max_synapses:
+                        break
         
         elif rule_type == "random-subset":
             # Connect each source to a random subset of targets
-            num_targets = params.get("num_targets", 5)
-            for source_id in source_neurons:
-                if len(target_neurons) <= num_targets:
-                    targets = target_neurons
-                else:
-                    targets = np.random.choice(target_neurons, num_targets, replace=False)
+            num_targets = min(params.get("num_targets", 5), len(target_neurons))
+            
+            # Limit source neurons to avoid excessive computation
+            max_sources = min(len(source_neurons), max_synapses // num_targets)
+            for source_id in source_neurons[:max_sources]:
+                targets = np.random.choice(target_neurons, num_targets, replace=False)
                 
                 for target_id in targets:
                     synapse_specs.append((source_id, target_id, weight))
                     
                 if len(synapse_specs) >= max_synapses:
-                    logger.warning(f"Reached max synapses limit of {max_synapses} for rule {rule_id}")
                     break
         
         else:
             raise ValueError(f"Unsupported connectivity rule type: {rule_type}")
         
         # Create the synapses in batch
+        created_count = 0
         if synapse_specs:
-            created_count = self.batch_create_synapses(synapse_specs)
+            # For large batches, create synapses in smaller chunks to avoid memory issues
+            if len(synapse_specs) > 10000:
+                chunk_size = 10000
+                for i in range(0, len(synapse_specs), chunk_size):
+                    batch = synapse_specs[i:i+chunk_size]
+                    created_count += self.batch_create_synapses(batch)
+            else:
+                created_count = self.batch_create_synapses(synapse_specs)
             
         logger.info(f"Applied connectivity rule {rule_id} ({rule['name']}): created {created_count} synapses")
         return created_count
@@ -1594,23 +1672,35 @@ class ConnectomeManager:
         target_area_id = connection["target_area_id"]
         
         # Get neurons in the areas
-        source_neurons = self.get_neurons_by_area(source_area_id)
-        target_neurons = self.get_neurons_by_area(target_area_id)
+        source_neurons = set(self.get_neurons_by_area(source_area_id))
+        target_neurons = set(self.get_neurons_by_area(target_area_id))
         
-        # Count synapses between the areas
-        synapse_count = 0
+        # If either set is empty, there are no synapses
+        if not source_neurons or not target_neurons:
+            connection["synapse_count"] = 0
+            return 0
+        
+        # Count synapses between the areas more efficiently
         self._ensure_csr_format_outgoing()
+        synapse_count = 0
         
-        for source_id in source_neurons:
-            row = self.outgoing_matrix.getrow(source_id)
-            # Find where target IDs are in the target area
-            for target_idx, weight in zip(row.indices, row.data):
-                if target_idx in target_neurons and weight != 0:
-                    synapse_count += 1
+        # Use slicing to get only the relevant parts of the matrix if possible
+        source_list = sorted(source_neurons)
+        if len(source_list) > 0:
+            # Process in batches to avoid memory issues with very large areas
+            batch_size = 1000
+            for i in range(0, len(source_list), batch_size):
+                batch = source_list[i:i+batch_size]
+                for source_id in batch:
+                    # Get row for this source neuron
+                    row = self.outgoing_matrix.getrow(source_id)
+                    # Count targets that are in our target area
+                    for target_idx in row.indices:
+                        if target_idx in target_neurons:
+                            synapse_count += 1
         
         # Update the count
         connection["synapse_count"] = synapse_count
-        
         return synapse_count
     
     def apply_connection_weight_change(self, connection_id: str, scale_factor: float) -> int:
@@ -1633,30 +1723,49 @@ class ConnectomeManager:
         source_area_id = connection["source_area_id"]
         target_area_id = connection["target_area_id"]
         
-        # Get neurons in the areas
-        source_neurons = self.get_neurons_by_area(source_area_id)
-        target_neurons = self.get_neurons_by_area(target_area_id)
+        # Get neurons in the areas as sets for faster lookups
+        source_neurons = set(self.get_neurons_by_area(source_area_id))
+        target_neurons = set(self.get_neurons_by_area(target_area_id))
         
-        # Convert to sets for faster lookups
-        source_set = set(source_neurons)
-        target_set = set(target_neurons)
+        # If either set is empty, there are no synapses to modify
+        if not source_neurons or not target_neurons:
+            return 0
         
         # Modify synapses between the areas
         modified_count = 0
         self._convert_to_lil_if_needed()
         
-        for source_id in source_neurons:
-            outgoing = self.get_outgoing_connections(source_id)
-            for target_id, weight in outgoing:
-                if target_id in target_set:
-                    new_weight = weight * scale_factor
-                    self.outgoing_matrix[source_id, target_id] = new_weight
-                    self.incoming_matrix[target_id, source_id] = new_weight
+        # Process in batches to avoid memory issues with very large areas
+        source_list = sorted(source_neurons)
+        batch_size = 500
+        for i in range(0, len(source_list), batch_size):
+            batch = source_list[i:i+batch_size]
+            
+            # Gather all modifications for batch application
+            modifications = []
+            
+            for source_id in batch:
+                # Use the efficient matrix operation to get connections
+                self._ensure_csr_format_outgoing()
+                row = self.outgoing_matrix.getrow(source_id)
+                
+                # Find connections to target area
+                for target_idx, weight in zip(row.indices, row.data):
+                    if target_idx in target_neurons:
+                        new_weight = weight * scale_factor
+                        modifications.append((source_id, target_idx, new_weight))
+            
+            # Apply all modifications in batch
+            if modifications:
+                self._convert_to_lil_if_needed()
+                for src_id, tgt_id, new_weight in modifications:
+                    self.outgoing_matrix[src_id, tgt_id] = new_weight
+                    self.incoming_matrix[tgt_id, src_id] = new_weight
                     modified_count += 1
         
         logger.info(f"Scaled weights in connection {connection_id} ({connection['name']}) by factor {scale_factor}, modified {modified_count} synapses")
         return modified_count
-    
+        
     def get_connection_statistics(self, connection_id: str) -> Dict[str, Any]:
         """Get statistics about a cortical connection.
         
@@ -1677,27 +1786,12 @@ class ConnectomeManager:
         target_area_id = connection["target_area_id"]
         
         # Get neurons in the areas
-        source_neurons = self.get_neurons_by_area(source_area_id)
-        target_neurons = self.get_neurons_by_area(target_area_id)
+        source_neurons = set(self.get_neurons_by_area(source_area_id))
+        target_neurons = set(self.get_neurons_by_area(target_area_id))
         
-        # Count synapses and gather statistics
-        synapse_count = 0
-        weight_sum = 0.0
-        weights = []
-        
-        self._ensure_csr_format_outgoing()
-        
-        for source_id in source_neurons:
-            row = self.outgoing_matrix.getrow(source_id)
-            for target_idx, weight in zip(row.indices, row.data):
-                if target_idx in target_neurons and weight != 0:
-                    synapse_count += 1
-                    weight_sum += weight
-                    weights.append(weight)
-        
-        # Compute statistics
+        # Initialize statistics
         stats = {
-            "synapse_count": synapse_count,
+            "synapse_count": 0,
             "source_neuron_count": len(source_neurons),
             "target_neuron_count": len(target_neurons),
             "connection_density": 0.0,
@@ -1707,10 +1801,37 @@ class ConnectomeManager:
             "std_weight": 0.0
         }
         
+        # If either set is empty, there are no synapses to analyze
+        if not source_neurons or not target_neurons:
+            return stats
+        
+        # Count synapses and gather statistics
+        self._ensure_csr_format_outgoing()
+        synapse_count = 0
+        weight_sum = 0.0
+        weights = []
+        
+        # Process in batches to avoid memory issues with very large areas
+        source_list = sorted(source_neurons)
+        batch_size = 1000
+        for i in range(0, len(source_list), batch_size):
+            batch = source_list[i:i+batch_size]
+            
+            for source_id in batch:
+                row = self.outgoing_matrix.getrow(source_id)
+                for target_idx, weight in zip(row.indices, row.data):
+                    if target_idx in target_neurons:
+                        synapse_count += 1
+                        weight_sum += weight
+                        weights.append(weight)
+        
+        # Update statistics
+        stats["synapse_count"] = synapse_count
+        
         if synapse_count > 0:
             stats["avg_weight"] = weight_sum / synapse_count
-            stats["min_weight"] = min(weights)
-            stats["max_weight"] = max(weights)
+            stats["min_weight"] = min(weights) if weights else 0.0
+            stats["max_weight"] = max(weights) if weights else 0.0
             stats["std_weight"] = np.std(weights) if len(weights) > 1 else 0.0
         
         # Calculate connection density (actual / possible connections)

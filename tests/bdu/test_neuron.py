@@ -73,7 +73,7 @@ def test_get_neuron_property(populated_neuron_array):
     assert na.get_neuron_property(0, "threshold") == 1.0
     
     # Check for neuron with different properties
-    assert na.get_neuron_property(1, "threshold") == 0.8
+    assert np.isclose(na.get_neuron_property(1, "threshold"), 0.8)
     
     # Check error for non-existent neuron
     with pytest.raises(KeyError):

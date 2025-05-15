@@ -100,7 +100,7 @@ def test_validate_position():
     with pytest.raises(ValueError):
         validate_position((0, 0), dimensions)  # Missing z coordinate
     
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         validate_position(0, dimensions)  # Not a tuple
 
 def test_unusual_positions():

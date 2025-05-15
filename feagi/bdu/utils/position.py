@@ -53,10 +53,29 @@ def validate_position(position: Tuple[int, int, int], dimensions: Tuple[int, int
         
     Returns:
         True if the position is within bounds, False otherwise
+        
+    Raises:
+        ValueError: If position or dimensions are not valid 3D tuples
+        TypeError: If position or dimensions are not iterable
     """
+    # Validate inputs
+    if not isinstance(position, (tuple, list)):
+        raise TypeError(f"Position must be a tuple or list, got {type(position)}")
+    
+    if not isinstance(dimensions, (tuple, list)):
+        raise TypeError(f"Dimensions must be a tuple or list, got {type(dimensions)}")
+    
+    if len(position) != 3:
+        raise ValueError(f"Position must have 3 coordinates (x,y,z), got {len(position)}")
+    
+    if len(dimensions) != 3:
+        raise ValueError(f"Dimensions must have 3 values (width,height,depth), got {len(dimensions)}")
+    
+    # Get coordinates and dimensions
     x, y, z = position
     width, height, depth = dimensions
     
+    # Check bounds
     return (0 <= x < width) and (0 <= y < height) and (0 <= z < depth)
 
 

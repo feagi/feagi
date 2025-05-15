@@ -15,7 +15,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from feagi.bdu.synaptogenesis_rules import (
+from feagi.bdu.connectivity.synaptogenesis_rules import (
     RuleType, MorphologyFunction, linearize_position, delinearize_position,
     evaluate_expression, check_pattern_validity, define_subregions,
     find_source_coordinates, find_destination_coordinates, match_vectors,
@@ -25,7 +25,7 @@ from feagi.bdu.synaptogenesis_rules import (
 )
 
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis, DevelopmentStage
 from feagi.utils.config import FeagiConfig
 
 # Import genome processing modules
@@ -100,13 +100,15 @@ def config():
 @pytest.fixture
 def connectome_manager(config):
     """Create a ConnectomeManager for testing."""
-    return ConnectomeManager(config)
+    max_neurons = config.get('connectome.max_neurons', 20000)
+    max_synapses = config.get('connectome.max_synapses_per_neuron', 1000) * max_neurons
+    return ConnectomeManager(max_neurons=max_neurons, max_synapses=max_synapses)
 
 
 @pytest.fixture
 def embryo(connectome_manager, config, genome_path):
     """Create and initialize a Neuroembryogenesis instance for testing."""
-    embryo = Neuroembryogenesis(
+    embryo = NeuroEmbryogenesis(
         connectome_manager=connectome_manager,
         config=config
     )
