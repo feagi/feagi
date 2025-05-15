@@ -158,27 +158,30 @@ async def genome_default_upload(core_api_service: CoreAPIService = Depends(get_c
 
 
 @router.post("/upload/file")
-async def genome_file_upload(file: UploadFile = File(...)):
+async def genome_file_upload(
+    file: UploadFile = File(...),
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     This API allows you to browse files from your computer and upload a genome to FEAGI.
-    The genome must be in the form of a python file.
+    The genome must be in the form of a JSON file.
     """
     try:
+        # Read and parse the file
         data = await file.read()
-        state.set_connectome_state(ConnectomeState.INITIALIZING)
-        state.genome_file_name = file.filename
-
         genome_str = json.loads(data)
 
+        # Add default fields if missing
         if "genome_title" not in genome_str:
-            genome_str["genome_title"] = state.genome_file_name
+            genome_str["genome_title"] = file.filename
 
         if "genome_description" not in genome_str:
             genome_str["genome_description"] = ""
 
-        core_api_service = get_core_api_service()
+        # Load the genome - CoreAPIService will handle state updates internally
         result = core_api_service.load_genome(genome_str, filename=file.filename)
         
+        # Update burst engine if available
         burst_engine = core_api_service.get_burst_engine()
         if burst_engine:
             burst_engine.update_with_genome()
@@ -187,8 +190,14 @@ async def genome_file_upload(file: UploadFile = File(...)):
         # Return raw response for v1 compatibility
         return raw_response({
             "loaded": result, 
-            "genome_counter": state.get_genome_counter()
+            "genome_counter": core_api_service.get_genome_counter()
         })
+    except json.JSONDecodeError:
+        logger.error("Failed to parse JSON in genome file", emoji1="❌")
+        return JSONResponse(
+            status_code=400,
+            content=error_response(message="Invalid JSON format in genome file", error_code="INVALID_JSON")
+        )
     except Exception as e:
         logger.error(f"Failed to upload genome: {str(e)}", emoji1="❌")
         return JSONResponse(
@@ -207,23 +216,43 @@ async def genome_file_name(core_api_service: CoreAPIService = Depends(get_core_a
 
 
 @router.post("/upload/string")
-async def genome_string_upload(genome: dict):
+async def genome_string_upload(
+    genome: dict,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Upload a genome from a JSON string/dictionary.
+    
+    This endpoint allows uploading a genome that's already parsed into a Python dict.
+    """
+    try:
+        # Add defaults if not present
+        if "genome_title" not in genome:
+            genome["genome_title"] = "Unknown Genome"
 
-    if "genome_title" not in genome:
-        genome["genome_title"] = "Unknown Genome"
-
-    if "genome_description" not in genome:
-        genome["genome_description"] = ""
-
-    core_api_service = get_core_api_service()
-    result = core_api_service.load_genome(genome)
-    # message = {'genome': genome}
-    # api_queue.put(item=message)
-    burst_engine = core_api_service.get_burst_engine()
-    if burst_engine:
-        burst_engine.update_with_genome()
-        logger.info("Burst Engine updated with new genome", emoji1="⚡ ")
-    return {"loaded": result, "genome_counter": state.get_genome_counter()}
+        if "genome_description" not in genome:
+            genome["genome_description"] = ""
+        
+        # Load the genome
+        result = core_api_service.load_genome(genome)
+        
+        # Update burst engine if available
+        burst_engine = core_api_service.get_burst_engine()
+        if burst_engine:
+            burst_engine.update_with_genome()
+            logger.info("Burst Engine updated with new genome", emoji1="⚡")
+            
+        # Return the result
+        return {
+            "loaded": result, 
+            "genome_counter": core_api_service.get_genome_counter()
+        }
+    except Exception as e:
+        logger.error(f"Failed to upload genome string: {str(e)}", emoji1="❌")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to upload genome string: {str(e)}"
+        )
 
 
 @router.get("/download")
@@ -391,10 +420,14 @@ async def amalgamation_attempt(
 @router.post("/amalgamation_by_upload")
 async def amalgamation_attempt(
     file: UploadFile = File(...),
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
     _: str = Depends(check_amalgamation_ready)
 ):
     """
     Initiate an amalgamation by uploading a genome file.
+    
+    This endpoint allows uploading a genome file that will be used
+    for amalgamation with the current genome.
     """
     try:
         # Read and parse the uploaded file
@@ -408,20 +441,21 @@ async def amalgamation_attempt(
         # Process the genome
         genome_2 = genome_2_1_convertor(genome_str["blueprint"])
         
-        # Generate amalgamation ID and store data
+        # Generate amalgamation ID
         now = datetime.now()
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
         
-        # Update state
-        state.genome_file_name = file.filename
-        state.pending_amalgamation["genome_id"] = state.genome_file_name
-        state.pending_amalgamation["genome_title"] = state.genome_file_name
-        state.pending_amalgamation["genome_payload"] = genome_str
-        state.pending_amalgamation["initiation_time"] = time()
-        state.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        state.pending_amalgamation["circuit_size"] = circuit_size(blueprint=genome_2["blueprint"])
-
-        state.amalgamation_history[amalgamation_id] = "pending"
+        # Initialize the amalgamation
+        success = core_api_service.initiate_amalgamation(
+            amalgamation_id=amalgamation_id,
+            genome_id=file.filename,
+            genome_title=file.filename,
+            genome_payload=genome_str
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to initialize amalgamation")
+            
         return amalgamation_id
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON in uploaded file")
@@ -432,25 +466,31 @@ async def amalgamation_attempt(
 @router.post("/amalgamation_by_filename")
 async def amalgamation_attempt(
     amalgamation_param: AmalgamationRequest, 
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
     _: str = Depends(check_amalgamation_ready)
 ):
     """
     Initiate an amalgamation using an existing genome file.
+    
+    This endpoint takes parameters specifying the genome to use
+    for amalgamation with the current genome.
     """
     try:
         # Generate amalgamation ID
         now = datetime.now()
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
         
-        # Update state
-        state.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
-        state.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
-        state.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        state.pending_amalgamation["initiation_time"] = time()
-        state.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        state.pending_amalgamation["circuit_size"] = circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
-
-        state.amalgamation_history[amalgamation_id] = "pending"
+        # Initialize the amalgamation
+        success = core_api_service.initiate_amalgamation(
+            amalgamation_id=amalgamation_id,
+            genome_id=amalgamation_param.genome_id or "custom_genome",
+            genome_title=amalgamation_param.genome_title or "Custom Amalgamation",
+            genome_payload=amalgamation_param.genome_payload
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to initialize amalgamation")
+            
         return amalgamation_id
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing amalgamation: {str(e)}")
@@ -604,17 +644,15 @@ async def genome_append_circuit(
         file: Circuit genome file to append
     """
     try:
+        # Read and parse the file
         data = await file.read()
         circuit_data = json.loads(data)
-        
-        # Update the genome filename for reference
-        state_manager = core_api_service.get_state_manager()
-        state_manager.genome_file_name = file.filename
         
         # Use the service to append the circuit
         result = core_api_service.append_circuit(
             circuit_origin=(circuit_origin_x, circuit_origin_y, circuit_origin_z),
-            circuit_data=circuit_data
+            circuit_data=circuit_data,
+            filename=file.filename  # Pass the filename to the service
         )
         
         if not result:
@@ -743,24 +781,15 @@ async def deploy_genome(
         genome_file: The genome file to deploy
     """
     try:
-        # Get the state manager
-        state_manager = core_api_service.get_state_manager()
-        
-        # Update state to LOADING
-        state_manager.set_genome_state(GenomeState.LOADING)
-        
         # Save the uploaded file
         genome_filepath = await save_upload_file(genome_file)
         
-        # Deploy the genome
+        # Deploy the genome through CoreAPIService
+        # The service will handle all state transitions internally
         result = core_api_service.deploy_genome(genome_filepath)
         
-        # Update state based on result
         if result:
-            state_manager.set_genome_state(GenomeState.LOADED)
-            state_manager.set_brain_readiness(True)
-            
-            # Update burst engine with new genome
+            # Update burst engine with new genome if needed
             burst_engine = core_api_service.get_burst_engine()
             if burst_engine:
                 burst_engine.update_with_genome()
@@ -771,9 +800,6 @@ async def deploy_genome(
                 data={"filename": genome_file.filename}
             )
         else:
-            state_manager.set_genome_state(GenomeState.ERROR)
-            state_manager.set_brain_readiness(False)
-            
             return JSONResponse(
                 status_code=500,
                 content=error_response(
@@ -782,10 +808,6 @@ async def deploy_genome(
                 )
             )
     except Exception as e:
-        # Ensure state is reverted on error
-        core_api_service.get_state_manager().set_genome_state(GenomeState.ERROR)
-        core_api_service.get_state_manager().set_brain_readiness(False)
-        
         logger.error(f"Error deploying genome: {str(e)}", emoji1="❌")
         
         return JSONResponse(

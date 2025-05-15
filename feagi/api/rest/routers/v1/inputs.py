@@ -15,39 +15,53 @@
 # ==============================================================================
 
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, Tuple
 from feagi.utils.logger import setup_logger
-logger = setup_logger()
 
-from ...commons import *
-from ...schemas import *
-
-from feagi.version import __version__
-from feagi.evo.templates import cortical_types
-from feagi.pns.vision import generate_vision_configuration
 from feagi.api.rest.schemas import VisionSettings
+from feagi.api.rest.dependencies import get_core_api_service
+from feagi.api.core.services.core_api_service import CoreAPIService
 
-
+logger = setup_logger()
 
 router = APIRouter()
 
 
-# ######   System Endpoints #########
-# ###################################
+# ######   Vision Input Endpoints #########
+# ########################################
 
 @router.get("/vision")
-async def get_vision_tuning_parameters():
-    vision_params = generate_vision_configuration()
-
-    return vision_params
+async def get_vision_tuning_parameters(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """
+    Get the current vision tuning parameters.
+    
+    Returns:
+        Vision configuration parameters.
+    """
+    return core_api_service.get_vision_config()
 
 
 @router.post("/vision")
-async def set_vision_tuning_parameters(vision_settings: VisionSettings):
+async def set_vision_tuning_parameters(
+    vision_settings: VisionSettings,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Set the vision tuning parameters.
+    
+    Args:
+        vision_settings: Vision configuration parameters.
+        
+    Returns:
+        Success message.
+    """
     vision_configuration_params = vision_settings.dict(exclude_none=True)
-    vision_configuration_params = {'vision': vision_configuration_params}
-    logger.info("*-----* " * 200 + "\n" + str(vision_configuration_params))
-    api_queue.put(item=vision_configuration_params)
+    success = core_api_service.update_vision_config(vision_configuration_params)
+    
+    if success:
+        return {"success": True, "message": "Vision settings updated"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to update vision settings")
 

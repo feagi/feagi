@@ -196,16 +196,56 @@ async def get_transforming_areas(
         )
 
 @router.get("/plasticity_queue_depth")
-async def show_plasticity_queue_depth():
+async def show_plasticity_queue_depth(
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_active_genome)
+):
     """
     Returns the current plasticity queue depth value
+    
+    This endpoint requires a genome to be loaded.
     """
-    return state.get_genome()["physiology"]["plasticity_queue_depth"]
+    try:
+        queue_depth = core_api_service.get_plasticity_queue_depth()
+        return queue_depth
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get plasticity queue depth: {str(e)}"
+        )
 
 
 @router.put("/plasticity_queue_depth")
-async def update_plasticity_queue_depth(queue_depth: int):
+async def update_plasticity_queue_depth(
+    queue_depth: int,
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_active_genome)
+):
     """
-    Enables changes against various Burst Engine parameters.
+    Update the plasticity queue depth setting.
+    
+    This endpoint requires a genome to be loaded.
+    
+    Args:
+        queue_depth: New queue depth value
     """
-    state.get_genome()["physiology"]["plasticity_queue_depth"] = queue_depth
+    try:
+        success = core_api_service.update_plasticity_queue_depth(queue_depth)
+        
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update plasticity queue depth"
+            )
+            
+        return success_response(
+            message="Plasticity queue depth updated successfully",
+            data={"queue_depth": queue_depth}
+        )
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update plasticity queue depth: {str(e)}"
+        )

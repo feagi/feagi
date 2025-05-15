@@ -1122,6 +1122,406 @@ class CoreAPIService:
         
         return None
     
+    def create_brain_region(self, region_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Create a new brain region.
+        
+        Args:
+            region_data: Dictionary containing region properties including:
+                - title: Name of the region
+                - parent_region_id: ID of the parent region
+                - coordinate_2d: Optional 2D coordinates [x,y]
+                - coordinate_3d: Optional 3D coordinates [x,y,z]
+                
+        Returns:
+            The ID of the newly created region, or None if creation failed
+            
+        Raises:
+            ValueError: If parent region doesn't exist
+        """
+        try:
+            from feagi.bdu.models.brain_region import create_region
+            
+            # Verify the parent region exists
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot create brain region - no genome loaded or no regions defined")
+                return None
+                
+            if region_data["parent_region_id"] not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Parent region {region_data['parent_region_id']} does not exist")
+                
+            # Create the region
+            region_id = create_region(region_data)
+            
+            # Notify about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return region_id
+        except Exception as e:
+            self.logger.error(f"Error creating brain region: {str(e)}")
+            return None
+            
+    def update_brain_region(self, region_data: Dict[str, Any]) -> bool:
+        """
+        Update properties of a brain region.
+        
+        Args:
+            region_data: Dictionary containing region properties to update, must include:
+                - region_id: ID of the region to update
+                
+        Returns:
+            True if update was successful, False otherwise
+            
+        Raises:
+            ValueError: If region doesn't exist or can't modify root region properties
+        """
+        try:
+            from feagi.bdu.models.brain_region import update_region
+            
+            # Verify the region exists
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot update brain region - no genome loaded or no regions defined")
+                return False
+                
+            region_id = region_data.get("region_id")
+            if not region_id:
+                raise ValueError("No region_id provided")
+                
+            if region_id not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Region {region_id} does not exist")
+                
+            # Special handling for root region - certain fields can't be modified
+            if region_id == "root":
+                unmodifiable_fields = ["parent_region_id", "coordinate_2d", "coordinate_3d"]
+                for field in unmodifiable_fields:
+                    if field in region_data:
+                        raise ValueError(f"{field} cannot be modified for root region")
+                        
+            # Update the region
+            update_region(region_data)
+            
+            # Notify about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating brain region: {str(e)}")
+            return False
+            
+    def get_brain_region(self, region_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get details of a specific brain region.
+        
+        Args:
+            region_id: ID of the brain region to retrieve
+                
+        Returns:
+            Dictionary containing region details, or None if not found
+        """
+        try:
+            # Verify the region exists
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot get brain region - no genome loaded or no regions defined")
+                return None
+                
+            if region_id not in self._current_genome["brain_regions"]:
+                return None
+                
+            return self._current_genome["brain_regions"][region_id]
+        except Exception as e:
+            self.logger.error(f"Error retrieving brain region: {str(e)}")
+            return None
+            
+    def delete_brain_region(self, region_id: str) -> bool:
+        """
+        Delete a brain region and reassign its areas to its parent.
+        
+        Args:
+            region_id: ID of the brain region to delete
+                
+        Returns:
+            True if deletion was successful, False otherwise
+            
+        Raises:
+            ValueError: If trying to delete root region or region doesn't exist
+        """
+        try:
+            from feagi.bdu.models.brain_region import change_cortical_area_parent, change_brain_region_parent
+            
+            # Verify the region exists
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot delete brain region - no genome loaded or no regions defined")
+                return False
+                
+            if region_id not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Region {region_id} does not exist")
+                
+            if region_id == "root":
+                raise ValueError("Root region cannot be deleted")
+                
+            # Get the parent region
+            region_parent = self._current_genome["brain_regions"][region_id]["parent_region_id"]
+            
+            # Move all areas to parent
+            for area_id in self._current_genome["brain_regions"][region_id].get("areas", []):
+                change_cortical_area_parent(
+                    cortical_area_id=area_id,
+                    new_parent_id=region_parent
+                )
+                
+            # Move all subregions to parent
+            for subregion_id in self._current_genome["brain_regions"][region_id].get("regions", []):
+                change_brain_region_parent(
+                    region_id=subregion_id,
+                    new_parent_id=region_parent
+                )
+            
+            # Delete the region
+            self._current_genome["brain_regions"].pop(region_id)
+            if region_id in self._current_genome["brain_regions"][region_parent]["regions"]:
+                self._current_genome["brain_regions"][region_parent]["regions"].remove(region_id)
+                
+            # Notify about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deleting brain region: {str(e)}")
+            return False
+            
+    def delete_brain_region_with_members(self, region_id: str) -> bool:
+        """
+        Delete a brain region and all its members.
+        
+        Args:
+            region_id: ID of the brain region to delete
+                
+        Returns:
+            True if deletion was successful, False otherwise
+            
+        Raises:
+            ValueError: If trying to delete root region or region doesn't exist
+        """
+        try:
+            from feagi.bdu.models.brain_region import delete_region_with_members
+            
+            # Verify the region exists
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot delete brain region - no genome loaded or no regions defined")
+                return False
+                
+            if region_id not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Region {region_id} does not exist")
+                
+            if region_id == "root":
+                raise ValueError("Root region cannot be deleted")
+                
+            # Delete the region and its members
+            delete_region_with_members(region_id)
+            
+            # Notify about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deleting brain region with members: {str(e)}")
+            return False
+            
+    def list_brain_regions(self, include_members: bool = False) -> Dict[str, Any]:
+        """
+        Get a list of all brain regions.
+        
+        Args:
+            include_members: If True, include full region details including member lists
+                
+        Returns:
+            Dictionary of region IDs to region details
+        """
+        try:
+            # Verify regions exist
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot list brain regions - no genome loaded or no regions defined")
+                return {}
+                
+            if include_members:
+                # Return complete region data
+                return self._current_genome["brain_regions"]
+            else:
+                # Return simplified region data (just coordinates)
+                region_summary = {}
+                for region_id, region_data in self._current_genome["brain_regions"].items():
+                    region_summary[region_id] = {
+                        "coordinate_2d": region_data.get("coordinate_2d"),
+                        "coordinate_3d": region_data.get("coordinate_3d"),
+                        "title": region_data.get("title")
+                    }
+                return region_summary
+        except Exception as e:
+            self.logger.error(f"Error listing brain regions: {str(e)}")
+            return {}
+            
+    def get_region_titles(self) -> List[Tuple[str, str]]:
+        """
+        Get a list of all brain region IDs and their titles.
+        
+        Returns:
+            List of (region_id, title) tuples
+        """
+        try:
+            from feagi.bdu.models.brain_region import region_id_2_title
+            
+            # Verify regions exist
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot get region titles - no genome loaded or no regions defined")
+                return []
+                
+            title_list = []
+            for region_id in self._current_genome["brain_regions"]:
+                title = region_id_2_title(region_id)
+                title_list.append((region_id, title or region_id))
+                
+            return title_list
+        except Exception as e:
+            self.logger.error(f"Error getting region titles: {str(e)}")
+            return []
+            
+    def update_region_association(self, cortical_id: str, new_region_id: str) -> bool:
+        """
+        Change the association between a cortical area and a brain region.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            new_region_id: ID of the new parent region
+                
+        Returns:
+            True if update was successful, False otherwise
+            
+        Raises:
+            ValueError: If cortical area or region doesn't exist, or is a reserved area type
+        """
+        try:
+            from feagi.bdu.models.brain_region import change_cortical_area_parent
+            
+            # Verify the cortical area exists
+            if not self._current_genome or "blueprint" not in self._current_genome:
+                self.logger.error("Cannot update association - no genome loaded")
+                return False
+                
+            if cortical_id not in self._current_genome["blueprint"]:
+                raise ValueError(f"Cortical area {cortical_id} does not exist")
+                
+            # Verify the region exists
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot update association - no regions defined")
+                return False
+                
+            if new_region_id not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Brain region {new_region_id} does not exist")
+                
+            # Check if this is a special area that cannot be moved
+            restricted_groups = ["IPU", "OPU", "CORE"]
+            if self._current_genome["blueprint"][cortical_id]["group_id"] in restricted_groups:
+                raise ValueError(f"Cortical area {cortical_id} is a system area and cannot be moved")
+                
+            # Update the association
+            change_cortical_area_parent(
+                cortical_area_id=cortical_id,
+                new_parent_id=new_region_id
+            )
+            
+            # Notify about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating region association: {str(e)}")
+            return False
+            
+    def update_region_parent(self, region_id: str, new_parent_id: str) -> bool:
+        """
+        Change the parent of a brain region.
+        
+        Args:
+            region_id: ID of the brain region to move
+            new_parent_id: ID of the new parent region
+                
+        Returns:
+            True if update was successful, False otherwise
+            
+        Raises:
+            ValueError: If region doesn't exist
+        """
+        try:
+            from feagi.bdu.models.brain_region import change_brain_region_parent
+            
+            # Verify the regions exist
+            if not self._current_genome or "brain_regions" not in self._current_genome:
+                self.logger.error("Cannot update region parent - no genome loaded or no regions defined")
+                return False
+                
+            if region_id not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Brain region {region_id} does not exist")
+                
+            if new_parent_id not in self._current_genome["brain_regions"]:
+                raise ValueError(f"Brain region {new_parent_id} does not exist")
+                
+            # Update the parent
+            change_brain_region_parent(
+                region_id=region_id,
+                new_parent_id=new_parent_id
+            )
+            
+            # Notify about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating region parent: {str(e)}")
+            return False
+            
+    def relocate_region_members(self, relocation_data: Dict[str, Dict[str, Any]]) -> bool:
+        """
+        Relocate region members (update coordinates and/or parent).
+        
+        Args:
+            relocation_data: Dictionary mapping object IDs to updates:
+                {
+                    "object_id1": {
+                        "coordinate_2d": [x, y],
+                        "parent_region_id": "new_parent_id"
+                    },
+                    ...
+                }
+                
+        Returns:
+            True if update was successful, False otherwise
+        """
+        try:
+            from feagi.bdu.models.brain_region import relocate_region_members
+            
+            # Verify the genome exists
+            if not self._current_genome:
+                self.logger.error("Cannot relocate region members - no genome loaded")
+                return False
+                
+            # Update the members
+            relocate_region_members(relocation_data)
+            
+            # Notify about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error relocating region members: {str(e)}")
+            return False
+    
     def get_genome_from_region(self, region_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a genome from a brain region.
@@ -1390,36 +1790,64 @@ class CoreAPIService:
     
     def get_amalgamation_info(self, amalgamation_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get information about an amalgamation.
+        Get information about a specific amalgamation.
         
         Args:
-            amalgamation_id: ID of the amalgamation.
+            amalgamation_id: The ID of the amalgamation
             
         Returns:
-            Dictionary containing amalgamation information, or None if not found.
+            Information about the amalgamation, or None if not found
         """
-        # Check if it's a pending amalgamation
-        if amalgamation_id in self._pending_amalgamation:
-            return {
-                "id": amalgamation_id,
-                "status": "pending",
-                "genome_id": self._pending_amalgamation[amalgamation_id]["genome_id"],
-                "genome_title": self._pending_amalgamation[amalgamation_id]["genome_title"]
-            }
+        if amalgamation_id not in self._pending_amalgamation:
+            return None
             
-        # Check if it's in the history
-        if amalgamation_id in self._amalgamation_history:
-            status = self._amalgamation_history[amalgamation_id]
-            return {
-                "id": amalgamation_id,
-                "status": status,
-                "genome_id": "unknown",  # We don't store this in the history currently
-                "genome_title": "Unknown"  # We don't store this in the history currently
-            }
-            
-        # Not found
-        return None
+        return {
+            "amalgamation_id": amalgamation_id,
+            "genome_id": self._pending_amalgamation[amalgamation_id].get("genome_id", ""),
+            "genome_title": self._pending_amalgamation[amalgamation_id].get("genome_title", ""),
+            "status": self._pending_amalgamation[amalgamation_id].get("status", "unknown"),
+            "timestamp": self._pending_amalgamation[amalgamation_id].get("timestamp", 0),
+        }
+
+    # Vision and peripheral methods
     
+    def get_vision_config(self) -> Dict[str, Any]:
+        """
+        Get the current vision configuration.
+        
+        Returns:
+            Dictionary containing the vision configuration parameters.
+        """
+        # Import here to avoid circular imports
+        from feagi.pns.vision import generate_vision_configuration
+        
+        # For now, this directly uses the generate_vision_configuration function
+        vision_params = generate_vision_configuration()
+        return vision_params
+        
+    def update_vision_config(self, vision_settings: Dict[str, Any]) -> bool:
+        """
+        Update the vision configuration parameters.
+        
+        Args:
+            vision_settings: Dictionary containing the vision configuration parameters.
+            
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            if not self._connectome_manager.api_message_queue:
+                self.logger.error("API message queue not initialized")
+                return False
+                
+            vision_config = {'vision': vision_settings}
+            self.logger.info(f"Setting vision configuration: {vision_config}")
+            self._connectome_manager.api_message_queue.put(item=vision_config)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to update vision configuration: {e}")
+            return False
+            
     def get_circuit_library(self) -> Dict[str, Any]:
         """
         Get the circuit library.
@@ -1443,18 +1871,23 @@ class CoreAPIService:
             ]
         }
     
-    def append_circuit(self, circuit_origin: Tuple[int, int, int], circuit_data: Dict[str, Any]) -> bool:
+    def append_circuit(self, circuit_origin: Tuple[int, int, int], circuit_data: Dict[str, Any], filename: Optional[str] = None) -> bool:
         """
         Append a circuit to the current genome.
         
         Args:
             circuit_origin: Tuple of (x, y, z) coordinates for the circuit origin.
             circuit_data: Dictionary containing the circuit data.
+            filename: Optional name of the file the circuit was loaded from.
             
         Returns:
             True if successful, False otherwise.
         """
         try:
+            # Store the filename reference if provided
+            if filename and self.state_manager:
+                self.state_manager.genome_file_name = filename
+                
             # Placeholder - in a real implementation, we would merge the circuit
             # into the current genome and update the connectome
             
@@ -2857,6 +3290,11 @@ class CoreAPIService:
                 self.logger.error(f"Genome file not found: {genome_filepath}", emoji1="❌")
                 return False
                 
+            # Update state to LOADING
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADING)
+                self.state_manager.set_brain_readiness(False)
+                
             # Load the genome data
             with open(genome_filepath, 'r') as f:
                 genome_data = json.load(f)
@@ -2869,14 +3307,186 @@ class CoreAPIService:
             
             if not result.get("success", False):
                 self.logger.error(f"Failed to load genome: {result.get('error', 'Unknown error')}", emoji1="❌")
+                
+                # Update state to ERROR
+                if self.state_manager:
+                    self.state_manager.set_genome_state(GenomeState.ERROR)
+                    self.state_manager.set_brain_readiness(False)
+                    
                 return False
+                
+            # Update state to LOADED - this is already done in load_genome but we do it again for safety
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                self.state_manager.set_brain_readiness(True)
                 
             self.logger.info(f"Genome deployed successfully from {filename}", emoji1="✅")
             return True
             
         except json.JSONDecodeError:
             self.logger.error(f"Invalid JSON in genome file: {genome_filepath}", emoji1="❌")
+            
+            # Update state to ERROR
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.ERROR)
+                self.state_manager.set_brain_readiness(False)
+                
             return False
         except Exception as e:
             self.logger.error(f"Error deploying genome: {str(e)}", emoji1="❌")
+            
+            # Update state to ERROR
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.ERROR)
+                self.state_manager.set_brain_readiness(False)
+                
+            return False
+
+    def get_plasticity_queue_depth(self) -> int:
+        """
+        Get the current plasticity queue depth setting.
+        
+        Returns:
+            Current plasticity queue depth value
+        """
+        try:
+            if self._current_genome is None:
+                self.logger.warning("No genome loaded, cannot retrieve plasticity queue depth")
+                return 0
+                
+            return self._current_genome.get("physiology", {}).get("plasticity_queue_depth", 0)
+        except Exception as e:
+            self.logger.error(f"Error getting plasticity queue depth: {str(e)}")
+            return 0
+            
+    def update_plasticity_queue_depth(self, depth: int) -> bool:
+        """
+        Update the plasticity queue depth setting.
+        
+        Args:
+            depth: New plasticity queue depth value
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self._current_genome is None:
+                self.logger.warning("No genome loaded, cannot update plasticity queue depth")
+                return False
+                
+            if "physiology" not in self._current_genome:
+                self._current_genome["physiology"] = {}
+                
+            self._current_genome["physiology"]["plasticity_queue_depth"] = depth
+            
+            # Notify any listeners about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating plasticity queue depth: {str(e)}")
+            return False
+            
+    def update_plasticity_config(self, config: Dict[str, Any]) -> bool:
+        """
+        Update neuroplasticity configuration.
+        
+        Args:
+            config: Dictionary with plasticity configuration parameters
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self._current_genome is None:
+                self.logger.warning("No genome loaded, cannot update plasticity configuration")
+                return False
+                
+            # Ensure physiology section exists
+            if "physiology" not in self._current_genome:
+                self._current_genome["physiology"] = {}
+                
+            # Update plasticity settings
+            plasticity_settings = self._current_genome["physiology"].get("plasticity", {})
+            
+            # Merge new configuration with existing settings
+            for key, value in config.items():
+                plasticity_settings[key] = value
+                
+            # Save back to genome
+            self._current_genome["physiology"]["plasticity"] = plasticity_settings
+            
+            # Update connectome manager's plasticity settings if available
+            if hasattr(self._connectome_manager, "update_plasticity_config"):
+                self._connectome_manager.update_plasticity_config(plasticity_settings)
+                
+            # Notify any listeners about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating plasticity configuration: {str(e)}")
+            return False
+            
+    def enable_area_plasticity(self, area_id: str, settings: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Enable neuroplasticity for a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area
+            settings: Optional area-specific plasticity settings
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # First verify the area exists
+            if not self.get_cortical_area(area_id):
+                self.logger.warning(f"Cortical area {area_id} not found")
+                return False
+                
+            # Apply area-specific plasticity settings if available
+            if settings and hasattr(self._connectome_manager, "set_area_plasticity"):
+                return self._connectome_manager.set_area_plasticity(area_id, True, settings)
+                
+            # Otherwise just enable plasticity for this area
+            if hasattr(self._connectome_manager, "enable_area_plasticity"):
+                return self._connectome_manager.enable_area_plasticity(area_id)
+                
+            self.logger.warning("Connectome manager does not support area plasticity operations")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error enabling plasticity for area {area_id}: {str(e)}")
+            return False
+            
+    def disable_area_plasticity(self, area_id: str) -> bool:
+        """
+        Disable neuroplasticity for a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # First verify the area exists
+            if not self.get_cortical_area(area_id):
+                self.logger.warning(f"Cortical area {area_id} not found")
+                return False
+                
+            # Disable plasticity for this area
+            if hasattr(self._connectome_manager, "disable_area_plasticity"):
+                return self._connectome_manager.disable_area_plasticity(area_id)
+                
+            # Alternative method name
+            if hasattr(self._connectome_manager, "set_area_plasticity"):
+                return self._connectome_manager.set_area_plasticity(area_id, False)
+                
+            self.logger.warning("Connectome manager does not support area plasticity operations")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error disabling plasticity for area {area_id}: {str(e)}")
             return False

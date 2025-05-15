@@ -897,7 +897,7 @@ async def get_visualization_snapshot(request: Request):
     brain_state = await get_current_brain_state()
     return JSONResponse(content=brain_state)
 
-@app.websocket("/v0/visualization/stream")
+@app.websocket("/v1/visualization/stream")
 async def websocket_endpoint(websocket: WebSocket):
     """Stream visualization data over WebSocket (alternative to ZMQ)."""
     await websocket.accept()
@@ -968,7 +968,7 @@ from .routes.v1 import router as router_v1
 from .routes.v2 import router as router_v2
 
 # Mount version routers
-app.include_router(router_v1, prefix="/v0")
+app.include_router(router_v1, prefix="/v1")
 app.include_router(router_v2, prefix="/v2")
 
 # Add version header handling middleware
