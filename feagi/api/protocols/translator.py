@@ -15,166 +15,130 @@
 # ==============================================================================
 
 """
-Protocol translator for Cap'n Proto schemas.
+FEAGI Protocol Translator for Byte Structures
 
-This module is the central component of FEAGI's Cap'n Proto based communication 
-architecture. It provides functionality for:
+This module provides a translator between FEAGI's internal data structures
+and the binary byte structure format used for efficient communication.
 
-1. Loading Cap'n Proto schemas from the feagi_capnp directory
-2. Creating protocol-specific messages (FCP, FSMP, FVP) with proper formatting
-3. Encoding and decoding messages between Cap'n Proto and internal data structures
-4. Supporting handshake, registration, and other core protocol functions
+This implementation replaces the previous Cap'n Proto implementation
+with a more optimized custom binary format designed specifically for
+neural data transmission.
 
-This implementation replaces the previous Protocol Buffers and custom binary
-serialization approaches with Cap'n Proto's more efficient zero-copy deserialization,
-which significantly improves performance for high-throughput neural data.
-
-For the ZMQ ROUTER-DEALER implementation that uses this module, see the
-feagi.api.zmq.router_server module.
+VERSION HANDLING:
+When creating messages, the translator can consider client capabilities
+to use the appropriate structure version. This allows for backward and 
+forward compatibility between clients and servers with different versions.
 """
 
-import os
+import time
+import json
 import logging
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Dict, Any, List, Optional, Union
 
-import capnp
-from capnp import KjException
-from capnp.lib import capnp as capnp_lib
+from feagi.api.protocols.constants import ProtocolID, ByteStructureID, FCPCommandType
+from feagi.api.protocols.byte_structures import ByteStructureEncoder, ByteStructureDecoder
+from feagi.api.protocols.byte_structures.utils import get_structure_info, is_compressed
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class ProtocolTranslator:
+class ByteStructureTranslator:
     """
-    Translator for Cap'n Proto-based protocols.
+    Translator for FEAGI byte structure protocols.
     
-    This class handles loading Cap'n Proto schemas and provides methods
-    for encoding and decoding messages for different protocols.
+    This class provides methods for creating and parsing protocol-specific
+    messages using the byte structure format.
     """
     
-    def __init__(self, schema_path: Optional[str] = None):
+    def __init__(self):
         """
         Initialize the protocol translator.
         
-        Args:
-            schema_path: Path to the directory containing Cap'n Proto schemas
-                         If None, will attempt to auto-detect based on the module path
+        Creates encoder and decoder instances and initializes the client
+        capability registry.
         """
-        # Detect schema path if not provided
-        if not schema_path:
-            # Look for feagi_capnp directory next to the feagi package
-            package_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            schema_path = os.path.join(os.path.dirname(package_dir), "feagi_capnp")
-            
-            # If not found, try current directory + feagi_capnp
-            if not os.path.exists(schema_path):
-                schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "feagi_capnp")
-                
-        self.schema_path = schema_path
-        logger.info(f"Using Cap'n Proto schemas from: {self.schema_path}")
+        self.encoder = ByteStructureEncoder()
+        self.decoder = ByteStructureDecoder()
         
-        # Load schemas
-        try:
-            self._load_schemas()
-            logger.info("Cap'n Proto schemas loaded successfully")
-        except (KjException, capnp_lib.KjException) as e:
-            logger.error(f"Failed to load Cap'n Proto schemas: {e}")
-            raise
-            
-        # Create schema loader functions
-        self.schema_loaders = {
-            "constants": self._load_constants,
-            "handshake": self._load_handshake,
-            "fcp": self._load_fcp,
-            "fsmp": self._load_fsmp,
-            "fvp": self._load_fvp
+        # Default versions to use if not specified
+        self.default_versions = {
+            ByteStructureID.JSON: 1,
+            ByteStructureID.RAW_IMAGE: 1,
+            ByteStructureID.MULTI_HOLDER: 1,
+            ByteStructureID.NEURON_FLAT: 1,
+            ByteStructureID.NEURON_CATEGORIES: 1,
         }
+        
+        # Client capability registry for version negotiation
+        # Maps client_id to supported structure versions
+        self.client_capabilities: Dict[str, Dict[str, Any]] = {}
     
-    def _load_schemas(self):
-        """Load all Cap'n Proto schemas."""
-        try:
-            self.constants_schema = capnp.load(os.path.join(self.schema_path, "common", "constants.capnp"))
-            self.handshake_schema = capnp.load(os.path.join(self.schema_path, "handshake", "v1", "handshake.capnp"))
-            self.fcp_schema = capnp.load(os.path.join(self.schema_path, "fcp", "v1", "fcp.capnp"))
-            self.fsmp_schema = capnp.load(os.path.join(self.schema_path, "fsmp", "v1", "fsmp.capnp"))
-            self.fvp_schema = capnp.load(os.path.join(self.schema_path, "fvp", "v1", "fvp.capnp"))
-        except Exception as e:
-            logger.error(f"Error loading Cap'n Proto schemas: {e}")
-            raise
-    
-    def _load_constants(self):
-        """Load constants schema."""
-        return self.constants_schema
-    
-    def _load_handshake(self):
-        """Load handshake schema."""
-        return self.handshake_schema
-    
-    def _load_fcp(self):
-        """Load FCP schema."""
-        return self.fcp_schema
-    
-    def _load_fsmp(self):
-        """Load FSMP schema."""
-        return self.fsmp_schema
-    
-    def _load_fvp(self):
-        """Load FVP schema."""
-        return self.fvp_schema
-    
-    def get_schema_loader(self, protocol_type: str) -> Callable:
+    def register_client_capabilities(self, client_id: str, capabilities: Dict[str, Any]) -> None:
         """
-        Get a schema loader function for the specified protocol.
+        Register client capabilities for version negotiation.
         
         Args:
-            protocol_type: Protocol type ("constants", "handshake", "fcp", "fsmp", or "fvp")
-            
-        Returns:
-            Function that returns the loaded schema
+            client_id: Client identifier
+            capabilities: Dictionary with client capabilities, including
+                         supported structure versions
         """
-        if protocol_type not in self.schema_loaders:
-            raise ValueError(f"Unknown protocol type: {protocol_type}")
-            
-        return self.schema_loaders[protocol_type]
+        self.client_capabilities[client_id] = capabilities
+        logger.debug(f"Registered capabilities for client {client_id}: {capabilities}")
     
-    def decode_message(self, message_data: bytes, protocol_type: str) -> Any:
+    def get_supported_version(self, client_id: str, structure_id: int) -> int:
         """
-        Decode a Cap'n Proto message.
+        Get the highest structure version supported by both server and client.
         
         Args:
-            message_data: Raw message data
-            protocol_type: Protocol type ("handshake", "fcp", "fsmp", or "fvp")
+            client_id: Client identifier
+            structure_id: Structure ID to check
             
         Returns:
-            Decoded Cap'n Proto message
+            Highest mutually supported version
         """
-        try:
-            if protocol_type == "handshake":
-                return self.handshake_schema.HandshakeMessage.from_bytes(message_data)
-            elif protocol_type == "fcp":
-                return self.fcp_schema.FCPMessage.from_bytes(message_data)
-            elif protocol_type == "fsmp":
-                return self.fsmp_schema.FSMPMessage.from_bytes(message_data)
-            elif protocol_type == "fvp":
-                return self.fvp_schema.FVPMessage.from_bytes(message_data)
-            else:
-                raise ValueError(f"Unknown protocol type: {protocol_type}")
-        except Exception as e:
-            logger.error(f"Error decoding {protocol_type} message: {e}")
-            raise
+        if client_id not in self.client_capabilities:
+            return self.default_versions.get(structure_id, 1)
+        
+        client_supported = self.client_capabilities[client_id].get(
+            "structure_versions", {}
+        ).get(str(structure_id), [1])
+        
+        # If client reports a list of versions
+        if isinstance(client_supported, list):
+            # Find highest version supported by both
+            from feagi.api.protocols.byte_structures.encoder import SUPPORTED_VERSIONS
+            server_supported = SUPPORTED_VERSIONS.get(structure_id, [1])
+            
+            # Find common versions
+            common_versions = set(server_supported).intersection(set(client_supported))
+            if not common_versions:
+                # No common versions, use default
+                return self.default_versions.get(structure_id, 1)
+                
+            # Return highest common version
+            return max(common_versions)
+        
+        # If client reports a single version
+        elif isinstance(client_supported, int):
+            # Check if server supports this version
+            from feagi.api.protocols.byte_structures.encoder import SUPPORTED_VERSIONS
+            if client_supported in SUPPORTED_VERSIONS.get(structure_id, [1]):
+                return client_supported
+            
+        # Default to version 1
+        return self.default_versions.get(structure_id, 1)
     
-    def create_timestamp(self) -> Any:
+    def create_timestamp(self) -> Dict[str, int]:
         """
-        Create a timestamp message.
+        Create a timestamp object.
         
         Returns:
-            Cap'n Proto timestamp message
+            Dictionary with timestamp in milliseconds
         """
-        import time
-        return self.constants_schema.Timestamp.new_message(timeMs=int(time.time() * 1000))
+        return {"time_ms": int(time.time() * 1000)}
     
-    def create_handshake_hello(self, agent_id: str, agent_type: str) -> Any:
+    def create_handshake_hello(self, agent_id: str, agent_type: str) -> bytes:
         """
         Create a handshake hello message.
         
@@ -183,29 +147,19 @@ class ProtocolTranslator:
             agent_type: Agent type
             
         Returns:
-            Cap'n Proto handshake message
+            Encoded handshake hello message
         """
-        # Create timestamp
-        current_time = self.create_timestamp()
+        message = {
+            "protocol_id": ProtocolID.FCP,
+            "message_type": "hello",
+            "agent_id": agent_id,
+            "agent_type": agent_type,
+            "timestamp": self.create_timestamp()
+        }
         
-        # Create hello message
-        hello = self.handshake_schema.HelloMessage.new_message(
-            agentId=agent_id,
-            agentType=agent_type
-        )
-        hello.timestamp = current_time
-        
-        # Create handshake message
-        handshake_msg = self.handshake_schema.HandshakeMessage.new_message(
-            protocolId=self.constants_schema.ProtocolID.fcp,
-            version=1,
-            type=self.handshake_schema.HandshakeMessageType.hello
-        )
-        handshake_msg.hello = hello
-        
-        return handshake_msg
+        return self.encoder.encode_json(message)
     
-    def create_handshake_welcome(self, server_id: str, message: str = "Welcome to FEAGI") -> Any:
+    def create_handshake_welcome(self, server_id: str, message: str = "Welcome to FEAGI") -> bytes:
         """
         Create a handshake welcome message.
         
@@ -214,32 +168,22 @@ class ProtocolTranslator:
             message: Welcome message
             
         Returns:
-            Cap'n Proto handshake message
+            Encoded handshake welcome message
         """
-        # Create timestamp
-        current_time = self.create_timestamp()
+        welcome_msg = {
+            "protocol_id": ProtocolID.FCP,
+            "message_type": "welcome",
+            "server_id": server_id,
+            "message": message,
+            "timestamp": self.create_timestamp()
+        }
         
-        # Create welcome message
-        welcome = self.handshake_schema.WelcomeMessage.new_message(
-            serverId=server_id,
-            message=message
-        )
-        welcome.timestamp = current_time
-        
-        # Create handshake message
-        handshake_msg = self.handshake_schema.HandshakeMessage.new_message(
-            protocolId=self.constants_schema.ProtocolID.fcp,
-            version=1,
-            type=self.handshake_schema.HandshakeMessageType.welcome
-        )
-        handshake_msg.welcome = welcome
-        
-        return handshake_msg
+        return self.encoder.encode_json(welcome_msg)
     
-    def create_handshake_capabilities(self, 
-                                    supported_sensory: list, 
-                                    supported_motor: list,
-                                    protocol_versions: Dict[str, int]) -> Any:
+    def create_handshake_capabilities(self,
+                                    supported_sensory: List[str],
+                                    supported_motor: List[str],
+                                    protocol_versions: Dict[str, int]) -> bytes:
         """
         Create a handshake capabilities message.
         
@@ -249,38 +193,27 @@ class ProtocolTranslator:
             protocol_versions: Dictionary mapping protocol names to version numbers
             
         Returns:
-            Cap'n Proto handshake message
+            Encoded handshake capabilities message
         """
-        # Create timestamp
-        current_time = self.create_timestamp()
+        # Get structure versions from encoder
+        from feagi.api.protocols.byte_structures.encoder import SUPPORTED_VERSIONS
         
-        # Create protocol versions
-        versions = self.handshake_schema.ProtocolVersion.new_message(
-            fcpVersion=protocol_versions.get("fcp", 1),
-            fsmpVersion=protocol_versions.get("fsmp", 1),
-            fvpVersion=protocol_versions.get("fvp", 1)
-        )
+        capabilities = {
+            "protocol_id": ProtocolID.FCP,
+            "message_type": "capabilities",
+            "supported_sensory_channels": supported_sensory,
+            "supported_motor_channels": supported_motor,
+            "protocol_versions": protocol_versions,
+            "structure_versions": {
+                str(structure_id): max(versions) 
+                for structure_id, versions in SUPPORTED_VERSIONS.items()
+            },
+            "timestamp": self.create_timestamp()
+        }
         
-        # Create capabilities message
-        capabilities = self.handshake_schema.CapabilitiesMessage.new_message(
-            supportedSensoryChannels=supported_sensory,
-            supportedMotorChannels=supported_motor
-        )
-        capabilities.protocolVersions = versions
-        capabilities.timestamp = current_time
-        
-        # Create handshake message
-        handshake_msg = self.handshake_schema.HandshakeMessage.new_message(
-            protocolId=self.constants_schema.ProtocolID.fcp,
-            version=1,
-            type=self.handshake_schema.HandshakeMessageType.capabilities
-        )
-        handshake_msg.capabilities = capabilities
-        
-        return handshake_msg
+        return self.encoder.encode_json(capabilities)
     
-    def create_handshake_configuration(self, 
-                                     server_config: Dict[str, Any]) -> Any:
+    def create_handshake_configuration(self, server_config: Dict[str, Any]) -> bytes:
         """
         Create a handshake configuration message.
         
@@ -288,82 +221,269 @@ class ProtocolTranslator:
             server_config: Server configuration dictionary
             
         Returns:
-            Cap'n Proto handshake message
+            Encoded handshake configuration message
         """
-        # Create timestamp
-        current_time = self.create_timestamp()
-        
-        # Create configuration message
-        config = self.handshake_schema.ConfigurationMessage.new_message()
-        config.timestamp = current_time
-        
-        # TODO: Add configuration parameters based on server_config
-        
-        # Create handshake message
-        handshake_msg = self.handshake_schema.HandshakeMessage.new_message(
-            protocolId=self.constants_schema.ProtocolID.fcp,
-            version=1,
-            type=self.handshake_schema.HandshakeMessageType.configuration
-        )
-        handshake_msg.configuration = config
-        
-        return handshake_msg
-    
-    def handshake_message_to_dict(self, message: Any) -> Dict[str, Any]:
-        """
-        Convert a handshake message to a dictionary.
-        
-        Args:
-            message: Cap'n Proto handshake message
-            
-        Returns:
-            Dictionary representation of the message
-        """
-        result = {
-            "protocol_id": str(message.protocolId),
-            "version": message.version,
-            "type": str(message.type)
+        config = {
+            "protocol_id": ProtocolID.FCP,
+            "message_type": "configuration",
+            "config": server_config,
+            "timestamp": self.create_timestamp()
         }
         
-        # Extract message-type-specific data
-        if message.type == self.handshake_schema.HandshakeMessageType.hello:
-            result["hello"] = {
-                "agent_id": message.hello.agentId,
-                "agent_type": message.hello.agentType,
-                "timestamp": message.hello.timestamp.timeMs
-            }
-        elif message.type == self.handshake_schema.HandshakeMessageType.welcome:
-            result["welcome"] = {
-                "server_id": message.welcome.serverId,
-                "message": message.welcome.message,
-                "timestamp": message.welcome.timestamp.timeMs
-            }
-        elif message.type == self.handshake_schema.HandshakeMessageType.capabilities:
-            result["capabilities"] = {
-                "sensory_channels": list(message.capabilities.supportedSensoryChannels),
-                "motor_channels": list(message.capabilities.supportedMotorChannels),
-                "protocol_versions": {
-                    "fcp": message.capabilities.protocolVersions.fcpVersion,
-                    "fsmp": message.capabilities.protocolVersions.fsmpVersion,
-                    "fvp": message.capabilities.protocolVersions.fvpVersion
-                },
-                "timestamp": message.capabilities.timestamp.timeMs
-            }
-            
-            # Extract features
-            features = []
-            for i in range(len(message.capabilities.features)):
-                feature = message.capabilities.features[i]
-                features.append({
-                    "name": feature.name,
-                    "enabled": feature.enabled
-                })
-            result["capabilities"]["features"] = features
-            
-        elif message.type == self.handshake_schema.HandshakeMessageType.configuration:
-            result["configuration"] = {
-                "timestamp": message.configuration.timestamp.timeMs
-                # Add more configuration fields as needed
-            }
+        return self.encoder.encode_json(config)
+    
+    def create_fcp_message(self, 
+                         command_type: FCPCommandType, 
+                         payload: Dict[str, Any]) -> bytes:
+        """
+        Create an FCP message.
         
-        return result 
+        Args:
+            command_type: Command type
+            payload: Message payload
+            
+        Returns:
+            Encoded FCP message
+        """
+        message = {
+            "protocol_id": ProtocolID.FCP,
+            "command_type": command_type,
+            "payload": payload,
+            "timestamp": self.create_timestamp()
+        }
+        
+        return self.encoder.encode_json(message)
+    
+    def create_fsmp_sensory_data(self, 
+                                channel_id: str, 
+                                data: Union[bytes, List[float]]) -> bytes:
+        """
+        Create an FSMP sensory data message.
+        
+        Args:
+            channel_id: Sensory channel ID
+            data: Sensory data (raw bytes or list of float values)
+            
+        Returns:
+            Encoded FSMP message
+        """
+        # For efficiency, if data is a numpy array of neuron activations,
+        # use the specialized neuron potential format
+        if isinstance(data, (list, tuple)) and all(isinstance(x, float) for x in data):
+            # This is a simple case - just encode as JSON for now
+            # In a real implementation, this would use a more efficient format
+            message = {
+                "protocol_id": ProtocolID.FSMP,
+                "message_type": "sensory",
+                "channel_id": channel_id,
+                "data": data,
+                "timestamp": self.create_timestamp()
+            }
+            return self.encoder.encode_json(message)
+        else:
+            # For raw binary data, use JSON header with base64 encoded data
+            # In a real implementation, you might use a specialized binary format
+            import base64
+            if isinstance(data, bytes):
+                encoded_data = base64.b64encode(data).decode('ascii')
+            else:
+                encoded_data = base64.b64encode(bytes(data)).decode('ascii')
+                
+            message = {
+                "protocol_id": ProtocolID.FSMP,
+                "message_type": "sensory",
+                "channel_id": channel_id,
+                "data_encoding": "base64",
+                "data": encoded_data,
+                "timestamp": self.create_timestamp()
+            }
+            return self.encoder.encode_json(message)
+    
+    def create_fsmp_motor_data(self, 
+                              channel_id: str, 
+                              data: List[float]) -> bytes:
+        """
+        Create an FSMP motor data message.
+        
+        Args:
+            channel_id: Motor channel ID
+            data: Motor activation values
+            
+        Returns:
+            Encoded FSMP message
+        """
+        message = {
+            "protocol_id": ProtocolID.FSMP,
+            "message_type": "motor",
+            "channel_id": channel_id,
+            "data": data,
+            "timestamp": self.create_timestamp()
+        }
+        
+        return self.encoder.encode_json(message)
+    
+    def create_neuron_data_message(self,
+                                  cortical_data: Dict[str, Dict[str, Any]],
+                                  client_id: Optional[str] = None) -> bytes:
+        """
+        Create a neuron data message using the optimized format.
+        
+        Args:
+            cortical_data: Dictionary mapping cortical area IDs to neuron data:
+                {
+                    'cortical_id': {
+                        'x': [x1, x2, ...],
+                        'y': [y1, y2, ...],
+                        'z': [z1, z2, ...],
+                        'potentials': [p1, p2, ...],
+                    },
+                    ...
+                }
+            client_id: Optional client ID for version negotiation
+            
+        Returns:
+            Encoded neuron data using the appropriate format
+        """
+        # Determine format based on number of cortical areas
+        if len(cortical_data) > 1:
+            # Use categorized format for multiple cortical areas
+            structure_id = ByteStructureID.NEURON_CATEGORIES
+            
+            # Get appropriate version based on client capabilities
+            version = self.get_supported_version(
+                client_id if client_id else "", 
+                structure_id
+            )
+            
+            return self.encoder.encode_neuron_categories(
+                cortical_data=cortical_data,
+                version=version
+            )
+        
+        # Use flat format for a single cortical area
+        elif len(cortical_data) == 1:
+            cortical_id, data = list(cortical_data.items())[0]
+            
+            # Extract data
+            x_coords = data['x']
+            y_coords = data['y']
+            z_coords = data['z']
+            potentials = data['potentials']
+            
+            # Create a list of cortical IDs (same ID for all neurons)
+            neuron_count = len(x_coords)
+            cortical_ids = [cortical_id] * neuron_count
+            
+            # Get appropriate version based on client capabilities
+            structure_id = ByteStructureID.NEURON_FLAT
+            version = self.get_supported_version(
+                client_id if client_id else "", 
+                structure_id
+            )
+            
+            return self.encoder.encode_neuron_flat(
+                cortical_ids=cortical_ids,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                z_coords=z_coords,
+                potentials=potentials,
+                version=version
+            )
+        else:
+            # Empty data
+            return self.encoder.encode_json({"message_type": "neuron_data", "data": {}})
+    
+    def decode_message(self, message_data: bytes) -> Dict[str, Any]:
+        """
+        Decode a byte structure message.
+        
+        Args:
+            message_data: Raw message data
+            
+        Returns:
+            Decoded message as a dictionary
+            
+        Raises:
+            ValueError: If the message is invalid
+        """
+        try:
+            # Check if data is compressed
+            try:
+                # Try to decompress, but handle case where it's not compressed
+                if is_compressed(message_data):
+                    decompressed_data = self.decoder.decompress(message_data)
+                    message_data = decompressed_data
+            except:
+                # Not compressed, continue with original data
+                pass
+            
+            # Get structure type
+            if len(message_data) < 1:
+                raise ValueError("Message too short")
+                
+            structure_id, version = get_structure_info(message_data)
+            
+            # Decode based on structure type
+            if structure_id == ByteStructureID.JSON:
+                return self.decoder.decode_json(message_data)
+            elif structure_id == ByteStructureID.RAW_IMAGE:
+                return {"message_type": "raw_image", "data": self.decoder.decode_raw_image(message_data)}
+            elif structure_id == ByteStructureID.MULTI_HOLDER:
+                contained_structures = self.decoder.decode_multi_holder(message_data)
+                decoded_structures = [self.decode_message(struct) for struct in contained_structures]
+                return {"message_type": "multi_holder", "structures": decoded_structures}
+            elif structure_id == ByteStructureID.NEURON_FLAT:
+                return {"message_type": "neuron_data", "data": self.decoder.decode_neuron_flat(message_data)}
+            elif structure_id == ByteStructureID.NEURON_CATEGORIES:
+                return {"message_type": "neuron_data", "data": self.decoder.decode_neuron_categories(message_data)}
+            else:
+                raise ValueError(f"Unknown structure type: {structure_id}")
+                
+        except Exception as e:
+            logger.error(f"Error decoding message: {e}")
+            raise ValueError(f"Failed to decode message: {e}")
+    
+    def extract_capabilities(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract client capabilities from a handshake message.
+        
+        Args:
+            message: Decoded handshake capabilities message
+            
+        Returns:
+            Dictionary of client capabilities
+        """
+        capabilities = {}
+        
+        # Extract structure versions
+        if "structure_versions" in message:
+            # Convert string keys back to integers
+            structure_versions = {
+                int(k): v for k, v in message["structure_versions"].items()
+            }
+            capabilities["structure_versions"] = structure_versions
+            
+        # Extract protocol versions
+        if "protocol_versions" in message:
+            capabilities["protocol_versions"] = message["protocol_versions"]
+            
+        # Extract sensory/motor channels
+        if "supported_sensory_channels" in message:
+            capabilities["supported_sensory_channels"] = message["supported_sensory_channels"]
+            
+        if "supported_motor_channels" in message:
+            capabilities["supported_motor_channels"] = message["supported_motor_channels"]
+        
+        return capabilities
+    
+    def compress_message(self, message_data: bytes) -> bytes:
+        """
+        Compress a message using the Deflate algorithm.
+        
+        Args:
+            message_data: Raw message data
+            
+        Returns:
+            Compressed message data
+        """
+        return self.encoder.compress(message_data) 

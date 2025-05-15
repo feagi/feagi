@@ -15,15 +15,17 @@
 # ==============================================================================
 
 """
-FEAGI Protocol Package - Byte Structures Implementation
+FEAGI Byte Structures Implementation
 
-This module provides protocol definitions for binary communication between FEAGI
-and its clients using specialized byte structures optimized for neural data.
+This package contains the implementation of FEAGI byte structures for
+efficient binary serialization of neural data and other message types.
 """
 
-# Import protocol definitions and constants
-from feagi.api.protocols.constants import ProtocolID, ByteStructureID
-from feagi.api.protocols.translator import ByteStructureTranslator
+# Import core structures
+from .encoder import ByteStructureEncoder
+from .decoder import ByteStructureDecoder
 
-# Initialize the default translator instance for convenience
-default_translator = ByteStructureTranslator() 
+__all__ = [
+    'ByteStructureEncoder',
+    'ByteStructureDecoder',
+] 

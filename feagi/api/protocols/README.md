@@ -1,55 +1,110 @@
 # FEAGI Protocol Architecture
 
-## Protocol Transition Notice
+## Custom Byte Structures Implementation
 
-**IMPORTANT**: FEAGI is in the process of transitioning from custom binary protocols and Protocol Buffers to **Cap'n Proto** for all message serialization. This transition offers significant performance improvements including zero-copy deserialization, faster serialization, and improved compatibility.
+FEAGI uses custom binary byte structures for efficient communication between components. This approach offers significant benefits:
 
-## Current Architecture
+1. **Performance Optimization**: Custom binary formats tailored specifically for neural data
+2. **Memory Efficiency**: Direct control over memory layout and minimized overhead
+3. **Specialized Structures**: Dedicated formats for different types of data (JSON, images, neuron potentials)
+4. **Compatibility**: Simple header-based approach that works across multiple programming languages
 
-The protocol architecture consists of:
+## Protocol Structure
 
-1. **Cap'n Proto Implementation** (Current Focus)
-   - `translator.py`: Main interface for Cap'n Proto schema loading and message creation
-   - Schemas defined in the `feagi_capnp` directory
+All byte structures follow a common pattern:
 
-2. **Legacy Protocol Implementation** (Deprecated)
-   - `binary.py`: Contains binary serialization/deserialization utilities
-   - Protocol version implementations in subdirectories (`fcp/`, `fsmp/`, `fvp/`)
-   - Root protocol files (`fcp.py`, `fsmp.py`, `fvp.py`)
+```
+┌─────────────────┬─────────────────┬─────────────────────────┐
+│ Structure Type  │ Version Number  │      Message Data      │
+│    (1 byte)     │    (1 byte)     │    (variable size)     │
+└─────────────────┴─────────────────┴─────────────────────────┘
+```
 
-3. **Protocol Base Definitions** (Maintained)
-   - `base.py`: Defines protocol IDs, versioning, and registry
+## Versioning System
+
+Each byte structure type has its own versioning, allowing for protocol evolution:
+
+1. **Version Negotiation**: Clients and servers exchange supported versions during handshake
+2. **Backward Compatibility**: Servers adapt to client capabilities
+3. **Version Registry**: Centralized tracking of supported versions in `SUPPORTED_VERSIONS`
+4. **Version-Specific Implementation**: Each version has dedicated encoder/decoder methods
+
+For information on adding new versions, see [Protocol Version Migration Guide](../../docs/protocol_version_migration.md).
+
+## Supported Structure Types
+
+1. **JSON (ID: 1)**
+   - For non-performance-critical operations and complex structures
+   - Includes protocol and administrative messages
+
+2. **Raw Image (ID: 8)**
+   - For efficient transmission of visual data
+   - Fixed BGR byte order for compatibility with various systems
+
+3. **Multi Structure Holder (ID: 9)**
+   - Container for packaging multiple byte structures together
+   - Includes efficient indexing for direct access to specific structures
+
+4. **Neuron Potential - Flat Format (ID: 10)**
+   - Optimized for single cortical area neuron data
+   - Fast, sequential access to neuron coordinates and potentials
+
+5. **Neuron Potential - Categorized Format (ID: 11)**
+   - Optimized for multi-area neuron data
+   - Indexed by cortical area for selective processing
 
 ## Protocol Types
 
-FEAGI implements three main protocol types:
+FEAGI implements three main protocol types over the byte structure format:
 
 1. **FEAGI Control Protocol (FCP)**
    - Administrative and management commands
-   - Agent registration, configuration, status updates
+   - Registration, heartbeat, configuration messages
 
-2. **FEAGI Sensorimotor Protocol (FSMP)**
+2. **FEAGI Visualization Protocol (FVP)**
+   - Neural activity visualization data
+   - Brain structure information
+
+3. **FEAGI Sensorimotor Protocol (FSMP)**
    - Sensory input and motor output data
-   - High-performance streaming of arrays
+   - Real-time neural interface
 
-3. **FEAGI Visualization Protocol (FVP)**
-   - Neural activity data for visualization
-   - Brain state monitoring
+## Directory Structure
 
-## ZeroMQ Implementation
+- `constants.py`: Protocol IDs, structure IDs, and other constants
+- `translator.py`: High-level interface for protocol encoding/decoding
+- `byte_structures/`: Core implementation of byte structure format
+  - `encoder.py`: Encodes data into byte structures
+  - `decoder.py`: Decodes byte structures back to data
+  - `utils.py`: Utility functions for working with byte structures
 
-The protocols are implemented using ZeroMQ with the ROUTER-DEALER pattern for efficient client-server communication. See `feagi/api/zmq` for implementation details.
+## Usage Example
 
-## Migration Guide
+```python
+from feagi.api.protocols import default_translator
 
-When working with the protocol system:
+# Create a message
+message = default_translator.create_handshake_hello(
+    agent_id="agent_123",
+    agent_type="monitor"
+)
 
-1. For new code, use the Cap'n Proto implementation via the `translator.py` module
-2. Existing code using legacy protocols will continue to work but is deprecated
-3. Test both implementations during the transition phase
+# Send message over ZeroMQ or other transport
 
-## Future Work
+# On receiving side
+decoded = default_translator.decode_message(received_data)
+```
 
-- Complete removal of Protocol Buffers dependencies
-- Full refactor of protocol modules to use Cap'n Proto exclusively
-- Comprehensive test coverage for all protocol operations 
+## Compression
+
+All byte structures can be optionally compressed using the Deflate algorithm to reduce bandwidth usage:
+
+```python
+# Compress before sending
+compressed = default_translator.compress_message(message)
+
+# Send compressed message...
+
+# Automatic decompression on receive
+decoded = default_translator.decode_message(compressed_message)
+``` 

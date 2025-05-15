@@ -11,12 +11,11 @@ This document outlines the ZeroMQ (ZMQ) communication architecture for FEAGI 2.1
 │  External Agent   │                   │                FEAGI                  │
 │                   │                   │                                       │
 │  ┌─────────────┐  │                   │  ┌─────────────┐  ┌─────────────────┐ │
-│  │ ZMQ Client  │◄─┼───────────────────┼─►│ ZMQ Router  │◄─┤Protocol         │ │
+│  │ ZMQ Client  │◄─┼───────────────────┼─►│ ZMQ Router  │◄─┤ByteStructure    │ │
 │  │ (DEALER)    │  │                   │  │ Server      │  │Translator       │ │
-│  └─────────────┘  │                   │  └─────────────┘  │(Cap'n Proto)    │ │
-│                   │                   │         ▲         └─────────┬───────┘ │
-└───────────────────┘                   │         │                   │         │
-                                        │         ▼                   ▼         │
+│  └─────────────┘  │                   │  └─────────────┘  └─────────┬───────┘ │
+│                   │                   │         ▲                   │         │
+└───────────────────┘                   │         │                   ▼         │
                                         │  ┌──────────────────────────────────┐ │
                                         │  │           CoreAPIService         │ │
                                         │  └──────────────────────────────────┘ │
@@ -56,33 +55,60 @@ FEAGI 2.1 implements specialized protocols for different communication needs:
 - **Direction**: Bidirectional (sensory: Agent → FEAGI, motor: FEAGI → Agent)
 - **Characteristics**: Real-time, low latency, optimized for streaming
 
-## Serialization with Cap'n Proto
+## Custom Byte Structures Serialization
 
-FEAGI uses Cap'n Proto as its serialization format for all protocols, offering significant benefits:
+FEAGI uses custom binary byte structures for serialization across all protocols, offering significant benefits:
 
-1. **Zero-Copy Deserialization**: Cap'n Proto uses a binary format that doesn't require deserialization, which significantly improves performance.
-2. **Faster Serialization**: Cap'n Proto is consistently faster than Protocol Buffers, especially for large data structures.
-3. **Memory Efficiency**: The memory representation is the same as the serialized format, reducing memory overhead.
-4. **Forward/Backward Compatibility**: Cap'n Proto has robust schema evolution support, allowing for seamless upgrades.
-5. **Built-in Schema Validation**: Cap'n Proto schemas enforce type safety and structure validation.
+1. **Performance Optimization**: Custom binary formats tailored specifically for neural data transmission
+2. **Memory Efficiency**: Direct control over memory layout and minimized overhead
+3. **Specialized Structures**: Different structures optimized for different data types (JSON, images, neuron potentials)
+4. **Compatibility**: Simple header-based approach that works across multiple programming languages
+5. **Lightweight**: Minimal external dependencies, reducing deployment complexity
+
+### Byte Structure Format
+
+All byte structures follow a common pattern with a universal header:
+
+```
+┌─────────────────┬─────────────────┬─────────────────────────┐
+│ Structure Type  │ Version Number  │      Message Data      │
+│    (1 byte)     │    (1 byte)     │    (variable size)     │
+└─────────────────┴─────────────────┴─────────────────────────┘
+```
+
+### Structure Types
+
+1. **JSON (ID: 1)**: For non-performance-critical operations (admin, configuration)
+2. **Raw Image (ID: 8)**: Efficient visual data transmission
+3. **Multi-Holder (ID: 9)**: Container for multiple structures
+4. **Neuron Flat Format (ID: 10)**: Optimized for single-area neuron data
+5. **Neuron Categories (ID: 11)**: Optimized for multi-area neuron data
 
 ## Protocol Versioning
 
-Each protocol supports versioning to ensure backward compatibility:
+Each byte structure type has its own versioning to ensure backward compatibility:
 
 ### Version Negotiation
 
-1. During agent registration, the agent declares supported protocol versions
-2. FEAGI selects the highest compatible version for each protocol
-3. This version selection is stored with the agent registration
-4. All subsequent messages use the negotiated versions
+1. During agent registration, the agent declares supported structure versions
+2. FEAGI registers these capabilities in the client registry
+3. When creating messages, FEAGI selects the highest mutually supported version
+4. The version byte in each message header identifies the format version
 
 ### Version Management
 
-Protocol implementations follow a plugin architecture:
-- Each protocol version is implemented in a separate directory (v1, v2, etc.)
-- Schema files are organized by protocol and version
-- New versions can be added without modifying existing code
+- Version registry tracks supported versions for each structure type:
+  ```python
+  SUPPORTED_VERSIONS = {
+      ByteStructureID.JSON: [1],
+      ByteStructureID.RAW_IMAGE: [1],
+      ByteStructureID.MULTI_HOLDER: [1],
+      ByteStructureID.NEURON_FLAT: [1],
+      ByteStructureID.NEURON_CATEGORIES: [1],
+  }
+  ```
+- Version-specific encoder and decoder methods handle different format versions
+- New versions can be added without breaking compatibility with older clients
 
 ## ROUTER-DEALER Pattern for Multiple Clients
 
@@ -161,28 +187,56 @@ class ConnectionManager:
 
 ## Protocol Translation Layer
 
-The Protocol Translation Layer converts between Cap'n Proto messages and FEAGI's internal data structures:
+The ByteStructure Translation Layer converts between binary byte structures and FEAGI's internal data structures:
 
 ```python
-class ProtocolTranslator:
-    def __init__(self, schema_path):
-        # Load Cap'n Proto schemas
-        self.constants_schema = capnp.load(os.path.join(schema_path, "common/constants.capnp"))
-        self.handshake_schema = capnp.load(os.path.join(schema_path, "handshake/v1/handshake.capnp"))
-        self.fcp_schema = capnp.load(os.path.join(schema_path, "fcp/v1/fcp.capnp"))
-        self.fsmp_schema = capnp.load(os.path.join(schema_path, "fsmp/v1/fsmp.capnp"))
-        self.fvp_schema = capnp.load(os.path.join(schema_path, "fvp/v1/fvp.capnp"))
+class ByteStructureTranslator:
+    def __init__(self):
+        # Initialize encoder and decoder
+        self.encoder = ByteStructureEncoder()
+        self.decoder = ByteStructureDecoder()
+        
+        # Default versions and client capabilities registry
+        self.default_versions = {
+            ByteStructureID.JSON: 1,
+            ByteStructureID.NEURON_FLAT: 1,
+            # ...other structures
+        }
+        self.client_capabilities = {}
     
-    def decode_message(self, message_data, protocol_type):
-        """Decode a Cap'n Proto message"""
-        if protocol_type == "handshake":
-            return self.handshake_schema.HandshakeMessage.from_bytes(message_data)
-        elif protocol_type == "fcp":
-            return self.fcp_schema.FCPMessage.from_bytes(message_data)
-        elif protocol_type == "fsmp":
-            return self.fsmp_schema.FSMPMessage.from_bytes(message_data)
-        elif protocol_type == "fvp":
-            return self.fvp_schema.FVPMessage.from_bytes(message_data)
+    def decode_message(self, message_data):
+        """Decode a byte structure message"""
+        try:
+            # Check if data is compressed
+            if is_compressed(message_data):
+                message_data = self.decoder.decompress(message_data)
+                
+            # Get structure type from header
+            structure_id, version = get_structure_info(message_data)
+            
+            # Decode based on structure type
+            if structure_id == ByteStructureID.JSON:
+                return self.decoder.decode_json(message_data)
+            elif structure_id == ByteStructureID.NEURON_FLAT:
+                return {"message_type": "neuron_data", 
+                        "data": self.decoder.decode_neuron_flat(message_data)}
+            # ...other structure types
+        except Exception as e:
+            raise ValueError(f"Failed to decode message: {e}")
+    
+    def create_neuron_data_message(self, cortical_data, client_id=None):
+        """Create a neuron data message with appropriate version"""
+        # Determine best structure type and version for the data
+        if len(cortical_data) > 1:
+            structure_id = ByteStructureID.NEURON_CATEGORIES
+        else:
+            structure_id = ByteStructureID.NEURON_FLAT
+            
+        # Get appropriate version based on client capabilities
+        version = self.get_supported_version(client_id, structure_id)
+        
+        # Create and return the encoded message
+        # ...
 ```
 
 ## Message Handling
@@ -191,8 +245,9 @@ The server uses asynchronous message handlers for each protocol:
 
 ```python
 class MessageHandler:
-    def __init__(self, connection_manager, schema_loader, protocol_type):
+    def __init__(self, connection_manager, translator, protocol_type):
         self.connection_manager = connection_manager
+        self.translator = translator
         self.protocol_type = protocol_type
         
         # Get appropriate socket based on protocol type
@@ -202,9 +257,6 @@ class MessageHandler:
             self.socket = connection_manager.sensorimotor_socket
         elif protocol_type == "fvp":
             self.socket = connection_manager.visualization_socket
-            
-        # Load protocol schema
-        self.schema = schema_loader()
     
     async def _handle_messages(self):
         while self.running:
@@ -216,13 +268,12 @@ class MessageHandler:
             agent_id, client_info = self.connection_manager.get_client_by_zmq_id(client_id)
             
             # Process the message
-            decoded_message = self._decode_message(message_data)
+            decoded_message = self.translator.decode_message(message_data)
             response_data = await self._process_message(agent_id, decoded_message)
             
             # Send response if needed
             if response_data:
-                encoded_response = self._encode_response(response_data)
-                await self.socket.send_multipart([client_id, b"", encoded_response])
+                await self.socket.send_multipart([client_id, b"", response_data])
 ```
 
 ## Agent Communication Flow
@@ -231,26 +282,26 @@ class MessageHandler:
 
 The handshake process establishes a connection and negotiates protocol versions:
 
-1. **Hello**: Agent sends `HelloMessage` with agent ID and type
-2. **Welcome**: FEAGI responds with `WelcomeMessage` with server ID
-3. **Capabilities**: Agent sends `CapabilitiesMessage` with supported protocols
-4. **Configuration**: FEAGI responds with `ConfigurationMessage` with server settings
+1. **Hello**: Agent sends hello message with agent ID and type
+2. **Welcome**: FEAGI responds with welcome message with server ID
+3. **Capabilities**: Agent sends capabilities with supported protocols and structure versions
+4. **Configuration**: FEAGI responds with configuration with server settings
 
 ```
 ┌──────────┐                            ┌──────────┐
 │  Agent   │                            │  FEAGI   │
 └────┬─────┘                            └────┬─────┘
      │                                       │
-     │ HelloMessage                          │
+     │ Hello Message                         │
      │─────────────────────────────────────► │
      │                                       │
-     │ WelcomeMessage                        │
+     │ Welcome Message                       │
      │◄───────────────────────────────────── │
      │                                       │
-     │ CapabilitiesMessage                   │
+     │ Capabilities Message                  │
      │─────────────────────────────────────► │
      │                                       │
-     │ ConfigurationMessage                  │
+     │ Configuration Message                 │
      │◄───────────────────────────────────── │
      │                                       │
 ```
@@ -265,17 +316,18 @@ After handshake completion:
 
 ## Performance Considerations
 
-1. **Cap'n Proto Serialization**: Zero-copy deserialization significantly improves performance
-2. **ROUTER-DEALER Pattern**: Enables concurrent handling of multiple clients without blocking
-3. **Asynchronous Processing**: Non-blocking I/O with asyncio for maximum throughput
-4. **High Water Mark**: Set to unlimited (0) to avoid message loss in high-traffic scenarios
-5. **Client Identification**: Efficient routing using ZMQ's built-in identity tracking
+1. **Custom Byte Structures**: Optimized binary formats for different data types
+2. **Neuron Data Optimization**: Specialized formats for neural potential data
+3. **ROUTER-DEALER Pattern**: Enables concurrent handling of multiple clients
+4. **Asynchronous Processing**: Non-blocking I/O with asyncio for maximum throughput
+5. **Optional Compression**: Deflate compression for bandwidth optimization
+6. **Minimal Overhead**: Direct binary encoding with no intermediate representation
 
 ## Security Considerations
 
 1. **Authentication**: Implement ZMQ CURVE authentication for encrypted communication
 2. **Network Isolation**: Restrict ZMQ connections to specific network interfaces
-3. **Input Validation**: Validate all Cap'n Proto messages before processing
+3. **Input Validation**: Validate all byte structure messages before processing
 4. **Resource Limits**: Implement limits on message sizes and connection counts
 5. **Client Activity Tracking**: Monitor and clean up inactive connections
 
@@ -285,8 +337,9 @@ The FEAGI ZMQ architecture consists of the following components:
 
 1. **ZMQRouterServer**: Main server class integrating all components
 2. **ConnectionManager**: Handles client connections and message routing
-3. **MessageHandler**: Protocol-specific message handlers
-4. **ProtocolTranslator**: Loads Cap'n Proto schemas and handles message conversion
+3. **MessageHandlers**: Protocol-specific message handlers
+4. **ByteStructureTranslator**: Encodes/decodes messages using byte structures
+5. **ByteStructureEncoder/Decoder**: Low-level binary encoding/decoding
 
 The implementation allows for:
 - Handling multiple simultaneous clients
@@ -295,14 +348,14 @@ The implementation allows for:
 - Asynchronous message processing
 - Client activity monitoring and cleanup
 
-## Implementation Roadmap
+## Implementation Status
 
-1. Implement Cap'n Proto schemas for all protocols
-2. Implement ConnectionManager with ROUTER socket support
-3. Implement ProtocolTranslator for Cap'n Proto schemas
-4. Implement MessageHandlers for each protocol
-5. Implement ZMQRouterServer integrating all components
-6. Add version negotiation during handshake
-7. Add monitoring and metrics for connections
-8. Implement security features
-9. Develop comprehensive tests 
+1. ✅ Implement custom byte structures for all protocols
+2. ✅ Implement ConnectionManager with ROUTER socket support
+3. ✅ Implement ByteStructureTranslator, Encoder, and Decoder
+4. ✅ Implement MessageHandlers for each protocol
+5. ✅ Implement ZMQRouterServer integrating all components
+6. ✅ Add version negotiation during handshake
+7. ✅ Add monitoring and metrics for connections
+8. ⏳ Implement security features
+9. ⏳ Develop comprehensive end-to-end tests 

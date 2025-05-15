@@ -21,19 +21,13 @@ from zmq.auth.thread import ThreadAuthenticator
 from ..core.service import CoreApiService
 
 # Import protocol definitions
-from protocol import (
-    ProtocolID, ProtocolHeader, Timestamp,
-    FCPMessageType, FCPMessage, RegisterRequest, RegisterResponse,
-    DeregisterRequest, DeregisterResponse, StatusRequest, StatusResponse,
-    HeartbeatRequest, HeartbeatResponse, ErrorResponse,
-    FSMPMessageType, SensoryChannelType, MotorChannelType, FSMPMessage,
-    SensoryData, MotorData,
-    FVPMessageType, FVPMessage, StructureData, ActivityData
+from feagi.api.protocols.constants import (
+    ProtocolID, FCPCommandType, FVPFrameType, FSMPChannelType
 )
+from feagi.api.protocols.translator import ByteStructureTranslator
 
 from feagi.api.zmq.connection_manager import ConnectionManager
 from feagi.api.zmq.message_handlers import MessageHandler, start_message_handlers, stop_message_handlers
-from feagi.api.protocols.translator import ProtocolTranslator
 
 
 class ZmqServer:
@@ -54,8 +48,7 @@ class ZmqServer:
         sensorimotor_port: int = 5558,
         control_port: int = 5559,
         vis_base_port: int = 5560,
-        context: Optional[zmq.asyncio.Context] = None,
-        schema_path: Optional[str] = None
+        context: Optional[zmq.asyncio.Context] = None
     ):
         """
         Initialize the ZMQ server.
@@ -70,7 +63,6 @@ class ZmqServer:
             control_port: Port for control protocol stream
             vis_base_port: Base port for visualization stream
             context: Optional existing ZMQ context to use
-            schema_path: Path to Cap'n Proto schemas
         """
         self.core_api = core_api
         self.host = host
@@ -118,7 +110,7 @@ class ZmqServer:
         )
         
         # Create protocol translator
-        self.translator = ProtocolTranslator(schema_path=schema_path)
+        self.translator = ByteStructureTranslator()
         
         # Store message handlers (created during start())
         self.message_handlers: Dict[str, MessageHandler] = {}
@@ -132,14 +124,6 @@ class ZmqServer:
             "fcp": self._process_fcp_message,
             "fsmp": self._process_fsmp_message,
             "fvp": self._process_fvp_message
-        }
-        
-        # Schema loaders
-        self.schema_loaders = {
-            "handshake": self.translator.get_schema_loader("handshake"),
-            "fcp": self.translator.get_schema_loader("fcp"),
-            "fsmp": self.translator.get_schema_loader("fsmp"),
-            "fvp": self.translator.get_schema_loader("fvp")
         }
         
         # Cleanup task
@@ -290,7 +274,7 @@ class ZmqServer:
             # Start message handlers
             self.message_handlers = await start_message_handlers(
                 self.connection_manager,
-                self.schema_loaders,
+                None,
                 self.message_processors
             )
             
@@ -507,18 +491,18 @@ class ZmqServer:
                     identity, empty, message_data = frames
                     
                     # Parse the message
-                    fcp_message = FCPMessage()
+                    fcp_message = self.translator.fcp_schema.FCPMessage.new_message()
                     fcp_message.ParseFromString(message_data)
                     
                     # Handle different message types
                     response = None
-                    if fcp_message.type == FCPMessageType.FCP_REGISTER:
+                    if fcp_message.type == FCPCommandType.FCP_REGISTER:
                         response = await self._handle_register(identity, fcp_message.register_request)
-                    elif fcp_message.type == FCPMessageType.FCP_DEREGISTER:
+                    elif fcp_message.type == FCPCommandType.FCP_DEREGISTER:
                         response = await self._handle_deregister(identity, fcp_message.deregister_request)
-                    elif fcp_message.type == FCPMessageType.FCP_HEARTBEAT:
+                    elif fcp_message.type == FCPCommandType.FCP_HEARTBEAT:
                         response = await self._handle_heartbeat(identity, fcp_message.heartbeat_request)
-                    elif fcp_message.type == FCPMessageType.FCP_STATUS_REQUEST:
+                    elif fcp_message.type == FCPCommandType.FCP_STATUS_REQUEST:
                         response = await self._handle_status_request(identity, fcp_message.status_request)
                     else:
                         logger.warning(f"Unknown control message type: {fcp_message.type}")
@@ -593,10 +577,10 @@ class ZmqServer:
         response.timestamp.CopyFrom(current_time)
         
         # Create FCP message
-        message = FCPMessage()
+        message = self.translator.fcp_schema.FCPMessage.new_message()
         message.header.protocol_id = ProtocolID.FCP
         message.header.version = 1
-        message.type = FCPMessageType.FCP_REGISTER_RESPONSE
+        message.type = FCPCommandType.FCP_REGISTER_RESPONSE
         message.register_response.CopyFrom(response)
         
         return message.SerializeToString()
@@ -626,10 +610,10 @@ class ZmqServer:
         response.timestamp.CopyFrom(current_time)
         
         # Create FCP message
-        message = FCPMessage()
+        message = self.translator.fcp_schema.FCPMessage.new_message()
         message.header.protocol_id = ProtocolID.FCP
         message.header.version = 1
-        message.type = FCPMessageType.FCP_DEREGISTER_RESPONSE
+        message.type = FCPCommandType.FCP_DEREGISTER_RESPONSE
         message.deregister_response.CopyFrom(response)
         
         return message.SerializeToString()
@@ -654,10 +638,10 @@ class ZmqServer:
         response.timestamp.CopyFrom(current_time)
         
         # Create FCP message
-        message = FCPMessage()
+        message = self.translator.fcp_schema.FCPMessage.new_message()
         message.header.protocol_id = ProtocolID.FCP
         message.header.version = 1
-        message.type = FCPMessageType.FCP_HEARTBEAT_RESPONSE
+        message.type = FCPCommandType.FCP_HEARTBEAT_RESPONSE
         message.heartbeat_response.CopyFrom(response)
         
         return message.SerializeToString()
@@ -677,10 +661,10 @@ class ZmqServer:
         response.timestamp.CopyFrom(current_time)
         
         # Create FCP message
-        message = FCPMessage()
+        message = self.translator.fcp_schema.FCPMessage.new_message()
         message.header.protocol_id = ProtocolID.FCP
         message.header.version = 1
-        message.type = FCPMessageType.FCP_STATUS_RESPONSE
+        message.type = FCPCommandType.FCP_STATUS_RESPONSE
         message.status_response.CopyFrom(response)
         
         return message.SerializeToString()
@@ -688,11 +672,11 @@ class ZmqServer:
     async def _handle_sensory_data(self, message_data: bytes):
         """Handle incoming sensory data."""
         # Parse the message
-        fsmp_message = FSMPMessage()
+        fsmp_message = self.translator.fsmp_schema.FSMPMessage.new_message()
         fsmp_message.ParseFromString(message_data)
         
         # Verify it's a sensory message
-        if fsmp_message.type != FSMPMessageType.FSMP_SENSORY:
+        if fsmp_message.type != FSMPChannelType.FSMP_SENSORY:
             logger.warning(f"Received non-sensory message type: {fsmp_message.type}")
             return
         
@@ -724,16 +708,16 @@ class ZmqServer:
         current_time.time_ms = int(time.time() * 1000)
         
         # Create motor data message
-        motor_data = MotorData()
+        motor_data = self.translator.fsmp_schema.MotorData.new_message()
         motor_data.channel_id = channel_id
         motor_data.data = data
         motor_data.timestamp.CopyFrom(current_time)
         
         # Create FSMP message
-        message = FSMPMessage()
+        message = self.translator.fsmp_schema.FSMPMessage.new_message()
         message.header.protocol_id = ProtocolID.FSMP
         message.header.version = 1
-        message.type = FSMPMessageType.FSMP_MOTOR
+        message.type = FSMPChannelType.FSMP_MOTOR
         message.motor_data.CopyFrom(motor_data)
         
         # Serialize and send
@@ -756,7 +740,7 @@ class ZmqServer:
         current_time.time_ms = int(time.time() * 1000)
         
         # Create activity data message
-        activity_data = ActivityData()
+        activity_data = self.translator.fvp_schema.ActivityData.new_message()
         # In a real implementation, you would parse the data and fill in the fields
         # For this example, we'll assume data is pre-serialized ActivityData
         activity_data.ParseFromString(data)
@@ -765,10 +749,10 @@ class ZmqServer:
         activity_data.timestamp.CopyFrom(current_time)
         
         # Create FVP message
-        message = FVPMessage()
+        message = self.translator.fvp_schema.FVPMessage.new_message()
         message.header.protocol_id = ProtocolID.FVP
         message.header.version = 1
-        message.type = FVPMessageType.FVP_ACTIVITY
+        message.type = FVPFrameType.FVP_ACTIVITY
         message.activity_data.CopyFrom(activity_data)
         
         # Serialize and send
@@ -791,7 +775,7 @@ class ZmqServer:
         current_time.time_ms = int(time.time() * 1000)
         
         # Create structure data message
-        structure_data = StructureData()
+        structure_data = self.translator.fvp_schema.StructureData.new_message()
         # In a real implementation, you would parse the data and fill in the fields
         # For this example, we'll assume data is pre-serialized StructureData
         structure_data.ParseFromString(data)
@@ -800,10 +784,10 @@ class ZmqServer:
         structure_data.timestamp.CopyFrom(current_time)
         
         # Create FVP message
-        message = FVPMessage()
+        message = self.translator.fvp_schema.FVPMessage.new_message()
         message.header.protocol_id = ProtocolID.FVP
         message.header.version = 1
-        message.type = FVPMessageType.FVP_STRUCTURE
+        message.type = FVPFrameType.FVP_STRUCTURE
         message.structure_data.CopyFrom(structure_data)
         
         # Serialize and send

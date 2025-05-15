@@ -2,7 +2,7 @@
 ZeroMQ ROUTER-DEALER server implementation for FEAGI.
 
 This module implements the ZMQ server that handles communication with
-external clients using the ROUTER-DEALER pattern and Cap'n Proto serialization.
+external clients using the ROUTER-DEALER pattern and custom byte structure serialization.
 """
 
 import asyncio
@@ -16,7 +16,8 @@ import zmq.asyncio
 
 from feagi.api.zmq.connection_manager import ConnectionManager
 from feagi.api.zmq.message_handlers import MessageHandler, start_message_handlers, stop_message_handlers
-from feagi.api.protocols.translator import ProtocolTranslator
+from feagi.api.protocols.translator import ByteStructureTranslator
+from feagi.api.protocols.constants import ProtocolID, FCPCommandType
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -27,15 +28,14 @@ class ZMQRouterServer:
     ZeroMQ server using ROUTER-DEALER pattern for FEAGI.
     
     This class integrates the ConnectionManager, MessageHandlers, and
-    ProtocolTranslator to handle Cap'n Proto messages from multiple clients.
+    ByteStructureTranslator to handle byte structure messages from multiple clients.
     """
     
     def __init__(self,
                 context: Optional[zmq.asyncio.Context] = None,
                 control_port: int = 5559,
                 sensorimotor_port: int = 5558,
-                visualization_port: int = 5560,
-                schema_path: Optional[str] = None):
+                visualization_port: int = 5560):
         """
         Initialize the ZMQ server.
         
@@ -44,7 +44,6 @@ class ZMQRouterServer:
             control_port: Port for control messages (FCP protocol)
             sensorimotor_port: Port for sensorimotor data (FSMP protocol)
             visualization_port: Port for visualization data (FVP protocol)
-            schema_path: Path to Cap'n Proto schemas
         """
         self.context = context or zmq.asyncio.Context.instance()
         self.running = False
@@ -59,7 +58,7 @@ class ZMQRouterServer:
         )
         
         # Create protocol translator
-        self.translator = ProtocolTranslator(schema_path=schema_path)
+        self.translator = ByteStructureTranslator()
         
         # Store message handlers (created during start())
         self.message_handlers: Dict[str, MessageHandler] = {}
@@ -73,14 +72,6 @@ class ZMQRouterServer:
             "fcp": self._process_fcp_message,
             "fsmp": self._process_fsmp_message,
             "fvp": self._process_fvp_message
-        }
-        
-        # Schema loaders
-        self.schema_loaders = {
-            "handshake": self.translator.get_schema_loader("handshake"),
-            "fcp": self.translator.get_schema_loader("fcp"),
-            "fsmp": self.translator.get_schema_loader("fsmp"),
-            "fvp": self.translator.get_schema_loader("fvp")
         }
         
         # Cleanup task
@@ -97,7 +88,7 @@ class ZMQRouterServer:
         # Start message handlers
         self.message_handlers = await start_message_handlers(
             self.connection_manager,
-            self.schema_loaders,
+            None,  # No schema loaders with new implementation
             self.message_processors
         )
         
@@ -161,25 +152,22 @@ class ZMQRouterServer:
         except Exception as e:
             logger.error(f"Error in cleanup task: {e}")
     
-    async def _process_handshake_message(self, agent_id: str, message: Any) -> Optional[Dict[str, Any]]:
+    async def _process_handshake_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Process a handshake message.
         
         Args:
             agent_id: Agent ID (may be None for hello messages)
-            message: Decoded Cap'n Proto handshake message
+            message: Decoded byte structure handshake message
             
         Returns:
             Response data if a response is needed, otherwise None
         """
         try:
-            # Convert message to dictionary for easier handling
-            message_dict = self.translator.handshake_message_to_dict(message)
-            
             # Handle different message types
-            if message.type == message.type.hello:
-                client_id = message.hello.agentId
-                client_type = message.hello.agentType
+            if message["message_type"] == "hello":
+                client_id = message["agent_id"]
+                client_type = message["agent_type"]
                 zmq_id = None  # We don't have the ZMQ ID yet, handled by HandshakeMessageHandler
                 
                 logger.info(f"Processing hello from {client_type} client '{client_id}'")
@@ -197,33 +185,19 @@ class ZMQRouterServer:
                     message=f"Welcome to FEAGI {client_type} '{client_id}'"
                 )
                 
-                # Convert to dictionary for response
-                return {
-                    "protocolId": welcome_msg.protocolId,
-                    "version": welcome_msg.version,
-                    "type": welcome_msg.type,
-                    "welcome": {
-                        "serverId": welcome_msg.welcome.serverId,
-                        "message": welcome_msg.welcome.message,
-                        "timestamp": welcome_msg.welcome.timestamp
-                    }
-                }
+                return welcome_msg
                 
-            elif message.type == message.type.capabilities:
+            elif message["message_type"] == "capabilities":
                 if agent_id not in self.pending_clients:
                     logger.warning(f"Received capabilities from unknown client {agent_id}")
                     return None
                     
                 # Extract capabilities
-                sensory_channels = list(message.capabilities.supportedSensoryChannels)
-                motor_channels = list(message.capabilities.supportedMotorChannels)
+                sensory_channels = message["supported_sensory_channels"]
+                motor_channels = message["supported_motor_channels"]
                 
                 # Extract protocol versions
-                protocol_versions = {
-                    "fcp": message.capabilities.protocolVersions.fcpVersion,
-                    "fsmp": message.capabilities.protocolVersions.fsmpVersion,
-                    "fvp": message.capabilities.protocolVersions.fvpVersion
-                }
+                protocol_versions = message["protocol_versions"]
                 
                 logger.info(f"Received capabilities from {agent_id}: "
                            f"sensory={sensory_channels}, motor={motor_channels}, "
@@ -247,20 +221,11 @@ class ZMQRouterServer:
                         del self.pending_clients[agent_id]
                         
                         # Create configuration message
-                        config_msg = self.translator.create_handshake_configuration({
+                        return self.translator.create_handshake_configuration({
                             # Add server configuration here
+                            "server_id": self.server_id,
+                            "server_time": asyncio.get_running_loop().time()
                         })
-                        
-                        # Convert to dictionary for response
-                        return {
-                            "protocolId": config_msg.protocolId,
-                            "version": config_msg.version,
-                            "type": config_msg.type,
-                            "configuration": {
-                                "timestamp": config_msg.configuration.timestamp
-                                # Add configuration fields
-                            }
-                        }
                 
             return None
                 
@@ -268,13 +233,13 @@ class ZMQRouterServer:
             logger.error(f"Error processing handshake message: {e}")
             return None
     
-    async def _process_fcp_message(self, agent_id: str, message: Any) -> Optional[Dict[str, Any]]:
+    async def _process_fcp_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Process an FCP message.
         
         Args:
             agent_id: Agent ID
-            message: Decoded Cap'n Proto FCP message
+            message: Decoded byte structure FCP message
             
         Returns:
             Response data if a response is needed, otherwise None
@@ -286,13 +251,13 @@ class ZMQRouterServer:
         
         return None
     
-    async def _process_fsmp_message(self, agent_id: str, message: Any) -> Optional[Dict[str, Any]]:
+    async def _process_fsmp_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Process an FSMP message.
         
         Args:
             agent_id: Agent ID
-            message: Decoded Cap'n Proto FSMP message
+            message: Decoded byte structure FSMP message
             
         Returns:
             Response data if a response is needed, otherwise None
@@ -304,13 +269,13 @@ class ZMQRouterServer:
         
         return None
     
-    async def _process_fvp_message(self, agent_id: str, message: Any) -> Optional[Dict[str, Any]]:
+    async def _process_fvp_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Process an FVP message.
         
         Args:
             agent_id: Agent ID
-            message: Decoded Cap'n Proto FVP message
+            message: Decoded byte structure FVP message
             
         Returns:
             Response data if a response is needed, otherwise None
@@ -362,20 +327,36 @@ class ZMQRouterServer:
             if filter_func and not filter_func(agent_id, client_info):
                 continue
                 
-            # Create and encode message
+            # Create and encode message depending on protocol
             if protocol_type == "fcp":
-                message = self.translator.fcp_schema.FCPMessage.new_message(**message_data)
+                message = self.translator.create_fcp_message(
+                    command_type=message_data.get("command_type", FCPCommandType.STATUS_RESPONSE),
+                    payload=message_data.get("payload", {})
+                )
             elif protocol_type == "fsmp":
-                message = self.translator.fsmp_schema.FSMPMessage.new_message(**message_data)
+                if "channel_id" not in message_data:
+                    logger.warning(f"Missing channel_id in FSMP message for {agent_id}")
+                    continue
+                    
+                if message_data.get("message_type") == "sensory":
+                    message = self.translator.create_fsmp_sensory_data(
+                        channel_id=message_data["channel_id"],
+                        data=message_data.get("data", [])
+                    )
+                else:  # Default to motor
+                    message = self.translator.create_fsmp_motor_data(
+                        channel_id=message_data["channel_id"],
+                        data=message_data.get("data", [])
+                    )
             elif protocol_type == "fvp":
-                message = self.translator.fvp_schema.FVPMessage.new_message(**message_data)
+                # For now, just encode as JSON
+                message = self.translator.encoder.encode_json(message_data)
                 
             # Send message
-            encoded_message = message.to_bytes()
             success = await self.connection_manager.send_message(
                 agent_id=agent_id,
                 protocol_type=protocol_type,
-                message=encoded_message
+                message=message  # Already encoded
             )
             
             if success:

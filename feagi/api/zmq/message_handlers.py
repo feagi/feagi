@@ -2,7 +2,7 @@
 ZeroMQ message handlers for FEAGI.
 
 This module implements asynchronous message handlers for different protocols
-using the ROUTER-DEALER pattern and Cap'n Proto serialization.
+using the ROUTER-DEALER pattern and custom byte structure serialization.
 """
 
 import asyncio
@@ -11,10 +11,9 @@ from typing import Any, Callable, Coroutine, Dict, Optional
 
 import zmq
 import zmq.asyncio
-import capnp
-from capnp import KjException
 
 from feagi.api.zmq.connection_manager import ConnectionManager
+from feagi.api.protocols.translator import ByteStructureTranslator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -25,22 +24,23 @@ class MessageHandler:
     Base class for protocol-specific message handlers.
     
     This class handles the common logic for receiving and processing
-    messages from ZMQ ROUTER sockets with Cap'n Proto serialization.
+    messages from ZMQ ROUTER sockets with byte structure serialization.
     """
     
     def __init__(self,
                 connection_manager: ConnectionManager,
-                schema_loader: Callable,
+                translator: ByteStructureTranslator,
                 protocol_type: str):
         """
         Initialize the message handler.
         
         Args:
             connection_manager: Connection manager instance
-            schema_loader: Function to load Cap'n Proto schema
+            translator: ByteStructureTranslator instance
             protocol_type: Protocol type ("fcp", "fsmp", or "fvp")
         """
         self.connection_manager = connection_manager
+        self.translator = translator
         self.protocol_type = protocol_type
         self.running = False
         self.task = None
@@ -54,14 +54,6 @@ class MessageHandler:
             self.socket = connection_manager.visualization_socket
         else:
             raise ValueError(f"Unsupported protocol type: {protocol_type}")
-            
-        # Load protocol schema
-        try:
-            self.schema = schema_loader()
-            logger.info(f"Loaded schema for {protocol_type} protocol")
-        except Exception as e:
-            logger.error(f"Failed to load schema for {protocol_type}: {e}")
-            raise
     
     async def start(self) -> None:
         """Start the message handler."""
@@ -115,7 +107,7 @@ class MessageHandler:
                 
                 # Process the message
                 try:
-                    # Decode Cap'n Proto message
+                    # Decode byte structure message
                     decoded_message = self._decode_message(message_data)
                     
                     # Process message and generate response
@@ -123,14 +115,9 @@ class MessageHandler:
                     
                     # Send response if needed
                     if response_data:
-                        # Encode response
-                        encoded_response = self._encode_response(response_data)
+                        # Response data is already encoded by protocol handlers
+                        await self.socket.send_multipart([client_id, b"", response_data])
                         
-                        # Send response back to the client
-                        await self.socket.send_multipart([client_id, b"", encoded_response])
-                        
-                except KjException as e:
-                    logger.error(f"Cap'n Proto error processing message from {agent_id}: {e}")
                 except Exception as e:
                     logger.error(f"Error processing message from {agent_id}: {e}")
                     
@@ -150,20 +137,20 @@ class MessageHandler:
                 logger.error(f"Unexpected error in {self.protocol_type} handler: {e}")
                 await asyncio.sleep(1)  # Avoid tight loop on persistent errors
     
-    def _decode_message(self, message_data: bytes) -> Any:
+    def _decode_message(self, message_data: bytes) -> Dict[str, Any]:
         """
-        Decode a Cap'n Proto message.
+        Decode a byte structure message.
         
         Args:
             message_data: Raw message data
             
         Returns:
-            Decoded message
+            Decoded message as dictionary
         """
-        # Override in subclass
-        raise NotImplementedError
+        # Use the translator to decode the message
+        return self.translator.decode_message(message_data)
     
-    async def _process_message(self, agent_id: str, message: Any) -> Optional[Any]:
+    async def _process_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[bytes]:
         """
         Process a decoded message.
         
@@ -172,20 +159,7 @@ class MessageHandler:
             message: Decoded message
             
         Returns:
-            Response data if a response is needed, otherwise None
-        """
-        # Override in subclass
-        raise NotImplementedError
-    
-    def _encode_response(self, response_data: Any) -> bytes:
-        """
-        Encode a response message.
-        
-        Args:
-            response_data: Response data
-            
-        Returns:
-            Encoded Cap'n Proto message
+            Response bytes if a response is needed, otherwise None
         """
         # Override in subclass
         raise NotImplementedError
@@ -196,31 +170,25 @@ class FCPMessageHandler(MessageHandler):
     
     def __init__(self, 
                 connection_manager: ConnectionManager,
-                process_message_callback: Callable[[str, Any], Coroutine[Any, Any, Optional[Any]]],
-                schema_loader: Callable):
+                process_message_callback: Callable[[str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]],
+                translator: ByteStructureTranslator):
         """
         Initialize the FCP message handler.
         
         Args:
             connection_manager: Connection manager instance
             process_message_callback: Callback for processing decoded messages
-            schema_loader: Function to load FCP Cap'n Proto schema
+            translator: ByteStructureTranslator instance
         """
-        super().__init__(connection_manager, schema_loader, "fcp")
+        super().__init__(connection_manager, translator, "fcp")
         self.process_message_callback = process_message_callback
     
-    def _decode_message(self, message_data: bytes) -> Any:
-        """Decode an FCP message."""
-        return self.schema.FCPMessage.from_bytes(message_data)
-    
-    async def _process_message(self, agent_id: str, message: Any) -> Optional[Any]:
+    async def _process_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[bytes]:
         """Process an FCP message."""
-        return await self.process_message_callback(agent_id, message)
-    
-    def _encode_response(self, response_data: Any) -> bytes:
-        """Encode an FCP response."""
-        message = self.schema.FCPMessage.new_message(**response_data)
-        return message.to_bytes()
+        response_data = await self.process_message_callback(agent_id, message)
+        if response_data is not None:
+            return response_data  # Already encoded
+        return None
 
 
 class FSMPMessageHandler(MessageHandler):
@@ -228,31 +196,25 @@ class FSMPMessageHandler(MessageHandler):
     
     def __init__(self, 
                 connection_manager: ConnectionManager,
-                process_message_callback: Callable[[str, Any], Coroutine[Any, Any, Optional[Any]]],
-                schema_loader: Callable):
+                process_message_callback: Callable[[str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]],
+                translator: ByteStructureTranslator):
         """
         Initialize the FSMP message handler.
         
         Args:
             connection_manager: Connection manager instance
             process_message_callback: Callback for processing decoded messages
-            schema_loader: Function to load FSMP Cap'n Proto schema
+            translator: ByteStructureTranslator instance
         """
-        super().__init__(connection_manager, schema_loader, "fsmp")
+        super().__init__(connection_manager, translator, "fsmp")
         self.process_message_callback = process_message_callback
     
-    def _decode_message(self, message_data: bytes) -> Any:
-        """Decode an FSMP message."""
-        return self.schema.FSMPMessage.from_bytes(message_data)
-    
-    async def _process_message(self, agent_id: str, message: Any) -> Optional[Any]:
+    async def _process_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[bytes]:
         """Process an FSMP message."""
-        return await self.process_message_callback(agent_id, message)
-    
-    def _encode_response(self, response_data: Any) -> bytes:
-        """Encode an FSMP response."""
-        message = self.schema.FSMPMessage.new_message(**response_data)
-        return message.to_bytes()
+        response_data = await self.process_message_callback(agent_id, message)
+        if response_data is not None:
+            return response_data  # Already encoded
+        return None
 
 
 class FVPMessageHandler(MessageHandler):
@@ -260,31 +222,25 @@ class FVPMessageHandler(MessageHandler):
     
     def __init__(self, 
                 connection_manager: ConnectionManager,
-                process_message_callback: Callable[[str, Any], Coroutine[Any, Any, Optional[Any]]],
-                schema_loader: Callable):
+                process_message_callback: Callable[[str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]],
+                translator: ByteStructureTranslator):
         """
         Initialize the FVP message handler.
         
         Args:
             connection_manager: Connection manager instance
             process_message_callback: Callback for processing decoded messages
-            schema_loader: Function to load FVP Cap'n Proto schema
+            translator: ByteStructureTranslator instance
         """
-        super().__init__(connection_manager, schema_loader, "fvp")
+        super().__init__(connection_manager, translator, "fvp")
         self.process_message_callback = process_message_callback
     
-    def _decode_message(self, message_data: bytes) -> Any:
-        """Decode an FVP message."""
-        return self.schema.FVPMessage.from_bytes(message_data)
-    
-    async def _process_message(self, agent_id: str, message: Any) -> Optional[Any]:
+    async def _process_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[bytes]:
         """Process an FVP message."""
-        return await self.process_message_callback(agent_id, message)
-    
-    def _encode_response(self, response_data: Any) -> bytes:
-        """Encode an FVP response."""
-        message = self.schema.FVPMessage.new_message(**response_data)
-        return message.to_bytes()
+        response_data = await self.process_message_callback(agent_id, message)
+        if response_data is not None:
+            return response_data  # Already encoded
+        return None
 
 
 class HandshakeMessageHandler(MessageHandler):
@@ -292,59 +248,51 @@ class HandshakeMessageHandler(MessageHandler):
     
     def __init__(self, 
                 connection_manager: ConnectionManager,
-                process_message_callback: Callable[[str, Any], Coroutine[Any, Any, Optional[Any]]],
-                schema_loader: Callable):
+                process_message_callback: Callable[[str, Dict[str, Any]], Coroutine[Any, Any, Optional[Dict[str, Any]]]],
+                translator: ByteStructureTranslator):
         """
         Initialize the Handshake message handler.
         
         Args:
             connection_manager: Connection manager instance
             process_message_callback: Callback for processing decoded messages
-            schema_loader: Function to load Handshake Cap'n Proto schema
+            translator: ByteStructureTranslator instance
         """
         # Handshake uses the control socket (FCP)
-        super().__init__(connection_manager, schema_loader, "fcp")
+        super().__init__(connection_manager, translator, "fcp")
         self.protocol_type = "handshake"  # Override protocol type for logging
         self.process_message_callback = process_message_callback
     
-    def _decode_message(self, message_data: bytes) -> Any:
-        """Decode a Handshake message."""
-        return self.schema.HandshakeMessage.from_bytes(message_data)
-    
-    async def _process_message(self, agent_id: str, message: Any) -> Optional[Any]:
+    async def _process_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[bytes]:
         """
         Process a Handshake message.
         
         For new clients (agent_id is None), we generate an agent ID from the hello message.
         """
-        if message.type == self.schema.HandshakeMessageType.hello:
+        if message.get("message_type") == "hello":
             # For hello messages, we might not have an agent ID yet
             # The client ID is provided in the hello message
-            client_id = message.hello.agentId
-            client_type = message.hello.agentType
+            client_id = message.get("agent_id")
+            client_type = message.get("agent_type")
             logger.info(f"Received hello from {client_type} client '{client_id}'")
             
-            # Use the provided agent_id or generate a new one
+            # Use the provided agent_id
             agent_id = client_id
         
         # Process the message using the callback
-        return await self.process_message_callback(agent_id, message)
-    
-    def _encode_response(self, response_data: Any) -> bytes:
-        """Encode a Handshake response."""
-        message = self.schema.HandshakeMessage.new_message(**response_data)
-        return message.to_bytes()
+        response_data = await self.process_message_callback(agent_id, message)
+        return response_data  # Already encoded
 
 
 async def start_message_handlers(connection_manager: ConnectionManager, 
-                               schema_loaders: Dict[str, Callable],
+                               schema_loaders: Optional[Dict[str, Callable]],
                                message_processors: Dict[str, Callable]) -> Dict[str, MessageHandler]:
     """
     Start all message handlers.
     
     Args:
         connection_manager: Connection manager instance
-        schema_loaders: Dictionary mapping protocol types to schema loader functions
+        schema_loaders: Ignored, kept for backward compatibility
         message_processors: Dictionary mapping protocol types to message processor callbacks
         
     Returns:
@@ -352,29 +300,32 @@ async def start_message_handlers(connection_manager: ConnectionManager,
     """
     handlers = {}
     
+    # Create byte structure translator
+    translator = ByteStructureTranslator()
+    
     # Create handlers
     handlers["handshake"] = HandshakeMessageHandler(
         connection_manager, 
         message_processors["handshake"], 
-        schema_loaders["handshake"]
+        translator
     )
     
     handlers["fcp"] = FCPMessageHandler(
         connection_manager, 
         message_processors["fcp"], 
-        schema_loaders["fcp"]
+        translator
     )
     
     handlers["fsmp"] = FSMPMessageHandler(
         connection_manager, 
         message_processors["fsmp"], 
-        schema_loaders["fsmp"]
+        translator
     )
     
     handlers["fvp"] = FVPMessageHandler(
         connection_manager, 
         message_processors["fvp"], 
-        schema_loaders["fvp"]
+        translator
     )
     
     # Start handlers
