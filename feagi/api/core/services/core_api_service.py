@@ -2796,3 +2796,87 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error deleting multiple cortical areas: {str(e)}", emoji1="❌")
             return cortical_id_list  # Return the full list to indicate failure
+
+    def get_default_genomes(self) -> Dict[str, Any]:
+        """
+        Get a list of default genome files with their contents.
+        
+        Returns:
+            Dictionary containing default genome files and their contents.
+        """
+        try:
+            # Get the data path where default genomes are stored
+            defaults_path = os.path.join(self.get_data_path(), "genome")
+            
+            # Check if the directory exists
+            if not os.path.exists(defaults_path):
+                self.logger.warning(f"Default genomes directory not found: {defaults_path}")
+                return {}
+            
+            # Get all .json files in the directory
+            default_genomes = {}
+            
+            for filename in os.listdir(defaults_path):
+                if filename.endswith(".json"):
+                    file_path = os.path.join(defaults_path, filename)
+                    try:
+                        with open(file_path, 'r') as f:
+                            genome_data = json.load(f)
+                            
+                            # Store basic metadata about the genome
+                            default_genomes[filename] = {
+                                "title": genome_data.get("genome_title", "Untitled Genome"),
+                                "description": genome_data.get("genome_description", ""),
+                                "file_path": file_path
+                            }
+                    except Exception as e:
+                        self.logger.error(f"Error loading default genome {filename}: {str(e)}")
+            
+            return default_genomes
+                
+        except Exception as e:
+            self.logger.error(f"Error getting default genomes: {str(e)}")
+            return {}
+
+    def deploy_genome(self, genome_filepath: str) -> bool:
+        """
+        Deploy a genome from a file path. This is a more controlled way
+        to load a genome with state management and validation.
+        
+        Args:
+            genome_filepath: Path to the genome file to deploy
+            
+        Returns:
+            True if deployment was successful, False otherwise
+        """
+        try:
+            self.logger.info(f"Deploying genome from {genome_filepath}", emoji1="🧬")
+            
+            # Ensure the file exists
+            if not os.path.exists(genome_filepath):
+                self.logger.error(f"Genome file not found: {genome_filepath}", emoji1="❌")
+                return False
+                
+            # Load the genome data
+            with open(genome_filepath, 'r') as f:
+                genome_data = json.load(f)
+                
+            # Extract the filename for reference
+            filename = os.path.basename(genome_filepath)
+                
+            # Load the genome using the service
+            result = self.load_genome(genome_data, filename=filename)
+            
+            if not result.get("success", False):
+                self.logger.error(f"Failed to load genome: {result.get('error', 'Unknown error')}", emoji1="❌")
+                return False
+                
+            self.logger.info(f"Genome deployed successfully from {filename}", emoji1="✅")
+            return True
+            
+        except json.JSONDecodeError:
+            self.logger.error(f"Invalid JSON in genome file: {genome_filepath}", emoji1="❌")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error deploying genome: {str(e)}", emoji1="❌")
+            return False

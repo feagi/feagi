@@ -27,10 +27,19 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
 from starlette.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional
+import tempfile
 
 from ...schemas import *
 from ...commons import *
-from feagi.api.dependencies import check_active_genome
+from feagi.api.dependencies import (
+    check_active_genome, 
+    check_connectome_ready, 
+    check_burst_engine_running,
+    check_genome_and_connectome,
+    check_fully_operational,
+    check_amalgamation_ready,
+    check_deployment_ready
+)
 from feagi.api.rest.dependencies import get_core_api_service
 from feagi.api.core.services.core_api_service import CoreAPIService
 
@@ -189,15 +198,12 @@ async def genome_file_upload(file: UploadFile = File(...)):
 
 
 @router.get("/file_name")
-async def genome_file_name():
+async def genome_file_name(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """
     Returns the name of the genome file last uploaded to FEAGI
     """
-    genome_name = state.genome_file_name
-    if genome_name:
-        return genome_name
-    else:
-        return ""
+    genome_name = core_api_service.get_genome_filename()
+    return genome_name or ""
 
 
 @router.post("/upload/string")
@@ -221,11 +227,11 @@ async def genome_string_upload(genome: dict):
 
 
 @router.get("/download")
-def download_genome(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+def download_genome(
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_active_genome)
+):
     """Download the current genome"""
-    if not core_api_service.genome_is_loaded():
-        raise HTTPException(status_code=400, detail="No genome is currently loaded")
-    
     # Get the genome from CoreAPIService
     genome = core_api_service.get_genome()
     
@@ -250,53 +256,95 @@ def download_genome(core_api_service: CoreAPIService = Depends(get_core_api_serv
 
 
 @router.get("/download_region")
-async def genome_download_from_region(region_id, _: str = Depends(check_active_genome)):
-    logger.info(f"Downloading genome associated with {region_id} ...")
-
-    region_title = region_id_2_title(region_id=region_id)
-    genome_payload = construct_genome_from_region(region_id=region_id)
-
-    genome_path = state.connectome_path + f"genome_{region_title}.json"
-    save_genome(genome=genome_payload,
-                file_name=genome_path)
-    file_name = f"genome-{region_title}".replace(" ", "_") + ".json"
-
-    if state.genome:
-        state.changes_saved_externally = True
+async def genome_download_from_region(
+    region_id: str,
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_active_genome)
+):
+    """
+    Download a genome from a specific brain region
+    
+    Args:
+        region_id: ID of the brain region
+    """
+    try:
+        # Get region title and genome payload
+        genome = core_api_service.get_genome_from_region(region_id)
+        if not genome:
+            raise HTTPException(status_code=404, detail=f"Region {region_id} not found")
+        
+        region_title = core_api_service.get_region_title(region_id) or region_id
+        
+        # Create file path
+        temp_dir = core_api_service.get_temp_path()
+        genome_path = os.path.join(temp_dir, f"genome_{region_title}.json")
+        
+        # Save genome to file
+        with open(genome_path, 'w') as f:
+            json.dump(genome, f, indent=4)
+        
+        # Create download filename
+        file_name = f"genome-{region_title}".replace(" ", "_") + ".json"
+        
         return FileResponse(path=genome_path, media_type="application/json", filename=file_name)
-    else:
-        raise HTTPException(status_code=400, detail="No running genome found!")
+    except Exception as e:
+        logger.error(f"Error downloading genome from region: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error downloading genome from region: {str(e)}")
 
 
 @router.post("/upload/file/edit")
-async def genome_file_upload_edit(file: UploadFile = File(...)):
-    data = await file.read()
-    genome_str = data.decode("utf-8")
-    return {genome_str}
+async def genome_file_upload_edit(
+    file: UploadFile = File(...),
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Upload a genome file for editing purposes
+    
+    This endpoint is used to upload a genome file without loading it,
+    typically for preview or editing purposes.
+    
+    Args:
+        file: The genome file to upload
+    """
+    try:
+        data = await file.read()
+        genome_str = data.decode("utf-8")
+        
+        # Store the genome string in a temporary file for editing
+        temp_dir = core_api_service.get_temp_path()
+        edit_path = os.path.join(temp_dir, f"edit_{file.filename}")
+        
+        with open(edit_path, 'w') as f:
+            f.write(genome_str)
+            
+        return {"file_path": edit_path, "content": genome_str}
+    except Exception as e:
+        logger.error(f"Error uploading genome for editing: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading genome for editing: {str(e)}")
 
 
 @router.get("/defaults/files")
-async def genome_default_files():
-    default_genomes_path = "./evo/defaults/genome/"
-    default_genomes = os.listdir(default_genomes_path)
-    genome_mappings = {}
-    for genome in default_genomes:
-        if genome[:2] != '__':
-            with open(os.path.join(default_genomes_path, genome)) as file:
-                data = file.read()
-                # genome_mappings = json.loads(data)
-                # data_dict = literal_eval(data.split(" = ")[1])
-                genome_mappings[genome.split(".")[0]] = json.loads(data)
-                # print("genome_mappings\n", genome_mappings)
-    return {"genome": genome_mappings}
+async def genome_default_files(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """
+    Returns the list of default genome files with their contents
+    """
+    try:
+        default_genomes = core_api_service.get_default_genomes()
+        return {"genome": default_genomes}
+    except Exception as e:
+        logger.error(f"Error retrieving default genomes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving default genomes: {str(e)}")
 
 
 @router.get("/genome_number")
-async def genome_number():
+async def genome_number(
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_active_genome)
+):
     """
     Return the number associated with current Genome instance.
     """
-    return state.get_genome_counter()
+    return core_api_service.get_genome_counter()
 
 
 @router.post("/reset")
@@ -313,7 +361,7 @@ async def reset_genome(core_api_service: CoreAPIService = Depends(get_core_api_s
 async def amalgamation_attempt(
     amalgamation_param: AmalgamationRequest, 
     core_api_service: CoreAPIService = Depends(get_core_api_service),
-    _: str = Depends(check_active_genome)
+    _: str = Depends(check_amalgamation_ready)
 ):
     """
     Initiate an amalgamation using a provided genome payload.
@@ -341,49 +389,71 @@ async def amalgamation_attempt(
 
 
 @router.post("/amalgamation_by_upload")
-async def amalgamation_attempt(_: str = Depends(check_active_genome), file: UploadFile = File(...)):
-    if pending_amalgamation():
-        raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
-    else:
-        now = datetime.now()
+async def amalgamation_attempt(
+    file: UploadFile = File(...),
+    _: str = Depends(check_amalgamation_ready)
+):
+    """
+    Initiate an amalgamation by uploading a genome file.
+    """
+    try:
+        # Read and parse the uploaded file
         data = await file.read()
-        state.genome_file_name = file.filename
-
         genome_str = json.loads(data)
+        
+        # Validate the genome has a blueprint
         if "blueprint" not in genome_str:
             raise HTTPException(status_code=400, detail="Missing 'blueprint' key in uploaded genome.")
+            
+        # Process the genome
         genome_2 = genome_2_1_convertor(genome_str["blueprint"])
-
+        
+        # Generate amalgamation ID and store data
+        now = datetime.now()
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
+        
+        # Update state
+        state.genome_file_name = file.filename
         state.pending_amalgamation["genome_id"] = state.genome_file_name
         state.pending_amalgamation["genome_title"] = state.genome_file_name
         state.pending_amalgamation["genome_payload"] = genome_str
         state.pending_amalgamation["initiation_time"] = time()
         state.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        state.pending_amalgamation["circuit_size"] = \
-            circuit_size(blueprint=genome_2["blueprint"])
+        state.pending_amalgamation["circuit_size"] = circuit_size(blueprint=genome_2["blueprint"])
 
         state.amalgamation_history[amalgamation_id] = "pending"
         return amalgamation_id
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in uploaded file")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing amalgamation: {str(e)}")
 
 
 @router.post("/amalgamation_by_filename")
-async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str = Depends(check_active_genome)):
-    if pending_amalgamation():
-        raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
-    else:
+async def amalgamation_attempt(
+    amalgamation_param: AmalgamationRequest, 
+    _: str = Depends(check_amalgamation_ready)
+):
+    """
+    Initiate an amalgamation using an existing genome file.
+    """
+    try:
+        # Generate amalgamation ID
         now = datetime.now()
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
+        
+        # Update state
         state.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
         state.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
         state.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
         state.pending_amalgamation["initiation_time"] = time()
         state.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        state.pending_amalgamation["circuit_size"] = \
-            circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
+        state.pending_amalgamation["circuit_size"] = circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
 
         state.amalgamation_history[amalgamation_id] = "pending"
         return amalgamation_id
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing amalgamation: {str(e)}")
 
 
 @router.get("/amalgamation_history")
@@ -398,8 +468,11 @@ async def amalgamation_history(core_api_service: CoreAPIService = Depends(get_co
 
 
 @router.get("/cortical_template")
-async def cortical_template_():
-    return cortical_template
+async def cortical_template_(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """
+    Get available cortical templates
+    """
+    return core_api_service.get_cortical_templates()
 
 
 @router.post("/amalgamation_destination")
@@ -484,12 +557,11 @@ async def cancel_amalgamation_request(
 
 
 @router.get("/circuits")
-async def circuit_library():
+async def circuit_library(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """
     Returns the list of neuronal circuits under /evo/circuits
     """
-    circuit_list = os.listdir(state.circuit_lib_path)
-    return circuit_list
+    return core_api_service.get_circuit_library()
 
 
 # @router.get("/circuit_description")
@@ -514,24 +586,46 @@ async def circuit_library():
 
 
 @router.post("/append-file")
-async def genome_append_circuit(circuit_origin_x: int,
-                                circuit_origin_y: int,
-                                circuit_origin_z: int,
-                                file: UploadFile = File(...)):
+async def genome_append_circuit(
+    circuit_origin_x: int,
+    circuit_origin_y: int,
+    circuit_origin_z: int,
+    file: UploadFile = File(...),
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_genome_and_connectome)
+):
     """
     Appends a given circuit to the running genome at a specific location.
+    
+    Args:
+        circuit_origin_x: X coordinate for circuit placement
+        circuit_origin_y: Y coordinate for circuit placement
+        circuit_origin_z: Z coordinate for circuit placement
+        file: Circuit genome file to append
     """
-    data = await file.read()
-
-    state.genome_file_name = file.filename
-
-    genome_str = json.loads(data)
-
-    payload = dict()
-    payload["genome_str"] = genome_str
-    payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
-    data = {'append_circuit': payload}
-    api_queue.put(item=data)
+    try:
+        data = await file.read()
+        circuit_data = json.loads(data)
+        
+        # Update the genome filename for reference
+        state_manager = core_api_service.get_state_manager()
+        state_manager.genome_file_name = file.filename
+        
+        # Use the service to append the circuit
+        result = core_api_service.append_circuit(
+            circuit_origin=(circuit_origin_x, circuit_origin_y, circuit_origin_z),
+            circuit_data=circuit_data
+        )
+        
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to append circuit")
+            
+        return {"status": "success", "message": "Circuit appended successfully"}
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in circuit file")
+    except Exception as e:
+        logger.error(f"Error appending circuit: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error appending circuit: {str(e)}")
 
 
 # @router.api_route("/append", methods=['POST'])
@@ -608,35 +702,96 @@ def circuit_size(blueprint):
     return dimensions
 
 
+async def save_upload_file(file: UploadFile) -> str:
+    """
+    Save an uploaded file to a temporary location and return the path.
+    
+    Args:
+        file: The uploaded file
+        
+    Returns:
+        Path to the saved file
+    """
+    # Create a temporary directory if it doesn't exist
+    temp_dir = tempfile.mkdtemp(prefix="feagi_upload_")
+    
+    # Create the file path
+    file_path = os.path.join(temp_dir, file.filename)
+    
+    # Read and save the file
+    contents = await file.read()
+    
+    with open(file_path, 'wb') as f:
+        f.write(contents)
+        
+    return file_path
+
+
 @router.post("/deploy", response_model=dict)
-async def deploy_genome(genome_file: UploadFile, 
-                       core_api_service: CoreAPIService = Depends(get_core_api_service)):
-    """Deploy a genome file."""
+async def deploy_genome(
+    genome_file: UploadFile = File(...), 
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_deployment_ready)
+):
+    """
+    Deploy a genome file.
+    
+    This is a more controlled way to load a genome with proper state transitions
+    and validation.
+    
+    Args:
+        genome_file: The genome file to deploy
+    """
     try:
         # Get the state manager
         state_manager = core_api_service.get_state_manager()
         
         # Update state to LOADING
-        state_manager.set_genome_state(ServiceState.LOADING)
+        state_manager.set_genome_state(GenomeState.LOADING)
+        
+        # Save the uploaded file
+        genome_filepath = await save_upload_file(genome_file)
         
         # Deploy the genome
-        genome_filepath = await save_upload_file(genome_file)
         result = core_api_service.deploy_genome(genome_filepath)
         
-        # Update state to LOADED if successful
+        # Update state based on result
         if result:
-            state_manager.set_genome_state(ServiceState.LOADED)
+            state_manager.set_genome_state(GenomeState.LOADED)
+            state_manager.set_brain_readiness(True)
             
             # Update burst engine with new genome
             burst_engine = core_api_service.get_burst_engine()
             if burst_engine:
                 burst_engine.update_with_genome()
+                logger.info("Burst Engine updated with new genome", emoji1="⚡")
             
-            return {"status": "success", "message": "Genome deployed successfully"}
+            return success_response(
+                message="Genome deployed successfully",
+                data={"filename": genome_file.filename}
+            )
         else:
-            state_manager.set_genome_state(ServiceState.UNAVAILABLE)
-            return {"status": "error", "message": "Failed to deploy genome"}
+            state_manager.set_genome_state(GenomeState.ERROR)
+            state_manager.set_brain_readiness(False)
+            
+            return JSONResponse(
+                status_code=500,
+                content=error_response(
+                    message="Failed to deploy genome", 
+                    error_code="GENOME_DEPLOY_FAILED"
+                )
+            )
     except Exception as e:
         # Ensure state is reverted on error
-        core_api_service.get_state_manager().set_genome_state(ServiceState.UNAVAILABLE)
-        raise HTTPException(status_code=500, detail=f"Error deploying genome: {str(e)}")
+        core_api_service.get_state_manager().set_genome_state(GenomeState.ERROR)
+        core_api_service.get_state_manager().set_brain_readiness(False)
+        
+        logger.error(f"Error deploying genome: {str(e)}", emoji1="❌")
+        
+        return JSONResponse(
+            status_code=500,
+            content=error_response(
+                message=f"Error deploying genome: {str(e)}",
+                error_code="GENOME_DEPLOY_ERROR"
+            )
+        )
