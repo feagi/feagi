@@ -22,7 +22,8 @@ from ...schemas import BurstEngineConfig, FCLSamplerConfig, FCLSamplerConsumer, 
 from ...commons import *
 from feagi.core.state_manager import FeagiStateManager
 from feagi.process_manager import get_process_manager
-from feagi.api.rest.dependencies import get_core_api
+from feagi.api.rest.dependencies import get_core_api_service
+from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.rest.schemas import BurstEngineStats
 
 router = APIRouter()
@@ -32,60 +33,74 @@ state = FeagiStateManager.instance()
 # ######  Burst-Engine Endpoints #########
 # ########################################
 @router.get("/burst_counter", response_model=int)
-async def burst_engine_counter():
+async def burst_engine_counter(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """
     Return the number associated with current FEAGI burst instance.
     """
-    # Mock data for now
-    return 0
+    return core_api_service.get_burst_counter() or 0
 
 
 @router.get("/config", response_model=BurstEngineConfig)
-async def get_burst_engine_config():
+async def get_burst_engine_config(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """Get the current burst engine configuration."""
-    return get_core_api().get_burst_engine_config()
+    return core_api_service.get_burst_engine_config()
 
 
 @router.put("/config", response_model=BurstEngineConfig)
-async def update_burst_engine_config(config: BurstEngineConfig):
+async def update_burst_engine_config(
+    config: BurstEngineConfig,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """Update the burst engine configuration."""
-    result = get_core_api().update_burst_engine_config(config.dict())
+    result = core_api_service.update_burst_engine_config(config.dict())
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update burst engine configuration")
     return config
 
 
 @router.get("/fcl_sampler/config", response_model=FCLSamplerConfig)
-async def get_fcl_sampler_config():
+async def get_fcl_sampler_config(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """
     Returns the FCLSampler configuration (frequency, consumer).
     """
+    config = core_api_service.get_fcl_sampler_config()
     return FCLSamplerConfig(
-        frequency=state.get_fcl_sampler_frequency(),
-        consumer=FCLSamplerConsumer(state.get_fcl_sampler_consumer())
+        frequency=config["frequency"],
+        consumer=FCLSamplerConsumer(config["consumer"])
     )
 
 
 @router.post("/fcl_sampler/config", response_model=FCLSamplerConfig)
-async def update_fcl_sampler_config(config: FCLSamplerConfig):
+async def update_fcl_sampler_config(
+    config: FCLSamplerConfig,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Updates the FCLSampler configuration (frequency, consumer).
     Only supports Visualization and Motor as consumer options for now.
     """
-    state.set_fcl_sampler_frequency(config.frequency)
-    state.set_fcl_sampler_consumer(config.consumer.value)
-    # TODO: Notify process manager/FCLSampler to update live config if running
+    success = core_api_service.update_fcl_sampler_config(
+        frequency=config.frequency,
+        consumer=config.consumer.value
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update FCL sampler configuration")
+        
     return config
 
 
 @router.get("/fcl_sampler/area/{area_id}/sample_rate", response_model=FCLSampleRateConfig)
-async def get_area_fcl_sample_rate(area_id: int):
+async def get_area_fcl_sample_rate(
+    area_id: int,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Get the FCL sample rate for a specific cortical area.
     """
     try:
-        # Access via CoreAPIService instead of directly using connectome_manager
-        rate = get_core_api().get_area_fcl_sample_rate(area_id)
+        # Access via CoreAPIService
+        rate = core_api_service.get_area_fcl_sample_rate(area_id)
         return FCLSampleRateConfig(sample_rate=rate)
     except KeyError:
         raise HTTPException(status_code=404, detail="Cortical area not found")
@@ -94,16 +109,20 @@ async def get_area_fcl_sample_rate(area_id: int):
 
 
 @router.post("/fcl_sampler/area/{area_id}/sample_rate", response_model=FCLSampleRateConfig)
-async def set_area_fcl_sample_rate(area_id: int, config: FCLSampleRateConfig):
+async def set_area_fcl_sample_rate(
+    area_id: int,
+    config: FCLSampleRateConfig,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Set the FCL sample rate for a specific cortical area.
     """
     try:
-        # Access via CoreAPIService instead of directly using connectome_manager
+        # Access via CoreAPIService
         if config.sample_rate <= 0:
             raise ValueError("Sample rate must be positive")
             
-        success = get_core_api().set_area_fcl_sample_rate(area_id, config.sample_rate)
+        success = core_api_service.set_area_fcl_sample_rate(area_id, config.sample_rate)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update FCL sample rate")
             
@@ -117,13 +136,16 @@ async def set_area_fcl_sample_rate(area_id: int, config: FCLSampleRateConfig):
 
 
 @router.get("/stats", response_model=BurstEngineStats)
-async def get_burst_engine_stats():
+async def get_burst_engine_stats(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """Get the burst engine statistics."""
-    return get_core_api().get_burst_engine_stats()
+    return core_api_service.get_burst_engine_stats()
 
 
 @router.get("/membrane_potentials")
-async def get_membrane_potentials(neuron_ids: List[int]):
+async def get_membrane_potentials(
+    neuron_ids: List[int],
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Get membrane potentials for specific neurons.
     
@@ -133,11 +155,14 @@ async def get_membrane_potentials(neuron_ids: List[int]):
     Returns:
         Dictionary mapping neuron IDs to their membrane potentials
     """
-    return get_core_api().get_membrane_potentials(neuron_ids)
+    return core_api_service.get_membrane_potentials(neuron_ids)
 
 
 @router.put("/membrane_potentials")
-async def update_membrane_potentials(potentials: Dict[str, float]):
+async def update_membrane_potentials(
+    potentials: Dict[str, float],
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Update membrane potentials for specific neurons.
     
@@ -150,7 +175,7 @@ async def update_membrane_potentials(potentials: Dict[str, float]):
     # Convert string keys to integers
     neuron_potentials = {int(k): v for k, v in potentials.items()}
     
-    result = get_core_api().update_membrane_potentials(neuron_potentials)
+    result = core_api_service.update_membrane_potentials(neuron_potentials)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update membrane potentials")
     return {"success": True, "updated_count": len(potentials)}

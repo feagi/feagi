@@ -70,21 +70,41 @@ class RewiringMode(str, Enum):
 # ######  Genome Endpoints #########
 # ##################################
 @router.post("/upload/barebones")
-async def upload_barebones_genome():
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
-    barebones_genome_path = os.path.join(project_root, "feagi/evo/defaults/genome/barebones_genome.json")
-    with open(barebones_genome_path, "r") as genome_file:
-        genome_data = json.load(genome_file)
-        state.genome_file_name = "barebones_genome.json"
-    state.set_connectome_state(ConnectomeState.INITIALIZING)
-    core_api_service = get_core_api_service()
-    result = core_api_service.load_genome(genome_data, filename="barebones_genome.json")
-    result["genome_number"] = state.get_genome_counter()
-    burst_engine = core_api_service.get_burst_engine()
-    if burst_engine:
-        burst_engine.update_with_genome()
-        logger.info("Burst Engine updated with new genome", emoji1="⚡ ")
-    return result
+async def upload_barebones_genome(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """Upload the barebones genome template"""
+    try:
+        # Get the path to the barebones genome
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
+        barebones_genome_path = os.path.join(project_root, "feagi/evo/defaults/genome/barebones_genome.json")
+        
+        if not os.path.exists(barebones_genome_path):
+            raise HTTPException(status_code=404, detail="Barebones genome template not found")
+            
+        # Load the genome data
+        with open(barebones_genome_path, "r") as genome_file:
+            genome_data = json.load(genome_file)
+        
+        # Set the genome file name in the state manager
+        state_manager = FeagiStateManager.instance()
+        state_manager.genome_file_name = "barebones_genome.json"
+        
+        # Set the connectome state
+        state_manager.set_connectome_state(ConnectomeState.INITIALIZING)
+        
+        # Load the genome using CoreAPIService
+        result = core_api_service.load_genome(genome_data, filename="barebones_genome.json")
+        result["genome_number"] = state_manager.get_genome_counter()
+        
+        # Update the burst engine
+        burst_engine = core_api_service.get_burst_engine()
+        if burst_engine:
+            burst_engine.update_with_genome()
+            logger.info("Burst Engine updated with new genome", emoji1="⚡ ")
+            
+        return result
+    except Exception as e:
+        logger.error(f"Failed to upload barebones genome: {str(e)}", emoji1="❌")
+        raise HTTPException(status_code=500, detail=f"Error uploading barebones genome: {str(e)}")
 
 
 @router.post("/upload/essential", status_code=200)
@@ -201,24 +221,32 @@ async def genome_string_upload(genome: dict):
 
 
 @router.get("/download")
-def download_genome():
-    """Download active genome."""
-    # First check if we have a filename
-    if not hasattr(state, 'genome_file_name') or not state.genome_file_name:
-        raise HTTPException(status_code=404, detail="No genome file name found")
-
-    # Get project root path
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../"))
+def download_genome(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """Download the current genome"""
+    if not core_api_service.genome_is_loaded():
+        raise HTTPException(status_code=400, detail="No genome is currently loaded")
     
-    # Try default genomes path first
-    default_genomes_path = os.path.join(project_root, "feagi", "evo", "defaults", "genome")
-    genome_filepath = os.path.join(default_genomes_path, state.genome_file_name)
+    # Get the genome from CoreAPIService
+    genome = core_api_service.get_genome()
     
-    if os.path.exists(genome_filepath):
-        return FileResponse(genome_filepath, filename=state.genome_file_name)
+    # Get filename
+    filename = core_api_service.get_genome_filename() or "feagi_genome.json"
+    if not filename.endswith(".json"):
+        filename += ".json"
+        
+    # Create a temporary file to store the genome
+    temp_file_path = os.path.join(core_api_service.get_temp_path(), filename)
     
-    # If we get here, we couldn't find the file
-    raise HTTPException(status_code=404, detail=f"Genome file '{state.genome_file_name}' not found in any expected location")
+    # Save the genome to the file
+    try:
+        with open(temp_file_path, 'w') as f:
+            json.dump(genome, f, indent=4)
+        
+        # Return the file as response
+        return FileResponse(path=temp_file_path, filename=filename, media_type='application/json')
+    except Exception as e:
+        logger.error(f"Error downloading genome: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error downloading genome: {str(e)}")
 
 
 @router.get("/download_region")
@@ -272,30 +300,44 @@ async def genome_number():
 
 
 @router.post("/reset")
-async def reset_genome():
-    logger.info("API call has triggered a genome reset")
-    state.genome_reset_flag = True
+async def reset_genome(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """Reset the current genome"""
+    success = core_api_service.reset_genome()
+    if success:
+        return {"message": "Genome reset successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to reset genome")
 
 
 @router.post("/amalgamation_by_payload")
-async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str = Depends(check_active_genome)):
-    if pending_amalgamation():
-        raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
-    else:
-        now = datetime.now()
-        genome = genome_2_1_convertor(amalgamation_param.genome_payload["blueprint"])
-
-        amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
-        state.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
-        state.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
-        state.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
-        state.pending_amalgamation["initiation_time"] = time()
-        state.pending_amalgamation["amalgamation_id"] = amalgamation_id
-        state.pending_amalgamation["circuit_size"] = \
-            circuit_size(blueprint=genome["blueprint"])
-
-        state.amalgamation_history[amalgamation_id] = "pending"
-        return amalgamation_id
+async def amalgamation_attempt(
+    amalgamation_param: AmalgamationRequest, 
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_active_genome)
+):
+    """
+    Initiate an amalgamation using a provided genome payload.
+    
+    The amalgamation process allows incorporating circuit patterns into the existing genome.
+    """
+    if not amalgamation_param.genome_payload:
+        raise HTTPException(status_code=400, detail="Genome payload is required")
+    
+    # Generate a unique ID for this amalgamation
+    amalgamation_id = f"{datetime.now().strftime('%Y%m%d%H%M%S%f')[2:]}_AMAL"
+    
+    # Initialize the amalgamation
+    success = core_api_service.initiate_amalgamation(
+        amalgamation_id=amalgamation_id,
+        genome_id=amalgamation_param.genome_id or "custom_payload",
+        genome_title=amalgamation_param.genome_title or "Custom Amalgamation",
+        genome_payload=amalgamation_param.genome_payload
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to initialize amalgamation")
+    
+    return {"amalgamation_id": amalgamation_id}
 
 
 @router.post("/amalgamation_by_upload")
@@ -345,8 +387,14 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
 
 
 @router.get("/amalgamation_history")
-async def amalgamation_history(amalgamation_history=Depends(get_amalgamation_history_service)):
-    return amalgamation_history
+async def amalgamation_history(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+    """
+    Get the complete history of amalgamations.
+    
+    Returns:
+        Dict mapping amalgamation IDs to their statuses
+    """
+    return core_api_service.get_amalgamation_history()
 
 
 @router.get("/cortical_template")
@@ -355,43 +403,84 @@ async def cortical_template_():
 
 
 @router.post("/amalgamation_destination")
-async def amalgamation_conclusion(circuit_origin_x,
-                                  circuit_origin_y,
-                                  circuit_origin_z,
-                                  amalgamation_id,
-                                  _: str = Depends(check_active_genome),
-                                  brain_region_id="root",
-                                  rewire_mode: RewiringMode = Query(default=RewiringMode.rewire_all)):
-
-    if pending_amalgamation():
-        payload = dict()
-        payload["genome_str"] = state.pending_amalgamation["genome_payload"]
-        payload["circuit_origin"] = [int(circuit_origin_x), int(circuit_origin_y), int(circuit_origin_z)]
-        payload["parent_brain_region"] = brain_region_id
-        payload["rewire_mode"] = rewire_mode.value
-        data = {'append_circuit': payload}
-        logger.info(data)
-        api_queue.put(item=data)
-        genome_title = state.pending_amalgamation["genome_title"]
-
-        cancel_pending_amalgamation(amalgamation_id=amalgamation_id)
-        state.amalgamation_history["amalgamation_id"] = "complete"
+async def amalgamation_conclusion(
+    circuit_origin_x,
+    circuit_origin_y,
+    circuit_origin_z,
+    amalgamation_id,
+    core_api_service: CoreAPIService = Depends(get_core_api_service),
+    _: str = Depends(check_active_genome),
+    brain_region_id="root",
+    rewire_mode: RewiringMode = Query(default=RewiringMode.rewire_all)
+):
+    """
+    Complete the amalgamation process by placing the circuit at the specified coordinates.
+    
+    Args:
+        circuit_origin_x: X coordinate for circuit placement
+        circuit_origin_y: Y coordinate for circuit placement
+        circuit_origin_z: Z coordinate for circuit placement
+        amalgamation_id: ID of the pending amalgamation
+        brain_region_id: ID of the target brain region
+        rewire_mode: Mode for rewiring the circuit
+    """
+    # Get the state manager for access to pending amalgamation data
+    state_manager = FeagiStateManager.instance()
+    
+    # Check if there's a pending amalgamation
+    if not state_manager.pending_amalgamation or not state_manager.pending_amalgamation.get("initiation_time"):
+        raise HTTPException(status_code=400, detail="No pending amalgamation request found")
+    
+    # Use CoreAPIService to complete the amalgamation
+    result = core_api_service.complete_amalgamation(
+        amalgamation_id=amalgamation_id,
+        circuit_origin=[int(circuit_origin_x), int(circuit_origin_y), int(circuit_origin_z)],
+        brain_region_id=brain_region_id,
+        rewire_mode=rewire_mode.value
+    )
+    
+    if result:
+        genome_title = state_manager.pending_amalgamation.get("genome_title", "Unknown")
         return f"Amalgamation for \"{genome_title}\" is complete."
     else:
-        raise HTTPException(status_code=400, detail="No pending amalgamation request found")
+        raise HTTPException(status_code=500, detail="Failed to complete amalgamation")
 
 
 @router.get("/amalgamation")
-async def circuit_library(amalgamation_id):
-    if amalgamation_id in state.amalgamation_history:
-        return state.amalgamation_history[amalgamation_id]
-    else:
-        raise HTTPException(status_code=400, detail="No matching amalgamation found")
+async def get_amalgamation(
+    amalgamation_id: str,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get the status of a specific amalgamation by ID.
+    
+    Args:
+        amalgamation_id: ID of the amalgamation to retrieve
+        
+    Returns:
+        Status of the amalgamation
+    """
+    status = core_api_service.get_amalgamation_status(amalgamation_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Amalgamation with ID {amalgamation_id} not found")
+    return status
 
 
 @router.delete("/amalgamation_cancellation")
-async def cancel_amalgamation_request(amalgamation_id):
-    cancel_pending_amalgamation(amalgamation_id)
+async def cancel_amalgamation_request(
+    amalgamation_id: str,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Cancel a pending amalgamation request.
+    
+    Args:
+        amalgamation_id: ID of the amalgamation to cancel
+    """
+    success = core_api_service.cancel_amalgamation(amalgamation_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Amalgamation with ID {amalgamation_id} not found or could not be canceled")
+    return {"status": "success", "message": f"Amalgamation {amalgamation_id} canceled successfully"}
 
 
 @router.get("/circuits")

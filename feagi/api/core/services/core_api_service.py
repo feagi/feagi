@@ -20,6 +20,7 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.core.state_manager import ServiceState
 from feagi.core.genome_transaction import GenomeTransaction
 from feagi.core.state_manager import GenomeState
+from feagi.bdu.connectivity import synaptogenesis_rules
 try:
     # Try to import these from the new location
     from feagi.evo.genome_validator import genome_validator
@@ -331,7 +332,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Failed to create cortical area: {str(e)}")
             return None
-        
+    
     def update_cortical_area(
         self,
         area_id: str,
@@ -409,7 +410,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error updating cortical area {area_id}: {str(e)}")
             return None
-        
+    
     def delete_cortical_area(self, area_id: str) -> bool:
         """
         Delete a cortical area.
@@ -465,7 +466,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error deleting cortical area {area_id}: {str(e)}")
             return False
-        
+    
     def get_cortical_area_neurons(self, area_id: str) -> Optional[List[Dict[str, Any]]]:
         """
         Get neurons for a specific cortical area.
@@ -527,7 +528,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error retrieving neurons for cortical area {area_id}: {str(e)}")
             return None
-        
+    
     def get_cortical_area_activity(self, area_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
         """
         Get activity data for a specific cortical area.
@@ -593,7 +594,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error retrieving activity for cortical area {area_id}: {str(e)}")
             return None
-        
+    
     def get_cortical_area_connectivity(self, area_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
         """
         Get connectivity information for a specific cortical area.
@@ -673,7 +674,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error retrieving connectivity for cortical area {area_id}: {str(e)}")
             return None
-        
+    
     def stimulate_cortical_area(self, area_id: str, pattern: Dict[str, Any]) -> bool:
         """
         Stimulate a cortical area with a specific pattern.
@@ -764,7 +765,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error stimulating cortical area {area_id}: {str(e)}")
             return False
-        
+    
     # Simulation control methods
     
     def start_simulation(self) -> bool:
@@ -1155,43 +1156,52 @@ class CoreAPIService:
         """
         return len(self._pending_amalgamation) > 0
     
-    def initiate_amalgamation(
-        self,
-        amalgamation_id: str,
-        genome_id: str,
-        genome_title: str,
-        genome_payload: Dict[str, Any]
-    ) -> bool:
+    def initiate_amalgamation(self, amalgamation_id: str, genome_id: str, genome_title: str, genome_payload: dict) -> bool:
         """
-        Initiate an amalgamation with a genome payload.
+        Initialize an amalgamation process with the given parameters.
+        
+        This method maintains integration with the state manager while providing a service layer.
         
         Args:
-            amalgamation_id: ID for the amalgamation.
-            genome_id: ID of the genome.
-            genome_title: Title of the genome.
-            genome_payload: The genome data.
-            
+            amalgamation_id: Unique identifier for this amalgamation
+            genome_id: ID of the genome being amalgamated
+            genome_title: Title of the genome being amalgamated
+            genome_payload: The genome data payload
+        
         Returns:
-            True if successful, False otherwise.
+            bool: True if amalgamation was successfully initiated, False otherwise
         """
         try:
-            # Add the amalgamation to pending
-            self._pending_amalgamation[amalgamation_id] = {
-                "id": amalgamation_id,
-                "status": "pending",
-                "genome_id": genome_id,
-                "genome_title": genome_title,
-                "payload": genome_payload
-            }
+            state_manager = self.get_state_manager()
             
-            # Save the amalgamation genome to a file
-            amal_path = os.path.join(self._temp_dir, f"amalgamation_{amalgamation_id}.json")
-            with open(amal_path, 'w') as f:
-                json.dump(genome_payload, f, indent=2)
+            # Check if there's already a pending amalgamation
+            if state_manager.pending_amalgamation and state_manager.pending_amalgamation.get("initiation_time"):
+                self.logger.warning(f"An existing amalgamation attempt is already pending")
+                return False
                 
+            # Process the genome payload if needed
+            from feagi.evo.genome_processor import genome_2_1_convertor
+            processed_genome = genome_2_1_convertor(genome_payload["blueprint"])
+            
+            # Calculate circuit size
+            from feagi.api.rest.routers.v1.genome import circuit_size
+            circuit_dimensions = circuit_size(blueprint=processed_genome["blueprint"])
+            
+            # Store amalgamation data in state manager
+            state_manager.pending_amalgamation["genome_id"] = genome_id
+            state_manager.pending_amalgamation["genome_title"] = genome_title
+            state_manager.pending_amalgamation["genome_payload"] = genome_payload
+            state_manager.pending_amalgamation["initiation_time"] = time.time()
+            state_manager.pending_amalgamation["amalgamation_id"] = amalgamation_id
+            state_manager.pending_amalgamation["circuit_size"] = circuit_dimensions
+            
+            # Update amalgamation history
+            state_manager.amalgamation_history[amalgamation_id] = "pending"
+            
+            self.logger.info(f"Amalgamation initiated with ID: {amalgamation_id}", emoji1="🧬")
             return True
         except Exception as e:
-            self.logger.error(f"Error initiating amalgamation: {str(e)}")
+            self.logger.error(f"Failed to initiate amalgamation: {str(e)}", emoji1="❌")
             return False
     
     def initiate_amalgamation_by_filename(
@@ -1234,12 +1244,64 @@ class CoreAPIService:
     
     def get_amalgamation_history(self) -> Dict[str, str]:
         """
-        Get the amalgamation history.
+        Get the complete amalgamation history.
         
         Returns:
-            Dictionary of amalgamation IDs to their statuses.
+            Dict mapping amalgamation IDs to their statuses
         """
-        return self._amalgamation_history
+        try:
+            state_manager = self.get_state_manager()
+            return state_manager.amalgamation_history
+        except Exception as e:
+            self.logger.error(f"Error retrieving amalgamation history: {str(e)}", emoji1="❌")
+            return {}
+    
+    def get_amalgamation_status(self, amalgamation_id: str) -> Optional[str]:
+        """
+        Get the status of a specific amalgamation.
+        
+        Args:
+            amalgamation_id: ID of the amalgamation to check
+            
+        Returns:
+            Status string or None if not found
+        """
+        try:
+            state_manager = self.get_state_manager()
+            if amalgamation_id in state_manager.amalgamation_history:
+                return state_manager.amalgamation_history[amalgamation_id]
+            return None
+        except Exception as e:
+            self.logger.error(f"Error retrieving amalgamation status: {str(e)}", emoji1="❌")
+            return None
+    
+    def cancel_amalgamation(self, amalgamation_id: str) -> bool:
+        """
+        Cancel a pending amalgamation.
+        
+        Args:
+            amalgamation_id: ID of the amalgamation to cancel
+            
+        Returns:
+            True if successfully canceled, False otherwise
+        """
+        try:
+            state_manager = self.get_state_manager()
+            
+            # Update the amalgamation history
+            if amalgamation_id in state_manager.amalgamation_history:
+                state_manager.amalgamation_history[amalgamation_id] = "canceled"
+            
+            # Clear pending amalgamation if it matches the ID
+            if (state_manager.pending_amalgamation and 
+                state_manager.pending_amalgamation.get("amalgamation_id") == amalgamation_id):
+                state_manager.pending_amalgamation.clear()
+            
+            self.logger.info(f"Amalgamation {amalgamation_id} canceled", emoji1="🚫")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error canceling amalgamation: {str(e)}", emoji1="❌")
+            return False
     
     def get_cortical_templates(self) -> Dict[str, Any]:
         """
@@ -1267,49 +1329,63 @@ class CoreAPIService:
         }
     
     def complete_amalgamation(
-        self,
-        amalgamation_id: str,
-        circuit_origin: Tuple[int, int, int],
-        brain_region_id: str,
-        rewire_mode: str
+        self, 
+        amalgamation_id: str, 
+        circuit_origin: List[int], 
+        brain_region_id: str = "root", 
+        rewire_mode: str = "all"
     ) -> bool:
         """
-        Complete an amalgamation.
+        Complete an amalgamation by applying the circuit to the specified location.
+        
+        This method maintains tight integration with the state manager while providing
+        a service layer for the API.
         
         Args:
-            amalgamation_id: ID of the amalgamation.
-            circuit_origin: Tuple of (x, y, z) coordinates for the circuit origin.
-            brain_region_id: ID of the brain region.
-            rewire_mode: Mode for rewiring connections.
+            amalgamation_id: ID of the pending amalgamation
+            circuit_origin: [x, y, z] coordinates for circuit placement
+            brain_region_id: ID of the target brain region
+            rewire_mode: Mode for rewiring the circuit ("all", "system", or "none")
             
         Returns:
-            True if successful, False otherwise.
+            bool: True if amalgamation was successfully completed, False otherwise
         """
         try:
-            # Check if the amalgamation exists
-            if amalgamation_id not in self._pending_amalgamation:
-                self.logger.error(f"Amalgamation not found: {amalgamation_id}")
+            # Get the state manager
+            state_manager = self.get_state_manager()
+            
+            # Verify there's a pending amalgamation with matching ID
+            if (not state_manager.pending_amalgamation or 
+                not state_manager.pending_amalgamation.get("initiation_time") or
+                state_manager.pending_amalgamation.get("amalgamation_id") != amalgamation_id):
+                self.logger.warning(f"No matching pending amalgamation found for ID: {amalgamation_id}")
                 return False
-                
-            # Get the amalgamation data
-            amalgamation = self._pending_amalgamation[amalgamation_id]
-            genome_payload = amalgamation["payload"]
             
-            # Apply the amalgamation to the current genome
-            # This would be a complex process in a real implementation
-            # For now, we'll just update the amalgamation status
-            self._amalgamation_history[amalgamation_id] = "completed"
+            # Prepare the payload for processing
+            payload = {
+                "genome_str": state_manager.pending_amalgamation["genome_payload"],
+                "circuit_origin": circuit_origin,
+                "parent_brain_region": brain_region_id,
+                "rewire_mode": rewire_mode
+            }
             
-            # Remove from pending
-            del self._pending_amalgamation[amalgamation_id]
+            # Process the amalgamation through the appropriate channel
+            # In this case, we'll use the API queue mechanism that's already in place
+            # This maintains compatibility with existing systems
+            from feagi.api.rest.routers.v1.genome import api_queue
+            api_queue.put(item={'append_circuit': payload})
             
+            # Update amalgamation history
+            state_manager.amalgamation_history[amalgamation_id] = "complete"
+            
+            # Cancel the pending amalgamation
+            from feagi.api.rest.routers.v1.genome import cancel_pending_amalgamation
+            cancel_pending_amalgamation(amalgamation_id)
+            
+            self.logger.info(f"Amalgamation completed successfully with ID: {amalgamation_id}", emoji1="✅")
             return True
         except Exception as e:
-            self.logger.error(f"Error completing amalgamation: {str(e)}")
-            
-            # Update history with error
-            self._amalgamation_history[amalgamation_id] = "failed"
-            
+            self.logger.error(f"Failed to complete amalgamation: {str(e)}", emoji1="❌")
             return False
     
     def get_amalgamation_info(self, amalgamation_id: str) -> Optional[Dict[str, Any]]:
@@ -1343,33 +1419,6 @@ class CoreAPIService:
             
         # Not found
         return None
-    
-    def cancel_amalgamation(self, amalgamation_id: str) -> bool:
-        """
-        Cancel a pending amalgamation.
-        
-        Args:
-            amalgamation_id: ID of the amalgamation.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            # Check if the amalgamation exists
-            if amalgamation_id not in self._pending_amalgamation:
-                self.logger.error(f"Amalgamation not found: {amalgamation_id}")
-                return False
-                
-            # Update history
-            self._amalgamation_history[amalgamation_id] = "cancelled"
-            
-            # Remove from pending
-            del self._pending_amalgamation[amalgamation_id]
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Error cancelling amalgamation: {str(e)}")
-            return False
     
     def get_circuit_library(self) -> Dict[str, Any]:
         """
@@ -2088,4 +2137,527 @@ class CoreAPIService:
             return []
         except Exception as e:
             self.logger.error(f"Error getting cortical area index list: {str(e)}")
-            return [] 
+            return []
+
+    #----------------------------------------------------------------------
+    # Morphology Methods (Connectivity Rules)
+    #----------------------------------------------------------------------
+    
+    def get_morphology_list(self) -> List[str]:
+        """
+        Get list of all neuron morphologies (connectivity rules).
+        
+        Note: "Morphology" is the legacy term for connectivity rules in v1 API.
+        
+        Returns:
+            List of morphology names
+        """
+        if not self.genome_is_loaded():
+            return []
+            
+        morphology_names = set()
+        try:
+            for morphology in self._current_genome.get('neuron_morphologies', {}):
+                morphology_names.add(morphology)
+            return sorted(morphology_names)
+        except Exception as e:
+            self.logger.error(f"Error retrieving morphology list: {str(e)}")
+            return []
+    
+    def get_morphology_properties(self, morphology_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get properties of a specific neuron morphology (connectivity rule).
+        
+        Note: "Morphology" is the legacy term for connectivity rules in v1 API.
+        
+        Args:
+            morphology_name: Name of the morphology/connectivity rule
+            
+        Returns:
+            Dictionary containing morphology properties or None if not found
+        """
+        if not self.genome_is_loaded():
+            return None
+            
+        try:
+            if morphology_name in self._current_genome.get('neuron_morphologies', {}):
+                results = self._current_genome['neuron_morphologies'][morphology_name].copy()
+                results["morphology_name"] = morphology_name
+                return results
+            return None
+        except Exception as e:
+            self.logger.error(f"Error retrieving morphology properties: {str(e)}")
+            return None
+    
+    def get_morphology_usage(self, morphology_name: str) -> List[Tuple[str, str]]:
+        """
+        Get list of cortical areas where a specific morphology/connectivity rule is used.
+        
+        Note: "Morphology" is the legacy term for connectivity rules in v1 API.
+        
+        Args:
+            morphology_name: Name of the morphology/connectivity rule to check
+            
+        Returns:
+            List of tuples containing (source_area, target_area) where the morphology is used
+        """
+        if not self.genome_is_loaded():
+            return []
+            
+        try:
+            usage_list = set()
+            for cortical_area in self._current_genome.get('blueprint', {}):
+                for destination in self._current_genome['blueprint'][cortical_area].get('cortical_mapping_dst', {}):
+                    for mapping in self._current_genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
+                        if mapping.get("morphology_id") == morphology_name:
+                            usage_list.add((cortical_area, destination))
+            return list(usage_list)
+        except Exception as e:
+            self.logger.error(f"Error retrieving morphology usage: {str(e)}")
+            return []
+    
+    def update_morphology(self, name: str, morphology_type: str, parameters: Dict[str, Any]) -> bool:
+        """
+        Update an existing neuron morphology (connectivity rule).
+        
+        Note: "Morphology" is the legacy term for connectivity rules in v1 API.
+        
+        Args:
+            name: Name of the morphology/connectivity rule to update
+            morphology_type: Type of the rule (vectors, patterns, composite, functions)
+            parameters: Rule-specific parameters
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.genome_is_loaded():
+            return False
+            
+        try:
+            if name not in self._current_genome.get('neuron_morphologies', {}):
+                self.logger.warning(f"Morphology {name} not found")
+                return False
+                
+            current_class = self._current_genome['neuron_morphologies'][name].get("class")
+            if current_class == "core":
+                self.logger.warning(f"Morphology {name} is a core morphology and cannot be modified")
+                return False
+                
+            # Update the morphology
+            self._current_genome['neuron_morphologies'][name]["type"] = morphology_type
+            self._current_genome['neuron_morphologies'][name]["parameters"] = parameters
+            
+            # Notify any listeners about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating morphology: {str(e)}")
+            return False
+    
+    def add_morphology(self, name: str, morphology_type: str, parameters: Dict[str, Any]) -> bool:
+        """
+        Add a new neuron morphology (connectivity rule).
+        
+        Note: "Morphology" is the legacy term for connectivity rules in v1 API.
+        
+        Args:
+            name: Name of the morphology/connectivity rule to add
+            morphology_type: Type of the rule (vectors, patterns, composite, functions)
+            parameters: Rule-specific parameters
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.genome_is_loaded():
+            return False
+            
+        try:
+            if name in self._current_genome.get('neuron_morphologies', {}):
+                self.logger.warning(f"Morphology {name} already exists")
+                return False
+                
+            # Make sure neuron_morphologies exists
+            if 'neuron_morphologies' not in self._current_genome:
+                self._current_genome['neuron_morphologies'] = {}
+                
+            # Add the morphology
+            self._current_genome['neuron_morphologies'][name] = {
+                "type": morphology_type,
+                "class": "custom",
+                "parameters": parameters
+            }
+            
+            # Notify any listeners about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error adding morphology: {str(e)}")
+            return False
+    
+    def delete_morphology(self, name: str) -> bool:
+        """
+        Delete a neuron morphology (connectivity rule).
+        
+        Note: "Morphology" is the legacy term for connectivity rules in v1 API.
+        
+        Args:
+            name: Name of the morphology/connectivity rule to delete
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.genome_is_loaded():
+            return False
+            
+        try:
+            if name not in self._current_genome.get('neuron_morphologies', {}):
+                self.logger.warning(f"Morphology {name} not found")
+                return False
+                
+            morphology = self._current_genome['neuron_morphologies'][name]
+            if morphology.get("class") == "core":
+                self.logger.warning(f"Morphology {name} is a core morphology and cannot be deleted")
+                return False
+                
+            # Check if morphology is in use
+            usage = self.get_morphology_usage(name)
+            if usage:
+                self.logger.warning(f"Morphology {name} is in use and cannot be deleted")
+                return False
+                
+            # Delete the morphology
+            del self._current_genome['neuron_morphologies'][name]
+            
+            # Notify any listeners about genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deleting morphology: {str(e)}")
+            return False
+    
+    def get_morphology_functions(self) -> List[str]:
+        """
+        Get list of available morphology functions (connectivity rule functions).
+        
+        Note: "Morphology" is the legacy term for connectivity rules in v1 API.
+        
+        Returns:
+            List of morphology function names
+        """
+        try:
+            morphology_list = set()
+            for entry in dir(synaptogenesis_rules):
+                if str(entry).startswith("syn_"):
+                    morphology_list.add(str(entry))
+            return list(morphology_list)
+        except Exception as e:
+            self.logger.error(f"Error retrieving morphology functions: {str(e)}")
+            return []
+    
+    def get_burst_counter(self) -> Optional[int]:
+        """
+        Get the current burst counter value.
+        
+        Returns:
+            The current burst counter value or None if not available
+        """
+        try:
+            burst_engine = self.get_burst_engine()
+            if burst_engine:
+                return burst_engine.get_burst_counter()
+            return None
+        except Exception as e:
+            self.logger.error(f"Error retrieving burst counter: {str(e)}", emoji1="❌")
+            return None
+    
+    def get_fcl_sampler_config(self) -> Dict[str, Any]:
+        """
+        Get the FCL sampler configuration.
+        
+        Returns:
+            Dictionary with frequency and consumer settings
+        """
+        try:
+            state_manager = self.get_state_manager()
+            return {
+                "frequency": state_manager.get_fcl_sampler_frequency(),
+                "consumer": state_manager.get_fcl_sampler_consumer()
+            }
+        except Exception as e:
+            self.logger.error(f"Error retrieving FCL sampler config: {str(e)}", emoji1="❌")
+            return {"frequency": 0.0, "consumer": 0}
+    
+    def update_fcl_sampler_config(self, frequency: float, consumer: int) -> bool:
+        """
+        Update the FCL sampler configuration.
+        
+        Args:
+            frequency: The sampling frequency
+            consumer: The consumer type (0=Visualization, 1=Motor)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            state_manager = self.get_state_manager()
+            state_manager.set_fcl_sampler_frequency(frequency)
+            state_manager.set_fcl_sampler_consumer(consumer)
+            
+            # TODO: Notify process manager/FCLSampler to update live config if running
+            
+            self.logger.info(f"FCL sampler config updated: frequency={frequency}, consumer={consumer}", emoji1="⚙️")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating FCL sampler config: {str(e)}", emoji1="❌")
+            return False
+    
+    def get_transforming_areas(self) -> Dict[str, Any]:
+        """
+        Get a dictionary of transforming cortical areas.
+        
+        Transforming areas are those undergoing neuroplastic changes.
+        
+        Returns:
+            Dictionary mapping area IDs to their transformation details
+        """
+        try:
+            # First check if the connectome manager has a transforming_areas attribute
+            if hasattr(self._connectome_manager, 'transforming_areas'):
+                return self._connectome_manager.transforming_areas
+                
+            # Otherwise get it from the state manager
+            state_manager = self.get_state_manager()
+            return getattr(state_manager, 'transforming_areas', {})
+        except Exception as e:
+            self.logger.error(f"Error retrieving transforming areas: {str(e)}", emoji1="❌")
+            return {}
+    
+    def get_plasticity_info(self) -> Dict[str, Any]:
+        """
+        Get neuroplasticity information for the connectome.
+        
+        Returns:
+            Dictionary containing plasticity information
+        """
+        try:
+            # First check if the connectome manager has a plasticity_dict attribute
+            if hasattr(self._connectome_manager, 'plasticity_dict'):
+                return self._connectome_manager.plasticity_dict
+                
+            # Otherwise get it from the state manager
+            state_manager = self.get_state_manager()
+            return getattr(state_manager, 'plasticity_dict', {})
+        except Exception as e:
+            self.logger.error(f"Error retrieving plasticity information: {str(e)}", emoji1="❌")
+            return {}
+    
+    def get_connectome_dimensions(self) -> List[int]:
+        """
+        Get the overall dimensions of the connectome.
+        
+        Returns:
+            List of three integers representing width, height, and depth
+        """
+        try:
+            # First check if the connectome manager has a cortical_dimensions attribute
+            if hasattr(self._connectome_manager, 'cortical_dimensions'):
+                return self._connectome_manager.cortical_dimensions
+                
+            # Otherwise get it from the state manager
+            state_manager = self.get_state_manager()
+            return getattr(state_manager, 'cortical_dimensions', [0, 0, 0])
+        except Exception as e:
+            self.logger.error(f"Error retrieving connectome dimensions: {str(e)}", emoji1="❌")
+            return [0, 0, 0]
+    
+    def get_cortical_area_stats(self, cortical_area: str) -> Dict[str, Any]:
+        """
+        Get cumulative statistics for a specific cortical area.
+        
+        Args:
+            cortical_area: ID of the cortical area
+            
+        Returns:
+            Dictionary containing statistics for the cortical area
+        """
+        try:
+            # First check if the connectome manager has a cumulative_stats attribute
+            if hasattr(self._connectome_manager, 'cumulative_stats'):
+                stats = self._connectome_manager.cumulative_stats
+                return stats.get(cortical_area, {})
+                
+            # Otherwise get it from the state manager
+            state_manager = self.get_state_manager()
+            stats = getattr(state_manager, 'cumulative_stats', {})
+            return stats.get(cortical_area, {})
+        except Exception as e:
+            self.logger.error(f"Error retrieving cortical area stats: {str(e)}", emoji1="❌")
+            return {}
+    
+    def save_connectome_snapshot(self, path: str) -> bool:
+        """
+        Save a snapshot of the current connectome to the specified path.
+        
+        Args:
+            path: Path to save the snapshot
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Create a serializable representation of the connectome
+            snapshot = {
+                "timestamp": datetime.now().isoformat(),
+                "cortical_areas": self.get_cortical_areas(),
+                "dimensions": self.get_connectome_dimensions(),
+                "stats": {
+                    "neuron_count": len(self._connectome_manager.neurons),
+                    "synapse_count": self._connectome_manager.synapse_count()
+                }
+            }
+            
+            # Save to file
+            import json
+            import os
+            
+            # Make sure the directory exists
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            
+            with open(path, 'w') as f:
+                json.dump(snapshot, f, indent=2)
+                
+            self.logger.info(f"Connectome snapshot saved to {path}", emoji1="💾")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error saving connectome snapshot: {str(e)}", emoji1="❌")
+            return False
+    
+    def import_cortical_area(self, cortical_area_data: Dict[str, Any]) -> bool:
+        """
+        Import a cortical area from serialized data.
+        
+        Args:
+            cortical_area_data: Dictionary containing cortical area data
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Extract the area ID
+            area_id = cortical_area_data.get("id")
+            if not area_id:
+                self.logger.error("Cortical area data missing ID field")
+                return False
+                
+            # Extract the dimensions and position
+            try:
+                dimensions = (
+                    cortical_area_data["dimensions"]["width"],
+                    cortical_area_data["dimensions"]["height"],
+                    cortical_area_data["dimensions"]["depth"]
+                )
+                position = (
+                    cortical_area_data["coordinates"]["x"],
+                    cortical_area_data["coordinates"]["y"],
+                    cortical_area_data["coordinates"]["z"]
+                )
+            except KeyError:
+                self.logger.error("Cortical area data missing required dimension or position fields")
+                return False
+                
+            # Create the area
+            self._connectome_manager.add_cortical_area(
+                area_id=int(area_id) if area_id.isdigit() else area_id,
+                name=cortical_area_data.get("name", f"Imported Area {area_id}"),
+                area_type=cortical_area_data.get("type", "generic"),
+                dimensions=dimensions,
+                position=position,
+                properties=cortical_area_data.get("parameters", {})
+            )
+            
+            # TODO: Import neurons and synapses
+            
+            self.logger.info(f"Imported cortical area {area_id}", emoji1="📥")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error importing cortical area: {str(e)}", emoji1="❌")
+            return False
+    
+    def update_cortical_area_properties(
+        self, 
+        cortical_id: str, 
+        properties: Dict[str, Any]
+    ) -> bool:
+        """
+        Update properties of a cortical area.
+        
+        Args:
+            cortical_id: ID of the cortical area to update
+            properties: Dictionary of properties to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Verify the cortical area exists
+            if not self._connectome_manager.genome or cortical_id not in self._connectome_manager.genome.get("blueprint", {}):
+                self.logger.warning(f"Cortical area {cortical_id} not found")
+                return False
+                
+            # Check if the area is currently transforming
+            if hasattr(self._connectome_manager, 'transforming_areas') and cortical_id in self._connectome_manager.transforming_areas:
+                self.logger.warning(f"Cortical area {cortical_id} is currently undergoing transformation")
+                return False
+                
+            # Handle special case for parent region ID
+            if "parent_region_id" in properties and properties["parent_region_id"]:
+                try:
+                    from feagi.bdu.models.brain_region import change_cortical_area_parent
+                    change_cortical_area_parent(
+                        cortical_area_id=cortical_id, 
+                        new_parent_id=properties["parent_region_id"], 
+                        connectome=self._connectome_manager
+                    )
+                except Exception as e:
+                    self.logger.error(f"Error changing parent region: {str(e)}")
+                    return False
+                    
+            # Handle neuron count validation
+            current_dims = self._connectome_manager.genome["blueprint"][cortical_id]["block_boundaries"]
+            current_density = self._connectome_manager.genome["blueprint"][cortical_id]["per_voxel_neuron_cnt"]
+            
+            updated_dims = properties.get("cortical_dimensions", current_dims)
+            updated_density = properties.get("cortical_neuron_per_vox_count", current_density)
+            
+            current_size = current_dims[0] * current_dims[1] * current_dims[2]
+            updated_size = updated_dims[0] * updated_dims[1] * updated_dims[2]
+            
+            current_neuron_count = current_size * current_density
+            updated_neuron_count = updated_size * updated_density
+            
+            # Check if we would exceed maximum neuron count
+            max_neuron_count = int(self._connectome_manager.parameters.get("Limits", {}).get("max_neuron_count", 1000000))
+            if self._connectome_manager.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > max_neuron_count:
+                self.logger.warning(f"Cannot update cortical area as neuron count would exceed {max_neuron_count} threshold")
+                return False
+                
+            # Submit update to message queue for processing
+            message = {'update_cortical_properties': {
+                'cortical_id': cortical_id,
+                **properties
+            }}
+            
+            from feagi.api.rest.commons import api_queue
+            api_queue.put(item=message)
+            
+            self.logger.info(f"Cortical area {cortical_id} update request submitted", emoji1="🧠")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating cortical area properties: {str(e)}", emoji1="❌")
+            return False

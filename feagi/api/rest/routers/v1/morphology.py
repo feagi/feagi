@@ -15,7 +15,7 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from feagi.utils.logger import setup_logger
@@ -23,13 +23,12 @@ logger = setup_logger()
 
 from ...commons import *
 from ...schemas import *
-
+from feagi.api.rest.dependencies import get_core_api
+from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.bdu.connectivity import synaptogenesis_rules
-from feagi.bdu import ConnectomeManager
 
 
 router = APIRouter()
-
 
 
 # MorphologyName model for endpoints
@@ -44,158 +43,183 @@ class MorphologyInput(BaseModel):
     morphology_parameters: dict
 
 
-def morphology_usage_list(morphology_name, genome):
-    """
-    Returns a list of (cortical_area, destination) tuples where the given morphology is used in the connectome.
-    """
-    usage_list = set()
-    for cortical_area in genome['blueprint']:
-        for destination in genome['blueprint'][cortical_area].get('cortical_mapping_dst', {}):
-            for mapping in genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
-                if mapping.get("morphology_id") == morphology_name:
-                    usage_list.add((cortical_area, destination))
-    return list(usage_list)
-
-
 @router.get("/morphology_list")
-async def genome_neuron_morphologies():
+async def genome_neuron_morphologies(core_api: CoreAPIService = Depends(get_core_api)):
     """
     Returns a comprehensive list of all neuron morphologies.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
-    morphology_names = set()
-
-    for morphology in connectome.get_genome()['neuron_morphologies']:
-        morphology_names.add(morphology)
-    return sorted(morphology_names)
+    return core_api.get_morphology_list()
 
 
 @router.get("/morphology_types")
 async def genome_neuron_morphology_types():
     """
     Returns the properties of a neuron morphology.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
     return {"vectors", "patterns", "composite", "functions"}
 
 
 @router.get("/list/types")
-async def genome_neuron_morphology_type_list():
+async def genome_neuron_morphology_type_list(core_api: CoreAPIService = Depends(get_core_api)):
     """
     Returns the properties of a neuron morphology.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
     report = {}
-    for morphology in connectome.get_genome()["neuron_morphologies"]:
-        if morphology not in report:
-            report[morphology] = connectome.get_genome()["neuron_morphologies"][morphology]["type"]
+    for morphology in core_api.get_morphology_list():
+        props = core_api.get_morphology_properties(morphology)
+        if props:
+            report[morphology] = props.get("type")
     return report
 
 
 @router.get("/morphology_functions")
-async def genome_neuron_morphology_functions():
+async def genome_neuron_morphology_functions(core_api: CoreAPIService = Depends(get_core_api)):
     """
     Returns the list of morphology function names.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
-    morphology_list = set()
-    for entry in dir(synaptogenesis_rules):
-        if str(entry)[:4] == "syn_":
-            morphology_list.add(str(entry))
-    return morphology_list
+    return core_api.get_morphology_functions()
 
 
 @router.post("/morphology_properties")
-async def genome_neuron_morphology_properties(morphology_name: MorphologyName):
+async def genome_neuron_morphology_properties(
+    morphology_name: MorphologyName,
+    core_api: CoreAPIService = Depends(get_core_api)
+):
     """
     Returns the properties of a neuron morphology.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
     morphology_name = morphology_name.morphology_name
-    if morphology_name in connectome.get_genome()['neuron_morphologies']:
-        results = connectome.get_genome()['neuron_morphologies'][morphology_name]
-        results["morphology_name"] = morphology_name
+    results = core_api.get_morphology_properties(morphology_name)
+    
+    if results:
         return results
     else:
         raise HTTPException(status_code=400, detail=f"Morphology named {morphology_name} not found!")
 
 
 @router.post("/morphology_usage")
-async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName):
+async def genome_neuron_morphology_usage_report(
+    morphology_name: MorphologyName,
+    core_api: CoreAPIService = Depends(get_core_api)
+):
     """
     Returns the properties of a neuron morphology.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
     morphology_name = morphology_name.morphology_name
-    if morphology_name in connectome.get_genome()["neuron_morphologies"]:
-        usage_list = morphology_usage_list(morphology_name=morphology_name, genome=connectome.get_genome())
-        if usage_list:
-            return usage_list
-        else:
-            return JSONResponse(status_code=200, content=[])
+    results = core_api.get_morphology_properties(morphology_name)
+    
+    if results:
+        usage_list = core_api.get_morphology_usage(morphology_name)
+        return usage_list
     else:
         return JSONResponse(status_code=400, content="Morphology not found")
 
 
 @router.put("/morphology")
-async def genome_update_neuron_morphology(morphology_input: MorphologyInput):
+async def genome_update_neuron_morphology(
+    morphology_input: MorphologyInput,
+    core_api: CoreAPIService = Depends(get_core_api)
+):
     """
-    Updates an exsiting morphology of non-core class
+    Updates an existing morphology of non-core class.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
-    if morphology_input.morphology_name not in connectome.get_genome()['neuron_morphologies']:
+    # First check if morphology exists
+    results = core_api.get_morphology_properties(morphology_input.morphology_name)
+    if not results:
         raise HTTPException(status_code=400, detail=f"Morphology {morphology_input.morphology_name} not found!")
-    elif connectome.get_genome()['neuron_morphologies'][morphology_input.morphology_name]["class"] == "core":
-        raise HTTPException(status_code=400, detail=f"{morphology_input.morphology_name} is a core morphology and "
-                                                    f"cannot be modified!")
-    else:
-        message = dict()
-        message["name"] = morphology_input.morphology_name
-        message["type"] = morphology_input.morphology_type
-        message["class"] = connectome.get_genome()['neuron_morphologies'][morphology_input.morphology_name]["class"]
-        message["parameters"] = morphology_input.morphology_parameters
-
-        message = {'update_morphology_properties': message}
-        logger.info("*" * 50 + "\n" + str(message))
-        api_queue.put(item=message)
+    
+    # Check if it's a core morphology
+    if results.get("class") == "core":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"{morphology_input.morphology_name} is a core morphology and cannot be modified!"
+        )
+    
+    # Update the morphology
+    success = core_api.update_morphology(
+        name=morphology_input.morphology_name,
+        morphology_type=morphology_input.morphology_type,
+        parameters=morphology_input.morphology_parameters
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update morphology")
+    
+    # Return success - maintain compatibility with old API behavior
+    return {"status": "success"}
 
 
 @router.post("/morphology")
-async def genome_add_neuron_morphology(morphology_input: MorphologyInput):
+async def genome_add_neuron_morphology(
+    morphology_input: MorphologyInput,
+    core_api: CoreAPIService = Depends(get_core_api)
+):
     """
     Create new connectivity rule aka. neuron morphology.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
-    morphology_name = morphology_input.morphology_name
-    if morphology_input.morphology_name not in connectome.get_genome()['neuron_morphologies']:
-        connectome.get_genome()['neuron_morphologies'][morphology_name] = {}
-        connectome.get_genome()['neuron_morphologies'][morphology_name]["type"] = morphology_input.morphology_type
-        connectome.get_genome()['neuron_morphologies'][morphology_name]["class"] = "custom"
-        connectome.get_genome()['neuron_morphologies'][morphology_name]["parameters"] = \
-            morphology_input.morphology_parameters
-    else:
-        pass
+    # Add the morphology
+    success = core_api.add_morphology(
+        name=morphology_input.morphology_name,
+        morphology_type=morphology_input.morphology_type,
+        parameters=morphology_input.morphology_parameters
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to add morphology or morphology already exists")
+    
+    # Return success - maintain compatibility with old API behavior
+    return {"status": "success"}
 
 
 @router.delete("/morphology")
-async def genome_delete_neuron_morphology(morphology_name: MorphologyName):
+async def genome_delete_neuron_morphology(
+    morphology_name: MorphologyName,
+    core_api: CoreAPIService = Depends(get_core_api)
+):
     """
-    Returns the properties of a neuron morphology.
+    Delete a neuron morphology.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
-    # todo: Needs to be rewritten
     morphology_name = morphology_name.morphology_name
-    if morphology_name in connectome.get_genome()['neuron_morphologies']:
-        if "class" in connectome.get_genome()['neuron_morphologies'][morphology_name]:
-            if connectome.get_genome()['neuron_morphologies'][morphology_name]["class"] == "custom":
-                usage = morphology_usage_list(morphology_name=morphology_name, genome=connectome.get_genome())
-                if not usage:
-                    connectome.get_genome()['neuron_morphologies'].pop(morphology_name)
-                else:
-                    raise HTTPException(status_code=400, detail="In use morphology cannot be deleted!")
-            elif connectome.get_genome()['neuron_morphologies'][morphology_name]["class"] == "core":
-                raise HTTPException(status_code=400, detail="Core morphology cannot be deleted!")
-        else:
-            pass
-    else:
-        raise HTTPException(status_code=400, detail=f"Morphology with name {morphology_name} not found!")
+    
+    # Delete the morphology
+    success = core_api.delete_morphology(name=morphology_name)
+    
+    if not success:
+        raise HTTPException(
+            status_code=400, 
+            detail="Failed to delete morphology. It might be in use, a core morphology, or not exist."
+        )
+    
+    # Return success - maintain compatibility with old API behavior
+    return {"status": "success"}
 
 
 @router.get("/morphologies")
-async def comprehensive_morphology_list():
+async def comprehensive_morphology_list(core_api: CoreAPIService = Depends(get_core_api)):
     """
-    Returns all morphologies and all payloads
+    Returns all morphologies and all payloads.
+    
+    Note: "Morphology" is the legacy term for connectivity rules in v1 API.
     """
-    if connectome.get_genome()['neuron_morphologies']:
-        return connectome.get_genome()['neuron_morphologies']
+    if not core_api.genome_is_loaded():
+        return {}
+        
+    return core_api.get_current_genome().get('neuron_morphologies', {})

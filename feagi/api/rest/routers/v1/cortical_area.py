@@ -40,12 +40,15 @@ router = APIRouter()
 
 
 @router.post("/cortical_area_properties")
-async def fetch_cortical_properties(cortical_id: CorticalId, core_api = Depends(get_core_api)):
+async def fetch_cortical_properties(
+    cortical_id: CorticalId, 
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
-    Returns the properties of cortical areas
+    Returns the properties of a cortical area
     """
     try:
-        return core_api.get_cortical_area_properties(cortical_id.cortical_id)
+        return core_api_service.get_cortical_area_properties(cortical_id.cortical_id)
     except ValueError:
         return generate_response("CORTICAL_AREA_INVALID_ID_LENGTH")
     except KeyError:
@@ -55,49 +58,30 @@ async def fetch_cortical_properties(cortical_id: CorticalId, core_api = Depends(
 
 
 @router.put("/cortical_area")
-async def update_cortical_properties(message: UpdateCorticalProperties, connectome: ConnectomeManager = Depends(get_connectome)):
+async def update_cortical_properties(
+    message: UpdateCorticalProperties, 
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
-    Enables changes against various Burst Engine parameters.
+    Update properties of a cortical area.
     """
-    if message.cortical_id not in connectome.genome["blueprint"]:
-        return JSONResponse(status_code=400, content={'message': f"{message.cortical_id} is not found in Genome!"})
-
-    current_cortical_size = connectome.genome["blueprint"][message.cortical_id]["block_boundaries"][0] * \
-                            connectome.genome["blueprint"][message.cortical_id]["block_boundaries"][1] * \
-                            connectome.genome["blueprint"][message.cortical_id]["block_boundaries"][2]
-    updated_cortical_size = current_cortical_size
-
-    if message.cortical_dimensions:
-        updated_cortical_size = message.cortical_dimensions[0] * \
-                            message.cortical_dimensions[1] * \
-                            message.cortical_dimensions[2]
-
-    current_neuron_density = connectome.genome["blueprint"][message.cortical_id]["per_voxel_neuron_cnt"]
-    updated_neuron_density = current_neuron_density
-
-    if message.cortical_neuron_per_vox_count:
-        updated_neuron_density = message.cortical_neuron_per_vox_count
-
-    if message.parent_region_id:
-        change_cortical_area_parent(cortical_area_id=message.cortical_id, new_parent_id=message.parent_region_id, connectome=connectome)
-
-    current_neuron_count = current_cortical_size * current_neuron_density
-    updated_neuron_count = updated_cortical_size * updated_neuron_density
-
-    max_allowable_neuron_count = int(connectome.parameters["Limits"]["max_neuron_count"])
-
-    if connectome.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
-            max_allowable_neuron_count:
-        return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
-                                                         f" exceed {max_allowable_neuron_count} threshold"})
-
-    if message.cortical_id in connectome.transforming_areas:
-        return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
-    else:
-        message = message.dict(exclude_none=True)
-        message = {'update_cortical_properties': message}
-        print("*-----* " * 200 + "\n", message)
-        api_queue.put(item=message)
+    try:
+        # Convert the Pydantic model to a dictionary, excluding None values
+        properties = message.dict(exclude_none=True)
+        cortical_id = properties.pop("cortical_id")
+        
+        # Use the CoreAPIService to update the properties
+        success = core_api_service.update_cortical_area_properties(
+            cortical_id=cortical_id,
+            properties=properties
+        )
+        
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to update cortical area properties")
+            
+        return {"status": "success", "message": f"Cortical area {cortical_id} update request submitted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating cortical area: {str(e)}")
 
 
 @router.post("/cortical_area")
@@ -166,39 +150,37 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 @router.delete("/cortical_area")
 async def delete_cortical_area(
     cortical_id: CorticalId, 
-    core_api_service = Depends(get_core_api_service)
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
 ):
     """
     Deletes a single cortical area
     """
-    cortical_id = cortical_id.cortical_id
-    
-    # Use our new transaction-based approach
-    result = core_api_service.modify_genome(
-        "delete_cortical_area", 
-        cortical_id=cortical_id
-    )
-    
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to delete cortical area")
-    
-    return {"status": "success"}
+    try:
+        # Use the CoreAPIService to delete the cortical area
+        result = core_api_service.delete_cortical_area(cortical_id.cortical_id)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Cortical area {cortical_id.cortical_id} not found or could not be deleted")
+        
+        return {"status": "success", "message": f"Cortical area {cortical_id.cortical_id} deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting cortical area: {str(e)}")
 
 
 @router.get("/cortical_area_id_list")
 async def cortical_area_id_list(
-    core_api = Depends(get_core_api)
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
 ):
     """Return the list of cortical area IDs (6-letter strings) present in the current genome"""
-    return core_api.get_cortical_area_id_list()
+    return core_api_service.get_cortical_area_id_list()
 
 
 @router.get("/cortical_area_index_list")
 async def cortical_area_index_list(
-    core_api = Depends(get_core_api)
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
 ):
     """Return the list of cortical area indices (integers) used by the FCL"""
-    return core_api.get_cortical_area_index_list()
+    return core_api_service.get_cortical_area_index_list()
 
 
 @router.post("/cortical_name_location")
@@ -222,12 +204,11 @@ async def genome_cortical_names(connectome: ConnectomeManager = Depends(get_conn
 
 
 @router.get("/cortical_types")
-async def cortical_area_types(connectome: ConnectomeManager = Depends(get_connectome)):
+async def cortical_area_types(core_api_service: CoreAPIService = Depends(get_core_api_service)):
     """
     Returns the list of supported cortical types
     """
-    if connectome.cortical_defaults:
-        return connectome.cortical_defaults
+    return core_api_service.get_cortical_area_types()
 
 
 @router.post("/cortical_type_options")
