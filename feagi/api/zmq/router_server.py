@@ -19,6 +19,9 @@ from feagi.api.zmq.message_handlers import MessageHandler, start_message_handler
 from feagi.api.protocols.translator import ByteStructureTranslator
 from feagi.api.protocols.constants import ProtocolID, FCPCommandType
 
+# Import the utility function for converting raw data to neuron data
+from feagi_bytes.utils import convert_raw_to_neuron_data
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -262,12 +265,120 @@ class ZMQRouterServer:
         Returns:
             Response data if a response is needed, otherwise None
         """
-        logger.info(f"Processing FSMP message from {agent_id}")
-        
-        # Handle specific FSMP message types here
-        # For now, just log and return None (no response)
-        
-        return None
+        try:
+            # Log detailed message info
+            message_type = message.get("message_type", "unknown")
+            logger.info(f"Processing FSMP {message_type} message from agent '{agent_id}'")
+            
+            if message_type == "sensory":
+                # Handle sensory data
+                channel_id = message.get("channel_id")
+                
+                # Check if data is present
+                if "data" in message:
+                    data = message.get("data")
+                    data_type = type(data).__name__
+                    data_size = len(data) if isinstance(data, (bytes, list, tuple)) else "unknown"
+                    
+                    # Log detailed information about the received data
+                    logger.info(f"Received sensory data from agent '{agent_id}': "
+                              f"channel={channel_id}, type={data_type}, size={data_size}")
+                    
+                    # For numeric data, log statistics if possible
+                    if isinstance(data, list) and all(isinstance(x, (int, float)) for x in data):
+                        # Calculate some basic statistics
+                        data_min = min(data)
+                        data_max = max(data)
+                        data_avg = sum(data) / len(data)
+                        logger.info(f"Sensory data statistics: min={data_min:.2f}, max={data_max:.2f}, avg={data_avg:.2f}")
+                        
+                        # Convert to neuron data format (array type)
+                        neuron_data = convert_raw_to_neuron_data(
+                            data=data,
+                            data_type="array",
+                            cortical_area_id=f"CH{channel_id}"
+                        )
+                    
+                    # For binary data, log the first few bytes
+                    elif isinstance(data, bytes) and len(data) > 0:
+                        preview = " ".join([f"{b:02x}" for b in data[:16]])
+                        logger.info(f"Sensory data preview: {preview}...")
+                        
+                        # Try to determine if this is image data
+                        # Here we're assuming it's image data with standard dimensions
+                        # In a real implementation, the client would provide this metadata
+                        if data_size in [28*28, 64*64, 64*64*3, 128*128, 128*128*3]:
+                            # Guess dimensions and channels
+                            if data_size == 28*28:
+                                dimensions = (28, 28)
+                                channels = 1
+                            elif data_size == 64*64:
+                                dimensions = (64, 64)
+                                channels = 1
+                            elif data_size == 64*64*3:
+                                dimensions = (64, 64)
+                                channels = 3
+                            elif data_size == 128*128:
+                                dimensions = (128, 128)
+                                channels = 1
+                            else:
+                                dimensions = (128, 128)
+                                channels = 3
+                                
+                            logger.info(f"Treating binary data as image with dimensions {dimensions} and {channels} channels")
+                            
+                            # Convert to neuron data format (image type)
+                            neuron_data = convert_raw_to_neuron_data(
+                                data=data,
+                                data_type="image",
+                                dimensions=dimensions,
+                                channels=channels,
+                                cortical_area_id=f"CH{channel_id}"
+                            )
+                        else:
+                            # Treat as unknown binary data
+                            logger.warning(f"Unknown binary data format with size {data_size}, not converting to neuron data")
+                            return None
+                    
+                    # For other data types
+                    else:
+                        logger.warning(f"Unsupported data type: {data_type}, not converting to neuron data")
+                        return None
+                    
+                    # Log the neuron data conversion result
+                    for area_id, area_data in neuron_data.items():
+                        num_neurons = len(area_data["x"])
+                        if num_neurons > 0:
+                            pot_min = min(area_data["potentials"]) if area_data["potentials"] else 0
+                            pot_max = max(area_data["potentials"]) if area_data["potentials"] else 0
+                            pot_avg = sum(area_data["potentials"]) / len(area_data["potentials"]) if area_data["potentials"] else 0
+                            
+                            logger.info(f"Converted to {num_neurons} neurons in area {area_id}: "
+                                      f"potential min={pot_min:.2f}, max={pot_max:.2f}, avg={pot_avg:.2f}")
+                    
+                    # TODO: Forward this neuron data to the appropriate processing module
+                    # In a real implementation, you would pass this to the FEAGI core
+                    
+                    # No response needed for sensory data
+                    return None
+                
+                else:
+                    logger.warning(f"Received sensory message without data from agent '{agent_id}'")
+            
+            elif message_type == "motor":
+                # Handle motor data request (client requesting motor output)
+                logger.info(f"Received motor data request from agent '{agent_id}'")
+                # TODO: Implement motor data handling
+                
+            else:
+                logger.warning(f"Unknown FSMP message type: {message_type} from agent '{agent_id}'")
+            
+            # No response needed
+            return None
+            
+        except Exception as e:
+            logger.exception(f"Error processing FSMP message from {agent_id}: {e}")
+            return None
     
     async def _process_fvp_message(self, agent_id: str, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """

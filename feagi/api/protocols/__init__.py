@@ -23,7 +23,18 @@ and its clients using specialized byte structures optimized for neural data.
 
 # Import protocol definitions and constants
 from feagi.api.protocols.constants import ProtocolID, ByteStructureID
-from feagi.api.protocols.translator import ByteStructureTranslator
 
-# Initialize the default translator instance for convenience
-default_translator = ByteStructureTranslator() 
+# Import from the PyPI feagi_bytes package
+from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
+
+# Re-export for backward compatibility
+from feagi.api.protocols.translator import default_translator
+
+__all__ = [
+    'ProtocolID',
+    'ByteStructureID',
+    'ByteStructureEncoder',
+    'ByteStructureDecoder',
+    'ByteStructureTranslator',
+    'default_translator',
+] 

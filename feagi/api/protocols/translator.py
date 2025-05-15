@@ -15,10 +15,11 @@
 # ==============================================================================
 
 """
-FEAGI Protocol Translator for Byte Structures
+Protocol Translator Module for FEAGI
 
-This module provides a translator between FEAGI's internal data structures
-and the binary byte structure format used for efficient communication.
+This module provides the translators for converting between FEAGI's
+internal data structures and the binary wire formats used for communication
+with clients.
 
 This implementation replaces the previous Cap'n Proto implementation
 with a more optimized custom binary format designed specifically for
@@ -30,17 +31,28 @@ to use the appropriate structure version. This allows for backward and
 forward compatibility between clients and servers with different versions.
 """
 
-import time
+import asyncio
 import json
+import struct
+import time
+import zlib
 import logging
 from typing import Dict, Any, List, Optional, Union
 
 from feagi.api.protocols.constants import ProtocolID, ByteStructureID, FCPCommandType
-from feagi.api.protocols.byte_structures import ByteStructureEncoder, ByteStructureDecoder
-from feagi.api.protocols.byte_structures.utils import get_structure_info, is_compressed
+# Import from the PyPI feagi_bytes package
+from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
+from feagi_bytes.utils import get_structure_info, is_compressed
+from feagi_bytes.serialization import SUPPORTED_VERSIONS
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Use the provided ByteStructureTranslator directly
+default_translator = ByteStructureTranslator()
+
+# Re-export the translator for backward compatibility
+__all__ = ['ByteStructureTranslator', 'default_translator']
 
 
 class ByteStructureTranslator:
@@ -107,7 +119,6 @@ class ByteStructureTranslator:
         # If client reports a list of versions
         if isinstance(client_supported, list):
             # Find highest version supported by both
-            from feagi.api.protocols.byte_structures.encoder import SUPPORTED_VERSIONS
             server_supported = SUPPORTED_VERSIONS.get(structure_id, [1])
             
             # Find common versions
@@ -122,7 +133,6 @@ class ByteStructureTranslator:
         # If client reports a single version
         elif isinstance(client_supported, int):
             # Check if server supports this version
-            from feagi.api.protocols.byte_structures.encoder import SUPPORTED_VERSIONS
             if client_supported in SUPPORTED_VERSIONS.get(structure_id, [1]):
                 return client_supported
             
@@ -195,9 +205,6 @@ class ByteStructureTranslator:
         Returns:
             Encoded handshake capabilities message
         """
-        # Get structure versions from encoder
-        from feagi.api.protocols.byte_structures.encoder import SUPPORTED_VERSIONS
-        
         capabilities = {
             "protocol_id": ProtocolID.FCP,
             "message_type": "capabilities",

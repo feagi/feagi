@@ -25,7 +25,7 @@ class ProtocolType:
 from .fcp import FCPMessageType
 from .fsmp import FSMPChannel
 from .fvp import FVPFrameType
-from .serialization import ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
+from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
 
 __all__ = [
     'ByteStructureID',
