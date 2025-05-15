@@ -22,13 +22,14 @@ from feagi.api.protocols.base import ProtocolID, VersionedProtocol, ProtocolRegi
 
 # Import protocol modules and their registration functions
 from feagi.api.protocols.fsmp import register_protocols as register_fsmp_protocols
+from feagi.api.protocols.fcp import register_protocols as register_fcp_protocols  
+from feagi.api.protocols.fvp import register_protocols as register_fvp_protocols
 
 def register_all_protocols():
     """Register all protocol versions with the registry."""
     register_fsmp_protocols()
-    # Future registrations for other protocols:
-    # register_fcp_protocols()
-    # register_fvp_protocols()
+    register_fcp_protocols()
+    register_fvp_protocols()
 
 # Run the registration on import
 register_all_protocols() 
