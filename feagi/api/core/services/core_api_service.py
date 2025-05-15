@@ -2661,3 +2661,138 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error updating cortical area properties: {str(e)}", emoji1="❌")
             return False
+    
+    def update_multiple_cortical_properties(self, message) -> bool:
+        """
+        Update properties for multiple cortical areas at the same time
+        
+        Args:
+            message: UpdateMultipleCorticalProperties instance containing properties to update
+                    and list of cortical areas to update
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: For validation errors such as mixed area types
+        """
+        try:
+            state_manager = get_state_manager()
+            connectome = state_manager.get_connectome()
+            
+            cortical_id_list = message.cortical_id_list
+            
+            # Convert Pydantic model to dict for processing
+            message_dict = message.dict(exclude_none=True)
+            message_dict.pop("cortical_id_list")
+            
+            # Check to ensure all selected areas are of same type
+            type_list = set()
+            transforming = False
+            for cortical_id in cortical_id_list:
+                # Validate the area exists
+                if cortical_id not in connectome.genome["blueprint"]:
+                    raise ValueError(f"Cortical area {cortical_id} not found")
+                    
+                type_list.add(connectome.genome["blueprint"][cortical_id]["is_mem_type"])
+                if "transforming" in connectome.genome["blueprint"][cortical_id]:
+                    if connectome.genome["blueprint"][cortical_id]["transforming"]:
+                        transforming = True
+                        
+            if len(type_list) > 1:
+                raise ValueError("Memory and non-memory type cortical areas cannot be edited at the same time")
+            
+            if transforming:
+                from feagi.api.response_templates import generate_response
+                raise ValueError("One or more cortical areas are undergoing transformation")
+            
+            # Prepare multi-edit payload
+            multi_edit_payload = []
+            
+            # Proceed with updates, checking neuron count limits
+            for cortical_id in cortical_id_list:
+                current_cortical_size = connectome.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
+                                       connectome.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
+                                       connectome.genome["blueprint"][cortical_id]["block_boundaries"][2]
+                updated_cortical_size = current_cortical_size
+                
+                if message_dict.get("cortical_dimensions"):
+                    updated_cortical_size = message.cortical_dimensions[0] * \
+                                           message.cortical_dimensions[1] * \
+                                           message.cortical_dimensions[2]
+                
+                current_neuron_density = connectome.genome["blueprint"][cortical_id]["per_voxel_neuron_cnt"]
+                updated_neuron_density = current_neuron_density
+                
+                if message_dict.get("cortical_neuron_per_vox_count"):
+                    updated_neuron_density = message.cortical_neuron_per_vox_count
+                
+                # Handle parent region changes using a special method
+                if message_dict.get("parent_region_id"):
+                    from feagi.bdu.models.brain_region import change_cortical_area_parent
+                    change_cortical_area_parent(
+                        cortical_area_id=cortical_id,
+                        new_parent_id=message.parent_region_id,
+                        connectome=connectome
+                    )
+                
+                # Calculate neuron count change
+                current_neuron_count = current_cortical_size * current_neuron_density
+                updated_neuron_count = updated_cortical_size * updated_neuron_density
+                
+                # Check against maximum allowable neuron count
+                max_allowable_neuron_count = int(connectome.parameters["Limits"]["max_neuron_count"])
+                if connectome.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > max_allowable_neuron_count:
+                    max_count = max_allowable_neuron_count
+                    raise ValueError(
+                        f"Cannot update cortical areas as neuron count will exceed {max_count} threshold"
+                    )
+                
+                # Add this cortical area to the payload
+                cortical_payload = message_dict.copy()
+                cortical_payload["cortical_id"] = cortical_id
+                multi_edit_payload.append(cortical_payload)
+            
+            # Submit updates to message queue
+            from feagi.api.rest.commons import api_queue
+            message_ = {'update_multiple_cortical_properties': multi_edit_payload}
+            api_queue.put(item=message_)
+            
+            self.logger.info(f"Submitted update request for {len(cortical_id_list)} cortical areas", emoji1="🧠")
+            return True
+        
+        except Exception as e:
+            self.logger.error(f"Error updating multiple cortical areas: {str(e)}", emoji1="❌")
+            # Re-raise validation errors but catch other exceptions
+            if isinstance(e, ValueError):
+                raise
+            return False
+
+    def delete_multiple_cortical_areas(self, cortical_id_list: list) -> list:
+        """
+        Delete multiple cortical areas at the same time
+        
+        Args:
+            cortical_id_list: List of cortical area IDs to delete
+            
+        Returns:
+            List of cortical area IDs that were not found, or empty list if all were found
+        """
+        try:
+            state_manager = get_state_manager()
+            connectome = state_manager.get_connectome()
+            
+            from feagi.api.rest.commons import api_queue
+            
+            not_found = []
+            for cortical_id in cortical_id_list:
+                if cortical_id in connectome.genome["blueprint"]:
+                    message = {'delete_cortical_area': cortical_id}
+                    api_queue.put(item=message)
+                else:
+                    not_found.append(cortical_id)
+            
+            return not_found
+        except Exception as e:
+            self.logger.error(f"Error deleting multiple cortical areas: {str(e)}", emoji1="❌")
+            return cortical_id_list  # Return the full list to indicate failure

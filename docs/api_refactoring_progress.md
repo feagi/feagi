@@ -34,24 +34,24 @@ This document tracks the progress of the API refactoring effort to ensure all AP
 - [x] `/cortical_area/cortical_area_id_list`
 - [x] `/cortical_area/cortical_area_index_list`
 - [x] `/cortical_area/cortical_types`
-- [ ] `/cortical_area/cortical_type_options`
-- [ ] `/cortical_area/cortical_id_name_mapping`
-- [ ] `/cortical_area/cortical_name_location`
-- [ ] `/cortical_area/cortical_area_name_list`
-- [ ] `/cortical_area/cortical_locations_2d`
-- [ ] `/cortical_area/cortical_area/geometry`
-- [ ] `/cortical_area/coord_2d`
-- [ ] `/cortical_area/coord_3d`
-- [ ] `/cortical_area/ipu`
-- [ ] `/cortical_area/opu`
-- [ ] `/cortical_area/cortical_map_detailed`
-- [ ] `/cortical_area/cortical_visibility`
-- [ ] `/cortical_area/suppress_cortical_visibility`
-- [ ] `/cortical_area/multi/cortical_area_properties`
-- [ ] `/cortical_area/multi/cortical_area`
-- [ ] `/cortical_area/multi/cortical_area`
-- [ ] `/cortical_area/neuron_count`
-- [ ] `/cortical_area/reset`
+- [x] `/cortical_area/cortical_type_options`
+- [x] `/cortical_area/cortical_id_name_mapping`
+- [x] `/cortical_area/cortical_name_location`
+- [x] `/cortical_area/cortical_area_name_list`
+- [x] `/cortical_area/cortical_locations_2d`
+- [x] `/cortical_area/cortical_area/geometry`
+- [x] `/cortical_area/coord_2d`
+- [x] `/cortical_area/coord_3d`
+- [x] `/cortical_area/ipu`
+- [x] `/cortical_area/opu`
+- [x] `/cortical_area/cortical_map_detailed`
+- [x] `/cortical_area/cortical_visibility`
+- [x] `/cortical_area/suppress_cortical_visibility`
+- [x] `/cortical_area/multi/cortical_area_properties`
+- [x] `/cortical_area/multi/cortical_area` (PUT)
+- [x] `/cortical_area/multi/cortical_area` (DELETE)
+- [x] `/cortical_area/neuron_count`
+- [x] `/cortical_area/reset`
 
 ## Priority 2: Genome Management Endpoints
 
@@ -118,8 +118,8 @@ This document tracks the progress of the API refactoring effort to ensure all AP
 
 ### Remaining Work
 
-1. **Complete Priority 1 Endpoints**
-   - Finish refactoring cortical_area endpoints
+1. **✅ Complete Priority 1 Endpoints**
+   - All Burst Engine, Connectome, and Cortical Area endpoints have been refactored
 
 2. **Address Priority 2 Endpoints**
    - Complete remaining genome endpoints

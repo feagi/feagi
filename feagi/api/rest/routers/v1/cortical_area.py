@@ -184,23 +184,36 @@ async def cortical_area_index_list(
 
 
 @router.post("/cortical_name_location")
-async def genome_cortical_location_by_name(cortical_name: CorticalName, connectome: ConnectomeManager = Depends(get_connectome)):
+async def genome_cortical_location_by_name(
+    cortical_name: CorticalName,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
-    Returns a comprehensive list of all cortical area names.
+    Returns the 3D location of a cortical area by name.
     """
-    cortical_name = cortical_name.cortical_name
-    cortical_area = connectome.get_cortical_name_to_id(cortical_name)
-    return connectome.genome["blueprint"][cortical_area]["relative_coordinate"]
+    try:
+        name = cortical_name.cortical_name
+        return core_api_service.get_cortical_location_by_name(name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Cortical area with name '{name}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving cortical location: {str(e)}")
 
 
 @router.get("/cortical_area_name_list")
-async def genome_cortical_names(connectome: ConnectomeManager = Depends(get_connectome)):
+async def genome_cortical_names(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Returns a comprehensive list of all cortical area names.
     """
-    name_list = connectome.get_cortical_name_list()
-    if name_list:
-        return sorted(name_list)
+    try:
+        name_list = core_api_service.get_cortical_area_name_list()
+        if name_list:
+            return sorted(name_list)
+        return []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving cortical area names: {str(e)}")
 
 
 @router.get("/cortical_types")
@@ -212,372 +225,314 @@ async def cortical_area_types(core_api_service: CoreAPIService = Depends(get_cor
 
 
 @router.post("/cortical_type_options")
-async def cortical_area_types(cortical_type: CorticalId, connectome: ConnectomeManager = Depends(get_connectome)):
+async def cortical_area_types(
+    cortical_type: CorticalId, 
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Returns the list of supported cortical area for a given type
     """
-
-    if cortical_type in cortical_types:
-        cortical_list = set()
-        for item in cortical_types[cortical_type]['supported_devices']:
-            if cortical_types[cortical_type]['supported_devices'][item]['enabled']:
-                cortical_list.add(item)
-        return cortical_list
-    else:
-        return []
+    try:
+        # Get cortical types from service
+        cortical_types_dict = core_api_service.get_cortical_area_types()
+        type_id = cortical_type.cortical_id
+        
+        if type_id in cortical_types_dict:
+            cortical_list = set()
+            for item in cortical_types_dict[type_id]['supported_devices']:
+                if cortical_types_dict[type_id]['supported_devices'][item]['enabled']:
+                    cortical_list.add(item)
+            return cortical_list
+        else:
+            return []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving cortical type options: {str(e)}")
 
 
 @router.get("/cortical_id_name_mapping")
-async def connectome_cortical_id_name_mapping_table(connectome: ConnectomeManager = Depends(get_connectome)):
+async def connectome_cortical_id_name_mapping_table(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """Return a mapping of cortical IDs to their corresponding names"""
     try:
+        # Get all cortical areas from the service
+        areas = core_api_service.get_cortical_areas()
+        
+        # Create ID to name mapping
         mapping_table = {}
-        
-        # Directly use the cortical_id and name attributes from CorticalArea objects
-        if hasattr(connectome, '_areas') and connectome._areas:
-            for area in connectome._areas.values():
-                if hasattr(area, 'cortical_id') and hasattr(area, 'name'):
-                    mapping_table[area.cortical_id] = area.name
-            
-            if mapping_table:
-                return mapping_table
-        
-        # Fallback: Use the _cortical_id_to_idx mapping if available
-        if (hasattr(connectome, '_cortical_id_to_idx') and connectome._cortical_id_to_idx and 
-            hasattr(connectome, '_areas') and connectome._areas):
-            for cortical_id, idx in connectome._cortical_id_to_idx.items():
-                if idx in connectome._areas:
-                    mapping_table[cortical_id] = connectome._areas[idx].name
-            
-            if mapping_table:
-                return mapping_table
-        
-        # Fallback: Try the genome blueprint
-        if hasattr(connectome, 'genome') and connectome.genome and 'blueprint' in connectome.genome:
-            # Extract unique cortical IDs from the blueprint
-            cortical_ids = set()
-            blueprint = connectome.genome['blueprint']
-            
-            # First identify all cortical IDs
-            for gene_key in blueprint:
-                if isinstance(gene_key, str) and '-' in gene_key:
-                    parts = gene_key.split('-')
-                    if len(parts) >= 2:
-                        cortical_ids.add(parts[1])
-            
-            # Then find names for each ID
-            for cortical_id in cortical_ids:
-                for gene_key in blueprint:
-                    if isinstance(gene_key, str) and f"-{cortical_id}-" in gene_key:
-                        parts = gene_key.split("-")
-                        if len(parts) >= 4 and parts[3] == "__name":
-                            mapping_table[cortical_id] = blueprint[gene_key]
-                            break
-                # If no name found, use the ID as the name
-                if cortical_id not in mapping_table:
-                    mapping_table[cortical_id] = cortical_id
-            
-            return mapping_table
-
-        # Return empty dict if we couldn't find any mappings
-        return {}
+        for area in areas:
+            area_id = area.get("id")
+            name = area.get("name")
+            if area_id and name:
+                mapping_table[area_id] = name
+                
+        return mapping_table
     except Exception as e:
         logger.error(f"Error getting cortical ID-name mapping: {str(e)}")
         return {}
 
 
 @router.get("/cortical_locations_2d")
-async def cortical_2d_locations(connectome: ConnectomeManager = Depends(get_connectome)):
+async def cortical_2d_locations(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
-    Enables changes against various Burst Engine parameters.
+    Get 2D coordinates for all cortical areas for visualization
     """
-    report = dict()
-    for area in connectome.genome["blueprint"]:
-        if area not in report:
-            report[area] = list()
-        if "2d_coordinate" in connectome.genome['blueprint'][area]:
-            report[area] = connectome.genome['blueprint'][area]["2d_coordinate"]
-        else:
-            report[area].append([None, None])
-    return report
+    try:
+        return core_api_service.get_cortical_2d_locations()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving 2D locations: {str(e)}")
 
 
 @router.get("/cortical_area/geometry")
-async def cortical_area_geometry(connectome: ConnectomeManager = Depends(get_connectome)):
-    if connectome.cortical_dimensions_by_id:
-        return connectome.cortical_dimensions_by_id
-    else:
-        return {}
+async def cortical_area_geometry(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get geometry information for all cortical areas
+    """
+    try:
+        geometry = core_api_service.get_cortical_area_geometry()
+        if geometry:
+            return geometry
+        else:
+            return {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving cortical geometry: {str(e)}")
 
 
 @router.put("/coord_2d")
-async def update_coord_2d(new_2d_coordinates: dict, connectome: ConnectomeManager = Depends(get_connectome)):
+async def update_coord_2d(
+    new_2d_coordinates: dict,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
-    Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
+    Updates 2D coordinates of one or more cortical areas
+    
+    Args:
+        new_2d_coordinates: Dictionary mapping cortical area IDs to their new 2D coordinates
     """
-
-    for cortical_area in new_2d_coordinates:
-        if cortical_area in connectome.genome["blueprint"]:
-            connectome.genome["blueprint"][cortical_area]["2d_coordinate"][0] = \
-                new_2d_coordinates[cortical_area][0]
-            connectome.genome["blueprint"][cortical_area]["2d_coordinate"][1] = \
-                new_2d_coordinates[cortical_area][1]
-
-    connectome.cortical_dimensions_by_id = None
+    try:
+        success = core_api_service.update_2d_coordinates(new_2d_coordinates)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to update 2D coordinates")
+        return {"status": "success", "message": "2D coordinates updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating 2D coordinates: {str(e)}")
 
 
 @router.put("/coord_3d")
-async def update_coord_3d(new_3d_coordinates: dict, connectome: ConnectomeManager = Depends(get_connectome)):
+async def update_coord_3d(
+    new_3d_coordinates: dict,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
-    Accepts a dictionary of 3D coordinates of one or more cortical areas and update them in genome.
+    Updates 3D coordinates of one or more cortical areas
+    
+    Args:
+        new_3d_coordinates: Dictionary mapping cortical area IDs to their new 3D coordinates
     """
-    for cortical_area in new_3d_coordinates:
-        if cortical_area in connectome.genome["blueprint"]:
-            connectome.genome["blueprint"][cortical_area]["relative_coordinate"][0] = \
-                new_3d_coordinates[cortical_area][0]
-            connectome.genome["blueprint"][cortical_area]["relative_coordinate"][1] = \
-                new_3d_coordinates[cortical_area][1]
-            connectome.genome["blueprint"][cortical_area]["relative_coordinate"][2] = \
-                new_3d_coordinates[cortical_area][2]
-
-    connectome.cortical_dimensions_by_id = None
+    try:
+        success = core_api_service.update_3d_coordinates(new_3d_coordinates)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to update 3D coordinates")
+        return {"status": "success", "message": "3D coordinates updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating 3D coordinates: {str(e)}")
 
 
 @router.get("/ipu")
-async def current_ipu_list(connectome: ConnectomeManager = Depends(get_connectome)):
-    if connectome.ipu_list:
-        return connectome.ipu_list
-    else:
-        return {}
+async def current_ipu_list(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get a list of all input processing units (IPUs)
+    """
+    try:
+        ipu_list = core_api_service.get_ipu_list()
+        return ipu_list if ipu_list else {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving IPU list: {str(e)}")
 
 
 @router.get("/opu")
-async def current_opu_list(connectome: ConnectomeManager = Depends(get_connectome)):
-    if connectome.opu_list:
-        return connectome.opu_list
-    else:
-        return {}
+async def current_opu_list(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get a list of all output processing units (OPUs)
+    """
+    try:
+        opu_list = core_api_service.get_opu_list()
+        return opu_list if opu_list else {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving OPU list: {str(e)}")
 
 
 @router.get("/cortical_map_detailed")
-async def connectome_detailed_cortical_map(connectome: ConnectomeManager = Depends(get_connectome)):
-    cortical_map = get_detailed_cortical_map(connectome)
-    return cortical_map
+async def connectome_detailed_cortical_map(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get a detailed map of all cortical areas and their connections
+    """
+    try:
+        return core_api_service.get_detailed_cortical_map()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving detailed cortical map: {str(e)}")
 
 
 @router.get("/cortical_visibility")
-async def fetch_visualized_cortical_list(connectome: ConnectomeManager = Depends(get_connectome)):
-    return connectome.cortical_viz_list
+async def fetch_visualized_cortical_list(
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get list of cortical areas that are currently being visualized
+    """
+    try:
+        return core_api_service.get_cortical_visualization_list()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving cortical visualization list: {str(e)}")
 
 
 @router.put("/suppress_cortical_visibility")
-async def suppress_cortical_activity_visualization(cortical_id_list: list, connectome: ConnectomeManager = Depends(get_connectome)):
-    unprocessed_list = set()
-    connectome.cortical_viz_list = set()
-    for cortical_id in cortical_id_list:
-        if cortical_id in connectome.cortical_list:
-            connectome.cortical_viz_list.add(cortical_id)
-        else:
-            unprocessed_list.add(cortical_id)
-            connectome.genome["blueprint"][cortical_id]["visualization"] = False
-
-    if unprocessed_list:
-        return JSONResponse(status_code=400, content={'message': f"Following cortical ids were not found!\n "
-                                                                 f"{unprocessed_list}"})
+async def suppress_cortical_activity_visualization(
+    cortical_id_list: list,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Update which cortical areas should be visualized
+    
+    Args:
+        cortical_id_list: List of cortical area IDs to visualize
+    """
+    try:
+        result = core_api_service.update_cortical_visualization(cortical_id_list)
+        if isinstance(result, set) and result:
+            # Some cortical areas were not found
+            return JSONResponse(
+                status_code=400, 
+                content={
+                    'message': f"Following cortical ids were not found!\n {result}"
+                }
+            )
+        return {"status": "success", "message": "Cortical visualization updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating cortical visualization: {str(e)}")
 
 
 @router.post("/multi/cortical_area_properties")
-async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList, connectome: ConnectomeManager = Depends(get_connectome)):
+async def fetch_multiple_cortical_properties(
+    cortical_id_list: CorticalIdList,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
-    Returns the properties of multiple cortical areas
+    Returns the properties of multiple cortical areas at once
+    
+    Args:
+        cortical_id_list: List of cortical area IDs to fetch properties for
     """
-    results = list()
-    for cortical_area in cortical_id_list.cortical_id_list:
-        if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
-            if cortical_area in connectome.genome['blueprint']:
-                cortical_data = connectome.genome['blueprint'][cortical_area]
-                brain_region_id = connectome.cortical_area_region_association[cortical_area]
-                brain_region_title = connectome.genome["brain_regions"][brain_region_id]["title"]
-
-                if 'mp_charge_accumulation' not in cortical_data:
-                    cortical_data['mp_charge_accumulation'] = False
-
-                if 'mp_driven_psp' not in cortical_data:
-                    cortical_data['mp_driven_psp'] = False
-
-                if '2d_coordinate' not in cortical_data:
-                    cortical_data['2d_coordinate'] = list()
-                    cortical_data['2d_coordinate'].append(None)
-                    cortical_data['2d_coordinate'].append(None)
-
-                leak_variability = cortical_data.get('leak_variability', 0)
-                if not leak_variability:
-                    leak_variability = 0
-
-                cortical_properties = {
-                    "cortical_id": cortical_area,
-                    "cortical_name": cortical_data['cortical_name'],
-                    "parent_region_id": brain_region_id,
-                    "parent_region_title": brain_region_title,
-                    "cortical_group": cortical_data['group_id'],
-                    "cortical_sub_group": cortical_data['sub_group_id'],
-                    "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                    "visualization": not (cortical_area in connectome.cortical_viz_list),
-                    "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-                    "coordinates_3d": [
-                        cortical_data["relative_coordinate"][0],
-                        cortical_data["relative_coordinate"][1],
-                        cortical_data["relative_coordinate"][2]
-                    ],
-                    "coordinates_2d": [
-                        cortical_data["2d_coordinate"][0],
-                        cortical_data["2d_coordinate"][1]
-                    ],
-                    "cortical_dimensions": [
-                        cortical_data["block_boundaries"][0],
-                        cortical_data["block_boundaries"][1],
-                        cortical_data["block_boundaries"][2]
-                    ],
-                    "cortical_destinations": connectome.get_outgoing_connections(cortical_area),
-                    "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
-                    "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
-                    "neuron_fire_threshold": cortical_data['firing_threshold'],
-                    "neuron_fire_threshold_increment": [
-                        cortical_data['firing_threshold_increment_x'],
-                        cortical_data['firing_threshold_increment_y'],
-                        cortical_data['firing_threshold_increment_z']
-                    ],
-                    "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
-                    "neuron_refractory_period": cortical_data['refractory_period'],
-                    "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-                    "neuron_leak_variability": leak_variability,
-                    "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
-                    "neuron_snooze_period": cortical_data['snooze_length'],
-                    "neuron_degeneracy_coefficient": cortical_data['degeneration'],
-                    "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
-                    "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
-                    "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
-                    "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
-                    "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
-                    "neuron_init_lifespan": cortical_data['init_lifespan'],
-                    "temporal_depth": cortical_data['temporal_depth'],
-                    "neuron_excitability": cortical_data['neuron_excitability'],
-                    "transforming": False
-                }
-
-                cortical_type = connectome.get_cortical_area_type(cortical_area)
-                if cortical_type in ["IPU", "OPU"]:
-                    dev_count = connectome.genome["blueprint"][cortical_area]["dev_count"]
-                    unit_dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
-                    unit_dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
-                    unit_dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
-
-                    cortical_properties["dev_count"] = dev_count
-                    cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
-
-                if cortical_area in connectome.transforming_areas:
-                    cortical_properties["transforming"] = True
-                else:
-                    cortical_properties["transforming"] = False
-                results.append(cortical_properties)
-            else:
-                return generate_response("CORTICAL_AREA_NOT_FOUND")
-        else:
-            return generate_response("CORTICAL_AREA_INVALID_ID_LENGTH")
-    return results
+    try:
+        results = core_api_service.get_multiple_cortical_properties(cortical_id_list.cortical_id_list)
+        if not results:
+            raise HTTPException(status_code=404, detail="One or more cortical areas not found")
+        return results
+    except ValueError as e:
+        return generate_response("CORTICAL_AREA_INVALID_ID_LENGTH")
+    except KeyError as e:
+        return generate_response("CORTICAL_AREA_NOT_FOUND")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving cortical properties: {str(e)}")
 
 
 @router.put("/multi/cortical_area")
-async def update_multiple_cortical_properties(message: UpdateMultipleCorticalProperties, connectome: ConnectomeManager = Depends(get_connectome)):
+async def update_multiple_cortical_properties(
+    message: UpdateMultipleCorticalProperties,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Updates properties for multiple cortical areas at the same time
+    
+    Args:
+        message: Properties to update and list of cortical areas to update
     """
-
-    cortical_id_list = message.cortical_id_list
-
-    # Check to ensure all selected areas are of same type
-    message_dict = message.dict(exclude_none=True)
-    message_dict.pop("cortical_id_list")
-
-    type_list = set()
-    transforming = False
-    for cortical_id in message.cortical_id_list:
-        type_list.add(connectome.genome["blueprint"][cortical_id]["is_mem_type"])
-        if "transforming" in connectome.genome["blueprint"][cortical_id]:
-            if connectome.genome["blueprint"][cortical_id]["transforming"]:
-                transforming = True
-    if len(type_list) > 1:
-        return JSONResponse(status_code=400, content={'message': f"Memory and non-memory type cortical areas cannot"
-                                                         f"be edited at the same time"})
-
-    if transforming:
-        return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
-
-    multi_edit_payload = []
-
-    # Proceed with updates
-    for cortical_id in cortical_id_list:
-        current_cortical_size = connectome.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
-                                connectome.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
-                                connectome.genome["blueprint"][cortical_id]["block_boundaries"][2]
-        updated_cortical_size = current_cortical_size
-
-        if message_dict.get("cortical_dimensions"):
-            updated_cortical_size = message.cortical_dimensions[0] * \
-                                message.cortical_dimensions[1] * \
-                                message.cortical_dimensions[2]
-
-        current_neuron_density = connectome.genome["blueprint"][cortical_id]["per_voxel_neuron_cnt"]
-        updated_neuron_density = current_neuron_density
-
-        if message_dict.get("cortical_neuron_per_vox_count"):
-            updated_neuron_density = message.cortical_neuron_per_vox_count
-
-        if message_dict.get("parent_region_id"):
-            change_cortical_area_parent(cortical_area_id=cortical_id, new_parent_id=message.parent_region_id, connectome=connectome)
-
-        current_neuron_count = current_cortical_size * current_neuron_density
-        updated_neuron_count = updated_cortical_size * updated_neuron_density
-
-        max_allowable_neuron_count = int(connectome.parameters["Limits"]["max_neuron_count"])
-
-        if connectome.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
-                max_allowable_neuron_count:
-            return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count"
-                                                             f" will exceed {max_allowable_neuron_count} "
-                                                             f"threshold"})
-
-        cortical_payload = message_dict.copy()
-        cortical_payload["cortical_id"] = cortical_id
-        multi_edit_payload.append(cortical_payload)
-
-    message_ = {'update_multiple_cortical_properties': multi_edit_payload}
-    api_queue.put(item=message_)
+    try:
+        success = core_api_service.update_multiple_cortical_properties(message)
+        if not success:
+            return JSONResponse(
+                status_code=400, 
+                content={
+                    'message': "Failed to update cortical areas. Check logs for details."
+                }
+            )
+        return {"status": "success", "message": "Update request submitted for the specified cortical areas"}
+    except ValueError as e:
+        # Handle specific errors
+        return JSONResponse(
+            status_code=400,
+            content={'message': str(e)}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating cortical areas: {str(e)}")
 
 
 @router.delete("/multi/cortical_area")
-async def delete_multiple_cortical_areas(cortical_id_list: CorticalIdList, connectome: ConnectomeManager = Depends(get_connectome)):
+async def delete_multiple_cortical_areas(
+    cortical_id_list: CorticalIdList,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
     """
     Deletes multiple cortical areas at the same time
+    
+    Args:
+        cortical_id_list: List of cortical area IDs to delete
     """
-    for cortical_id in cortical_id_list.cortical_id_list:
-        if cortical_id in connectome.genome["blueprint"]:
-
-            message = {'delete_cortical_area': cortical_id}
-            api_queue.put(item=message)
-        else:
+    try:
+        result = core_api_service.delete_multiple_cortical_areas(cortical_id_list.cortical_id_list)
+        if isinstance(result, list) and result:
+            # Some cortical areas were not found
             return generate_response("CORTICAL_AREA_NOT_FOUND")
+        return {"status": "success", "message": "Delete request submitted for the specified cortical areas"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting cortical areas: {str(e)}")
 
 
 @router.get("/neuron_count")
-async def area_neuron_count(cortical_id: str, connectome: ConnectomeManager = Depends(get_connectome)):
-    if cortical_id in connectome.brain:
-        return len(connectome.brain[cortical_id])
+async def area_neuron_count(
+    cortical_id: str,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Get the number of neurons in a cortical area
+    
+    Args:
+        cortical_id: ID of the cortical area
+    """
+    try:
+        count = core_api_service.get_cortical_area_neuron_count(cortical_id)
+        if count is None:
+            raise HTTPException(status_code=404, detail=f"Cortical area {cortical_id} not found")
+        return count
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving neuron count: {str(e)}")
 
 
 @router.put("/reset")
-async def reset_cortical_area(cortical_list: CorticalList, connectome: ConnectomeManager = Depends(get_connectome)):
-    for cortical_id in cortical_list.area_list:
-        if cortical_id in connectome.cortical_list:
-            message = {'reset': cortical_id}
-            api_queue.put(item=message)
+async def reset_cortical_area(
+    cortical_list: CorticalList,
+    core_api_service: CoreAPIService = Depends(get_core_api_service)
+):
+    """
+    Reset the specified cortical areas
+    
+    Args:
+        cortical_list: List of cortical area IDs to reset
+    """
+    try:
+        success = core_api_service.reset_cortical_areas(cortical_list.area_list)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to reset one or more cortical areas")
+        return {"status": "success", "message": "Reset request submitted for the specified cortical areas"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error resetting cortical areas: {str(e)}")
