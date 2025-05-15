@@ -25,15 +25,25 @@ from ...schemas import *
 from feagi.version import __version__
 from feagi.evo.templates import cortical_types
 from feagi.core.state_manager import FeagiStateManager
+from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 logger = setup_logger()
 
 
-
 router = APIRouter()
 
-# Helper to get state manager instance
-state = FeagiStateManager.instance()
+# Get dependencies
+state_manager = FeagiStateManager.instance()
+
+# Get CoreAPIService instance
+def get_api_service():
+    connectome_manager = state_manager.get_connectome()
+    if not connectome_manager:
+        # Create a minimal version if not available
+        from feagi.bdu.connectome_manager import ConnectomeManager
+        connectome_manager = ConnectomeManager()
+        
+    return CoreAPIService(connectome_manager=connectome_manager, state_manager=state_manager)
 
 
 # ######   System Endpoints #########
@@ -41,19 +51,23 @@ state = FeagiStateManager.instance()
 
 @router.get("/user_preferences")
 async def get_user_preferences():
-    # TODO: Map user preferences to state manager if needed
-    return {
-        "bv_advanced_mode": getattr(state, 'bv_advanced_mode', None),
-        "ui_magnification": getattr(state, 'ui_magnification', None),
-        "auto_pns_area_creation": getattr(state, 'auto_pns_area_creation', None)
-    }
+    api_service = get_api_service()
+    return api_service.get_user_preferences()
 
 
 @router.put("/user_preferences")
 async def update_user_preferences(payload: UserPreferences):
-    # TODO: Map user preferences to state manager if needed
-    state.bv_advanced_mode = payload.adv_mode
-    state.ui_magnification = payload.ui_magnification
+    api_service = get_api_service()
+    preferences = {
+        "adv_mode": payload.adv_mode,
+        "ui_magnification": payload.ui_magnification,
+        "auto_pns_area_creation": getattr(payload, "auto_pns_area_creation", None)
+    }
+    success = api_service.update_user_preferences(preferences)
+    if success:
+        return {"status": "success"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to update user preferences")
 
 
 def human_readable_version(version):
@@ -73,95 +87,63 @@ def human_readable_version(version):
 
 @router.get("/versions")
 def get_versions():
+    api_service = get_api_service()
     try:
-        all_versions = dict()
-        all_versions["feagi"] = str(__version__)
-        # TODO: Map agent_registry to state manager if needed
-        for agent_id in getattr(state, 'agent_registry', {}):
-            if agent_id not in all_versions:
-                all_versions[agent_id] = {}
-            all_versions[agent_id]["agent_version"] = \
-                str(state.agent_registry[agent_id]["agent_version"])
-            all_versions[agent_id]["controller_version"] = \
-                str(state.agent_registry[agent_id]["controller_version"])
-        return all_versions
+        return api_service.get_versions()
     except Exception as e:
-        print(f"Error during version collection {e}")
+        logger.error(f"Error during version collection: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving versions: {str(e)}")
 
 
 @router.get("/health_check")
 async def feagi_health_check():
-    health = dict()
-    # TODO: Map exit_condition, connected_agents, influxdb, etc. to state manager if needed
-    health["burst_engine"] = not getattr(state, 'exit_condition', False)
-    health["connected_agents"] = getattr(state, 'connected_agents', None)
-    health["influxdb_availability"] = bool(getattr(state, 'influxdb', False))
-    health["neuron_count_max"] = int(getattr(state, 'parameters', {}).get("Limits", {}).get("max_neuron_count", 0))
-    health["synapse_count_max"] = int(getattr(state, 'parameters', {}).get("Limits", {}).get("max_synapse_count", 0))
-    health["latest_changes_saved_externally"] = getattr(state, 'changes_saved_externally', False)
-    if getattr(state, 'genome', None):
-        health["fitness"] = getattr(state, 'genome_fitness', None)
-        health["genome_availability"] = True
-        connectome_neuron_count = getattr(state, 'brain_stats', {}).get("neuron_count", 0)
-        connectome_synapse_count = getattr(state, 'brain_stats', {}).get("synapse_count", 0)
-        connectome_size = 3E-08 * connectome_neuron_count ** 2 + 0.0011 * connectome_neuron_count + 2.9073
-        health["cortical_area_count"] = len(getattr(state, 'cortical_list', []))
-        health["neuron_count"] = connectome_neuron_count
-        health["synapse_count"] = connectome_synapse_count
-        health["estimated_brain_size_in_MB"] = connectome_size
-    else:
-        health["genome_availability"] = False
-    health["genome_validity"] = getattr(state, 'genome_validity', None)
-    health["brain_readiness"] = getattr(state, 'brain_readiness', None)
-    # TODO: Map pending_amalgamation to state manager if needed
-    if pending_amalgamation():
-        health["amalgamation_pending"] = {
-            "initiation_time": getattr(state, 'pending_amalgamation', {}).get("initiation_time", None),
-            "genome_id": getattr(state, 'pending_amalgamation', {}).get("genome_id", None),
-            "amalgamation_id": getattr(state, 'pending_amalgamation', {}).get("amalgamation_id", None),
-            "genome_title": getattr(state, 'pending_amalgamation', {}).get("genome_title", None),
-            "circuit_size": getattr(state, 'pending_amalgamation', {}).get("circuit_size", None)
-        }
-    return health
+    api_service = get_api_service()
+    try:
+        health = await api_service.get_system_health()
+        return health
+    except Exception as e:
+        logger.error(f"Error retrieving system health: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving system health: {str(e)}")
 
 
 @router.get("/unique_logs")
 async def unique_log_entries():
-    # TODO: Map logs to state manager if needed
-    return getattr(state, 'logs', [])
+    api_service = get_api_service()
+    state = api_service.get_state_manager()
+    if state:
+        return getattr(state, 'logs', [])
+    return []
 
 
 @router.post("/register")
 async def feagi_registration(message: Registration):
-    message = message.dict()
-    source = message['source']
-    host = message['host']
-    capabilities = message['capabilities']
-
-    # todo: This endpoint is currently not performing any task
-
-    print("Warning! This endpoint is not doing anything at this time!")
-    print("########## ###### >>>>>> >>>> ", source, host, capabilities)
+    logger.warning("Warning! This endpoint is not doing anything at this time!")
     return "Warning! This endpoint is not doing anything at this time!"
 
 
 @router.post("/logs")
 async def log_management(message: Logs):
-    message = message.dict()
-    message = {"log_management": message}
-    api_queue.put(item=message)
+    api_service = get_api_service()
+    if not hasattr(api_service._connectome_manager, 'api_message_queue'):
+        raise HTTPException(status_code=400, detail="API message queue not initialized")
+    
+    message_dict = message.dict()
+    api_message = {"log_management": message_dict}
+    api_service._connectome_manager.api_message_queue.put(item=api_message)
+    return {"status": "success"}
 
 
 @router.get("/configuration")
 async def configuration_parameters():
-    # TODO: Map parameters to state manager if needed
-    return getattr(state, 'parameters', {})
+    api_service = get_api_service()
+    return api_service.get_configuration()
 
 
 @router.get("/beacon/subscribers")
 async def beacon_query():
-    # TODO: Map beacon_sub to state manager if needed
-    if getattr(state, 'beacon_sub', None):
+    api_service = get_api_service()
+    state = api_service.get_state_manager()
+    if state and getattr(state, 'beacon_sub', None):
         return tuple(state.beacon_sub)
     else:
         raise HTTPException(status_code=400, detail=f"No subscriber found")
@@ -169,41 +151,56 @@ async def beacon_query():
 
 @router.post("/beacon/subscribe")
 async def beacon_subscribe(message: Subscriber):
-    message = {'beacon_sub': message.subscriber_address}
-    api_queue.put(item=message)
+    api_service = get_api_service()
+    if not hasattr(api_service._connectome_manager, 'api_message_queue'):
+        raise HTTPException(status_code=400, detail="API message queue not initialized")
+    
+    message_dict = {'beacon_sub': message.subscriber_address}
+    api_service._connectome_manager.api_message_queue.put(item=message_dict)
+    return {"status": "success"}
 
 
 @router.delete("/beacon/unsubscribe")
 async def beacon_unsubscribe(message: Subscriber):
-    message = {"beacon_unsub": message.subscriber_address}
-    api_queue.put(item=message)
+    api_service = get_api_service()
+    if not hasattr(api_service._connectome_manager, 'api_message_queue'):
+        raise HTTPException(status_code=400, detail="API message queue not initialized")
+    
+    message_dict = {"beacon_unsub": message.subscriber_address}
+    api_service._connectome_manager.api_message_queue.put(item=message_dict)
+    return {"status": "success"}
 
 
 @router.get("/db/influxdb/test")
 async def test_influxdb():
     """
-    Enables changes against various Burst Engine parameters.
+    Test the connection to the InfluxDB service.
     """
-    # TODO: Map influxdb to state manager if needed
-    influxdb = getattr(state, 'influxdb', None)
-    influx_status = influxdb.test_influxdb() if influxdb else None
+    api_service = get_api_service()
+    influx_status = api_service.test_influxdb()
     if influx_status:
         return influx_status
+    else:
+        raise HTTPException(status_code=400, detail="InfluxDB service not available")
 
 
 @router.post("/circuit_library_path")
 async def change_circuit_library_path(circuit_library_path: str):
-    if os.path.exists(circuit_library_path):
-        # TODO: Map circuit_lib_path to state manager if needed
-        state.circuit_lib_path = circuit_library_path
-        print(f"{circuit_library_path} is the new circuit library path.")
-    else:
-        raise HTTPException(status_code=400, detail=f"{circuit_library_path} is not a valid path.")
+    api_service = get_api_service()
+    try:
+        success = api_service.set_circuit_library_path(circuit_library_path)
+        if success:
+            return {"status": "success", "message": f"{circuit_library_path} is the new circuit library path."}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to set circuit library path")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/cortical_area_types")
 async def fetch_cortical_area_types():
-    return cortical_types
+    api_service = get_api_service()
+    return api_service.get_cortical_area_types()
 
 
 @router.put("/cortical_area_types")
@@ -213,15 +210,21 @@ async def update_cortical_area_types(cortical_id: str):
 
 
 @router.get("/cortical_area_visualization_skip_rate")
-async def update_cortical_area_visualization_skip_rate():
-    # TODO: Map cortical_viz_skip_rate to state manager if needed
-    return getattr(state, 'cortical_viz_skip_rate', None)
+async def get_cortical_area_visualization_skip_rate():
+    api_service = get_api_service()
+    state = api_service.get_state_manager()
+    if state:
+        return getattr(state, 'cortical_viz_skip_rate', None)
+    return None
 
 
 @router.get("/cortical_area_visualization_suppression_threshold")
-async def update_cortical_area_visualization_suppression_threshold():
-    # TODO: Map cortical_viz_sup_threshold to state manager if needed
-    return getattr(state, 'cortical_viz_sup_threshold', None)
+async def get_cortical_area_visualization_suppression_threshold():
+    api_service = get_api_service()
+    state = api_service.get_state_manager()
+    if state:
+        return getattr(state, 'cortical_viz_sup_threshold', None)
+    return None
 
 
 @router.put("/cortical_area_visualization_skip_rate")
@@ -229,17 +232,23 @@ async def update_cortical_area_visualization_skip_rate(viz_skip: VizSkipRate):
     """
     Set the FCL sample rate (Hz) for a specific cortical area for visualization purposes.
     """
+    api_service = get_api_service()
     area_id = viz_skip.cortical_area
     skip_rate = viz_skip.skip_rate
+    
     if skip_rate <= 0:
         raise HTTPException(status_code=400, detail="Skip rate must be positive (Hz)")
-    area = connectome.cortical_areas.get(area_id)
-    if area is None:
+        
+    try:
+        success = api_service.set_area_fcl_sample_rate(int(area_id), skip_rate)
+        if success:
+            return {"cortical_area": area_id, "fcl_sample_rate": skip_rate}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to update visualization skip rate")
+    except KeyError:
         raise HTTPException(status_code=404, detail="Cortical area not found")
-    area.properties['fcl_sample_rate'] = skip_rate
-    # Optionally: notify FCLSampler/process_manager for live update
-    # process_manager.update_area_sample_rate(area_id, skip_rate)
-    return {"cortical_area": area_id, "fcl_sample_rate": skip_rate}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/cortical_area_visualization_suppression_threshold")
@@ -248,32 +257,48 @@ async def update_cortical_area_visualization_suppression_threshold(visualization
     control to kick in."""
     if visualization_threshold.visualization_threshold < 0:
         raise HTTPException(status_code=400, detail=f"Suppression threshold cannot be negative.")
-    # TODO: Map cortical_viz_sup_threshold to state manager if needed
-    state.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
+        
+    api_service = get_api_service()
+    state = api_service.get_state_manager()
+    if state:
+        state.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
+        return {"status": "success"}
+    else:
+        raise HTTPException(status_code=400, detail="State manager not available")
 
 
 @router.get("/global_activity_visualization")
 async def fetch_cortical_area_visualization_globally():
-    """Returns the brain activity visualization status across the entire brain."""
-    # TODO: Map brain_activity_pub to state manager if needed
-    return getattr(state, 'brain_activity_pub', None)
+    api_service = get_api_service()
+    state = api_service.get_state_manager()
+    if state:
+        return state.brain_activity_pub
+    return False
 
 
 @router.put("/global_activity_visualization")
 async def update_cortical_area_visualization_globally(viz_ctrl: BrainVisualization):
-    """Controls the brain activity visualization across the entire brain."""
-    # TODO: Map brain_activity_pub to state manager if needed
-    state.brain_activity_pub = viz_ctrl.global_visualization
+    """Future placeholder for whole brain visualization. Currently just an API placeholder."""
+    api_service = get_api_service()
+    state = api_service.get_state_manager()
+    if state:
+        state.brain_activity_pub = viz_ctrl.visualization
+        return {"status": "success"}
+    else:
+        raise HTTPException(status_code=400, detail="State manager not available")
 
 
 @router.post("/fcl_reset")
 async def reset_fire_candidate_list():
-    """Resets fire candidate list contents"""
-    # TODO: Implement reset_fire_candidate_list function
-    pass
+    """Reset the FCL"""
+    api_service = get_api_service()
+    success = api_service.reset_fcl()
+    if success:
+        return {"status": "success", "message": "FCL reset"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to reset FCL")
 
 
 @router.get("/version")
 async def get_version():
-    """Returns the current FEAGI version."""
-    return JSONResponse(content={"version": __version__})
+    return {"version": __version__}

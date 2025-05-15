@@ -5,14 +5,88 @@ to access core FEAGI functionality. It serves as a connection point between
 different API interfaces (REST, ZMQ, etc.) and the underlying core components.
 """
 
-from feagi.utils.logger import setup_logger
+import time
+import threading
+from queue import Queue
 import os
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple, Union
+
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from feagi.api.core.services import CoreAPIService
 from feagi.api.zmq.client import ZmqClient
+from feagi.api.protocols.translator import ProtocolTranslator
+from feagi.api.protocols.base import ProtocolID
 
 
+class RateLimiter:
+    """
+    Rate limiter for API Gateway.
+    
+    Implements a token bucket algorithm for rate limiting.
+    """
+    
+    def __init__(self, rate_limit: int, burst_limit: int):
+        """
+        Initialize rate limiter.
+        
+        Args:
+            rate_limit: Maximum number of requests per second
+            burst_limit: Maximum burst size
+        """
+        self.rate_limit = rate_limit
+        self.burst_limit = burst_limit
+        self.tokens = burst_limit
+        self.last_refill_time = time.time()
+        self.lock = threading.Lock()
+    
+    def allow_request(self) -> bool:
+        """
+        Check if a request is allowed under the rate limit.
+        
+        Returns:
+            True if the request is allowed, False otherwise
+        """
+        with self.lock:
+            # Refill tokens based on time elapsed
+            now = time.time()
+            elapsed = now - self.last_refill_time
+            refill = int(elapsed * self.rate_limit)
+            
+            self.tokens = min(self.tokens + refill, self.burst_limit)
+            self.last_refill_time = now
+            
+            # Check if request can be allowed
+            if self.tokens > 0:
+                self.tokens -= 1
+                return True
+                
+            return False
+
+
+class AgentConnection:
+    """Represents a connection to an agent."""
+    
+    def __init__(self, agent_id: str, agent_type: str, protocol_versions: Dict[str, int],
+                rate_limit: int = 100, burst_limit: int = 200):
+        """
+        Initialize agent connection.
+        
+        Args:
+            agent_id: Unique agent identifier
+            agent_type: Type of agent (e.g., "monitor", "robot")
+            protocol_versions: Dictionary mapping protocol names to version numbers
+            rate_limit: Maximum requests per second
+            burst_limit: Maximum burst size
+        """
+        self.agent_id = agent_id
+        self.agent_type = agent_type
+        self.protocol_versions = protocol_versions
+        self.rate_limiter = RateLimiter(rate_limit=rate_limit, burst_limit=burst_limit)
+        self.last_heartbeat = time.time()
+        self.connected = True
+        self.capabilities = {}  # Sensory/motor capabilities
 
 
 class APIGateway:
@@ -26,9 +100,10 @@ class APIGateway:
     2. ZMQ Client - Access to remote FEAGI processes via ZMQ
     
     Features:
+    - Protocol translation and version negotiation
     - Environment-based configuration
     - Authentication and authorization
-    - Request routing and protocol translation
+    - Request routing
     - Rate limiting and monitoring
     
     The gateway automatically determines whether to use local components or
@@ -61,12 +136,23 @@ class APIGateway:
         self._rate_limiters = {}
         self._auth_handlers = {}
         
+        # New components for protocol handling
+        self._protocol_translator = ProtocolTranslator()
+        self._agent_connections: Dict[str, AgentConnection] = {}
+        
+        # Message queues for async processing
+        self._incoming_queue: Queue = Queue()
+        self._outgoing_queues: Dict[str, Queue] = {}
+        
         # Only auto-detect if core_api wasn't explicitly provided
         if self._core_api is None:
             self._initialize_core_api()
         
         # Initialize ZMQ client if enabled
         self._initialize_zmq_client()
+        
+        # Start message processing threads
+        self._start_message_processors()
     
     def _initialize_core_api(self):
         """Initialize the Core API service based on environment."""
@@ -116,6 +202,107 @@ class APIGateway:
             except Exception as e:
                 logger.error(f"Failed to initialize ZMQ client: {e}")
     
+    def _start_message_processors(self):
+        """Start message processing threads."""
+        # Incoming message processor
+        threading.Thread(
+            target=self._process_incoming_messages,
+            daemon=True,
+            name="APIGateway-IncomingProcessor"
+        ).start()
+    
+    def _process_incoming_messages(self):
+        """Process incoming messages from the queue."""
+        while True:
+            try:
+                agent_id, message, protocol_id, version = self._incoming_queue.get()
+                self._route_message_to_core(agent_id, message, protocol_id, version)
+                self._incoming_queue.task_done()
+            except Exception as e:
+                logger.error(f"Error processing incoming message: {str(e)}")
+                time.sleep(0.1)  # Prevent tight loop on error
+    
+    def _process_outgoing_messages(self, agent_id: str):
+        """
+        Process outgoing messages for an agent.
+        
+        Args:
+            agent_id: Agent identifier
+        """
+        while agent_id in self._agent_connections and self._agent_connections[agent_id].connected:
+            try:
+                queue = self._outgoing_queues.get(agent_id)
+                if not queue:
+                    time.sleep(0.1)
+                    continue
+                    
+                binary_data, protocol_id = queue.get(timeout=1)
+                
+                # Here we would send the binary data via ZMQ
+                # This will be implemented when integrated with ZMQManager
+                
+                queue.task_done()
+                
+            except Exception as e:
+                if str(e) != "Empty":  # Ignore empty queue exceptions
+                    logger.error(f"Error processing outgoing message for {agent_id}: {str(e)}")
+                    
+                time.sleep(0.1)
+    
+    def _route_message_to_core(self, agent_id: str, message: Any, 
+                              protocol_id: ProtocolID, version: int) -> None:
+        """
+        Route a message to the appropriate Core API Service handler.
+        
+        Args:
+            agent_id: Agent identifier
+            message: Decoded message data
+            protocol_id: Protocol identifier
+            version: Protocol version
+        """
+        if not self._core_api:
+            logger.error("Cannot route message: CoreAPIService not available")
+            return
+            
+        try:
+            # Route based on protocol and message type
+            if protocol_id == ProtocolID.FCP:
+                # For FCP, route based on command type
+                if isinstance(message, dict):
+                    command_type = message.get("command_type")
+                    payload = message.get("payload", {})
+                    
+                    if command_type == 1:  # REGISTER
+                        # Handle registration via CoreAPIService
+                        # (agent should be pre-registered via REST API)
+                        pass
+                        
+                    elif command_type == 2:  # DEREGISTER
+                        # Handle deregistration
+                        self.deregister_agent(agent_id)
+                        
+                    elif command_type == 6:  # HEARTBEAT
+                        # Update last heartbeat time
+                        if agent_id in self._agent_connections:
+                            self._agent_connections[agent_id].last_heartbeat = time.time()
+                    
+                    # Other command types...
+                
+            elif protocol_id == ProtocolID.FSMP:
+                # For FSMP, route to sensory processing
+                if isinstance(message, dict) and "sensory_data" in message:
+                    sensory_data = message.get("sensory_data", {})
+                    # Forward to core API
+                    if hasattr(self._core_api, 'process_sensory_data'):
+                        self._core_api.process_sensory_data(agent_id, sensory_data)
+                    
+            elif protocol_id == ProtocolID.FVP:
+                # Visualization requests would be handled here
+                pass
+                
+        except Exception as e:
+            logger.error(f"Error routing message to core: {str(e)}")
+    
     @property
     def core_api(self) -> CoreAPIService:
         """Get the Core API service."""
@@ -125,6 +312,219 @@ class APIGateway:
     def zmq_client(self) -> Optional[ZmqClient]:
         """Get the ZMQ client if available."""
         return self._zmq_client
+    
+    def register_agent(self, agent_id: str, agent_type: str,
+                      protocol_versions: Dict[str, Union[int, List[int]]],
+                      capabilities: Dict[str, Any] = None) -> Dict[str, int]:
+        """
+        Register an agent with the gateway.
+        
+        Args:
+            agent_id: Unique agent identifier
+            agent_type: Type of agent (e.g., "monitor", "robot")
+            protocol_versions: Dictionary mapping protocol names to supported version numbers
+                              (either a single int or a list of supported versions)
+            capabilities: Dictionary of agent capabilities (e.g., sensors, actuators)
+            
+        Returns:
+            Dictionary of compatible protocol versions
+            
+        Raises:
+            ValueError: If agent is already registered or protocol versions are incompatible
+        """
+        if agent_id in self._agent_connections:
+            raise ValueError(f"Agent {agent_id} is already registered")
+            
+        # Negotiate compatible protocol versions
+        try:
+            compatible_versions = self._protocol_translator.register_agent(agent_id, protocol_versions)
+        except ValueError as e:
+            logger.error(f"Failed to negotiate protocol versions: {str(e)}")
+            raise
+            
+        # Create agent connection
+        connection = AgentConnection(
+            agent_id=agent_id,
+            agent_type=agent_type,
+            protocol_versions=compatible_versions
+        )
+        
+        # Store capabilities if provided
+        if capabilities:
+            connection.capabilities = capabilities
+            
+        self._agent_connections[agent_id] = connection
+        self._outgoing_queues[agent_id] = Queue()
+        
+        # Start outgoing message processor for this agent
+        threading.Thread(
+            target=self._process_outgoing_messages,
+            args=(agent_id,),
+            daemon=True,
+            name=f"APIGateway-OutgoingProcessor-{agent_id}"
+        ).start()
+        
+        logger.info(f"Agent {agent_id} registered with compatible versions: {compatible_versions}")
+        
+        # If core API is available, register the agent there too
+        if self._core_api and hasattr(self._core_api, 'register_agent'):
+            self._core_api.register_agent(
+                agent_id=agent_id,
+                agent_type=agent_type,
+                protocol_versions=compatible_versions,
+                capabilities=capabilities or {}
+            )
+            
+        return compatible_versions
+    
+    def deregister_agent(self, agent_id: str) -> bool:
+        """
+        Deregister an agent.
+        
+        Args:
+            agent_id: Agent identifier
+            
+        Returns:
+            True if agent was deregistered, False if agent was not registered
+        """
+        if agent_id not in self._agent_connections:
+            return False
+        
+        # Mark as disconnected
+        self._agent_connections[agent_id].connected = False
+        
+        # Remove from protocol translator
+        self._protocol_translator.deregister_agent(agent_id)
+        
+        # Remove from agent connections
+        del self._agent_connections[agent_id]
+        
+        # Cleanup outgoing queue
+        if agent_id in self._outgoing_queues:
+            del self._outgoing_queues[agent_id]
+        
+        # If core API is available, deregister the agent there too
+        if self._core_api and hasattr(self._core_api, 'deregister_agent'):
+            self._core_api.deregister_agent(agent_id)
+            
+        logger.info(f"Agent {agent_id} deregistered")
+        return True
+    
+    def receive_message(self, agent_id: str, binary_data: bytes) -> bool:
+        """
+        Receive a binary message from an agent.
+        
+        Args:
+            agent_id: Agent identifier
+            binary_data: Raw binary message data
+            
+        Returns:
+            True if message was accepted, False if rejected (e.g., rate limited)
+        """
+        # Check if agent exists
+        if agent_id not in self._agent_connections:
+            logger.warning(f"Message received from unknown agent {agent_id}")
+            return False
+            
+        connection = self._agent_connections[agent_id]
+        
+        # Apply rate limiting
+        if not connection.rate_limiter.allow_request():
+            logger.warning(f"Rate limit exceeded for agent {agent_id}")
+            return False
+            
+        try:
+            # Decode message using protocol translator
+            decoded_data, protocol_id, version = self._protocol_translator.decode(binary_data)
+            
+            # Queue message for processing
+            self._incoming_queue.put((agent_id, decoded_data, protocol_id, version))
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error decoding message from agent {agent_id}: {str(e)}")
+            return False
+    
+    def send_message(self, agent_id: str, message: Any, protocol_name: str) -> bool:
+        """
+        Send a message to an agent.
+        
+        Args:
+            agent_id: Agent identifier
+            message: Message data to send
+            protocol_name: Protocol to use
+            
+        Returns:
+            True if message was queued for sending, False otherwise
+        """
+        # Check if agent exists
+        if agent_id not in self._agent_connections:
+            logger.warning(f"Cannot send message to unknown agent {agent_id}")
+            return False
+        
+        try:
+            # Encode message
+            binary_data = self._protocol_translator.encode(agent_id, message, protocol_name)
+            protocol_id = ProtocolID[protocol_name]
+            
+            # Queue for sending
+            if agent_id in self._outgoing_queues:
+                self._outgoing_queues[agent_id].put((binary_data, protocol_id))
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error encoding message for agent {agent_id}: {str(e)}")
+            return False
+    
+    def get_agent_connection(self, agent_id: str) -> Optional[AgentConnection]:
+        """
+        Get information about an agent connection.
+        
+        Args:
+            agent_id: Agent identifier
+            
+        Returns:
+            AgentConnection object if agent is registered, None otherwise
+        """
+        return self._agent_connections.get(agent_id)
+    
+    def get_agent_status(self, agent_id: str) -> Dict[str, Any]:
+        """
+        Get status information about an agent.
+        
+        Args:
+            agent_id: Agent identifier
+            
+        Returns:
+            Dictionary with agent status information
+        """
+        connection = self._agent_connections.get(agent_id)
+        
+        if not connection:
+            return {"error": f"Agent {agent_id} not found"}
+            
+        return {
+            "agent_id": agent_id,
+            "agent_type": connection.agent_type,
+            "connected": connection.connected,
+            "last_heartbeat": connection.last_heartbeat,
+            "protocols": connection.protocol_versions,
+            "capabilities": connection.capabilities
+        }
+    
+    def get_all_agents(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get information about all registered agents.
+        
+        Returns:
+            Dictionary mapping agent IDs to agent information
+        """
+        return {
+            agent_id: self.get_agent_status(agent_id)
+            for agent_id in self._agent_connections
+        }
     
     # Authentication and authorization methods
     
@@ -187,8 +587,15 @@ class APIGateway:
         Returns:
             True if the client has not exceeded rate limits, False otherwise.
         """
-        # Placeholder for rate limiting implementation
-        return True
+        # Use the agent's rate limiter if available
+        if client_id in self._agent_connections:
+            return self._agent_connections[client_id].rate_limiter.allow_request()
+            
+        # Otherwise use a default rate limiter
+        if client_id not in self._rate_limiters:
+            self._rate_limiters[client_id] = RateLimiter(rate_limit=10, burst_limit=20)
+        
+        return self._rate_limiters[client_id].allow_request()
     
     # Monitoring methods
     
@@ -213,7 +620,29 @@ class APIGateway:
             Dictionary containing API metrics.
         """
         # Placeholder for metrics implementation
-        return {}
+        return {
+            "agents": {
+                "count": len(self._agent_connections),
+                "types": self._get_agent_type_counts()
+            },
+            "messages": {
+                "incoming_queue_size": self._incoming_queue.qsize(),
+                "outgoing_queues": {
+                    agent_id: queue.qsize() 
+                    for agent_id, queue in self._outgoing_queues.items()
+                }
+            }
+        }
+        
+    def _get_agent_type_counts(self) -> Dict[str, int]:
+        """Get counts of registered agent types."""
+        type_counts = {}
+        
+        for agent in self._agent_connections.values():
+            agent_type = agent.agent_type
+            type_counts[agent_type] = type_counts.get(agent_type, 0) + 1
+            
+        return type_counts
 
 
 # Factory function for creating/getting gateway instances

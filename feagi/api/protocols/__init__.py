@@ -15,9 +15,20 @@
 # ==============================================================================
 
 """
-API Gateway package for handling communication between external agents and FEAGI.
+FEAGI Protocol package for binary communication with agents.
 """
 
-from feagi.api.gateway.api_gateway import APIGateway, get_api_gateway
+from feagi.api.protocols.base import ProtocolID, VersionedProtocol, ProtocolRegistry
 
-__all__ = ["APIGateway", "get_api_gateway"] 
+# Import protocol modules and their registration functions
+from feagi.api.protocols.fsmp import register_protocols as register_fsmp_protocols
+
+def register_all_protocols():
+    """Register all protocol versions with the registry."""
+    register_fsmp_protocols()
+    # Future registrations for other protocols:
+    # register_fcp_protocols()
+    # register_fvp_protocols()
+
+# Run the registration on import
+register_all_protocols() 
