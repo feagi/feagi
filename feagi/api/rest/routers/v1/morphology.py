@@ -24,7 +24,7 @@ logger = setup_logger()
 from ...commons import *
 from ...schemas import *
 
-from feagi.bdu import synaptogenesis_rules
+from feagi.bdu.connectivity import synaptogenesis_rules
 from feagi.bdu import ConnectomeManager
 
 

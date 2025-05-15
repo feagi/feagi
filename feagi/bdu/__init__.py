@@ -16,7 +16,7 @@ from feagi.bdu.models.synapse import SynapseManager
 from feagi.bdu.connectivity.connectivity_rules import ConnectivityRule
 from feagi.bdu.connectivity.cortical_mappings import CorticalMapping
 from feagi.bdu.connectivity.synaptogenesis import SynaptogenesisRule
-from feagi.bdu.connectivity.synaptogenesis_rules import SynapseRule
+from feagi.bdu.connectivity.synapse_rule import SynapseRule
 from feagi.bdu.connectivity.mapping_utils import get_detailed_cortical_map, build_power_connections
 
 # Import neuroembryogenesis

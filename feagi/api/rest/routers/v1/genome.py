@@ -36,7 +36,7 @@ from feagi.api.core.services.core_api_service import CoreAPIService
 
 from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter, process_and_load_genome
-from feagi.bdu.brain_region import region_id_2_title, construct_genome_from_region
+from feagi.bdu.models.brain_region import region_id_2_title, construct_genome_from_region
 from feagi.evo.templates import cortical_template
 from feagi.core.state_manager import FeagiStateManager, ConnectomeState, ServiceState, GenomeState
 from feagi.bdu import ConnectomeManager

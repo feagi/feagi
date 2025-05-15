@@ -23,10 +23,10 @@ logger = setup_logger()
 from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
 from feagi.evo.templates import cortical_types
-from feagi.bdu.brain_region import change_cortical_area_parent, create_region, update_region, delete_region_with_members, relocate_region_members
-from feagi.bdu.mapping_utils import get_detailed_cortical_map
+from feagi.bdu.models.brain_region import change_cortical_area_parent, create_region, update_region, delete_region_with_members, relocate_region_members
+from feagi.bdu.connectivity.mapping_utils import get_detailed_cortical_map
 from feagi.bdu import ConnectomeManager
-from feagi.api.rest.dependencies import get_connectome, get_core_api_service
+from feagi.api.rest.dependencies import get_connectome, get_core_api_service, get_core_api
 from feagi.core.state_manager import get_state_manager, ServiceState
 from feagi.core.state_manager import FeagiStateManager
 from feagi.api.core.services import CoreAPIService
@@ -40,119 +40,18 @@ router = APIRouter()
 
 
 @router.post("/cortical_area_properties")
-async def fetch_cortical_properties(cortical_id: CorticalId, connectome: ConnectomeManager = Depends(get_connectome)):
+async def fetch_cortical_properties(cortical_id: CorticalId, core_api = Depends(get_core_api)):
     """
     Returns the properties of cortical areas
     """
-    cortical_area = cortical_id.cortical_id
-    if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
-        if cortical_area in connectome.genome['blueprint']:
-            cortical_data = connectome.genome['blueprint'][cortical_area]
-            brain_region_id = connectome.cortical_area_region_association[cortical_area]
-            brain_region_title = ""
-            if brain_region_id:
-                if brain_region_id in connectome.genome["brain_regions"]:
-                    brain_region_title = connectome.genome["brain_regions"][brain_region_id]["title"]
-
-            if 'mp_charge_accumulation' not in cortical_data:
-                cortical_data['mp_charge_accumulation'] = False
-
-            if 'mp_driven_psp' not in cortical_data:
-                cortical_data['mp_driven_psp'] = False
-
-            if '2d_coordinate' not in cortical_data:
-                cortical_data['2d_coordinate'] = list()
-                cortical_data['2d_coordinate'].append(None)
-                cortical_data['2d_coordinate'].append(None)
-
-            cortical_visibility = True
-            if cortical_area in connectome.cortical_viz_list:
-                cortical_visibility = False
-
-            cortical_type = connectome.get_cortical_area_type(cortical_area)
-
-            dim_x = cortical_data["block_boundaries"][0]
-            dim_y = cortical_data["block_boundaries"][1]
-            dim_z = cortical_data["block_boundaries"][2]
-
-            leak_variability = cortical_data.get('leak_variability', 0)
-            if not leak_variability:
-                leak_variability = 0
-
-            cortical_properties = {
-                "cortical_id": cortical_area,
-                "cortical_name": cortical_data['cortical_name'],
-                "parent_region_id": brain_region_id,
-                "parent_region_title": brain_region_title,
-                "cortical_group": cortical_data['group_id'],
-                "cortical_sub_group": cortical_data['sub_group_id'],
-                "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                "cortical_visibility": cortical_visibility,
-                "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-                "coordinates_3d": [
-                    cortical_data["relative_coordinate"][0],
-                    cortical_data["relative_coordinate"][1],
-                    cortical_data["relative_coordinate"][2]
-                ],
-                "coordinates_2d": [
-                    cortical_data["2d_coordinate"][0],
-                    cortical_data["2d_coordinate"][1]
-                ],
-                "cortical_dimensions": [
-                    dim_x,
-                    dim_y,
-                    dim_z
-                ],
-                "cortical_destinations": connectome.get_outgoing_connections(cortical_area),
-                "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
-                "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
-                "neuron_fire_threshold": cortical_data['firing_threshold'],
-                "neuron_fire_threshold_increment": [
-                    cortical_data['firing_threshold_increment_x'],
-                    cortical_data['firing_threshold_increment_y'],
-                    cortical_data['firing_threshold_increment_z']
-                ],
-                "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
-                "neuron_refractory_period": cortical_data['refractory_period'],
-                "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-                "neuron_leak_variability": leak_variability,
-                "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
-                "neuron_snooze_period": cortical_data['snooze_length'],
-                "neuron_degeneracy_coefficient": cortical_data['degeneration'],
-                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
-                "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
-                "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
-                "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
-                "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
-                "neuron_init_lifespan": cortical_data['init_lifespan'],
-                "temporal_depth": cortical_data['temporal_depth'],
-                "neuron_excitability": cortical_data['neuron_excitability'],
-                "transforming": False
-            }
-
-            if cortical_type in ["IPU", "OPU"]:
-                dev_count = connectome.genome["blueprint"][cortical_area]["dev_count"]
-
-                dim_x, dim_y, dim_z = connectome.genome["blueprint"][cortical_area]["block_boundaries"]
-
-                unit_dim_x = int(dim_x / dev_count)
-
-                unit_dim_y = dim_y
-
-                unit_dim_z = dim_z
-
-                cortical_properties["dev_count"] = dev_count
-                cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
-
-            if cortical_area in connectome.transforming_areas:
-                cortical_properties["transforming"] = True
-            else:
-                cortical_properties["transforming"] = False
-            return cortical_properties
-        else:
-            return generate_response("CORTICAL_AREA_NOT_FOUND")
-    else:
+    try:
+        return core_api.get_cortical_area_properties(cortical_id.cortical_id)
+    except ValueError:
         return generate_response("CORTICAL_AREA_INVALID_ID_LENGTH")
+    except KeyError:
+        return generate_response("CORTICAL_AREA_NOT_FOUND")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving cortical properties: {str(e)}")
 
 
 @router.put("/cortical_area")
@@ -288,57 +187,18 @@ async def delete_cortical_area(
 
 @router.get("/cortical_area_id_list")
 async def cortical_area_id_list(
-    connectome: ConnectomeManager = Depends(get_connectome)
+    core_api = Depends(get_core_api)
 ):
     """Return the list of cortical area IDs (6-letter strings) present in the current genome"""
-    try:
-        # Now that CorticalArea objects have cortical_id attribute, use it directly
-        if hasattr(connectome, '_areas') and connectome._areas:
-            # Extract the cortical_id attribute from each CorticalArea object
-            return [area.cortical_id for area in connectome._areas.values() 
-                    if hasattr(area, 'cortical_id') and area.cortical_id]
-        
-        # Fallback: Use the mapping if available
-        if hasattr(connectome, '_cortical_id_to_idx') and connectome._cortical_id_to_idx:
-            return list(connectome._cortical_id_to_idx.keys())
-        
-        # Fallback: Try the genome blueprint
-        if hasattr(connectome, 'genome') and connectome.genome and 'blueprint' in connectome.genome:
-            # Extract unique cortical IDs from the blueprint
-            cortical_ids = set()
-            for gene_key in connectome.genome['blueprint']:
-                if isinstance(gene_key, str) and '-' in gene_key:
-                    parts = gene_key.split('-')
-                    if len(parts) >= 2:
-                        cortical_ids.add(parts[1])
-            return list(cortical_ids)
-
-        # Last resort - return empty list
-        return []
-    except Exception as e:
-        logger.error(f"Error getting cortical area ID list: {str(e)}")
-        return []
+    return core_api.get_cortical_area_id_list()
 
 
 @router.get("/cortical_area_index_list")
 async def cortical_area_index_list(
-    connectome: ConnectomeManager = Depends(get_connectome)
+    core_api = Depends(get_core_api)
 ):
     """Return the list of cortical area indices (integers) used by the FCL"""
-    try:
-        # Use the _cortical_idx_to_id dict which contains the integer indices as keys
-        if hasattr(connectome, '_cortical_idx_to_id') and connectome._cortical_idx_to_id:
-            return list(connectome._cortical_idx_to_id.keys())
-        
-        # Fallback: If we have _areas with integer keys, use those
-        if hasattr(connectome, '_areas') and connectome._areas:
-            return list(connectome._areas.keys())
-            
-        # Last resort - return empty list
-        return []
-    except Exception as e:
-        logger.error(f"Error getting cortical area index list: {str(e)}")
-        return []
+    return core_api.get_cortical_area_index_list()
 
 
 @router.post("/cortical_name_location")

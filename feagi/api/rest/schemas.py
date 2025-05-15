@@ -305,3 +305,13 @@ class VisionSettings(BaseModel):
     shadows: Optional[float]
     pixel_change_limit: Optional[float]
     horizontal_flip: Optional[bool] = None
+
+
+class BurstEngineStats(BaseModel):
+    """Burst engine statistics model."""
+    average_burst_time: float = Field(0.0, description="Average time to process a burst in milliseconds")
+    max_burst_time: float = Field(0.0, description="Maximum time to process a burst in milliseconds")
+    min_burst_time: float = Field(0.0, description="Minimum time to process a burst in milliseconds")
+    total_bursts: int = Field(0, description="Total number of bursts processed")
+    average_active_neurons: int = Field(0, description="Average number of active neurons per burst")
+    memory_usage: float = Field(0.0, description="Memory usage in MB")

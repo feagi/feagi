@@ -69,8 +69,8 @@ class BurstEngine:
         self.target_frequency = self.desired_frequency  # For backward compatibility
         self.burst_interval = 1.0 / self.desired_frequency
         
-        # Use _areas instead of cortical_areas - fix the attribute name
-        self.cortical_areas = list(self.connectome_manager._areas.values()) if hasattr(self.connectome_manager, '_areas') else []
+        # Use cortical_areas instead of _areas - fix the attribute name
+        self.cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
         self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
 
     def run(self):
@@ -114,9 +114,9 @@ class BurstEngine:
     def update_with_genome(self):
         """Called when a genome is loaded to update burst engine state"""
         self.genome_loaded = True
-        # Use is_ready instead of is_active to check connectome status
-        if hasattr(self.connectome_manager, 'is_ready') and self.connectome_manager.is_ready():
-            self.cortical_areas = list(self.connectome_manager._areas.values())
+        # Update cortical areas list and shed areas set
+        if hasattr(self.connectome_manager, 'cortical_areas') and self.connectome_manager.cortical_areas:
+            self.cortical_areas = list(self.connectome_manager.cortical_areas.values())
             self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
         logger.info("Burst Engine updated with genome information", emoji1="⚡ ")
 

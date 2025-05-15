@@ -16,12 +16,14 @@
 
 
 import tempfile
-from fastapi import APIRouter, File, UploadFile, Depends
+from fastapi import APIRouter, File, UploadFile, Depends, HTTPException, Body
 from fastapi import HTTPException
 from starlette.responses import FileResponse
+from pydantic import BaseModel
 
 from ast import literal_eval
 from threading import Thread
+from typing import List, Dict, Any, Tuple, Optional
 
 from ...commons import *
 from feagi.bdu import ConnectomeManager
@@ -29,7 +31,7 @@ from feagi.core.state_manager import FeagiStateManager
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 logger = setup_logger()
-from feagi.api.rest.dependencies import get_connectome
+from feagi.api.rest.dependencies import get_connectome, get_core_api
 
 
 
@@ -38,12 +40,20 @@ router = APIRouter()
 # Helper to get state manager instance
 state = FeagiStateManager.instance()
 
+# Models for batch operations
+class BatchNeuronCreationRequest(BaseModel):
+    area_id: str
+    positions: List[Tuple[int, int, int]]
+    properties: Optional[Dict[str, Any]] = None
+
+class BatchSynapseCreationRequest(BaseModel):
+    connections: List[Tuple[int, int, float]]
 
 # ######  Connectome Endpoints #########
 # ######################################
 @router.get("/cortical_areas/list/summary")
 async def connectome_cortical_areas_summary():
-    areas = CoreAPIService.get_instance().get_cortical_areas()
+    areas = get_core_api().get_cortical_areas()
     if not areas:
         raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
     return [area["id"] for area in areas]
@@ -57,7 +67,7 @@ async def transforming_cortical_areas_summary():
 
 @router.get("/cortical_areas/list/detailed")
 async def connectome_cortical_areas():
-    areas = CoreAPIService.get_instance().get_cortical_areas()
+    areas = get_core_api().get_cortical_areas()
     if not areas:
         raise HTTPException(status_code=400, detail="No active genome found! Load a genome first.")
     return areas
@@ -143,15 +153,15 @@ async def connectome_dimensions_report(cortical_area: str):
 
 
 @router.get("/properties/mappings")
-async def connectome_mapping_report(connectome: ConnectomeManager = Depends(get_connectome)):
+async def connectome_mapping_report():
     """
     Report result can be used with the following tool to visualize the connectome mapping:
     https://csacademy.com/app/graph_editor/
     """
-    mappings = {}
-    for neuron_id in connectome._neuron_id_to_index.keys():
-        mappings[neuron_id] = connectome.get_outgoing_connections(neuron_id)
-    return mappings
+    try:
+        return get_core_api().get_neuron_mappings()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve neuron mappings: {str(e)}")
 
 
 @router.get("/download")
@@ -168,3 +178,41 @@ async def upload_connectome(file: UploadFile = File(...)):
     state.set_connectome_state('not_ready')
     # TODO: Implement connectome upload/restore
     raise NotImplementedError("Connectome upload is not yet implemented.")
+
+# Batch operations endpoints
+@router.post("/neurons/batch")
+async def batch_create_neurons(request: BatchNeuronCreationRequest):
+    """
+    Create multiple neurons in a batch operation.
+    
+    Args:
+        request: BatchNeuronCreationRequest containing area_id, positions, and optional properties
+        
+    Returns:
+        List of created neuron IDs
+    """
+    neuron_ids = get_core_api().batch_create_neurons(
+        area_id=request.area_id,
+        positions=request.positions,
+        properties=request.properties
+    )
+    
+    if not neuron_ids:
+        raise HTTPException(status_code=500, detail="Failed to create neurons")
+        
+    return {"created_neurons": neuron_ids, "count": len(neuron_ids)}
+
+@router.post("/synapses/batch")
+async def batch_create_synapses(request: BatchSynapseCreationRequest):
+    """
+    Create multiple synapses in a batch operation.
+    
+    Args:
+        request: BatchSynapseCreationRequest containing connections (pre_id, post_id, weight)
+        
+    Returns:
+        Number of created synapses
+    """
+    success_count = get_core_api().batch_create_synapses(request.connections)
+    
+    return {"created_synapses": success_count}

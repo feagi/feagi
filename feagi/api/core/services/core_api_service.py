@@ -14,7 +14,7 @@ import numpy as np
 logger = setup_logger()
 
 from feagi.core.feagi import FEAGI
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, develop_brain_from_genome
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis, develop_brain_from_genome
 from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
 from feagi.core.state_manager import FeagiStateManager
 from feagi.core.state_manager import ServiceState
@@ -31,64 +31,15 @@ try:
         genome_stat_updator
     )
 except ImportError:
-    # Fallback implementations if the imports fail
-    def genome_validator(genome: Dict[str, Any]) -> bool:
-        """
-        Placeholder for genome validation function.
-        
-        Args:
-            genome: Genome data to validate.
-            
-        Returns:
-            True if valid, False otherwise.
-        """
-        if not isinstance(genome, dict):
-            print(f"Invalid genome - not a dictionary: {type(genome)}")
-            return False
-        
-        required_keys = ["genome_id", "blueprint"]
-        
-        # Check for required keys
-        for key in required_keys:
-            if key not in genome:
-                print(f"Invalid genome - missing required key: {key}")
-                return False
-            
-        # Basic structural validation
-        if not isinstance(genome.get("blueprint"), dict):
-            print(f"Invalid genome - blueprint is not a dictionary: {type(genome.get('blueprint'))}")
-            return False
-        
-        # More detailed validation could be added here
-        
-        return True
-        
-    def save_genome(genome, file_name=''):
-        """Save a genome to a file."""
-        if file_name:
-            with open(file_name, 'w') as f:
-                json.dump(genome, f, indent=2)
-        return True
-        
-    def merge_core_morphologies(genome):
-        """Merges core morphologies into the genome."""
-        return genome
-        
-    def genome_morphology_updator(genome):
-        """Updates morphologies in the genome."""
-        return genome
-        
-    def genome_physiology_updator(genome):
-        """Updates physiology in the genome."""
-        if "physiology" not in genome:
-            genome["physiology"] = {}
-        return genome
-        
-    def genome_stat_updator(genome):
-        """Updates stats in the genome."""
-        if "stats" not in genome:
-            genome["stats"] = {}
-        return genome
+    # Fall back to the old location
+    from feagi.core.genome.genome_validator import genome_validator
+    from feagi.core.genome.genome_editor import save_genome
+    from feagi.core.genome.genome_processor import (
+        merge_core_morphologies, 
+        genome_morphology_updator, 
+        genome_physiology_updator, 
+        genome_stat_updator
+    )
 
 class CoreAPIService:
     """
@@ -136,13 +87,10 @@ class CoreAPIService:
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
         self._genome_filename = None
         self._pending_amalgamation = {}
-        self._amalgamation_history = {}
-        self._fcl_manager = self._connectome_manager.fcl_manager
-        self._neuroembryogenesis = Neuroembryogenesis(
-            connectome_manager=self._connectome_manager,
-            progress_callback=self._handle_embryogenesis_progress
-        )
-        self._current_genome = None
+
+        # Cache for frequently accessed data
+        self._cortical_areas_cache = None
+        self._cortical_areas_cache_timestamp = 0
         
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
@@ -158,13 +106,18 @@ class CoreAPIService:
         # For now, return None as this component isn't fully implemented
         return None
         
-    def get_connectome_manager(self):
-        """Get the Connectome Manager component."""
+    def get_connectome_manager(self) -> ConnectomeManager:
+        """
+        Get the connectome manager instance.
+        
+        Returns:
+            ConnectomeManager: The connectome manager instance
+        """
         return self._connectome_manager
         
     def get_fcl_manager(self):
         """Get the FCL Manager component."""
-        return self._fcl_manager
+        return self._connectome_manager.fcl_manager
         
     def get_memory_manager(self):
         """Get the Memory & Learning Manager component."""
@@ -215,18 +168,19 @@ class CoreAPIService:
         Returns:
             List of dictionaries containing cortical area information.
         """
+        # Check if we can use the cached version
+        if self._cortical_areas_cache is not None:
+            return self._cortical_areas_cache
+            
         result = []
         try:
-            if not self._connectome_manager._areas:
+            if not hasattr(self._connectome_manager, 'cortical_areas') or not self._connectome_manager.cortical_areas:
                 # No areas exist at all, just return an empty list
                 # This is normal when no genome has been loaded yet
-                if self._current_genome is not None:
-                    # Only log a warning if we expected to have areas (genome is loaded)
-                    self.logger.debug("No cortical areas available in connectome manager despite genome being loaded")
                 return []
             
             # Convert all areas to API format
-            for area_id, area in self._connectome_manager._areas.items():
+            for area_id, area in self._connectome_manager.cortical_areas.items():
                 try:
                     # Get neuron count (safely)
                     try:
@@ -260,6 +214,10 @@ class CoreAPIService:
             import traceback
             self.logger.error(traceback.format_exc())
         
+        # Cache the result
+        self._cortical_areas_cache = result
+        self._cortical_areas_cache_timestamp = time.time()
+        
         return result
         
     def get_cortical_area(self, area_id: str) -> Optional[Dict[str, Any]]:
@@ -281,7 +239,7 @@ class CoreAPIService:
                 return None
             
             # Get the area from connectome manager
-            area = self._connectome_manager._areas.get(cortical_idx)
+            area = self._connectome_manager.cortical_areas.get(cortical_idx)
             if not area:
                 self.logger.warning(f"Cortical area {area_id} not found")
                 return None
@@ -341,7 +299,7 @@ class CoreAPIService:
         try:
             # Generate a unique ID for the new area
             # In a real implementation, this might be more sophisticated
-            existing_ids = set(self._connectome_manager._areas.keys())
+            existing_ids = set(self._connectome_manager.cortical_areas.keys())
             new_id = 1
             while new_id in existing_ids:
                 new_id += 1
@@ -409,7 +367,7 @@ class CoreAPIService:
             return None
         
         try:
-            area = self._connectome_manager._areas.get(area_id_int)
+            area = self._connectome_manager.cortical_areas.get(area_id_int)
             if not area:
                 return None
             
@@ -473,7 +431,7 @@ class CoreAPIService:
             return False
         
         try:
-            if cortical_idx not in self._connectome_manager._areas:
+            if cortical_idx not in self._connectome_manager.cortical_areas:
                 return False
             
             # Get all neurons in this area
@@ -484,7 +442,7 @@ class CoreAPIService:
                 self._connectome_manager.delete_neuron(neuron_id)
             
             # Remove the area
-            del self._connectome_manager._areas[cortical_idx]
+            del self._connectome_manager.cortical_areas[cortical_idx]
             
             # Clean up any area-specific data structures
             if cortical_idx in self._connectome_manager._occupied_voxels:
@@ -530,7 +488,7 @@ class CoreAPIService:
             return None
         
         try:
-            if area_id_int not in self._connectome_manager._areas:
+            if area_id_int not in self._connectome_manager.cortical_areas:
                 return None
             
             # Get all neurons in this area
@@ -593,7 +551,7 @@ class CoreAPIService:
             return None
         
         try:
-            if area_id_int not in self._connectome_manager._areas:
+            if area_id_int not in self._connectome_manager.cortical_areas:
                 return None
             
             # Get all neurons in this area
@@ -659,7 +617,7 @@ class CoreAPIService:
             return None
         
         try:
-            if area_id_int not in self._connectome_manager._areas:
+            if area_id_int not in self._connectome_manager.cortical_areas:
                 return None
             
             # Get all neurons in this area
@@ -697,7 +655,7 @@ class CoreAPIService:
                 result["incoming_connections"] = [
                     {
                         "area_id": str(connected_area),
-                        "name": self._connectome_manager._areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
+                        "name": self._connectome_manager.cortical_areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
                     } 
                     for connected_area in incoming_connections
                 ]
@@ -706,7 +664,7 @@ class CoreAPIService:
                 result["outgoing_connections"] = [
                     {
                         "area_id": str(connected_area),
-                        "name": self._connectome_manager._areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
+                        "name": self._connectome_manager.cortical_areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
                     }
                     for connected_area in outgoing_connections
                 ]
@@ -738,7 +696,7 @@ class CoreAPIService:
             return False
         
         try:
-            if area_id_int not in self._connectome_manager._areas:
+            if area_id_int not in self._connectome_manager.cortical_areas:
                 return False
             
             # Get the neurons in the area
@@ -1037,7 +995,7 @@ class CoreAPIService:
                 json.dump(genome_data, f, indent=2)
 
             # Clear the connectome manager's state to start fresh
-            self._connectome_manager._areas.clear()
+            self._connectome_manager.cortical_areas.clear()
             
             try:
                 # Try to develop the brain from genome
@@ -1696,10 +1654,10 @@ class CoreAPIService:
         return False
     
     def refresh_cached_data(self):
-        """Refresh any cached data after a genome modification"""
-        # Clear any caches that might be stale after genome changes
-        if hasattr(self, '_cached_cortical_areas'):
-            del self._cached_cortical_areas 
+        """Refresh any cached data when state changes occur"""
+        # Clear caches so they'll be rebuilt on next access
+        self._cortical_areas_cache = None
+        self._cortical_areas_cache_timestamp = 0
 
     def genome_is_loaded(self) -> bool:
         """Check if a genome is currently loaded.
@@ -1715,4 +1673,419 @@ class CoreAPIService:
         if self.state_manager:
             return self.state_manager.is_genome_loaded()
         
-        return False 
+        return False
+
+    #----------------------------------------------------------------------
+    # Membrane Potential and Neuron Activity Methods
+    #----------------------------------------------------------------------
+    
+    def get_membrane_potentials(self, neuron_ids: List[int]) -> Dict[int, float]:
+        """
+        Get membrane potentials for the specified neurons.
+        
+        Args:
+            neuron_ids: List of neuron IDs
+            
+        Returns:
+            Dictionary mapping neuron IDs to their membrane potentials
+        """
+        result = {}
+        try:
+            for neuron_id in neuron_ids:
+                # Use explicit accessor method rather than direct attribute access
+                neuron = self._connectome_manager.neurons.get(neuron_id)
+                if neuron:
+                    result[neuron_id] = neuron.get("membrane_potential", 0.0)
+        except Exception as e:
+            self.logger.error(f"Error retrieving membrane potentials: {str(e)}")
+        
+        return result
+    
+    def update_membrane_potentials(self, neuron_potentials: Dict[int, float]) -> bool:
+        """
+        Update membrane potentials for multiple neurons in a batch operation.
+        
+        Args:
+            neuron_potentials: Dictionary mapping neuron IDs to new membrane potential values
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Group updates by area for potential batch optimization
+            area_neuron_map = {}
+            
+            for neuron_id, potential in neuron_potentials.items():
+                # Get area for this neuron
+                try:
+                    area_id = self._connectome_manager.get_area_for_neuron(neuron_id)
+                    if area_id not in area_neuron_map:
+                        area_neuron_map[area_id] = {}
+                    area_neuron_map[area_id][neuron_id] = potential
+                except KeyError:
+                    self.logger.warning(f"Neuron {neuron_id} not found in any area, skipping")
+                    continue
+            
+            # Apply updates
+            for area_id, area_neurons in area_neuron_map.items():
+                for neuron_id, potential in area_neurons.items():
+                    neuron = self._connectome_manager.neurons.get(neuron_id)
+                    if neuron:
+                        neuron["membrane_potential"] = potential
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating membrane potentials: {str(e)}")
+            return False
+    
+    def batch_create_neurons(self, area_id: str, positions: List[Tuple[int, int, int]], 
+                          properties: Optional[Dict[str, Any]] = None) -> List[int]:
+        """
+        Create multiple neurons in a batch operation.
+        
+        Args:
+            area_id: ID of the cortical area
+            positions: List of (x, y, z) positions for the neurons
+            properties: Shared properties for all neurons
+            
+        Returns:
+            List of created neuron IDs
+        """
+        try:
+            # Validate the cortical area exists
+            if not self._connectome_manager.cortical_areas.get(area_id):
+                self.logger.error(f"Cortical area {area_id} not found")
+                return []
+                
+            # Default properties if not provided
+            if properties is None:
+                properties = {
+                    "threshold": 1.0,
+                    "refractory_period": 5,
+                    "decay_rate": 0.1,
+                    "resting_potential": 0.0
+                }
+            
+            # Create neurons in batch
+            neuron_ids = []
+            for position in positions:
+                try:
+                    neuron_id = self._connectome_manager.create_neuron(
+                        area_id=area_id,
+                        position=position,
+                        **properties
+                    )
+                    neuron_ids.append(neuron_id)
+                except Exception as e:
+                    self.logger.error(f"Error creating neuron at position {position}: {str(e)}")
+            
+            return neuron_ids
+        except Exception as e:
+            self.logger.error(f"Error in batch neuron creation: {str(e)}")
+            return []
+    
+    def batch_create_synapses(self, connections: List[Tuple[int, int, float]]) -> int:
+        """
+        Create multiple synapses in a batch operation.
+        
+        Args:
+            connections: List of (pre_neuron_id, post_neuron_id, weight) tuples
+            
+        Returns:
+            Number of successfully created synapses
+        """
+        try:
+            success_count = 0
+            for pre_id, post_id, weight in connections:
+                try:
+                    self._connectome_manager.create_synapse(
+                        pre_neuron_id=pre_id,
+                        post_neuron_id=post_id,
+                        weight=weight
+                    )
+                    success_count += 1
+                except Exception as e:
+                    self.logger.error(f"Error creating synapse from {pre_id} to {post_id}: {str(e)}")
+            
+            return success_count
+        except Exception as e:
+            self.logger.error(f"Error in batch synapse creation: {str(e)}")
+            return 0
+    
+    #----------------------------------------------------------------------
+    # FCL Sampler Methods
+    #----------------------------------------------------------------------
+    
+    def get_area_fcl_sample_rate(self, area_id: int) -> Optional[float]:
+        """
+        Get the FCL sample rate for a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area
+            
+        Returns:
+            Sample rate value, or None if area not found
+            
+        Raises:
+            KeyError: If cortical area not found
+        """
+        # Check if the area exists
+        area = self._connectome_manager.cortical_areas.get(area_id)
+        if area is None:
+            raise KeyError(f"Cortical area {area_id} not found")
+            
+        # Get sample rate from area properties, or use fallback
+        rate = area.properties.get('fcl_sample_rate')
+        if rate is None:
+            # Use the global default if no specific rate is set
+            state_manager = FeagiStateManager.instance()
+            rate = state_manager.get_fcl_sampler_frequency()
+            
+        return rate
+    
+    def set_area_fcl_sample_rate(self, area_id: int, sample_rate: float) -> bool:
+        """
+        Set the FCL sample rate for a specific cortical area.
+        
+        Args:
+            area_id: ID of the cortical area
+            sample_rate: New sample rate value
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If sample rate is invalid
+            KeyError: If cortical area not found
+        """
+        if sample_rate <= 0:
+            raise ValueError("Sample rate must be positive")
+            
+        # Check if the area exists
+        area = self._connectome_manager.cortical_areas.get(area_id)
+        if area is None:
+            raise KeyError(f"Cortical area {area_id} not found")
+            
+        try:
+            # Update the property in the area
+            area.properties['fcl_sample_rate'] = sample_rate
+            
+            # Attempt to notify the process manager if available
+            try:
+                from feagi.process_manager import get_process_manager
+                process_mgr = get_process_manager()
+                if process_mgr:
+                    process_mgr.update_area_sample_rate(area_id, sample_rate)
+            except (ImportError, AttributeError):
+                self.logger.warning("Process manager not available for live FCL rate update")
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting FCL sample rate: {str(e)}")
+            return False
+            
+    #----------------------------------------------------------------------
+    # Connectome Mapping Methods
+    #----------------------------------------------------------------------
+    
+    def get_neuron_mappings(self) -> Dict[int, List[int]]:
+        """
+        Get mappings between neurons for visualization.
+        
+        Returns:
+            Dictionary mapping source neuron IDs to lists of target neuron IDs
+            
+        Note:
+            This method is useful for visualizing the connectome with tools 
+            like https://csacademy.com/app/graph_editor/
+        """
+        try:
+            mappings = {}
+            for neuron_id in self._connectome_manager._neuron_id_to_index.keys():
+                mappings[neuron_id] = self._connectome_manager.get_outgoing_connections(neuron_id)
+            return mappings
+        except Exception as e:
+            self.logger.error(f"Error getting neuron mappings: {str(e)}")
+            return {}
+    
+    #----------------------------------------------------------------------
+    # Cortical Area Methods
+    #----------------------------------------------------------------------
+    
+    def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
+        """
+        Get properties for a specific cortical area.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            
+        Returns:
+            Dictionary containing the area's properties
+            
+        Raises:
+            KeyError: If cortical area not found
+            ValueError: If cortical ID has invalid length
+        """
+        from feagi.evo.genome_properties import genome_properties
+        
+        if len(cortical_id) != genome_properties["structure"]["cortical_id_length"]:
+            raise ValueError("Cortical ID has invalid length")
+            
+        if cortical_id not in self._connectome_manager.genome['blueprint']:
+            raise KeyError(f"Cortical area {cortical_id} not found")
+        
+        cortical_data = self._connectome_manager.genome['blueprint'][cortical_id]
+        brain_region_id = self._connectome_manager.cortical_area_region_association[cortical_id]
+        brain_region_title = ""
+        if brain_region_id:
+            if brain_region_id in self._connectome_manager.genome["brain_regions"]:
+                brain_region_title = self._connectome_manager.genome["brain_regions"][brain_region_id]["title"]
+
+        # Handle missing fields
+        if 'mp_charge_accumulation' not in cortical_data:
+            cortical_data['mp_charge_accumulation'] = False
+
+        if 'mp_driven_psp' not in cortical_data:
+            cortical_data['mp_driven_psp'] = False
+
+        if '2d_coordinate' not in cortical_data:
+            cortical_data['2d_coordinate'] = [None, None]
+
+        # Get leak variability or default to 0
+        leak_variability = cortical_data.get('leak_variability', 0)
+        
+        # Check if the area is visible
+        cortical_visibility = True
+        if cortical_id in self._connectome_manager.cortical_viz_list:
+            cortical_visibility = False
+
+        # Get cortical type
+        cortical_type = self._connectome_manager.get_cortical_area_type(cortical_id)
+
+        # Get dimensions
+        dim_x = cortical_data["block_boundaries"][0]
+        dim_y = cortical_data["block_boundaries"][1]
+        dim_z = cortical_data["block_boundaries"][2]
+        
+        # Build properties dictionary
+        cortical_properties = {
+            "cortical_id": cortical_id,
+            "cortical_name": cortical_data['cortical_name'],
+            "parent_region_id": brain_region_id,
+            "parent_region_title": brain_region_title,
+            "cortical_group": cortical_data['group_id'],
+            "cortical_sub_group": cortical_data['sub_group_id'],
+            "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
+            "cortical_visibility": cortical_visibility,
+            "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
+            "coordinates_3d": [
+                cortical_data["relative_coordinate"][0],
+                cortical_data["relative_coordinate"][1],
+                cortical_data["relative_coordinate"][2]
+            ],
+            "coordinates_2d": [
+                cortical_data["2d_coordinate"][0],
+                cortical_data["2d_coordinate"][1]
+            ],
+            "cortical_dimensions": [dim_x, dim_y, dim_z],
+            "cortical_destinations": self._connectome_manager.get_outgoing_connections(cortical_id),
+            "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
+            "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
+            "neuron_fire_threshold": cortical_data['firing_threshold'],
+            "neuron_fire_threshold_increment": [
+                cortical_data['firing_threshold_increment_x'],
+                cortical_data['firing_threshold_increment_y'],
+                cortical_data['firing_threshold_increment_z']
+            ],
+            "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
+            "neuron_refractory_period": cortical_data['refractory_period'],
+            "neuron_leak_coefficient": cortical_data['leak_coefficient'],
+            "neuron_leak_variability": leak_variability,
+            "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
+            "neuron_snooze_period": cortical_data['snooze_length'],
+            "neuron_degeneracy_coefficient": cortical_data['degeneration'],
+            "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
+            "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
+            "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
+            "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
+            "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
+            "neuron_init_lifespan": cortical_data['init_lifespan'],
+            "temporal_depth": cortical_data['temporal_depth'],
+            "neuron_excitability": cortical_data['neuron_excitability'],
+            "transforming": False
+        }
+        
+        # Add IPU/OPU specific details if applicable
+        if cortical_type in ["IPU", "OPU"]:
+            dev_count = self._connectome_manager.genome["blueprint"][cortical_id]["dev_count"]
+            unit_dim_x = int(dim_x / dev_count)
+            unit_dim_y = dim_y
+            unit_dim_z = dim_z
+            
+            cortical_properties["dev_count"] = dev_count
+            cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
+            
+        # Check if transforming
+        if cortical_id in self._connectome_manager.transforming_areas:
+            cortical_properties["transforming"] = True
+            
+        return cortical_properties
+        
+    def get_cortical_area_id_list(self) -> List[str]:
+        """
+        Get a list of cortical area IDs.
+        
+        Returns:
+            List of cortical area IDs (6-letter strings)
+        """
+        try:
+            # First try CorticalArea objects with cortical_id attribute
+            if hasattr(self._connectome_manager, '_areas') and self._connectome_manager._areas:
+                # Extract the cortical_id attribute from each CorticalArea object
+                result = [area.cortical_id for area in self._connectome_manager._areas.values() 
+                        if hasattr(area, 'cortical_id') and area.cortical_id]
+                if result:
+                    return result
+            
+            # Fallback: Use the mapping if available
+            if hasattr(self._connectome_manager, '_cortical_id_to_idx') and self._connectome_manager._cortical_id_to_idx:
+                return list(self._connectome_manager._cortical_id_to_idx.keys())
+            
+            # Fallback: Try the genome blueprint
+            if hasattr(self._connectome_manager, 'genome') and self._connectome_manager.genome and 'blueprint' in self._connectome_manager.genome:
+                # Extract unique cortical IDs from the blueprint
+                cortical_ids = set()
+                for gene_key in self._connectome_manager.genome['blueprint']:
+                    if isinstance(gene_key, str) and '-' in gene_key:
+                        parts = gene_key.split('-')
+                        if len(parts) >= 2:
+                            cortical_ids.add(parts[1])
+                return list(cortical_ids)
+
+            # Last resort
+            return []
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area ID list: {str(e)}")
+            return []
+            
+    def get_cortical_area_index_list(self) -> List[int]:
+        """
+        Get a list of cortical area indices used by the FCL.
+        
+        Returns:
+            List of cortical area indices (integers)
+        """
+        try:
+            # Use the _cortical_idx_to_id dict which contains the integer indices as keys
+            if hasattr(self._connectome_manager, '_cortical_idx_to_id') and self._connectome_manager._cortical_idx_to_id:
+                return list(self._connectome_manager._cortical_idx_to_id.keys())
+            
+            # Fallback: If we have _areas with integer keys, use those
+            if hasattr(self._connectome_manager, '_areas') and self._connectome_manager._areas:
+                return list(self._connectome_manager._areas.keys())
+                
+            # Last resort
+            return []
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area index list: {str(e)}")
+            return [] 

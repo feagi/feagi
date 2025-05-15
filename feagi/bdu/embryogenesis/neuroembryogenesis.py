@@ -45,7 +45,8 @@ AreaId = int
 BoundingBox = Tuple[Position, Position]  # ((min_x, min_y, min_z), (max_x, max_y, max_z))
 
 from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
-from feagi.bdu.connectivity.synaptogenesis_rules import SynapseRule, neighbor_finder
+from feagi.bdu.connectivity.synapse_rule import SynapseRule
+from feagi.bdu.connectivity.synaptogenesis_rules import neighbor_finder
 
 # Try both the old and new import paths for FCLbitmap
 try:

@@ -20,11 +20,14 @@ def set_core_api_service(api_service):
     global _core_api_service
     _core_api_service = api_service
 
-def get_core_api_service():
+def get_core_api():
     """Get the core API service instance."""
     if _core_api_service is None:
         raise RuntimeError("Core API service not initialized")
     return _core_api_service
+
+# Alias for backward compatibility
+get_core_api_service = get_core_api
 
 def get_state_manager():
     """Dependency provider for FeagiStateManager"""

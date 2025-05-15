@@ -14,13 +14,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
+from feagi.utils.logger import setup_logger
+logger = setup_logger()
 
 from ...schemas import *
 from ...commons import *
 
-from feagi.bdu.brain_region import create_region, update_region, delete_region_with_members, change_cortical_area_parent, change_brain_region_parent, relocate_region_members
+from feagi.bdu.models.brain_region import create_region, update_region, delete_region_with_members, change_cortical_area_parent, change_brain_region_parent, relocate_region_members
 from feagi.api.response_templates import generate_response
 from feagi.evo.genome_properties import genome_properties
 from feagi.evo.templates import cortical_types
