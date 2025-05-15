@@ -1,151 +1,150 @@
 """
 FEAGI Control Protocol (FCP)
 
-This module implements the FEAGI Control Protocol used for agent
-registration and management.
+This module defines the FCP message types and constants used for
+control communication between FEAGI and agents.
 """
 
-import json
 import time
-from typing import Dict, Any
-
-from feagi_connector.protocols.serialization import BinarySerializer
 
 
 class FCPMessageType:
-    """Message types for FEAGI Control Protocol."""
-    # Registration
+    """FCP message types."""
+    # Registration messages
     REGISTER = "register"
     REGISTER_RESPONSE = "register_response"
-    REGISTER_ID = 1
     
-    # Deregistration
+    # Deregistration messages
     DEREGISTER = "deregister"
     DEREGISTER_RESPONSE = "deregister_response"
-    DEREGISTER_ID = 2
     
-    # Status
-    STATUS_REQUEST = "status_request"
-    STATUS_RESPONSE = "status_response"
-    STATUS_REQUEST_ID = 3
-    
-    # Configuration
-    CONFIGURE = "configure"
-    CONFIGURE_RESPONSE = "configure_response"
-    CONFIGURE_ID = 4
-    
-    # Heartbeat
+    # Heartbeat messages
     HEARTBEAT = "heartbeat"
     HEARTBEAT_RESPONSE = "heartbeat_response"
-    HEARTBEAT_ID = 5
     
-    # Error
+    # Status messages
+    STATUS = "status"
+    STATUS_RESPONSE = "status_response"
+    
+    # Configuration messages
+    CONFIG = "config"
+    CONFIG_RESPONSE = "config_response"
+    
+    # Error messages
     ERROR = "error"
-    ERROR_ID = 0xFF
 
 
-def create_register_message(agent_id: str, agent_type: str) -> Dict[str, Any]:
+class FCPErrorCode:
+    """FCP error codes."""
+    UNKNOWN = 0
+    INVALID_REQUEST = 1
+    AGENT_NOT_FOUND = 2
+    AGENT_ALREADY_EXISTS = 3
+    INVALID_PROTOCOL = 4
+    INTERNAL_ERROR = 5
+    UNAUTHORIZED = 6
+
+
+class FCPHandshakeState:
+    """FCP handshake states."""
+    NONE = 0
+    HELLO_SENT = 1
+    WELCOME_RECEIVED = 2
+    CAPABILITIES_SENT = 3
+    CONFIG_RECEIVED = 4
+    COMPLETED = 5
+
+
+class FCPRegistrationStatus:
+    """FCP registration status codes."""
+    SUCCESS = "success"
+    FAILURE = "failure"
+    PENDING = "pending"
+    REJECTED = "rejected"
+
+
+def create_register_request(agent_id: str, agent_type: str, capabilities: dict) -> dict:
     """
-    Create an agent registration message.
+    Create a registration request message.
     
     Args:
-        agent_id: Unique identifier for this agent
-        agent_type: Type of agent (for categorization)
+        agent_id: Agent identifier
+        agent_type: Agent type
+        capabilities: Dictionary of agent capabilities
         
     Returns:
-        Message dictionary
+        Registration request message
     """
     return {
         "type": FCPMessageType.REGISTER,
-        "data": {
-            "agent_id": agent_id,
-            "agent_type": agent_type,
-            "protocol_versions": {
-                "FCP": 1,
-                "FSMP": 1,
-                "FVP": 1
-            }
-        },
-        "timestamp": time.time()
+        "agent_id": agent_id,
+        "agent_type": agent_type,
+        "timestamp": int(time.time() * 1000),
+        "capabilities": capabilities
     }
 
 
-def create_deregister_message(agent_id: str) -> Dict[str, Any]:
+def create_deregister_request(agent_id: str) -> dict:
     """
-    Create an agent deregistration message.
+    Create a deregistration request message.
     
     Args:
         agent_id: Agent identifier
         
     Returns:
-        Message dictionary
+        Deregistration request message
     """
     return {
         "type": FCPMessageType.DEREGISTER,
-        "data": {
-            "agent_id": agent_id
-        },
-        "timestamp": time.time()
+        "agent_id": agent_id,
+        "timestamp": int(time.time() * 1000)
     }
 
 
-def create_heartbeat_message(agent_id: str) -> Dict[str, Any]:
+def create_heartbeat_request(agent_id: str) -> dict:
     """
-    Create a heartbeat message.
+    Create a heartbeat request message.
     
     Args:
         agent_id: Agent identifier
         
     Returns:
-        Message dictionary
+        Heartbeat request message
     """
     return {
         "type": FCPMessageType.HEARTBEAT,
-        "data": {
-            "agent_id": agent_id
-        },
-        "timestamp": time.time()
+        "agent_id": agent_id,
+        "timestamp": int(time.time() * 1000)
     }
 
 
-def create_status_request_message() -> Dict[str, Any]:
+def create_status_request() -> dict:
     """
     Create a status request message.
     
     Returns:
-        Message dictionary
+        Status request message
     """
     return {
-        "type": FCPMessageType.STATUS_REQUEST,
-        "timestamp": time.time()
+        "type": FCPMessageType.STATUS,
+        "timestamp": int(time.time() * 1000)
     }
 
 
-def encode_message(message: Dict[str, Any], command_type: int) -> bytes:
+def create_error_response(error_code: int, message: str) -> dict:
     """
-    Encode a message for transmission.
+    Create an error response message.
     
     Args:
-        message: Message dictionary
-        command_type: Command type identifier
+        error_code: Error code
+        message: Error message
         
     Returns:
-        Encoded binary message
+        Error response message
     """
-    payload = json.dumps(message).encode()
-    return BinarySerializer.encode_fcp(command_type=command_type, payload=payload)
-
-
-def decode_message(data: bytes) -> Dict[str, Any]:
-    """
-    Decode a received message.
-    
-    Args:
-        data: Binary message data
-        
-    Returns:
-        Decoded message dictionary
-    """
-    decoded = BinarySerializer.decode_fcp(data)
-    payload = decoded["payload"].decode()
-    return json.loads(payload) 
+    return {
+        "type": FCPMessageType.ERROR,
+        "error_code": error_code,
+        "message": message,
+        "timestamp": int(time.time() * 1000)
+    } 

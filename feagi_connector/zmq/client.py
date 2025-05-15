@@ -2,29 +2,25 @@
 ZeroMQ Client for FEAGI
 
 This module implements a ZeroMQ-based client for connecting to a FEAGI server.
-It supports all FEAGI protocols (FCP, FSMP, FVP) over ZMQ sockets.
+It supports all FEAGI protocols (FCP, FSMP, FVP) over ZMQ sockets using the
+DEALER-ROUTER pattern with custom byte structures.
 """
 
 import asyncio
 import logging
 import time
-import struct
+import json
 from typing import Dict, Any, Optional, Callable, List, Tuple, Union
 
 import zmq
 import zmq.asyncio
 
 # Import protocol definitions
-from protocol import (
-    ProtocolID, ProtocolHeader, Timestamp,
-    FCPMessageType, FCPMessage, RegisterRequest, RegisterResponse,
-    DeregisterRequest, DeregisterResponse, StatusRequest, StatusResponse,
-    HeartbeatRequest, HeartbeatResponse, ErrorResponse,
-    FSMPMessageType, SensoryChannelType, MotorChannelType, FSMPMessage,
-    SensoryData, MotorData,
-    FVPMessageType, FVPMessage, StructureData, ActivityData
+from feagi_connector.protocols import (
+    ByteStructureID, ProtocolType, 
+    FCPMessageType, FSMPChannel, FVPFrameType,
+    ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
 )
-from protocol.fcp.v1.fcp_pb2 import ProtocolVersion
 
 # Configure logging
 logger = logging.getLogger("feagi_connector.zmq")
@@ -35,7 +31,8 @@ class ZmqFeagiClient:
     ZeroMQ-based FEAGI Client.
     
     This class implements the client-side ZMQ sockets for connecting
-    to a FEAGI server and handling the various protocol streams.
+    to a FEAGI server and handling the various protocol streams using
+    the DEALER-ROUTER pattern and byte structures.
     """
     
     def __init__(
@@ -43,7 +40,7 @@ class ZmqFeagiClient:
         host: str = "localhost",
         control_port: int = 5559,
         sensorimotor_port: int = 5558,
-        viz_port_base: int = 5560,
+        visualization_port: int = 5560,
         context: Optional[zmq.asyncio.Context] = None
     ):
         """
@@ -53,27 +50,36 @@ class ZmqFeagiClient:
             host: Host address of the FEAGI server
             control_port: Port for the FCP control stream
             sensorimotor_port: Port for the FSMP sensorimotor stream
-            viz_port_base: Base port for the FVP visualization stream
+            visualization_port: Port for the FVP visualization stream
             context: Optional ZMQ context to use
         """
         self.host = host
         self.control_port = control_port
         self.sensorimotor_port = sensorimotor_port
-        self.viz_port_base = viz_port_base
+        self.visualization_port = visualization_port
         
         # Initialize ZMQ context
         self.context = context or zmq.asyncio.Context.instance()
         
         # Initialize sockets (will be created on connect)
         self.control_socket = None
-        self.sensory_socket = None
-        self.motor_socket = None
-        self.viz_structure_socket = None
-        self.viz_activity_socket = None
+        self.sensorimotor_socket = None
+        self.visualization_socket = None
+        
+        # Initialize byte structure translator
+        self.translator = ByteStructureTranslator()
         
         # Task tracking
         self._tasks = []
         self._running = False
+        
+        # Callbacks
+        self._motor_callback = None
+        self._activity_callback = None
+        self._structure_callback = None
+        
+        # Client info
+        self.agent_id = None
         
     async def connect(self) -> bool:
         """
@@ -83,26 +89,25 @@ class ZmqFeagiClient:
             True if connected successfully, False otherwise
         """
         try:
+            logger.debug(f"Connecting to FEAGI server at {self.host}")
+            logger.debug(f"Control port: {self.control_port}")
+            logger.debug(f"Sensorimotor port: {self.sensorimotor_port}")
+            logger.debug(f"Visualization port: {self.visualization_port}")
+            
             # Create control socket (DEALER for ROUTER)
             self.control_socket = self.context.socket(zmq.DEALER)
             self.control_socket.connect(f"tcp://{self.host}:{self.control_port}")
+            logger.debug("Connected control socket")
             
-            # Create sensorimotor sockets
-            self.sensory_socket = self.context.socket(zmq.PUSH)
-            self.sensory_socket.connect(f"tcp://{self.host}:{self.sensorimotor_port}")
+            # Create sensorimotor socket (DEALER for ROUTER)
+            self.sensorimotor_socket = self.context.socket(zmq.DEALER)
+            self.sensorimotor_socket.connect(f"tcp://{self.host}:{self.sensorimotor_port}")
+            logger.debug("Connected sensorimotor socket")
             
-            self.motor_socket = self.context.socket(zmq.SUB)
-            self.motor_socket.connect(f"tcp://{self.host}:{self.sensorimotor_port}")
-            self.motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
-            
-            # Create visualization sockets
-            self.viz_structure_socket = self.context.socket(zmq.SUB)
-            self.viz_structure_socket.connect(f"tcp://{self.host}:{self.viz_port_base}")
-            self.viz_structure_socket.setsockopt(zmq.SUBSCRIBE, b"structure")
-            
-            self.viz_activity_socket = self.context.socket(zmq.SUB)
-            self.viz_activity_socket.connect(f"tcp://{self.host}:{self.viz_port_base + 1}")
-            self.viz_activity_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
+            # Create visualization socket (DEALER for ROUTER)
+            self.visualization_socket = self.context.socket(zmq.DEALER)
+            self.visualization_socket.connect(f"tcp://{self.host}:{self.visualization_port}")
+            logger.debug("Connected visualization socket")
             
             self._running = True
             return True
@@ -125,16 +130,13 @@ class ZmqFeagiClient:
             self._tasks = []
         
         # Close sockets
-        for socket in [self.control_socket, self.sensory_socket, self.motor_socket,
-                      self.viz_structure_socket, self.viz_activity_socket]:
+        for socket in [self.control_socket, self.sensorimotor_socket, self.visualization_socket]:
             if socket:
                 socket.close(linger=0)
                 
         self.control_socket = None
-        self.sensory_socket = None
-        self.motor_socket = None
-        self.viz_structure_socket = None
-        self.viz_activity_socket = None
+        self.sensorimotor_socket = None
+        self.visualization_socket = None
         
         self._running = False
     
@@ -152,53 +154,88 @@ class ZmqFeagiClient:
         if not self._running or not self.control_socket:
             raise RuntimeError("Client not connected")
         
-        # Create timestamp
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
+        logger.debug(f"Registering agent {agent_id} of type {agent_type}")
         
-        # Create protocol versions
-        versions = ProtocolVersion()
-        versions.fcp_version = 1
-        versions.fsmp_version = 1
-        versions.fvp_version = 1
+        # Store agent ID
+        self.agent_id = agent_id
         
         # Create registration request
-        request = RegisterRequest()
-        request.agent_id = agent_id
-        request.agent_type = agent_type
-        request.protocol_versions.CopyFrom(versions)
-        request.timestamp.CopyFrom(current_time)
+        request = {
+            "type": FCPMessageType.REGISTER,
+            "agent_id": agent_id,
+            "agent_type": agent_type,
+            "timestamp": int(time.time() * 1000),
+            "capabilities": {
+                "protocols": {
+                    ProtocolType.FCP: True,
+                    ProtocolType.FSMP: True,
+                    ProtocolType.FVP: True
+                },
+                "structures": {
+                    str(ByteStructureID.JSON): [1],
+                    str(ByteStructureID.RAW_IMAGE): [1],
+                    str(ByteStructureID.MULTI_HOLDER): [1],
+                    str(ByteStructureID.NEURON_FLAT): [1],
+                    str(ByteStructureID.NEURON_CATEGORIES): [1]
+                }
+            }
+        }
         
-        # Create FCP message
-        message = FCPMessage()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPMessageType.FCP_REGISTER
-        message.register_request.CopyFrom(request)
+        logger.debug(f"Registration request: {request}")
         
-        # Serialize and send
-        data = message.SerializeToString()
-        await self.control_socket.send_multipart([b"", data])
+        # For now, send as direct JSON to be compatible with current server
+        # This is temporary until the server is updated to support byte structures
+        json_data = json.dumps(request).encode('utf-8')
+        logger.debug(f"Sending as JSON, size: {len(json_data)} bytes")
+        
+        # Send with content-type frame for compatibility with current server
+        await self.control_socket.send_multipart([b"", b"application/json", json_data])
+        logger.debug("Registration request sent, waiting for response")
         
         # Receive and parse response
         response_frames = await self.control_socket.recv_multipart()
+        logger.debug(f"Received response with {len(response_frames)} frames")
         
-        if len(response_frames) != 2:
+        if len(response_frames) != 3:  # Empty frame, content-type, payload
+            logger.error(f"Invalid response format: {response_frames}")
             raise RuntimeError(f"Invalid response format: {response_frames}")
-            
-        # Deserialize response
-        response_message = FCPMessage()
-        response_message.ParseFromString(response_frames[1])
         
-        # Extract response data
-        if response_message.HasField('register_response'):
-            return {
-                "status": response_message.register_response.status,
-                "message": response_message.register_response.message,
-                "timestamp": response_message.register_response.timestamp.time_ms / 1000
-            }
+        # Extract the actual data (third frame)
+        response_data = response_frames[2]
+        content_type = response_frames[1].decode('utf-8')
+        logger.debug(f"Response content type: {content_type}")
+        
+        # Parse the response based on content type
+        if content_type == "application/json":
+            response = json.loads(response_data.decode('utf-8'))
         else:
-            raise RuntimeError(f"Unexpected response type: {response_message.type}")
+            # Try to decode as byte structure if not JSON
+            try:
+                response = self.translator.decode_message(response_data)
+            except Exception as e:
+                logger.error(f"Failed to decode response: {e}")
+                response = {"error": "Failed to decode response", "data": response_data.decode('utf-8', errors='replace')}
+        
+        logger.debug(f"Decoded response: {response}")
+        
+        # Start message listeners if registration successful
+        if response.get("status") == "success":
+            logger.debug("Registration successful, starting listeners")
+            self._start_listeners()
+            
+        return response
+    
+    def _start_listeners(self):
+        """Start asynchronous message listeners."""
+        # Start sensorimotor listener if callback registered
+        if self._motor_callback:
+            task = asyncio.create_task(self._sensorimotor_listener())
+            self._tasks.append(task)
+            
+        # Start visualization listener if callbacks registered
+        if self._activity_callback or self._structure_callback:
+            task = asyncio.create_task(self._visualization_listener())
+            self._tasks.append(task)
     
     async def deregister_agent(self, agent_id: str) -> Dict[str, Any]:
         """
@@ -213,24 +250,15 @@ class ZmqFeagiClient:
         if not self._running or not self.control_socket:
             raise RuntimeError("Client not connected")
         
-        # Create timestamp
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
-        
         # Create deregistration request
-        request = DeregisterRequest()
-        request.agent_id = agent_id
-        request.timestamp.CopyFrom(current_time)
+        request = {
+            "type": FCPMessageType.DEREGISTER,
+            "agent_id": agent_id,
+            "timestamp": int(time.time() * 1000)
+        }
         
-        # Create FCP message
-        message = FCPMessage()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPMessageType.FCP_DEREGISTER
-        message.deregister_request.CopyFrom(request)
-        
-        # Serialize and send
-        data = message.SerializeToString()
+        # Encode and send
+        data = self.translator.encode_message(request)
         await self.control_socket.send_multipart([b"", data])
         
         # Receive and parse response
@@ -240,18 +268,9 @@ class ZmqFeagiClient:
             raise RuntimeError(f"Invalid response format: {response_frames}")
             
         # Deserialize response
-        response_message = FCPMessage()
-        response_message.ParseFromString(response_frames[1])
+        response = self.translator.decode_message(response_frames[1])
         
-        # Extract response data
-        if response_message.HasField('deregister_response'):
-            return {
-                "status": response_message.deregister_response.status,
-                "message": response_message.deregister_response.message,
-                "timestamp": response_message.deregister_response.timestamp.time_ms / 1000
-            }
-        else:
-            raise RuntimeError(f"Unexpected response type: {response_message.type}")
+        return response
     
     async def send_heartbeat(self, agent_id: str) -> Dict[str, Any]:
         """
@@ -266,24 +285,15 @@ class ZmqFeagiClient:
         if not self._running or not self.control_socket:
             raise RuntimeError("Client not connected")
         
-        # Create timestamp
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
-        
         # Create heartbeat request
-        request = HeartbeatRequest()
-        request.agent_id = agent_id
-        request.timestamp.CopyFrom(current_time)
+        request = {
+            "type": FCPMessageType.HEARTBEAT,
+            "agent_id": agent_id,
+            "timestamp": int(time.time() * 1000)
+        }
         
-        # Create FCP message
-        message = FCPMessage()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPMessageType.FCP_HEARTBEAT
-        message.heartbeat_request.CopyFrom(request)
-        
-        # Serialize and send
-        data = message.SerializeToString()
+        # Encode and send
+        data = self.translator.encode_message(request)
         await self.control_socket.send_multipart([b"", data])
         
         # Receive and parse response
@@ -293,45 +303,28 @@ class ZmqFeagiClient:
             raise RuntimeError(f"Invalid response format: {response_frames}")
             
         # Deserialize response
-        response_message = FCPMessage()
-        response_message.ParseFromString(response_frames[1])
+        response = self.translator.decode_message(response_frames[1])
         
-        # Extract response data
-        if response_message.HasField('heartbeat_response'):
-            return {
-                "status": response_message.heartbeat_response.status,
-                "timestamp": response_message.heartbeat_response.timestamp.time_ms / 1000
-            }
-        else:
-            raise RuntimeError(f"Unexpected response type: {response_message.type}")
+        return response
     
     async def get_status(self) -> Dict[str, Any]:
         """
-        Get the status of the FEAGI server.
+        Get FEAGI status information.
         
         Returns:
-            Status information
+            Dictionary with status information
         """
         if not self._running or not self.control_socket:
             raise RuntimeError("Client not connected")
         
-        # Create timestamp
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
-        
         # Create status request
-        request = StatusRequest()
-        request.timestamp.CopyFrom(current_time)
+        request = {
+            "type": FCPMessageType.STATUS,
+            "timestamp": int(time.time() * 1000)
+        }
         
-        # Create FCP message
-        message = FCPMessage()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPMessageType.FCP_STATUS_REQUEST
-        message.status_request.CopyFrom(request)
-        
-        # Serialize and send
-        data = message.SerializeToString()
+        # Encode and send
+        data = self.translator.encode_message(request)
         await self.control_socket.send_multipart([b"", data])
         
         # Receive and parse response
@@ -341,98 +334,105 @@ class ZmqFeagiClient:
             raise RuntimeError(f"Invalid response format: {response_frames}")
             
         # Deserialize response
-        response_message = FCPMessage()
-        response_message.ParseFromString(response_frames[1])
+        response = self.translator.decode_message(response_frames[1])
         
-        # Extract response data
-        if response_message.HasField('status_response'):
-            return {
-                "status": response_message.status_response.status,
-                "runtime": {
-                    "cpu_usage": response_message.status_response.runtime.cpu_usage,
-                    "memory_usage": response_message.status_response.runtime.memory_usage,
-                    "uptime_seconds": response_message.status_response.runtime.uptime_seconds
-                },
-                "agent_count": response_message.status_response.agent_count,
-                "timestamp": response_message.status_response.timestamp.time_ms / 1000
-            }
-        else:
-            raise RuntimeError(f"Unexpected response type: {response_message.type}")
+        return response
     
     async def send_sensory_data(self, channel_id: int, data: bytes) -> None:
         """
-        Send sensory data to the FEAGI server.
+        Send sensory data to FEAGI.
         
         Args:
             channel_id: Sensory channel ID
             data: Binary sensory data
         """
-        if not self._running or not self.sensory_socket:
+        if not self._running or not self.sensorimotor_socket:
             raise RuntimeError("Client not connected")
         
-        # Create timestamp
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
-        
         # Create sensory data message
-        sensory_data = SensoryData()
-        sensory_data.channel_id = channel_id
-        sensory_data.data = data
-        sensory_data.timestamp.CopyFrom(current_time)
+        message = {
+            "type": "sensory_data",
+            "channel_id": channel_id,
+            "timestamp": int(time.time() * 1000),
+            "data_format": "raw"
+        }
         
-        # Create FSMP message
-        message = FSMPMessage()
-        message.header.protocol_id = ProtocolID.FSMP
-        message.header.version = 1
-        message.type = FSMPMessageType.FSMP_SENSORY
-        message.sensory_data.CopyFrom(sensory_data)
+        # Encode message as JSON structure
+        message_data = self.translator.encode_message(message)
         
-        # Serialize and send
-        data = message.SerializeToString()
-        await self.sensory_socket.send_multipart([b"sensory", data])
+        # Create multi-holder with message and binary data
+        image_data = self.translator.encoder.encode_raw_image(
+            data, 
+            width=0,  # These will be filled in by the agent implementation
+            height=0, 
+            channels=0
+        )
+        
+        multi_data = self.translator.encoder.encode_multi_holder([message_data, image_data])
+        
+        # Send to FEAGI
+        await self.sensorimotor_socket.send_multipart([b"", multi_data])
     
     async def register_motor_callback(self, callback: Callable[[int, bytes], None]) -> None:
         """
         Register a callback for receiving motor data.
         
         Args:
-            callback: Function to call with (channel_id, data) when motor data is received
+            callback: Function to call when motor data is received
+                     (parameters: channel_id, data)
         """
-        if not self._running or not self.motor_socket:
-            raise RuntimeError("Client not connected")
-            
-        # Create a background task to listen for motor messages
-        task = asyncio.create_task(self._motor_listener(callback))
-        self._tasks.append(task)
+        self._motor_callback = callback
+        
+        # Start listener if we're already running
+        if self._running and self.sensorimotor_socket:
+            task = asyncio.create_task(self._sensorimotor_listener())
+            self._tasks.append(task)
     
-    async def _motor_listener(self, callback: Callable[[int, bytes], None]) -> None:
-        """Background task to listen for motor messages."""
-        try:
-            while self._running and self.motor_socket:
-                try:
-                    # Receive message
-                    topic, message_data = await self.motor_socket.recv_multipart()
+    async def _sensorimotor_listener(self) -> None:
+        """Listen for motor messages from FEAGI."""
+        logger.info("Starting sensorimotor listener")
+        
+        while self._running and self.sensorimotor_socket:
+            try:
+                # Receive message
+                message_parts = await self.sensorimotor_socket.recv_multipart()
+                
+                if len(message_parts) != 2:
+                    logger.error(f"Invalid message format: {message_parts}")
+                    continue
+                
+                # Decode message
+                message_data = message_parts[1]
+                
+                # Check if it's a multi-holder (message + binary data)
+                structure_info = self.translator.decoder.decode_header(message_data)
+                if structure_info[0] == ByteStructureID.MULTI_HOLDER:
+                    # Decode multi-holder
+                    multi_data = self.translator.decoder.decode_multi_holder(message_data)
+                    structures = multi_data["structures"]
                     
-                    # Deserialize message
-                    message = FSMPMessage()
-                    message.ParseFromString(message_data)
-                    
-                    # Verify it's a motor message
-                    if message.type != FSMPMessageType.FSMP_MOTOR:
-                        logger.warning(f"Received non-motor message type: {message.type}")
+                    if len(structures) != 2:
+                        logger.error(f"Expected 2 structures in multi-holder, got {len(structures)}")
                         continue
                     
-                    # Call callback with motor data
-                    callback(message.motor_data.channel_id, message.motor_data.data)
+                    # Decode message part
+                    message = self.translator.decode_message(structures[0])
                     
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.error(f"Error in motor listener: {e}")
-                    await asyncio.sleep(0.1)
-                    
-        except asyncio.CancelledError:
-            logger.debug("Motor listener cancelled")
+                    # Extract binary data
+                    if message.get("type") == "motor_data" and self._motor_callback:
+                        channel_id = message.get("channel_id")
+                        raw_data = structures[1]
+                        
+                        # Get raw data from second structure
+                        image_data = self.translator.decoder.decode_raw_image(raw_data)
+                        
+                        # Call callback
+                        self._motor_callback(channel_id, image_data["data"])
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.exception(f"Error in sensorimotor listener: {e}")
     
     async def register_visualization_callbacks(
         self,
@@ -446,48 +446,59 @@ class ZmqFeagiClient:
             activity_callback: Function to call when neural activity data is received
             structure_callback: Function to call when brain structure data is received
         """
-        if not self._running:
-            raise RuntimeError("Client not connected")
-            
-        # Start activity listener if callback provided
-        if activity_callback and self.viz_activity_socket:
-            task = asyncio.create_task(
-                self._visualization_listener(self.viz_activity_socket, activity_callback)
-            )
-            self._tasks.append(task)
-            
-        # Start structure listener if callback provided
-        if structure_callback and self.viz_structure_socket:
-            task = asyncio.create_task(
-                self._visualization_listener(self.viz_structure_socket, structure_callback)
-            )
+        self._activity_callback = activity_callback
+        self._structure_callback = structure_callback
+        
+        # Start listener if we're already running
+        if self._running and self.visualization_socket:
+            task = asyncio.create_task(self._visualization_listener())
             self._tasks.append(task)
     
-    async def _visualization_listener(self, socket: zmq.asyncio.Socket, callback: Callable[[bytes], None]) -> None:
-        """Background task to listen for visualization messages."""
-        try:
-            while self._running and socket:
-                try:
-                    # Receive message
-                    topic, message_data = await socket.recv_multipart()
+    async def _visualization_listener(self) -> None:
+        """Listen for visualization messages from FEAGI."""
+        logger.info("Starting visualization listener")
+        
+        while self._running and self.visualization_socket:
+            try:
+                # Receive message
+                message_parts = await self.visualization_socket.recv_multipart()
+                
+                if len(message_parts) != 2:
+                    logger.error(f"Invalid message format: {message_parts}")
+                    continue
+                
+                # Decode message
+                message_data = message_parts[1]
+                
+                # Determine structure type
+                structure_info = self.translator.decoder.decode_header(message_data)
+                
+                if structure_info[0] == ByteStructureID.MULTI_HOLDER:
+                    # Decode multi-holder
+                    multi_data = self.translator.decoder.decode_multi_holder(message_data)
+                    structures = multi_data["structures"]
                     
-                    # Deserialize message
-                    message = FVPMessage()
-                    message.ParseFromString(message_data)
+                    if len(structures) < 1:
+                        logger.error("Empty multi-holder received")
+                        continue
                     
-                    # Determine data based on message type
-                    if message.type == FVPMessageType.FVP_ACTIVITY:
-                        callback(message.activity_data.SerializeToString())
-                    elif message.type == FVPMessageType.FVP_STRUCTURE:
-                        callback(message.structure_data.SerializeToString())
-                    else:
-                        logger.warning(f"Unknown visualization message type: {message.type}")
+                    # Decode message part
+                    message = self.translator.decode_message(structures[0])
                     
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.error(f"Error in visualization listener: {e}")
-                    await asyncio.sleep(0.1)
-                    
-        except asyncio.CancelledError:
-            logger.debug("Visualization listener cancelled") 
+                    # Process based on message type
+                    if message.get("type") == "activity_data" and self._activity_callback:
+                        # For activity data, we have neuron data in subsequent structures
+                        if len(structures) > 1:
+                            # Assuming the second structure is neuron data
+                            self._activity_callback(structures[1])
+                            
+                    elif message.get("type") == "structure_data" and self._structure_callback:
+                        # For structure data, we have structure info in subsequent structures
+                        if len(structures) > 1:
+                            # Assuming the second structure contains structure data
+                            self._structure_callback(structures[1])
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.exception(f"Error in visualization listener: {e}") 

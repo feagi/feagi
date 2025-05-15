@@ -3,16 +3,16 @@
 FEAGI Connector Example
 
 This example demonstrates how to use the FEAGI connector to interact with
-a running FEAGI instance.
+a running FEAGI instance using the byte structure protocol.
 """
 
 import asyncio
 import logging
 import time
-from typing import List
+from typing import List, Dict, Any
 
 from feagi_connector import FeagiClient
-from feagi_connector.protocols import FSMPChannel
+from feagi_connector.protocols import FSMPChannel, ByteStructureID
 
 # Configure logging
 logging.basicConfig(
@@ -79,12 +79,16 @@ class SimpleFeagiAgent:
     
     def _handle_activity_data(self, data: bytes):
         """Handle incoming neural activity data from FEAGI."""
-        logger.info(f"Received neural activity data: {len(data)} bytes")
+        # The data is now a byte structure containing neuron potentials
+        structure_type, version = data[0], data[1]  # First two bytes are header
+        logger.info(f"Received neural activity data: {len(data)} bytes, type={structure_type}, version={version}")
         self.last_neural_activity = data
     
     def _handle_structure_data(self, data: bytes):
         """Handle incoming brain structure data from FEAGI."""
-        logger.info(f"Received brain structure data: {len(data)} bytes")
+        # The data is now a byte structure containing brain structure
+        structure_type, version = data[0], data[1]  # First two bytes are header
+        logger.info(f"Received brain structure data: {len(data)} bytes, type={structure_type}, version={version}")
     
     async def send_dummy_sensory_data(self):
         """Send dummy sensory data to FEAGI."""
@@ -92,21 +96,22 @@ class SimpleFeagiAgent:
             return
         
         # Create dummy data (e.g., a small image)
-        data = bytes([0x80] * 100)  # 10x10 grayscale image
+        width, height = 10, 10
+        data = bytes([0x80] * (width * height))  # 10x10 grayscale image
         
         # Send to vision channel
         await self.client.send_sensory_data(channel_id=FSMPChannel.VISION, data=data)
-        logger.info("Sent dummy sensory data")
+        logger.info(f"Sent dummy sensory data: {width}x{height} image")
     
     async def heartbeat_loop(self):
         """Periodically send heartbeats to maintain connection."""
         while self.running:
             try:
-                success = await self.client.send_heartbeat()
-                if success:
+                response = await self.client.send_heartbeat(self.client.agent_id)
+                if response.get("type") == "heartbeat_response":
                     logger.debug("Heartbeat acknowledged")
                 else:
-                    logger.warning("Heartbeat not acknowledged")
+                    logger.warning(f"Unexpected heartbeat response: {response}")
             except Exception as e:
                 logger.error(f"Error sending heartbeat: {e}")
                 

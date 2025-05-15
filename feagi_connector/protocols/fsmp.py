@@ -1,56 +1,116 @@
 """
 FEAGI Sensorimotor Protocol (FSMP)
 
-This module implements the FEAGI Sensorimotor Protocol used for exchanging
-sensory and motor data between FEAGI and agents.
+This module defines the FSMP message types and constants used for
+sensorimotor communication between FEAGI and agents.
 """
 
-from typing import Dict, Any, Optional
-
-from feagi_connector.protocols.serialization import BinarySerializer
-
+import time
 
 class FSMPChannel:
-    """Channel constants for sensorimotor data."""
-    # Default channels
+    """Sensorimotor channel types."""
+    # Sensory channels
     VISION = 1
     AUDIO = 2
     PROPRIOCEPTION = 3
-    TACTILE = 4
+    TOUCH = 4
+    SMELL = 5
+    TASTE = 6
+    CUSTOM_SENSORY = 100
     
-    # Default motor channels
-    MOVEMENT = 101
-    SPEECH = 102
-    MANIPULATION = 103
+    # Motor channels
+    LOCOMOTION = 1001
+    MANIPULATION = 1002
+    VOCALIZATION = 1003
+    FACIAL_EXPRESSION = 1004
+    CUSTOM_MOTOR = 1100
 
 
-def create_sensory_message(channel_id: int, data: bytes, timestamp: Optional[int] = None) -> bytes:
+class FSMPMessageType:
+    """FSMP message types."""
+    # Sensory messages
+    SENSORY_DATA = "sensory_data"
+    SENSORY_CONFIG = "sensory_config"
+    
+    # Motor messages
+    MOTOR_DATA = "motor_data"
+    MOTOR_CONFIG = "motor_config"
+    
+    # Channel messages
+    REGISTER_CHANNEL = "register_channel"
+    REGISTER_CHANNEL_RESPONSE = "register_channel_response"
+    
+    # Error messages
+    ERROR = "error"
+
+
+class FSMPDataFormat:
+    """FSMP data formats."""
+    RAW = "raw"
+    ENCODED = "encoded"
+    COMPRESSED = "compressed"
+    TENSOR = "tensor"
+    CUSTOM = "custom"
+
+
+def create_sensory_data_message(channel_id: int, data_format: str = FSMPDataFormat.RAW) -> dict:
     """
     Create a sensory data message.
     
     Args:
-        channel_id: Sensory channel identifier
-        data: Binary sensory data
-        timestamp: Optional timestamp (milliseconds since epoch)
+        channel_id: Sensory channel ID
+        data_format: Format of the sensory data
         
     Returns:
-        Encoded binary message
+        Sensory data message
     """
-    return BinarySerializer.encode_fsmp(
-        channel_id=channel_id,
-        payload=data,
-        timestamp=timestamp
-    )
+    return {
+        "type": FSMPMessageType.SENSORY_DATA,
+        "channel_id": channel_id,
+        "timestamp": int(time.time() * 1000),
+        "data_format": data_format
+    }
 
 
-def decode_motor_message(data: bytes) -> Dict[str, Any]:
+def create_motor_data_message(channel_id: int, data_format: str = FSMPDataFormat.RAW) -> dict:
     """
-    Decode a received motor message.
+    Create a motor data message.
     
     Args:
-        data: Binary message data
+        channel_id: Motor channel ID
+        data_format: Format of the motor data
         
     Returns:
-        Decoded message details
+        Motor data message
     """
-    return BinarySerializer.decode_fsmp(data) 
+    import time
+    
+    return {
+        "type": FSMPMessageType.MOTOR_DATA,
+        "channel_id": channel_id,
+        "timestamp": int(time.time() * 1000),
+        "data_format": data_format
+    }
+
+
+def create_register_channel_message(channel_id: int, channel_type: int, properties: dict) -> dict:
+    """
+    Create a channel registration message.
+    
+    Args:
+        channel_id: Channel ID
+        channel_type: Channel type (from FSMPChannel)
+        properties: Channel properties
+        
+    Returns:
+        Channel registration message
+    """
+    import time
+    
+    return {
+        "type": FSMPMessageType.REGISTER_CHANNEL,
+        "channel_id": channel_id,
+        "channel_type": channel_type,
+        "timestamp": int(time.time() * 1000),
+        "properties": properties
+    } 
