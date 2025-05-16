@@ -10,6 +10,12 @@ import time
 from pathlib import Path
 
 import numpy as np
+try:
+    import pyroaring
+    PYROARING_AVAILABLE = True
+except ImportError:
+    PYROARING_AVAILABLE = False
+    pyroaring = None
 
 logger = setup_logger()
 
@@ -4622,19 +4628,197 @@ class CoreAPIService:
             
     def reset_fcl(self) -> bool:
         """
-        Reset the Fire Candidate List (FCL).
+        Reset the FCL, clearing all neuron firing data.
         
         Returns:
             True if successful, False otherwise
         """
         try:
-            if not self._connectome_manager or not hasattr(self._connectome_manager, 'fcl_manager'):
+            fcl_manager = self.get_fcl_manager()
+            if not fcl_manager:
+                self.logger.error("FCL Manager not available")
                 return False
                 
-            # Reset the FCL manager
-            self._connectome_manager.fcl_manager.reset()
-            self.logger.info("Fire Candidate List reset")
+            # Reset the FCL data structures
+            fcl_manager.reset()
+            
+            self.logger.info("FCL reset successful")
             return True
         except Exception as e:
             self.logger.error(f"Error resetting FCL: {str(e)}")
+            return False
+            
+    async def process_sensory_data(self, channel_id: str, binary_data: bytes) -> bool:
+        """
+        Process binary sensory data, converting it directly to FCL format.
+        
+        This method handles binary sensory data from ZMQ and other sources,
+        converting it directly to roaring bitmap format for FCL injection.
+        
+        The method uses a sparse coordinate representation with compressed structures
+        for efficient memory usage and performance when processing high-volume data.
+        
+        Args:
+            channel_id: Sensory channel identifier (e.g., "vision_input")
+            binary_data: Raw binary data in the expected format
+            
+        Returns:
+            True if processing was successful, False otherwise
+        """
+        try:
+            # Get the FCL manager
+            fcl_manager = self.get_fcl_manager()
+            if not fcl_manager:
+                logger.error("FCL Manager not available")
+                return False
+                
+            # Get the connectome manager
+            connectome_manager = self.get_connectome_manager()
+            if not connectome_manager:
+                logger.error("Connectome Manager not available")
+                return False
+            
+            # Import necessary components from feagi_bytes
+            from feagi_bytes import ByteStructureDecoder
+            import pyroaring
+            
+            if not PYROARING_AVAILABLE:
+                logger.error("PyRoaring not available, cannot efficiently process binary data")
+                return False
+            
+            # Create decoder for binary data
+            decoder = ByteStructureDecoder()
+            
+            # Decode the binary data into neuron coordinate/potential data
+            try:
+                # Get structure type and version
+                from feagi_bytes.utils import get_structure_info
+                structure_id, version = get_structure_info(binary_data)
+                
+                # Process based on structure type (could be neuron flat, neuron categories, etc.)
+                if structure_id == 11:  # ByteStructureID.NEURON_CATEGORIES
+                    # Decode into cortical area -> coordinates/potentials format
+                    neuron_data = decoder.decode_neuron_categories(binary_data)
+                elif structure_id == 10:  # ByteStructureID.NEURON_FLAT
+                    # Decode flat format and organize by cortical area
+                    flat_data = decoder.decode_neuron_flat(binary_data)
+                    neuron_data = {}
+                    
+                    # TODO: Performance Optimization
+                    # This section could be optimized in the future by:
+                    # 1. Using NumPy arrays instead of Python lists to avoid repeated memory allocations
+                    # 2. Pre-allocating arrays based on counts per cortical area
+                    # 3. Using vectorized operations or direct array assignments instead of append()
+                    # Current list-based implementation is kept for clarity and compatibility.
+                    for i, cort_id in enumerate(flat_data["cortical_ids"]):
+                        if cort_id not in neuron_data:
+                            neuron_data[cort_id] = {"x": [], "y": [], "z": [], "potentials": []}
+                        
+                        neuron_data[cort_id]["x"].append(flat_data["x_coords"][i])
+                        neuron_data[cort_id]["y"].append(flat_data["y_coords"][i])
+                        neuron_data[cort_id]["z"].append(flat_data["z_coords"][i])
+                        neuron_data[cort_id]["potentials"].append(flat_data["potentials"][i])
+                else:
+                    # For raw binary data like images, convert to neuron format
+                    from feagi_bytes.utils import convert_raw_to_neuron_data
+                    
+                    # Find the cortical area for this channel to determine dimensions
+                    cortical_idx = None
+                    dimensions = None
+                    
+                    for area_id, area in connectome_manager.cortical_areas.items():
+                        if area.properties.get("channel_id") == channel_id:
+                            cortical_idx = area_id
+                            dimensions = (area.dimensions[0], area.dimensions[1])
+                            break
+                    
+                    if cortical_idx is None:
+                        logger.warning(f"No cortical area found for channel {channel_id}")
+                        return False
+                    
+                    # Convert raw data to neuron coordinate format
+                    neuron_data = convert_raw_to_neuron_data(
+                        data=binary_data,
+                        data_type="image",
+                        dimensions=dimensions,
+                        cortical_area_id=str(cortical_idx)
+                    )
+            except Exception as e:
+                logger.error(f"Error decoding binary data: {str(e)}")
+                return False
+            
+            # Process the neuron data and create roaring bitmaps for each cortical area
+            fcl_updates = {}
+            
+            for cortical_id, data in neuron_data.items():
+                # Skip empty data
+                if not data["x"] or len(data["x"]) == 0:
+                    continue
+                
+                # Try to convert string cortical_id to integer if needed
+                try:
+                    if isinstance(cortical_id, str):
+                        cortical_idx = int(cortical_id)
+                    else:
+                        cortical_idx = cortical_id
+                except ValueError:
+                    # If it's not a numeric ID, look up the area by channel_id
+                    cortical_idx = None
+                    for area_id, area in connectome_manager.cortical_areas.items():
+                        if area.properties.get("channel_id") == channel_id:
+                            cortical_idx = area_id
+                            break
+                
+                if cortical_idx is None:
+                    logger.warning(f"Could not find cortical area for ID {cortical_id}")
+                    continue
+                
+                # Get the cortical area
+                area = connectome_manager.cortical_areas.get(cortical_idx)
+                if not area:
+                    logger.warning(f"Cortical area {cortical_idx} not found")
+                    continue
+                
+                # Create bitmap for this area's firing neurons
+                bitmap = pyroaring.BitMap()
+                
+                # Collect neuron IDs from coordinates
+                for i in range(len(data["x"])):
+                    x = data["x"][i]
+                    y = data["y"][i]
+                    z = data["z"][i]
+                    potential = data["potentials"][i]
+                    
+                    # Only process neurons with potentials above threshold
+                    if potential > 0.01:
+                        # Get neurons at this position
+                        position = (x, y, z)
+                        neurons = area.get_neurons_at_position(position)
+                        
+                        # Add all neurons at this position to the bitmap
+                        for neuron_id in neurons:
+                            bitmap.add(neuron_id)
+                
+                # Add to FCL updates if non-empty
+                if len(bitmap) > 0:
+                    fcl_updates[cortical_idx] = bitmap
+            
+            # If there are any firing neurons, update the FCL
+            if fcl_updates:
+                # Get current timestep
+                current_timestep = connectome_manager.get_current_timestep()
+                
+                # Update FCL
+                fcl_manager.update_fcl(current_timestep, fcl_updates)
+                
+                logger.debug(f"Processed sensory data for channel {channel_id}, timestep {current_timestep}, "
+                            f"created {sum(len(bm) for bm in fcl_updates.values())} firing neurons "
+                            f"across {len(fcl_updates)} areas")
+                return True
+            else:
+                logger.debug(f"Processed sensory data for channel {channel_id} but no neurons to fire")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error processing sensory data: {str(e)}")
             return False

@@ -569,45 +569,96 @@ class ZmqServer:
     async def _handle_control_messages(self):
         """Handle incoming control messages."""
         try:
-            while self._running and self.control_socket:
+            # Create REP socket
+            socket = self._context.socket(zmq.REP)
+            self.control_socket = socket
+            socket.bind(f"tcp://{self.host}:{self.req_rep_port}")
+            
+            logger.info(f"Control socket listening on port {self.req_rep_port}")
+            
+            while self._running:
                 try:
-                    # Receive message
-                    frames = await self.control_socket.recv_multipart()
-                    if len(frames) != 3:  # [identity, empty, message]
-                        logger.warning(f"Invalid frame count: {len(frames)}")
-                        continue
+                    # Wait for a message with a timeout to allow for clean shutdown
+                    message_data = await asyncio.wait_for(socket.recv(), timeout=0.5)
                     
-                    identity, empty, message_data = frames
+                    try:
+                        # Attempt to decode the message using the ByteStructureTranslator
+                        decoded = self.translator.decode_message(message_data)
+                        logger.debug(f"Received control message: {decoded}")
+                        
+                        # Process the message based on type
+                        message_type = decoded.get("type")
+                        
+                        if message_type == "register":
+                            # Handle registration
+                            request = RegisterRequest()
+                            request.agent_id = decoded.get("agent_id", "")
+                            request.agent_type = decoded.get("agent_type", "")
+                            
+                            response_data = await self._handle_register(b"", request)
+                            await socket.send(response_data)
+                            
+                        elif message_type == "deregister":
+                            # Handle deregistration
+                            request = DeregisterRequest()
+                            request.agent_id = decoded.get("agent_id", "")
+                            
+                            response_data = await self._handle_deregister(b"", request)
+                            await socket.send(response_data)
+                            
+                        elif message_type == "heartbeat":
+                            # Handle heartbeat
+                            request = HeartbeatRequest()
+                            request.agent_id = decoded.get("agent_id", "")
+                            
+                            response_data = await self._handle_heartbeat(b"", request)
+                            await socket.send(response_data)
+                            
+                        elif message_type == "status_request":
+                            # Handle status request
+                            request = StatusRequest()
+                            
+                            response_data = await self._handle_status_request(b"", request)
+                            await socket.send(response_data)
+                            
+                        else:
+                            # Unknown message type
+                            logger.warning(f"Unknown control message type: {message_type}")
+                            error_response = {
+                                "status": "error", 
+                                "message": f"Unknown message type: {message_type}"
+                            }
+                            await socket.send(self.translator.create_message(error_response))
+                            
+                    except ValueError as e:
+                        # Failed to decode message
+                        logger.warning(f"Failed to decode message: {e}")
+                        error_response = {
+                            "status": "error", 
+                            "message": "Invalid message format"
+                        }
+                        await socket.send(self.translator.create_message(error_response))
                     
-                    # Parse the message
-                    fcp_message = self.translator.fcp_schema.FCPMessage.new_message()
-                    fcp_message.ParseFromString(message_data)
-                    
-                    # Handle different message types
-                    response = None
-                    if fcp_message.type == FCPCommandType.FCP_REGISTER:
-                        response = await self._handle_register(identity, fcp_message.register_request)
-                    elif fcp_message.type == FCPCommandType.FCP_DEREGISTER:
-                        response = await self._handle_deregister(identity, fcp_message.deregister_request)
-                    elif fcp_message.type == FCPCommandType.FCP_HEARTBEAT:
-                        response = await self._handle_heartbeat(identity, fcp_message.heartbeat_request)
-                    elif fcp_message.type == FCPCommandType.FCP_STATUS_REQUEST:
-                        response = await self._handle_status_request(identity, fcp_message.status_request)
-                    else:
-                        logger.warning(f"Unknown control message type: {fcp_message.type}")
-                        continue
-                    
-                    # Send response
-                    if response:
-                        await self.control_socket.send_multipart([identity, empty, response])
-                    
-                except asyncio.CancelledError:
-                    break
+                except asyncio.TimeoutError:
+                    # Timeout allows for checking if we should shut down
+                    continue
                 except Exception as e:
-                    logger.error(f"Error handling control message: {e}")
-                    
-        except asyncio.CancelledError:
-            logger.debug("Control message handler cancelled")
+                    logger.error(f"Error handling control message: {e}", exc_info=True)
+                    try:
+                        error_response = {
+                            "status": "error", 
+                            "message": str(e)
+                        }
+                        await socket.send(self.translator.create_message(error_response))
+                    except:
+                        # If we can't send the response, just log and continue
+                        pass
+                
+        except Exception as e:
+            logger.error(f"Error in control message loop: {e}", exc_info=True)
+        finally:
+            if socket and not socket.closed:
+                socket.close()
     
     async def _handle_sensorimotor_messages(self):
         """Handle incoming sensorimotor messages."""
@@ -637,50 +688,62 @@ class ZmqServer:
             logger.debug("Sensorimotor message handler cancelled")
     
     async def _handle_register(self, identity: bytes, request: RegisterRequest) -> bytes:
-        """Handle agent registration."""
+        """
+        Handle an agent registration request.
+        
+        Args:
+            identity: Client identity
+            request: Registration request
+            
+        Returns:
+            Registration response as binary data
+        """
+        # Extract agent information
         agent_id = request.agent_id
         agent_type = request.agent_type
         
-        logger.info(f"Registering agent: {agent_id} ({agent_type})")
+        logger.info(f"Registering agent: {agent_id} (type: {agent_type})")
         
-        # Store agent information
+        # Register the agent
+        timestamp_ms = int(time.time() * 1000)
+        
+        # Add to agents dictionary
         self.agents[agent_id] = {
             "id": agent_id,
             "type": agent_type,
             "identity": identity,
-            "last_seen": time.time(),
-            "protocol_versions": {
-                "FCP": request.protocol_versions.fcp_version,
-                "FSMP": request.protocol_versions.fsmp_version,
-                "FVP": request.protocol_versions.fvp_version
-            }
+            "registered_at": timestamp_ms,
+            "last_heartbeat": timestamp_ms,
+            "capabilities": {},
         }
         
-        # Create response
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
+        # Create response as dictionary
+        response_dict = {
+            "type": "register_response",
+            "status": "success",
+            "message": f"Agent {agent_id} registered successfully",
+            "timestamp": {"time_ms": timestamp_ms}
+        }
         
-        response = RegisterResponse()
-        response.status = "success"
-        response.message = f"Agent {agent_id} registered successfully"
-        response.timestamp.CopyFrom(current_time)
-        
-        # Create FCP message
-        message = self.translator.fcp_schema.FCPMessage.new_message()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPCommandType.FCP_REGISTER_RESPONSE
-        message.register_response.CopyFrom(response)
-        
-        return message.SerializeToString()
+        # Encode as binary using ByteStructureTranslator
+        return self.translator.create_message(response_dict)
     
     async def _handle_deregister(self, identity: bytes, request: DeregisterRequest) -> bytes:
-        """Handle agent deregistration."""
+        """
+        Handle an agent deregistration request.
+        
+        Args:
+            identity: Client identity
+            request: Deregistration request
+            
+        Returns:
+            Deregistration response as binary data
+        """
         agent_id = request.agent_id
         
         logger.info(f"Deregistering agent: {agent_id}")
         
-        # Remove agent
+        # Remove agent if it exists
         if agent_id in self.agents:
             del self.agents[agent_id]
             status = "success"
@@ -690,73 +753,106 @@ class ZmqServer:
             message = f"Agent {agent_id} not found"
         
         # Create response
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
-        
         response = DeregisterResponse()
         response.status = status
         response.message = message
-        response.timestamp.CopyFrom(current_time)
+        response.timestamp.time_ms = int(time.time() * 1000)
         
-        # Create FCP message
-        message = self.translator.fcp_schema.FCPMessage.new_message()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPCommandType.FCP_DEREGISTER_RESPONSE
-        message.deregister_response.CopyFrom(response)
+        # Create JSON response for compatibility
+        response_dict = {
+            "status": response.status,
+            "message": response.message,
+            "timestamp": {"time_ms": response.timestamp.time_ms}
+        }
         
-        return message.SerializeToString()
+        return json.dumps(response_dict).encode('utf-8')
     
     async def _handle_heartbeat(self, identity: bytes, request: HeartbeatRequest) -> bytes:
-        """Handle heartbeat message."""
+        """
+        Handle an agent heartbeat request.
+        
+        Args:
+            identity: Client identity
+            request: Heartbeat request
+            
+        Returns:
+            Heartbeat response
+        """
         agent_id = request.agent_id
         
-        # Update last seen timestamp
+        # Update last heartbeat time if agent exists
         if agent_id in self.agents:
-            self.agents[agent_id]["last_seen"] = time.time()
-            status = "ok"
+            self.agents[agent_id]["last_heartbeat"] = int(time.time() * 1000)
+            status = "success"
         else:
             status = "error"
-            
-        # Create response
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
         
+        # Create response
         response = HeartbeatResponse()
         response.status = status
-        response.timestamp.CopyFrom(current_time)
+        response.timestamp.time_ms = int(time.time() * 1000)
         
-        # Create FCP message
-        message = self.translator.fcp_schema.FCPMessage.new_message()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPCommandType.FCP_HEARTBEAT_RESPONSE
-        message.heartbeat_response.CopyFrom(response)
+        # Create JSON response for compatibility
+        response_dict = {
+            "status": response.status,
+            "timestamp": {"time_ms": response.timestamp.time_ms}
+        }
         
-        return message.SerializeToString()
+        return json.dumps(response_dict).encode('utf-8')
     
     async def _handle_status_request(self, identity: bytes, request: StatusRequest) -> bytes:
-        """Handle status request message."""
-        # Create response
-        current_time = Timestamp()
-        current_time.time_ms = int(time.time() * 1000)
+        """
+        Handle a status request.
         
+        Args:
+            identity: Client identity
+            request: Status request
+            
+        Returns:
+            Status response
+        """
+        # Get system stats
+        stats = self.get_server_stats()
+        
+        # Create response with properly formatted timestamp
         response = StatusResponse()
         response.status = "ok"
-        response.runtime.cpu_usage = 10.0  # Example values
-        response.runtime.memory_usage = 250.5
-        response.runtime.uptime_seconds = 3600
+        response.runtime.cpu_usage = stats["cpu_usage"]
+        response.runtime.memory_usage = stats["memory_usage"]
+        response.runtime.uptime_seconds = stats["uptime_seconds"]
         response.agent_count = len(self.agents)
-        response.timestamp.CopyFrom(current_time)
+        response.timestamp.time_ms = int(time.time() * 1000)
         
-        # Create FCP message
-        message = self.translator.fcp_schema.FCPMessage.new_message()
-        message.header.protocol_id = ProtocolID.FCP
-        message.header.version = 1
-        message.type = FCPCommandType.FCP_STATUS_RESPONSE
-        message.status_response.CopyFrom(response)
-        
-        return message.SerializeToString()
+        # Check if we're dealing with an actual StatusRequest object from byte structure
+        if isinstance(request, StatusRequest):
+            # Create a JSON representation of the response
+            response_dict = {
+                "status": response.status,
+                "runtime": {
+                    "cpu_usage": response.runtime.cpu_usage,
+                    "memory_usage": response.runtime.memory_usage,
+                    "uptime_seconds": response.runtime.uptime_seconds
+                },
+                "agent_count": response.agent_count,
+                "timestamp": {"time_ms": response.timestamp.time_ms}
+            }
+            
+            # Return JSON-encoded response for compatibility
+            return json.dumps(response_dict).encode('utf-8')
+        else:
+            # For real byte structure messages, need to implement proper serialization
+            # This is a placeholder for future implementation
+            response_dict = {
+                "status": response.status,
+                "runtime": {
+                    "cpu_usage": response.runtime.cpu_usage,
+                    "memory_usage": response.runtime.memory_usage,
+                    "uptime_seconds": response.runtime.uptime_seconds
+                },
+                "agent_count": response.agent_count,
+                "timestamp": {"time_ms": response.timestamp.time_ms}
+            }
+            return json.dumps(response_dict).encode('utf-8')
     
     async def _handle_sensory_data(self, message_data: bytes):
         """Handle incoming sensory data."""
@@ -1006,7 +1102,7 @@ class ZmqServer:
         
         Args:
             agent_id: Agent ID
-            message: Decoded Cap'n Proto FCP message
+            message: Decoded FCP message
             
         Returns:
             Response data if a response is needed, otherwise None
@@ -1024,7 +1120,7 @@ class ZmqServer:
         
         Args:
             agent_id: Agent ID
-            message: Decoded Cap'n Proto FSMP message
+            message: Decoded FSMP message
             
         Returns:
             Response data if a response is needed, otherwise None
@@ -1042,7 +1138,7 @@ class ZmqServer:
         
         Args:
             agent_id: Agent ID
-            message: Decoded Cap'n Proto FVP message
+            message: Decoded FVP message
             
         Returns:
             Response data if a response is needed, otherwise None
@@ -1061,11 +1157,23 @@ class ZmqServer:
         Returns:
             Dictionary with server statistics
         """
+        import psutil
+        from datetime import datetime
+        
+        # Get process information
+        process = psutil.Process()
+        
+        # Calculate uptime
+        start_time = datetime.fromtimestamp(process.create_time())
+        uptime = (datetime.now() - start_time).total_seconds()
+        
         return {
-            "server_id": self.server_id,
-            "running": self._running,
-            "connections": self.connection_manager.get_connection_stats(),
-            "pending_clients": len(self.pending_clients)
+            "cpu_usage": process.cpu_percent(),
+            "memory_usage": process.memory_info().rss / (1024 * 1024),  # MB
+            "uptime_seconds": int(uptime),
+            "agents": len(self.agents),
+            "start_time": start_time.isoformat(),
+            "active_tasks": len(self.tasks)
         }
     
     async def broadcast_message(self, 
@@ -1144,56 +1252,49 @@ class ZmqServer:
         except Exception as e:
             logger.error(f"Error in cleanup task: {e}")
     
-    async def _process_fcp_message(self, agent_id: str, message: Any) -> Optional[Dict[str, Any]]:
+    async def _process_control_message(self, identity: bytes, message: Dict[str, Any]) -> bytes:
         """
-        Process an FCP message.
+        Process a control message and return the appropriate response.
         
         Args:
-            agent_id: Agent ID
-            message: Decoded Cap'n Proto FCP message
+            identity: Client identity
+            message: Parsed message data
             
         Returns:
-            Response data if a response is needed, otherwise None
+            Response data to send back to the client
         """
-        logger.info(f"Processing FCP message from {agent_id}")
+        message_type = message.get("type")
         
-        # Handle specific FCP message types here
-        # For now, just log and return None (no response)
-        
-        return None
-    
-    async def _process_fsmp_message(self, agent_id: str, message: Any) -> Optional[Dict[str, Any]]:
-        """
-        Process an FSMP message.
-        
-        Args:
-            agent_id: Agent ID
-            message: Decoded Cap'n Proto FSMP message
+        if message_type == "register":
+            # Handle registration
+            request = RegisterRequest()
+            request.agent_id = message.get("agent_id", "")
+            request.agent_type = message.get("agent_type", "")
             
-        Returns:
-            Response data if a response is needed, otherwise None
-        """
-        logger.info(f"Processing FSMP message from {agent_id}")
+            return await self._handle_register(identity, request)
         
-        # Handle specific FSMP message types here
-        # For now, just log and return None (no response)
-        
-        return None
-    
-    async def _process_fvp_message(self, agent_id: str, message: Any) -> Optional[Dict[str, Any]]:
-        """
-        Process an FVP message.
-        
-        Args:
-            agent_id: Agent ID
-            message: Decoded Cap'n Proto FVP message
+        elif message_type == "deregister":
+            # Handle deregistration
+            request = DeregisterRequest()
+            request.agent_id = message.get("agent_id", "")
             
-        Returns:
-            Response data if a response is needed, otherwise None
-        """
-        logger.info(f"Processing FVP message from {agent_id}")
+            return await self._handle_deregister(identity, request)
         
-        # Handle specific FVP message types here
-        # For now, just log and return None (no response)
+        elif message_type == "heartbeat":
+            # Handle heartbeat
+            request = HeartbeatRequest()
+            request.agent_id = message.get("agent_id", "")
+            
+            return await self._handle_heartbeat(identity, request)
         
-        return None 
+        elif message_type == "status_request":
+            # Handle status request
+            request = StatusRequest()
+            
+            return await self._handle_status_request(identity, request)
+        
+        else:
+            logger.warning(f"Unknown control message type: {message_type}")
+            # Create JSON error response
+            response = {"status": "error", "message": f"Unknown message type: {message_type}"}
+            return json.dumps(response).encode('utf-8') 
