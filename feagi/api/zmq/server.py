@@ -12,6 +12,7 @@ logger = setup_logger(__name__)
 import threading
 import asyncio
 import concurrent.futures
+import json
 from typing import Dict, Any, List, Optional, Union, Callable
 
 import zmq
@@ -26,6 +27,7 @@ from feagi.api.protocols.constants import (
 )
 from feagi.api.protocols.translator import ByteStructureTranslator
 
+# Import ConnectionManager from the new, corrected file
 from feagi.api.zmq.connection_manager import ConnectionManager
 from feagi.api.zmq.message_handlers import MessageHandler, start_message_handlers, stop_message_handlers
 
@@ -140,6 +142,7 @@ class ZmqServer:
         pub_sub_port: int = 5556,
         push_pull_port: int = 5557,
         sensorimotor_port: int = 5558,
+        motor_port: int = 5564,
         control_port: int = 5559,
         vis_base_port: int = 5560,
         context: Optional[zmq.asyncio.Context] = None
@@ -154,6 +157,7 @@ class ZmqServer:
             pub_sub_port: Port for PUB/SUB pattern
             push_pull_port: Port for PUSH/PULL pattern
             sensorimotor_port: Port for sensorimotor stream
+            motor_port: Port for motor commands stream
             control_port: Port for control protocol stream
             vis_base_port: Base port for visualization stream
             context: Optional existing ZMQ context to use
@@ -164,6 +168,7 @@ class ZmqServer:
         self.pub_sub_port = pub_sub_port
         self.push_pull_port = push_pull_port
         self.sensorimotor_port = sensorimotor_port
+        self.motor_port = motor_port
         self.control_port = control_port
         self.vis_base_port = vis_base_port
         
@@ -318,7 +323,8 @@ class ZmqServer:
             self._sensorimotor = SensorimotorStream(
                 core_api=self.core_api,
                 host=self.host,
-                port=self.sensorimotor_port,
+                sensory_port=self.sensorimotor_port,
+                motor_port=self.motor_port,
                 context=self._context
             )
             

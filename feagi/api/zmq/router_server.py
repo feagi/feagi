@@ -328,6 +328,7 @@ class ZMQRouterServer:
                             logger.info(f"Treating binary data as image with dimensions {dimensions} and {channels} channels")
                             
                             # Convert to neuron data format (image type)
+                            # Note: router_server receives raw binary data directly without byte structure headers
                             neuron_data = convert_raw_to_neuron_data(
                                 data=data,
                                 data_type="image",

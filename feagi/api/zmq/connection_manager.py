@@ -1,21 +1,30 @@
 """
-ZeroMQ Connection Manager for FEAGI.
+ZeroMQ Connection Manager for FEAGI API.
 
-This module implements connection management for multiple clients using
-the ROUTER-DEALER pattern with Cap'n Proto serialization.
+This module manages ZeroMQ client and server connections.
+It handles:
+- Central connection/socket management
+- State synchronization across streams
+- Socket cleanup and lifecycle management
 """
 
-import logging
+import asyncio
 import time
-from typing import Dict, Optional, Tuple, Any, List
+import logging
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
+from typing import Dict, Optional, List, Set, Any, Tuple, TYPE_CHECKING
 
 import zmq
 import zmq.asyncio
 
-from feagi.api.protocols import ProtocolID
+# Use TYPE_CHECKING to avoid circular imports
+if TYPE_CHECKING:
+    from .server import ZMQServer
 
-# Configure logging
-logger = logging.getLogger(__name__)
+from ..core.service import CoreApiService
+from feagi.core.state_manager import GenomeState
+from feagi.api.protocols import ProtocolID
 
 
 class ConnectionManager:
@@ -157,7 +166,7 @@ class ConnectionManager:
         Args:
             agent_id: Agent identifier
             protocol_type: Protocol type ("fcp", "fsmp", or "fvp")
-            message: Serialized Cap'n Proto message
+            message: Serialized message
             
         Returns:
             True if message was sent, False if client not found
@@ -242,4 +251,163 @@ class ConnectionManager:
         
         # Clear connections
         self.connections.clear()
-        logger.info("Connection manager closed") 
+        logger.info("Connection manager closed")
+
+
+class ZMQConnectionManager:
+    """
+    ZeroMQ Connection Manager.
+    
+    This singleton manages all ZeroMQ connections for FEAGI API.
+    It ensures consistent state across all streams and handles
+    lifecycle management for connections.
+    """
+    _instance = None
+    
+    @classmethod
+    def instance(cls, 
+                 core_api: Optional[CoreApiService] = None,
+                 host: str = "*"):
+        """Get singleton instance of ZMQConnectionManager."""
+        if cls._instance is None:
+            cls._instance = cls(core_api, host)
+        return cls._instance
+        
+    def __init__(self, 
+                 core_api: Optional[CoreApiService] = None,
+                 host: str = "*"):
+        """
+        Initialize the ZMQ Connection Manager.
+        
+        Args:
+            core_api: The CoreApiService instance
+            host: Host address for binding
+        """
+        self.core_api = core_api
+        self.host = host
+        self.context = zmq.asyncio.Context.instance()
+        self._servers = {}
+        self._running_tasks = set()
+        self.running = False
+        
+        # State tracking
+        self._active_mode = False  # True when genome is loaded
+        
+        # Register for genome state change notifications if CoreAPI is provided
+        if core_api and hasattr(core_api, 'register_genome_change_listener'):
+            core_api.register_genome_change_listener(self._on_genome_state_change)
+        
+        # Initialize state based on current genome availability
+        if core_api:
+            self._update_active_mode()
+        
+    def create_server(self, server_type: str = "default", **kwargs) -> Any:
+        """
+        Create a new ZMQ server.
+        
+        Args:
+            server_type: Type of server to create
+            **kwargs: Additional arguments for server
+            
+        Returns:
+            The created server
+        """
+        if server_type in self._servers:
+            # Return existing server
+            return self._servers[server_type]
+            
+        # Pass state information to server
+        kwargs['core_api'] = self.core_api
+        kwargs['host'] = self.host
+        kwargs['context'] = self.context
+        
+        # Import here to avoid circular imports
+        from .server import ZMQServer
+        
+        # Create the server
+        server = ZMQServer(**kwargs)
+        
+        # Store it
+        self._servers[server_type] = server
+        
+        # Inform server of current state
+        if hasattr(server, '_update_active_mode'):
+            server._update_active_mode()
+        
+        return server
+    
+    async def start_all(self) -> None:
+        """Start all ZMQ servers."""
+        self.running = True
+        
+        # Update state from CoreAPI
+        self._update_active_mode()
+        
+        # Start all servers
+        for server_id, server in self._servers.items():
+            logger.info(f"Starting ZMQ server: {server_id}")
+            task = asyncio.create_task(server.start())
+            self._running_tasks.add(task)
+            
+    async def stop_all(self) -> None:
+        """Stop all ZMQ servers."""
+        self.running = False
+        
+        # Stop all servers
+        for server_id, server in self._servers.items():
+            logger.info(f"Stopping ZMQ server: {server_id}")
+            await server.stop()
+            
+        # Cancel all running tasks
+        for task in self._running_tasks:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        
+        self._running_tasks.clear()
+        
+    def _update_active_mode(self):
+        """Update active mode based on genome availability."""
+        if not self.core_api:
+            return
+            
+        old_mode = self._active_mode
+        self._active_mode = self.core_api.genome_is_loaded()
+        
+        if old_mode != self._active_mode:
+            if self._active_mode:
+                logger.info("ZMQConnectionManager: Entering ACTIVE mode (genome loaded)")
+            else:
+                logger.info("ZMQConnectionManager: Entering STANDBY mode (no genome loaded)")
+                
+            # Propagate state change to all servers
+            for server in self._servers.values():
+                if hasattr(server, '_update_active_mode'):
+                    server._update_active_mode()
+    
+    def _on_genome_state_change(self, old_state, new_state):
+        """Handle genome state changes.
+        
+        Args:
+            old_state: Previous genome state
+            new_state: New genome state
+        """
+        logger.debug(f"ZMQConnectionManager received genome state change: {old_state} → {new_state}")
+        
+        # Only care about LOADED vs other states
+        if new_state == GenomeState.LOADED:
+            # Transition to active mode when genome is loaded
+            self._active_mode = True
+            logger.info("ZMQConnectionManager: Entering ACTIVE mode (genome loaded)")
+        else:
+            # Any other state means genome not fully loaded
+            self._active_mode = False 
+            logger.info("ZMQConnectionManager: Entering STANDBY mode (genome not loaded)")
+            
+        # Propagate state change to all servers
+        for server in self._servers.values():
+            if hasattr(server, '_update_active_mode'):
+                server._update_active_mode() 

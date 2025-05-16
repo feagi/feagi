@@ -6,6 +6,18 @@ It provides:
 - Separate optimized streams for sensory and motor data
 - Efficient binary serialization for high-performance data exchange
 - Prioritized motor data streaming
+- Genome-dependent state management (standby when no genome loaded)
+
+Performance Optimization:
+- All sockets are configured for real-time operation with minimal latency
+- Messages are treated as ephemeral - no queueing is performed
+- ZMQ_CONFLATE ensures only the latest message is kept, preventing stale data processing
+- High water marks (HWM) are set to minimal values to prevent buffer buildup
+- Non-blocking operations ensure system responsiveness
+
+This approach ensures that sensorimotor data, which is time-sensitive, is handled
+with priority and never queued if it cannot be processed immediately, preventing
+the system from wasting resources on outdated information.
 """
 
 import asyncio
@@ -22,6 +34,7 @@ import numpy as np
 
 from ...core.service import CoreApiService
 from ...utils.rate_limit import RateLimiter
+from feagi.core.state_manager import GenomeState
 
 
 class SensorimotorStream:
@@ -33,6 +46,10 @@ class SensorimotorStream:
     - PUB socket for broadcasting motor data (FEAGI → agents)
     
     This design ensures that high-volume sensory data never blocks or delays critical motor commands.
+    
+    The stream automatically adjusts to the genome availability state:
+    - When no genome is loaded, it operates in standby mode, rejecting data processing
+    - When a genome is loaded, it transitions to active mode
     """
     
     def __init__(
@@ -60,13 +77,14 @@ class SensorimotorStream:
         self.running = False
         self.context = context or zmq.asyncio.Context.instance()
         
+        # State tracking
+        self._active_mode = False  # True when genome is loaded and ready
+        
         # PULL socket for receiving sensory data (agents → FEAGI)
-        self.sensory_socket = self.context.socket(zmq.PULL)
-        self.sensory_socket.bind(f"tcp://{host}:{sensory_port}")
+        self.sensory_socket = self._setup_sensory_socket()
         
         # PUB socket for broadcasting motor data (FEAGI → agents)
-        self.motor_socket = self.context.socket(zmq.PUB)
-        self.motor_socket.bind(f"tcp://{host}:{motor_port}")
+        self.motor_socket = self._setup_motor_socket()
         
         # For compatibility with existing code
         self.socket = self.sensory_socket
@@ -79,6 +97,115 @@ class SensorimotorStream:
         
         # Periodic task references
         self.periodic_tasks = {}
+        
+        # Register for genome state change notifications
+        if hasattr(core_api, 'register_genome_change_listener'):
+            core_api.register_genome_change_listener(self._on_genome_state_change)
+        
+        # Initialize state based on current genome availability
+        self._update_active_mode()
+
+    def _setup_sensory_socket(self):
+        """
+        Set up the sensory (PULL) socket.
+        """
+        socket = self.context.socket(zmq.PULL)
+        
+        # Configure socket for real-time data with no queuing
+        socket.setsockopt(zmq.RCVHWM, 1)  # Minimal receive queue
+        socket.setsockopt(zmq.LINGER, 0)  # Don't wait for messages to be sent when closing
+        
+        bind_addr = f"tcp://{self.host}:{self.sensory_port}"
+        logger.info(f"Binding sensory PULL socket to {bind_addr}")
+        socket.bind(bind_addr)
+        return socket
+
+    def _setup_motor_socket(self):
+        """
+        Set up the motor (PUB) socket.
+        """
+        socket = self.context.socket(zmq.PUB)
+        
+        # Configure socket for real-time data with no queuing
+        socket.setsockopt(zmq.SNDHWM, 1)  # Minimal send queue
+        socket.setsockopt(zmq.CONFLATE, 1)  # Only keep most recent message
+        socket.setsockopt(zmq.LINGER, 0)  # Don't wait for messages to be sent when closing
+        
+        bind_addr = f"tcp://{self.host}:{self.motor_port}"
+        logger.info(f"Binding motor PUB socket to {bind_addr}")
+        socket.bind(bind_addr)
+        return socket
+        
+    def _update_active_mode(self):
+        """Update active mode based on genome availability."""
+        old_mode = self._active_mode
+        
+        # Safely check genome loaded state with defensive programming
+        try:
+            self._active_mode = self.core_api.genome_is_loaded() if self.core_api else False
+        except Exception as e:
+            # If there's any error accessing genome state, default to standby mode
+            logger.warning(f"Error checking genome state: {e}, defaulting to standby mode")
+            self._active_mode = False
+        
+        if old_mode != self._active_mode:
+            if self._active_mode:
+                logger.info("SensorimotorStream entering ACTIVE mode (genome loaded)")
+                # Only broadcast if streams are running
+                if self.running:
+                    asyncio.create_task(self._broadcast_state_change("active"))
+            else:
+                logger.info("SensorimotorStream entering STANDBY mode (no genome loaded)")
+                # Only broadcast if streams are running
+                if self.running:
+                    asyncio.create_task(self._broadcast_state_change("standby"))
+    
+    async def _broadcast_state_change(self, state: str):
+        """Broadcast state change to all connected clients.
+        
+        Args:
+            state: New state ("active" or "standby")
+        """
+        try:
+            # Send on motor channel as system message
+            message = f"FEAGI_STATE_CHANGE:{state}".encode()
+            await self.motor_socket.send_multipart([
+                b"system",  # Topic
+                message     # Message
+            ])
+            logger.debug(f"Broadcasted state change to {state}")
+        except Exception as e:
+            logger.error(f"Error broadcasting state change: {e}")
+
+    def _on_genome_state_change(self, old_state, new_state):
+        """Handle genome state changes.
+        
+        Args:
+            old_state: Previous genome state
+            new_state: New genome state
+        """
+        logger.debug(f"Received genome state change: {old_state} → {new_state}")
+        
+        try:
+            # Only care about LOADED vs other states
+            if new_state == GenomeState.LOADED:
+                # Transition to active mode when genome is loaded
+                self._active_mode = True
+                if self.running:
+                    logger.info("SensorimotorStream entering ACTIVE mode (genome loaded)")
+                    asyncio.create_task(self._broadcast_state_change("active"))
+            else:
+                # Any other state means genome not fully loaded
+                self._active_mode = False 
+                if self.running:
+                    logger.info("SensorimotorStream entering STANDBY mode (genome not loaded)")
+                    asyncio.create_task(self._broadcast_state_change("standby"))
+        except Exception as e:
+            logger.error(f"Error handling genome state change: {e}")
+            # Default to standby mode on error
+            self._active_mode = False
+            if self.running:
+                asyncio.create_task(self._broadcast_state_change("standby"))
 
     async def start(self) -> None:
         """Start the sensorimotor stream server."""
@@ -95,6 +222,15 @@ class SensorimotorStream:
         self.periodic_tasks["sensory_handler"] = self._event_loop.create_task(
             self._handle_sensory_data()
         )
+        
+        # Determine initial state (active or standby)
+        self._update_active_mode()
+        
+        # Broadcast initial state to clients
+        if self._active_mode:
+            await self._broadcast_state_change("active")
+        else:
+            await self._broadcast_state_change("standby")
 
     async def stop(self) -> None:
         """Stop the sensorimotor stream server."""
@@ -129,6 +265,17 @@ class SensorimotorStream:
                 channel_id = sensory_data[0].decode()
                 data = sensory_data[1]
                 
+                # Handle system messages differently
+                if channel_id == "system":
+                    await self._handle_system_message(data)
+                    continue
+                
+                # Check if system is in active mode before processing data
+                if not self._active_mode:
+                    logger.warning(f"Ignoring sensory data on channel {channel_id}: system in standby mode (no genome loaded)")
+                    # Could send a standby notification here if needed
+                    continue
+                
                 logger.debug(f"Received sensory data on channel {channel_id}: {len(data)} bytes")
                 
                 # Process the sensory data
@@ -140,6 +287,25 @@ class SensorimotorStream:
             except Exception as e:
                 logger.error(f"Error handling sensory data: {e}")
                 await asyncio.sleep(0.1)  # Avoid tight loop on errors
+                
+    async def _handle_system_message(self, data: bytes) -> None:
+        """Handle system messages from clients.
+        
+        Args:
+            data: Message data
+        """
+        try:
+            message = data.decode()
+            if message.startswith("STATUS_CHECK"):
+                # Client is checking status - respond with current state
+                state = "active" if self._active_mode else "standby"
+                await self.motor_socket.send_multipart([
+                    b"system",
+                    f"FEAGI_STATE:{state}".encode()
+                ])
+                logger.debug(f"Responded to status check with state: {state}")
+        except Exception as e:
+            logger.error(f"Error handling system message: {e}")
 
     async def _process_sensory_data(self, channel_id: str, data: bytes) -> None:
         """
@@ -168,6 +334,11 @@ class SensorimotorStream:
             logger.warning("Cannot send motor data: streams not running")
             return
             
+        # Check if system is in active mode before sending data
+        if not self._active_mode and channel_id != "system":
+            logger.warning(f"Not sending motor data on channel {channel_id}: system in standby mode (no genome loaded)")
+            return
+            
         try:
             # Send multipart message with channel as topic
             await self.motor_socket.send_multipart([
@@ -182,14 +353,14 @@ class SensorimotorStream:
 
 class SensorimotorClient:
     """
-    ZeroMQ Sensorimotor Client implementation with separate streams.
+    ZeroMQ-based client for sensorimotor data streaming.
     
-    This client uses:
-    - PUSH socket for sending sensory data to FEAGI (agent → FEAGI)
-    - SUB socket for receiving motor data from FEAGI (FEAGI → agent)
+    This class provides separate optimized streams for:
+    - Sending sensory data to FEAGI (uses PUSH socket)
+    - Receiving motor data from FEAGI (uses SUB socket)
     
-    This separation ensures high-priority motor commands are never delayed by
-    sensory data congestion.
+    Both streams use high-performance binary serialization and are configured
+    for real-time operation with minimal latency.
     """
     
     def __init__(
@@ -217,15 +388,10 @@ class SensorimotorClient:
         self.context = context or zmq.asyncio.Context.instance()
         
         # PUSH socket for sending sensory data (agent → FEAGI)
-        self.sensory_socket = self.context.socket(zmq.PUSH)
-        self.sensory_socket.connect(f"tcp://{host}:{sensory_port}")
+        self.sensory_socket = self._setup_sensory_socket()
         
         # SUB socket for receiving motor data (FEAGI → agent)
-        self.motor_socket = self.context.socket(zmq.SUB)
-        self.motor_socket.connect(f"tcp://{host}:{motor_port}")
-        
-        # Default to subscribing to all channels
-        self.motor_socket.setsockopt(zmq.SUBSCRIBE, b"")
+        self.motor_socket = self._setup_motor_socket()
         
         # Client ID
         self.client_id = str(uuid.uuid4())
@@ -238,6 +404,60 @@ class SensorimotorClient:
         
         # Background tasks
         self.tasks = []
+
+    def _setup_sensory_socket(self):
+        """
+        Set up the sensory (PUSH) socket.
+        """
+        socket = self.context.socket(zmq.PUSH)
+        
+        # Configure socket for real-time data with no queuing
+        socket.setsockopt(zmq.SNDHWM, 1)  # Minimal send queue
+        socket.setsockopt(zmq.LINGER, 0)  # Don't wait for messages to be sent when closing
+        
+        connect_addr = f"tcp://{self.host}:{self.sensory_port}"
+        logger.info(f"Connecting sensory PUSH socket to {connect_addr}")
+        socket.connect(connect_addr)
+        return socket
+
+    def _setup_motor_socket(self):
+        """
+        Set up the motor (SUB) socket.
+        """
+        socket = self.context.socket(zmq.SUB)
+        
+        # Configure socket for real-time data with no queuing
+        socket.setsockopt(zmq.RCVHWM, 1)  # Minimal receive queue
+        socket.setsockopt(zmq.CONFLATE, 1)  # Only keep most recent message
+        socket.setsockopt(zmq.LINGER, 0)  # Don't wait for messages to be sent when closing
+        
+        # Subscribe to all messages (empty string = no filtering)
+        socket.setsockopt_string(zmq.SUBSCRIBE, "")
+        
+        connect_addr = f"tcp://{self.host}:{self.motor_port}"
+        logger.info(f"Connecting motor SUB socket to {connect_addr}")
+        socket.connect(connect_addr)
+        return socket
+
+    async def connect(self) -> bool:
+        """
+        Connect to FEAGI.
+        
+        Returns:
+            True if connected successfully, False otherwise
+        """
+        try:
+            # Create and connect sockets
+            self.sensory_socket = self._setup_sensory_socket()
+            self.motor_socket = self._setup_motor_socket()
+            
+            self.connected = True
+            logger.info(f"Connected to FEAGI on {self.host}:{self.sensory_port}/{self.motor_port}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to connect to FEAGI: {e}")
+            self.connected = False
+            return False
 
     async def start(self) -> None:
         """Start the sensorimotor client."""

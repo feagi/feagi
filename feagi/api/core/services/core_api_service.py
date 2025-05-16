@@ -94,6 +94,7 @@ class CoreAPIService:
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
         self._genome_filename = None
         self._pending_amalgamation = {}
+        self._current_genome = None  # Initialize _current_genome to None
 
         # Cache for frequently accessed data
         self._cortical_areas_cache = None
@@ -4737,8 +4738,12 @@ class CoreAPIService:
                         return False
                     
                     # Convert raw data to neuron coordinate format
+                    # Note: The function expects the raw data without the byte structure header
+                    # Strip header (first 2 bytes) for image data
+                    raw_data = binary_data[2:] if len(binary_data) > 2 else binary_data
+                    
                     neuron_data = convert_raw_to_neuron_data(
-                        data=binary_data,
+                        data=raw_data,
                         data_type="image",
                         dimensions=dimensions,
                         cortical_area_id=str(cortical_idx)
@@ -4810,6 +4815,16 @@ class CoreAPIService:
                 
                 # Update FCL
                 fcl_manager.update_fcl(current_timestep, fcl_updates)
+                
+                # Enhanced logging for validation
+                logger.info(f"SENSORY DATA PROCESSED - Channel: {channel_id}, Timestep: {current_timestep}")
+                logger.info(f"FCL INJECTION SUMMARY - Total neurons: {sum(len(bm) for bm in fcl_updates.values())}, Areas: {len(fcl_updates)}")
+                
+                # Detailed area-by-area breakdown (limited to avoid overwhelming logs)
+                for area_id, bitmap in fcl_updates.items():
+                    neuron_sample = list(bitmap)[:10]  # Show up to 10 neurons per area
+                    remaining = len(bitmap) - len(neuron_sample)
+                    logger.info(f"FCL AREA {area_id}: {len(bitmap)} neurons - Sample: {neuron_sample}{' + ' + str(remaining) + ' more' if remaining > 0 else ''}")
                 
                 logger.debug(f"Processed sensory data for channel {channel_id}, timestep {current_timestep}, "
                             f"created {sum(len(bm) for bm in fcl_updates.values())} firing neurons "

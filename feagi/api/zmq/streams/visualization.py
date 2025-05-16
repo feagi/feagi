@@ -6,6 +6,13 @@ It provides:
 - Efficient brain activity visualization streaming
 - Level-of-detail mechanisms for performance optimization
 - Client view control and filtering
+- Genome-dependent state management (standby when no genome loaded)
+
+Performance Optimization:
+- All sockets are configured for real-time operation with minimal latency
+- Messages are treated as ephemeral - no queueing is performed
+- ZMQ_CONFLATE ensures only the latest message is kept, preventing stale data processing
+- High water marks (HWM) are set to minimal values to prevent buffer buildup
 """
 
 import asyncio
@@ -22,6 +29,7 @@ import numpy as np
 from ...core.service import CoreApiService
 from ..serialization import serialize_message, deserialize_message
 from ...utils.rate_limit import RateLimiter
+from feagi.core.state_manager import GenomeState
 
 
 class VisualizationStream:
@@ -30,6 +38,10 @@ class VisualizationStream:
     
     This specialized stream efficiently broadcasts neural activity and structural data
     to visualization clients, with support for level-of-detail streaming.
+    
+    The stream automatically adjusts to the genome availability state:
+    - When no genome is loaded, it operates in standby mode, sending status updates but no data
+    - When a genome is loaded, it transitions to active mode with full functionality
     """
     
     def __init__(
@@ -60,13 +72,14 @@ class VisualizationStream:
         self.running = False
         self.context = context or zmq.asyncio.Context.instance()
         
+        # State tracking
+        self._active_mode = False  # True when genome is loaded and ready
+        
         # Socket for structural data (changes infrequently)
-        self.structure_socket = self.context.socket(zmq.PUB)
-        self.structure_socket.bind(f"tcp://{host}:{structure_port}")
+        self.structure_socket = self._setup_socket(structure_port)
         
         # Socket for real-time activity data (high frequency)
-        self.activity_socket = self.context.socket(zmq.PUB)
-        self.activity_socket.bind(f"tcp://{host}:{activity_port}")
+        self.activity_socket = self._setup_socket(activity_port)
         
         # Socket for client requests (view changes, filters)
         self.control_socket = self.context.socket(zmq.ROUTER)
@@ -83,6 +96,112 @@ class VisualizationStream:
         
         # Periodic task references
         self.periodic_tasks = {}
+        
+        # Register for genome state change notifications
+        if hasattr(core_api, 'register_genome_change_listener'):
+            core_api.register_genome_change_listener(self._on_genome_state_change)
+        
+        # Initialize state based on current genome availability
+        self._update_active_mode()
+
+    def _setup_socket(self, port: int) -> zmq.asyncio.Socket:
+        """
+        Set up a visualization socket with real-time optimization.
+        
+        Args:
+            port: Port to bind to
+            
+        Returns:
+            Configured ZMQ socket
+        """
+        socket = self.context.socket(zmq.PUB)
+        
+        # Configure for real-time with no queuing
+        socket.setsockopt(zmq.SNDHWM, 1)  # Minimal send queue
+        socket.setsockopt(zmq.CONFLATE, 1)  # Only keep most recent message
+        socket.setsockopt(zmq.LINGER, 0)  # Don't wait when closing
+        
+        bind_addr = f"tcp://{self.host}:{port}"
+        logger.info(f"Binding visualization PUB socket to {bind_addr}")
+        socket.bind(bind_addr)
+        return socket
+        
+    def _update_active_mode(self):
+        """Update active mode based on genome availability."""
+        old_mode = self._active_mode
+        
+        # Safely check genome loaded state with defensive programming
+        try:
+            self._active_mode = self.core_api.genome_is_loaded() if self.core_api else False
+        except Exception as e:
+            # If there's any error accessing genome state, default to standby mode
+            logger.warning(f"Error checking genome state: {e}, defaulting to standby mode")
+            self._active_mode = False
+        
+        if old_mode != self._active_mode:
+            if self._active_mode:
+                logger.info("VisualizationStream entering ACTIVE mode (genome loaded)")
+                # Only broadcast if streams are running
+                if self.running:
+                    asyncio.create_task(self._broadcast_state_change("active"))
+            else:
+                logger.info("VisualizationStream entering STANDBY mode (no genome loaded)")
+                # Only broadcast if streams are running 
+                if self.running:
+                    asyncio.create_task(self._broadcast_state_change("standby"))
+    
+    async def _broadcast_state_change(self, state: str):
+        """Broadcast state change to all connected clients.
+        
+        Args:
+            state: New state ("active" or "standby")
+        """
+        try:
+            # Send on system channel
+            await self.activity_socket.send_multipart([
+                b"system",
+                b"application/json",
+                serialize_message({
+                    "type": "state_change",
+                    "state": state,
+                    "timestamp": int(time.time() * 1000)
+                }, "application/json")
+            ])
+            logger.debug(f"Broadcasted visualization state change to {state}")
+        except Exception as e:
+            logger.error(f"Error broadcasting state change: {e}")
+    
+    def _on_genome_state_change(self, old_state, new_state):
+        """Handle genome state changes.
+        
+        Args:
+            old_state: Previous genome state
+            new_state: New genome state
+        """
+        logger.debug(f"Visualization received genome state change: {old_state} → {new_state}")
+        
+        try:
+            # Only care about LOADED vs other states
+            if new_state == GenomeState.LOADED:
+                # Transition to active mode when genome is loaded
+                self._active_mode = True
+                if self.running:
+                    logger.info("VisualizationStream entering ACTIVE mode (genome loaded)")
+                    asyncio.create_task(self._broadcast_state_change("active"))
+                    # Force a full structure update to all clients
+                    asyncio.create_task(self._send_brain_structure_to_all_force())
+            else:
+                # Any other state means genome not fully loaded
+                self._active_mode = False 
+                if self.running:
+                    logger.info("VisualizationStream entering STANDBY mode (genome not loaded)")
+                    asyncio.create_task(self._broadcast_state_change("standby"))
+        except Exception as e:
+            logger.error(f"Error handling genome state change: {e}")
+            # Default to standby mode on error
+            self._active_mode = False
+            if self.running:
+                asyncio.create_task(self._broadcast_state_change("standby"))
 
     @property
     def structure_port(self) -> int:
@@ -119,6 +238,15 @@ class VisualizationStream:
         self.periodic_tasks["structure_updates"] = self._event_loop.create_task(
             self._stream_structure_updates()
         )
+        
+        # Determine initial state (active or standby)
+        self._update_active_mode()
+        
+        # Broadcast initial state to clients
+        if self._active_mode:
+            await self._broadcast_state_change("active")
+        else:
+            await self._broadcast_state_change("standby")
 
     async def stop(self) -> None:
         """Stop the visualization stream server."""
@@ -156,6 +284,11 @@ class VisualizationStream:
                 
                 logger.debug(f"Received control message from client {client_id}")
                 
+                # Special handling for system message type
+                if message.get("type") == "system":
+                    await self._handle_system_message(client_id, message)
+                    continue
+                
                 # Process message based on type
                 if message["type"] == "view_settings":
                     await self._handle_view_settings(client_id, message["settings"])
@@ -180,6 +313,37 @@ class VisualizationStream:
             except Exception as e:
                 logger.error(f"Error handling control message: {e}")
                 await asyncio.sleep(1)  # Avoid tight loop on errors
+                
+    async def _handle_system_message(self, client_id: str, message: Dict):
+        """Handle system messages from clients.
+        
+        Args:
+            client_id: Client ID
+            message: Message content
+        """
+        command = message.get("command")
+        
+        if command == "status_check":
+            # Check genome status safely
+            try:
+                genome_loaded = self.core_api.genome_is_loaded() if self.core_api else False
+            except Exception as e:
+                logger.warning(f"Error checking genome state during status check: {e}")
+                genome_loaded = False
+                
+            # Reply with current system state
+            await self.control_socket.send_multipart([
+                client_id.encode(),
+                b"",
+                b"application/json",
+                serialize_message({
+                    "type": "system_status",
+                    "active_mode": self._active_mode,
+                    "genome_loaded": genome_loaded,
+                    "timestamp": int(time.time() * 1000)
+                }, "application/json")
+            ])
+            logger.debug(f"Sent system status to client {client_id}")
 
     async def _handle_view_settings(self, client_id: str, settings: Dict) -> None:
         """
@@ -209,8 +373,22 @@ class VisualizationStream:
         self.clients[client_id] = settings
         logger.info(f"Registered new visualization client: {client_id}")
         
-        # Send current brain structure to new client
-        await self._send_brain_structure(client_id)
+        # Send current state information
+        await self.control_socket.send_multipart([
+            client_id.encode(),
+            b"",
+            b"application/json",
+            serialize_message({
+                "type": "system_status",
+                "active_mode": self._active_mode,
+                "genome_loaded": self.core_api.genome_is_loaded(),
+                "timestamp": int(time.time() * 1000)
+            }, "application/json")
+        ])
+        
+        # Send current brain structure to new client if in active mode
+        if self._active_mode:
+            await self._send_brain_structure(client_id)
 
     async def _handle_client_unregistration(self, client_id: str) -> None:
         """
@@ -236,6 +414,14 @@ class VisualizationStream:
                     await asyncio.sleep(0.5)
                     continue
                 
+                # Skip processing if system is in standby mode
+                if not self._active_mode:
+                    # Send standby heartbeat every second to keep clients informed
+                    if int(time.time()) % 5 == 0:  # Every 5 seconds
+                        await self._send_standby_heartbeat()
+                    await asyncio.sleep(1.0)
+                    continue
+                
                 # Get current brain activity
                 brain_state = await self.core_api.get_brain_activity()
                 
@@ -255,11 +441,32 @@ class VisualizationStream:
             except Exception as e:
                 logger.error(f"Error streaming activity: {e}")
                 await asyncio.sleep(1)  # Avoid tight loop on errors
+                
+    async def _send_standby_heartbeat(self):
+        """Send standby heartbeat to clients."""
+        try:
+            await self.activity_socket.send_multipart([
+                b"system",
+                b"application/json",
+                serialize_message({
+                    "type": "heartbeat",
+                    "state": "standby",
+                    "timestamp": int(time.time() * 1000)
+                }, "application/json")
+            ])
+            logger.debug("Sent standby heartbeat")
+        except Exception as e:
+            logger.error(f"Error sending standby heartbeat: {e}")
 
     async def _stream_structure_updates(self) -> None:
         """Periodically send brain structure updates."""
         while self.running:
             try:
+                # Skip processing if system is in standby mode
+                if not self._active_mode:
+                    await asyncio.sleep(5.0)
+                    continue
+                    
                 # Get current brain structure
                 structure = await self.core_api.get_brain_structure()
                 
@@ -456,6 +663,20 @@ class VisualizationStream:
         Args:
             client_id: Client identifier
         """
+        # Skip if in standby mode
+        if not self._active_mode:
+            await self.control_socket.send_multipart([
+                client_id.encode(),
+                b"",
+                b"application/json",
+                serialize_message({
+                    "type": "structure_unavailable",
+                    "reason": "standby_mode",
+                    "timestamp": int(time.time() * 1000)
+                }, "application/json")
+            ])
+            return
+            
         structure = await self.core_api.get_brain_structure()
         
         # Send structure directly to specified client
@@ -477,6 +698,10 @@ class VisualizationStream:
         Args:
             structure: Brain structure data
         """
+        # Skip if in standby mode
+        if not self._active_mode:
+            return
+            
         # Publish the structure to all subscribers
         await self.structure_socket.send_multipart([
             b"structure",
@@ -486,6 +711,25 @@ class VisualizationStream:
                 "data": structure
             }, "application/json")
         ])
+        
+    async def _send_brain_structure_to_all_force(self) -> None:
+        """Force sending brain structure to all clients even after state changes."""
+        try:
+            # Skip if still in standby mode
+            if not self._active_mode:
+                return
+                
+            # Add small delay to ensure genome is fully loaded
+            await asyncio.sleep(0.5)
+                
+            # Get current brain structure
+            structure = await self.core_api.get_brain_structure()
+            
+            # Send to all clients
+            await self._send_brain_structure_to_all(structure)
+            
+        except Exception as e:
+            logger.error(f"Error sending forced structure update: {e}")
 
 
 class VisualizationClient:
