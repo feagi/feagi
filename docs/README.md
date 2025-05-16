@@ -27,9 +27,11 @@ Documents follow a standardized naming convention with prefixes indicating their
 - [GPU Architecture](arch-gpu.md) - GPU acceleration design
 - [IPC Architecture](arch-ipc.md) - Inter-process communication
 - [State Management](arch-state-management.md) - System state management
+- [ZMQ Architecture](arch-zmq.md) - ZeroMQ communication architecture
 
 ### Specifications
 - [Shared Memory Protocol](spec-shared-memory.md) - Memory protocol specification
+- [Communication Protocols](spec-protocols.md) - FCP, FVP, and FSMP protocol specifications
 - [API Formats](spec-api-formats.md) - API response formats and compatibility
 
 ### Guides
@@ -43,6 +45,7 @@ Documents follow a standardized naming convention with prefixes indicating their
 ### Planning
 - [Testing Strategy](plan-testing-strategy.md) - Test coverage planning
 - [Documentation Restructuring](plan-documentation-restructuring.md) - Documentation reorganization plan
+- [Documentation Progress](plan-documentation-restructuring-progress.md) - Current status of restructuring
 
 ## Assets
 
