@@ -13,20 +13,33 @@ FEAGI is built with a modular architecture consisting of:
 
 ## Communication Protocols
 
-FEAGI uses Protocol Buffers to define language-agnostic communication protocols:
+FEAGI uses binary protocols for efficient communication:
 
 1. **FCP (FEAGI Control Protocol)**: For agent registration, heartbeats, and control
 2. **FSMP (FEAGI Sensorimotor Protocol)**: For exchanging sensory and motor data
 3. **FVP (FEAGI Visualization Protocol)**: For exchanging brain visualization data
 
-These protocols are defined in the `protocol/` directory and can be used to generate client libraries for any language that supports Protocol Buffers.
+## Documentation
+
+FEAGI documentation follows a structured approach:
+- **System-level documentation** is maintained in the `/docs` folder
+- **Module-specific documentation** is stored in each module's directory
+
+All documentation follows our [Documentation Standards](docs/guide-documentation-standards.md) with consistent naming conventions:
+- `arch-*`: Architecture documents
+- `spec-*`: Technical specifications
+- `guide-*`: User and developer guides
+- `adr-*`: Architecture Decision Records
+- `plan-*`: Project planning documents
+
+For more details, see the [Documentation Restructuring Plan](docs/plan-documentation-restructuring.md).
 
 ## Getting Started
 
 ### Prerequisites
 
 - Python 3.9+
-- Protocol Buffers compiler (protoc)
+- ZeroMQ
 
 ### Installation
 
@@ -42,7 +55,7 @@ pip install -r requirements.txt
 ### Running FEAGI
 
 ```bash
-python run_feagi.sh
+./run_feagi.sh
 ```
 
 ## Connecting to FEAGI
@@ -99,10 +112,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 ```
-
-## Documentation
-
-Full documentation is available in the `docs/` directory.
 
 ## License
 
