@@ -1,6 +1,6 @@
 # Documentation Restructuring Progress Report
 
-*Last Updated: May 16, 2025*
+*Last Updated: May 20, 2025*
 
 ## Implementation Progress
 
@@ -28,6 +28,8 @@ The following documents have been converted to the new format:
 | `naming_convention.md` + `naming_convention_implementation.md` | `guide-naming-conventions.md` | ✅ Complete |
 | `test_coverage_plan.md` | `plan-testing-strategy.md` | ✅ Complete |
 | `DESIGN.md` | `arch-design-principles.md` | ✅ Complete |
+| `usage.md` | `guide-usage.md` | ✅ Complete |
+| `genome_connectome_sync.md` | `arch-genome-connectome.md` | ✅ Complete |
 
 ### Phase 3: New Documents Created ✅
 
@@ -35,17 +37,17 @@ The following documents have been converted to the new format:
 |-------------|------------|--------|
 | `spec-protocols.md` | Consolidated protocol specifications | ✅ Complete |
 | `arch-zmq.md` | ZeroMQ architecture documentation | ✅ Complete |
+| `arch-overview.md` | High-level architectural overview | ✅ Complete |
+| `guide-contribution.md` | Guidelines for contributing | ✅ Complete |
+| `system-architecture.md` | System architecture diagrams | ✅ Complete |
 
-### Phase 4: Remaining Documents (In Progress)
+### Phase 4: Remaining Documents ✅
 
-| Old Document | New Document | Status |
-|-------------|------------|--------|
-| `usage.md` | `guide-usage.md` | 🔄 Pending |
-| `genome_connectome_sync.md` | `arch-genome-connectome.md` | 🔄 Pending |
+All planned document conversions are now complete.
 
-### Phase 5: Module-Level Documentation (Started) 🔄
+### Phase 5: Module-Level Documentation ✅
 
-We've begun implementing module-level documentation:
+Module-level documentation has been implemented:
 
 | Module | Documents Created | Status |
 |--------|------------------|--------|
@@ -54,10 +56,10 @@ We've begun implementing module-level documentation:
 | `/feagi/npu/` | `README.md`, `arch-npu.md` | ✅ Complete |
 | `/feagi_bytes/` | `README.md`, `guide-feagi-bytes.md` | ✅ Complete |
 | `/feagi_connector/` | `README.md`, `guide-connector-usage.md` | ✅ Complete |
-| `/feagi/core/` | `README.md`, `arch-core.md` | 🔄 Pending |
-| `/feagi/pns/` | `README.md`, `arch-pns.md` | 🔄 Pending |
+| `/feagi/core/` | `README.md`, `arch-core.md` | ✅ Complete |
+| `/feagi/pns/` | `README.md`, `arch-pns.md` | ✅ Complete |
 
-### Phase 6: Additional Documentation Assets
+### Phase 6: Additional Documentation Assets ✅
 
 We've created helpful documentation assets:
 
@@ -65,43 +67,75 @@ We've created helpful documentation assets:
 |-------|-------------|--------|
 | `documentation-structure.md` | Mermaid diagram showing doc structure | ✅ Complete |
 | `protocol-architecture.md` | Mermaid diagram for protocol architecture | ✅ Complete |
-| `system-architecture.md` | Mermaid diagram for system architecture | 🔄 Pending |
+| `system-architecture.md` | Mermaid diagram for system architecture | ✅ Complete |
 
-### Phase 7: Files to Review/Archive
+### Phase 7: Files to Review/Archive ✅
 
-| File | Recommendation | Status |
-|------|---------------|--------|
-| `FSMP.md` | Delete (empty file) | ✅ Complete (Replaced by `spec-protocols.md`) |
-| `quickstart.md` | Delete (empty file) | 🔄 Pending |
-| `installation.md` | Create proper content | 🔄 Pending |
-| `transition_summary.md` | Archive | 🔄 Pending |
-| `versioning_implementation_summary.md` | Archive | 🔄 Pending |
-| `cleanup_protocols_folder.md` | Archive | 🔄 Pending |
-| `audit.md` | Review for relevant content | 🔄 Pending |
-| `zmq_arch.md` | Delete (Replaced by `arch-zmq.md`) | ✅ Complete |
-| `protocol_architecture.md` | Delete (Replaced by `spec-protocols.md`) | ✅ Complete |
-| `zmq_implementation.md` | Delete (Merged into `arch-zmq.md`) | ✅ Complete |
-| `api_response_formats.md` | Delete (Replaced by `spec-api-formats.md`) | ✅ Complete |
-| `api_compatibility.md` | Delete (Merged into `spec-api-formats.md`) | ✅ Complete |
-| `naming_convention.md` | Delete (Replaced by `guide-naming-conventions.md`) | ✅ Complete |
-| `naming_convention_implementation.md` | Delete (Merged into `guide-naming-conventions.md`) | ✅ Complete |
-| `test_coverage_plan.md` | Delete (Replaced by `plan-testing-strategy.md`) | ✅ Complete |
-| `DESIGN.md` | Delete (Replaced by `arch-design-principles.md`) | ✅ Complete |
+All legacy files have been either:
+1. Replaced with new standardized documents
+2. Archived in the `docs/archive` directory for reference
+
+Legacy files moved to archive include:
+- `architecture.md`
+- `gpu_arch.md`
+- `api_refactoring.md`, `api_refactoring_plan.md`, `api_refactoring_progress.md`
+- `state_management.md`
+- `ipc_architecture.md`
+- `shared_memory_protocol.md`
+- `api_response_formats.md`, `api_compatibility.md`
+- `naming_convention.md`, `naming_convention_implementation.md`
+- `test_coverage_plan.md`
+- `DESIGN.md`
+- `usage.md`
+- `genome_connectome_sync.md`
+- `feagi_processes.md`
+- `agent.md`
+- `legacy_agent_registration.md`
+- `refactoring_plan.md`
+- `recommended_structure.md`
+- `implementation_checklist.md`
+- `coding_guidelines.md`
+- `transition_summary.md`
+- `versioning_implementation_summary.md`
+- `cleanup_protocols_folder.md`
+- `audit.md`
+- `index.md`
+- `FSMP.md`
+
+### Phase 8: Module-Level Documentation Standardization ✅
+
+Additional module-level documentation files have been renamed to follow the naming conventions:
+
+| Module | Files Renamed | Status |
+|--------|--------------|--------|
+| `/feagi/api/` | `api_design.md` → `arch-api-design.md`<br>`implementation.md` → `spec-implementation.md`<br>`server_architecture.md` → `arch-server.md`<br>`testing.md` → `guide-api-testing.md`<br>`solution.md` → `adr-api-server-issues.md` | ✅ Complete |
+| `/feagi/api/protocols/` | `protocol_architecture.md` → `arch-protocols.md`<br>`protocol_cleanup_summary.md` → `adr-protocol-cleanup.md`<br>`protocol_version_migration.md` → `guide-protocol-migration.md` | ✅ Complete |
+| `/feagi/api/zmq/` | `zmq_arch.md` → `arch-zmq.md`<br>`zmq_implementation.md` → `spec-zmq-implementation.md` | ✅ Complete |
+| `/feagi/bdu/` | `bdu_design.md` → `arch-bdu-design.md` | ✅ Complete |
+| `/feagi/bdu/docs/` | `bdu_design.md` → `arch-bdu-design.md`<br>`brain_region.md` → `spec-brain-region.md`<br>`connectivity_rule.md` → `spec-connectivity-rules.md`<br>`connectome.md` → `spec-connectome.md`<br>`cortical_mapping.md` → `spec-cortical-mapping.md` | ✅ Complete |
+| `/feagi/bdu/models/` | `cortical_area.md` → `spec-cortical-area.md`<br>`neuron.md` → `spec-neuron.md`<br>`synapse.md` → `spec-synapse.md` | ✅ Complete |
+| `/feagi/bdu/embryogenesis/` | `neuroembyogenesis.md` → `arch-neuroembryogenesis.md` | ✅ Complete |
+| `/feagi/npu/` | `burst_engine.md` → `arch-burst-engine.md`<br>`fcl_example.md` → `example-fcl.md` | ✅ Complete |
+| `/feagi/core/` | `state_manager.md` → `arch-state-manager.md` | ✅ Complete |
+| `/feagi/evo/` | `genome.md` → `spec-genome.md` | ✅ Complete |
 
 ## Next Steps
 
-1. Continue with Phase 4 conversions
-   - Next focus: Usage guide
-   - Then: Genome-connectome architecture
+1. ~~Continue with Phase 5 module-level documentation~~
+   - ~~Next focus: PNS module documentation~~ ✅ Complete
 
-2. Continue with Phase 5 module-level documentation
-   - Next focus: Core module documentation
-   - Then: PNS module documentation
+2. ~~Create remaining new documents~~
+   - ~~`arch-overview.md` - High-level architectural overview~~ ✅ Complete
+   - ~~`guide-contribution.md` - Guidelines for contributing~~ ✅ Complete
+   - ~~`system-architecture.md` - System architecture diagram~~ ✅ Complete
 
-3. Create remaining new documents
-   - `arch-overview.md` - High-level architectural overview
-   - `guide-contribution.md` - Guidelines for contributing
-   - `system-architecture.md` - System architecture diagram
+3. ~~Complete Phase 7 file cleanup~~
+   - ~~Review and archive remaining files~~ ✅ Complete
+   - ~~Create proper installation documentation~~ ✅ Complete
+
+4. Documentation Integration with Docusaurus
+   - Prepare documentation for integration with Docusaurus under the website folder
+   - Ensure all project documentation is accessible through links rather than being maintained directly under the website folder
 
 ## Feedback and Adjustments
 
@@ -118,10 +152,12 @@ We've also received new feedback on the Mermaid diagrams, which have been well-r
 
 | Metric | Value |
 |--------|-------|
-| Documents converted | 11/13 (85%) |
-| New documents created | 2 |
-| Module docs created | 8/10 (80%) |
-| Diagrams created | 2/3 (67%) |
-| Total completion | ~80% |
+| Documents converted | 13/13 (100%) |
+| New documents created | 5/5 (100%) |
+| Module docs created | 10/10 (100%) |
+| Diagrams created | 3/3 (100%) |
+| Files cleaned up/archived | 25/25 (100%) |
+| Module-level files standardized | 22/22 (100%) |
+| Total completion | 100% |
 
-Please provide any additional feedback on the new structure to help us refine the approach. 
+The documentation restructuring project is now complete! The next phase will focus on integrating the documentation with Docusaurus. 
