@@ -62,3 +62,16 @@ htmlcov/
 
 # Temp
 legacy_feagi/
+
+# Docusaurus
+website/docs/.docusaurus/
+website/docs/build/
+website/docs/node_modules/
+website/docs/.cache-loader/
+website/docs/.env.local
+website/docs/.env.development.local
+website/docs/.env.test.local
+website/docs/.env.production.local
+website/docs/npm-debug.log*
+website/docs/yarn-debug.log*
+website/docs/yarn-error.log*
