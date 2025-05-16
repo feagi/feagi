@@ -34,6 +34,28 @@ All documentation follows our [Documentation Standards](docs/guide-documentation
 
 For more details, see the [Documentation Restructuring Plan](docs/plan-documentation-restructuring.md).
 
+### Documentation Website
+
+The documentation is organized using Docusaurus, which provides a centralized documentation website. To set up and run the documentation website:
+
+```bash
+# Set up the documentation system
+./tools/doc_helpers/setup_docs.sh
+
+# Run the documentation server
+./tools/doc_helpers/run_docusaurus.sh
+```
+
+The documentation website presents:
+- **User Guides** - For end users of FEAGI
+- **System Documentation** - Architectural and design documentation
+- **Module Documentation** - API, BDU, NPU, and other module-specific documentation
+
+Several utilities are available in `tools/doc_helpers/` to assist with documentation:
+- `fix_html_tables.py` - Identifies HTML formatting issues in tables
+- `fix_broken_links.py` - Detects and suggests fixes for broken links
+- `convert_html_tables.py` - Converts HTML tables to markdown format
+
 ## Getting Started
 
 ### Prerequisites

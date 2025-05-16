@@ -9,7 +9,6 @@ const bduSidebar: SidebarsConfig = {
       type: 'category',
       label: 'BDU',
       items: [
-        'README',
         'arch-bdu-design',
       ],
     },
