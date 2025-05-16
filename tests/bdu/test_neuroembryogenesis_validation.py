@@ -65,8 +65,8 @@ def config():
         config_dict = {
             "connectome_path": temp_dir,
             "skip_memory_neurogenesis": True,
-            "connectome.max_neurons": 100000000,  # Large enough for test genome
-            "connectome.max_synapses_per_neuron": 1000  # Also increase max synapses
+            "connectome.max_neurons": 10000,  # Large enough for test genome
+            "connectome.max_synapses_per_neuron": 100  # Also increase max synapses
         }
 
         config = FeagiConfig()
@@ -80,9 +80,9 @@ def config():
 def connectome_manager(config):
     """Create a ConnectomeManager for testing."""
     # Create a ConnectomeManager with the new API
-    max_neurons = config.get('connectome.max_neurons', 100000000)
-    max_synapses = config.get('connectome.max_synapses_per_neuron', 1000) * max_neurons
-    return ConnectomeManager(max_neurons=max_neurons, max_synapses=max_synapses)
+    max_neurons = config.get('connectome.max_neurons', 10000)
+    max_synapses = config.get('connectome.max_synapses_per_neuron', 100) * max_neurons
+    return ConnectomeManager(config_or_max_neurons=max_neurons, max_synapses=max_synapses)
 
 
 @pytest.fixture

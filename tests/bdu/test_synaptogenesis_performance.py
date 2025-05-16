@@ -80,7 +80,7 @@ def connectome_manager(config):
     # Create a ConnectomeManager with limited neuron count for faster testing
     max_neurons = 100000  # Increased to handle essential genome
     max_synapses = config.get('connectome.max_synapses_per_neuron', 1000) * max_neurons
-    return ConnectomeManager(max_neurons=max_neurons, max_synapses=max_synapses)
+    return ConnectomeManager(config_or_max_neurons=max_neurons, max_synapses=max_synapses)
 
 
 @pytest.fixture

@@ -2066,3 +2066,124 @@ class ConnectomeManager:
     def membrane_potentials(self):
         """Get all membrane potentials as a dict for testing."""
         return {neuron_id: neuron["membrane_potential"] for neuron_id, neuron in self.neurons.items()}
+    
+    def save(self, filename):
+        """Save the connectome to a file.
+        
+        Args:
+            filename: Path to save the file
+            
+        Returns:
+            True if save was successful, False otherwise
+        """
+        try:
+            # Prepare data to serialize
+            data = {
+                "cortical_areas": self.cortical_areas,
+                "neurons": self.neurons,
+                "area_neuron_map": self.area_neuron_map,
+                "brain_regions": self.brain_regions,
+                "region_area_map": self.region_area_map,
+                "connectivity_rules": self.connectivity_rules,
+                "cortical_connections": self.cortical_connections,
+                "position_map": self.position_map,
+                "index_position_map": self.index_position_map,
+                "next_neuron_index": self.next_neuron_index,
+                "max_neurons": self.max_neurons,
+                "max_synapses": self.max_synapses,
+                "current_timestep": self.current_timestep,
+                # Don't save active_neurons set, as it's transient
+            }
+            
+            # Handle sparse matrices - convert to COO format for saving
+            outgoing_coo = self.outgoing_matrix.tocoo()
+            incoming_coo = self.incoming_matrix.tocoo()
+            
+            # Store only non-zero elements and their coordinates
+            data["outgoing_matrix"] = {
+                "shape": outgoing_coo.shape,
+                "row": outgoing_coo.row.tolist(),
+                "col": outgoing_coo.col.tolist(),
+                "data": outgoing_coo.data.tolist()
+            }
+            
+            data["incoming_matrix"] = {
+                "shape": incoming_coo.shape,
+                "row": incoming_coo.row.tolist(),
+                "col": incoming_coo.col.tolist(),
+                "data": incoming_coo.data.tolist()
+            }
+            
+            # Save to file
+            with open(filename, 'wb') as f:
+                pickle.dump(data, f)
+                
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving connectome: {e}")
+            return False
+            
+    
+    @classmethod
+    def load(cls, filename):
+        """Load the connectome from a file.
+        
+        Args:
+            filename: Path to the saved file
+            
+        Returns:
+            A new ConnectomeManager instance if load was successful, False otherwise
+        """
+        try:
+            # Load from file
+            with open(filename, 'rb') as f:
+                data = pickle.load(f)
+                
+            # Create a new instance with the loaded parameters
+            instance = cls(
+                config_or_max_neurons=data.get("max_neurons", 10_000_000),
+                max_synapses=data.get("max_synapses", 100_000_000)
+            )
+            
+            # Restore attributes
+            instance.cortical_areas = data["cortical_areas"]
+            instance.neurons = data["neurons"]
+            instance.area_neuron_map = data["area_neuron_map"]
+            instance.brain_regions = data["brain_regions"]
+            instance.region_area_map = data["region_area_map"]
+            instance.connectivity_rules = data["connectivity_rules"]
+            instance.cortical_connections = data["cortical_connections"]
+            instance.position_map = data["position_map"]
+            instance.index_position_map = data["index_position_map"]
+            instance.next_neuron_index = data["next_neuron_index"]
+            instance.max_neurons = data["max_neurons"]
+            instance.max_synapses = data["max_synapses"]
+            instance.current_timestep = data["current_timestep"]
+            instance.active_neurons = set()  # Reset active neurons
+            
+            # Restore sparse matrices
+            outgoing_data = data["outgoing_matrix"]
+            incoming_data = data["incoming_matrix"]
+            
+            # Recreate the matrices in LIL format for more efficient modification
+            instance.outgoing_matrix = sparse.coo_matrix(
+                (outgoing_data["data"], (outgoing_data["row"], outgoing_data["col"])),
+                shape=outgoing_data["shape"]
+            ).tolil()
+            
+            instance.incoming_matrix = sparse.coo_matrix(
+                (incoming_data["data"], (incoming_data["row"], incoming_data["col"])),
+                shape=incoming_data["shape"]
+            ).tolil()
+            
+            # Re-initialize FCL manager
+            from feagi.npu.fcl_manager import FCLManager
+            instance.fcl_manager = FCLManager(window_size=20)  # Default window size
+            instance.is_initialized = True
+            
+            return instance
+            
+        except Exception as e:
+            logger.error(f"Error loading connectome: {e}")
+            return False

@@ -106,7 +106,7 @@ def main():
     # Create the connectome manager
     print("Creating connectome manager...")
     try:
-        connectome_manager = ConnectomeManager(config)
+        connectome_manager = ConnectomeManager(config_or_max_neurons=config)
     except Exception as e:
         print(f"Error creating ConnectomeManager: {e}")
         traceback.print_exc()

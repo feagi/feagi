@@ -95,7 +95,7 @@ def connectome_manager(config):
     """Create a ConnectomeManager for testing."""
     max_neurons = config.get('connectome.max_neurons', 10000000)
     max_synapses = config.get('connectome.max_synapses_per_neuron', 1000) * max_neurons
-    return ConnectomeManager(max_neurons=max_neurons, max_synapses=max_synapses)
+    return ConnectomeManager(config_or_max_neurons=max_neurons, max_synapses=max_synapses)
 
 
 @pytest.fixture
@@ -176,7 +176,7 @@ def test_synaptogenesis_process(embryo):
 def test_full_brain_development(genome_path, config):
     """Test the full brain development process."""
     # Create a fresh connectome manager and embryo for the test
-    connectome_manager = ConnectomeManager(config)
+    connectome_manager = ConnectomeManager(config_or_max_neurons=config)
     embryo = NeuroEmbryogenesis(connectome_manager, config)
     
     # Develop the brain

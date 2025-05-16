@@ -665,25 +665,89 @@ class NeuroEmbryogenesis:
         """
         neuron_ids = []
         
-        # Check if ConnectomeManager supports batch operation
-        if hasattr(self.connectome_manager, 'batch_create_neurons'):
-            # Use batch API if available
-            neuron_ids = self.connectome_manager.batch_create_neurons(neuron_specs)
-        else:
-            # Fall back to individual creation
-            for spec in neuron_specs:
-                area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
-                neuron_id = self.connectome_manager.create_neuron(
-                    area_id=area_id,
-                    position=position,
-                    threshold=threshold,
-                    refractory_period=refractory_period,
-                    decay_rate=decay_rate,
-                    resting_potential=resting_potential,
-                    properties=properties
-                )
-                neuron_ids.append((neuron_id, properties["voxel_id"]))
-                
+        # Group neuron specs by area_id for batch processing
+        by_area = {}
+        for spec in neuron_specs:
+            area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
+            if area_id not in by_area:
+                by_area[area_id] = {
+                    "positions": [],
+                    "properties": [],
+                    "voxel_ids": [],
+                    "thresholds": [],
+                    "refractory_periods": [],
+                    "decay_rates": [],
+                    "resting_potentials": []
+                }
+            
+            by_area[area_id]["positions"].append(position)
+            by_area[area_id]["properties"].append(properties)
+            by_area[area_id]["voxel_ids"].append(properties["voxel_id"])
+            by_area[area_id]["thresholds"].append(threshold)
+            by_area[area_id]["refractory_periods"].append(refractory_period)
+            by_area[area_id]["decay_rates"].append(decay_rate)
+            by_area[area_id]["resting_potentials"].append(resting_potential)
+        
+        # Process neurons by area using batch API if available
+        for area_id, area_specs in by_area.items():
+            positions = area_specs["positions"]
+            
+            # Check if ConnectomeManager supports batch operation with separate area_id and positions
+            if hasattr(self.connectome_manager, 'batch_create_neurons'):
+                try:
+                    # Try to use the batch API with area_id and positions
+                    area_neuron_ids = self.connectome_manager.batch_create_neurons(
+                        area_id=area_id,
+                        positions=positions,
+                        threshold=area_specs["thresholds"][0],  # Use first value for all or support lists
+                        refractory_period=area_specs["refractory_periods"][0],
+                        decay_rate=area_specs["decay_rates"][0],
+                        resting_potential=area_specs["resting_potentials"][0],
+                        properties=area_specs["properties"][0]
+                    )
+                    
+                    # Construct result tuples with neuron IDs and voxel IDs
+                    for i, neuron_id in enumerate(area_neuron_ids):
+                        neuron_ids.append((neuron_id, area_specs["voxel_ids"][i]))
+                except Exception as e:
+                    # Fall back to individual creation if batch API fails
+                    for i, position in enumerate(positions):
+                        properties = area_specs["properties"][i]
+                        threshold = area_specs["thresholds"][i]
+                        refractory_period = area_specs["refractory_periods"][i]
+                        decay_rate = area_specs["decay_rates"][i]
+                        resting_potential = area_specs["resting_potentials"][i]
+                        
+                        neuron_id = self.connectome_manager.create_neuron(
+                            area_id=area_id,
+                            position=position,
+                            threshold=threshold,
+                            refractory_period=refractory_period,
+                            decay_rate=decay_rate,
+                            resting_potential=resting_potential,
+                            properties=properties
+                        )
+                        neuron_ids.append((neuron_id, properties["voxel_id"]))
+            else:
+                # Fall back to individual creation if batch API not available
+                for i, position in enumerate(positions):
+                    properties = area_specs["properties"][i]
+                    threshold = area_specs["thresholds"][i]
+                    refractory_period = area_specs["refractory_periods"][i]
+                    decay_rate = area_specs["decay_rates"][i]
+                    resting_potential = area_specs["resting_potentials"][i]
+                    
+                    neuron_id = self.connectome_manager.create_neuron(
+                        area_id=area_id,
+                        position=position,
+                        threshold=threshold,
+                        refractory_period=refractory_period,
+                        decay_rate=decay_rate,
+                        resting_potential=resting_potential,
+                        properties=properties
+                    )
+                    neuron_ids.append((neuron_id, properties["voxel_id"]))
+        
         return neuron_ids
         
     def _assign_neurons_to_voxels(self, neuron_ids, positions_map):
@@ -831,42 +895,50 @@ class NeuroEmbryogenesis:
         # Add standard morphology functions that are built-in
         registry["expander_x"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         registry["reducer_x"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         registry["randomizer"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         registry["lateral_pairs_x"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         registry["block_connection"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         registry["projector"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         registry["last_to_first"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         registry["memory"] = {
             "type": "function", 
-            "parameters": {}
+            "parameters": {},
+            "class": "built-in"
         }
         
         # Add morphologies from the genome
@@ -879,14 +951,16 @@ class NeuroEmbryogenesis:
                         "type": "vectors",
                         "parameters": {
                             "vectors": morphology.get("parameters", {}).get("vectors", [])
-                        }
+                        },
+                        "class": "vectors"
                     }
                 elif morphology_type == "patterns":
                     registry[morphology_id] = {
                         "type": "patterns",
                         "parameters": {
                             "patterns": morphology.get("parameters", {}).get("patterns", [])
-                        }
+                        },
+                        "class": "patterns"
                     }
         
         # Cache the registry
@@ -966,7 +1040,7 @@ def develop_brain_from_genome(
     """
     # Create connectome manager if not provided
     if connectome_manager is None:
-        connectome_manager = ConnectomeManager(config)
+        connectome_manager = ConnectomeManager(config_or_max_neurons=config)
     
     # Create neuroembryogenesis instance
     embryo = NeuroEmbryogenesis(

@@ -130,24 +130,24 @@ class TestConnectomeManager(unittest.TestCase):
             name="V1 to V2 Probabilistic",
             source_area_id=self.v1_id,
             target_area_id=self.v2_id,
-            rule_type="probabilistic",
-            parameters={"probability": 0.3, "weight": 0.5}
+            rule_type="random-subset",
+            parameters={"num_targets": 2, "weight": 0.5}
         )
         
         # Test getting rule
         rule = self.connectome.get_connectivity_rule(rule_id)
         self.assertEqual(rule["name"], "V1 to V2 Probabilistic")
         self.assertEqual(rule["source_area_id"], self.v1_id)
-        self.assertEqual(rule["rule_type"], "probabilistic")
-        self.assertEqual(rule["parameters"]["probability"], 0.3)
+        self.assertEqual(rule["rule_type"], "random-subset")
+        self.assertEqual(rule["parameters"]["num_targets"], 2)
         
         # Test updating rule
         self.connectome.update_connectivity_rule(
             rule_id,
-            {"parameters": {"probability": 0.5}}
+            {"parameters": {"num_targets": 3}}
         )
         rule = self.connectome.get_connectivity_rule(rule_id)
-        self.assertEqual(rule["parameters"]["probability"], 0.5)
+        self.assertEqual(rule["parameters"]["num_targets"], 3)
         
         # Test getting rules for areas
         rules = self.connectome.get_connectivity_rules_for_areas(
@@ -158,8 +158,22 @@ class TestConnectomeManager(unittest.TestCase):
         self.assertEqual(rules[0], rule_id)
         
         # Test applying rule
+        limited_v1_neurons = self.v1_neurons[:5]
+        original_get_neurons_by_area = self.connectome.get_neurons_by_area
+        
+        def mock_get_neurons_by_area(area_id):
+            if area_id == self.v1_id:
+                return limited_v1_neurons
+            return original_get_neurons_by_area(area_id)
+        
+        self.connectome.get_neurons_by_area = mock_get_neurons_by_area
+        
         num_synapses = self.connectome.apply_connectivity_rule(rule_id)
-        self.assertGreaterEqual(num_synapses, 0)  # May be zero due to probability
+        
+        self.connectome.get_neurons_by_area = original_get_neurons_by_area
+        
+        self.assertLessEqual(num_synapses, 15)
+        self.assertGreater(num_synapses, 0)
         
         # Test deleting rule
         self.connectome.delete_connectivity_rule(rule_id)
