@@ -97,7 +97,7 @@ class ConnectomeManager:
         
         # Simulation state
         self.current_timestep = 0
-        
+    
         # For test compatibility - neuron ID to index is 1:1 in this implementation
         self._neuron_to_position = {}
         
@@ -257,10 +257,12 @@ class ConnectomeManager:
             Value of the requested property
             
         Raises:
-            KeyError: If the neuron_id doesn't exist
-            KeyError: If the property doesn't exist
+            KeyError: If the neuron_id doesn't exist or the property isn't found
         """
-        neuron = self.get_neuron(neuron_id)
+        if neuron_id not in self.neurons:
+            raise KeyError(f"Neuron {neuron_id} does not exist")
+        
+        neuron = self.neurons[neuron_id]
         
         # Handle NeuronPropertyType enum
         if hasattr(property_name, 'value'):
@@ -332,7 +334,7 @@ class ConnectomeManager:
     
     def get_neuron_count(self) -> int:
         """Get the total number of neurons in the connectome.
-        
+            
         Returns:
             Total number of neurons
         """
@@ -1589,7 +1591,7 @@ class ConnectomeManager:
         if "properties" in updates:
             if isinstance(updates["properties"], dict):
                 connection["properties"].update(updates["properties"])
-            else:
+        else:
                 connection["properties"] = updates["properties"]
         
         if "enabled" in updates:
@@ -2187,3 +2189,72 @@ class ConnectomeManager:
         except Exception as e:
             logger.error(f"Error loading connectome: {e}")
             return False
+    
+    def get_neurons_at_position(self, area_id: str, position: Tuple[int, int, int]) -> List[int]:
+        """Get all neurons at a specific position in a cortical area.
+        
+        Args:
+            area_id: ID of the cortical area
+            position: 3D position to check
+            
+        Returns:
+            List of neuron IDs at the specified position
+            
+        Raises:
+            KeyError: If the area_id doesn't exist
+        """
+        if area_id not in self.cortical_areas:
+            raise KeyError(f"Cortical area {area_id} does not exist")
+            
+        neurons_in_area = self.get_neurons_by_area(area_id)
+        result = []
+        
+        for neuron_id in neurons_in_area:
+            if self.neurons[neuron_id]["position"] == position:
+                result.append(neuron_id)
+                
+        return result
+    
+    def serialize_brain_state(self, filename: str) -> bool:
+        """Serialize the brain state to a file.
+        
+        Args:
+            filename: Path to save the serialized state
+            
+        Returns:
+            True if serialization was successful, False otherwise
+        """
+        try:
+            # This is a compatibility method for performance tests
+            # Just use the save method which should provide similar functionality
+            return self.save(filename)
+        except Exception as e:
+            logger.error(f"Error serializing brain state: {e}")
+            return False
+    
+    def get_neuron_at_position(self, area_id: str, position: Tuple[int, int, int], neuron_index: int = 0) -> Optional[int]:
+        """Get a specific neuron at a position by index.
+        
+        Args:
+            area_id: ID of the cortical area
+            position: 3D position to check
+            neuron_index: Index of the neuron at the position (for multiple neurons at same position)
+            
+        Returns:
+            Neuron ID if found, None otherwise
+            
+        Raises:
+            KeyError: If the area_id doesn't exist
+        """
+        if area_id not in self.cortical_areas:
+            raise KeyError(f"Cortical area {area_id} does not exist")
+            
+        neurons_at_pos = self.get_neurons_at_position(area_id, position)
+        
+        # Sort the neurons to ensure consistent ordering across test runs
+        sorted_neurons = sorted(neurons_at_pos)
+        
+        if neuron_index < len(sorted_neurons):
+            return sorted_neurons[neuron_index]
+        
+        return None

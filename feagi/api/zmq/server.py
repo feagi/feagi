@@ -387,11 +387,11 @@ class ZmqServer:
         Monitor loop to keep the server running and handle shutdown requests.
         """
         try:
-            while self._running and not self._shutdown_event.is_set():
+        while self._running and not self._shutdown_event.is_set():
                 await asyncio.sleep(1.0)
-        except asyncio.CancelledError:
+            except asyncio.CancelledError:
             logger.info("Monitor loop cancelled")
-        except Exception as e:
+            except Exception as e:
             logger.error(f"Error in monitor loop: {e}")
             self._running = False
     
@@ -438,32 +438,32 @@ class ZmqServer:
         """
         logger.info("Stopping ZMQ services")
         
-        # Stop all services
-        stop_tasks = []
-        
-        if self._req_rep:
-            stop_tasks.append(self._req_rep.stop())
+            # Stop all services
+            stop_tasks = []
             
-        if self._pub_sub:
-            stop_tasks.append(self._pub_sub.stop())
+            if self._req_rep:
+                stop_tasks.append(self._req_rep.stop())
             
-        if self._push_pull:
-            stop_tasks.append(self._push_pull.stop())
+            if self._pub_sub:
+                stop_tasks.append(self._pub_sub.stop())
             
-        if self._sensorimotor:
-            stop_tasks.append(self._sensorimotor.stop())
+            if self._push_pull:
+                stop_tasks.append(self._push_pull.stop())
+            
+            if self._sensorimotor:
+                stop_tasks.append(self._sensorimotor.stop())
             
         if self._control:
             stop_tasks.append(self._control.stop())
             
-        if self._visualization:
-            stop_tasks.append(self._visualization.stop())
+            if self._visualization:
+                stop_tasks.append(self._visualization.stop())
             
         # Wait for all services to stop
-        if stop_tasks:
-            await asyncio.gather(*stop_tasks, return_exceptions=True)
-            
-        logger.info("All ZMQ services stopped")
+            if stop_tasks:
+                await asyncio.gather(*stop_tasks, return_exceptions=True)
+                
+            logger.info("All ZMQ services stopped")
         
         # Close sockets
         for socket in [self.control_socket, self.sensorimotor_socket, 

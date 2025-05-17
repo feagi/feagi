@@ -199,7 +199,7 @@ class TestConnectomeManager(unittest.TestCase):
         
         # Create some synapses to test with
         for i in range(5):
-            self.connectome.create_synapse(
+                    self.connectome.create_synapse(
                 pre_neuron_id=self.v1_neurons[i],
                 post_neuron_id=self.v2_neurons[i],
                 weight=0.5

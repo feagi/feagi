@@ -35,7 +35,7 @@ sys.path.insert(0, project_root)
 
 # Import FEAGI modules
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, DevelopmentStage
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis, DevelopmentStage
 from feagi.utils.config import FeagiConfig
 from feagi.core.backend import BackendType, get_backend, get_available_backends
 
@@ -210,7 +210,7 @@ class NeurogenesisPerformanceBenchmark:
             progress_logs.append((stage.value, progress, message))
         
         # Create the neuroembryogenesis instance
-        embryo = Neuroembryogenesis(
+        embryo = NeuroEmbryogenesis(
             connectome_manager=connectome_manager,
             config=config,
             progress_callback=progress_callback
