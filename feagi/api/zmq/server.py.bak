@@ -445,32 +445,32 @@ class ZmqServer:
         """
         logger.info("Stopping ZMQ services")
         
-        # Stop all services
-        stop_tasks = []
-        
-        if self._req_rep:
-            stop_tasks.append(self._req_rep.stop())
-        
-        if self._pub_sub:
-            stop_tasks.append(self._pub_sub.stop())
-        
-        if self._push_pull:
-            stop_tasks.append(self._push_pull.stop())
-        
-        if self._sensorimotor:
-            stop_tasks.append(self._sensorimotor.stop())
-        
+            # Stop all services
+            stop_tasks = []
+            
+            if self._req_rep:
+                stop_tasks.append(self._req_rep.stop())
+            
+            if self._pub_sub:
+                stop_tasks.append(self._pub_sub.stop())
+            
+            if self._push_pull:
+                stop_tasks.append(self._push_pull.stop())
+            
+            if self._sensorimotor:
+                stop_tasks.append(self._sensorimotor.stop())
+            
         if self._control:
             stop_tasks.append(self._control.stop())
-        
-        if self._visualization:
-            stop_tasks.append(self._visualization.stop())
-        
-        # Wait for all services
-        if stop_tasks:
-            await asyncio.gather(*stop_tasks, return_exceptions=True)
             
-        logger.info("All ZMQ services stopped")
+            if self._visualization:
+                stop_tasks.append(self._visualization.stop())
+            
+        # Wait for all services to stop
+            if stop_tasks:
+                await asyncio.gather(*stop_tasks, return_exceptions=True)
+                
+            logger.info("All ZMQ services stopped")
         
         # Close sockets
         for socket in [self.control_socket, self.sensorimotor_socket, 
@@ -556,7 +556,7 @@ class ZmqServer:
             await self._push_pull.push_data(work_type, data, priority)
         except Exception as e:
             logger.error(f"Error queueing work: {e}")
-    
+            
     async def send_control_message(self, agent_id: str, message_type: str, data: Dict[str, Any] = None) -> bool:
         """
         Send a control message to an agent.
@@ -1308,18 +1308,11 @@ class ZmqServer:
             poller.register(socket, zmq.POLLIN)
             
             # Wait for events with timeout
-            events = await asyncio.wait_for(poller.poll(timeout=timeout * 1000), timeout=timeout+0.1)  # milliseconds
+            events = await poller.poll(timeout=timeout * 1000)  # milliseconds
             
             # Return True if this socket has data available
             return len(events) > 0 and dict(events).get(socket) == zmq.POLLIN
             
-        except asyncio.CancelledError:
-            # Make sure we handle cancellation properly
-            logger.debug("_receive_with_timeout cancelled")
-            raise  # Re-raise to propagate the cancellation
-        except asyncio.TimeoutError:
-            # Handle explicit timeout
-            return False
         except Exception as e:
             logger.error(f"Error in _receive_with_timeout: {str(e)}")
             return False 

@@ -1,0 +1,21 @@
+{
+    "description": "godot-bridge",
+    "version": "v0.0.0",
+    "feagi_settings": {
+        "feagi_url": null,
+        "feagi_dns": null,
+        "feagi_host": "127.0.0.1",
+        "feagi_api_port": 8000
+    },
+    "agent_settings": {
+        "agent_data_port": 30000,
+        "agent_id": "bv_ctlr",
+        "agent_type": "monitor",
+        "compression": true,
+        "godot_websocket_port": 9050,
+        "godot_websocket_ip": "0.0.0.0",
+        "burst_duration_threshold": 0.002,
+        "timeout_max": 5
+    }
+}
+

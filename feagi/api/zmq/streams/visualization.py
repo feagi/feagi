@@ -127,29 +127,27 @@ class VisualizationStream:
         return socket
         
     def _update_active_mode(self):
-        """Update active mode based on genome availability."""
-        old_mode = self._active_mode
-        
-        # Safely check genome loaded state with defensive programming
-        try:
-            self._active_mode = self.core_api.genome_is_loaded() if self.core_api else False
-        except Exception as e:
-            # If there's any error accessing genome state, default to standby mode
-            logger.warning(f"Error checking genome state: {e}, defaulting to standby mode")
+        """Update whether stream is active based on genome state."""
+        if not hasattr(self.core_api, 'get_state_manager'):
+            self._active_mode = True  # Default to active for testing
+            return
+            
+        state_manager = self.core_api.get_state_manager()
+        if not state_manager:
             self._active_mode = False
+            return
+            
+        genome_state = state_manager.genome_state
         
-        if old_mode != self._active_mode:
+        if genome_state == GenomeState.LOADED:
+            if not self._active_mode:
+                logger.info("Visualization Stream activating (genome loaded)")
+            self._active_mode = True
+        else:
             if self._active_mode:
-                logger.info("VisualizationStream entering ACTIVE mode (genome loaded)")
-                # Only broadcast if streams are running
-                if self.running:
-                    asyncio.create_task(self._broadcast_state_change("active"))
-            else:
-                logger.info("VisualizationStream entering STANDBY mode (no genome loaded)")
-                # Only broadcast if streams are running 
-                if self.running:
-                    asyncio.create_task(self._broadcast_state_change("standby"))
-    
+                logger.info("Visualization Stream entering standby mode (no genome loaded)")
+            self._active_mode = False
+
     async def _broadcast_state_change(self, state: str):
         """Broadcast state change to all connected clients.
         
@@ -247,6 +245,9 @@ class VisualizationStream:
             await self._broadcast_state_change("active")
         else:
             await self._broadcast_state_change("standby")
+
+        # Start FCL collector with default interval
+        await self.start_fcl_collector(interval=0.1)
 
     async def stop(self) -> None:
         """Stop the visualization stream server."""
@@ -730,6 +731,214 @@ class VisualizationStream:
             
         except Exception as e:
             logger.error(f"Error sending forced structure update: {e}")
+
+    async def send_fcl_visualization_data(self):
+        """
+        Collect FCL data from FCL manager and send it through the visualization stream.
+        
+        This method:
+        1. Gets the current FCL data by area
+        2. Gathers neuron positions from the connectome manager
+        3. Formats data for visualization clients
+        4. Sends the prepared data through the stream
+        """
+        # Check if we're in active mode
+        if not self._active_mode:
+            await self.send_status_update({"status": "standby", "message": "No genome loaded"})
+            return
+            
+        # Get state manager
+        if not hasattr(self.core_api, 'get_state_manager'):
+            logger.warning("Core API missing get_state_manager method, visualization data unavailable")
+            return
+            
+        state_manager = self.core_api.get_state_manager()
+        if not state_manager:
+            logger.warning("State manager not available, visualization data unavailable")
+            return
+        
+        # Get FCL manager
+        fcl_manager = state_manager.get_fcl_manager()
+        if not fcl_manager:
+            logger.warning("FCL manager not available, visualization data unavailable")
+            return
+            
+        # Get connectome manager
+        connectome_manager = state_manager.get_connectome()
+        if not connectome_manager:
+            logger.warning("Connectome manager not available, visualization data unavailable")
+            return
+            
+        # Get current FCL data by area
+        fcl_by_area = fcl_manager.get_fcl_by_area()
+        if not fcl_by_area:
+            # No activity, just send empty data
+            await self.send_activity_update({
+                "timestamp": int(time.time() * 1000),
+                "fcl_by_area": {}
+            })
+            return
+            
+        # Convert FCL data to serializable format
+        fcl_data = {}
+        for area_id, neuron_bitmap in fcl_by_area.items():
+            # Convert to regular list for serialization
+            fcl_data[area_id] = list(neuron_bitmap)
+            
+        # Prepare visualization data
+        activity_data = {
+            "timestamp": int(time.time() * 1000),
+            "fcl_by_area": fcl_data
+        }
+        
+        # Send activity data
+        await self.send_activity_update(activity_data)
+        
+        # Periodically send structure data (less frequently)
+        current_time = time.time()
+        if not hasattr(self, '_last_structure_update') or current_time - self._last_structure_update > 5.0:
+            await self.send_structure_update()
+            self._last_structure_update = current_time
+    
+    async def send_structure_update(self):
+        """Send brain structure data to visualization clients."""
+        # Check if we're in active mode
+        if not self._active_mode:
+            return
+            
+        # Get state manager
+        state_manager = self.core_api.get_state_manager()
+        if not state_manager:
+            return
+            
+        # Get connectome manager
+        connectome_manager = state_manager.get_connectome()
+        if not connectome_manager:
+            return
+            
+        # Build structure data
+        structure_data = {
+            "timestamp": int(time.time() * 1000),
+            "cortical_areas": {}
+        }
+        
+        # Get all cortical areas
+        try:
+            # Add cortical area information
+            for area_id, area in connectome_manager.cortical_areas.items():
+                area_data = {
+                    "name": area.name,
+                    "dimensions": area.dimensions,
+                    "position": area.position,
+                    "area_type": area.area_type,
+                    # We don't send all neurons to avoid huge messages
+                    # Clients can request specific neuron data if needed
+                    "neuron_count": len(connectome_manager.get_neurons_by_area(area_id))
+                }
+                structure_data["cortical_areas"][area_id] = area_data
+                
+            # Add genome information
+            structure_data["genome"] = {
+                "timestamp": state_manager.genome_timestamp if hasattr(state_manager, 'genome_timestamp') else None
+            }
+            
+            # Send structure data
+            await self.send_structure_message(structure_data)
+            
+        except Exception as e:
+            logger.exception(f"Error preparing structure data: {e}")
+            
+    async def start_fcl_collector(self, interval=0.1):
+        """
+        Start periodic collection of FCL data for visualization.
+        
+        Args:
+            interval: Time between FCL data collections in seconds
+        """
+        logger.info(f"Starting FCL data collector with interval {interval}s")
+        
+        # Create periodic task for FCL collection
+        self.periodic_tasks['fcl_collector'] = asyncio.create_task(
+            self._fcl_collector_loop(interval)
+        )
+    
+    async def _fcl_collector_loop(self, interval):
+        """
+        Periodic loop to collect FCL data and send visualization updates.
+        
+        Args:
+            interval: Time between updates in seconds
+        """
+        while self.running:
+            try:
+                await self.send_fcl_visualization_data()
+            except Exception as e:
+                logger.exception(f"Error in FCL collector: {e}")
+            
+            await asyncio.sleep(interval)
+
+    async def send_activity_update(self, data):
+        """
+        Send activity update to clients.
+        
+        Args:
+            data: Activity data to send
+        """
+        if not self.running:
+            return
+            
+        try:
+            # Send activity update
+            await self.activity_socket.send_multipart([
+                b"activity.base",
+                b"application/json",
+                serialize_message(data, "application/json")
+            ])
+            logger.debug("Sent activity update")
+        except Exception as e:
+            logger.error(f"Error sending activity update: {e}")
+            
+    async def send_structure_message(self, data):
+        """
+        Send structure data to clients.
+        
+        Args:
+            data: Structure data to send
+        """
+        if not self.running:
+            return
+            
+        try:
+            # Send structure message
+            await self.structure_socket.send_multipart([
+                b"structure",
+                b"application/json",
+                serialize_message(data, "application/json")
+            ])
+            logger.debug("Sent structure update")
+        except Exception as e:
+            logger.error(f"Error sending structure update: {e}")
+            
+    async def send_status_update(self, status_data):
+        """
+        Send status update to clients.
+        
+        Args:
+            status_data: Status data to send
+        """
+        if not self.running:
+            return
+            
+        try:
+            # Send system status message
+            await self.activity_socket.send_multipart([
+                b"system",
+                b"application/json",
+                serialize_message(status_data, "application/json")
+            ])
+            logger.debug("Sent status update")
+        except Exception as e:
+            logger.error(f"Error sending status update: {e}")
 
 
 class VisualizationClient:
