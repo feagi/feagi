@@ -765,15 +765,6 @@ class FCLManager:
             BitMap of neuron indices in the FCL
         """
         return self.get_global_fcl(self.current_timestep + offset if offset else None)
-        
-    def advance_window(self, timestep: Optional[int] = None) -> None:
-        """
-        Alias for advance_timestep to maintain backward compatibility.
-        
-        Args:
-            timestep: Optional timestep to advance to (ignored, included for API compatibility)
-        """
-        self.advance_timestep()
 
 
 class EnhancedFCLManager:
@@ -1480,15 +1471,6 @@ class EnhancedFCLManager:
             BitMap of neuron indices in the FCL
         """
         return self.get_global_fcl(self.current_timestep + offset if offset else None)
-        
-    def advance_window(self, timestep: Optional[int] = None) -> None:
-        """
-        Alias for advance_timestep to maintain backward compatibility.
-        
-        Args:
-            timestep: Optional timestep to advance to (ignored, included for API compatibility)
-        """
-        self.advance_timestep()
 
 
 # Example usage

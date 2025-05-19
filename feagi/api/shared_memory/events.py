@@ -7,7 +7,6 @@ communication in FEAGI, replacing the ZMQ-based approach for higher performance.
 
 import os
 import time
-import logging
 import threading
 from feagi.utils.logger import setup_logger
 logger = setup_logger()

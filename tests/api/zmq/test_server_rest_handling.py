@@ -11,17 +11,10 @@ import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch, call
 
 import zmq
+import zmq.asyncio
 
-# Import test utilities for ZMQ
-from tests.api.zmq.zmq_test_utils import HAS_ZMQ, HAS_ZMQ_ASYNCIO, HAS_ZMQ_AUTH, requires_full_zmq
-
-# Apply the decorator to all tests in this module
-pytestmark = requires_full_zmq
-
-# Only import FEAGI modules if all ZMQ components are available
-if HAS_ZMQ and HAS_ZMQ_ASYNCIO and HAS_ZMQ_AUTH:
-    from feagi.api.zmq.server import ZmqServer
-    from feagi.api.zmq.rest_adapter import ZMQRestAPIAdapter
+from feagi.api.zmq.server import ZmqServer
+from feagi.api.zmq.rest_adapter import ZMQRestAPIAdapter
 
 
 @pytest.fixture

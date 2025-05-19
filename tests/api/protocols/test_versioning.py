@@ -20,11 +20,9 @@ Tests for FEAGI protocol versioning system.
 This module tests the versioning system for byte structures.
 """
 
-import pytest
 import unittest
 import json
 from typing import Dict, Any
-from unittest import mock
 
 from feagi.api.protocols.constants import ByteStructureID
 from feagi.api.protocols.byte_structures import ByteStructureEncoder, ByteStructureDecoder
@@ -32,7 +30,6 @@ from feagi.api.protocols.byte_structures.utils import get_structure_info
 from feagi.api.protocols import ByteStructureTranslator
 
 
-@pytest.mark.skip(reason="Version negotiation features not yet fully implemented")
 class TestVersionHandling(unittest.TestCase):
     """Test cases for byte structure version handling."""
     

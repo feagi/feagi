@@ -44,9 +44,6 @@ from typing import List, Dict, Any, Union, Optional, Tuple
 import numpy as np
 
 from feagi.api.protocols.constants import ByteStructureID
-from feagi.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 
 
 # Registry of supported versions for each structure type
@@ -67,10 +64,6 @@ class ByteStructureEncoder:
     byte structures as defined in the documentation.
     """
     
-    def __init__(self):
-        """Initialize the byte structure encoder."""
-        self.logger = logger
-    
     @staticmethod
     def encode_header(structure_id: int, version: int = 1) -> bytes:
         """
@@ -85,29 +78,43 @@ class ByteStructureEncoder:
         """
         return struct.pack("!BB", structure_id, version)
     
-    def encode_json(self, data: Dict[str, Any]) -> bytes:
+    def encode_json(self, data: Union[Dict, List, str], version: int = 1) -> bytes:
         """
-        Encode data as JSON.
+        Encode data as a JSON byte structure (ID: 1).
         
         Args:
-            data: Dictionary to encode
+            data: Data to encode as JSON
+            version: Structure version to use (default: 1)
             
         Returns:
-            JSON encoded as bytes
+            Encoded byte structure
+            
+        Raises:
+            ValueError: If the specified version is not supported
         """
-        try:
-            # Convert data to JSON string
+        if version not in SUPPORTED_VERSIONS[ByteStructureID.JSON]:
+            raise ValueError(f"Unsupported version {version} for JSON structure")
+            
+        if version == 1:
+            return self._encode_json_v1(data)
+        else:
+            # Should never reach here due to the check above
+            raise ValueError(f"Version {version} implementation missing for JSON structure")
+    
+    def _encode_json_v1(self, data: Union[Dict, List, str]) -> bytes:
+        """Version 1 implementation of JSON structure."""
+        # Ensure data is serializable
+        if isinstance(data, str):
+            json_str = data
+        else:
             json_str = json.dumps(data)
-            
-            # Add structure ID and version (1 for JSON)
-            header = struct.pack("!BB", 1, 1)  # ID=1 (JSON), Version=1
-            
-            # Encode as UTF-8 and add header
-            return header + json_str.encode("utf-8")
-        except Exception as e:
-            self.logger.error(f"Error encoding JSON: {e}")
-            # Return minimal valid structure on error
-            return struct.pack("!BB", 1, 1) + b"{}"
+        
+        # Convert to UTF-8 bytes
+        json_bytes = json_str.encode('utf-8')
+        
+        # Create header and append data
+        header = self.encode_header(ByteStructureID.JSON, version=1)
+        return header + json_bytes
     
     def encode_raw_image(self, image: np.ndarray, version: int = 1) -> bytes:
         """
@@ -391,7 +398,8 @@ class ByteStructureEncoder:
         # Combine all parts
         return header + init_header + secondary_headers + neuron_data
     
-    def compress(self, data: bytes) -> bytes:
+    @staticmethod
+    def compress(data: bytes) -> bytes:
         """
         Compress data using Deflate algorithm.
         
@@ -401,15 +409,7 @@ class ByteStructureEncoder:
         Returns:
             Compressed bytes
         """
-        if len(data) < 100:
-            # Don't compress very small data
-            return data
-            
-        try:
-            return zlib.compress(data, level=6)
-        except Exception as e:
-            self.logger.error(f"Error compressing data: {e}")
-            return data
+        return zlib.compress(data)
     
     @staticmethod
     def decompress(data: bytes) -> bytes:

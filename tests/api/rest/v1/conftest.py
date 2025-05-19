@@ -1,10 +1,17 @@
 """
-Lightweight conftest for API tests that avoids heavy dependencies.
+Smart initialization strategy for API tests.
 
-This module provides a minimal test framework that:
-1. Avoids actual imports of heavy dependencies like PyTorch and ConnectomeManager
-2. Creates lightweight mocks for all critical components
-3. Sets up client fixtures needed for testing different API groups
+This module creates a flexible framework that:
+1. Provides session-scoped fixtures for one-time initialization
+2. Supports test grouping via markers for different initialization requirements
+3. Uses a client factory pattern to create specialized test clients while reusing expensive components
+4. Implements complete mocking of ConnectomeManager and CoreAPIService to avoid actual initialization
+5. Provides a caching system for client instances to reuse across test modules
+
+Usage:
+- Basic tests can use `client` fixture directly
+- Tests needing custom behavior can use the `client_factory` to create specialized clients
+- Tests can be grouped with pytest markers (e.g., @pytest.mark.api_group("genome"))
 """
 
 import pytest
@@ -12,576 +19,220 @@ import logging
 import os
 import json
 import tempfile
-from typing import Dict, Any, Callable, Optional, List, Set, Union
-from unittest.mock import MagicMock, patch
+from typing import Dict, Any, Callable, Optional, Set, List, Tuple
+from unittest.mock import MagicMock, patch, create_autospec
 from fastapi.testclient import TestClient
-from fastapi import FastAPI, Depends, HTTPException, status, Query, UploadFile, Response, File, Form
+
+# Import needed components
+from feagi.api.rest.app import create_rest_app 
+from feagi.api.rest.dependencies import get_core_api, get_connectome, set_connectome_instance, set_core_api_service
+from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.api.core.services.core_api_service import CoreAPIService
 
 # Configure test logging
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
-# ======= MOCK CLASSES =======
-# Create minimal mock classes to substitute for heavy imports
+# ======= SHARED MOCK CONFIGURATIONS =======
+# These can be imported and extended by test modules
 
-class MockConnectomeManager(MagicMock):
-    """Lightweight mock of ConnectomeManager."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.max_neurons = 10_000_000
-        self.max_synapses = 100_000_000
-        self.cortical_areas = {
-            "1": MagicMock(name="Area 1", dimensions=[10, 10, 1], position=[0, 0, 0], type="sensory", id="1"),
-            "2": MagicMock(name="Area 2", dimensions=[5, 5, 1], position=[20, 0, 0], type="motor", id="2")
-        }
-        self.area_neuron_map = {
-            "1": set(range(100)),
-            "2": set(range(100, 150))
-        }
-        self.is_initialized = True
-        self.mappings = {
-            "mapping1": {
-                "id": "mapping1",
-                "source_id": "1",
-                "target_id": "2",
-                "type": "direct",
-                "enabled": True
-            }
-        }
-        
-    def get_mapping(self, mapping_id):
-        """Get a specific mapping."""
-        return self.mappings.get(mapping_id)
-    
-    def create_mapping(self, source_id, target_id, mapping_type="direct", properties=None):
-        """Create a new mapping."""
-        mapping_id = f"mapping_{source_id}_{target_id}"
-        self.mappings[mapping_id] = {
-            "id": mapping_id,
-            "source_id": source_id,
-            "target_id": target_id,
-            "type": mapping_type,
-            "enabled": True,
-            "properties": properties or {}
-        }
-        return self.mappings[mapping_id]
-    
-    def update_mapping(self, mapping_id, **kwargs):
-        """Update a mapping."""
-        if mapping_id in self.mappings:
-            self.mappings[mapping_id].update(kwargs)
-            return self.mappings[mapping_id]
-        return None
-    
-    def delete_mapping(self, mapping_id):
-        """Delete a mapping."""
-        if mapping_id in self.mappings:
-            del self.mappings[mapping_id]
-            return True
-        return False
-    
-    def get_all_mappings(self):
-        """Get all mappings."""
-        return list(self.mappings.values())
-        
-class MockCoreAPIService(MagicMock):
-    """Lightweight mock of CoreAPIService."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.connectome = MockConnectomeManager()
-        self.burst_engine_running = False
-        self.burst_engine_paused = False
-        self.current_genome = {
-            "genome_id": "test_genome",
-            "genome_title": "Test Genome",
-            "genome_description": "Test genome for API testing",
-            "cortical_areas": {
-                "area1": {
-                    "name": "Area 1",
-                    "type": "sensory",
-                    "coordinates": {"x": 0, "y": 0, "z": 0},
-                    "dimensions": {"x": 10, "y": 10, "z": 1}
-                },
-                "area2": {
-                    "name": "Area 2",
-                    "type": "motor",
-                    "coordinates": {"x": 20, "y": 0, "z": 0},
-                    "dimensions": {"x": 5, "y": 5, "z": 1}
-                }
-            },
-            "blueprint": {},
-            "brain_regions": {}
-        }
-        self.amalgamation_history = {
-            "202304050123_A": {
-                "id": "202304050123_A",
-                "timestamp": "2023-04-05T01:23:45Z",
-                "changes": ["Added cortical area X", "Modified cortical area Y"]
-            }
-        }
-        self.brain_state = {
-            "running": False,
-            "paused": False,
-            "burst_counter": 0,
-            "neuron_count": 1000,
-            "synapse_count": 5000,
-            "memory_usage": {
-                "total_mb": 2048,
-                "used_mb": 500,
-                "available_mb": 1548
-            }
-        }
-        
-    # === Input Sources API Methods ===
-    
-    def get_input_sources(self):
-        """Get all registered input sources."""
-        return [
-            {
-                "id": "camera1",
-                "name": "Front Camera",
-                "type": "camera",
-                "target_area_id": "101",
-                "properties": {
-                    "resolution": "640x480"
-                }
-            },
-            {
-                "id": "microphone1",
-                "name": "Microphone",
-                "type": "audio",
-                "target_area_id": "102",
-                "properties": {
-                    "sample_rate": 44100
-                }
-            }
-        ]
-    
-    def get_input_source(self, source_id):
-        """Get a specific input source by ID."""
-        sources = {s["id"]: s for s in self.get_input_sources()}
-        return sources.get(source_id)
-    
-    def create_input_source(self, data):
-        """Create a new input source."""
-        return {
-            "id": "new_source_1",
-            "name": data["name"],
-            "type": data["type"],
-            "target_area_id": data.get("target_area_id"),
-            "properties": data.get("properties", {})
-        }
-    
-    def update_input_source(self, source_id, data):
-        """Update an existing input source."""
-        return {
-            "id": source_id,
-            "name": data.get("name", "Updated Source"),
-            "type": data.get("type", "generic"),
-            "target_area_id": data.get("target_area_id", "101"),
-            "properties": data.get("properties", {})
-        }
-    
-    def delete_input_source(self, source_id):
-        """Delete an input source."""
-        return True
-    
-    def send_input_data(self, source_id, data):
-        """Send data from an input source."""
-        return {
-            "message": "Data received successfully",
-            "neuron_count": len(data.get("values", [])),
-            "timestamp": "2025-05-19T18:30:00.000Z"
-        }
-        
-    # === Genome API Methods ===
-    
-    def get_genome(self):
-        """Get the current genome."""
-        return self.current_genome
-    
-    def get_cortical_area(self, area_id):
-        """Get a cortical area from the genome."""
-        return self.current_genome.get("cortical_areas", {}).get(area_id)
-    
-    def set_genome(self, genome):
-        """Set the current genome."""
-        self.current_genome = genome
-        return {"message": "Genome set successfully"}
-    
-    def reset_genome(self):
-        """Reset the current genome."""
-        self.current_genome = {
-            "genome_id": "reset_genome",
-            "genome_title": "Reset Genome",
-            "genome_description": "Reset genome for testing",
-            "cortical_areas": {},
-            "blueprint": {},
-            "brain_regions": {}
-        }
-        return {"message": "Genome reset successfully"}
-    
-    def get_default_genomes(self):
-        """Get list of available default genomes."""
-        return {
-            "files": [
-                "barebones_genome.json",
-                "essential_genome.json",
-                "tutorial_genome.json"
-            ]
-        }
-    
-    def get_amalgamation_history(self):
-        """Get the amalgamation history."""
-        return {"amalgamations": self.amalgamation_history}
-    
-    def create_amalgamation(self, data):
-        """Create a new amalgamation."""
-        amalgamation_id = f"{data.get('genome_id', 'unknown')}_{len(self.amalgamation_history) + 1}"
-        self.amalgamation_history[amalgamation_id] = {
-            "id": amalgamation_id,
-            "timestamp": "2025-06-01T12:00:00Z",
-            "changes": [f"Added {len(data.get('cortical_areas', {}))} cortical areas"]
-        }
-        return {
-            "amalgamation_id": amalgamation_id,
-            "message": "Amalgamation created successfully"
-        }
-    
-    def get_cortical_templates(self):
-        """Get the available cortical templates."""
-        return {
-            "templates": [
-                {
-                    "id": "template1",
-                    "name": "Test Template",
-                    "description": "Test template for API testing",
-                    "parameters": {
-                        "size": {"default": 10, "min": 1, "max": 100},
-                        "type": {"options": ["sensory", "association", "motor"]}
-                    }
-                }
-            ]
-        }
-    
-    def get_circuit_library(self):
-        """Get the circuit library."""
-        return {
-            "circuits": [
-                {
-                    "id": "circuit1",
-                    "name": "Test Circuit",
-                    "description": "Test circuit for API testing",
-                    "components": [
-                        {"id": "comp1", "type": "neuron", "parameters": {}}
-                    ]
-                }
-            ]
-        }
-    
-    # === Brain State API Methods ===
-    
-    def get_brain_state(self):
-        """Get the current brain state."""
-        return self.brain_state
-    
-    def set_brain_state(self, state):
-        """Update the brain state."""
-        self.brain_state.update(state)
-        return self.brain_state
-    
-    # === Burst Engine API Methods ===
-    
-    def start_burst_engine(self):
-        """Start the burst engine."""
-        self.burst_engine_running = True
-        self.burst_engine_paused = False
-        self.brain_state["running"] = True
-        self.brain_state["paused"] = False
-        return {"message": "Burst engine started"}
-    
-    def stop_burst_engine(self):
-        """Stop the burst engine."""
-        self.burst_engine_running = False
-        self.burst_engine_paused = False
-        self.brain_state["running"] = False
-        self.brain_state["paused"] = False
-        return {"message": "Burst engine stopped"}
-    
-    def pause_burst_engine(self):
-        """Pause the burst engine."""
-        if self.burst_engine_running:
-            self.burst_engine_paused = True
-            self.brain_state["paused"] = True
-            return {"message": "Burst engine paused"}
-        return {"error": "Burst engine not running"}
-    
-    def resume_burst_engine(self):
-        """Resume the burst engine."""
-        if self.burst_engine_running and self.burst_engine_paused:
-            self.burst_engine_paused = False
-            self.brain_state["paused"] = False
-            return {"message": "Burst engine resumed"}
-        return {"error": "Burst engine not paused"}
-    
-    def get_burst_engine_status(self):
-        """Get the burst engine status."""
-        return {
-            "running": self.burst_engine_running,
-            "paused": self.burst_engine_paused,
-            "burst_counter": self.brain_state["burst_counter"]
-        }
+DEFAULT_BURST_ENGINE_CONFIG = {
+    "burst_duration": 10.0,
+    "inter_burst_interval": 5.0,
+    "maximum_firing_rate": 100.0,
+    "refractory_period": 5.0,
+    "threshold": 0.5,
+    "decay_rate": 0.1,
+    "firing_threshold": 0.7,
+    "membrane_potential_decay": 0.05
+}
 
-# ======= CREATE REST APP =======
+DEFAULT_BURST_ENGINE_STATS = {
+    "average_burst_time": 8.5,
+    "max_burst_time": 12.3,
+    "min_burst_time": 7.1,
+    "total_bursts": 1000, 
+    "average_active_neurons": 500,
+    "memory_usage": 128.5
+}
 
-def create_mock_app():
-    """Create a minimal FastAPI app for testing."""
-    # Create a minimal FastAPI app
-    app = FastAPI()
-    
-    # Add dependency injectors for core API and connectome
-    core_api = MockCoreAPIService()
-    connectome = core_api.connectome
-    
-    # Create dependency functions
-    def get_core_api():
-        return core_api
-        
-    def get_connectome():
-        return connectome
-    
-    # ===== API ENDPOINTS =====
-    
-    # === Input Sources API Routes ===
-    
-    @app.get("/v1/inputs/sources")
-    def get_input_sources(_core_api=Depends(get_core_api)):
-        """Get all registered input sources."""
-        return {
-            "sources": _core_api.get_input_sources()
+DEFAULT_HEALTH_CHECK = {
+    "burst_engine": True, 
+    "connected_agents": None,
+    "influxdb_availability": False,
+    "neuron_count_max": 0,
+    "synapse_count_max": 0, 
+    "latest_changes_saved_externally": False,
+    "genome_availability": False,
+    "genome_validity": None,
+    "brain_readiness": None
+}
+
+MOCK_CORTICAL_AREAS = [
+    {"id": "1", "name": "Test Area 1", "dimensions": [10, 10, 1], "type": "sensory"},
+    {"id": "2", "name": "Test Area 2", "dimensions": [5, 5, 1], "type": "motor"}
+]
+
+MOCK_BRAIN_REGIONS = {
+    "root": {"id": "root", "name": "Root Region", "parent": None, "children": ["region1", "region2"]},
+    "region1": {"id": "region1", "name": "Region 1", "parent": "root", "children": []},
+    "region2": {"id": "region2", "name": "Region 2", "parent": "root", "children": []}
+}
+
+MOCK_GENOME = {
+    "id": "test-genome",
+    "title": "Test Genome",
+    "version": "1.0",
+    "cortical_areas": {
+        "area1": {
+            "name": "Area 1",
+            "type": "sensory",
+            "dimensions": [10, 10, 1],
+            "position": [0, 0, 0]
+        },
+        "area2": {
+            "name": "Area 2",
+            "type": "motor",
+            "dimensions": [5, 5, 1],
+            "position": [20, 0, 0]
         }
+    },
+    "blueprint": {},
+    "brain_regions": {"test_region": {}}
+}
 
-    @app.get("/v1/inputs/sources/{source_id}")
-    def get_input_source(source_id: str, _core_api=Depends(get_core_api)):
-        """Get a specific input source by ID."""
-        source = _core_api.get_input_source(source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Input source not found")
-        return source
+# ======= CORE MOCKING FUNCTIONS =======
 
-    @app.post("/v1/inputs/sources")
-    def create_input_source(data: dict, _core_api=Depends(get_core_api)):
-        """Create a new input source."""
-        # Validate required fields
-        if "name" not in data or "type" not in data:
-            raise HTTPException(status_code=400, detail="Missing required fields")
-        return _core_api.create_input_source(data)
-        
-    @app.put("/v1/inputs/sources/{source_id}")
-    def update_input_source(source_id: str, data: dict, _core_api=Depends(get_core_api)):
-        """Update an existing input source."""
-        if not _core_api.get_input_source(source_id):
-            raise HTTPException(status_code=404, detail="Input source not found")
-        return _core_api.update_input_source(source_id, data)
-        
-    @app.delete("/v1/inputs/sources/{source_id}")
-    def delete_input_source(source_id: str, _core_api=Depends(get_core_api)):
-        """Delete an input source."""
-        if not _core_api.get_input_source(source_id):
-            raise HTTPException(status_code=404, detail="Input source not found")
-        _core_api.delete_input_source(source_id)
-        return {"message": f"Input source {source_id} deleted successfully"}
-        
-    @app.post("/v1/inputs/sources/{source_id}/data")
-    def send_input_data(source_id: str, data: dict, _core_api=Depends(get_core_api)):
-        """Send data from an input source."""
-        if not _core_api.get_input_source(source_id):
-            raise HTTPException(status_code=404, detail="Input source not found")
-        
-        # Validate that data contains the required fields
-        if "values" not in data:
-            raise HTTPException(status_code=400, detail="Missing 'values' field in data")
-        
-        return _core_api.send_input_data(source_id, data)
+@pytest.fixture(scope="session")
+def fcl_manager_mock():
+    """Create a fully mocked FCL Manager."""
+    mock = MagicMock()
     
-    # === Genome API Routes ===
+    # Add common methods
+    mock.get_window_size.return_value = 20
+    mock.set_window_size.return_value = True
+    mock.get_data.return_value = {"timestamps": [], "neurons": []}
+    mock.clear.return_value = True
     
-    @app.get("/v1/genome/download")
-    def download_genome(_core_api=Depends(get_core_api)):
-        """Download the current genome."""
-        return _core_api.get_genome()
+    return mock
+
+@pytest.fixture(scope="session")
+def connectome_manager_mock(fcl_manager_mock):
+    """Create a fully mocked ConnectomeManager to avoid expensive initialization."""
+    # Create a comprehensive mock - using simple MagicMock instead of create_autospec to avoid issues
+    mock_cm = MagicMock()
     
-    @app.get("/v1/genome/download/region/{region_id}")
-    def download_genome_from_region(region_id: str, _core_api=Depends(get_core_api)):
-        """Download a genome from a specific brain region."""
-        # Mock implementation - return the main genome for any region
-        return _core_api.get_genome()
+    # Add the most commonly used attributes and methods
+    mock_cm.max_neurons = 10_000_000
+    mock_cm.max_synapses = 100_000_000
+    mock_cm.cortical_areas = {
+        "1": MagicMock(name="Area 1", dimensions=[10, 10, 1], position=[0, 0, 0], type="sensory", id="1"),
+        "2": MagicMock(name="Area 2", dimensions=[5, 5, 1], position=[20, 0, 0], type="motor", id="2")
+    }
+    mock_cm.area_neuron_map = {
+        "1": set(range(100)),
+        "2": set(range(100, 150))
+    }
+    mock_cm.brain_regions = MOCK_BRAIN_REGIONS
+    mock_cm.neurons = {i: {"membrane_potential": 0.0, "position": (i%10, i//10, 0)} for i in range(150)}
+    mock_cm.get_cortical_areas.return_value = list(mock_cm.cortical_areas.values())
+    mock_cm.get_neurons_by_area.side_effect = lambda area_id: mock_cm.area_neuron_map.get(area_id, set())
+    mock_cm.get_brain_state.return_value = {
+        "neurons": 150,
+        "synapses": 1000,
+        "timestep": 0
+    }
+    mock_cm.get_synapse_count.return_value = 1000
+    mock_cm.fcl_manager = fcl_manager_mock
+    mock_cm.is_initialized = True
     
-    @app.post("/v1/genome/upload/barebones")
-    def upload_barebones_genome(_core_api=Depends(get_core_api)):
-        """Upload the barebones genome."""
-        _core_api.reset_genome()
-        return {"message": "Barebones genome loaded successfully"}
+    # Advanced functionality for brain activity tests
+    mock_cm.get_activity.return_value = {
+        "timestep": 100,
+        "active_neurons": [1, 2, 3, 4, 5],
+        "areas": {"1": {"active_count": 5}}
+    }
+    mock_cm.get_area_activity.return_value = {
+        "area_id": "1",
+        "active_neurons": [1, 2, 3, 4, 5],
+        "average_activity": 0.5
+    }
     
-    @app.post("/v1/genome/upload/essential")
-    def upload_essential_genome(_core_api=Depends(get_core_api)):
-        """Upload the essential genome."""
-        _core_api.reset_genome()
-        return {"message": "Essential genome loaded successfully"}
+    return mock_cm
+
+@pytest.fixture(scope="session")
+def core_api_mock(connectome_manager_mock):
+    """Create a fully mocked CoreAPIService with comprehensive behaviors."""
+    # Create a comprehensive mock - using simple MagicMock instead of create_autospec
+    mock = MagicMock()
     
-    @app.post("/v1/genome/upload/file")
-    async def upload_genome_file(file: UploadFile = File(...), _core_api=Depends(get_core_api)):
-        """Upload a genome file."""
-        try:
-            content = await file.read()
-            genome_data = json.loads(content)
-            _core_api.set_genome(genome_data)
-            return {"message": f"Genome loaded successfully from {file.filename}"}
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON format")
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error loading genome: {str(e)}")
+    # Set default return values for commonly used methods
+    mock.get_burst_engine_config.return_value = DEFAULT_BURST_ENGINE_CONFIG
+    mock.get_burst_engine_stats.return_value = DEFAULT_BURST_ENGINE_STATS
+    mock.health_check.return_value = DEFAULT_HEALTH_CHECK
+    mock.get_cortical_areas.return_value = MOCK_CORTICAL_AREAS
+    mock.get_brain_state.return_value = {
+        "neurons": 150,
+        "synapses": 1000,
+        "timestep": 100,
+        "active_neurons": 25
+    }
+    mock.get_genome.return_value = MOCK_GENOME
+    mock.get_connectome_manager.return_value = connectome_manager_mock
+    mock.list_brain_regions.return_value = {"regions": MOCK_BRAIN_REGIONS}
     
-    @app.post("/v1/genome/upload/string")
-    def upload_genome_string(data: dict, _core_api=Depends(get_core_api)):
-        """Upload a genome as a string."""
-        try:
-            if "genome" not in data:
-                raise HTTPException(status_code=400, detail="Missing 'genome' field in request")
-                
-            genome_data = json.loads(data["genome"])
-            _core_api.set_genome(genome_data)
-            return {"message": "Genome loaded successfully from string"}
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON format")
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error loading genome: {str(e)}")
+    # Add specific behaviors for update methods
+    mock.update_burst_engine_config.side_effect = lambda params: {
+        **DEFAULT_BURST_ENGINE_CONFIG,
+        **params
+    }
     
-    @app.get("/v1/genome/default_files")
-    def genome_default_files(_core_api=Depends(get_core_api)):
-        """List available default genomes."""
-        return _core_api.get_default_genomes()
+    # Add behaviors for brain stimulation
+    mock.stimulate_neurons.return_value = {
+        "success": True,
+        "stimulated": 5
+    }
     
-    @app.get("/v1/genome/number")
-    def get_genome_number(_core_api=Depends(get_core_api)):
-        """Get the current genome number."""
-        return {"genome_number": 42}  # Mock a genome number
+    # Add behaviors for cortical area creation
+    mock.create_cortical_area.side_effect = lambda name, area_type, dimensions, position: {
+        "id": "new_area",
+        "name": name,
+        "type": area_type,
+        "dimensions": dimensions,
+        "position": position
+    }
     
-    @app.post("/v1/genome/reset")
-    def reset_genome(_core_api=Depends(get_core_api)):
-        """Reset the genome."""
-        return _core_api.reset_genome()
+    # Genome API specific behaviors
+    mock.get_data_path.return_value = "/tmp/feagi_test"
+    mock.get_temp_path.return_value = "/tmp/feagi_test"
+    mock.load_genome.return_value = True
+    mock.get_genome_filename.return_value = "test_genome.json"
+    mock.get_genome_counter.return_value = 1
+    mock.reset_genome.return_value = True
+    mock.has_pending_amalgamation.return_value = False
+    mock.initiate_amalgamation.return_value = True
+    mock.initiate_amalgamation_by_filename.return_value = True
+    mock.get_amalgamation_history.return_value = {"202304050123_A": "completed"}
+    mock.get_cortical_templates.return_value = {"templates": [{"name": "Test Template"}]}
     
-    @app.post("/v1/genome/amalgamation")
-    def amalgamation_by_payload(data: dict, _core_api=Depends(get_core_api)):
-        """Initiate an amalgamation by payload."""
-        return _core_api.create_amalgamation(data)
+    # Mapping API specific behaviors
+    mock.get_mapping_stats.return_value = {
+        "source_id": "1",
+        "target_id": "2",
+        "synapse_count": 1000,
+        "average_weight": 0.7,
+        "connectivity_ratio": 0.8,
+        "mapping_type": "one-to-one"
+    }
     
-    @app.get("/v1/genome/amalgamation/history")
-    def amalgamation_history(_core_api=Depends(get_core_api)):
-        """Get amalgamation history."""
-        return _core_api.get_amalgamation_history()
+    # Add more default behaviors for common endpoints
+    mock.get_activity.return_value = {
+        "timestep": 100,
+        "active_neurons": [1, 2, 3, 4, 5],
+        "areas": {"1": {"active_count": 5}}
+    }
     
-    @app.get("/v1/genome/cortical_template")
-    def cortical_template(_core_api=Depends(get_core_api)):
-        """Get cortical templates."""
-        return _core_api.get_cortical_templates()
-    
-    @app.get("/v1/genome/circuits")
-    def get_circuit_library(_core_api=Depends(get_core_api)):
-        """Get the circuit library."""
-        return _core_api.get_circuit_library()
-    
-    # === Brain State API Routes ===
-    
-    @app.get("/v1/brain/state")
-    def get_brain_state(_core_api=Depends(get_core_api)):
-        """Get the current brain state."""
-        return _core_api.get_brain_state()
-    
-    @app.post("/v1/brain/state")
-    def set_brain_state(data: dict, _core_api=Depends(get_core_api)):
-        """Update the brain state."""
-        return _core_api.set_brain_state(data)
-    
-    # === Burst Engine API Routes ===
-    
-    @app.post("/v1/burst_engine/start")
-    def start_burst_engine(_core_api=Depends(get_core_api)):
-        """Start the burst engine."""
-        return _core_api.start_burst_engine()
-    
-    @app.post("/v1/burst_engine/stop")
-    def stop_burst_engine(_core_api=Depends(get_core_api)):
-        """Stop the burst engine."""
-        return _core_api.stop_burst_engine()
-    
-    @app.post("/v1/burst_engine/pause")
-    def pause_burst_engine(_core_api=Depends(get_core_api)):
-        """Pause the burst engine."""
-        return _core_api.pause_burst_engine()
-    
-    @app.post("/v1/burst_engine/resume")
-    def resume_burst_engine(_core_api=Depends(get_core_api)):
-        """Resume the burst engine."""
-        return _core_api.resume_burst_engine()
-    
-    @app.get("/v1/burst_engine/status")
-    def get_burst_engine_status(_core_api=Depends(get_core_api)):
-        """Get the burst engine status."""
-        return _core_api.get_burst_engine_status()
-    
-    # === Cortical Mapping API Routes ===
-    
-    @app.get("/v1/mapping")
-    def get_all_mappings(_connectome=Depends(get_connectome)):
-        """Get all cortical mappings."""
-        return {"mappings": _connectome.get_all_mappings()}
-    
-    @app.get("/v1/mapping/{mapping_id}")
-    def get_mapping(mapping_id: str, _connectome=Depends(get_connectome)):
-        """Get a specific mapping."""
-        mapping = _connectome.get_mapping(mapping_id)
-        if not mapping:
-            raise HTTPException(status_code=404, detail="Mapping not found")
-        return mapping
-    
-    @app.post("/v1/mapping")
-    def create_mapping(data: dict, _connectome=Depends(get_connectome)):
-        """Create a new mapping."""
-        if "source_id" not in data or "target_id" not in data:
-            raise HTTPException(status_code=400, detail="Missing required fields")
-        
-        mapping = _connectome.create_mapping(
-            source_id=data["source_id"],
-            target_id=data["target_id"],
-            mapping_type=data.get("type", "direct"),
-            properties=data.get("properties", {})
-        )
-        return mapping
-    
-    @app.put("/v1/mapping/{mapping_id}")
-    def update_mapping(mapping_id: str, data: dict, _connectome=Depends(get_connectome)):
-        """Update a mapping."""
-        mapping = _connectome.get_mapping(mapping_id)
-        if not mapping:
-            raise HTTPException(status_code=404, detail="Mapping not found")
-        
-        # Update the mapping
-        updated_mapping = _connectome.update_mapping(mapping_id, **data)
-        return updated_mapping
-    
-    @app.delete("/v1/mapping/{mapping_id}")
-    def delete_mapping(mapping_id: str, _connectome=Depends(get_connectome)):
-        """Delete a mapping."""
-        mapping = _connectome.get_mapping(mapping_id)
-        if not mapping:
-            raise HTTPException(status_code=404, detail="Mapping not found")
-        
-        _connectome.delete_mapping(mapping_id)
-        return {"message": f"Mapping {mapping_id} deleted successfully"}
-          
-    return app
+    return mock
 
 # ======= CLIENT FACTORY SYSTEM =======
 
@@ -589,19 +240,70 @@ def create_mock_app():
 _client_cache: Dict[str, TestClient] = {}
 
 @pytest.fixture(scope="session")
-def client_factory():
-    """Factory fixture to create TestClients with different configurations."""
-    def _create_client(group_name: str = "default"):
-        """Create a TestClient with custom configuration."""
+def client_factory(core_api_mock, connectome_manager_mock):
+    """Factory fixture to create TestClients with different configurations.
+    
+    This allows test modules to create customized clients while reusing
+    the expensive initialization parts.
+    """
+    def _create_client(
+        group_name: str = "default",
+        core_api_customizer: Optional[Callable[[MagicMock], None]] = None,
+        connectome_customizer: Optional[Callable[[MagicMock], None]] = None,
+        app_overrides: Optional[Dict[Callable, Callable]] = None
+    ) -> TestClient:
+        """Create a TestClient with custom configuration.
+        
+        Args:
+            group_name: Name of the test group to cache the client under
+            core_api_customizer: Function to customize the core API mock
+            connectome_customizer: Function to customize the connectome mock
+            app_overrides: Additional dependency overrides for the app
+            
+        Returns:
+            A configured TestClient
+        """
         # Check cache first
         if group_name in _client_cache:
             return _client_cache[group_name]
         
-        # Create the app
-        app = create_mock_app()
+        # Clone the mocks to prevent cross-contamination between test groups
+        mock_core_api = MagicMock()
+        for key, val in core_api_mock.__dict__.items():
+            if not key.startswith('_'):
+                setattr(mock_core_api, key, val)
+                
+        mock_connectome = MagicMock()
+        for key, val in connectome_manager_mock.__dict__.items():
+            if not key.startswith('_'):
+                setattr(mock_connectome, key, val)
+        
+        # Apply customizations if provided
+        if core_api_customizer:
+            core_api_customizer(mock_core_api)
+            
+        if connectome_customizer:
+            connectome_customizer(mock_connectome)
+        
+        # Create app with deep mocking to prevent actual initialization
+        with patch('feagi.api.rest.app.CoreAPIService', return_value=mock_core_api):
+            with patch('feagi.api.rest.app.ConnectomeManager', return_value=mock_connectome):
+                test_app = create_rest_app(connectome=mock_connectome)
+        
+        # Set up dependency overrides
+        overrides = {
+            get_core_api: lambda: mock_core_api,
+            get_connectome: lambda: mock_connectome
+        }
+        
+        # Add any additional overrides
+        if app_overrides:
+            overrides.update(app_overrides)
+            
+        test_app.dependency_overrides.update(overrides)
         
         # Create and cache the client
-        client = TestClient(app)
+        client = TestClient(test_app)
         _client_cache[group_name] = client
         return client
     
@@ -615,49 +317,211 @@ def client(client_factory):
 # ======= SPECIALIZED CLIENTS FOR DIFFERENT TEST GROUPS =======
 
 @pytest.fixture(scope="module")
-def inputs_client(client_factory):
-    """Client specialized for input sources tests."""
-    return client_factory("inputs")
+def burst_engine_client(client_factory):
+    """Client specialized for burst engine tests."""
+    def _customize_core_api(mock):
+        # Add any burst-engine specific customizations
+        mock.get_burst_engine_config.return_value = {
+            **DEFAULT_BURST_ENGINE_CONFIG,
+            "burst_duration": 15.0,  # Different from default for testing
+            "inter_burst_interval": 7.5
+        }
+        mock.get_burst_engine_stats.return_value = {
+            **DEFAULT_BURST_ENGINE_STATS,
+            "total_bursts": 2000,  # Different from default for testing
+            "average_active_neurons": 750
+        }
+        mock.update_burst_engine_config.side_effect = lambda params: {
+            **mock.get_burst_engine_config.return_value,
+            **params
+        }
+    
+    return client_factory("burst_engine", core_api_customizer=_customize_core_api)
 
 @pytest.fixture(scope="module")
 def genome_client(client_factory):
     """Client specialized for genome tests."""
-    return client_factory("genome")
+    def _customize_core_api(mock):
+        # Add genome-specific responses
+        mock.get_genome.return_value = {
+            **MOCK_GENOME,
+            "genome_title": "Extended Test Genome",  # Changed for this test group
+            "cortical_areas": {
+                "area1": {"name": "Area 1", "type": "sensory", "dimensions": [20, 20, 2]},
+                "area2": {"name": "Area 2", "type": "motor", "dimensions": [10, 10, 2]},
+                "area3": {"name": "Area 3", "type": "associative", "dimensions": [15, 15, 2]}
+            }
+        }
+        # Create a temporary directory for test files
+        temp_dir = tempfile.mkdtemp(prefix='feagi_test_')
+        genome_dir = os.path.join(temp_dir, 'defaults', 'genome')
+        os.makedirs(genome_dir, exist_ok=True)
+        
+        # Configure mock return values
+        mock.get_data_path.return_value = temp_dir
+        mock.get_temp_path.return_value = temp_dir
+    
+    return client_factory("genome", core_api_customizer=_customize_core_api)
 
 @pytest.fixture(scope="module")
-def brain_client(client_factory):
+def brain_state_client(client_factory):
     """Client specialized for brain state tests."""
-    return client_factory("brain_state")
+    def _customize_connectome(mock):
+        # Add brain state specifics
+        mock.get_brain_state.return_value = {
+            "neurons": 250,
+            "synapses": 2500,
+            "timestep": 100,
+            "active_neurons": 25
+        }
+        mock.get_activity.return_value = {
+            "timestep": 100,
+            "active_neurons": [1, 2, 3, 4, 5],
+            "areas": {
+                "1": {"active_count": 5, "average_activity": 0.5},
+                "2": {"active_count": 3, "average_activity": 0.3}
+            }
+        }
+    
+    def _customize_core_api(mock):
+        # Add brain state specific behaviors
+        mock.get_brain_state.return_value = {
+            "neurons": 250, 
+            "synapses": 2500,
+            "timestep": 100,
+            "active_neurons": 25
+        }
+        mock.stimulate_neurons.return_value = {
+            "success": True,
+            "stimulated": 5,
+            "message": "Neurons successfully stimulated"
+        }
+    
+    return client_factory("brain_state", 
+                          core_api_customizer=_customize_core_api,
+                          connectome_customizer=_customize_connectome)
 
 @pytest.fixture(scope="module")
-def burst_engine_client(client_factory):
-    """Client specialized for burst engine tests."""
-    return client_factory("burst_engine")
+def cortical_area_client(client_factory):
+    """Client specialized for cortical area tests."""
+    def _customize_core_api(mock):
+        # Add cortical area specifics
+        mock.get_cortical_areas.return_value = [
+            {"id": "1", "name": "Visual Cortex", "dimensions": [20, 20, 5], "type": "sensory"},
+            {"id": "2", "name": "Motor Cortex", "dimensions": [10, 10, 5], "type": "motor"},
+            {"id": "3", "name": "Associative Cortex", "dimensions": [15, 15, 5], "type": "associative"}
+        ]
+        mock.create_cortical_area.side_effect = lambda name, area_type, dimensions, position: {
+            "id": f"new_{name.lower().replace(' ', '_')}",
+            "name": name,
+            "type": area_type,
+            "dimensions": dimensions,
+            "position": position,
+            "parameters": {}
+        }
+    
+    return client_factory("cortical_area", core_api_customizer=_customize_core_api)
+
+@pytest.fixture(scope="module")
+def region_client(client_factory):
+    """Client specialized for brain region tests."""
+    def _customize_core_api(mock):
+        # Add region specifics
+        mock.list_brain_regions.return_value = {
+            "regions": {
+                **MOCK_BRAIN_REGIONS,
+                "region3": {"id": "region3", "name": "Region 3", "parent": "root", "children": ["region4"]},
+                "region4": {"id": "region4", "name": "Region 4", "parent": "region3", "children": []}
+            }
+        }
+    
+    return client_factory("region", core_api_customizer=_customize_core_api)
 
 @pytest.fixture(scope="module")
 def mapping_client(client_factory):
     """Client specialized for cortical mapping tests."""
-    return client_factory("mapping")
-
-@pytest.fixture(scope="module")
-def region_client(client_factory):
-    """Client specialized for region tests."""
-    return client_factory("region")
-
-@pytest.fixture(scope="module")
-def system_client(client_factory):
-    """Client specialized for system tests."""
-    return client_factory("system")
-
-@pytest.fixture(scope="module")
-def simulation_client(client_factory):
-    """Client specialized for simulation tests."""
-    return client_factory("simulation")
-
-@pytest.fixture(scope="module")
-def insights_client(client_factory):
-    """Client specialized for insights tests."""
-    return client_factory("insights")
+    def _customize_core_api(mock):
+        # Set up mock data for cortical areas
+        mock.get_cortical_areas.return_value = [
+            {
+                "id": "101",
+                "name": "Visual Cortex",
+                "type": "sensory",
+                "dimensions": {"width": 20, "height": 20, "depth": 5},
+                "coordinates": {"x": 0, "y": 0, "z": 0},
+                "parameters": {},
+                "neuron_count": 2000
+            },
+            {
+                "id": "102",
+                "name": "Motor Cortex",
+                "type": "motor",
+                "dimensions": {"width": 10, "height": 10, "depth": 5},
+                "coordinates": {"x": 30, "y": 0, "z": 0},
+                "parameters": {},
+                "neuron_count": 500
+            }
+        ]
+        
+        # Set up mock data for genome
+        mock.get_genome.return_value = {
+            **MOCK_GENOME,
+            "connectivity": {
+                "1": {
+                    "source_id": "101",
+                    "target_id": "102",
+                    "mapping_type": "one-to-one",
+                    "weight_multiplier": 1.0,
+                    "connection_probability": 0.8
+                },
+                "2": {
+                    "source_id": "102",
+                    "target_id": "101",
+                    "mapping_type": "probabilistic",
+                    "weight_multiplier": 0.5,
+                    "connection_probability": 0.3
+                }
+            }
+        }
+        
+        # Set up mock data for other endpoints
+        mock.get_genome_filename.return_value = "test_genome.json"
+        mock.get_mapping_stats.return_value = {
+            "source_id": "101",
+            "target_id": "102",
+            "synapse_count": 1000,
+            "average_weight": 0.7,
+            "connectivity_ratio": 0.8,
+            "mapping_type": "one-to-one"
+        }
+        mock.apply_mapping.return_value = {
+            "message": "Mapping applied successfully",
+            "source_id": "101",
+            "target_id": "102",
+            "mapping_type": "one-to-one",
+            "connections_created": 1000
+        }
+        mock.get_mapping_templates.return_value = {
+            "templates": [
+                {
+                    "id": "one-to-one",
+                    "name": "One-to-One",
+                    "description": "Direct one-to-one mapping between areas",
+                    "parameters": {}
+                },
+                {
+                    "id": "gaussian",
+                    "name": "Gaussian",
+                    "description": "Gaussian probability distribution",
+                    "parameters": {
+                        "sigma": 1.5,
+                        "max_distance": 5
+                    }
+                }
+            ]
+        }
+    
+    return client_factory("mapping", core_api_customizer=_customize_core_api)
 
 # ======= PYTEST CONFIGURATION HOOKS =======
 
@@ -666,60 +530,57 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "api: mark a test as an API test")
     config.addinivalue_line("markers", 
                            "api_group(name): mark a test as belonging to a specific API test group")
+    config.addinivalue_line("markers",
+                           "long_running: mark a test as being long-running")
 
 def pytest_collection_modifyitems(config, items):
-    """Auto-classify tests into groups based on file names if not explicitly marked."""
+    """
+    Auto-classify tests into groups based on file names if not explicitly marked.
+    
+    This allows test modules to be organized properly without requiring explicit markers
+    on every test.
+    """
     for item in items:
         # Add default classifications based on filename if not already classified
         if not any(mark.name == "api_group" for mark in item.iter_markers()):
             item_path = item.path.name
             
-            if "inputs" in item_path:
-                item.add_marker(pytest.mark.api_group("inputs"))
+            if "burst_engine" in item_path:
+                item.add_marker(pytest.mark.api_group("burst_engine"))
             elif "genome" in item_path:
                 item.add_marker(pytest.mark.api_group("genome"))
             elif "brain" in item_path:
                 item.add_marker(pytest.mark.api_group("brain_state"))
-            elif "burst_engine" in item_path:
-                item.add_marker(pytest.mark.api_group("burst_engine"))
-            elif "cortical_mapping" in item_path:
+            elif "cortical" in item_path or "mapping" in item_path:
                 item.add_marker(pytest.mark.api_group("mapping"))
             elif "region" in item_path:
                 item.add_marker(pytest.mark.api_group("region"))
-            elif "system" in item_path:
-                item.add_marker(pytest.mark.api_group("system"))
-            elif "simulation" in item_path:
-                item.add_marker(pytest.mark.api_group("simulation"))
-            elif "insights" in item_path:
-                item.add_marker(pytest.mark.api_group("insights"))
             else:
                 # Default group
                 item.add_marker(pytest.mark.api_group("default"))
 
 @pytest.fixture(autouse=True)
 def use_appropriate_client(request):
-    """Automatically select the appropriate test client based on test group."""
+    """
+    Automatically select the appropriate test client based on test group.
+    
+    This fixture runs for every test and determines which client fixture to use.
+    """
     # Check if the test has an api_group marker
     group_marker = request.node.get_closest_marker("api_group")
     if group_marker:
         group_name = group_marker.args[0] if group_marker.args else "default"
         
         # Select the appropriate client fixture
-        if group_name == "inputs":
-            request.getfixturevalue("inputs_client")
+        if group_name == "burst_engine":
+            request.getfixturevalue("burst_engine_client")
         elif group_name == "genome":
             request.getfixturevalue("genome_client")
         elif group_name == "brain_state":
-            request.getfixturevalue("brain_client")
-        elif group_name == "burst_engine":
-            request.getfixturevalue("burst_engine_client")
+            request.getfixturevalue("brain_state_client")
         elif group_name == "mapping":
             request.getfixturevalue("mapping_client")
         elif group_name == "region":
             request.getfixturevalue("region_client")
-        elif group_name == "system":
-            request.getfixturevalue("system_client")
-        elif group_name == "simulation":
-            request.getfixturevalue("simulation_client")
-        elif group_name == "insights":
-            request.getfixturevalue("insights_client") 
+        elif group_name == "cortical_area":
+            request.getfixturevalue("cortical_area_client") 

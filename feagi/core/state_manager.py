@@ -353,9 +353,8 @@ class FeagiStateManager:
         old = SimulationState(self.state_ptr.contents.simulation_state)
         self.state_ptr.contents.simulation_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Simulation state changed: {old.name} → {state.name}", emoji1="🧪")
-        self._notify_state_change("simulation", old, state)
-
+        _log_state_change("🧪", f"Simulation state changed: {old.name} → {state.name}")
+        
     # ===== FCLSampler State =====
     def get_fcl_sampler_state(self) -> ServiceState:
         """Get the current FCL sampler state."""

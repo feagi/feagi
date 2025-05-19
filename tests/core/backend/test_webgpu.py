@@ -36,12 +36,6 @@ class TestWebGPUBackend(unittest.TestCase):
         self.backend.initialize()
         shape = (10, 10)
         tensor = self.backend.create_tensor(shape)
-        
-        # Skip if tensor.shape is a MagicMock (mocked WebGPU)
-        import unittest.mock
-        if isinstance(tensor.shape, unittest.mock.MagicMock):
-            self.skipTest("WebGPU tensor shape is a MagicMock (mocked, not real hardware)")
-            
         self.assertEqual(tensor.shape, shape)
         
     def test_to_numpy(self):

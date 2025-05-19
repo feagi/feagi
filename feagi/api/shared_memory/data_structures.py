@@ -7,7 +7,6 @@ inter-process communication in FEAGI.
 
 import os
 import json
-import logging
 from feagi.utils.logger import setup_logger
 logger = setup_logger()
 import numpy as np

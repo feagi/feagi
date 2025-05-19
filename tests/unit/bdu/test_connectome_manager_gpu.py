@@ -188,11 +188,11 @@ def test_batch_create_synapses(connectome, test_area):
     # Verify all synapses were created
     assert created == 4
     
-    # Verify synapse weights - use np.isclose for float comparison
-    assert np.isclose(connectome.get_synapse_weight(neuron_ids[0], neuron_ids[1]), 1.0)
-    assert np.isclose(connectome.get_synapse_weight(neuron_ids[0], neuron_ids[2]), 1.5)
-    assert np.isclose(connectome.get_synapse_weight(neuron_ids[1], neuron_ids[3]), 0.8)
-    assert np.isclose(connectome.get_synapse_weight(neuron_ids[2], neuron_ids[4]), 1.2)
+    # Verify synapse weights
+    assert connectome.get_synapse_weight(neuron_ids[0], neuron_ids[1]) == 1.0
+    assert connectome.get_synapse_weight(neuron_ids[0], neuron_ids[2]) == 1.5
+    assert connectome.get_synapse_weight(neuron_ids[1], neuron_ids[3]) == 0.8
+    assert connectome.get_synapse_weight(neuron_ids[2], neuron_ids[4]) == 1.2
     
     # Verify total synapse count
     assert connectome.get_synapse_count() == 4
@@ -232,25 +232,37 @@ def test_update_synapse_weight(connectome, test_area):
 
 @pytest.mark.unit
 def test_membrane_potential_update(connectome, test_area):
-    """Test basic membrane potential updates."""
-    # Create a neuron
-    neuron_id = connectome.create_neuron(
+    """Test updating membrane potentials."""
+    # Create two neurons
+    pre_id = connectome.create_neuron(
         area_id=test_area,
         position=(0, 0, 0),
-        membrane_potential=0.5
+        threshold=1.0,
+        membrane_potential=1.5  # Set above threshold to ensure firing
     )
     
-    # Set a decay factor to test membrane potential decay
-    connectome.set_neuron_property(neuron_id, "decay_rate", 0.1)
+    post_id = connectome.create_neuron(
+        area_id=test_area,
+        position=(1, 0, 0),
+        threshold=0.5  # Lower threshold to ensure firing from incoming spike
+    )
     
-    # Update membrane potentials (should apply decay)
-    connectome.update_membrane_potentials(decay_factor=0.9)
+    # Create a synapse from pre to post
+    connectome.create_synapse(
+        pre_neuron_id=pre_id,
+        post_neuron_id=post_id,
+        weight=1.0
+    )
     
-    # Check if membrane potential was updated with decay factor
-    updated_potential = connectome.get_neuron_property(neuron_id, "membrane_potential")
+    # Get pre-neuron index and add it to the FCL manually
+    pre_idx = connectome.neuron_id_to_index[pre_id]
+    connectome.fcl_manager.add_to_current_fcl([pre_idx])
     
-    # Should be the original value multiplied by decay_factor
-    assert np.isclose(updated_potential, 0.5 * 0.9)
+    # Update membrane potentials to propagate activity
+    fired_ids = connectome.update_membrane_potentials()
+    
+    # Post-neuron should fire due to incoming connection
+    assert post_id in fired_ids
 
 
 @pytest.mark.unit
@@ -501,13 +513,13 @@ class TestConnectomeManagerGPU(unittest.TestCase):
         
         # Neuron 0 should be reset, neuron 1 should receive input, others unchanged
         self.assertEqual(potentials[0], 0.0)  # Neuron 0 reset
-        self.assertEqual(potentials[1], 0.5)  # Neuron 1 received input (weight is 0.5)
+        self.assertEqual(potentials[1], 0.5)  # Neuron 1 received input
         self.assertEqual(potentials[2], 0.0)  # Unchanged
         self.assertEqual(potentials[3], 0.0)  # Unchanged
         self.assertEqual(potentials[4], 0.0)  # Unchanged
         
         # Verify neuron 0 is marked as active
-        active = self.connectome.get_neuron_property(neuron_ids[0], "is_active")
+        active = self.connectome.get_neuron_property(neuron_ids[0], "active")
         self.assertTrue(active)
     
     def test_to_csr_format(self):
@@ -529,10 +541,8 @@ class TestConnectomeManagerGPU(unittest.TestCase):
         
         # Check matrix properties
         matrix = self.connectome.outgoing_matrix
-        # The matrix may be allocated with full max_neurons capacity or just the next_neuron_index
-        # Both approaches are valid, we just need to ensure there's enough space
-        self.assertGreaterEqual(matrix.shape[0], self.connectome.next_neuron_index)
-        self.assertGreaterEqual(matrix.shape[1], self.connectome.next_neuron_index)
+        self.assertEqual(matrix.shape[0], self.connectome.next_neuron_index)
+        self.assertEqual(matrix.shape[1], self.connectome.next_neuron_index)
         self.assertEqual(matrix.nnz, 4)  # 4 synapses
 
 

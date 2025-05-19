@@ -104,7 +104,7 @@ class VisualizationStream:
         # Initialize state based on current genome availability
         self._update_active_mode()
 
-    def _setup_socket(self, port: int) -> zmq.Socket:
+    def _setup_socket(self, port: int) -> zmq.asyncio.Socket:
         """
         Set up a visualization socket with real-time optimization.
         

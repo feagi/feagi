@@ -8,29 +8,11 @@ import time
 from unittest.mock import MagicMock, patch
 
 import zmq
+import zmq.asyncio
 
-# Import test utilities for ZMQ
-from tests.api.zmq.zmq_test_utils import HAS_ZMQ, HAS_ZMQ_ASYNCIO, requires_zmq, requires_zmq_asyncio
-
-# Apply the decorators to all tests in this module
-pytestmark = [requires_zmq, requires_zmq_asyncio]
-
-# Only import FEAGI modules if ZMQ and asyncio are available
-if HAS_ZMQ and HAS_ZMQ_ASYNCIO:
-    from feagi.api.protocols.base import ProtocolID
-    from feagi.api.protocols.fcp import FCPMessageType
-    from feagi.api.zmq.streams.control import ControlStream
-else:
-    # Create stub classes for type checking when ZMQ is not available
-    class ProtocolID:
-        FCP = 1
-        FSMP = 2
-        FVP = 3
-    
-    class FCPMessageType:
-        REGISTER = 1
-        HEARTBEAT = 2
-        STATUS_REQUEST = 3
+from feagi.api.protocols.base import ProtocolID
+from feagi.api.protocols.fcp import FCPMessageType
+from feagi.api.zmq.streams.control import ControlStream
 
 
 @pytest.fixture
@@ -127,9 +109,7 @@ class TestControlStreamHandling:
     @pytest.mark.asyncio
     async def test_register_agent(self, setup_stream):
         """Test registering an agent."""
-        async for fixture in setup_stream:
-            stream, client, _ = fixture
-            break
+        stream, client, _ = setup_stream
         
         # Create a registration message
         message = {
@@ -180,9 +160,7 @@ class TestControlStreamHandling:
     @pytest.mark.asyncio
     async def test_heartbeat(self, setup_stream):
         """Test sending a heartbeat."""
-        async for fixture in setup_stream:
-            stream, client, _ = fixture
-            break
+        stream, client, _ = setup_stream
         
         # Create a heartbeat message
         message = {
@@ -222,9 +200,7 @@ class TestControlStreamHandling:
     @pytest.mark.asyncio
     async def test_send_control_message(self, setup_stream):
         """Test sending a control message to an agent."""
-        async for fixture in setup_stream:
-            stream, client, _ = fixture
-            break
+        stream, client, _ = setup_stream
         
         # Mock the translator
         with patch("feagi.api.protocols.translator.ProtocolTranslator") as mock_translator:

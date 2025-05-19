@@ -10,17 +10,26 @@ import time
 import pytest
 import zmq.asyncio
 
-# Import our protocol enums instead of the protobuf ones
-from feagi.api.protocols.constants import ProtocolID, FCPCommandType, FSMPChannelType, FVPFrameType
-from feagi.api.protocols.fcp import FCPv1
-from feagi.api.protocols.fsmp import FSMPv1
-from feagi.api.protocols.fvp import FVPv1
-
-# Simulate protocol messages with dictionaries instead of protobuf objects
-class Timestamp:
-    @classmethod
-    def create(cls):
-        return {"time_ms": int(time.time() * 1000)}
+from protocol.common.constants_pb2 import ProtocolID, Timestamp
+from protocol.handshake.v1.handshake_pb2 import (
+    HandshakeMessageType, HandshakeMessage, HelloMessage,
+    ProtocolVersion
+)
+from protocol.fcp.v1.fcp_pb2 import (
+    MessageType as FCPMessageType,
+    Message as FCPMessage,
+    RegisterConfirmMessage
+)
+from protocol.fsmp.v1.fsmp_pb2 import (
+    MessageType as FSMPMessageType,
+    Message as FSMPMessage,
+    SensoryData, MotorData
+)
+from protocol.fvp.v1.fvp_pb2 import (
+    MessageType as FVPMessageType,
+    Message as FVPMessage,
+    StructureData, ActivityData
+)
 
 # Test Constants
 HOST = "127.0.0.1"
@@ -74,20 +83,21 @@ class TestServer:
                 client_id, _, data = msg
                 
                 # Parse the message
-                message = FCPv1.Message()
+                message = FCPMessage()
                 message.ParseFromString(data)
                 
                 # Create timestamp
-                current_time = Timestamp.create()
+                current_time = Timestamp()
+                current_time.time_ms = int(time.time() * 1000)
                 
                 # Create response based on message type
-                if message.type == FCPCommandType.REGISTER_CONFIRM:
+                if message.type == FCPMessageType.REGISTER_CONFIRM:
                     # Create confirmation response
-                    response = FCPv1.Message()
-                    response.type = FCPCommandType.REGISTER_CONFIRM
+                    response = FCPMessage()
+                    response.type = FCPMessageType.REGISTER_CONFIRM
                     response.register_confirm.status = "active"
                     response.register_confirm.message = "Registration confirmed"
-                    response.register_confirm.timestamp = current_time
+                    response.register_confirm.timestamp.CopyFrom(current_time)
                     
                     # Send response
                     await self.control_socket.send_multipart([
@@ -108,13 +118,13 @@ class TestServer:
                 data = await self.sensorimotor_socket.recv()
                 
                 # Parse the message
-                message = FSMPv1.Message()
+                message = FSMPMessage()
                 message.ParseFromString(data)
                 
-                if message.type == FSMPChannelType.SENSORY:
+                if message.type == FSMPMessageType.SENSORY:
                     # Create a mock motor response
-                    response = FSMPv1.Message()
-                    response.type = FSMPChannelType.MOTOR
+                    response = FSMPMessage()
+                    response.type = FSMPMessageType.MOTOR
                     response.motor_data.channel_id = 101  # Movement channel
                     response.motor_data.data = b"test_motor_data"
                     
@@ -132,18 +142,17 @@ class TestServer:
     async def send_visualization_data(self):
         """Send test visualization data."""
         # Create timestamp
-        current_time = Timestamp.create()
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
         
         # Create structure message
-        structure_msg = FVPv1.Message()
-        structure_msg.type = FVPFrameType.STRUCTURE
-        structure_msg.structure_data.timestamp = current_time
+        structure_msg = FVPMessage()
+        structure_msg.type = FVPMessageType.STRUCTURE
+        structure_msg.structure_data.timestamp.CopyFrom(current_time)
         
         # Add a test cortical area
-        structure_msg.structure_data.cortical_areas["test_area"] = {
-            "id": "test_area",
-            "name": "Test Area"
-        }
+        structure_msg.structure_data.cortical_areas["test_area"].id = "test_area"
+        structure_msg.structure_data.cortical_areas["test_area"].name = "Test Area"
         
         # Send structure data
         await self.viz_structure_socket.send_multipart([
@@ -152,17 +161,16 @@ class TestServer:
         ])
         
         # Create activity message
-        activity_msg = FVPv1.Message()
-        activity_msg.type = FVPFrameType.ACTIVITY
+        activity_msg = FVPMessage()
+        activity_msg.type = FVPMessageType.ACTIVITY
         activity_msg.activity_data.frame_id = 1
-        activity_msg.activity_data.timestamp = current_time
+        activity_msg.activity_data.timestamp.CopyFrom(current_time)
         
         # Add activity data
-        test_activity = activity_msg.activity_data.activity["test_area"] = {
-            "cortical_area_id": "test_area",
-            "data": b"test_activity_data",
-            "encoding_format": "binary"
-        }
+        test_activity = activity_msg.activity_data.activity["test_area"]
+        test_activity.cortical_area_id = "test_area"
+        test_activity.data = b"test_activity_data"
+        test_activity.encoding_format = "binary"
         
         # Send activity data
         await self.viz_activity_socket.send_multipart([
@@ -239,7 +247,7 @@ class TestClient:
         while self.running:
             try:
                 topic, data = await self.motor_socket.recv_multipart()
-                message = FSMPv1.Message()
+                message = FSMPMessage()
                 message.ParseFromString(data)
                 self.motor_messages.append(message)
             except asyncio.CancelledError:
@@ -252,7 +260,7 @@ class TestClient:
         while self.running:
             try:
                 topic, data = await self.viz_structure_socket.recv_multipart()
-                message = FVPv1.Message()
+                message = FVPMessage()
                 message.ParseFromString(data)
                 self.structure_messages.append(message)
             except asyncio.CancelledError:
@@ -265,7 +273,7 @@ class TestClient:
         while self.running:
             try:
                 topic, data = await self.viz_activity_socket.recv_multipart()
-                message = FVPv1.Message()
+                message = FVPMessage()
                 message.ParseFromString(data)
                 self.activity_messages.append(message)
             except asyncio.CancelledError:
@@ -276,25 +284,24 @@ class TestClient:
     async def send_registration(self, agent_id="test_agent", agent_type="test_type"):
         """Send registration request."""
         # Create timestamp
-        current_time = Timestamp.create()
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
         
         # Create protocol versions
-        versions = {
-            "fcp_version": 1,
-            "fsmp_version": 1,
-            "fvp_version": 1
-        }
+        versions = ProtocolVersion()
+        versions.fcp_version = 1
+        versions.fsmp_version = 1
+        versions.fvp_version = 1
         
         # Create FCPMessage
-        message = FCPv1.Message()
-        message.type = FCPCommandType.REGISTER_CONFIRM
+        message = FCPMessage()
+        message.type = FCPMessageType.REGISTER_CONFIRM
         
         # Create registration confirmation
-        registration = {
-            "status": "active",
-            "message": "Registration confirmed",
-            "timestamp": current_time
-        }
+        registration = RegisterConfirmMessage()
+        registration.status = "active"
+        registration.message = "Registration confirmed"
+        registration.timestamp.CopyFrom(current_time)
         message.register_confirm.CopyFrom(registration)
         
         # Send message
@@ -304,7 +311,7 @@ class TestClient:
         response_frames = await self.control_socket.recv_multipart()
         
         # Parse response
-        response_message = FCPv1.Message()
+        response_message = FCPMessage()
         response_message.ParseFromString(response_frames[1])
         
         return response_message
@@ -312,14 +319,15 @@ class TestClient:
     async def send_sensory_data(self, channel_id=1, data=b"test_sensory_data"):
         """Send sensory data."""
         # Create timestamp
-        current_time = Timestamp.create()
+        current_time = Timestamp()
+        current_time.time_ms = int(time.time() * 1000)
         
         # Create FSMP sensory message
-        message = FSMPv1.Message()
-        message.type = FSMPChannelType.SENSORY
+        message = FSMPMessage()
+        message.type = FSMPMessageType.SENSORY
         message.sensory_data.channel_id = channel_id
         message.sensory_data.data = data
-        message.sensory_data.timestamp = current_time
+        message.sensory_data.timestamp.CopyFrom(current_time)
         
         # Send message
         await self.sensory_socket.send(message.SerializeToString())
@@ -340,10 +348,9 @@ class TestClient:
                 socket.close(linger=0)
 
 
-@pytest.mark.skip(reason="Requires protobuf implementation of Message classes")
 @pytest.mark.asyncio
 async def test_protocol_communication():
-    """Test end-to-end communication using all protocols."""
+    """Test full communication cycle using all protocols."""
     # Start server
     server = TestServer()
     await server.start()
@@ -355,7 +362,7 @@ async def test_protocol_communication():
         
         # Test FCP: Registration
         response = await client.send_registration()
-        assert response.type == FCPCommandType.REGISTER_CONFIRM
+        assert response.type == FCPMessageType.REGISTER_CONFIRM
         assert response.register_confirm.status == "active"
         
         # Test FSMP: Sensory data and motor command
@@ -366,7 +373,7 @@ async def test_protocol_communication():
         
         # Verify motor command received
         assert len(client.motor_messages) > 0
-        assert client.motor_messages[0].type == FSMPChannelType.MOTOR
+        assert client.motor_messages[0].type == FSMPMessageType.MOTOR
         assert client.motor_messages[0].motor_data.channel_id == 101
         
         # Test FVP: Visualization data
@@ -377,12 +384,12 @@ async def test_protocol_communication():
         
         # Verify structure data received
         assert len(client.structure_messages) > 0
-        assert client.structure_messages[0].type == FVPFrameType.STRUCTURE
+        assert client.structure_messages[0].type == FVPMessageType.STRUCTURE
         assert "test_area" in client.structure_messages[0].structure_data.cortical_areas
         
         # Verify activity data received
         assert len(client.activity_messages) > 0
-        assert client.activity_messages[0].type == FVPFrameType.ACTIVITY
+        assert client.activity_messages[0].type == FVPMessageType.ACTIVITY
         assert "test_area" in client.activity_messages[0].activity_data.activity
         
     finally:

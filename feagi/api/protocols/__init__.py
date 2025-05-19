@@ -21,51 +21,20 @@ This module provides protocol definitions for binary communication between FEAGI
 and its clients using specialized byte structures optimized for neural data.
 """
 
-from feagi.utils.logger import setup_logger
-logger = setup_logger(__name__)
-
 # Import protocol definitions and constants
-from feagi.api.protocols.constants import ProtocolID, ByteStructureID, FCPCommandType, FSMPChannelType, FVPFrameType
+from feagi.api.protocols.constants import ProtocolID, ByteStructureID
 
-# Import base protocol components
-from feagi.api.protocols.base import ProtocolManager, VersionedProtocol, ProtocolRegistry
+# Import from the PyPI feagi_bytes package
+from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
 
-# Import specific protocol implementations
-from feagi.api.protocols.fcp import FCPv1, register_protocols as register_fcp
-from feagi.api.protocols.fsmp import FSMPv1, register_protocols as register_fsmp
-from feagi.api.protocols.fvp import FVPv1, register_protocols as register_fvp
-
-# Import protocol byte structures
-try:
-    from feagi.api.protocols.byte_structures import ByteStructureEncoder, ByteStructureDecoder
-except ImportError:
-    from feagi.api.protocols.byte_structures.encoder import ByteStructureEncoder
-    from feagi.api.protocols.byte_structures.decoder import ByteStructureDecoder
-
-# Import and re-export translator
-from feagi.api.protocols.translator import ByteStructureTranslator, ProtocolTranslator, default_translator
-
-# Initialize the protocol manager
-protocol_manager = ProtocolManager()
-
-# Register all protocol implementations
-register_fcp(protocol_manager.registry)
-register_fsmp(protocol_manager.registry)
-register_fvp(protocol_manager.registry)
+# Re-export for backward compatibility
+from feagi.api.protocols.translator import default_translator
 
 __all__ = [
     'ProtocolID',
     'ByteStructureID',
-    'FCPCommandType',
-    'FSMPChannelType',
-    'FVPFrameType',
     'ByteStructureEncoder',
     'ByteStructureDecoder',
     'ByteStructureTranslator',
     'default_translator',
-    'ProtocolTranslator',
-    'ProtocolManager',
-    'protocol_manager',
-    'VersionedProtocol',
-    'ProtocolRegistry',
 ] 
