@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Script to run FEAGI API tests with lightweight mocks, avoiding heavy dependencies."""
+"""Script to run FEAGI v1 API tests with lightweight mocks, avoiding heavy dependencies."""
 
 import os
 import sys
@@ -9,7 +9,7 @@ import shutil
 import glob
 from pathlib import Path
 
-def run_tests(pattern=None, group=None, verbose=False, parallel=1, version="v1"):
+def run_tests(pattern=None, group=None, verbose=False, parallel=1):
     """
     Run the API tests with the specified pattern or group, using the patched conftest.
     
@@ -22,7 +22,7 @@ def run_tests(pattern=None, group=None, verbose=False, parallel=1, version="v1")
     Returns:
         Exit code from pytest.
     """
-    # Get the directory of this script
+    # Get the directory of this script (v1 directory)
     script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
     
     # File paths
@@ -48,20 +48,23 @@ def run_tests(pattern=None, group=None, verbose=False, parallel=1, version="v1")
     try:
         # Determine which test files to run
         test_files = []
-        
+            
         if pattern:
             # Run a specific test file
-            test_path = script_dir / f"test_{pattern}_api.py"
-            if test_path.exists():
-                test_files.append(str(test_path.name))
-            else:
-                print(f"Warning: No test file matching {test_path}")
+            test_patterns = [
+                f"test_{pattern}_api.py",
+                f"test_{pattern}.py"
+            ]
+            for test_pattern in test_patterns:
+                test_path = script_dir / test_pattern
+                if test_path.exists():
+                    test_files.append(str(test_path))
         elif group:
             # Map groups to their corresponding test files
             group_to_files = {
                 "mapping": ["test_cortical_mapping_api.py"],
                 "brain_state": ["test_brain_api.py"],
-                "genome": ["test_genome_api.py"],
+                "genome": ["test_genome_api.py", "test_genome.py"],
                 "burst_engine": ["test_burst_engine_api.py"],
                 "region": ["test_region_api.py"],
                 "system": ["test_system_api.py"],
@@ -74,15 +77,14 @@ def run_tests(pattern=None, group=None, verbose=False, parallel=1, version="v1")
                 for file in group_to_files[group]:
                     file_path = script_dir / file
                     if file_path.exists():
-                        test_files.append(file)
-            else:
-                print(f"Warning: Unknown group '{group}'")
+                        test_files.append(str(file_path))
         else:
             # Find all test_*_api.py files
-            test_files = [os.path.basename(f) for f in glob.glob(str(script_dir / "test_*_api.py"))]
+            for test_file in glob.glob(str(script_dir / "test_*.py")):
+                test_files.append(test_file)
         
         if not test_files:
-            print("No test files found!")
+            print(f"No test files found in the v1 API directory!")
             return 1
         
         # Build the command
@@ -101,7 +103,6 @@ def run_tests(pattern=None, group=None, verbose=False, parallel=1, version="v1")
         
         # Print the command
         print(f"Running with patched conftest: {' '.join(cmd)}")
-        print(f"Directory: {script_dir}")
         print("=" * 80)
         
         # Run the command
@@ -119,7 +120,7 @@ def run_tests(pattern=None, group=None, verbose=False, parallel=1, version="v1")
 def main():
     """Run the tests with command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Run FEAGI REST API tests with lightweight mocks, avoiding heavy dependencies."
+        description="Run FEAGI v1 REST API tests with lightweight mocks, avoiding heavy dependencies."
     )
     parser.add_argument("-p", "--pattern", help="Test pattern to run (e.g., 'region' to run test_region_api.py)")
     parser.add_argument("-g", "--group", help="API group to filter tests (e.g., 'brain_state', 'genome')")

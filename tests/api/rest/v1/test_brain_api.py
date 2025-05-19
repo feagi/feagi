@@ -110,14 +110,14 @@ def test_brain_state_interaction_with_burst_engine(brain_client):
 
 
 @pytest.mark.api
-def test_stimulate_neurons(brain_state_client):
+def test_stimulate_neurons(brain_client):
     """Test stimulating neurons via the API."""
     stim_data = {
         "neurons": [1, 2, 3, 4, 5],
         "strength": 1.0,
         "duration": 3
     }
-    response = brain_state_client.post("/v1/brain/stimulate", json=stim_data)
+    response = brain_client.post("/v1/brain/stimulate", json=stim_data)
     assert response.status_code in (200, 404)
     if response.status_code == 200:
         data = response.json()
@@ -126,7 +126,7 @@ def test_stimulate_neurons(brain_state_client):
 
 
 @pytest.mark.api
-def test_create_cortical_area(brain_state_client):
+def test_create_cortical_area(brain_client):
     """Test creating a new cortical area via the API."""
     area_data = {
         "name": "Test Area",
@@ -134,7 +134,7 @@ def test_create_cortical_area(brain_state_client):
         "dimensions": [10, 10, 5],
         "position": [100, 100, 50]
     }
-    response = brain_state_client.post("/v1/brain/areas", json=area_data)
+    response = brain_client.post("/v1/brain/areas", json=area_data)
     assert response.status_code in (201, 404, 400)
     if response.status_code == 201:
         data = response.json()
@@ -144,9 +144,9 @@ def test_create_cortical_area(brain_state_client):
 
 
 @pytest.mark.api
-def test_get_neuron_activity(brain_state_client):
+def test_get_neuron_activity(brain_client):
     """Test retrieving neuron activity via the API."""
-    response = brain_state_client.get("/v1/brain/activity")
+    response = brain_client.get("/v1/brain/activity")
     assert response.status_code in (200, 404)
     if response.status_code == 200:
         data = response.json()
@@ -156,9 +156,9 @@ def test_get_neuron_activity(brain_state_client):
 
 
 @pytest.mark.api
-def test_get_cortical_area_activity(brain_state_client):
+def test_get_cortical_area_activity(brain_client):
     """Test retrieving activity for a specific cortical area."""
-    response = brain_state_client.get("/v1/brain/areas/1/activity")
+    response = brain_client.get("/v1/brain/areas/1/activity")
     assert response.status_code in (200, 404)
     if response.status_code == 200:
         data = response.json()

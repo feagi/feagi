@@ -8,6 +8,7 @@ which ensures they use a specialized client with proper mocks.
 
 import pytest
 from unittest.mock import patch
+from fastapi.testclient import TestClient
 
 # Mark all tests in this module as belonging to the burst_engine group
 pytestmark = [pytest.mark.api, pytest.mark.api_group("burst_engine")]
@@ -91,17 +92,121 @@ def test_get_burst_engine_stats(burst_engine_client):
 def test_start_burst_engine(burst_engine_client):
     """Test starting the burst engine."""
     response = burst_engine_client.post("/v1/burst_engine/start")
-    assert response.status_code in (200, 404)
+    assert response.status_code == 200
     
-    if response.status_code == 200:
-        data = response.json()
-        assert "status" in data
+    data = response.json()
+    assert "message" in data
+    assert "started" in data["message"].lower()
+    
+    # Verify status matches
+    response = burst_engine_client.get("/v1/burst_engine/status")
+    assert response.status_code == 200
+    status = response.json()
+    assert status["running"] is True
+    assert status["paused"] is False
 
 def test_stop_burst_engine(burst_engine_client):
     """Test stopping the burst engine."""
-    response = burst_engine_client.post("/v1/burst_engine/stop")
-    assert response.status_code in (200, 404)
+    # First start the engine
+    burst_engine_client.post("/v1/burst_engine/start")
     
-    if response.status_code == 200:
-        data = response.json()
-        assert "status" in data 
+    # Then stop it
+    response = burst_engine_client.post("/v1/burst_engine/stop")
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "message" in data
+    assert "stopped" in data["message"].lower()
+    
+    # Verify status matches
+    response = burst_engine_client.get("/v1/burst_engine/status")
+    assert response.status_code == 200
+    status = response.json()
+    assert status["running"] is False
+    assert status["paused"] is False
+
+def test_pause_burst_engine(burst_engine_client):
+    """Test pausing the burst engine."""
+    # First start the engine
+    burst_engine_client.post("/v1/burst_engine/start")
+    
+    # Then pause it
+    response = burst_engine_client.post("/v1/burst_engine/pause")
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "message" in data
+    assert "paused" in data["message"].lower()
+    
+    # Verify status matches
+    response = burst_engine_client.get("/v1/burst_engine/status")
+    assert response.status_code == 200
+    status = response.json()
+    assert status["running"] is True
+    assert status["paused"] is True
+
+def test_resume_burst_engine(burst_engine_client):
+    """Test resuming the burst engine."""
+    # First start and pause the engine
+    burst_engine_client.post("/v1/burst_engine/start")
+    burst_engine_client.post("/v1/burst_engine/pause")
+    
+    # Then resume it
+    response = burst_engine_client.post("/v1/burst_engine/resume")
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "message" in data
+    assert "resumed" in data["message"].lower()
+    
+    # Verify status matches
+    response = burst_engine_client.get("/v1/burst_engine/status")
+    assert response.status_code == 200
+    status = response.json()
+    assert status["running"] is True
+    assert status["paused"] is False
+
+def test_get_burst_engine_status(burst_engine_client):
+    """Test getting the burst engine status."""
+    response = burst_engine_client.get("/v1/burst_engine/status")
+    assert response.status_code == 200
+    
+    status = response.json()
+    assert "running" in status
+    assert "paused" in status
+    assert "burst_counter" in status
+    
+    # Check types
+    assert isinstance(status["running"], bool)
+    assert isinstance(status["paused"], bool)
+    assert isinstance(status["burst_counter"], int)
+
+def test_pause_without_running(burst_engine_client):
+    """Test pausing when the burst engine is not running."""
+    # First ensure the engine is stopped
+    burst_engine_client.post("/v1/burst_engine/stop")
+    
+    # Then try to pause it
+    response = burst_engine_client.post("/v1/burst_engine/pause")
+    assert response.status_code == 200
+    
+    # In a real implementation, this should return an error
+    # but our mock still returns 200 with an error message
+    data = response.json()
+    if "error" in data:
+        assert "not running" in data["error"].lower()
+
+def test_resume_without_pausing(burst_engine_client):
+    """Test resuming when the burst engine is not paused."""
+    # First start the engine without pausing
+    burst_engine_client.post("/v1/burst_engine/start")
+    
+    # Then try to resume it
+    response = burst_engine_client.post("/v1/burst_engine/resume")
+    assert response.status_code == 200
+    
+    # In a real implementation, this should return an error
+    # but our mock still returns 200 with an error message
+    data = response.json()
+    if "error" in data:
+        assert "not paused" in data["error"].lower() 

@@ -6,17 +6,20 @@ This directory contains tests for the FEAGI REST API. The tests are organized us
 
 The test framework is designed with the following principles:
 
-1. **Session-Scoped Initialization**: Expensive components like the ConnectomeManager are initialized only once per test session.
-2. **Test Grouping via Markers**: Tests are grouped by API functionality to share initialization and mocks.
-3. **Client Factory Pattern**: Specialized test clients can be created while reusing expensive components.
-4. **Complete Mocking**: All external dependencies are mocked to avoid actual initialization and I/O operations.
-5. **Client Caching**: Client instances are cached by group to minimize re-initialization.
+1. **Version-Based Organization**: Tests are organized into version-specific directories (v1, v2) to support backward compatibility.
+2. **Session-Scoped Initialization**: Expensive components like the ConnectomeManager are initialized only once per test session.
+3. **Test Grouping via Markers**: Tests are grouped by API functionality to share initialization and mocks.
+4. **Client Factory Pattern**: Specialized test clients can be created while reusing expensive components.
+5. **Complete Mocking**: All external dependencies are mocked to avoid actual initialization and I/O operations.
+6. **Client Caching**: Client instances are cached by group to minimize re-initialization.
 
 ## Test Structure
 
-- `conftest.py`: Contains all shared fixtures and mocking logic
+- `/v1/` and `/v2/`: API version-specific test directories
+- `conftest.py`: Version-specific shared fixtures and mocking logic
 - `test_*_api.py`: Individual test files for different API endpoints
-- `run_api_tests.py`: Script to run tests with various options
+- `run_patched_tests.py`: Version-specific script to run tests with lightweight mocks
+- `run_api_tests.py`: Main dispatcher script to run tests across all versions
 
 ### Test Groups
 
@@ -36,8 +39,14 @@ Tests are organized into the following groups:
 The easiest way to run tests is using the `run_api_tests.py` script:
 
 ```bash
-# Run all tests
+# Run all v1 tests
 python run_api_tests.py
+
+# Run all v2 tests
+python run_api_tests.py --version v2
+
+# Run all tests for both v1 and v2
+python run_api_tests.py --version all
 
 # Run tests with verbose output
 python run_api_tests.py -v
@@ -53,6 +62,9 @@ python run_api_tests.py -j 4
 
 # List available test groups
 python run_api_tests.py --list-groups
+
+# Use the patched conftest with lightweight mocks for faster testing
+python run_api_tests.py --use-patched
 ```
 
 ### Using pytest directly
