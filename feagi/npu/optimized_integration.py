@@ -136,6 +136,148 @@ def step_simulation(
         # Increment timestep
         core["current_timestep"] += 1
 
+def step_simulation_with_fire_queue(
+    core: Union["OptimizedFeagiCore", Dict[str, Any]],
+    mpf: bool = True,
+    puf: bool = False,
+    max_consecutive_fires: int = 10
+) -> None:
+    """
+    Step the simulation forward using the fire queue process with PSP calculation.
+    
+    Args:
+        core: The core object (optimized or dict-based)
+        mpf: Membrane Potential Driven PSP Flag - If True, use membrane potential for PSP calculation
+        puf: PSP Uniformity Flag - If True, don't normalize by synapse count
+        max_consecutive_fires: Maximum consecutive fire count before inhibiting firing
+    """
+    if RUST_AVAILABLE and not isinstance(core, dict) and hasattr(core, '_rust_core'):
+        core._rust_core.step_with_fire_queue(mpf, puf, max_consecutive_fires)
+    else:
+        # Fallback Python implementation
+        if isinstance(core, dict):
+            gna = core["gna"]
+            fcl = core["fcl"]
+            connectome = core["connectome"]
+        else:
+            # Handle OptimizedFeagiCore object
+            gna = core.gna
+            fcl = core.fcl
+            connectome = core.connectome
+        
+        # Get current FCL neurons - all FCL objects support to_list()
+        current_fcl = fcl.to_list()
+        
+        # 1. Process each firing neuron
+        for neuron_id in current_fcl:
+            # Update source neuron parameters
+            # a. Reset membrane potential
+            gna.set_membrane_potential(neuron_id, 0.0)
+            
+            # b. Set refractory counter (handled in process_fired_neurons)
+            
+            # Note: Consecutive fire count tracking would be added here in a full implementation
+        
+        # Process fired neurons (handles refractory period)
+        if isinstance(core, dict):
+            gna.process_fired_neurons(current_fcl, core["current_timestep"])
+        else:
+            gna.process_fired_neurons(current_fcl, core.current_timestep)
+        
+        # 2. Create fire queue
+        fire_queue = {
+            "neuron_ids": [],
+            "membrane_potentials": [],
+            "thresholds": [],
+            "consecutive_fire_counts": [],
+            "refractory_counters": []
+        }
+        
+        # 3. For each firing neuron, process outgoing synapses
+        for source_id in current_fcl:
+            # Get outgoing connections
+            connections = connectome.get_connections_for_neuron(source_id)
+            
+            if not connections:
+                continue
+                
+            # Get firing neuron membrane potential (should be 0 now, but using original logic)
+            firing_neuron_mp = gna.get_membrane_potential(source_id)
+            
+            # Default PSP value
+            firing_neuron_psp = 1.0
+            
+            # Count of synapses
+            synapse_count = len(connections)
+            
+            # Choose numerator based on MPF flag
+            numerator = firing_neuron_mp if mpf else firing_neuron_psp
+            
+            # Calculate denominator based on PUF flag
+            denominator = 1.0 if puf else ((synapse_count - 1) + 1.0)
+            
+            # Process each outgoing connection
+            for conn in connections:
+                target_id = conn["target_id"] if isinstance(conn, dict) else conn.get("target_id")
+                synapse_conductance = conn["weight"] if isinstance(conn, dict) else conn.get("weight")
+                
+                # Calculate PSP: (numerator / denominator) * synapse_conductance
+                psp = (numerator / denominator) * synapse_conductance
+                
+                # Get current target membrane potential
+                current_mp = gna.get_membrane_potential(target_id)
+                
+                # Update membrane potential
+                updated_mp = current_mp + psp
+                
+                # Add to fire queue
+                fire_queue["neuron_ids"].append(target_id)
+                fire_queue["membrane_potentials"].append(updated_mp)
+                fire_queue["thresholds"].append(1.0)  # Default threshold
+                fire_queue["consecutive_fire_counts"].append(0)  # Placeholder value
+                fire_queue["refractory_counters"].append(0)  # Placeholder value
+        
+        # 4. Extract firing candidates from queue
+        new_fire_candidates = []
+        for i in range(len(fire_queue["neuron_ids"])):
+            neuron_id = fire_queue["neuron_ids"][i]
+            
+            # Skip neurons in refractory period
+            if fire_queue["refractory_counters"][i] > 0:
+                continue
+                
+            # Skip neurons exceeding consecutive fire limit
+            if max_consecutive_fires > 0 and fire_queue["consecutive_fire_counts"][i] >= max_consecutive_fires:
+                continue
+                
+            # Check if above threshold
+            if fire_queue["membrane_potentials"][i] >= fire_queue["thresholds"][i]:
+                new_fire_candidates.append(neuron_id)
+        
+        # 5. Update the FCL
+        fcl.clear()
+        if isinstance(core, dict):
+            fcl.add_multiple(new_fire_candidates)
+        else:
+            fcl.add_multiple(new_fire_candidates)
+        
+        # 6. Update membrane potentials for all neurons in fire queue
+        for i in range(len(fire_queue["neuron_ids"])):
+            neuron_id = fire_queue["neuron_ids"][i]
+            
+            # Skip neurons that will fire (their potentials will be reset)
+            if neuron_id in new_fire_candidates:
+                continue
+                
+            # Update membrane potential
+            gna.set_membrane_potential(neuron_id, fire_queue["membrane_potentials"][i])
+        
+        # 7. Increment timestep
+        if isinstance(core, dict):
+            core["current_timestep"] += 1
+        else:
+            core.current_timestep += 1
+
 def propagate_activations(
     core: Union["OptimizedFeagiCore", Dict[str, Any]]
 ) -> List[float]:
@@ -170,48 +312,23 @@ def add_connection(
     core: Union["OptimizedFeagiCore", Dict[str, Any]],
     source_id: int,
     target_id: int,
-    weight: float,
-    delay: int = 0,
-    connection_type: int = 0,
-    source_area_id: int = 0,
-    target_area_id: int = 0,
+    weight: float
 ) -> None:
     """
-    Add a connection to the connectome.
+    Add a connection between two neurons in the optimized core.
     
     Args:
-        core: The core object
-        source_id: ID of the source neuron
-        target_id: ID of the target neuron
+        core: The core object (optimized or dict-based)
+        source_id: ID of the source (pre-synaptic) neuron
+        target_id: ID of the target (post-synaptic) neuron
         weight: Synaptic weight
-        delay: Synaptic delay (in timesteps)
-        connection_type: Type of connection
-        source_area_id: ID of the source cortical area
-        target_area_id: ID of the target cortical area
     """
     if RUST_AVAILABLE and not isinstance(core, dict):
-        # We don't have direct access to the connectome in the optimized core,
-        # so we need to create a temporary connectome object
-        connectome = Connectome(core._rust_core.get_neuron_count())
-        connectome.add_connection(
-            source_id,
-            target_id,
-            weight,
-            delay,
-            connection_type,
-            source_area_id,
-            target_area_id,
-        )
+        core.connectome.add_connection(source_id, target_id, weight)
     else:
-        core["connectome"].add_connection(
-            source_id,
-            target_id,
-            weight,
-            delay,
-            connection_type,
-            source_area_id,
-            target_area_id,
-        )
+        # Fallback Python implementation
+        connectome = core["connectome"]
+        connectome.add_connection(source_id, target_id, weight)
 
 def get_membrane_potential(
     core: Union["OptimizedFeagiCore", Dict[str, Any]],

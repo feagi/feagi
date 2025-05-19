@@ -74,6 +74,12 @@ class BurstEngine:
         self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
 
     def run(self):
+        """
+        Run the burst engine main loop.
+        
+        This function begins the burst execution loop, processing neuron firings
+        based on the target burst frequency.
+        """
         self._running = True
         self.state_manager.set_burst_engine_state(ServiceState.READY)
         def handle_signal(signum, frame):
@@ -119,6 +125,82 @@ class BurstEngine:
             self.cortical_areas = list(self.connectome_manager.cortical_areas.values())
             self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
         logger.info("Burst Engine updated with genome information", emoji1="⚡ ")
+
+    def run_with_fire_queue(self, mpf=True, puf=False, max_consecutive_fires=10):
+        """
+        Run the burst engine using the fire queue process.
+        
+        This method uses the enhanced fire queue process with PSP calculation as 
+        described in the architecture documentation.
+        
+        Args:
+            mpf: Membrane Potential Driven PSP Flag
+            puf: PSP Uniformity Flag
+            max_consecutive_fires: Maximum consecutive fire count before inhibiting firing
+        """
+        if self.state_manager.get_burst_engine_state() != ServiceState.READY:
+            logger.warning("Burst engine is not ready, cannot start burst execution")
+            return False
+            
+        # Update state
+        self.state_manager.set_burst_engine_state(ServiceState.RUNNING)
+        logger.info("Burst engine starting with fire queue process", emoji1="🚀 ")
+        
+        # Set running flag
+        self._running = True
+        
+        # Try to use optimized structures if available
+        try:
+            from feagi.npu.optimized_integration import step_simulation_with_fire_queue
+            optimized_available = True
+        except ImportError:
+            optimized_available = False
+        
+        # Main loop
+        while self._running:
+            start_time = time.perf_counter()
+            
+            # Process bursts using fire queue
+            if optimized_available:
+                # Get the core from connectome manager
+                core = self.connectome_manager.get_optimized_core()
+                if core:
+                    # Use optimized implementation
+                    step_simulation_with_fire_queue(core, mpf, puf, max_consecutive_fires)
+                else:
+                    # Fall back to standard process
+                    self._process_burst()
+            else:
+                # Fall back to standard process
+                self._process_burst()
+                
+            # Calculate time taken for this burst
+            end_time = time.perf_counter()
+            elapsed = end_time - start_time
+            self.last_burst_time = elapsed
+            
+            # Calculate actual frequency
+            actual_freq = 1.0 / elapsed if elapsed > 0 else 0
+            self.state_manager.set_burst_frequency(actual_freq)
+            
+            # Log performance every 100 bursts
+            if self.burst_count % 100 == 0:
+                logger.info(f"Processed {self.burst_count} bursts. "
+                           f"Target: {self.desired_frequency:.1f}Hz, "
+                           f"Actual: {actual_freq:.1f}Hz",
+                           emoji1="⚡ ")
+            
+            # Increment burst count
+            self.burst_count += 1
+            
+            # Sleep if needed to maintain target frequency
+            if self.desired_frequency > 0 and elapsed < self.burst_interval:
+                time.sleep(self.burst_interval - elapsed)
+                
+        # Update state when stopped
+        self.state_manager.set_burst_engine_state(ServiceState.READY)
+        logger.info("Burst engine stopped", emoji1="🛑 ")
+        return True
 
 # --- FCLSampler Implementation ---
 

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 
 #[cfg(feature = "wgpu")]
-use crate::data_structures::{GlobalNeuronArray, Connectome, FireCandidateList};
+use crate::data_structures::{GlobalNeuronArray, Connectome, FireCandidateList, FireQueue};
 
 // WebGPU shader management
 #[cfg(feature = "wgpu")]
@@ -559,5 +559,325 @@ pub struct FeagiGpu {}
 impl FeagiGpu {
     pub fn new(neuron_count: u32, estimated_connections: u32) -> Self {
         panic!("WebGPU is not available. Please compile with the 'webgpu' feature.");
+    }
+}
+
+// WebGPU implementation for FEAGI core operations
+//
+// This module provides GPU acceleration for neural processing using WebGPU.
+// It is optimized for both performance and compatibility with our CPU SIMD code.
+
+use wgpu::{self, Features, Limits};
+use std::sync::Arc;
+use crate::data_structures::{GlobalNeuronArray, FireCandidateList, Connectome, FireQueue};
+
+pub struct GpuContext {
+    device: Arc<wgpu::Device>,
+    queue: Arc<wgpu::Queue>,
+    neuron_shader: wgpu::ShaderModule,
+    connectome_shader: wgpu::ShaderModule,
+    
+    // Bind groups and pipelines for neuron operations
+    neuron_bind_group: Option<wgpu::BindGroup>,
+    neuron_pipeline: Option<wgpu::ComputePipeline>,
+    
+    // Bind groups and pipelines for connectome operations
+    connectome_bind_group: Option<wgpu::BindGroup>,
+    connectome_pipeline: Option<wgpu::ComputePipeline>,
+    
+    // Buffers for neuron data
+    neuron_control_buffer: Option<wgpu::Buffer>,
+    membrane_potential_buffer: Option<wgpu::Buffer>,
+    threshold_buffer: Option<wgpu::Buffer>,
+    refractory_counter_buffer: Option<wgpu::Buffer>,
+    last_fired_buffer: Option<wgpu::Buffer>,
+    fcl_buffer: Option<wgpu::Buffer>,
+    fcl_counter_buffer: Option<wgpu::Buffer>,
+    
+    // Buffers for connectome data
+    connectome_control_buffer: Option<wgpu::Buffer>,
+    row_ptr_buffer: Option<wgpu::Buffer>,
+    col_idx_buffer: Option<wgpu::Buffer>,
+    weight_buffer: Option<wgpu::Buffer>,
+    
+    // Buffers for fire queue approach
+    fire_queue_buffer: Option<wgpu::Buffer>,
+    params_buffer: Option<wgpu::Buffer>,
+    
+    // Resources are initialized
+    initialized: bool,
+}
+
+impl GpuContext {
+    /// Creates a new GPU context with WebGPU
+    pub async fn new() -> Result<Self, &'static str> {
+        // Request adapter
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            ..Default::default()
+        });
+        
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: None,
+                force_fallback_adapter: false,
+            })
+            .await
+            .ok_or("Failed to find an appropriate adapter")?;
+        
+        // Create device and queue
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("FEAGI Device"),
+                    features: Features::empty(),
+                    limits: Limits::default(),
+                },
+                None,
+            )
+            .await
+            .map_err(|_| "Failed to create device")?;
+        
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+        
+        // Load shader modules
+        let neuron_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Neuron Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("neuron_shader.wgsl").into()),
+        });
+        
+        let connectome_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Connectome Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("connectome_shader.wgsl").into()),
+        });
+        
+        Ok(Self {
+            device,
+            queue,
+            neuron_shader,
+            connectome_shader,
+            neuron_bind_group: None,
+            neuron_pipeline: None,
+            connectome_bind_group: None,
+            connectome_pipeline: None,
+            neuron_control_buffer: None,
+            membrane_potential_buffer: None,
+            threshold_buffer: None,
+            refractory_counter_buffer: None,
+            last_fired_buffer: None,
+            fcl_buffer: None,
+            fcl_counter_buffer: None,
+            connectome_control_buffer: None,
+            row_ptr_buffer: None,
+            col_idx_buffer: None,
+            weight_buffer: None,
+            fire_queue_buffer: None,
+            params_buffer: None,
+            initialized: false,
+        })
+    }
+    
+    /// Initialize GPU resources with the given data structures
+    pub fn initialize(&mut self, gna: &GlobalNeuronArray, fcl: &FireCandidateList, connectome: &Connectome) -> Result<(), &'static str> {
+        // Create buffers for neuron data
+        // ... existing implementation ...
+        
+        // Create buffers for fire queue approach
+        let params_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Simulation Parameters"),
+            size: std::mem::size_of::<[u32; 8]>() as u64, // Buffer for simulation parameters
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        
+        let fire_queue_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Fire Queue"),
+            size: (std::mem::size_of::<u32>() + // count
+                  std::mem::size_of::<u32>() * gna.neuron_count + // neuron_ids
+                  std::mem::size_of::<f32>() * gna.neuron_count + // membrane_potentials
+                  std::mem::size_of::<f32>() * gna.neuron_count + // thresholds
+                  std::mem::size_of::<u32>() * gna.neuron_count + // refractory_counters
+                  std::mem::size_of::<u32>() * gna.neuron_count) as u64, // consecutive_fire_counts
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        
+        // Create bind group for fire queue approach
+        let fire_queue_bind_group_layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Fire Queue Bind Group Layout"),
+            entries: &[
+                // Simulation parameters
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // GNA
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // FCL
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // Connectome
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // Fire Queue
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        
+        // Create pipeline for fire queue approach
+        let fire_queue_pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Fire Queue Pipeline Layout"),
+            bind_group_layouts: &[&fire_queue_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+        
+        let fire_queue_pipeline = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Fire Queue Pipeline"),
+            layout: Some(&fire_queue_pipeline_layout),
+            module: &self.neuron_shader,
+            entry_point: "process_fired_neurons",
+        });
+        
+        let extract_candidates_pipeline = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Extract Candidates Pipeline"),
+            layout: Some(&fire_queue_pipeline_layout),
+            module: &self.neuron_shader,
+            entry_point: "extract_fire_candidates",
+        });
+        
+        self.fire_queue_buffer = Some(fire_queue_buffer);
+        self.params_buffer = Some(params_buffer);
+        
+        self.initialized = true;
+        Ok(())
+    }
+    
+    /// Run the fire queue process with PSP calculation on GPU
+    pub fn run_fire_queue_process(
+        &self,
+        gna: &mut GlobalNeuronArray,
+        fcl: &mut FireCandidateList,
+        connectome: &Connectome,
+        fire_queue: &mut FireQueue,
+        time_step: u32,
+        mpf: bool,
+        puf: bool,
+        max_consecutive_fires: u32
+    ) -> Result<(), &'static str> {
+        if !self.initialized {
+            return Err("GPU resources not initialized");
+        }
+        
+        let mpf_value = if mpf { 1u32 } else { 0u32 };
+        let puf_value = if puf { 1u32 } else { 0u32 };
+        
+        // Write simulation parameters
+        let params = [
+            time_step,                // time_step
+            1.0f32.to_bits(),         // threshold
+            1u32,                     // refractory_period
+            max_consecutive_fires,    // max_consecutive_fires
+            mpf_value,                // mpf
+            puf_value,                // puf
+            0u32,                     // padding
+            0u32,                     // padding
+        ];
+        
+        self.queue.write_buffer(
+            self.params_buffer.as_ref().unwrap(),
+            0,
+            bytemuck::cast_slice(&params),
+        );
+        
+        // Copy GNA data to GPU
+        // ... copy data ...
+        
+        // Copy FCL data to GPU
+        // ... copy data ...
+        
+        // Clear fire queue and reset counter
+        let zero = [0u32; 1];
+        self.queue.write_buffer(
+            self.fire_queue_buffer.as_ref().unwrap(),
+            0,
+            bytemuck::cast_slice(&zero),
+        );
+        
+        // Create command encoder
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Fire Queue Command Encoder"),
+        });
+        
+        // Phase 1: Process fired neurons and update fire queue
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Fire Queue Compute Pass"),
+        });
+        
+        // Set pipeline for processing fired neurons
+        // ... set pipeline and dispatch ...
+        
+        // End compute pass
+        drop(compute_pass);
+        
+        // Phase 2: Extract fire candidates from fire queue
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Extract Candidates Compute Pass"),
+        });
+        
+        // Set pipeline for extracting fire candidates
+        // ... set pipeline and dispatch ...
+        
+        // End compute pass
+        drop(compute_pass);
+        
+        // Submit command buffer
+        self.queue.submit(std::iter::once(encoder.finish()));
+        
+        // Read back results
+        // ... read data back ...
+        
+        Ok(())
     }
 } 

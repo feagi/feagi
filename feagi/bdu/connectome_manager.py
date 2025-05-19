@@ -272,9 +272,8 @@ class ConnectomeManager:
             return neuron[property_name]
         elif property_name in neuron["properties"]:
             return neuron["properties"][property_name]
-            else:
+        else:
             raise KeyError(f"Property {property_name} not found for neuron {neuron_id}")
-    
     def set_neuron_property(self, neuron_id: int, property_name: str, value: Any) -> None:
         """Set a specific property of a neuron.
         
@@ -333,22 +332,78 @@ class ConnectomeManager:
         return self.neurons[neuron_id]["area_id"]
     
     def get_neuron_count(self) -> int:
-        """Get the total number of neurons in the connectome.
-            
-        Returns:
-            Total number of neurons
-        """
+        """Get the total number of neurons in the connectome."""
         return len(self.neurons)
     
-    def delete_neuron(self, neuron_id: int) -> None:
-        """Delete a neuron and all its connections.
-        
-        Args:
-            neuron_id: ID of the neuron to delete
-            
-        Raises:
-            KeyError: If the neuron_id doesn't exist
+    def get_optimized_core(self):
         """
+        Get an optimized FEAGI core for accelerated processing.
+        
+        Returns:
+            An optimized core object if available, otherwise None
+        """
+        try:
+            from feagi.npu.optimized_integration import create_optimized_core, add_connection
+            
+            # Create an optimized core with the current neuron count
+            core = create_optimized_core(self.max_neurons)
+            
+            # Copy existing neurons to the optimized structure
+            for neuron_id, neuron_data in self.neurons.items():
+                # Set membrane potential
+                if isinstance(core, dict):
+                    # Python fallback
+                    core["gna"].set_membrane_potential(neuron_id, neuron_data["membrane_potential"])
+                else:
+                    # Optimized implementation
+                    core.gna.set_membrane_potential(neuron_id, neuron_data["membrane_potential"])
+            
+            # Copy connections
+            self._ensure_csr_format_outgoing()
+            for source_id in range(self.next_neuron_index):
+                # Skip if neuron doesn't exist
+                if source_id not in self.neurons:
+                    continue
+                
+                # Get outgoing connections
+                connections = self.get_outgoing_connections(source_id)
+                for target_id, weight in connections:
+                    # Add to optimized core
+                    add_connection(core, source_id, target_id, weight)
+            
+            return core
+        except (ImportError, Exception) as e:
+            logger.warning(f"Failed to create optimized core: {e}")
+            return None
+    
+    def _get_connections_dict(self):
+        """
+        Get a dictionary of all outgoing connections.
+        
+        Returns:
+            Dict mapping source neurons to lists of (target_id, weight) tuples
+        """
+        connections = {}
+        
+        # For CSR-like format
+        if isinstance(self.outgoing_matrix, sparse.csr_matrix) or isinstance(self.outgoing_matrix, sparse.lil_matrix):
+            # Convert to COO for easier iteration
+            coo = self.outgoing_matrix.tocoo()
+            for source, target, weight in zip(coo.row, coo.col, coo.data):
+                if source not in connections:
+                    connections[source] = []
+                connections[source].append((target, weight))
+        else:
+            # Fallback for other formats
+            for source_id in self.neurons:
+                outgoing = self.get_outgoing_connections(source_id)
+                if outgoing:
+                    connections[source_id] = [(conn[0], conn[1]) for conn in outgoing]
+        
+        return connections
+    
+    def delete_neuron(self, neuron_id: int) -> None:
+        """Delete a neuron and all its connections."""
         if neuron_id not in self.neurons:
             raise KeyError(f"Neuron {neuron_id} does not exist")
         
@@ -784,7 +839,7 @@ class ConnectomeManager:
             # Check for name conflicts
             for other_area in self.cortical_areas.values():
                 if other_area.id != area_id and other_area.name == updates["name"]:
-            return False
+                    return False
             area.name = updates["name"]
         
         if "position" in updates:
@@ -1401,7 +1456,7 @@ class ConnectomeManager:
                         if params.get("scale_by_distance", False):
                             distance_weight = 1.0 - (distance / max_distance)
                             synapse_specs.append((source_id, target_id, weight * distance_weight))
-        else:
+                        else:
                             synapse_specs.append((source_id, target_id, weight))
                     
                     candidates += 1
@@ -1431,7 +1486,6 @@ class ConnectomeManager:
                     
                     if len(synapse_specs) >= max_synapses:
                         break
-        
         elif rule_type == "random-subset":
             # Connect each source to a random subset of targets
             num_targets = min(params.get("num_targets", 5), len(target_neurons))
@@ -1970,7 +2024,8 @@ class ConnectomeManager:
         filtered_neurons = []
         for neuron_id in area_neurons:
             position = self.get_neuron_position(neuron_id)
-        x, y, z = position
+            position = self.get_neuron_position(neuron_id)
+            x, y, z = position
             
             if (x_range is None or (x_range[0] <= x <= x_range[1])) and \
                (y_range is None or (y_range[0] <= y <= y_range[1])) and \

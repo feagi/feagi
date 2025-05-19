@@ -40,6 +40,31 @@ pub struct GlobalNeuronArray {
     pub coordinates_z: Vec<u16>,
 }
 
+/// Fire Queue - Structure of Arrays (SoA) for neurons being evaluated for firing
+/// 
+/// This maintains a queue of neurons that are potential firing candidates,
+/// along with all their relevant parameters for efficient processing.
+#[repr(C, align(64))]
+pub struct FireQueue {
+    /// IDs of neurons in the queue
+    pub neuron_ids: Vec<u32>,
+    
+    /// Current membrane potentials
+    pub membrane_potentials: Vec<f32>,
+    
+    /// Firing thresholds
+    pub thresholds: Vec<f32>,
+    
+    /// Number of consecutive times each neuron has fired
+    pub consecutive_fire_counts: Vec<u32>,
+    
+    /// Current refractory counters
+    pub refractory_counters: Vec<u32>,
+    
+    /// Current count of neurons in the queue
+    pub count: usize,
+}
+
 impl GlobalNeuronArray {
     /// Create a new GNA with specified capacity
     pub fn new(capacity: usize) -> Self {
@@ -153,6 +178,122 @@ impl GlobalNeuronArray {
                 *counter -= 1;
             }
         }
+    }
+    
+    /// Get the consecutive fire count for a neuron
+    pub fn get_consecutive_fire_count(&self, neuron_id: usize) -> u32 {
+        // This would typically be stored in the GNA
+        // For this implementation, we'll use a dummy value
+        0 // Placeholder value
+    }
+    
+    /// Update the consecutive fire count for a neuron
+    pub fn update_consecutive_fire_count(&mut self, neuron_id: usize, fired: bool) {
+        // This would update the consecutive fire count based on whether the neuron fired
+        // Implementation would be added in a production system
+    }
+}
+
+impl FireQueue {
+    /// Creates a new empty FireQueue with pre-allocated capacity
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            neuron_ids: Vec::with_capacity(capacity),
+            membrane_potentials: Vec::with_capacity(capacity),
+            thresholds: Vec::with_capacity(capacity),
+            consecutive_fire_counts: Vec::with_capacity(capacity),
+            refractory_counters: Vec::with_capacity(capacity),
+            count: 0,
+        }
+    }
+    
+    /// Add a neuron to the fire queue
+    pub fn add(&mut self, neuron_id: u32, membrane_potential: f32, threshold: f32, 
+               consecutive_fire_count: u32, refractory_counter: u32) {
+        self.neuron_ids.push(neuron_id);
+        self.membrane_potentials.push(membrane_potential);
+        self.thresholds.push(threshold);
+        self.consecutive_fire_counts.push(consecutive_fire_count);
+        self.refractory_counters.push(refractory_counter);
+        self.count += 1;
+    }
+    
+    /// Clear the fire queue
+    pub fn clear(&mut self) {
+        self.neuron_ids.clear();
+        self.membrane_potentials.clear();
+        self.thresholds.clear();
+        self.consecutive_fire_counts.clear();
+        self.refractory_counters.clear();
+        self.count = 0;
+    }
+    
+    /// Extract neurons that satisfy the activation function criteria
+    pub fn extract_fire_candidates(&self, max_consecutive_fires: u32) -> Vec<u32> {
+        let mut candidates = Vec::new();
+        
+        for i in 0..self.count {
+            // Skip neurons in refractory period
+            if self.refractory_counters[i] > 0 {
+                continue;
+            }
+            
+            // Skip neurons exceeding consecutive fire limit (if max_consecutive_fires > 0)
+            if max_consecutive_fires > 0 && self.consecutive_fire_counts[i] >= max_consecutive_fires {
+                continue;
+            }
+            
+            // Check if above threshold
+            if self.membrane_potentials[i] >= self.thresholds[i] {
+                candidates.push(self.neuron_ids[i]);
+            }
+        }
+        
+        candidates
+    }
+    
+    /// SIMD-optimized extraction of fire candidates (when AVX2 is available)
+    #[cfg(target_feature = "avx2")]
+    pub fn extract_fire_candidates_simd(&self, max_consecutive_fires: u32) -> Vec<u32> {
+        use std::arch::x86_64::{__m256, __m256i, _mm256_loadu_ps, _mm256_cmp_ps_mask, _mm256_set1_ps};
+        
+        let mut candidates = Vec::new();
+        let mut i = 0;
+        
+        // Process in blocks of 8 (AVX2 width)
+        while i + 8 <= self.count {
+            unsafe {
+                // Load vectors of 8 values
+                let membranes = _mm256_loadu_ps(&self.membrane_potentials[i] as *const f32);
+                let thresholds = _mm256_loadu_ps(&self.thresholds[i] as *const f32);
+                
+                // Compare membrane potentials >= thresholds
+                let mask = _mm256_cmp_ps_mask(membranes, thresholds, 0x0D); // _CMP_GE_OQ
+                
+                // Check each bit of the mask
+                for j in 0..8 {
+                    let idx = i + j;
+                    if (mask & (1 << j)) != 0 && 
+                       self.refractory_counters[idx] == 0 && 
+                       (max_consecutive_fires == 0 || self.consecutive_fire_counts[idx] < max_consecutive_fires) {
+                        candidates.push(self.neuron_ids[idx]);
+                    }
+                }
+            }
+            
+            i += 8;
+        }
+        
+        // Handle remaining elements
+        for idx in i..self.count {
+            if self.refractory_counters[idx] == 0 && 
+               (max_consecutive_fires == 0 || self.consecutive_fire_counts[idx] < max_consecutive_fires) && 
+               self.membrane_potentials[idx] >= self.thresholds[idx] {
+                candidates.push(self.neuron_ids[idx]);
+            }
+        }
+        
+        candidates
     }
 }
 

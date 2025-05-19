@@ -268,6 +268,16 @@ impl PyFeagiCore {
         self.core.step();
     }
     
+    /// Performs a single simulation timestep using the fire queue process
+    fn step_with_fire_queue(
+        &mut self, 
+        mpf: bool,
+        puf: bool,
+        max_consecutive_fires: u32
+    ) {
+        self.core.step_with_fire_queue(mpf, puf, max_consecutive_fires);
+    }
+    
     /// Gets the current timestep
     #[getter]
     fn get_current_timestep(&self) -> u64 {

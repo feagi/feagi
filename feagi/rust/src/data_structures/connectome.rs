@@ -3,6 +3,9 @@
 /// This implementation is optimized for both:
 /// - SIMD operations on CPU (with 64-byte cache line alignment)
 /// - GPU compute shader execution (with coalesced memory access)
+
+use crate::data_structures::gna::{GlobalNeuronArray, FireQueue};
+
 #[repr(C, align(64))]
 pub struct Connectome {
     /// Number of neurons (rows in the matrix)
@@ -211,6 +214,233 @@ impl Connectome {
     /// Get the total number of connections in the connectome
     pub fn connection_count(&self) -> usize {
         self.col_idx.len()
+    }
+    
+    /// Calculate Post-Synaptic Potential using the specified formula:
+    /// FNPSP = [MPF * FNMP + !MPF * FNPSP] / [(!PUF * (FNSC-1)) + 1] * Synapse Conductance
+    /// 
+    /// Where:
+    /// - FNMP: Firing Neuron Membrane Potential
+    /// - FNSC: Firing Neuron Synapse Count
+    /// - FNPSP: Firing Neuron Post Synaptic Potential
+    /// - MPF: Membrane Potential Driven PSP Flag
+    /// - PUF: Post Synaptic Potential Uniformity Flag
+    /// - SC: Synapse Conductance
+    pub fn calculate_psp(
+        &self,
+        firing_neuron_mp: f32,
+        firing_neuron_psp: f32,
+        synapse_count: u32,
+        synapse_conductance: f32,
+        mpf: bool,   // Membrane Potential Driven PSP Flag
+        puf: bool,   // PSP Uniformity Flag
+    ) -> f32 {
+        // FNPSP = [MPF * FNMP + !MPF * FNPSP] / [(!PUF * (FNSC-1)) + 1] * Synapse Conductance
+        
+        // Calculate the numerator: either use membrane potential or existing PSP
+        let numerator = if mpf { firing_neuron_mp } else { firing_neuron_psp };
+        
+        // Calculate the denominator: either normalize by synapse count or use 1
+        let denominator = if !puf && synapse_count > 0 { 
+            (synapse_count - 1) as f32 + 1.0 
+        } else { 
+            1.0 
+        };
+        
+        // Calculate the final PSP
+        (numerator / denominator) * synapse_conductance
+    }
+    
+    /// Propagate activations with PSP calculation to the fire queue
+    pub fn propagate_with_psp(
+        &self,
+        source_neurons: &[u32],
+        gna: &GlobalNeuronArray,
+        fire_queue: &mut FireQueue,
+        mpf: bool,
+        puf: bool,
+    ) {
+        // For each firing neuron
+        for &source_id in source_neurons {
+            let source_id = source_id as usize;
+            if source_id >= self.neuron_count {
+                continue;
+            }
+            
+            // Get outgoing connections
+            let start = self.row_ptr[source_id] as usize;
+            let end = self.row_ptr[source_id + 1] as usize;
+            let synapse_count = end - start;
+            
+            // Skip if no connections
+            if synapse_count == 0 {
+                continue;
+            }
+            
+            // Get firing neuron membrane potential
+            let firing_neuron_mp = gna.membrane_potentials[source_id];
+            
+            // Default PSP value if not using previous PSP (would need tracking in real impl)
+            let firing_neuron_psp = 1.0; 
+            
+            // Process each outgoing connection from this firing neuron
+            for i in start..end {
+                let target_id = self.col_idx[i] as usize;
+                if target_id >= gna.neuron_count {
+                    continue;
+                }
+                
+                let synapse_conductance = self.weights[i];
+                
+                // Calculate PSP contribution
+                let psp = self.calculate_psp(
+                    firing_neuron_mp,
+                    firing_neuron_psp,
+                    synapse_count as u32,
+                    synapse_conductance,
+                    mpf,
+                    puf
+                );
+                
+                // Update target neuron's membrane potential
+                let current_mp = gna.membrane_potentials[target_id];
+                let updated_mp = current_mp + psp;
+                
+                // Get consecutive fire count (in production, would be stored)
+                let consecutive_fire_count = gna.get_consecutive_fire_count(target_id);
+                
+                // Add to fire queue
+                fire_queue.add(
+                    target_id as u32,
+                    updated_mp,
+                    gna.thresholds[target_id],
+                    consecutive_fire_count,
+                    gna.refractory_counters[target_id]
+                );
+            }
+        }
+    }
+    
+    /// SIMD-optimized propagation with PSP calculation (when AVX2 is available)
+    #[cfg(target_feature = "avx2")]
+    pub fn propagate_with_psp_simd(
+        &self,
+        source_neurons: &[u32],
+        gna: &GlobalNeuronArray,
+        fire_queue: &mut FireQueue,
+        mpf: bool,
+        puf: bool,
+    ) {
+        use std::arch::x86_64::{__m256, _mm256_set1_ps, _mm256_loadu_ps, _mm256_mul_ps, _mm256_div_ps};
+        
+        // For each firing neuron
+        for &source_id in source_neurons {
+            let source_id = source_id as usize;
+            if source_id >= self.neuron_count {
+                continue;
+            }
+            
+            // Get outgoing connections
+            let start = self.row_ptr[source_id] as usize;
+            let end = self.row_ptr[source_id + 1] as usize;
+            let synapse_count = end - start;
+            
+            // Skip if no connections
+            if synapse_count == 0 {
+                continue;
+            }
+            
+            // Get firing neuron membrane potential
+            let firing_neuron_mp = gna.membrane_potentials[source_id];
+            
+            // Default PSP value if not using previous PSP
+            let firing_neuron_psp = 1.0;
+            
+            // Choose numerator based on MPF flag
+            let numerator = if mpf { firing_neuron_mp } else { firing_neuron_psp };
+            
+            // Calculate denominator based on PUF flag
+            let denominator = if !puf && synapse_count > 0 { 
+                (synapse_count - 1) as f32 + 1.0 
+            } else { 
+                1.0 
+            };
+            
+            // Set up SIMD vectors for the calculation
+            let numerator_vec = unsafe { _mm256_set1_ps(numerator) };
+            let denominator_vec = unsafe { _mm256_set1_ps(denominator) };
+            
+            // Process connections in blocks of 8 (SIMD width)
+            let mut i = start;
+            while i + 8 <= end {
+                unsafe {
+                    // Load 8 synapse conductance values
+                    let conductance_vec = _mm256_loadu_ps(&self.weights[i] as *const f32);
+                    
+                    // Calculate PSP (numerator / denominator) * conductance
+                    let div_result = _mm256_div_ps(numerator_vec, denominator_vec);
+                    let psp_vec = _mm256_mul_ps(div_result, conductance_vec);
+                    
+                    // Now apply to each target neuron (can't easily vectorize this part
+                    // due to scattered memory access patterns)
+                    for j in 0..8 {
+                        let idx = i + j;
+                        let target_id = self.col_idx[idx] as usize;
+                        if target_id >= gna.neuron_count {
+                            continue;
+                        }
+                        
+                        // Extract PSP value from vector
+                        let psp = *(&psp_vec as *const __m256 as *const f32).add(j);
+                        
+                        // Update target neuron's membrane potential
+                        let current_mp = gna.membrane_potentials[target_id];
+                        let updated_mp = current_mp + psp;
+                        
+                        // Get consecutive fire count 
+                        let consecutive_fire_count = gna.get_consecutive_fire_count(target_id);
+                        
+                        // Add to fire queue
+                        fire_queue.add(
+                            target_id as u32,
+                            updated_mp,
+                            gna.thresholds[target_id],
+                            consecutive_fire_count,
+                            gna.refractory_counters[target_id]
+                        );
+                    }
+                }
+                
+                i += 8;
+            }
+            
+            // Handle remaining connections
+            for idx in i..end {
+                let target_id = self.col_idx[idx] as usize;
+                if target_id >= gna.neuron_count {
+                    continue;
+                }
+                
+                let synapse_conductance = self.weights[idx];
+                let psp = (numerator / denominator) * synapse_conductance;
+                
+                // Update target neuron's membrane potential
+                let current_mp = gna.membrane_potentials[target_id];
+                let updated_mp = current_mp + psp;
+                
+                // Get consecutive fire count
+                let consecutive_fire_count = gna.get_consecutive_fire_count(target_id);
+                
+                // Add to fire queue
+                fire_queue.add(
+                    target_id as u32,
+                    updated_mp,
+                    gna.thresholds[target_id],
+                    consecutive_fire_count,
+                    gna.refractory_counters[target_id]
+                );
+            }
+        }
     }
 }
 
