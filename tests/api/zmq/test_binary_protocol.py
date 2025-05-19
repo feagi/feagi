@@ -7,9 +7,30 @@ import struct
 import time
 from typing import Dict, Any
 
-from feagi.api.protocols.base import ProtocolID
-from feagi.api.protocols.binary import BinarySerializer, BinaryProtocolError
+# Import test utilities to check ZMQ availability
+from tests.api.zmq.zmq_test_utils import HAS_ZMQ, requires_zmq
 
+# Apply the decorator to all tests in this module
+pytestmark = requires_zmq
+
+# Only import FEAGI modules if ZMQ is available
+if HAS_ZMQ:
+    from feagi.api.protocols.base import ProtocolID
+    from feagi.api.protocols.binary import BinarySerializer, BinaryProtocolError
+else:
+    # Create stub classes for type checking when ZMQ is not available
+    class ProtocolID:
+        FCP = 1
+        FSMP = 2
+        FVP = 3
+    
+    class BinarySerializer:
+        """Stub class for BinarySerializer when ZMQ is not available."""
+        pass
+    
+    class BinaryProtocolError(Exception):
+        """Stub class for BinaryProtocolError when ZMQ is not available."""
+        pass
 
 class TestBinarySerializer:
     """Test the BinarySerializer class."""

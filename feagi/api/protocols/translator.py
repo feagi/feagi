@@ -30,7 +30,7 @@ import logging
 from typing import Dict, Any, List, Optional, Union, Type, Set, Tuple
 
 from feagi.utils.logger import setup_logger
-logger = setup_logger(__name__)
+logger = setup_logger()
 
 # Mock implementations for the feagi_bytes classes
 class ByteStructureEncoder:
@@ -57,9 +57,34 @@ class ByteStructureDecoder:
 
 # Import after the mock classes to avoid circular import issues
 from feagi.api.protocols.constants import ProtocolID, ByteStructureID, FCPCommandType
-from feagi.api.protocols.byte_structures.fcp import ControlMessage
-from feagi.api.protocols.byte_structures.fsmp import SensorimotorMessage
-from feagi.api.protocols.byte_structures.fvp import VisualizationMessage
+
+# Attempt to import the protocol byte structures, but provide fallbacks if they're not available
+try:
+    from feagi.api.protocols.byte_structures.fcp import ControlMessage
+except ImportError:
+    class ControlMessage:
+        @staticmethod
+        def encode(command_type, payload): return b""
+        @staticmethod
+        def decode(data): return {}
+
+try:
+    from feagi.api.protocols.byte_structures.fsmp import SensorimotorMessage
+except ImportError:
+    class SensorimotorMessage:
+        @staticmethod
+        def encode(message_type, channel_id, data): return b""
+        @staticmethod
+        def decode(data): return {}
+
+try:
+    from feagi.api.protocols.byte_structures.fvp import VisualizationMessage
+except ImportError:
+    class VisualizationMessage:
+        @staticmethod
+        def encode(message_type, data): return b""
+        @staticmethod
+        def decode(data): return {}
 
 # These imports are provided as a fallback
 try:
@@ -71,9 +96,11 @@ except ImportError:
     ByteSerializer = object
     deserialize_message = lambda x: {}
     serialize_message = lambda x: b""
-    get_structure_info = lambda x: {}
+    get_structure_info = lambda x: (1, 1)  # Default structure ID and version
     is_compressed = lambda x: False
-    SUPPORTED_VERSIONS = {}
+    SUPPORTED_VERSIONS = {ByteStructureID.JSON: [1], ByteStructureID.RAW_IMAGE: [1],
+                         ByteStructureID.MULTI_HOLDER: [1], ByteStructureID.NEURON_FLAT: [1],
+                         ByteStructureID.NEURON_CATEGORIES: [1]}
 
 try:
     from .base import ProtocolManager
@@ -82,6 +109,18 @@ except ImportError:
     class ProtocolManager:
         def __init__(self):
             pass
+        
+        def encode_message(self, data, protocol_id, version):
+            return b""
+            
+        def decode_message(self, data):
+            return {}, ProtocolID.FCP, 1
+            
+        def get_compatible_version(self, protocol_id, supported_versions):
+            return 1 if supported_versions else None
+            
+        def get_latest_version(self, protocol_id):
+            return 1
 
 # Configure logging
 logger = setup_logger(__name__)

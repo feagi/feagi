@@ -15,10 +15,18 @@ import concurrent.futures
 import json
 from typing import Dict, Any, List, Optional, Union, Callable
 
+# Import zmq - the mocks are already set up in __init__.py
 import zmq
 import zmq.asyncio
-from zmq.auth.thread import ThreadAuthenticator
+# Make sure we can access ThreadAuthenticator
+try:
+    from zmq.auth.thread import ThreadAuthenticator
+except ImportError:
+    # This shouldn't happen as it should be mocked in __init__.py
+    logger.error("ThreadAuthenticator not available, using None")
+    ThreadAuthenticator = None
 
+# Import the rest of the dependencies
 from ..core.service import CoreApiService
 from .rest_adapter import ZMQRestAPIAdapter  # Import the REST API adapter
 

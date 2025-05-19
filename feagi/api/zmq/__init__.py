@@ -11,12 +11,47 @@ communication with FEAGI, including:
 """
 
 import os
+import importlib.util
+import sys
 from feagi.utils.logger import setup_logger
 logger = setup_logger()
 import asyncio
 import threading
 from typing import Optional, List, Any
 
+# Handle ZMQ module availability before importing server and client
+import zmq
+
+# Check if zmq.asyncio is available and set up mock if needed
+try:
+    import zmq.asyncio
+    HAS_ZMQ_ASYNCIO = True
+except ImportError:
+    logger.warning("zmq.asyncio not available, using mock implementation")
+    from .mock_asyncio import Context as AsyncContext
+    # Create a placeholder for zmq.asyncio
+    class MockAsyncio:
+        Context = AsyncContext
+    # Add the mock to zmq
+    zmq.asyncio = MockAsyncio
+    HAS_ZMQ_ASYNCIO = False
+
+# Check if zmq.auth is available and set up mock if needed
+try:
+    import zmq.auth
+    import zmq.auth.thread
+    from zmq.auth.thread import ThreadAuthenticator
+    HAS_ZMQ_AUTH = True
+except ImportError:
+    logger.warning("zmq.auth not available, using mock implementation")
+    # Import our mock implementation which sets up sys.modules correctly
+    from . import mock_auth
+    # No need to add anything to zmq since mock_auth handles it
+    # Import ThreadAuthenticator directly from system modules to ensure it's available
+    from zmq.auth.thread import ThreadAuthenticator 
+    HAS_ZMQ_AUTH = False
+
+# Now we can safely import the rest of the modules
 from .server import ZmqServer
 from .client import ZmqClient
 

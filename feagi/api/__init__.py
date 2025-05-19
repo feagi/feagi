@@ -1,22 +1,23 @@
-"""API module for FEAGI."""
+"""
+FEAGI API Module
 
-# Core API exports
-from feagi.api.core.services import CoreAPIService
+This package provides the API for interacting with FEAGI, including:
+- Core API for brain simulation
+- REST API
+- Binary protocols
+- Client libraries
+"""
 
-# Gateway exports
-from feagi.api.gateway import APIGateway, get_api_gateway
+import importlib.util
+import sys
+from typing import Optional, Dict, Any, List, Union
 
-# REST API exports
-from feagi.api.rest import create_rest_app
+# Import core components
+# Import directly from api_gateway.py to avoid circular imports
+from feagi.api.gateway.api_gateway import APIGateway, get_api_gateway
 
-# ZMQ API exports
-from feagi.api.zmq import create_zmq_server, create_zmq_client
-
+# Public exports
 __all__ = [
-    "CoreAPIService",
-    "APIGateway",
-    "get_api_gateway",
-    "create_rest_app",
-    "create_zmq_server", 
-    "create_zmq_client"
+    'APIGateway',
+    'get_api_gateway'
 ] 
