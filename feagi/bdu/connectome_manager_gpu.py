@@ -49,12 +49,15 @@ class ConnectomeManagerGPU:
     data processing and transfer to GPU memory.
     """
     
-    def __init__(self, config_or_max_neurons=10_000_000, max_synapses=100_000_000):
+    def __init__(self, config_or_max_neurons=10_000_000, max_synapses=100_000_000, 
+                backend=None, multi_gpu_config=None):
         """Initialize the ConnectomeManager with GPU-optimized data structures.
         
         Args:
             config_or_max_neurons: Either a FeagiConfig object or the maximum number of neurons
             max_synapses: Maximum number of synapses (only used if first parameter is an integer)
+            backend: Backend type to use (numpy, pytorch, cupy, webgpu, or auto)
+            multi_gpu_config: Configuration for multi-GPU operation (optional)
         """
         # Handle either a config object or direct integers
         if hasattr(config_or_max_neurons, 'get'):
@@ -68,8 +71,11 @@ class ConnectomeManagerGPU:
             self.max_synapses = max_synapses
             fcl_window_size = 20
         
+        # Set backend type
+        self.backend = backend
+        
         # Initialize neuron storage using NeuronArray for SIMD/GPU optimization
-        self.neuron_array = NeuronArray(max_neurons=self.max_neurons)
+        self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=backend)
         
         # Cortical area storage (still dictionary-based as areas are fewer in number)
         self.cortical_areas: Dict[str, CorticalArea] = {}
@@ -112,12 +118,157 @@ class ConnectomeManagerGPU:
         from feagi.npu.fcl_manager import FCLManager
         self.fcl_manager = FCLManager(window_size=fcl_window_size)
         
+        # Multi-GPU support
+        self.multi_gpu_manager = None
+        if multi_gpu_config is not None:
+            self._init_multi_gpu(multi_gpu_config)
+        
         # For test compatibility
         self._neuron_to_position = {}
         self.is_initialized = True
         
         logger.info(f"Initialized GPU-optimized ConnectomeManager with capacity for {self.max_neurons} neurons "
                    f"and {self.max_synapses} synapses")
+    
+    def _init_multi_gpu(self, multi_gpu_config):
+        """Initialize multi-GPU support.
+        
+        Args:
+            multi_gpu_config: Configuration for multi-GPU operation
+        """
+        try:
+            # Import here to avoid circular imports
+            from feagi.bdu.multi_gpu import MultiGPUManager
+            
+            # Create multi-GPU manager
+            self.multi_gpu_manager = MultiGPUManager(multi_gpu_config)
+            
+            # Initialize with this connectome
+            self.multi_gpu_manager.initialize(self)
+            
+            logger.info(f"Initialized multi-GPU manager with {multi_gpu_config.num_devices} devices")
+        except ImportError:
+            logger.warning("Could not import MultiGPUManager. Multi-GPU support is disabled.")
+            self.multi_gpu_manager = None
+        except Exception as e:
+            logger.error(f"Failed to initialize multi-GPU support: {e}")
+            self.multi_gpu_manager = None
+
+    def to_multi_gpu(self, multi_gpu_config=None):
+        """Convert the connectome to use multi-GPU processing.
+        
+        Args:
+            multi_gpu_config: Configuration for multi-GPU operation (optional)
+                If None, will use automatic configuration
+                
+        Returns:
+            Self (for method chaining)
+        """
+        if multi_gpu_config is None:
+            # Import here to avoid circular imports
+            from feagi.bdu.multi_gpu import MultiGPUConfig
+            
+            # Auto-detect configuration
+            multi_gpu_config = MultiGPUConfig(enabled=True)
+        
+        # Initialize multi-GPU support
+        self._init_multi_gpu(multi_gpu_config)
+        
+        return self
+
+    def update_membrane_potentials(self, current_timestep=None) -> List[int]:
+        """Update membrane potentials based on incoming signals.
+        
+        This GPU-optimized implementation uses sparse matrix operations and
+        vectorized computations for maximum performance.
+        
+        Args:
+            current_timestep: Current simulation timestep (optional)
+            
+        Returns:
+            List of neuron IDs that fired
+        """
+        # Use multi-GPU implementation if available
+        if self.multi_gpu_manager is not None and self.multi_gpu_manager.initialized:
+            return self.multi_gpu_manager.update_membrane_potentials(current_timestep)
+            
+        # Original single-GPU implementation
+        if current_timestep is not None:
+            self.current_timestep = current_timestep
+        
+        # Ensure outgoing matrix is in CSR format for efficient row access
+        self._ensure_csr_format_outgoing()
+        
+        # Get subset of outgoing matrix for active neurons
+        # Convert active_neurons to boolean mask if it's a set
+        if isinstance(self.active_neurons, set):
+            active_mask = np.zeros(self.max_neurons, dtype=np.bool_)
+            for nid in self.active_neurons:
+                if nid in self.neuron_id_to_index:
+                    idx = self.neuron_id_to_index[nid]
+                    active_mask[idx] = True
+            self.active_neurons = active_mask
+        
+        # If we have no active neurons, decay potentials and check for firing
+        if not np.any(self.active_neurons):
+            return self._update_without_firing()
+        
+        # Create a signal propagation matrix from active neurons
+        # This uses the active_neurons mask to efficiently extract only relevant rows
+        active_indices = np.where(self.active_neurons)[0]
+        
+        if len(active_indices) == 0:
+            return self._update_without_firing()
+        
+        # Extract rows from outgoing matrix for active neurons
+        # This creates a submatrix of only the connections from active neurons
+        signal_matrix = self.outgoing_matrix[active_indices]
+        
+        # Reset active neurons for next timestep
+        self.active_neurons.fill(False)
+        
+        # Process incoming signals using the GPU-optimized NeuronArray
+        # This updates membrane potentials and returns a mask of neurons that fired
+        fired_mask = self.neuron_array.process_incoming_signals(signal_matrix)
+        
+        # Decay membrane potentials for non-firing neurons
+        non_fired_mask = ~fired_mask
+        valid_neurons = self.neuron_array.valid_mask
+        
+        # Apply decay to valid neurons that didn't fire
+        neurons_to_decay = non_fired_mask & valid_neurons
+        
+        if isinstance(self.neuron_array.membrane_potentials, torch.Tensor) and self.neuron_array.device == "cuda":
+            # Use PyTorch operations if on GPU
+            self.neuron_array.membrane_potentials[neurons_to_decay] = (
+                self.neuron_array.membrane_potentials[neurons_to_decay] * 
+                (1 - self.neuron_array.decay_rates[neurons_to_decay])
+            )
+        else:
+            # Use NumPy operations if on CPU
+            self.neuron_array.membrane_potentials[neurons_to_decay] *= (
+                1 - self.neuron_array.decay_rates[neurons_to_decay]
+            )
+        
+        # Decrement refractory counters
+        refractory_mask = self.neuron_array.refractory_counters > 0
+        self.neuron_array.refractory_counters[refractory_mask] -= 1
+        
+        # Update active_neurons for next timestep (neurons that fired)
+        self.active_neurons = fired_mask & valid_neurons
+        
+        # Update FCL manager
+        fired_indices = np.where(fired_mask)[0]
+        fired_neuron_ids = [
+            self.index_to_neuron_id.get(idx, idx) for idx in fired_indices
+        ]
+        
+        self.fcl_manager.register_event(self.current_timestep, fired_neuron_ids)
+        
+        # Increment timestep
+        self.current_timestep += 1
+        
+        return fired_neuron_ids
     
     #----------------------------------------------------------------------
     # Synapse Storage Methods
@@ -721,95 +872,6 @@ class ConnectomeManagerGPU:
         # Ensure matrix is in a format that provides efficient nnz count
         self._ensure_csr_format_outgoing()
         return self.outgoing_matrix.nnz
-    
-    def update_membrane_potentials(self, current_timestep=None) -> List[int]:
-        """Update membrane potentials based on incoming signals.
-        
-        This GPU-optimized implementation uses sparse matrix operations and
-        vectorized computations for maximum performance.
-        
-        Args:
-            current_timestep: Current simulation timestep (optional)
-            
-        Returns:
-            List of neuron IDs that fired
-        """
-        if current_timestep is not None:
-            self.current_timestep = current_timestep
-        
-        # Ensure outgoing matrix is in CSR format for efficient row access
-        self._ensure_csr_format_outgoing()
-        
-        # Get subset of outgoing matrix for active neurons
-        # Convert active_neurons to boolean mask if it's a set
-        if isinstance(self.active_neurons, set):
-            active_mask = np.zeros(self.max_neurons, dtype=np.bool_)
-            for nid in self.active_neurons:
-                if nid in self.neuron_id_to_index:
-                    idx = self.neuron_id_to_index[nid]
-                    active_mask[idx] = True
-            self.active_neurons = active_mask
-        
-        # If we have no active neurons, decay potentials and check for firing
-        if not np.any(self.active_neurons):
-            return self._update_without_firing()
-        
-        # Create a signal propagation matrix from active neurons
-        # This uses the active_neurons mask to efficiently extract only relevant rows
-        active_indices = np.where(self.active_neurons)[0]
-        
-        if len(active_indices) == 0:
-            return self._update_without_firing()
-        
-        # Extract rows from outgoing matrix for active neurons
-        # This creates a submatrix of only the connections from active neurons
-        signal_matrix = self.outgoing_matrix[active_indices]
-        
-        # Reset active neurons for next timestep
-        self.active_neurons.fill(False)
-        
-        # Process incoming signals using the GPU-optimized NeuronArray
-        # This updates membrane potentials and returns a mask of neurons that fired
-        fired_mask = self.neuron_array.process_incoming_signals(signal_matrix)
-        
-        # Decay membrane potentials for non-firing neurons
-        non_fired_mask = ~fired_mask
-        valid_neurons = self.neuron_array.valid_mask
-        
-        # Apply decay to valid neurons that didn't fire
-        neurons_to_decay = non_fired_mask & valid_neurons
-        
-        if isinstance(self.neuron_array.membrane_potentials, torch.Tensor) and self.neuron_array.device == "cuda":
-            # Use PyTorch operations if on GPU
-            self.neuron_array.membrane_potentials[neurons_to_decay] = (
-                self.neuron_array.membrane_potentials[neurons_to_decay] * 
-                (1 - self.neuron_array.decay_rates[neurons_to_decay])
-            )
-        else:
-            # Use NumPy operations if on CPU
-            self.neuron_array.membrane_potentials[neurons_to_decay] *= (
-                1 - self.neuron_array.decay_rates[neurons_to_decay]
-            )
-        
-        # Decrement refractory counters
-        refractory_mask = self.neuron_array.refractory_counters > 0
-        self.neuron_array.refractory_counters[refractory_mask] -= 1
-        
-        # Update active_neurons for next timestep (neurons that fired)
-        self.active_neurons = fired_mask & valid_neurons
-        
-        # Update FCL manager
-        fired_indices = np.where(fired_mask)[0]
-        fired_neuron_ids = [
-            self.index_to_neuron_id.get(idx, idx) for idx in fired_indices
-        ]
-        
-        self.fcl_manager.register_event(self.current_timestep, fired_neuron_ids)
-        
-        # Increment timestep
-        self.current_timestep += 1
-        
-        return fired_neuron_ids
     
     def _update_without_firing(self) -> List[int]:
         """Update membrane potentials when no neurons are firing.

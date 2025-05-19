@@ -533,7 +533,7 @@ class ConnectomeManagerWebGPU:
         self.device.queue.write_buffer(self.buffers["weights"], 0, 
                                       sparse_matrix.data.astype(np.float32))
     
-    def create_bind_groups(self):
+    def _create_bind_groups(self):
         """Create bind groups for the compute pipelines."""
         # Neuron operations bind group
         neuron_bind_group_layout = self.device.create_bind_group_layout(
@@ -555,14 +555,9 @@ class ConnectomeManagerWebGPU:
                     "binding": 2,
                     "visibility": wgpu.ShaderStage.COMPUTE,
                     "buffer": {"type": wgpu.BufferBindingType.STORAGE}
-                },
-                # Fired count
-                {
-                    "binding": 3,
-                    "visibility": wgpu.ShaderStage.COMPUTE,
-                    "buffer": {"type": wgpu.BufferBindingType.STORAGE}
                 }
-            ]
+            ],
+            label="Neuron Operations Bind Group Layout"
         )
         
         # Create bind group with actual buffers
@@ -571,15 +566,55 @@ class ConnectomeManagerWebGPU:
             entries=[
                 {"binding": 0, "resource": {"buffer": self.buffers["params"]}},
                 {"binding": 1, "resource": {"buffer": self.buffers["membrane_potentials"]}},
-                {"binding": 2, "resource": {"buffer": self.buffers["fired_neurons"]}},
-                {"binding": 3, "resource": {"buffer": self.buffers["fired_count"]}}
-            ]
+                {"binding": 2, "resource": {"buffer": self.buffers["fire_list"]}}
+            ],
+            label="Neuron Operations Bind Group"
         )
         
-        # Similar bind group for synapse operations
-        # [Implementation would continue with synapse bind groups]
+        # Synapse operations bind group layout
+        synapse_bind_group_layout = self.device.create_bind_group_layout(
+            entries=[
+                # Batch size
+                {
+                    "binding": 0,
+                    "visibility": wgpu.ShaderStage.COMPUTE,
+                    "buffer": {"type": wgpu.BufferBindingType.UNIFORM}
+                },
+                # Fire list
+                {
+                    "binding": 1,
+                    "visibility": wgpu.ShaderStage.COMPUTE,
+                    "buffer": {"type": wgpu.BufferBindingType.STORAGE}
+                },
+                # Synapse data (CSR format)
+                {
+                    "binding": 2,
+                    "visibility": wgpu.ShaderStage.COMPUTE,
+                    "buffer": {"type": wgpu.BufferBindingType.STORAGE}
+                },
+                # Neuron data
+                {
+                    "binding": 3,
+                    "visibility": wgpu.ShaderStage.COMPUTE,
+                    "buffer": {"type": wgpu.BufferBindingType.STORAGE}
+                }
+            ],
+            label="Synapse Operations Bind Group Layout"
+        )
+        
+        # Create bind group with actual buffers
+        self.bind_groups["synapse_operations"] = self.device.create_bind_group(
+            layout=synapse_bind_group_layout,
+            entries=[
+                {"binding": 0, "resource": {"buffer": self.buffers["batch_size"]}},
+                {"binding": 1, "resource": {"buffer": self.buffers["fire_list"]}},
+                {"binding": 2, "resource": {"buffer": self.buffers["row_indices"]}}, # CSR indptr
+                {"binding": 3, "resource": {"buffer": self.buffers["membrane_potentials"]}}
+            ],
+            label="Synapse Operations Bind Group"
+        )
     
-    def create_compute_pipelines(self):
+    def _create_compute_pipelines(self):
         """Create compute pipelines for neuron and synapse operations."""
         # Neuron update pipeline
         neuron_pipeline_layout = self.device.create_pipeline_layout(
@@ -593,7 +628,15 @@ class ConnectomeManagerWebGPU:
         )
         
         # Synapse propagation pipeline
-        # [Implementation would continue with synapse pipeline]
+        synapse_pipeline_layout = self.device.create_pipeline_layout(
+            bind_group_layouts=[self.bind_groups["synapse_operations"].layout]
+        )
+        
+        self.pipelines["synapse_propagation"] = self.device.create_compute_pipeline(
+            layout=synapse_pipeline_layout,
+            compute={"module": self._shader_modules["synapse_operations"],
+                    "entry_point": "propagate_signals"}
+        )
     
     def update_membrane_potentials(self):
         """Update membrane potentials using WebGPU acceleration."""
@@ -615,7 +658,7 @@ class ConnectomeManagerWebGPU:
         self.update_synapse_data()
         
         # Create command encoder
-        encoder = self.device.create_command_encoder()
+        encoder = self.device.create_command_encoder(label="Neuron Update Encoder")
         
         # Update neurons compute pass
         neuron_pass = encoder.begin_compute_pass()
@@ -628,22 +671,21 @@ class ConnectomeManagerWebGPU:
         neuron_pass.dispatch_workgroups(workgroup_count)
         neuron_pass.end()
         
-        # Signal propagation compute pass
-        # [Implementation would continue with signal propagation]
-        
-        # Submit command buffer
+        # Submit command buffer for neuron update
         self.device.queue.submit([encoder.finish()])
         
-        # Read back fired count and fired neurons
-        # First create staging buffers
+        # Now create encoder for signal propagation
+        encoder = self.device.create_command_encoder(label="Synapse Propagation Encoder")
+        
+        # Signal propagation compute pass
+        # First read back fired count to determine dispatch size
         fired_count_staging = self.device.create_buffer(
             size=4,
             usage=wgpu.BufferUsages.MAP_READ | wgpu.BufferUsages.COPY_DST,
             label="Fired Count Staging Buffer"
         )
         
-        # Copy data to staging buffer
-        encoder = self.device.create_command_encoder()
+        # Copy fired count to staging buffer
         encoder.copy_buffer_to_buffer(self.buffers["fired_count"], 0,
                                      fired_count_staging, 0, 4)
         self.device.queue.submit([encoder.finish()])
@@ -654,34 +696,64 @@ class ConnectomeManagerWebGPU:
         fired_count = int(fired_count_data[0])
         fired_count_staging.unmap()
         
-        # Only read fired neurons if there are any
-        fired_neuron_ids = []
+        # Only proceed with signal propagation if there are fired neurons
         if fired_count > 0:
-            # Create staging buffer for fired neurons
-            fired_neurons_staging = self.device.create_buffer(
-                size=fired_count * 4,
-                usage=wgpu.BufferUsages.MAP_READ | wgpu.BufferUsages.COPY_DST,
-                label="Fired Neurons Staging Buffer"
+            # Update batch size for synapse propagation
+            self.device.queue.write_buffer(
+                self.buffers["batch_size"], 0,
+                np.array([fired_count], dtype=np.uint32)
             )
             
-            # Copy data to staging buffer
-            encoder = self.device.create_command_encoder()
-            encoder.copy_buffer_to_buffer(self.buffers["fired_neurons"], 0,
-                                         fired_neurons_staging, 0, fired_count * 4)
-            self.device.queue.submit([encoder.finish()])
+            # Create command encoder for synapse propagation
+            encoder = self.device.create_command_encoder(label="Synapse Propagation Encoder")
             
-            # Map buffer and read data
-            fired_neurons_staging.map_async()
-            fired_neurons_data = np.frombuffer(fired_neurons_staging.get_mapped_range(), 
-                                              dtype=np.uint32, count=fired_count)
-            fired_neuron_ids = [int(idx) for idx in fired_neurons_data]
-            fired_neurons_staging.unmap()
+            # Signal propagation compute pass
+            propagation_pass = encoder.begin_compute_pass()
+            propagation_pass.set_pipeline(self.pipelines["synapse_propagation"])
+            propagation_pass.set_bind_group(0, self.bind_groups["synapse_operations"])
+            
+            # Dispatch compute shader with appropriate workgroup count
+            # Each workgroup handles a batch of synapses
+            workgroup_count = (fired_count + 255) // 256
+            propagation_pass.dispatch_workgroups(workgroup_count, 1, 1)
+            propagation_pass.end()
+            
+            # Submit command buffer for synapse propagation
+            self.device.queue.submit([encoder.finish()])
+        
+        # Read back fired neuron IDs
+        fired_neurons_staging = self.device.create_buffer(
+            size=min(fired_count, 1_000_000) * 4,
+            usage=wgpu.BufferUsages.MAP_READ | wgpu.BufferUsages.COPY_DST,
+            label="Fired Neurons Staging Buffer"
+        )
+        
+        # Copy fired neurons to staging buffer
+        encoder = self.device.create_command_encoder()
+        encoder.copy_buffer_to_buffer(self.buffers["fire_list"], 0,
+                                     fired_neurons_staging, 0, 
+                                     min(fired_count, 1_000_000) * 4)
+        self.device.queue.submit([encoder.finish()])
+        
+        # Map buffer and read data
+        fired_neurons_staging.map_async()
+        fired_neurons_data = np.frombuffer(fired_neurons_staging.get_mapped_range(), 
+                                          dtype=np.uint32, 
+                                          count=min(fired_count, 1_000_000))
+        fired_neuron_ids = [
+            self.connectome.index_to_neuron_id.get(int(idx), int(idx)) 
+            for idx in fired_neurons_data
+        ]
+        fired_neurons_staging.unmap()
         
         # Update FCL manager
         self.connectome.fcl_manager.register_event(self.connectome.current_timestep, fired_neuron_ids)
         
         # Increment timestep
         self.connectome.current_timestep += 1
+        
+        # Record performance metrics
+        self.performance_metrics["compute_count"] += 1
         
         return fired_neuron_ids
 

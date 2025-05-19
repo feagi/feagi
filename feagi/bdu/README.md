@@ -212,6 +212,71 @@ The BDU offers two implementations of the ConnectomeManager:
 - **Memory Alignment:** Arrays are aligned to 64-byte boundaries for optimal SIMD (AVX-512) and cache line performance.
 - **Sparse Matrix Format:** Synaptic connectivity is stored in CSR (Compressed Sparse Row) format for efficient memory usage and fast traversal.
 
+### Sparse Matrix Format Consistency
+
+The connectome manager uses specific sparse matrix formats for different access patterns:
+
+- **CSR (Compressed Sparse Row)**: Used for outgoing connections to efficiently access all post-synaptic targets of a neuron. This format is optimized for row-based access patterns and is used when:
+  - Simulating neuron firing and signal propagation (accessing all targets of a firing neuron)
+  - Querying outgoing connections for a specific neuron
+  - Performing batch operations on outgoing connections
+
+- **CSC (Compressed Sparse Column)**: Used for incoming connections to efficiently access all pre-synaptic sources to a neuron. This format is optimized for column-based access patterns and is used when:
+  - Querying incoming connections for a specific neuron
+  - Computing convergent signals to a neuron
+  - Performing learning operations that require knowledge of all synapses targeting a neuron
+
+- **Automatic Format Conversion**: The system automatically converts between formats as needed, based on the operation being performed:
+  - `_ensure_csr_format_outgoing()`: Ensures the outgoing matrix is in CSR format
+  - `_ensure_csc_format_incoming()`: Ensures the incoming matrix is in CSC format
+  - `_convert_to_lil_if_needed()`: Converts to LIL (List of Lists) format for efficient modifications
+
+This approach ensures optimal performance for both kinds of operations while maintaining memory efficiency.
+
+### Multi-GPU Support
+
+The BDU architecture includes support for multi-GPU operation through a partition-based approach:
+
+- **Domain Decomposition**: The brain is partitioned into regions that can be processed independently on different GPUs
+  - Spatial partitioning based on cortical areas
+  - Workload-balanced partitioning based on neuron and synapse density
+
+- **Communication Strategy**:
+  - Uses NCCL (for PyTorch/CUDA) or custom message passing (for WebGPU) for inter-GPU communication
+  - Fire Candidate Lists (FCLs) are exchanged between partitions at synchronization points
+  - Minimizes data transfer by only communicating active neurons (FCLs) rather than all neurons
+
+- **Synchronization Model**:
+  - Bulk Synchronous Parallel (BSP) approach with customizable synchronization frequency
+  - Each GPU processes its partition independently, then synchronizes at specific intervals
+  - Adjustable trade-off between accuracy and performance through sync frequency settings
+
+- **Load Balancing**:
+  - Dynamic partition adjustment based on runtime performance metrics
+  - Migration of highly connected neural clusters to balance workloads
+  - Automated performance optimization through self-tuning parameters
+
+To enable multi-GPU operation, initialize with the desired configuration:
+
+```python
+from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
+from feagi.bdu.multi_gpu import MultiGPUConfig
+
+# Configure multi-GPU settings
+multi_gpu_config = MultiGPUConfig(
+    enabled=True,
+    num_devices=2,  # Number of GPUs to use
+    partition_method="cortical_areas",  # or "balanced"
+    sync_frequency=10  # Synchronize every 10 timesteps
+)
+
+# Create connectome manager with multi-GPU support
+connectome = ConnectomeManagerGPU(
+    max_neurons=1_000_000,
+    multi_gpu_config=multi_gpu_config
+)
+```
+
 ### Vectorized Operations
 
 - **Batch Processing:** Operations are performed on entire arrays rather than individual neurons.
@@ -232,6 +297,36 @@ The code supports multiple computational backends:
 - **Staging Buffers:** Used for efficient CPU-GPU transfers
 - **Double Buffering:** Minimizes stalls due to data dependencies
 - **Aligned Memory:** Ensures optimal memory access patterns on GPU
+
+### Mixed Precision Support
+
+The backend abstraction layer provides support for various precision modes to optimize performance:
+
+- **FP32 (Full Precision)**: Standard 32-bit floating point for maximum accuracy
+- **FP16 (Half Precision)**: 16-bit floating point for faster computation and reduced memory usage
+- **INT8 (Quantized)**: 8-bit integer for extremely efficient inference on supported hardware
+- **Mixed Precision**: Automatic selection of precision based on operation needs
+
+To use different precision modes:
+
+```python
+from feagi.bdu.models.array_backend import ArrayBackend, BackendType, PrecisionType
+
+# Create a half-precision GPU backend
+backend = ArrayBackend(BackendType.PYTORCH, PrecisionType.FP16)
+
+# Create arrays with the selected precision
+zeros = backend.zeros((1000, 1000))  # Will use float16 dtype
+
+# Use mixed precision for maximum performance
+mixed_backend = ArrayBackend(BackendType.PYTORCH, PrecisionType.MIXED)
+# This will use FP16 where appropriate and FP32 where needed for stability
+```
+
+Benefits of mixed precision:
+- Up to 2-3x performance increase for large networks
+- Reduced memory footprint allowing larger models
+- Hardware-accelerated mixed precision on modern GPUs
 
 ### WebGPU Shader Design
 
