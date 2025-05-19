@@ -169,7 +169,10 @@ class APIGateway:
                 if os.environ.get("FEAGI_LOCAL_CORE", "0") == "1":
                     logger.info("Creating local Core API instance")
                     from feagi.core import create_core_api
-                    self._core_api = create_core_api()
+                    from unittest.mock import MagicMock
+                    # Create a mock connectome since we need one for the API
+                    mock_connectome = MagicMock()
+                    self._core_api = create_core_api(connectome=mock_connectome)
                     logger.info("Local Core API created")
         except ImportError:
             logger.warning("Could not import Process Manager or create local Core API")

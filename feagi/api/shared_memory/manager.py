@@ -7,6 +7,7 @@ regions used for inter-process communication in FEAGI.
 
 import os
 import mmap
+import logging
 import multiprocessing as mp
 import threading
 from feagi.utils.logger import setup_logger

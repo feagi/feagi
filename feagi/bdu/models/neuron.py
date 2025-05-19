@@ -9,6 +9,7 @@ from typing import Dict, List, Tuple, Any, Optional, Union
 import torch
 import logging
 from feagi.bdu.models.array_backend import ArrayBackend, BackendType
+from scipy import sparse
 
 logger = logging.getLogger(__name__)
 
@@ -364,7 +365,10 @@ class NeuronArray:
         Returns:
             Total number of neurons
         """
-        return np.sum(self.valid_mask)
+        if isinstance(self.valid_mask, torch.Tensor):
+            return int(self.valid_mask.sum().item())
+        else:
+            return int(np.sum(self.valid_mask))
 
     def update_membrane_potentials(self, synapse_indices, synapse_data):
         """Update membrane potentials based on firing neurons and incoming connections.
@@ -383,7 +387,7 @@ class NeuronArray:
         else:
             is_torch = False
             device = "cpu" if not hasattr(self, 'device') else self.device
-
+            
         # Get the mask of valid neurons
         valid = self.valid_mask
         
@@ -392,86 +396,83 @@ class NeuronArray:
         
         # For neurons in refractory period, decrement counters
         in_refractory = valid & (self.refractory_counters > 0)
-        if is_torch:
+        if is_torch or isinstance(self.refractory_counters, torch.Tensor):
+            # Use PyTorch tensor operations
             self.refractory_counters[in_refractory] -= 1
         else:
+            # Use NumPy operations
             np.subtract(self.refractory_counters, 1, out=self.refractory_counters, where=in_refractory)
         
-        # Update membrane potentials for valid neurons
+        # Process incoming spikes
+        # We need to extract the actual data based on the data type
         if isinstance(synapse_data, torch.Tensor):
-            # GPU implementation using PyTorch
-            # This would need a specialized CUDA kernel or specialized PyTorch ops
-            # For now, we just simulate it without true vectorization
-            for idx in synapse_indices:
-                if idx >= len(self.membrane_potentials):
-                    continue
-                
-                # Get all post-synaptic targets and weights
-                targets = torch.nonzero(synapse_data[idx]).squeeze()
-                if targets.dim() == 0 and targets.numel() > 0:
-                    # Handle single target case
-                    targets = targets.unsqueeze(0)
-                
-                if targets.numel() == 0:
-                    continue
-                
-                weights = synapse_data[idx, targets]
-                
-                # Add weights to membrane potentials of targets
-                # Only update neurons not in refractory period
-                update_mask = can_update_mask[targets]
-                if update_mask.any():
-                    self.membrane_potentials[targets[update_mask]] += weights[update_mask]
+            # With PyTorch tensors, we need to handle sparse matrices differently
+            # This assumes a Torch sparse tensor
+            for source_idx in synapse_indices:
+                # For each source neuron that fired, propagate its signal
+                if source_idx < synapse_data.shape[0]:  # Check bounds
+                    # Get all targets and weights for this source
+                    target_indices = torch.nonzero(synapse_data[source_idx]).squeeze(1)
+                    if isinstance(target_indices, torch.Tensor) and target_indices.dim() == 0:
+                        # Handle scalar tensor case
+                        target_indices = target_indices.unsqueeze(0)
+                        
+                    if isinstance(target_indices, torch.Tensor) and target_indices.numel() > 0:  # Check if any connections exist
+                        weights = synapse_data[source_idx, target_indices]
+                        
+                        # Update membrane potentials for all target neurons at once, only those that can update
+                        update_mask = can_update_mask[target_indices]
+                        if update_mask.any():
+                            update_indices = target_indices[update_mask]
+                            self.membrane_potentials[update_indices] += weights[update_mask]
         else:
-            # CPU implementation using sparse matrices
-            # Get all post-synaptic connections from firing neurons
-            for idx in synapse_indices:
-                if idx >= synapse_data.shape[0]:
-                    continue
+            # With NumPy/SciPy, we work directly with the sparse matrix
+            # Ensure matrix is in CSR format for efficient row access
+            if not isinstance(synapse_data, sparse.csr_matrix):
+                synapse_data = synapse_data.tocsr()
                 
-                # Get the row for this neuron
-                row = synapse_data.getrow(idx)
-                
-                # Get the targets and weights
-                targets = row.indices
-                weights = row.data
-                
-                if len(targets) == 0:
-                    continue
-                
-                # Only update neurons not in refractory period
-                update_mask = can_update_mask[targets]
-                if np.any(update_mask):
-                    self.membrane_potentials[targets[update_mask]] += weights[update_mask]
+            # Process each source neuron that fired
+            for source_idx in synapse_indices:
+                # Get the row for this neuron (all outgoing connections)
+                if source_idx < synapse_data.shape[0]:  # Check bounds
+                    row = synapse_data.getrow(source_idx)
+                    
+                    # Get the non-zero column indices and data values
+                    target_indices, weights = row.indices, row.data
+                    
+                    # Update membrane potentials for targets that can update
+                    for target_idx, weight in zip(target_indices, weights):
+                        if can_update_mask[target_idx]:
+                            self.membrane_potentials[target_idx] += weight
+                            
+        # Check for neurons that exceed threshold
+        fire_condition = (self.membrane_potentials > self.thresholds) & can_update_mask
         
-        # Check which neurons exceed threshold and should fire
-        # Only consider neurons not already in refractory period
-        fired = can_update_mask & (self.membrane_potentials >= self.thresholds)
-        
-        # Reset membrane potentials and set refractory period for fired neurons
-        if is_torch:
-            self.membrane_potentials[fired] = self.resting_potentials[fired]
-            self.refractory_counters[fired] = self.refractory_periods[fired]
-            self.is_active[fired] = True
+        # Handle different tensor types for fired_indices
+        if isinstance(fire_condition, torch.Tensor):
+            fired_indices = fire_condition.nonzero().squeeze(1)
+            # Handle empty or scalar tensor cases
+            if fired_indices.dim() == 0 and fired_indices.numel() > 0:
+                fired_indices = fired_indices.unsqueeze(0)
+            elif fired_indices.numel() == 0:
+                fired_indices = torch.tensor([], dtype=torch.long, device=fire_condition.device)
         else:
-            np.copyto(self.membrane_potentials, self.resting_potentials, where=fired)
-            np.copyto(self.refractory_counters, self.refractory_periods, where=fired)
-            self.is_active[fired] = True
+            fired_indices = np.where(fire_condition)[0]
         
-        # Decay membrane potentials for all valid neurons
-        valid_not_fired = valid & ~fired
-        if is_torch:
-            self.membrane_potentials[valid_not_fired] = (
-                self.membrane_potentials[valid_not_fired] * (1.0 - self.decay_rates[valid_not_fired]) + 
-                self.resting_potentials[valid_not_fired] * self.decay_rates[valid_not_fired]
-            )
-        else:
-            decay_effect = self.membrane_potentials[valid_not_fired] * (1.0 - self.decay_rates[valid_not_fired])
-            rest_effect = self.resting_potentials[valid_not_fired] * self.decay_rates[valid_not_fired]
-            self.membrane_potentials[valid_not_fired] = decay_effect + rest_effect
-        
-        # Return indices of fired neurons
-        return np.where(fired)[0]
+        # Reset membrane potentials and set refractory periods for firing neurons
+        # Check if we have any neurons that fired
+        has_firing = (isinstance(fired_indices, torch.Tensor) and fired_indices.numel() > 0) or \
+                   (not isinstance(fired_indices, torch.Tensor) and len(fired_indices) > 0)
+                   
+        if has_firing:
+            self.membrane_potentials[fired_indices] = self.resting_potentials[fired_indices]
+            self.refractory_counters[fired_indices] = self.refractory_periods[fired_indices]
+            
+            # Mark active neurons
+            self.is_active = np.zeros_like(self.is_active) if not isinstance(self.is_active, torch.Tensor) else torch.zeros_like(self.is_active)
+            self.is_active[fired_indices] = True
+            
+        return fired_indices
 
     def decay_and_check_firing(self):
         """Decay membrane potentials and check for neurons that now exceed threshold.
@@ -523,6 +524,29 @@ class NeuronArray:
         
         # Return indices of fired neurons
         return np.where(fired)[0]
+    
+    def find_neurons_above_threshold(self) -> np.ndarray:
+        """Find all neurons with membrane potential above threshold.
+        
+        Returns:
+            Array of indices of neurons that exceed their firing threshold
+        """
+        # Get the mask of valid neurons
+        valid = self.valid_mask
+        
+        # Only consider neurons not in refractory period
+        can_fire_mask = valid & (self.refractory_counters <= 0)
+        
+        # Check which neurons exceed threshold
+        if isinstance(self.membrane_potentials, torch.Tensor):
+            # PyTorch implementation
+            above_threshold = can_fire_mask & (self.membrane_potentials >= self.thresholds)
+            # Convert to numpy for consistency with other methods
+            return torch.nonzero(above_threshold).flatten().cpu().numpy()
+        else:
+            # NumPy implementation
+            above_threshold = can_fire_mask & (self.membrane_potentials >= self.thresholds)
+            return np.nonzero(above_threshold)[0]
 
     def to_dict(self, neuron_id: int) -> Dict[str, Any]:
         """Convert a neuron to a dictionary representation (for API compatibility).
@@ -648,23 +672,44 @@ class NeuronArray:
         positions_y = np.array([pos[1] for pos in positions], dtype=np.int32)
         positions_z = np.array([pos[2] for pos in positions], dtype=np.int32)
         
-        # Set neuron properties using vectorized operations
-        self.membrane_potentials[indices] = membrane_potentials
-        self.resting_potentials[indices] = resting_potentials
-        self.thresholds[indices] = thresholds
-        self.decay_rates[indices] = decay_rates
-        self.refractory_periods[indices] = refractory_periods
-        self.refractory_counters[indices] = 0
-        self.is_active[indices] = False
-        
-        # Set area and positions
-        self.area_ids[indices] = area_id
-        self.positions_x[indices] = positions_x
-        self.positions_y[indices] = positions_y
-        self.positions_z[indices] = positions_z
-        
-        # Mark as valid
-        self.valid_mask[indices] = True
+        # Set neuron properties using vectorized operations - handle torch tensors
+        if isinstance(self.membrane_potentials, torch.Tensor):
+            # Convert numpy arrays to torch tensors
+            indices_tensor = torch.tensor(indices, device=self.device)
+            self.membrane_potentials[indices_tensor] = torch.tensor(membrane_potentials, device=self.device)
+            self.resting_potentials[indices_tensor] = torch.tensor(resting_potentials, device=self.device)
+            self.thresholds[indices_tensor] = torch.tensor(thresholds, device=self.device)
+            self.decay_rates[indices_tensor] = torch.tensor(decay_rates, device=self.device)
+            self.refractory_periods[indices_tensor] = torch.tensor(refractory_periods, device=self.device)
+            self.refractory_counters[indices_tensor] = 0
+            self.is_active[indices_tensor] = False
+            
+            # Set area and positions
+            self.area_ids[indices_tensor] = area_id
+            self.positions_x[indices_tensor] = torch.tensor(positions_x, device=self.device)
+            self.positions_y[indices_tensor] = torch.tensor(positions_y, device=self.device)
+            self.positions_z[indices_tensor] = torch.tensor(positions_z, device=self.device)
+            
+            # Mark as valid
+            self.valid_mask[indices_tensor] = True
+        else:
+            # NumPy arrays
+            self.membrane_potentials[indices] = membrane_potentials
+            self.resting_potentials[indices] = resting_potentials
+            self.thresholds[indices] = thresholds
+            self.decay_rates[indices] = decay_rates
+            self.refractory_periods[indices] = refractory_periods
+            self.refractory_counters[indices] = 0
+            self.is_active[indices] = False
+            
+            # Set area and positions
+            self.area_ids[indices] = area_id
+            self.positions_x[indices] = positions_x
+            self.positions_y[indices] = positions_y
+            self.positions_z[indices] = positions_z
+            
+            # Mark as valid
+            self.valid_mask[indices] = True
         
         # Update ID to index mapping
         for neuron_id, index in zip(neuron_ids, indices):

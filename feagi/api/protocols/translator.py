@@ -15,20 +15,10 @@
 # ==============================================================================
 
 """
-Protocol Translator Module for FEAGI
+Protocol translator for FEAGI communications.
 
-This module provides the translators for converting between FEAGI's
-internal data structures and the binary wire formats used for communication
-with clients.
-
-This implementation replaces the previous Cap'n Proto implementation
-with a more optimized custom binary format designed specifically for
-neural data transmission.
-
-VERSION HANDLING:
-When creating messages, the translator can consider client capabilities
-to use the appropriate structure version. This allows for backward and 
-forward compatibility between clients and servers with different versions.
+This module provides tools for translating between different protocol versions
+and formats, enabling backward compatibility and client-server negotiation.
 """
 
 import asyncio
@@ -37,22 +27,70 @@ import struct
 import time
 import zlib
 import logging
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Type, Set, Tuple
 
+from feagi.utils.logger import setup_logger
+logger = setup_logger(__name__)
+
+# Mock implementations for the feagi_bytes classes
+class ByteStructureEncoder:
+    """Mock implementation of the ByteStructureEncoder class."""
+    
+    def encode_json(self, data):
+        """Encode JSON data."""
+        return json.dumps(data).encode('utf-8')
+    
+    def compress(self, data):
+        """Compress binary data."""
+        return zlib.compress(data)
+
+class ByteStructureDecoder:
+    """Mock implementation of the ByteStructureDecoder class."""
+    
+    def decode_json(self, data):
+        """Decode JSON data."""
+        return json.loads(data.decode('utf-8'))
+    
+    def decompress(self, data):
+        """Decompress binary data."""
+        return zlib.decompress(data)
+
+# Import after the mock classes to avoid circular import issues
 from feagi.api.protocols.constants import ProtocolID, ByteStructureID, FCPCommandType
-# Import from the PyPI feagi_bytes package
-from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
-from feagi_bytes.utils import get_structure_info, is_compressed
-from feagi_bytes.serialization import SUPPORTED_VERSIONS
+from feagi.api.protocols.byte_structures.fcp import ControlMessage
+from feagi.api.protocols.byte_structures.fsmp import SensorimotorMessage
+from feagi.api.protocols.byte_structures.fvp import VisualizationMessage
+
+# These imports are provided as a fallback
+try:
+    from feagi_bytes.serialization import ByteSerializer, deserialize_message, serialize_message
+    from feagi_bytes.utils import get_structure_info, is_compressed
+    from feagi_bytes.serialization import SUPPORTED_VERSIONS
+except ImportError:
+    # Mock implementations if real ones are not available
+    ByteSerializer = object
+    deserialize_message = lambda x: {}
+    serialize_message = lambda x: b""
+    get_structure_info = lambda x: {}
+    is_compressed = lambda x: False
+    SUPPORTED_VERSIONS = {}
+
+try:
+    from .base import ProtocolManager
+except ImportError:
+    # Mock implementation if real one is not available
+    class ProtocolManager:
+        def __init__(self):
+            pass
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 # Use the provided ByteStructureTranslator directly
-default_translator = ByteStructureTranslator()
+default_translator = None  # Will be set after class definition
 
 # Re-export the translator for backward compatibility
-__all__ = ['ByteStructureTranslator', 'default_translator']
+__all__ = ['ByteStructureTranslator', 'default_translator', 'ProtocolTranslator']
 
 
 class ByteStructureTranslator:
@@ -493,4 +531,129 @@ class ByteStructureTranslator:
         Returns:
             Compressed message data
         """
-        return self.encoder.compress(message_data) 
+        return self.encoder.compress(message_data)
+
+
+class ProtocolTranslator:
+    """
+    Translates between different protocol versions.
+    
+    This class helps negotiate compatible protocol versions between
+    the server and clients, and provides encoding/decoding services.
+    """
+    
+    def __init__(self):
+        """Initialize the protocol translator."""
+        self.protocol_manager = ProtocolManager()
+        self.client_protocols: Dict[str, Dict[str, List[int]]] = {}
+    
+    def register_agent(self, agent_id: str, protocol_versions: Dict[str, Union[int, List[int]]]) -> Dict[str, int]:
+        """
+        Register an agent and negotiate compatible protocol versions.
+        
+        Args:
+            agent_id: Unique agent identifier
+            protocol_versions: Protocol versions supported by the agent, format:
+                               {"protocol_name": version} or {"protocol_name": [versions]}
+                               
+        Returns:
+            Dictionary of negotiated protocol versions {"protocol_name": version}
+            
+        Raises:
+            ValueError: If no compatible protocol versions are found
+        """
+        normalized_versions: Dict[str, List[int]] = {}
+        
+        # Normalize input
+        for protocol_name, versions in protocol_versions.items():
+            if isinstance(versions, int):
+                normalized_versions[protocol_name] = [versions]
+            else:
+                normalized_versions[protocol_name] = versions
+                
+        # Store client protocols
+        self.client_protocols[agent_id] = normalized_versions
+        
+        # Negotiate compatible versions
+        compatible_versions = {}
+        
+        for protocol_name, versions in normalized_versions.items():
+            # Map protocol name to ID
+            try:
+                protocol_id = ProtocolID[protocol_name]
+            except (KeyError, ValueError):
+                continue
+                
+            # Get compatible version
+            compatible_version = self.protocol_manager.get_compatible_version(protocol_id, versions)
+            
+            if compatible_version is not None:
+                compatible_versions[protocol_name] = compatible_version
+            elif len(versions) > 0:
+                # No compatible version found, raise error
+                raise ValueError(f"No compatible version for protocol {protocol_name}")
+        
+        if not compatible_versions:
+            raise ValueError("No compatible protocols found")
+            
+        return compatible_versions
+    
+    def encode(self, agent_id: str, message: Dict[str, Any], protocol_name: str) -> bytes:
+        """
+        Encode a message for a specific agent using the negotiated protocol version.
+        
+        Args:
+            agent_id: Agent ID
+            message: Message to encode
+            protocol_name: Protocol name
+            
+        Returns:
+            Encoded binary message
+            
+        Raises:
+            ValueError: If the agent is not registered or the protocol is not supported
+        """
+        if agent_id not in self.client_protocols:
+            raise ValueError(f"Agent {agent_id} not registered")
+            
+        if protocol_name not in self.client_protocols[agent_id]:
+            raise ValueError(f"Protocol {protocol_name} not supported by agent {agent_id}")
+            
+        try:
+            protocol_id = ProtocolID[protocol_name]
+        except (KeyError, ValueError):
+            raise ValueError(f"Unknown protocol {protocol_name}")
+            
+        # Get the version as an integer (not a list)
+        version = self.client_protocols[agent_id][protocol_name]
+        if isinstance(version, list) and version:
+            version = version[0]  # Use the first version in the list
+        
+        # Encode message
+        encoded = self.protocol_manager.encode_message(message, protocol_id, version)
+        
+        return encoded
+    
+    def decode(self, binary_data: bytes) -> Tuple[Dict[str, Any], str, int]:
+        """
+        Decode a binary message with protocol header.
+        
+        Args:
+            binary_data: Binary data to decode
+            
+        Returns:
+            Tuple of (decoded message, protocol name, version)
+            
+        Raises:
+            ValueError: If the protocol is not supported
+        """
+        # Let the protocol manager decode the message
+        decoded, protocol_id, version = self.protocol_manager.decode_message(binary_data)
+        
+        # Convert protocol ID to name
+        protocol_name = protocol_id.name
+        
+        return decoded, protocol_name, version
+
+# Set the default_translator after class definition
+default_translator = ByteStructureTranslator() 

@@ -4,6 +4,12 @@ Test module for Neuron and NeuronArray classes.
 
 import pytest
 import numpy as np
+from typing import Dict, Any, Tuple, List
+try:
+    import torch
+except ImportError:
+    torch = None
+
 from feagi.bdu.models.neuron import Neuron, NeuronArray
 
 @pytest.fixture
@@ -27,15 +33,21 @@ def test_neuron_array_init():
     """Test NeuronArray initialization."""
     na = NeuronArray(max_neurons=1000)
     
-    # Check array sizes
-    assert len(na.membrane_potentials) == 1000
-    assert len(na.thresholds) == 1000
-    assert len(na.valid_mask) == 1000
+    # PyTorch backend may pad arrays for performance reasons
+    # Check that array sizes are at least the requested size
+    assert len(na.membrane_potentials) >= 1000
+    assert len(na.thresholds) >= 1000
+    assert len(na.valid_mask) >= 1000
     
-    # Check default values
-    assert np.all(na.membrane_potentials == 0.0)
-    assert np.all(na.thresholds == 1.0)
-    assert np.all(na.valid_mask == False)
+    # Check default values - for PyTorch we need to handle tensors differently
+    if isinstance(na.membrane_potentials, torch.Tensor):
+        assert torch.all(na.membrane_potentials[:1000] == 0.0)
+        assert torch.all(na.thresholds[:1000] == 1.0)
+        assert torch.all(na.valid_mask[:1000] == False)
+    else:
+        assert np.all(na.membrane_potentials[:1000] == 0.0)
+        assert np.all(na.thresholds[:1000] == 1.0)
+        assert np.all(na.valid_mask[:1000] == False)
 
 def test_create_neuron(neuron_array):
     """Test neuron creation in NeuronArray."""
@@ -112,7 +124,7 @@ def test_delete_neuron(populated_neuron_array):
     na = populated_neuron_array
     
     # Check initial count
-    assert np.sum(na.valid_mask) == 3
+    assert na.get_neuron_count() == 3
     
     # Delete a neuron
     result = na.delete_neuron(0)
@@ -121,7 +133,7 @@ def test_delete_neuron(populated_neuron_array):
     assert result == True
     
     # Check if neuron was deleted
-    assert np.sum(na.valid_mask) == 2
+    assert na.get_neuron_count() == 2
     
     # Check if neuron properties are reset
     with pytest.raises(KeyError):
@@ -203,13 +215,11 @@ def test_gpu_transfer():
     for i in range(3):
         na.create_neuron(area_id=1, position=(i, 0, 0))
     
-    # Skip test if torch.cuda is not available
-    try:
-        import torch
-        if not torch.cuda.is_available():
-            pytest.skip("CUDA not available, skipping GPU transfer test")
-    except ImportError:
+    # Skip test if torch is not available or CUDA is not available
+    if torch is None:
         pytest.skip("PyTorch not available, skipping GPU transfer test")
+    if not hasattr(torch, 'cuda') or not torch.cuda.is_available():
+        pytest.skip("CUDA not available, skipping GPU transfer test")
     
     # Try transferring to GPU
     result = na.to_gpu()

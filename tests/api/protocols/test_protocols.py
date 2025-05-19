@@ -284,10 +284,11 @@ class TestProtocolTranslator:
         encoded = translator.encode("agent1", original_data, "FCP")
         
         # Decode (should work regardless of agent)
-        decoded, protocol_id, version = translator.decode(encoded)
+        decoded, protocol_name, version = translator.decode(encoded)
         
         # Check decoding results
-        assert protocol_id == ProtocolID.FCP
+        assert protocol_name == "FCP"
         assert version == 1
         assert decoded["command_type"] == original_data["command_type"]
-        assert decoded["payload"]["agent_id"] == original_data["payload"]["agent_id"] 
+        assert decoded["payload"]["agent_id"] == original_data["payload"]["agent_id"]
+        assert decoded["payload"]["agent_type"] == original_data["payload"]["agent_type"] 

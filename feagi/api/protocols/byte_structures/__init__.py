@@ -15,10 +15,10 @@
 # ==============================================================================
 
 """
-FEAGI Byte Structures Implementation
+Byte structure definitions for FEAGI protocols.
 
-This package contains the implementation of FEAGI byte structures for
-efficient binary serialization of neural data and other message types.
+This package contains the byte structure definitions for the FEAGI communication
+protocols, enabling efficient binary serialization and deserialization.
 """
 
 # Import core structures
