@@ -1056,3 +1056,558 @@ class ConnectomeManagerGPU:
             pass
         
         return neuron_ids 
+
+    def batch_update_neuron_properties(self, neuron_ids: List[int], property_name: Union[str, NeuronPropertyType], 
+                                     values: Union[List[float], List[int], float, int]) -> bool:
+        """Update a property for multiple neurons at once in a vectorized operation.
+        
+        Args:
+            neuron_ids: List of neuron IDs to update
+            property_name: Name or enum of the property to update
+            values: Either a list of values (one per neuron) or a single value for all neurons
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            ValueError: If neuron_ids and values lists have different lengths when values is a list
+        """
+        # Check that neuron_ids is not empty
+        if not neuron_ids:
+            return True
+        
+        # Handle property name as either string or enum
+        if isinstance(property_name, NeuronPropertyType):
+            property_name = property_name.value
+        
+        # Convert neuron_ids to array indices
+        try:
+            indices = np.array([self.neuron_id_to_index[nid] for nid in neuron_ids if nid in self.neuron_id_to_index], 
+                              dtype=np.int32)
+        except KeyError:
+            # Some neuron IDs don't exist - skip them
+            indices = np.array([self.neuron_id_to_index[nid] for nid in neuron_ids if nid in self.neuron_id_to_index], 
+                              dtype=np.int32)
+        
+        # If no valid indices, return early
+        if len(indices) == 0:
+            return True
+        
+        # If values is a single value, broadcast to all neurons
+        if not isinstance(values, list):
+            values = [values] * len(indices)
+        elif len(values) != len(indices):
+            raise ValueError(f"Number of values ({len(values)}) must match number of neurons ({len(indices)})")
+        
+        # Update property using vectorized operation
+        if property_name == "membrane_potential":
+            self.neuron_array.membrane_potentials[indices] = np.array(values, dtype=np.float32)
+        elif property_name == "resting_potential":
+            self.neuron_array.resting_potentials[indices] = np.array(values, dtype=np.float32)
+        elif property_name == "threshold":
+            self.neuron_array.thresholds[indices] = np.array(values, dtype=np.float32)
+        elif property_name == "decay_rate":
+            self.neuron_array.decay_rates[indices] = np.array(values, dtype=np.float32)
+        elif property_name == "refractory_period":
+            self.neuron_array.refractory_periods[indices] = np.array(values, dtype=np.int32)
+        elif property_name == "refractory_counter":
+            self.neuron_array.refractory_counters[indices] = np.array(values, dtype=np.int32)
+        elif property_name == "is_active":
+            self.neuron_array.is_active[indices] = np.array(values, dtype=np.bool_)
+        else:
+            # Unknown property
+            logger.warning(f"Unknown property {property_name} in batch update")
+            return False
+        
+        return True
+    
+    def vectorized_cortical_area_operations(self, operation: str, area_ids: List[str], **kwargs) -> Dict[str, Any]:
+        """Perform vectorized operations on multiple cortical areas at once.
+        
+        Args:
+            operation: Type of operation to perform ('resize', 'move', 'count_neurons', etc.)
+            area_ids: List of cortical area IDs to operate on
+            **kwargs: Additional parameters specific to the operation
+            
+        Returns:
+            Dictionary with operation results for each area
+            
+        Raises:
+            ValueError: If the operation is not supported
+        """
+        results = {}
+        
+        if operation == "count_neurons":
+            # Count neurons in each area using vectorized operations
+            for area_id in area_ids:
+                if area_id in self.area_neuron_masks:
+                    # Use numpy sum which is faster than Python loops
+                    neuron_count = np.sum(self.area_neuron_masks[area_id])
+                    results[area_id] = int(neuron_count)
+                else:
+                    results[area_id] = 0
+        
+        elif operation == "resize":
+            # Resize multiple areas at once
+            new_dimensions = kwargs.get("dimensions")
+            if not new_dimensions:
+                raise ValueError("New dimensions required for resize operation")
+            
+            for area_id in area_ids:
+                if area_id not in self.cortical_areas:
+                    results[area_id] = {"success": False, "reason": "Area not found"}
+                    continue
+                
+                area = self.cortical_areas[area_id]
+                old_dimensions = area.dimensions
+                
+                # Update area dimensions
+                area.dimensions = new_dimensions
+                
+                # Find neurons that would be outside the new bounds
+                if area_id in self.area_neuron_masks:
+                    mask = self.area_neuron_masks[area_id]
+                    indices = np.where(mask)[0]
+                    
+                    removed_neuron_ids = []
+                    for idx in indices:
+                        x = self.neuron_array.positions_x[idx]
+                        y = self.neuron_array.positions_y[idx]
+                        z = self.neuron_array.positions_z[idx]
+                        
+                        if (x >= new_dimensions[0] or y >= new_dimensions[1] or z >= new_dimensions[2]):
+                            # This neuron is now outside bounds - get its ID and delete it
+                            neuron_id = self.index_to_neuron_id.get(idx)
+                            if neuron_id is not None:
+                                self.delete_neuron(neuron_id)
+                                removed_neuron_ids.append(neuron_id)
+                    
+                    results[area_id] = {
+                        "success": True,
+                        "old_dimensions": old_dimensions,
+                        "new_dimensions": new_dimensions,
+                        "removed_neurons": removed_neuron_ids
+                    }
+                else:
+                    results[area_id] = {
+                        "success": True,
+                        "old_dimensions": old_dimensions,
+                        "new_dimensions": new_dimensions,
+                        "removed_neurons": []
+                    }
+        
+        elif operation == "move":
+            # Move multiple areas at once
+            new_position = kwargs.get("position")
+            if not new_position:
+                raise ValueError("New position required for move operation")
+            
+            for area_id in area_ids:
+                if area_id not in self.cortical_areas:
+                    results[area_id] = {"success": False, "reason": "Area not found"}
+                    continue
+                
+                area = self.cortical_areas[area_id]
+                old_position = area.position
+                
+                # Update area position
+                area.position = new_position
+                
+                results[area_id] = {
+                    "success": True,
+                    "old_position": old_position,
+                    "new_position": new_position
+                }
+        
+        elif operation == "get_bounds":
+            # Get position bounds for multiple areas at once
+            for area_id in area_ids:
+                if area_id not in self.cortical_areas:
+                    results[area_id] = {"success": False, "reason": "Area not found"}
+                    continue
+                
+                area = self.cortical_areas[area_id]
+                
+                # Calculate bounds
+                min_pos = area.position
+                max_pos = tuple(p + d for p, d in zip(area.position, area.dimensions))
+                
+                results[area_id] = {
+                    "success": True,
+                    "min_bounds": min_pos,
+                    "max_bounds": max_pos,
+                    "dimensions": area.dimensions
+                }
+        
+        else:
+            raise ValueError(f"Unsupported operation: {operation}")
+        
+        return results
+    
+    def apply_rule_batch(self, rule_ids: List[str], weight_override: Optional[float] = None, 
+                        max_synapses: int = 10000) -> Dict[str, int]:
+        """Apply multiple connectivity rules at once using vectorized operations.
+        
+        Args:
+            rule_ids: List of connectivity rule IDs to apply
+            weight_override: Override the weight specified in the rules (optional)
+            max_synapses: Maximum number of synapses to create (prevents excessive connections)
+            
+        Returns:
+            Dictionary mapping rule IDs to number of synapses created
+            
+        Raises:
+            KeyError: If any rule_id doesn't exist
+        """
+        results = {}
+        
+        # Group rules by type for vectorized processing
+        rules_by_type = {}
+        for rule_id in rule_ids:
+            if rule_id not in self.connectivity_rules:
+                raise KeyError(f"Connectivity rule {rule_id} does not exist")
+            
+            rule = self.connectivity_rules[rule_id]
+            if not rule["enabled"]:
+                results[rule_id] = 0
+                continue
+            
+            rule_type = rule["rule_type"]
+            if rule_type not in rules_by_type:
+                rules_by_type[rule_type] = []
+            
+            rules_by_type[rule_type].append((rule_id, rule))
+        
+        # Process rules by type using specialized vectorized implementations
+        for rule_type, rules in rules_by_type.items():
+            if rule_type == "one-to-one":
+                results.update(self._apply_one_to_one_rules_batch(rules, weight_override, max_synapses))
+            elif rule_type == "all-to-all":
+                results.update(self._apply_all_to_all_rules_batch(rules, weight_override, max_synapses))
+            elif rule_type == "probabilistic":
+                results.update(self._apply_probabilistic_rules_batch(rules, weight_override, max_synapses))
+            elif rule_type == "distance":
+                results.update(self._apply_distance_rules_batch(rules, weight_override, max_synapses))
+            elif rule_type == "random-subset":
+                results.update(self._apply_random_subset_rules_batch(rules, weight_override, max_synapses))
+            else:
+                # Fallback to individual application
+                for rule_id, rule in rules:
+                    created_count = self.apply_connectivity_rule(rule_id, weight_override, max_synapses)
+                    results[rule_id] = created_count
+        
+        return results
+    
+    def _apply_one_to_one_rules_batch(self, rules, weight_override, max_synapses):
+        """Apply one-to-one rules in batch."""
+        results = {}
+        
+        for rule_id, rule in rules:
+            source_area_id = rule["source_area_id"]
+            target_area_id = rule["target_area_id"]
+            
+            # Get neurons in both areas
+            source_neurons = self.get_neurons_by_area(source_area_id)
+            target_neurons = self.get_neurons_by_area(target_area_id)
+            
+            if not source_neurons or not target_neurons:
+                results[rule_id] = 0
+                continue
+            
+            # Check dimensions
+            source_area = self.cortical_areas[source_area_id]
+            target_area = self.cortical_areas[target_area_id]
+            
+            if source_area.dimensions != target_area.dimensions:
+                results[rule_id] = 0
+                continue
+            
+            # Determine weight
+            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
+            
+            # Prepare synapse specs
+            synapse_specs = []
+            max_connections = min(max_synapses, min(len(source_neurons), len(target_neurons)))
+            
+            # Sort neurons by position for consistent mapping
+            source_positions = []
+            for neuron_id in source_neurons[:max_connections]:
+                idx = self.neuron_id_to_index[neuron_id]
+                pos = (self.neuron_array.positions_x[idx], 
+                      self.neuron_array.positions_y[idx], 
+                      self.neuron_array.positions_z[idx])
+                source_positions.append((neuron_id, pos))
+            
+            target_positions = []
+            for neuron_id in target_neurons[:max_connections]:
+                idx = self.neuron_id_to_index[neuron_id]
+                pos = (self.neuron_array.positions_x[idx], 
+                      self.neuron_array.positions_y[idx], 
+                      self.neuron_array.positions_z[idx])
+                target_positions.append((neuron_id, pos))
+            
+            # Sort by position
+            source_positions.sort(key=lambda x: (x[1][0], x[1][1], x[1][2]))
+            target_positions.sort(key=lambda x: (x[1][0], x[1][1], x[1][2]))
+            
+            # Create connections
+            for i in range(min(len(source_positions), len(target_positions))):
+                source_id = source_positions[i][0]
+                target_id = target_positions[i][0]
+                synapse_specs.append((source_id, target_id, weight))
+            
+            # Create synapses in batch
+            created_count = self.batch_create_synapses(synapse_specs)
+            results[rule_id] = created_count
+        
+        return results
+    
+    def _apply_all_to_all_rules_batch(self, rules, weight_override, max_synapses):
+        """Apply all-to-all rules in batch."""
+        results = {}
+        
+        for rule_id, rule in rules:
+            source_area_id = rule["source_area_id"]
+            target_area_id = rule["target_area_id"]
+            
+            # Get neurons in both areas
+            source_neurons = self.get_neurons_by_area(source_area_id)
+            target_neurons = self.get_neurons_by_area(target_area_id)
+            
+            if not source_neurons or not target_neurons:
+                results[rule_id] = 0
+                continue
+            
+            # Determine weight
+            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
+            
+            # Calculate total possible connections
+            total_possible = len(source_neurons) * len(target_neurons)
+            
+            # Check if we need to sample
+            if total_possible <= max_synapses:
+                # Create all connections
+                synapse_specs = []
+                for source_id in source_neurons:
+                    for target_id in target_neurons:
+                        synapse_specs.append((source_id, target_id, weight))
+                        if len(synapse_specs) >= max_synapses:
+                            break
+                    if len(synapse_specs) >= max_synapses:
+                        break
+            else:
+                # Sample connections
+                sample_count = min(max_synapses, total_possible)
+                source_ids = np.random.choice(source_neurons, size=sample_count, replace=True)
+                target_ids = np.random.choice(target_neurons, size=sample_count, replace=True)
+                
+                synapse_specs = [(source_ids[i], target_ids[i], weight) for i in range(sample_count)]
+            
+            # Create synapses in batch
+            created_count = self.batch_create_synapses(synapse_specs)
+            results[rule_id] = created_count
+        
+        return results
+    
+    def _apply_probabilistic_rules_batch(self, rules, weight_override, max_synapses):
+        """Apply probabilistic rules in batch."""
+        results = {}
+        
+        for rule_id, rule in rules:
+            source_area_id = rule["source_area_id"]
+            target_area_id = rule["target_area_id"]
+            
+            # Get neurons in both areas
+            source_neurons = self.get_neurons_by_area(source_area_id)
+            target_neurons = self.get_neurons_by_area(target_area_id)
+            
+            if not source_neurons or not target_neurons:
+                results[rule_id] = 0
+                continue
+            
+            # Determine weight and probability
+            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
+            probability = rule["parameters"].get("probability", 0.1)
+            
+            # Calculate total possible and expected connections
+            total_possible = len(source_neurons) * len(target_neurons)
+            expected_count = int(total_possible * probability)
+            actual_count = min(expected_count, max_synapses)
+            
+            # Sample connections
+            if actual_count > 0:
+                source_ids = np.random.choice(source_neurons, size=actual_count, replace=True)
+                target_ids = np.random.choice(target_neurons, size=actual_count, replace=True)
+                
+                synapse_specs = [(source_ids[i], target_ids[i], weight) for i in range(actual_count)]
+                
+                # Create synapses in batch
+                created_count = self.batch_create_synapses(synapse_specs)
+                results[rule_id] = created_count
+            else:
+                results[rule_id] = 0
+        
+        return results
+    
+    def _apply_distance_rules_batch(self, rules, weight_override, max_synapses):
+        """Apply distance-based rules in batch."""
+        results = {}
+        
+        for rule_id, rule in rules:
+            source_area_id = rule["source_area_id"]
+            target_area_id = rule["target_area_id"]
+            
+            # Get neurons in both areas
+            source_neurons = self.get_neurons_by_area(source_area_id)
+            target_neurons = self.get_neurons_by_area(target_area_id)
+            
+            if not source_neurons or not target_neurons:
+                results[rule_id] = 0
+                continue
+            
+            # Determine weight and max distance
+            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
+            max_distance = rule["parameters"].get("max_distance", 5.0)
+            scale_by_distance = rule["parameters"].get("scale_by_distance", False)
+            
+            # Get areas
+            source_area = self.cortical_areas[source_area_id]
+            target_area = self.cortical_areas[target_area_id]
+            
+            # Get positions in global coordinates
+            source_global_positions = {}
+            for neuron_id in source_neurons:
+                idx = self.neuron_id_to_index[neuron_id]
+                local_pos = (self.neuron_array.positions_x[idx], 
+                            self.neuron_array.positions_y[idx], 
+                            self.neuron_array.positions_z[idx])
+                global_pos = tuple(lp + ap for lp, ap in zip(local_pos, source_area.position))
+                source_global_positions[neuron_id] = global_pos
+            
+            target_global_positions = {}
+            for neuron_id in target_neurons:
+                idx = self.neuron_id_to_index[neuron_id]
+                local_pos = (self.neuron_array.positions_x[idx], 
+                            self.neuron_array.positions_y[idx], 
+                            self.neuron_array.positions_z[idx])
+                global_pos = tuple(lp + ap for lp, ap in zip(local_pos, target_area.position))
+                target_global_positions[neuron_id] = global_pos
+            
+            # Calculate distances using vectorized operations for efficiency
+            total_possible = len(source_neurons) * len(target_neurons)
+            
+            if total_possible > 100000:  # Switch to sampling for large networks
+                # Sample random pairs and check distances
+                candidates = 0
+                max_candidates = min(100000, total_possible)
+                synapse_specs = []
+                
+                while len(synapse_specs) < max_synapses and candidates < max_candidates:
+                    source_id = np.random.choice(source_neurons)
+                    target_id = np.random.choice(target_neurons)
+                    
+                    source_pos = source_global_positions[source_id]
+                    target_pos = target_global_positions[target_id]
+                    
+                    # Calculate Euclidean distance
+                    distance = np.sqrt(sum((a - b) ** 2 for a, b in zip(source_pos, target_pos)))
+                    
+                    if distance <= max_distance:
+                        if scale_by_distance:
+                            distance_weight = 1.0 - (distance / max_distance)
+                            synapse_specs.append((source_id, target_id, weight * distance_weight))
+                        else:
+                            synapse_specs.append((source_id, target_id, weight))
+                    
+                    candidates += 1
+            else:
+                # Vectorized distance calculation for smaller networks
+                source_ids = np.array(list(source_neurons))
+                target_ids = np.array(list(target_neurons))
+                
+                # Convert positions to arrays for vectorized operations
+                source_pos_array = np.array([source_global_positions[nid] for nid in source_ids])
+                target_pos_array = np.array([target_global_positions[nid] for nid in target_ids])
+                
+                # Limit to manageable subsets if needed
+                max_sources = min(1000, len(source_ids))
+                max_targets = min(1000, len(target_ids))
+                
+                source_pos_array = source_pos_array[:max_sources]
+                source_ids = source_ids[:max_sources]
+                target_pos_array = target_pos_array[:max_targets]
+                target_ids = target_ids[:max_targets]
+                
+                # Calculate distances (still O(n²) but vectorized)
+                synapse_specs = []
+                
+                for i, (source_id, source_pos) in enumerate(zip(source_ids, source_pos_array)):
+                    # Calculate distances to all targets at once
+                    distances = np.sqrt(np.sum((target_pos_array - source_pos) ** 2, axis=1))
+                    
+                    # Find targets within max distance
+                    within_distance = distances <= max_distance
+                    valid_targets = target_ids[within_distance]
+                    valid_distances = distances[within_distance]
+                    
+                    # Add connections
+                    for j, (target_id, distance) in enumerate(zip(valid_targets, valid_distances)):
+                        if scale_by_distance:
+                            distance_weight = 1.0 - (distance / max_distance)
+                            synapse_specs.append((source_id, target_id, weight * distance_weight))
+                        else:
+                            synapse_specs.append((source_id, target_id, weight))
+                        
+                        if len(synapse_specs) >= max_synapses:
+                            break
+                    
+                    if len(synapse_specs) >= max_synapses:
+                        break
+            
+            # Create synapses in batch
+            created_count = self.batch_create_synapses(synapse_specs)
+            results[rule_id] = created_count
+        
+        return results
+    
+    def _apply_random_subset_rules_batch(self, rules, weight_override, max_synapses):
+        """Apply random-subset rules in batch."""
+        results = {}
+        
+        for rule_id, rule in rules:
+            source_area_id = rule["source_area_id"]
+            target_area_id = rule["target_area_id"]
+            
+            # Get neurons in both areas
+            source_neurons = self.get_neurons_by_area(source_area_id)
+            target_neurons = self.get_neurons_by_area(target_area_id)
+            
+            if not source_neurons or not target_neurons:
+                results[rule_id] = 0
+                continue
+            
+            # Determine weight and number of targets
+            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
+            num_targets = min(rule["parameters"].get("num_targets", 5), len(target_neurons))
+            
+            # Limit source neurons to avoid excessive computation
+            max_sources = min(len(source_neurons), max_synapses // num_targets)
+            
+            # Prepare all synapse specs at once
+            synapse_specs = []
+            
+            # For each source neuron, randomly select target neurons
+            for source_id in source_neurons[:max_sources]:
+                targets = np.random.choice(target_neurons, num_targets, replace=False)
+                
+                for target_id in targets:
+                    synapse_specs.append((source_id, target_id, weight))
+                
+                if len(synapse_specs) >= max_synapses:
+                    break
+            
+            # Create synapses in batch
+            created_count = self.batch_create_synapses(synapse_specs)
+            results[rule_id] = created_count
+        
+        return results 
