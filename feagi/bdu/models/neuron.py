@@ -1,53 +1,73 @@
 """Neuron model implementation optimized for GPU processing.
 
 This module provides a high-performance implementation of neuron storage 
-using CSR (Compressed Sparse Row) format compatible with GPU acceleration.
+using Structure of Arrays (SoA) format compatible with SIMD and GPU acceleration.
 """
 
 import numpy as np
 from typing import Dict, List, Tuple, Any, Optional, Union
 import torch
 import logging
+from feagi.bdu.models.array_backend import ArrayBackend, BackendType
 
 logger = logging.getLogger(__name__)
+
+# Ensure 64-byte alignment for AVX-512 compatibility (512 bits = 64 bytes)
+MEMORY_ALIGNMENT = 64
+
 class NeuronArray:
     """GPU-optimized neuron storage using contiguous memory arrays.
     
-    This implementation uses NumPy/PyTorch arrays for neuron property storage,
-    which can be efficiently transferred to GPU memory for parallel computation.
+    This implementation uses an array backend (NumPy, PyTorch, CuPy, or WebGPU)
+    for neuron property storage, which can be efficiently processed with SIMD 
+    or transferred to GPU memory for parallel computation.
     
     Instead of storing individual Neuron objects, we store properties in columnar
     format for vectorized operations.
     """
     
-    def __init__(self, max_neurons: int = 10_000_000):
+    def __init__(self, max_neurons: int = 10_000_000, backend: Union[str, BackendType] = "auto"):
         """Initialize neuron storage using contiguous arrays.
         
         Args:
             max_neurons: Maximum number of neurons to allocate memory for
+            backend: Array backend to use (numpy, pytorch, cupy, webgpu, or auto)
         """
         self.max_neurons = max_neurons
         
+        # Ensure neuron count is aligned to MEMORY_ALIGNMENT-byte boundary for SIMD
+        # For float32, which is 4 bytes, we need to ensure the array size is divisible by 16
+        # (MEMORY_ALIGNMENT / 4) to maintain 64-byte alignment
+        aligned_size = ((max_neurons + (MEMORY_ALIGNMENT // 4) - 1) // (MEMORY_ALIGNMENT // 4)) * (MEMORY_ALIGNMENT // 4)
+        self.aligned_size = aligned_size
+        
+        # Initialize array backend
+        self.backend = ArrayBackend(backend)
+        logger.info(f"Using {self.backend.backend_type.value} backend for NeuronArray")
+        
         # Core neuron properties as contiguous arrays
         # Using float32 for most values as it's optimal for GPU computation
-        self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
-        self.resting_potentials = np.zeros(max_neurons, dtype=np.float32)
-        self.thresholds = np.ones(max_neurons, dtype=np.float32)
-        self.decay_rates = np.full(max_neurons, 0.5, dtype=np.float32)
-        self.refractory_periods = np.ones(max_neurons, dtype=np.int32)
-        self.refractory_counters = np.zeros(max_neurons, dtype=np.int32)
-        self.is_active = np.zeros(max_neurons, dtype=np.bool_)
+        self.membrane_potentials = self.backend.zeros((aligned_size,), dtype=np.float32)
+        self.resting_potentials = self.backend.zeros((aligned_size,), dtype=np.float32)
+        self.thresholds = self.backend.ones((aligned_size,), dtype=np.float32)
+        self.decay_rates = self.backend.full((aligned_size,), 0.5, dtype=np.float32)
+        self.refractory_periods = self.backend.ones((aligned_size,), dtype=np.int32)
+        self.refractory_counters = self.backend.zeros((aligned_size,), dtype=np.int32)
+        
+        # Boolean values should use native boolean type for the backend
+        self.is_active = self.backend.zeros((aligned_size,), dtype=np.bool_)
         
         # Area membership
-        self.area_ids = np.zeros(max_neurons, dtype=np.int32)
+        self.area_ids = self.backend.zeros((aligned_size,), dtype=np.int32)
         
         # Position tracking (3D coordinates)
-        self.positions_x = np.zeros(max_neurons, dtype=np.int32)
-        self.positions_y = np.zeros(max_neurons, dtype=np.int32)
-        self.positions_z = np.zeros(max_neurons, dtype=np.int32)
+        # Stored as separate arrays for better memory access patterns in GPU
+        self.positions_x = self.backend.zeros((aligned_size,), dtype=np.int32)
+        self.positions_y = self.backend.zeros((aligned_size,), dtype=np.int32)
+        self.positions_z = self.backend.zeros((aligned_size,), dtype=np.int32)
         
         # Neuron validity mask (1 if neuron exists at this index, 0 if not)
-        self.valid_mask = np.zeros(max_neurons, dtype=np.bool_)
+        self.valid_mask = self.backend.zeros((aligned_size,), dtype=np.bool_)
         
         # Keep track of allocated neurons
         self.next_index = 0
@@ -56,44 +76,127 @@ class NeuronArray:
         # Mapping from neuron_id to index in the arrays
         self.id_to_index_map = {}
         
-        # Device where arrays are stored (CPU by default)
-        self.device = "cpu"
+        # Device where arrays are stored (depends on backend)
+        self.device = "cpu"  # Will be updated if arrays are moved to GPU
 
     def to_gpu(self):
         """Transfer neuron arrays to GPU for accelerated computation."""
-        if torch.cuda.is_available():
-            self.device = "cuda"
-            
-            # Convert numpy arrays to torch tensors on GPU
-            self.membrane_potentials = torch.from_numpy(self.membrane_potentials).to(self.device)
-            self.resting_potentials = torch.from_numpy(self.resting_potentials).to(self.device)
-            self.thresholds = torch.from_numpy(self.thresholds).to(self.device)
-            self.decay_rates = torch.from_numpy(self.decay_rates).to(self.device)
-            self.refractory_periods = torch.from_numpy(self.refractory_periods).to(self.device)
-            self.refractory_counters = torch.from_numpy(self.refractory_counters).to(self.device)
-            self.is_active = torch.from_numpy(self.is_active).to(self.device)
-            self.valid_mask = torch.from_numpy(self.valid_mask).to(self.device)
-            
+        if self.device == "gpu":
+            logger.info("Arrays are already on GPU")
             return True
-        else:
+            
+        logger.info("Transferring neuron arrays to GPU...")
+        
+        try:
+            # Move all arrays to GPU using the backend's to_device method
+            self.membrane_potentials = self.backend.to_device(self.membrane_potentials)
+            self.resting_potentials = self.backend.to_device(self.resting_potentials)
+            self.thresholds = self.backend.to_device(self.thresholds)
+            self.decay_rates = self.backend.to_device(self.decay_rates)
+            self.refractory_periods = self.backend.to_device(self.refractory_periods)
+            self.refractory_counters = self.backend.to_device(self.refractory_counters)
+            self.is_active = self.backend.to_device(self.is_active)
+            self.valid_mask = self.backend.to_device(self.valid_mask)
+            self.area_ids = self.backend.to_device(self.area_ids)
+            self.positions_x = self.backend.to_device(self.positions_x)
+            self.positions_y = self.backend.to_device(self.positions_y)
+            self.positions_z = self.backend.to_device(self.positions_z)
+            
+            self.device = "gpu"
+            logger.info("Neuron arrays successfully transferred to GPU")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to transfer arrays to GPU: {e}")
             return False
-
+            
     def to_cpu(self):
         """Transfer neuron arrays back to CPU."""
-        if self.device != "cpu":
-            # Convert torch tensors back to numpy arrays
-            self.membrane_potentials = self.membrane_potentials.cpu().numpy()
-            self.resting_potentials = self.resting_potentials.cpu().numpy()
-            self.thresholds = self.thresholds.cpu().numpy()
-            self.decay_rates = self.decay_rates.cpu().numpy()
-            self.refractory_periods = self.refractory_periods.cpu().numpy()
-            self.refractory_counters = self.refractory_counters.cpu().numpy()
-            self.is_active = self.is_active.cpu().numpy()
-            self.valid_mask = self.valid_mask.cpu().numpy()
+        if self.device == "cpu":
+            logger.info("Arrays are already on CPU")
+            return True
+            
+        logger.info("Transferring neuron arrays to CPU...")
+        
+        try:
+            # Move all arrays to CPU using the backend's to_cpu method
+            self.membrane_potentials = self.backend.to_cpu(self.membrane_potentials)
+            self.resting_potentials = self.backend.to_cpu(self.resting_potentials)
+            self.thresholds = self.backend.to_cpu(self.thresholds)
+            self.decay_rates = self.backend.to_cpu(self.decay_rates)
+            self.refractory_periods = self.backend.to_cpu(self.refractory_periods)
+            self.refractory_counters = self.backend.to_cpu(self.refractory_counters)
+            self.is_active = self.backend.to_cpu(self.is_active)
+            self.valid_mask = self.backend.to_cpu(self.valid_mask)
+            self.area_ids = self.backend.to_cpu(self.area_ids)
+            self.positions_x = self.backend.to_cpu(self.positions_x)
+            self.positions_y = self.backend.to_cpu(self.positions_y)
+            self.positions_z = self.backend.to_cpu(self.positions_z)
             
             self.device = "cpu"
+            logger.info("Neuron arrays successfully transferred to CPU")
             return True
-        return False
+        except Exception as e:
+            logger.error(f"Failed to transfer arrays to CPU: {e}")
+            return False
+
+    def allocate_neuron(self, neuron_id: int) -> int:
+        """Allocate space for a neuron and return its array index.
+        
+        Args:
+            neuron_id: Unique ID for the neuron
+            
+        Returns:
+            Index in the arrays where the neuron is stored
+        """
+        if neuron_id in self.id_to_index_map:
+            logger.warning(f"Neuron ID {neuron_id} already exists")
+            return self.id_to_index_map[neuron_id]
+            
+        # Reuse a free index if available, otherwise use next_index
+        if self.free_indices:
+            index = self.free_indices.pop()
+        else:
+            if self.next_index >= self.max_neurons:
+                raise ValueError(f"Maximum neuron capacity ({self.max_neurons}) reached")
+            index = self.next_index
+            self.next_index += 1
+            
+        # Mark this index as valid and store the ID mapping
+        # Convert to numpy arrays first if they're backend-specific types
+        # This ensures we can use boolean indexing
+        valid_mask_np = self.backend.to_numpy(self.valid_mask)
+        valid_mask_np[index] = True
+        self.valid_mask = self.backend.array(valid_mask_np)
+        
+        self.id_to_index_map[neuron_id] = index
+        return index
+
+    def delete_neuron(self, neuron_id: int) -> bool:
+        """Delete a neuron by marking its index as available for reuse.
+        
+        Args:
+            neuron_id: ID of the neuron to delete
+            
+        Returns:
+            True if deleted, False if it didn't exist
+        """
+        if neuron_id not in self.id_to_index_map:
+            return False
+            
+        index = self.id_to_index_map[neuron_id]
+        
+        # Mark as invalid and reset values
+        valid_mask_np = self.backend.to_numpy(self.valid_mask)
+        valid_mask_np[index] = False
+        self.valid_mask = self.backend.array(valid_mask_np)
+        
+        # Add to free indices for reuse
+        self.free_indices.append(index)
+        
+        # Remove from ID mapping
+        del self.id_to_index_map[neuron_id]
+        
+        return True
 
     def create_neuron(self, area_id: int, position: Tuple[int, int, int],
                      threshold: float = 1.0, membrane_potential: float = 0.0,
@@ -148,35 +251,6 @@ class NeuronArray:
         self.id_to_index_map[neuron_id] = index
         
         return neuron_id
-
-    def delete_neuron(self, neuron_id: int) -> bool:
-        """Delete a neuron.
-        
-        Args:
-            neuron_id: ID of the neuron to delete
-            
-        Returns:
-            True if the neuron was deleted, False if it didn't exist
-        """
-        if neuron_id not in self.id_to_index_map:
-            return False
-        
-        index = self.id_to_index_map[neuron_id]
-        
-        # Mark as invalid
-        self.valid_mask[index] = False
-        
-        # Reset properties to default values
-        self.membrane_potentials[index] = 0.0
-        self.is_active[index] = False
-        
-        # Remove from ID map
-        del self.id_to_index_map[neuron_id]
-        
-        # Add to free indices list for reuse
-        self.free_indices.append(index)
-        
-        return True
 
     def get_neuron_property(self, neuron_id: int, property_name: str) -> Any:
         """Get a specific property of a neuron.

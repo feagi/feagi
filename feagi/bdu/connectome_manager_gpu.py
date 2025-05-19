@@ -38,6 +38,8 @@ class NeuronPropertyType(Enum):
     AREA_ID = "area_id"
     POSITION = "position"
     FIRING = "firing"
+    REFRACTORY_COUNTER = "refractory_counter"
+    ACTIVE = "is_active"
 
 
 class ConnectomeManagerGPU:
@@ -1070,57 +1072,150 @@ class ConnectomeManagerGPU:
             True if successful, False otherwise
             
         Raises:
-            ValueError: If neuron_ids and values lists have different lengths when values is a list
+            ValueError: If neuron IDs are invalid or property doesn't exist
         """
-        # Check that neuron_ids is not empty
-        if not neuron_ids:
-            return True
+        # Convert string property name to enum if needed
+        if isinstance(property_name, str):
+            try:
+                property_name = NeuronPropertyType(property_name)
+            except ValueError:
+                raise ValueError(f"Unknown neuron property: {property_name}")
         
-        # Handle property name as either string or enum
-        if isinstance(property_name, NeuronPropertyType):
-            property_name = property_name.value
-        
-        # Convert neuron_ids to array indices
-        try:
-            indices = np.array([self.neuron_id_to_index[nid] for nid in neuron_ids if nid in self.neuron_id_to_index], 
-                              dtype=np.int32)
-        except KeyError:
-            # Some neuron IDs don't exist - skip them
-            indices = np.array([self.neuron_id_to_index[nid] for nid in neuron_ids if nid in self.neuron_id_to_index], 
-                              dtype=np.int32)
-        
-        # If no valid indices, return early
-        if len(indices) == 0:
-            return True
-        
-        # If values is a single value, broadcast to all neurons
-        if not isinstance(values, list):
-            values = [values] * len(indices)
-        elif len(values) != len(indices):
-            raise ValueError(f"Number of values ({len(values)}) must match number of neurons ({len(indices)})")
-        
-        # Update property using vectorized operation
-        if property_name == "membrane_potential":
-            self.neuron_array.membrane_potentials[indices] = np.array(values, dtype=np.float32)
-        elif property_name == "resting_potential":
-            self.neuron_array.resting_potentials[indices] = np.array(values, dtype=np.float32)
-        elif property_name == "threshold":
-            self.neuron_array.thresholds[indices] = np.array(values, dtype=np.float32)
-        elif property_name == "decay_rate":
-            self.neuron_array.decay_rates[indices] = np.array(values, dtype=np.float32)
-        elif property_name == "refractory_period":
-            self.neuron_array.refractory_periods[indices] = np.array(values, dtype=np.int32)
-        elif property_name == "refractory_counter":
-            self.neuron_array.refractory_counters[indices] = np.array(values, dtype=np.int32)
-        elif property_name == "is_active":
-            self.neuron_array.is_active[indices] = np.array(values, dtype=np.bool_)
-        else:
-            # Unknown property
-            logger.warning(f"Unknown property {property_name} in batch update")
+        # Validate neuron IDs
+        valid_mask = np.zeros(len(neuron_ids), dtype=bool)
+        for i, neuron_id in enumerate(neuron_ids):
+            if neuron_id in self.neuron_id_to_index:
+                valid_mask[i] = True
+                
+        if not np.any(valid_mask):
+            logger.warning(f"None of the provided neuron IDs exist: {neuron_ids}")
             return False
         
+        # Get indices for valid neuron IDs
+        valid_ids = np.array(neuron_ids)[valid_mask]
+        indices = np.array([self.neuron_id_to_index[nid] for nid in valid_ids])
+        
+        # Handle single value vs. list of values
+        if isinstance(values, (int, float)):
+            # Single value for all neurons
+            update_values = np.full(len(indices), values)
+        else:
+            # List of values (one per neuron)
+            if len(values) != len(neuron_ids):
+                raise ValueError(f"Length of values ({len(values)}) must match length of neuron_ids ({len(neuron_ids)})")
+            update_values = np.array(values)[valid_mask]
+        
+        # Update the appropriate property array
+        if property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
+            self.neuron_array.membrane_potentials[indices] = update_values
+        elif property_name == NeuronPropertyType.THRESHOLD:
+            self.neuron_array.thresholds[indices] = update_values
+        elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
+            self.neuron_array.resting_potentials[indices] = update_values
+        elif property_name == NeuronPropertyType.DECAY_RATE:
+            self.neuron_array.decay_rates[indices] = update_values
+        elif property_name == NeuronPropertyType.REFRACTORY_PERIOD:
+            self.neuron_array.refractory_periods[indices] = update_values
+        elif property_name == NeuronPropertyType.REFRACTORY_COUNTER:
+            self.neuron_array.refractory_counters[indices] = update_values
+        elif property_name == NeuronPropertyType.ACTIVE:
+            self.neuron_array.is_active[indices] = update_values
+        else:
+            logger.warning(f"Property {property_name} cannot be batch updated")
+            return False
+            
         return True
+        
+    def batch_get_neuron_properties(self, neuron_ids: List[int], property_name: Union[str, NeuronPropertyType]) -> np.ndarray:
+        """Get a property for multiple neurons at once.
+        
+        Args:
+            neuron_ids: List of neuron IDs to query
+            property_name: Name or enum of the property to get
+            
+        Returns:
+            NumPy array of property values for the specified neurons
+            
+        Raises:
+            ValueError: If property doesn't exist
+        """
+        # Convert string property name to enum if needed
+        if isinstance(property_name, str):
+            try:
+                property_name = NeuronPropertyType(property_name)
+            except ValueError:
+                raise ValueError(f"Unknown neuron property: {property_name}")
+        
+        # Handle empty list
+        if not neuron_ids:
+            return np.array([])
+        
+        # Get indices for valid neuron IDs, with -1 for invalid IDs
+        indices = np.array([self.neuron_id_to_index.get(nid, -1) for nid in neuron_ids])
+        valid_mask = indices >= 0
+        
+        # Initialize result with NaN for invalid indices
+        result = np.full(len(neuron_ids), np.nan)
+        
+        # Get property values for valid indices
+        if property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
+            result[valid_mask] = self.neuron_array.membrane_potentials[indices[valid_mask]]
+        elif property_name == NeuronPropertyType.THRESHOLD:
+            result[valid_mask] = self.neuron_array.thresholds[indices[valid_mask]]
+        elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
+            result[valid_mask] = self.neuron_array.resting_potentials[indices[valid_mask]]
+        elif property_name == NeuronPropertyType.DECAY_RATE:
+            result[valid_mask] = self.neuron_array.decay_rates[indices[valid_mask]]
+        elif property_name == NeuronPropertyType.REFRACTORY_PERIOD:
+            result[valid_mask] = self.neuron_array.refractory_periods[indices[valid_mask]]
+        elif property_name == NeuronPropertyType.REFRACTORY_COUNTER:
+            result[valid_mask] = self.neuron_array.refractory_counters[indices[valid_mask]]
+        elif property_name == NeuronPropertyType.ACTIVE:
+            result[valid_mask] = self.neuron_array.is_active[indices[valid_mask]]
+        else:
+            raise ValueError(f"Property {property_name} cannot be batch queried")
+            
+        return result
     
+    def batch_add_synapses(self, pre_neurons: List[int], post_neurons: List[int], 
+                          weights: Union[List[float], float], 
+                          delays: Union[List[int], int] = 1) -> List[bool]:
+        """Add multiple synapses at once.
+        
+        Args:
+            pre_neurons: List of pre-synaptic neuron IDs
+            post_neurons: List of post-synaptic neuron IDs
+            weights: Either a list of weights (one per synapse) or a single weight for all synapses
+            delays: Either a list of delays (one per synapse) or a single delay for all synapses
+            
+        Returns:
+            List of booleans indicating which synapses were successfully added
+        """
+        if len(pre_neurons) != len(post_neurons):
+            raise ValueError(f"pre_neurons ({len(pre_neurons)}) and post_neurons ({len(post_neurons)}) must have the same length")
+        
+        # Handle single weight vs. list of weights
+        if isinstance(weights, (int, float)):
+            weights = [weights] * len(pre_neurons)
+        elif len(weights) != len(pre_neurons):
+            raise ValueError(f"weights ({len(weights)}) must have the same length as pre_neurons ({len(pre_neurons)})")
+        
+        # Handle single delay vs. list of delays
+        if isinstance(delays, int):
+            delays = [delays] * len(pre_neurons)
+        elif len(delays) != len(pre_neurons):
+            raise ValueError(f"delays ({len(delays)}) must have the same length as pre_neurons ({len(pre_neurons)})")
+        
+        # Add each synapse and track success
+        results = []
+        for pre, post, weight, delay in zip(pre_neurons, post_neurons, weights, delays):
+            results.append(self.add_synapse(pre, post, weight, delay))
+            
+        # Force re-indexing of CSR matrices
+        self._csr_matrix_outdated = True
+        
+        return results
+
     def vectorized_cortical_area_operations(self, operation: str, area_ids: List[str], **kwargs) -> Dict[str, Any]:
         """Perform vectorized operations on multiple cortical areas at once.
         

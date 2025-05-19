@@ -8,6 +8,7 @@ import logging
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union, Any
 import os
+import time
 
 # Try to import wgpu, but don't fail if it's not available
 try:
@@ -17,6 +18,12 @@ except ImportError:
     WEBGPU_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+# Memory alignment for optimal GPU transfer (64 bytes for AVX-512 compatibility)
+MEMORY_ALIGNMENT = 64
+
+# Recommended workgroup size for WGSL shaders (most GPUs work well with this)
+DEFAULT_WORKGROUP_SIZE = 256
 
 
 class ConnectomeManagerWebGPU:
@@ -48,17 +55,36 @@ class ConnectomeManagerWebGPU:
         # GPU buffers
         self.buffers = {}
         
+        # Staging buffers for CPU-GPU transfers
+        self.staging_buffers = {}
+        
         # Bind groups
         self.bind_groups = {}
         
         # Pipeline cache
         self.pipelines = {}
         
+        # Performance metrics
+        self.performance_metrics = {
+            "last_transfer_time": 0,
+            "last_compute_time": 0,
+            "total_transfer_time": 0,
+            "total_compute_time": 0,
+            "transfer_count": 0,
+            "compute_count": 0
+        }
+        
         # Initialize WebGPU
-        self._initialize_webgpu()
+        success = self._initialize_webgpu()
+        if not success:
+            logger.warning("WebGPU initialization failed. Falling back to CPU implementation.")
     
     def _initialize_webgpu(self):
-        """Initialize WebGPU context."""
+        """Initialize WebGPU context.
+        
+        Returns:
+            True if successful, False otherwise
+        """
         try:
             # Initialize WebGPU adapter
             if hasattr(wgpu, 'gpu') and hasattr(wgpu.gpu, 'request_adapter_async'):
@@ -71,14 +97,31 @@ class ConnectomeManagerWebGPU:
                     power_preference="high-performance"
                 )
             
-            # Create device
-            self.device = self.adapter.request_device()
+            # Create device with required features and limits
+            self.device = self.adapter.request_device(
+                required_features=[
+                    "timestamp-query",  # For performance metrics
+                    "pipeline-statistics-query"  # For performance metrics
+                ],
+                required_limits={
+                    "max_storage_buffer_binding_size": 1024 * 1024 * 1024,  # 1GB
+                    "max_buffer_size": 1024 * 1024 * 1024,  # 1GB
+                    "max_compute_workgroup_size_x": DEFAULT_WORKGROUP_SIZE,
+                    "max_compute_invocations_per_workgroup": DEFAULT_WORKGROUP_SIZE
+                }
+            )
             
             # Initialize shader modules
             self._init_shader_modules()
             
             # Allocate GPU buffers
             self._allocate_buffers()
+            
+            # Create bind groups for shaders
+            self._create_bind_groups()
+            
+            # Create compute pipelines
+            self._create_compute_pipelines()
             
             logger.info(f"WebGPU device initialized: {self.device}")
             return True
@@ -88,60 +131,77 @@ class ConnectomeManagerWebGPU:
     
     def _init_shader_modules(self):
         """Initialize shader modules for different operations."""
-        # Main neuron operations shader
+        # Neuron update shader (follows recommendations from the architecture document)
         neuron_shader = """
         // WebGPU shader for neuron operations
+        // Workgroup size optimized for most GPUs
+        
+        struct SimParams {
+            // Global simulation parameters
+            neuron_count: u32,
+            timestep: u32,
+            decay_factor: f32,
+        };
+        
         struct NeuronData {
-            valid_mask: array<u32>,
+            // SoA layout for optimal memory access
             membrane_potentials: array<f32>,
             resting_potentials: array<f32>,
             thresholds: array<f32>,
-            decay_rates: array<f32>,
             refractory_periods: array<u32>,
             refractory_counters: array<u32>,
-            area_ids: array<u32>,
-            is_active: array<u32>
+            is_active: array<u32>,
+            valid_mask: array<u32>,
         };
-
-        struct SimParams {
-            max_neurons: u32,
-            current_timestep: u32,
+        
+        struct FireCandidateList {
+            // Bitmap for fire candidates - each bit represents a neuron
+            count: atomic<u32>,
+            neuron_ids: array<u32>,
         };
-
+        
         @group(0) @binding(0) var<uniform> params: SimParams;
         @group(0) @binding(1) var<storage, read_write> neurons: NeuronData;
-        @group(0) @binding(2) var<storage, read_write> fired_neurons: array<u32>;
-        @group(0) @binding(3) var<storage, read_write> fired_count: array<u32>;
-
-        // Update membrane potentials and check for firing
+        @group(0) @binding(2) var<storage, read_write> fire_list: FireCandidateList;
+        
+        // Store frequently used neuron data in workgroup memory for faster access
+        var<workgroup> local_potentials: array<f32, 256>;
+        var<workgroup> local_thresholds: array<f32, 256>;
+        
         @compute @workgroup_size(256)
-        fn update_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
+        fn update_neurons(@builtin(global_invocation_id) global_id: vec3<u32>,
+                         @builtin(local_invocation_id) local_id: vec3<u32>,
+                         @builtin(workgroup_id) workgroup_id: vec3<u32>) {
+            // Calculate global neuron index
             let neuron_idx = global_id.x;
             
-            // Skip if beyond max neurons or neuron is not valid
-            if (neuron_idx >= params.max_neurons || neurons.valid_mask[neuron_idx] == 0u) {
+            // Skip if beyond neuron count
+            if (neuron_idx >= params.neuron_count) {
                 return;
             }
             
-            // Skip if in refractory period
-            if (neurons.refractory_counters[neuron_idx] > 0u) {
-                neurons.refractory_counters[neuron_idx] -= 1u;
+            // Skip if neuron is not valid
+            if (neurons.valid_mask[neuron_idx] == 0u) {
                 return;
             }
             
-            // Apply decay to membrane potential
-            let current_mp = neurons.membrane_potentials[neuron_idx];
-            let resting_mp = neurons.resting_potentials[neuron_idx];
-            let decay_rate = neurons.decay_rates[neuron_idx];
+            // Load data into workgroup memory for faster access
+            local_potentials[local_id.x] = neurons.membrane_potentials[neuron_idx];
+            local_thresholds[local_id.x] = neurons.thresholds[neuron_idx];
             
-            // Calculate new membrane potential with decay
-            let decay_effect = current_mp * (1.0 - decay_rate);
-            let rest_effect = resting_mp * decay_rate;
-            let new_mp = decay_effect + rest_effect;
-            neurons.membrane_potentials[neuron_idx] = new_mp;
+            // Ensure all threads have loaded their data
+            workgroupBarrier();
             
-            // Check for firing
-            if (new_mp >= neurons.thresholds[neuron_idx]) {
+            // Update membrane potential with decay
+            let membrane_potential = local_potentials[local_id.x] * params.decay_factor;
+            neurons.membrane_potentials[neuron_idx] = membrane_potential;
+            
+            // Check if neuron should fire (above threshold and not in refractory period)
+            let threshold = local_thresholds[local_id.x];
+            let should_fire = (membrane_potential >= threshold) && 
+                             (neurons.refractory_counters[neuron_idx] == 0u);
+            
+            if (should_fire) {
                 // Reset membrane potential
                 neurons.membrane_potentials[neuron_idx] = neurons.resting_potentials[neuron_idx];
                 
@@ -151,85 +211,126 @@ class ConnectomeManagerWebGPU:
                 // Mark as active
                 neurons.is_active[neuron_idx] = 1u;
                 
-                // Add to fired neurons list
-                let index = atomicAdd(&fired_count[0], 1u);
-                fired_neurons[index] = neuron_idx;
+                // Add to fire list using atomic operations
+                let fire_idx = atomicAdd(&fire_list.count, 1u);
+                if (fire_idx < 1000000u) {  // Prevent buffer overflow
+                    fire_list.neuron_ids[fire_idx] = u32(neuron_idx);
+                }
+            } else {
+                // Update refractory counter if it's not zero
+                if (neurons.refractory_counters[neuron_idx] > 0u) {
+                    neurons.refractory_counters[neuron_idx] = neurons.refractory_counters[neuron_idx] - 1u;
+                }
+                
+                // Reset active flag
+                neurons.is_active[neuron_idx] = 0u;
             }
         }
         
+        // Kernel for updating refractory periods across all neurons
         @compute @workgroup_size(256)
-        fn process_signals(@builtin(global_invocation_id) global_id: vec3<u32>) {
-            // Process signals from fired neurons to their targets
-            // Implementation depends on synapse representation
-        }
-        
-        fn atomicAdd(atomic_ptr: ptr<storage, atomic<u32>, read_write>, value: u32) -> u32 {
-            return atomicAdd(atomic_ptr, value);
-        }
-        """
-        
-        # Synapse processing shader
-        synapse_shader = """
-        // WebGPU shader for synapse operations
-        struct SynapseData {
-            max_synapses: u32,
-            row_indices: array<u32>,
-            col_indices: array<u32>,
-            weights: array<f32>
-        };
-        
-        struct NeuronData {
-            valid_mask: array<u32>,
-            membrane_potentials: array<f32>,
-            is_active: array<u32>
-        };
-        
-        @group(0) @binding(0) var<storage, read> fired_neurons: array<u32>;
-        @group(0) @binding(1) var<storage, read> fired_count: array<u32>;
-        @group(0) @binding(2) var<storage, read> synapses: SynapseData;
-        @group(0) @binding(3) var<storage, read_write> neurons: NeuronData;
-        
-        @compute @workgroup_size(256)
-        fn propagate_signals(@builtin(global_invocation_id) global_id: vec3<u32>) {
-            let idx = global_id.x;
+        fn update_refractory(@builtin(global_invocation_id) global_id: vec3<u32>) {
+            let neuron_idx = global_id.x;
             
-            // Skip if beyond fired neurons count
-            if (idx >= fired_count[0]) {
+            // Skip if beyond neuron count or invalid
+            if (neuron_idx >= params.neuron_count || neurons.valid_mask[neuron_idx] == 0u) {
                 return;
             }
             
-            // Get the fired neuron ID
-            let fired_id = fired_neurons[idx];
+            // Decrement refractory counter if not zero
+            if (neurons.refractory_counters[neuron_idx] > 0u) {
+                neurons.refractory_counters[neuron_idx] = neurons.refractory_counters[neuron_idx] - 1u;
+            }
+        }
+        """
+        
+        # Synapse processing shader (follows architecture document recommendations)
+        synapse_shader = """
+        // WebGPU shader for synapse operations
+        // Uses CSR format for efficient sparse matrix operations
+        
+        struct SynapseData {
+            // CSR format components
+            row_count: u32,
+            nnz: u32,  // Number of non-zeros
+            indptr: array<u32>,
+            indices: array<u32>,
+            weights: array<f32>,
+        };
+        
+        struct NeuronData {
+            // SoA layout for optimal memory access
+            membrane_potentials: array<f32>,
+            valid_mask: array<u32>,
+        };
+        
+        struct FireCandidateList {
+            count: u32,
+            neuron_ids: array<u32>,
+        };
+        
+        @group(0) @binding(0) var<uniform> batch_size: u32;
+        @group(0) @binding(1) var<storage, read> fire_list: FireCandidateList;
+        @group(0) @binding(2) var<storage, read> synapses: SynapseData;
+        @group(0) @binding(3) var<storage, read_write> neurons: NeuronData;
+        
+        // We'll use atomic operations to safely update membrane potentials
+        // from multiple threads targeting the same neuron
+        
+        @compute @workgroup_size(256)
+        fn propagate_signals(@builtin(global_invocation_id) global_id: vec3<u32>) {
+            let batch_idx = global_id.x;
             
-            // Get row range for this neuron's outgoing connections
-            let row_start = synapses.row_indices[fired_id];
-            let row_end = synapses.row_indices[fired_id + 1u];
+            // Skip if beyond batch size
+            if (batch_idx >= batch_size) {
+                return;
+            }
             
-            // Process each outgoing connection
+            // Determine which fired neuron to process based on batch index
+            let fired_idx = batch_idx % fire_list.count;
+            let fired_neuron = fire_list.neuron_ids[fired_idx];
+            
+            // Get synaptic connections for this neuron
+            let row_start = synapses.indptr[fired_neuron];
+            let row_end = synapses.indptr[fired_neuron + 1u];
+            
+            // Process outgoing connections
             for (var i = row_start; i < row_end; i++) {
-                // Get target neuron ID and weight
-                let target_id = synapses.col_indices[i];
+                let target = synapses.indices[i];
                 let weight = synapses.weights[i];
                 
-                // Skip if target neuron is not valid
-                if (neurons.valid_mask[target_id] == 0u) {
+                // Skip invalid targets
+                if (neurons.valid_mask[target] == 0u) {
                     continue;
                 }
                 
-                // Update membrane potential of target neuron
-                // Using atomic operation to handle concurrent updates
-                let current_mp = atomicLoad(&neurons.membrane_potentials[target_id]);
-                let new_mp = current_mp + weight;
-                atomicStore(&neurons.membrane_potentials[target_id], new_mp);
+                // Update membrane potential atomically to handle concurrent updates
+                let current = atomicLoad(&neurons.membrane_potentials[target]);
+                atomicStore(&neurons.membrane_potentials[target], current + weight);
             }
         }
         
+        // Helper functions for atomic operations on f32
         fn atomicLoad(ptr: ptr<storage, f32, read>) -> f32 {
-            return atomicLoad(ptr);
+            var result: f32;
+            
+            // Cast to u32, perform atomic op, then cast back to f32
+            // This is a workaround since WGSL doesn't directly support f32 atomics
+            var temp = ptr;
+            var int_ptr = bitcast<ptr<storage, atomic<u32>, read>>(temp);
+            var int_val = atomicLoad(int_ptr);
+            
+            // Convert back to f32
+            result = bitcast<f32>(int_val);
+            return result;
         }
         
-        fn atomicStore(ptr: ptr<storage, f32, read_write>, value: f32) {
-            atomicStore(ptr, value);
+        fn atomicStore(ptr: ptr<storage, f32, read_write>, val: f32) {
+            // Cast to u32, perform atomic op, then cast back to f32
+            var temp = ptr;
+            var int_ptr = bitcast<ptr<storage, atomic<u32>, read_write>>(temp);
+            var int_val = bitcast<u32>(val);
+            atomicStore(int_ptr, int_val);
         }
         """
         
@@ -238,113 +339,160 @@ class ConnectomeManagerWebGPU:
         self._shader_modules["synapse_operations"] = self.device.create_shader_module(code=synapse_shader)
     
     def _allocate_buffers(self):
-        """Allocate GPU buffers for neuron and synapse data."""
+        """Allocate GPU buffers for neuron and synapse data with proper alignment."""
         # Get dimensions from connectome
-        max_neurons = self.connectome.max_neurons
+        max_neurons = self.connectome.neuron_array.aligned_size
         
-        # Simulation parameters buffer
+        # Simulation parameters buffer (16-byte aligned)
         self.buffers["params"] = self.device.create_buffer(
-            size=2 * 4,  # 2 u32 values
+            size=16,  # 3 values (u32, u32, f32) with padding to 16 bytes
             usage=wgpu.BufferUsages.UNIFORM | wgpu.BufferUsages.COPY_DST,
             label="Simulation Parameters Buffer"
         )
         
-        # Neuron data buffers
-        self.buffers["valid_mask"] = self.device.create_buffer(
-            size=max_neurons * 4,  # u32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
-            label="Neuron Valid Mask Buffer"
-        )
+        # Neuron data buffers - ensure 64-byte alignment for optimal performance
+        buffer_sizes = {
+            "membrane_potentials": max_neurons * 4,  # f32 array
+            "resting_potentials": max_neurons * 4,   # f32 array
+            "thresholds": max_neurons * 4,           # f32 array
+            "refractory_periods": max_neurons * 4,   # u32 array
+            "refractory_counters": max_neurons * 4,  # u32 array
+            "is_active": max_neurons * 4,            # u32 array (using u32 instead of bool for alignment)
+            "valid_mask": max_neurons * 4,           # u32 array (using u32 instead of bool for alignment)
+            "area_ids": max_neurons * 4              # u32 array
+        }
         
-        self.buffers["membrane_potentials"] = self.device.create_buffer(
-            size=max_neurons * 4,  # f32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
-            label="Membrane Potentials Buffer"
-        )
+        # Create buffers with proper alignment
+        for name, size in buffer_sizes.items():
+            # Align size to 64 bytes (16 floats)
+            aligned_size = ((size + MEMORY_ALIGNMENT - 1) // MEMORY_ALIGNMENT) * MEMORY_ALIGNMENT
+            
+            # Create buffer
+            self.buffers[name] = self.device.create_buffer(
+                size=aligned_size,
+                usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
+                label=f"{name.capitalize()} Buffer"
+            )
+            
+            # Create staging buffer for efficient transfers
+            self.staging_buffers[name] = self.device.create_buffer(
+                size=aligned_size,
+                usage=wgpu.BufferUsages.MAP_WRITE | wgpu.BufferUsages.COPY_SRC,
+                label=f"{name.capitalize()} Staging Buffer"
+            )
         
-        self.buffers["resting_potentials"] = self.device.create_buffer(
-            size=max_neurons * 4,  # f32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST,
-            label="Resting Potentials Buffer"
-        )
-        
-        self.buffers["thresholds"] = self.device.create_buffer(
-            size=max_neurons * 4,  # f32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST,
-            label="Thresholds Buffer"
-        )
-        
-        self.buffers["decay_rates"] = self.device.create_buffer(
-            size=max_neurons * 4,  # f32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST,
-            label="Decay Rates Buffer"
-        )
-        
-        self.buffers["refractory_periods"] = self.device.create_buffer(
-            size=max_neurons * 4,  # u32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST,
-            label="Refractory Periods Buffer"
-        )
-        
-        self.buffers["refractory_counters"] = self.device.create_buffer(
-            size=max_neurons * 4,  # u32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
-            label="Refractory Counters Buffer"
-        )
-        
-        self.buffers["area_ids"] = self.device.create_buffer(
-            size=max_neurons * 4,  # u32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST,
-            label="Area IDs Buffer"
-        )
-        
-        self.buffers["is_active"] = self.device.create_buffer(
-            size=max_neurons * 4,  # u32 array
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
-            label="Is Active Buffer"
-        )
-        
-        # Fired neurons buffer
-        self.buffers["fired_neurons"] = self.device.create_buffer(
-            size=max_neurons * 4,  # u32 array, worst case all neurons fire
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
-            label="Fired Neurons Buffer"
-        )
-        
-        # Fired count buffer
-        self.buffers["fired_count"] = self.device.create_buffer(
+        # Fire candidate list buffer
+        # Size for up to 1 million firing neurons
+        fcl_size = 1_000_000
+        self.buffers["fire_count"] = self.device.create_buffer(
             size=4,  # single u32
             usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
-            label="Fired Count Buffer"
+            label="Fire Count Buffer"
         )
         
-        # Initialize fired count to 0
-        self.device.queue.write_buffer(self.buffers["fired_count"], 0, np.array([0], dtype=np.uint32))
+        self.buffers["fire_list"] = self.device.create_buffer(
+            size=fcl_size * 4,  # u32 array
+            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_DST | wgpu.BufferUsages.COPY_SRC,
+            label="Fire List Buffer"
+        )
+        
+        # Batch size for synapse propagation
+        self.buffers["batch_size"] = self.device.create_buffer(
+            size=4,  # single u32
+            usage=wgpu.BufferUsages.UNIFORM | wgpu.BufferUsages.COPY_DST,
+            label="Batch Size Buffer"
+        )
     
     def update_neuron_data(self):
-        """Update GPU buffers with current neuron data."""
-        # Get neuron array from connectome
+        """Update GPU buffers with current neuron data using staging buffers."""
+        start_time = time.time()
+        
+        # Get neuron array
         neuron_array = self.connectome.neuron_array
         
-        # Write neuron data to GPU buffers
-        self.device.queue.write_buffer(self.buffers["valid_mask"], 0, 
-                                      neuron_array.valid_mask.astype(np.uint32))
-        self.device.queue.write_buffer(self.buffers["membrane_potentials"], 0, 
-                                      neuron_array.membrane_potentials.astype(np.float32))
-        self.device.queue.write_buffer(self.buffers["resting_potentials"], 0, 
-                                      neuron_array.resting_potentials.astype(np.float32))
-        self.device.queue.write_buffer(self.buffers["thresholds"], 0, 
-                                      neuron_array.thresholds.astype(np.float32))
-        self.device.queue.write_buffer(self.buffers["decay_rates"], 0, 
-                                      neuron_array.decay_rates.astype(np.float32))
-        self.device.queue.write_buffer(self.buffers["refractory_periods"], 0, 
-                                      neuron_array.refractory_periods.astype(np.uint32))
-        self.device.queue.write_buffer(self.buffers["refractory_counters"], 0, 
-                                      neuron_array.refractory_counters.astype(np.uint32))
-        self.device.queue.write_buffer(self.buffers["area_ids"], 0, 
-                                      neuron_array.area_ids.astype(np.uint32))
-        self.device.queue.write_buffer(self.buffers["is_active"], 0, 
-                                      neuron_array.is_active.astype(np.uint32))
+        # Convert to NumPy arrays if they're not already
+        membrane_potentials = self.connectome.neuron_array.backend.to_numpy(neuron_array.membrane_potentials)
+        resting_potentials = self.connectome.neuron_array.backend.to_numpy(neuron_array.resting_potentials)
+        thresholds = self.connectome.neuron_array.backend.to_numpy(neuron_array.thresholds)
+        refractory_periods = self.connectome.neuron_array.backend.to_numpy(neuron_array.refractory_periods)
+        refractory_counters = self.connectome.neuron_array.backend.to_numpy(neuron_array.refractory_counters)
+        is_active = self.connectome.neuron_array.backend.to_numpy(neuron_array.is_active).astype(np.uint32)
+        valid_mask = self.connectome.neuron_array.backend.to_numpy(neuron_array.valid_mask).astype(np.uint32)
+        
+        # Ensure arrays are contiguous and properly aligned
+        membrane_potentials = np.ascontiguousarray(membrane_potentials, dtype=np.float32)
+        resting_potentials = np.ascontiguousarray(resting_potentials, dtype=np.float32)
+        thresholds = np.ascontiguousarray(thresholds, dtype=np.float32)
+        refractory_periods = np.ascontiguousarray(refractory_periods, dtype=np.int32)
+        refractory_counters = np.ascontiguousarray(refractory_counters, dtype=np.int32)
+        is_active = np.ascontiguousarray(is_active, dtype=np.uint32)
+        valid_mask = np.ascontiguousarray(valid_mask, dtype=np.uint32)
+        
+        # Use staging buffers for efficient transfer
+        # First map the staging buffers
+        staging_membrane = self.staging_buffers["membrane_potentials"]
+        staging_membrane.map_write()
+        staging_membrane.write_mapped_view().reshape(membrane_potentials.shape)[:] = membrane_potentials
+        staging_membrane.unmap()
+        
+        staging_resting = self.staging_buffers["resting_potentials"]
+        staging_resting.map_write()
+        staging_resting.write_mapped_view().reshape(resting_potentials.shape)[:] = resting_potentials
+        staging_resting.unmap()
+        
+        staging_thresholds = self.staging_buffers["thresholds"]
+        staging_thresholds.map_write()
+        staging_thresholds.write_mapped_view().reshape(thresholds.shape)[:] = thresholds
+        staging_thresholds.unmap()
+        
+        staging_ref_periods = self.staging_buffers["refractory_periods"]
+        staging_ref_periods.map_write()
+        staging_ref_periods.write_mapped_view().reshape(refractory_periods.shape)[:] = refractory_periods
+        staging_ref_periods.unmap()
+        
+        staging_ref_counters = self.staging_buffers["refractory_counters"]
+        staging_ref_counters.map_write()
+        staging_ref_counters.write_mapped_view().reshape(refractory_counters.shape)[:] = refractory_counters
+        staging_ref_counters.unmap()
+        
+        staging_active = self.staging_buffers["is_active"]
+        staging_active.map_write()
+        staging_active.write_mapped_view().reshape(is_active.shape)[:] = is_active
+        staging_active.unmap()
+        
+        staging_valid = self.staging_buffers["valid_mask"]
+        staging_valid.map_write()
+        staging_valid.write_mapped_view().reshape(valid_mask.shape)[:] = valid_mask
+        staging_valid.unmap()
+        
+        # Create command encoder to copy from staging buffers to device buffers
+        encoder = self.device.create_command_encoder(label="Neuron Data Upload Encoder")
+        
+        # Copy all buffer data
+        encoder.copy_buffer_to_buffer(self.staging_buffers["membrane_potentials"], 0, 
+                                     self.buffers["membrane_potentials"], 0, membrane_potentials.nbytes)
+        encoder.copy_buffer_to_buffer(self.staging_buffers["resting_potentials"], 0, 
+                                     self.buffers["resting_potentials"], 0, resting_potentials.nbytes)
+        encoder.copy_buffer_to_buffer(self.staging_buffers["thresholds"], 0, 
+                                     self.buffers["thresholds"], 0, thresholds.nbytes)
+        encoder.copy_buffer_to_buffer(self.staging_buffers["refractory_periods"], 0, 
+                                     self.buffers["refractory_periods"], 0, refractory_periods.nbytes)
+        encoder.copy_buffer_to_buffer(self.staging_buffers["refractory_counters"], 0, 
+                                     self.buffers["refractory_counters"], 0, refractory_counters.nbytes)
+        encoder.copy_buffer_to_buffer(self.staging_buffers["is_active"], 0, 
+                                     self.buffers["is_active"], 0, is_active.nbytes)
+        encoder.copy_buffer_to_buffer(self.staging_buffers["valid_mask"], 0, 
+                                     self.buffers["valid_mask"], 0, valid_mask.nbytes)
+        
+        # Submit commands to GPU queue
+        self.device.queue.submit([encoder.finish()])
+        
+        # Update performance metrics
+        end_time = time.time()
+        transfer_time = end_time - start_time
+        self.performance_metrics["last_transfer_time"] = transfer_time
+        self.performance_metrics["total_transfer_time"] += transfer_time
+        self.performance_metrics["transfer_count"] += 1
     
     def update_synapse_data(self):
         """Update GPU buffers with current synapse data."""

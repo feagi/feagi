@@ -4,27 +4,53 @@
 
 ## Overview
 
-The Brain Development Unit (BDU) is responsible for creating and managing the connectome - the complete neural structure of FEAGI. It translates genome specifications into neural structures and provides comprehensive APIs for manipulating neurons, synapses, cortical areas, and brain regions.
+The Brain Development Unit (BDU) is responsible for managing the structure of the brain in FEAGI. This includes:
+
+- Creation and management of brain structures (neurons, synapses, cortical areas)
+- Implementation of neurodevelopmental processes (neurogenesis, synaptogenesis)
+- Handling connectivity patterns between areas
+- Providing an efficient, vectorized representation of the connectome for GPU-accelerated neural simulation
 
 ## Key Components
 
 ### ConnectomeManager
 
-The `ConnectomeManager` serves as the primary entry point and coordinator for all connectome operations:
+The `ConnectomeManager` is responsible for storing and manipulating connections between neurons. It provides methods for:
 
-```python
-from feagi.bdu import ConnectomeManager
+- Adding and removing neurons
+- Creating and modifying synapses
+- Querying connectivity
+- Managing neuron properties
 
-# Create a ConnectomeManager instance
-connectome = ConnectomeManager()
+### ConnectomeManagerGPU
 
-# Initialize neuron and synapse arrays
-connectome.initialize_arrays()
+The `ConnectomeManagerGPU` is an optimized implementation of `ConnectomeManager` designed for SIMD and GPU acceleration. Key features include:
 
-# Access neurons and synapses
-neuron_data = connectome.get_neuron(neuron_id)
-synapses = connectome.get_outgoing_connections(neuron_id)
-```
+- Structure of Arrays (SoA) pattern for neuron properties
+- Sparse matrix representation of connectivity
+- Vectorized operations for membrane potential updates
+- Batch operations for neuron property updates
+- Support for multiple array backends (NumPy, PyTorch, CuPy, WebGPU)
+
+### WebGPU Integration
+
+The `ConnectomeManagerWebGPU` class provides WebGPU acceleration for the ConnectomeManagerGPU, allowing:
+
+- Execution of neural updates on the GPU
+- WGSL shader-based computation
+- Efficient buffer transfers using staging buffers
+- Optimal memory alignment for SIMD and GPU operations
+
+### Array Backend Abstraction
+
+The `ArrayBackend` class provides a unified interface for different array backends:
+
+- NumPy (CPU)
+- PyTorch (CPU/CUDA)
+- CuPy (CUDA)
+- WebGPU (WebGPU)
+
+This allows for transparent switching between backends based on available hardware and performance requirements.
 
 ### NeuroEmbryogenesis
 
@@ -180,184 +206,48 @@ The BDU offers two implementations of the ConnectomeManager:
 
 ## GPU Optimization Strategy
 
-The GPU-optimized implementation follows these key principles:
+### Memory Layout
 
-### 1. Structure of Arrays (SoA) Pattern
+- **Structure of Arrays (SoA):** All neuron properties are stored in separate contiguous arrays for efficient SIMD and GPU processing.
+- **Memory Alignment:** Arrays are aligned to 64-byte boundaries for optimal SIMD (AVX-512) and cache line performance.
+- **Sparse Matrix Format:** Synaptic connectivity is stored in CSR (Compressed Sparse Row) format for efficient memory usage and fast traversal.
 
-Instead of storing neurons as individual objects or dictionaries, we store neuron properties in columnar format as contiguous arrays:
+### Vectorized Operations
 
-```python
-# Instead of:
-self.neurons = {
-    neuron_id: {
-        "membrane_potential": 0.0,
-        "threshold": 1.0,
-        # ...other properties
-    }
-}
+- **Batch Processing:** Operations are performed on entire arrays rather than individual neurons.
+- **SIMD-friendly:** Computations are structured to enable SIMD acceleration on CPU.
+- **GPU-compatible:** Array operations can be offloaded to GPU for parallel processing.
 
-# We use:
-self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
-self.thresholds = np.ones(max_neurons, dtype=np.float32)
-# ...other properties as arrays
-```
+### Backend Abstraction
 
-This allows for:
-- Vectorized operations on properties (e.g., decay all membrane potentials at once)
-- Efficient memory layout for cache performance
-- Direct transfer to GPU memory
-- SIMD-friendly data structures
+The code supports multiple computational backends:
 
-#### Memory Layout Considerations
+- **NumPy:** For CPU-only environments
+- **PyTorch:** For CUDA GPU acceleration
+- **CuPy:** Alternative CUDA acceleration
+- **WebGPU:** For cross-platform GPU acceleration, including browsers
 
-The columnar layout is optimized for:
-- Cache locality when operating on the same property across many neurons
-- Vectorized operations using SIMD instructions
-- Efficient transfer to/from GPU memory (contiguous memory blocks)
-- Parallelized operations on batches of neurons
+### GPU Buffer Management
 
-### 2. Sparse Matrix Synapse Representation
+- **Staging Buffers:** Used for efficient CPU-GPU transfers
+- **Double Buffering:** Minimizes stalls due to data dependencies
+- **Aligned Memory:** Ensures optimal memory access patterns on GPU
 
-Synaptic connections are stored using sparse matrices instead of nested dictionaries:
+### WebGPU Shader Design
 
-```python
-# Instead of:
-self.connections = {
-    pre_neuron_id: {
-        post_neuron_id: weight
-    }
-}
+- **Workgroup Size:** Using 256 threads per workgroup for optimal GPU utilization
+- **SoA in Buffers:** Maintaining the Structure of Arrays pattern in storage buffers
+- **AoS in Workgroups:** Using Array of Structures for local workgroup memory
+- **Atomic Operations:** Using atomic operations for concurrent updates to neurons
 
-# We use:
-self.outgoing_matrix = sparse.lil_matrix((max_neurons, max_neurons), dtype=np.float32)
-self.incoming_matrix = sparse.lil_matrix((max_neurons, max_neurons), dtype=np.float32)
-```
+## Performance
 
-Benefits include:
-- Efficient memory usage for large connectomes
-- Specialized formats for different operations (CSR for row access, CSC for column access)
-- Vectorized matrix operations for signal propagation
-- Compatible with GPU sparse matrix libraries
+The GPU-optimized implementation provides significant performance improvements for large-scale neural networks:
 
-#### Sparse Matrix Format Selection
-
-Different sparse matrix formats are used for different operations:
-- **LIL (List of Lists)**: For construction and modification of the connectivity matrix
-- **CSR (Compressed Sparse Row)**: For efficient row access, optimized for outgoing connections
-- **CSC (Compressed Sparse Column)**: For efficient column access, optimized for incoming connections
-
-The system automatically converts between formats as needed based on the operation being performed:
-
-```python
-# Before iterating over outgoing connections
-self._ensure_csr_format_outgoing()
-
-# Before iterating over incoming connections
-self._ensure_csc_format_incoming()
-
-# Before modifying connections
-self._convert_to_lil_if_needed()
-```
-
-### 3. Boolean Masks for Grouping
-
-To represent groupings (e.g., neurons in a cortical area), we use boolean masks instead of sets:
-
-```python
-# Instead of:
-self.area_neuron_map = {
-    area_id: {neuron_id1, neuron_id2, ...}
-}
-
-# We use:
-self.area_neuron_masks = {
-    area_id: np.zeros(max_neurons, dtype=np.bool_)
-}
-# And set True for members: self.area_neuron_masks[area_id][index] = True
-```
-
-This enables:
-- Vectorized filtering and selection
-- Fast intersection and union operations
-- Compact memory representation
-- Hardware-accelerated boolean operations
-
-### 4. Memory-Aligned Types
-
-We use memory-aligned types that are efficient for SIMD and GPU processing:
-- `float32` for most neuron properties (membrane potentials, weights)
-- `int32` for indices and counters
-- `bool_` for boolean flags and masks
-
-### 5. Batch Operations
-
-The GPU-optimized implementation provides batch versions of most operations:
-
-```python
-# Batch create neurons
-neuron_ids = connectome.batch_create_neurons(area_id, positions, thresholds, ...)
-
-# Batch create synapses
-connectome.batch_create_synapses([(pre1, post1, weight1), (pre2, post2, weight2), ...])
-
-# Batch update membrane potentials
-connectome.update_membrane_potentials()  # Updates all neurons in one operation
-```
-
-Batch operations significantly improve performance by:
-- Reducing Python overhead by handling many items in a single function call
-- Enabling vectorized operations on NumPy arrays
-- Allowing for better GPU kernel utilization
-- Minimizing data transfers between CPU and GPU
-
-### 6. PyTorch Integration for GPU Acceleration
-
-The implementation includes PyTorch integration for direct GPU acceleration:
-
-```python
-# Move data to GPU if available
-device = neuron_array.use_best_available_device()  # Returns "cuda" or "cpu"
-
-# PyTorch GPU-accelerated operations in update_membrane_potentials
-if isinstance(membrane_potentials, torch.Tensor) and device == "cuda":
-    # Use GPU operations
-    membrane_potentials.scatter_add_(0, post_indices, weights)
-else:
-    # Use NumPy operations
-    membrane_potentials[post_indices] += weights
-```
-
-The system can automatically determine whether to use GPU or CPU based on:
-- GPU availability
-- Memory requirements vs. available GPU memory
-- Problem size (small problems may be faster on CPU)
-
-### 7. Area ID Handling
-
-Since the GPU implementation stores area IDs as integers while the standard implementation uses strings, we use a hash function to create a consistent mapping:
-
-```python
-# Convert string area_id to integer for the array
-area_id_int = hash(area_id) & 0x7FFFFFFF  # Ensure positive and within int32 range
-```
-
-This allows for:
-- Efficient storage in arrays
-- Consistent mapping between string IDs and integer IDs
-- Compatibility with both implementations
-
-## Performance Comparisons
-
-Benchmarks show significant performance improvements with the GPU-optimized implementation, especially for large-scale operations:
-
-| Operation               | Standard (s) | GPU Optimized (s) | Speedup |
-|-------------------------|--------------|-------------------|---------|
-| Batch neuron creation   | 3.450        | 0.320             | 10.8x   |
-| Batch synapse creation  | 5.230        | 0.480             | 10.9x   |
-| Membrane potential updates | 0.890     | 0.065             | 13.7x   |
-| Get neurons by area     | 0.024        | 0.003             | 8.0x    |
-
-The speedup becomes more significant as the network size increases, with the GPU implementation scaling much better for large networks.
+- **Vectorized Operations:** Batch updates are significantly faster than iterative updates
+- **Sparse Matrix Operations:** Efficient traversal of synaptic connections
+- **Multiple Backend Support:** Can leverage the fastest available hardware
+- **WebGPU Acceleration:** Enables browser-based GPU acceleration
 
 ## Usage
 
@@ -408,4 +298,29 @@ Future development will focus on:
 2. **Custom CUDA Kernels**: Developing specialized CUDA kernels for critical operations
 3. **Multi-GPU Support**: Distributing computation across multiple GPUs
 4. **Mixed-Precision Training**: Support for FP16 and INT8 operations for improved performance
-5. **Rust Integration**: Integrating with Rust-based backend for even better performance 
+5. **Rust Integration**: Integrating with Rust-based backend for even better performance
+
+## Benchmarking
+
+A benchmarking script is provided in `tests/performance/bdu/benchmark_backends.py` to compare the performance of different backends. Run it with:
+
+```bash
+python -m tests.performance.bdu.benchmark_backends
+```
+
+This generates performance comparisons between NumPy, PyTorch, CuPy, and WebGPU for different neuron counts.
+
+## Tests
+
+Tests for the BDU module are located in the `tests/unit/bdu/` directory. Run them with:
+
+```bash
+pytest tests/unit/bdu/
+```
+
+## Future Improvements
+
+- **SIMD Intrinsics:** Direct use of SIMD intrinsics for critical paths
+- **Custom CUDA Kernels:** Specialized kernels for neuronal operations
+- **Multi-GPU Support:** Distribute computation across multiple GPUs
+- **Rust Migration:** Port critical components to Rust for further performance gains 

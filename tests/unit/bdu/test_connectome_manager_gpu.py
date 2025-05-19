@@ -5,10 +5,13 @@ These tests focus on verifying the correctness of the GPU-optimized
 ConnectomeManager functionality with minimal resource usage.
 """
 
+import unittest
 import pytest
 import numpy as np
+from typing import List, Dict, Any
 from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU, NeuronPropertyType
 from feagi.utils.config import FeagiConfig
+from feagi.bdu.models.array_backend import BackendType, ArrayBackend
 
 
 @pytest.fixture
@@ -290,4 +293,303 @@ def test_delete_neuron_with_synapses(connectome, test_area):
     assert connectome.get_synapse_count() == 1
     assert connectome.get_synapse_weight(neuron_ids[0], neuron_ids[2]) == 1.0
     with pytest.raises(KeyError):
-        connectome.get_synapse_weight(neuron_ids[0], neuron_ids[1]) 
+        connectome.get_synapse_weight(neuron_ids[0], neuron_ids[1])
+
+
+class TestConnectomeManagerGPU(unittest.TestCase):
+    """Test the GPU-optimized ConnectomeManager."""
+    
+    def setUp(self):
+        """Set up a small connectome for testing."""
+        self.connectome = ConnectomeManagerGPU(max_neurons=1000, backend=BackendType.NUMPY)
+    
+    def test_add_neurons(self):
+        """Test adding neurons to the connectome."""
+        # Add single neuron
+        neuron_id = self.connectome.add_neuron()
+        self.assertEqual(self.connectome.neuron_count, 1)
+        self.assertIn(neuron_id, self.connectome.neuron_id_to_index)
+        
+        # Add multiple neurons
+        neuron_ids = self.connectome.add_neurons(10)
+        self.assertEqual(len(neuron_ids), 10)
+        self.assertEqual(self.connectome.neuron_count, 11)
+        
+        # Verify all IDs are unique
+        all_ids = [neuron_id] + neuron_ids
+        self.assertEqual(len(all_ids), len(set(all_ids)))
+    
+    def test_delete_neurons(self):
+        """Test deleting neurons from the connectome."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(5)
+        self.assertEqual(self.connectome.neuron_count, 5)
+        
+        # Delete one neuron
+        self.connectome.delete_neuron(neuron_ids[0])
+        self.assertEqual(self.connectome.neuron_count, 4)
+        self.assertNotIn(neuron_ids[0], self.connectome.neuron_id_to_index)
+        
+        # Delete multiple neurons
+        self.connectome.delete_neurons(neuron_ids[1:3])
+        self.assertEqual(self.connectome.neuron_count, 2)
+        self.assertNotIn(neuron_ids[1], self.connectome.neuron_id_to_index)
+        self.assertNotIn(neuron_ids[2], self.connectome.neuron_id_to_index)
+    
+    def test_add_synapses(self):
+        """Test adding synapses to the connectome."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(10)
+        
+        # Add single synapse
+        self.connectome.add_synapse(
+            pre_neuron=neuron_ids[0],
+            post_neuron=neuron_ids[1],
+            weight=0.5
+        )
+        self.assertEqual(self.connectome.synapse_count, 1)
+        
+        # Verify synapse exists
+        self.assertTrue(self.connectome.has_synapse(neuron_ids[0], neuron_ids[1]))
+        self.assertFalse(self.connectome.has_synapse(neuron_ids[1], neuron_ids[0]))
+        
+        # Add multiple synapses with batch operation
+        pre_neurons = neuron_ids[2:5]
+        post_neurons = neuron_ids[5:8]
+        weights = [0.1, 0.2, 0.3]
+        
+        results = self.connectome.batch_add_synapses(
+            pre_neurons=pre_neurons,
+            post_neurons=post_neurons,
+            weights=weights
+        )
+        
+        # Verify all synapses were added
+        self.assertTrue(all(results))
+        self.assertEqual(self.connectome.synapse_count, 4)
+        
+        # Verify synapses exist
+        for pre, post in zip(pre_neurons, post_neurons):
+            self.assertTrue(self.connectome.has_synapse(pre, post))
+    
+    def test_delete_synapses(self):
+        """Test deleting synapses from the connectome."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(5)
+        
+        # Add synapses
+        self.connectome.add_synapse(neuron_ids[0], neuron_ids[1], 0.5)
+        self.connectome.add_synapse(neuron_ids[1], neuron_ids[2], 0.5)
+        self.connectome.add_synapse(neuron_ids[2], neuron_ids[3], 0.5)
+        self.assertEqual(self.connectome.synapse_count, 3)
+        
+        # Delete one synapse
+        self.connectome.delete_synapse(neuron_ids[0], neuron_ids[1])
+        self.assertEqual(self.connectome.synapse_count, 2)
+        self.assertFalse(self.connectome.has_synapse(neuron_ids[0], neuron_ids[1]))
+        
+        # Delete multiple synapses
+        self.connectome.delete_synapses([
+            (neuron_ids[1], neuron_ids[2]),
+            (neuron_ids[2], neuron_ids[3])
+        ])
+        self.assertEqual(self.connectome.synapse_count, 0)
+    
+    def test_batch_update_neuron_properties(self):
+        """Test batch updating neuron properties."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(5)
+        
+        # Update thresholds for all neurons
+        self.connectome.batch_update_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="threshold",
+            values=1.5
+        )
+        
+        # Verify thresholds were updated
+        thresholds = self.connectome.batch_get_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="threshold"
+        )
+        self.assertTrue(np.allclose(thresholds, 1.5))
+        
+        # Update membrane potentials with different values for each neuron
+        values = [0.1, 0.2, 0.3, 0.4, 0.5]
+        self.connectome.batch_update_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="membrane_potential",
+            values=values
+        )
+        
+        # Verify membrane potentials were updated
+        potentials = self.connectome.batch_get_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="membrane_potential"
+        )
+        self.assertTrue(np.allclose(potentials, values))
+    
+    def test_update_membrane_potentials(self):
+        """Test updating membrane potentials with decay."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(5)
+        
+        # Set initial membrane potentials
+        self.connectome.batch_update_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="membrane_potential",
+            values=1.0
+        )
+        
+        # Update with decay
+        decay_factor = 0.9
+        self.connectome.update_membrane_potentials(decay_factor)
+        
+        # Verify potentials were decayed
+        potentials = self.connectome.batch_get_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="membrane_potential"
+        )
+        self.assertTrue(np.allclose(potentials, decay_factor))
+    
+    def test_find_neurons_above_threshold(self):
+        """Test finding neurons above threshold."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(10)
+        
+        # Set membrane potentials and thresholds
+        # Neurons 0, 2, 4, 6, 8 will be above threshold
+        for i, nid in enumerate(neuron_ids):
+            self.connectome.update_neuron_property(
+                neuron_id=nid,
+                property_name="membrane_potential",
+                value=float(i) / 10.0 + 0.5  # 0.5, 0.6, 0.7, ..., 1.4
+            )
+            self.connectome.update_neuron_property(
+                neuron_id=nid,
+                property_name="threshold",
+                value=1.0 if i % 2 == 0 else 2.0  # Even indices: threshold 1.0, odd: threshold 2.0
+            )
+        
+        # Find neurons above threshold
+        above_threshold = self.connectome.find_neurons_above_threshold()
+        
+        # Extract expected neuron IDs (indices 6 and 8 should be above threshold)
+        expected_ids = [neuron_ids[6], neuron_ids[8]]
+        
+        # Verify correct neurons were found
+        self.assertEqual(set(above_threshold), set(expected_ids))
+    
+    def test_process_firing_neurons(self):
+        """Test processing firing neurons."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(5)
+        
+        # Create a simple feed-forward network
+        # 0 -> 1 -> 2 -> 3 -> 4
+        self.connectome.add_synapse(neuron_ids[0], neuron_ids[1], 0.5)
+        self.connectome.add_synapse(neuron_ids[1], neuron_ids[2], 0.5)
+        self.connectome.add_synapse(neuron_ids[2], neuron_ids[3], 0.5)
+        self.connectome.add_synapse(neuron_ids[3], neuron_ids[4], 0.5)
+        
+        # Set membrane potentials to 0
+        self.connectome.batch_update_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="membrane_potential",
+            values=0.0
+        )
+        
+        # Fire neuron 0
+        firing_neurons = [neuron_ids[0]]
+        self.connectome.process_firing_neurons(firing_neurons)
+        
+        # Verify membrane potentials were updated
+        potentials = self.connectome.batch_get_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="membrane_potential"
+        )
+        
+        # Neuron 0 should be reset, neuron 1 should receive input, others unchanged
+        self.assertEqual(potentials[0], 0.0)  # Neuron 0 reset
+        self.assertEqual(potentials[1], 0.5)  # Neuron 1 received input
+        self.assertEqual(potentials[2], 0.0)  # Unchanged
+        self.assertEqual(potentials[3], 0.0)  # Unchanged
+        self.assertEqual(potentials[4], 0.0)  # Unchanged
+        
+        # Verify neuron 0 is marked as active
+        active = self.connectome.get_neuron_property(neuron_ids[0], "active")
+        self.assertTrue(active)
+    
+    def test_to_csr_format(self):
+        """Test conversion to CSR format."""
+        # Add neurons
+        neuron_ids = self.connectome.add_neurons(5)
+        
+        # Add synapses
+        self.connectome.add_synapse(neuron_ids[0], neuron_ids[1], 0.1)
+        self.connectome.add_synapse(neuron_ids[0], neuron_ids[2], 0.2)
+        self.connectome.add_synapse(neuron_ids[1], neuron_ids[3], 0.3)
+        self.connectome.add_synapse(neuron_ids[2], neuron_ids[4], 0.4)
+        
+        # Convert to CSR format
+        self.connectome._ensure_csr_format_outgoing()
+        
+        # Verify CSR matrix was created
+        self.assertIsNotNone(self.connectome.outgoing_matrix)
+        
+        # Check matrix properties
+        matrix = self.connectome.outgoing_matrix
+        self.assertEqual(matrix.shape[0], self.connectome.next_neuron_index)
+        self.assertEqual(matrix.shape[1], self.connectome.next_neuron_index)
+        self.assertEqual(matrix.nnz, 4)  # 4 synapses
+
+
+@pytest.mark.parametrize("backend_type", [
+    BackendType.NUMPY,
+    pytest.param(
+        BackendType.PYTORCH,
+        marks=pytest.mark.skipif(
+            not hasattr(ArrayBackend, "_is_backend_available") or not ArrayBackend._is_backend_available(BackendType.PYTORCH),
+            reason="PyTorch not available"
+        )
+    ),
+    pytest.param(
+        BackendType.CUPY,
+        marks=pytest.mark.skipif(
+            not hasattr(ArrayBackend, "_is_backend_available") or not ArrayBackend._is_backend_available(BackendType.CUPY),
+            reason="CuPy not available"
+        )
+    )
+])
+def test_backend_compatibility(backend_type):
+    """Test compatibility with different array backends."""
+    try:
+        # Create connectome with specific backend
+        connectome = ConnectomeManagerGPU(max_neurons=100, backend=backend_type)
+        
+        # Basic operations
+        neuron_ids = connectome.add_neurons(10)
+        connectome.add_synapse(neuron_ids[0], neuron_ids[1], 0.5)
+        connectome.batch_update_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="threshold",
+            values=1.5
+        )
+        
+        # Verify operations worked
+        assert connectome.neuron_count == 10
+        assert connectome.synapse_count == 1
+        assert connectome.has_synapse(neuron_ids[0], neuron_ids[1])
+        
+        thresholds = connectome.batch_get_neuron_properties(
+            neuron_ids=neuron_ids,
+            property_name="threshold"
+        )
+        assert np.allclose(thresholds, 1.5)
+        
+    except Exception as e:
+        pytest.fail(f"Failed with backend {backend_type.value}: {e}")
+
+
+if __name__ == "__main__":
+    unittest.main() 
