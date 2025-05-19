@@ -169,4 +169,129 @@ embryo.develop_brain_from_genome(genome)
 - [BDU Architecture](arch-bdu.md)
 - [Connectome Management](docs/connectome.md)
 - [Connectivity Rules](docs/connectivity_rule.md)
-- [System Architecture](../../docs/arch-system-overview.md) 
+- [System Architecture](../../docs/arch-system-overview.md)
+
+## ConnectomeManager Implementations
+
+The BDU offers two implementations of the ConnectomeManager:
+
+1. **Standard ConnectomeManager**: The original implementation using dictionary-based data structures for neuron and synapse storage.
+2. **GPU-optimized ConnectomeManager**: A new implementation using NumPy arrays and sparse matrices for efficient data processing and transfer to GPU memory.
+
+## GPU Optimization Strategy
+
+The GPU-optimized implementation follows these key principles:
+
+### 1. Structure of Arrays (SoA) Pattern
+
+Instead of storing neurons as individual objects or dictionaries, we store neuron properties in columnar format as contiguous arrays:
+
+```python
+# Instead of:
+self.neurons = {
+    neuron_id: {
+        "membrane_potential": 0.0,
+        "threshold": 1.0,
+        # ...other properties
+    }
+}
+
+# We use:
+self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
+self.thresholds = np.ones(max_neurons, dtype=np.float32)
+# ...other properties as arrays
+```
+
+This allows for:
+- Vectorized operations on properties (e.g., decay all membrane potentials at once)
+- Efficient memory layout for cache performance
+- Direct transfer to GPU memory
+- SIMD-friendly data structures
+
+### 2. Sparse Matrix Synapse Representation
+
+Synaptic connections are stored using sparse matrices instead of nested dictionaries:
+
+```python
+# Instead of:
+self.connections = {
+    pre_neuron_id: {
+        post_neuron_id: weight
+    }
+}
+
+# We use:
+self.outgoing_matrix = sparse.lil_matrix((max_neurons, max_neurons), dtype=np.float32)
+self.incoming_matrix = sparse.lil_matrix((max_neurons, max_neurons), dtype=np.float32)
+```
+
+Benefits include:
+- Efficient memory usage for large connectomes
+- Specialized formats for different operations (CSR for row access, CSC for column access)
+- Vectorized matrix operations for signal propagation
+- Compatible with GPU sparse matrix libraries
+
+### 3. Boolean Masks for Grouping
+
+To represent groupings (e.g., neurons in a cortical area), we use boolean masks instead of sets:
+
+```python
+# Instead of:
+self.area_neuron_map = {
+    area_id: {neuron_id1, neuron_id2, ...}
+}
+
+# We use:
+self.area_neuron_masks = {
+    area_id: np.zeros(max_neurons, dtype=np.bool_)
+}
+# And set True for members: self.area_neuron_masks[area_id][index] = True
+```
+
+This enables:
+- Vectorized filtering and selection
+- Fast intersection and union operations
+- Compact memory representation
+
+### 4. Memory-Aligned Types
+
+We use memory-aligned types that are efficient for SIMD and GPU processing:
+- `float32` for most neuron properties (membrane potentials, weights)
+- `int32` for indices and counters
+- `bool_` for boolean flags and masks
+
+## Usage
+
+The GPU-optimized ConnectomeManager can be used as a drop-in replacement for the standard implementation:
+
+```python
+from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
+
+# Create an instance
+connectome = ConnectomeManagerGPU(max_neurons=10_000_000)
+
+# Use the same API as the standard ConnectomeManager
+area_id = connectome.add_cortical_area("Visual Cortex", (100, 100, 10), (0, 0, 0))
+neuron_id = connectome.create_neuron(area_id, (50, 50, 5))
+```
+
+For maximum performance with larger networks, it's recommended to use batch operations whenever possible:
+
+```python
+# Batch create synapses
+synapse_specs = [(pre_id1, post_id1, weight1), (pre_id2, post_id2, weight2), ...]
+connectome.batch_create_synapses(synapse_specs)
+
+# Update membrane potentials for all neurons at once
+fired_neuron_ids = connectome.update_membrane_potentials()
+```
+
+## GPU Support
+
+The implementation is designed to be compatible with GPU acceleration through NumPy and PyTorch:
+
+1. **NumPy Arrays**: All neuron properties are stored in NumPy arrays that can be transferred to GPU memory.
+2. **Sparse Matrices**: Synaptic connections use SciPy sparse matrices, which can be converted to GPU-compatible formats.
+3. **PyTorch Integration**: The `NeuronArray` class includes methods for transferring data to and from GPU memory.
+
+Future work will focus on implementing full WebGPU compatibility and optimizing for WGSL shaders. 

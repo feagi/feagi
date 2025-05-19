@@ -291,52 +291,162 @@ class NeuronArray:
         return np.sum(self.valid_mask)
 
     def update_membrane_potentials(self, synapse_indices, synapse_data):
-        """Update membrane potentials using vectorized operations.
-        
-        This method is optimized for GPU execution. It performs the following steps:
-        1. Decay existing potentials
-        2. Add weighted inputs from synapses
-        3. Check for threshold crossing and update activation state
-        4. Handle refractory periods
+        """Update membrane potentials based on firing neurons and incoming connections.
         
         Args:
-            synapse_indices: Tuple of (row_indices, col_indices) for synapse matrix
-            synapse_data: Synapse weights array
+            synapse_indices: Indices of firing neurons (FCL)
+            synapse_data: Sparse matrix of incoming connections
             
         Returns:
-            Array of indices for neurons that fired
+            Array of indices that exceed their threshold and fire
         """
-        # Get valid neurons
-        valid_neurons = np.where(self.valid_mask)[0]
+        # We need to ensure we're working with the right data structures
+        if isinstance(synapse_data, torch.Tensor):
+            device = synapse_data.device
+            is_torch = True
+        else:
+            is_torch = False
+            device = "cpu" if not hasattr(self, 'device') else self.device
+
+        # Get the mask of valid neurons
+        valid = self.valid_mask
         
-        # Handle refractory period
-        refractory_mask = self.refractory_counters[valid_neurons] > 0
-        self.refractory_counters[valid_neurons[refractory_mask]] -= 1
+        # Only consider neurons not in refractory period
+        can_update_mask = valid & (self.refractory_counters <= 0)
         
-        # Calculate decay (vectorized)
-        decay = (self.membrane_potentials[valid_neurons] - 
-                self.resting_potentials[valid_neurons]) * self.decay_rates[valid_neurons]
+        # For neurons in refractory period, decrement counters
+        in_refractory = valid & (self.refractory_counters > 0)
+        if is_torch:
+            self.refractory_counters[in_refractory] -= 1
+        else:
+            np.subtract(self.refractory_counters, 1, out=self.refractory_counters, where=in_refractory)
         
-        # Apply decay
-        self.membrane_potentials[valid_neurons] -= decay
+        # Update membrane potentials for valid neurons
+        if isinstance(synapse_data, torch.Tensor):
+            # GPU implementation using PyTorch
+            # This would need a specialized CUDA kernel or specialized PyTorch ops
+            # For now, we just simulate it without true vectorization
+            for idx in synapse_indices:
+                if idx >= len(self.membrane_potentials):
+                    continue
+                
+                # Get all post-synaptic targets and weights
+                targets = torch.nonzero(synapse_data[idx]).squeeze()
+                if targets.dim() == 0 and targets.numel() > 0:
+                    # Handle single target case
+                    targets = targets.unsqueeze(0)
+                
+                if targets.numel() == 0:
+                    continue
+                
+                weights = synapse_data[idx, targets]
+                
+                # Add weights to membrane potentials of targets
+                # Only update neurons not in refractory period
+                update_mask = can_update_mask[targets]
+                if update_mask.any():
+                    self.membrane_potentials[targets[update_mask]] += weights[update_mask]
+        else:
+            # CPU implementation using sparse matrices
+            # Get all post-synaptic connections from firing neurons
+            for idx in synapse_indices:
+                if idx >= synapse_data.shape[0]:
+                    continue
+                
+                # Get the row for this neuron
+                row = synapse_data.getrow(idx)
+                
+                # Get the targets and weights
+                targets = row.indices
+                weights = row.data
+                
+                if len(targets) == 0:
+                    continue
+                
+                # Only update neurons not in refractory period
+                update_mask = can_update_mask[targets]
+                if np.any(update_mask):
+                    self.membrane_potentials[targets[update_mask]] += weights[update_mask]
         
-        # Reset firing neurons from previous timestep
-        self.is_active.fill(False)
+        # Check which neurons exceed threshold and should fire
+        # Only consider neurons not already in refractory period
+        fired = can_update_mask & (self.membrane_potentials >= self.thresholds)
         
-        # To be implemented with specific synapse matrix format
-        # This is where we would use CSR format to efficiently compute incoming potentials
+        # Reset membrane potentials and set refractory period for fired neurons
+        if is_torch:
+            self.membrane_potentials[fired] = self.resting_potentials[fired]
+            self.refractory_counters[fired] = self.refractory_periods[fired]
+            self.is_active[fired] = True
+        else:
+            np.copyto(self.membrane_potentials, self.resting_potentials, where=fired)
+            np.copyto(self.refractory_counters, self.refractory_periods, where=fired)
+            self.is_active[fired] = True
         
-        # Check threshold crossing
-        firing_mask = ((self.membrane_potentials[valid_neurons] >= self.thresholds[valid_neurons]) & 
-                      ~refractory_mask)
-        firing_neurons = valid_neurons[firing_mask]
+        # Decay membrane potentials for all valid neurons
+        valid_not_fired = valid & ~fired
+        if is_torch:
+            self.membrane_potentials[valid_not_fired] = (
+                self.membrane_potentials[valid_not_fired] * (1.0 - self.decay_rates[valid_not_fired]) + 
+                self.resting_potentials[valid_not_fired] * self.decay_rates[valid_not_fired]
+            )
+        else:
+            decay_effect = self.membrane_potentials[valid_not_fired] * (1.0 - self.decay_rates[valid_not_fired])
+            rest_effect = self.resting_potentials[valid_not_fired] * self.decay_rates[valid_not_fired]
+            self.membrane_potentials[valid_not_fired] = decay_effect + rest_effect
         
-        # Update state for firing neurons
-        self.is_active[firing_neurons] = True
-        self.membrane_potentials[firing_neurons] = self.resting_potentials[firing_neurons]
-        self.refractory_counters[firing_neurons] = self.refractory_periods[firing_neurons]
+        # Return indices of fired neurons
+        return np.where(fired)[0]
+
+    def decay_and_check_firing(self):
+        """Decay membrane potentials and check for neurons that now exceed threshold.
         
-        return firing_neurons
+        This method is used when no neurons in the FCL are firing, to handle passive
+        decay and check if any neurons cross their threshold due to decay towards
+        resting potential.
+        
+        Returns:
+            Array of indices that exceed their threshold and fire
+        """
+        # Get the mask of valid neurons
+        valid = self.valid_mask
+        
+        # Only consider neurons not in refractory period
+        can_update_mask = valid & (self.refractory_counters <= 0)
+        
+        # For neurons in refractory period, decrement counters
+        in_refractory = valid & (self.refractory_counters > 0)
+        
+        if isinstance(self.refractory_counters, torch.Tensor):
+            self.refractory_counters[in_refractory] -= 1
+        else:
+            np.subtract(self.refractory_counters, 1, out=self.refractory_counters, where=in_refractory)
+        
+        # Decay membrane potentials for all valid neurons that can update
+        if isinstance(self.membrane_potentials, torch.Tensor):
+            self.membrane_potentials[can_update_mask] = (
+                self.membrane_potentials[can_update_mask] * (1.0 - self.decay_rates[can_update_mask]) + 
+                self.resting_potentials[can_update_mask] * self.decay_rates[can_update_mask]
+            )
+        else:
+            decay_effect = self.membrane_potentials[can_update_mask] * (1.0 - self.decay_rates[can_update_mask])
+            rest_effect = self.resting_potentials[can_update_mask] * self.decay_rates[can_update_mask]
+            self.membrane_potentials[can_update_mask] = decay_effect + rest_effect
+        
+        # Check which neurons exceed threshold and should fire
+        fired = can_update_mask & (self.membrane_potentials >= self.thresholds)
+        
+        # Reset membrane potentials and set refractory period for fired neurons
+        if isinstance(self.membrane_potentials, torch.Tensor):
+            self.membrane_potentials[fired] = self.resting_potentials[fired]
+            self.refractory_counters[fired] = self.refractory_periods[fired]
+            self.is_active[fired] = True
+        else:
+            np.copyto(self.membrane_potentials, self.resting_potentials, where=fired)
+            np.copyto(self.refractory_counters, self.refractory_periods, where=fired)
+            self.is_active[fired] = True
+        
+        # Return indices of fired neurons
+        return np.where(fired)[0]
 
     def to_dict(self, neuron_id: int) -> Dict[str, Any]:
         """Convert a neuron to a dictionary representation (for API compatibility).

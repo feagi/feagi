@@ -1,13 +1,18 @@
 """
-Optimized data structures for FEAGI using Rust implementations.
+Optimized data structures for FEAGI using SIMD and GPU-friendly implementations.
 
 This module provides high-performance SIMD and WebGPU accelerated data structures
 for key FEAGI components like the Global Neuron Array, Fire Candidate List, and Connectome.
+
+All data structures use Structure of Arrays (SoA) pattern with NumPy arrays
+for SIMD/GPU compatibility. Memory alignment and data types are chosen
+for optimal performance on both CPU and GPU targets.
 """
 
 import os
 import sys
 import logging
+import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union, Any
 
@@ -22,7 +27,7 @@ try:
     RUST_AVAILABLE = True
 except ImportError:
     RUST_AVAILABLE = False
-    logging.warning("Rust optimized structures not available. Using Python fallback.")
+    logging.warning("Rust optimized structures not available. Using NumPy-based SIMD fallback.")
 
 class GlobalNeuronArray:
     """
@@ -44,111 +49,113 @@ class GlobalNeuronArray:
             self._rust_gna = create_gna(capacity)
             self._use_rust = True
         else:
-            # Fallback to Python implementation
+            # Fallback to NumPy implementation - SoA pattern
             self._use_rust = False
-            self.membrane_potentials = [0.0] * capacity
-            self.thresholds = [1.0] * capacity
-            self.refractory_periods = [0] * capacity
-            self.refractory_counters = [0] * capacity
-            self.last_fired = [0] * capacity
-            self.neuron_types = [0] * capacity  # 0=excitatory, 1=inhibitory, etc.
-            self.enabled_flags = [1] * capacity  # 1=enabled, 0=disabled
-            self.cortical_area_ids = [0] * capacity
-            self.coordinates = [(0, 0, 0)] * capacity
+            
+            # Use contiguous C-order arrays with proper dtype alignment for SIMD/GPU
+            # Float32 for all floating point values - optimal for GPU
+            self.membrane_potentials = np.zeros(capacity, dtype=np.float32, order='C')
+            self.thresholds = np.ones(capacity, dtype=np.float32, order='C')
+            
+            # Int32 for integer values - optimal for GPU
+            self.refractory_periods = np.zeros(capacity, dtype=np.int32, order='C')
+            self.refractory_counters = np.zeros(capacity, dtype=np.int32, order='C')
+            self.last_fired = np.zeros(capacity, dtype=np.int32, order='C')
+            self.neuron_types = np.zeros(capacity, dtype=np.int32, order='C')  # 0=excitatory, 1=inhibitory, etc.
+            self.enabled_flags = np.ones(capacity, dtype=np.int32, order='C')  # 1=enabled, 0=disabled
+            self.cortical_area_ids = np.zeros(capacity, dtype=np.int32, order='C')
+            
+            # For coordinates, use structured array (less ideal for GPU but keeps API clean)
+            # Could be refactored to separate x, y, z arrays for optimal SoA on GPU
+            self.coordinates = np.zeros(capacity, dtype=[('x', np.int32), ('y', np.int32), ('z', np.int32)])
     
     def get_membrane_potential(self, neuron_id: int) -> float:
         """Get membrane potential for a neuron."""
         if self._use_rust:
             return self._rust_gna.get_membrane_potential(neuron_id)
         else:
-            return self.membrane_potentials[neuron_id]
+            return float(self.membrane_potentials[neuron_id])
     
     def set_membrane_potential(self, neuron_id: int, value: float) -> None:
         """Set membrane potential for a neuron."""
         if self._use_rust:
             self._rust_gna.set_membrane_potential(neuron_id, value)
         else:
-            self.membrane_potentials[neuron_id] = value
+            self.membrane_potentials[neuron_id] = float(value)
     
     def update_membrane_potentials(self, decay_factor: float) -> None:
         """Update all membrane potentials with decay."""
         if self._use_rust:
             self._rust_gna.decay_membrane_potentials(decay_factor)
         else:
-            # Slow Python implementation
-            for i in range(self.capacity):
-                self.membrane_potentials[i] *= decay_factor
+            # Vectorized operation using NumPy
+            self.membrane_potentials *= decay_factor
     
     def update_refractory_counters(self) -> None:
         """Update refractory counters for all neurons."""
         if self._use_rust:
             self._rust_gna.update_refractory_counters()
         else:
-            # Slow Python implementation
-            for i in range(self.capacity):
-                if self.refractory_counters[i] > 0:
-                    self.refractory_counters[i] -= 1
+            # Vectorized operation using NumPy
+            mask = self.refractory_counters > 0
+            self.refractory_counters[mask] -= 1
     
     def find_fire_candidates(self, timestep: int) -> List[int]:
         """Find neurons that are ready to fire."""
         if self._use_rust:
             return self._rust_gna.get_fire_candidates(timestep)
         else:
-            # Slow Python implementation
-            candidates = []
-            for i in range(self.capacity):
-                # Skip neurons in refractory period
-                if self.refractory_counters[i] > 0:
-                    continue
-                
-                # Skip disabled neurons
-                if self.enabled_flags[i] == 0:
-                    continue
-                
-                # Check if above threshold
-                if self.membrane_potentials[i] >= self.thresholds[i]:
-                    candidates.append(i)
+            # Vectorized operations using NumPy
+            # 1. Create masks for each condition
+            not_refractory = self.refractory_counters == 0
+            enabled = self.enabled_flags > 0
+            above_threshold = self.membrane_potentials >= self.thresholds
             
-            return candidates
+            # 2. Combine masks and get indices
+            fire_mask = not_refractory & enabled & above_threshold
+            return np.where(fire_mask)[0].tolist()
     
     def process_fired_neurons(self, fired_list: List[int], timestep: int) -> None:
         """Process neurons that have fired."""
         if self._use_rust:
             self._rust_gna.process_fired_neurons(fired_list, timestep)
         else:
-            # Slow Python implementation
-            for neuron_id in fired_list:
-                # Reset membrane potential
-                self.membrane_potentials[neuron_id] = 0.0
-                
-                # Set refractory counter
-                self.refractory_counters[neuron_id] = self.refractory_periods[neuron_id]
-                
-                # Update last fired timestamp
-                self.last_fired[neuron_id] = timestep
+            import numpy as np
+            # Convert to NumPy array if not already
+            fired_indices = np.asarray(fired_list, dtype=np.int32)
+            
+            # Vectorized operations
+            self.membrane_potentials[fired_indices] = 0.0
+            self.refractory_counters[fired_indices] = self.refractory_periods[fired_indices]
+            self.last_fired[fired_indices] = timestep
     
     def get_all_membrane_potentials(self) -> List[float]:
         """Get all membrane potentials."""
         if self._use_rust:
             return self._rust_gna.get_all_membrane_potentials()
         else:
-            return self.membrane_potentials
+            return self.membrane_potentials.tolist()
 
 class FireCandidateList:
     """
-    Fire Candidate List (FCL) optimized for Rust with SIMD operations.
+    Fire Candidate List (FCL) optimized for SIMD and WebGPU.
     
     Manages the list of neurons that are firing in the current timestep,
     with optimizations for both CPU (SIMD) and GPU processing.
+    
+    Uses bitmap-like structures for efficient SIMD/GPU operations.
     """
     
-    def __init__(self, neuron_ids: Optional[List[int]] = None):
+    def __init__(self, neuron_ids: Optional[List[int]] = None, capacity: int = 1000000):
         """
         Initialize an FCL, optionally with a list of neuron IDs.
         
         Args:
             neuron_ids: Initial list of firing neurons
+            capacity: Maximum expected neuron ID (for sparse bitmap optimization)
         """
+        self.capacity = capacity
+        
         if RUST_AVAILABLE:
             self._use_rust = True
             if neuron_ids is not None:
@@ -156,72 +163,121 @@ class FireCandidateList:
             else:
                 self._rust_fcl = create_fcl([])
         else:
-            # Fallback to Python implementation
+            # Fallback to NumPy implementation
             self._use_rust = False
-            self._neurons = set(neuron_ids or [])
+            
+            # For smaller neuron counts, use a dense boolean mask (fastest for most operations)
+            if capacity <= 1000000:  # 1M neurons threshold
+                self._mask = np.zeros(capacity, dtype=np.bool_)
+                if neuron_ids is not None:
+                    self._mask[neuron_ids] = True
+                self._use_dense = True
+            else:
+                # For large neuron counts, use a sparse representation
+                self._active_ids = np.array(neuron_ids or [], dtype=np.int32)
+                self._use_dense = False
     
     def add(self, neuron_id: int) -> None:
         """Add a neuron to the FCL."""
         if self._use_rust:
             self._rust_fcl.add(neuron_id)
         else:
-            self._neurons.add(neuron_id)
+            if self._use_dense:
+                self._mask[neuron_id] = True
+            else:
+                if neuron_id not in self._active_ids:
+                    self._active_ids = np.append(self._active_ids, neuron_id)
     
     def add_multiple(self, neuron_ids: List[int]) -> None:
         """Add multiple neurons to the FCL."""
         if self._use_rust:
             self._rust_fcl.add_multiple(neuron_ids)
         else:
-            self._neurons.update(neuron_ids)
+            if self._use_dense:
+                # Convert to NumPy array if not already
+                ids = np.asarray(neuron_ids, dtype=np.int32)
+                self._mask[ids] = True
+            else:
+                # Use numpy's setdiff1d for efficiency
+                to_add = np.setdiff1d(
+                    np.asarray(neuron_ids, dtype=np.int32), 
+                    self._active_ids,
+                    assume_unique=True
+                )
+                if len(to_add) > 0:
+                    self._active_ids = np.concatenate([self._active_ids, to_add])
     
     def remove(self, neuron_id: int) -> None:
         """Remove a neuron from the FCL."""
         if self._use_rust:
             self._rust_fcl.remove(neuron_id)
         else:
-            self._neurons.discard(neuron_id)
+            if self._use_dense:
+                self._mask[neuron_id] = False
+            else:
+                # Find and remove the neuron ID
+                mask = self._active_ids != neuron_id
+                self._active_ids = self._active_ids[mask]
     
     def clear(self) -> None:
         """Clear the FCL."""
         if self._use_rust:
             self._rust_fcl.clear()
         else:
-            self._neurons.clear()
+            if self._use_dense:
+                self._mask.fill(False)
+            else:
+                self._active_ids = np.array([], dtype=np.int32)
     
     def contains(self, neuron_id: int) -> bool:
         """Check if a neuron is in the FCL."""
         if self._use_rust:
             return self._rust_fcl.contains(neuron_id)
         else:
-            return neuron_id in self._neurons
+            if self._use_dense:
+                return bool(self._mask[neuron_id])
+            else:
+                return neuron_id in self._active_ids
     
     def __len__(self) -> int:
         """Get the number of neurons in the FCL."""
         if self._use_rust:
             return self._rust_fcl.len()
         else:
-            return len(self._neurons)
+            if self._use_dense:
+                return int(np.sum(self._mask))
+            else:
+                return len(self._active_ids)
     
     def is_empty(self) -> bool:
         """Check if the FCL is empty."""
         if self._use_rust:
             return self._rust_fcl.is_empty()
         else:
-            return len(self._neurons) == 0
+            if self._use_dense:
+                return not np.any(self._mask)
+            else:
+                return len(self._active_ids) == 0
     
     def to_list(self) -> List[int]:
         """Get a list of all neurons in the FCL."""
         if self._use_rust:
             return self._rust_fcl.to_list()
         else:
-            return list(self._neurons)
+            if self._use_dense:
+                return np.where(self._mask)[0].tolist()
+            else:
+                return self._active_ids.tolist()
     
     def __iter__(self):
         """Iterate over neurons in the FCL."""
         if self._use_rust:
             return iter(self._rust_fcl.to_list())
         else:
-            return iter(self._neurons)
+            if self._use_dense:
+                return iter(np.where(self._mask)[0])
+            else:
+                return iter(self._active_ids)
 
 class Connectome:
     """
@@ -229,6 +285,8 @@ class Connectome:
     
     Manages synaptic connections between neurons with optimizations for
     sparse matrix operations in both CPU (SIMD) and GPU contexts.
+    
+    Uses CSR-like format for efficient sparse matrix operations.
     """
     
     def __init__(self, neuron_count: int, estimated_connections: int = 1000000):
@@ -240,13 +298,31 @@ class Connectome:
             estimated_connections: Estimated number of connections (for memory allocation)
         """
         self.neuron_count = neuron_count
+        self.initial_capacity = estimated_connections
+        
         if RUST_AVAILABLE:
             self._rust_connectome = create_connectome(neuron_count, estimated_connections)
             self._use_rust = True
         else:
-            # Fallback to Python implementation
+            # Fallback to NumPy implementation using CSR-like format
             self._use_rust = False
-            self._connections = {}  # source_id -> [(target_id, weight, delay, type, src_area, tgt_area)]
+            
+            # Initialize CSR-like arrays
+            # source_offsets[i] gives the starting index in target_indices for source i's connections
+            # source_offsets[i+1] - source_offsets[i] gives the number of connections from source i
+            self.source_offsets = np.zeros(neuron_count + 1, dtype=np.int32)
+            
+            # Allocate with expected capacity
+            # These arrays will be resized as needed
+            self.target_indices = np.zeros(estimated_connections, dtype=np.int32)
+            self.weights = np.zeros(estimated_connections, dtype=np.float32)
+            self.delays = np.zeros(estimated_connections, dtype=np.int32)
+            self.connection_types = np.zeros(estimated_connections, dtype=np.int32)
+            self.source_area_ids = np.zeros(estimated_connections, dtype=np.int32)
+            self.target_area_ids = np.zeros(estimated_connections, dtype=np.int32)
+            
+            # Track actual used size
+            self._connection_count = 0
     
     def add_connection(
         self,
@@ -258,97 +334,196 @@ class Connectome:
         source_area_id: int = 0,
         target_area_id: int = 0,
     ) -> None:
-        """Add a connection to the connectome."""
+        """
+        Add a synaptic connection.
+        
+        Args:
+            source_id: Source neuron ID
+            target_id: Target neuron ID
+            weight: Synaptic weight
+            delay: Synaptic delay in timesteps
+            connection_type: Type of connection (0=excitatory, 1=inhibitory, etc.)
+            source_area_id: ID of the source cortical area
+            target_area_id: ID of the target cortical area
+        """
         if self._use_rust:
             self._rust_connectome.add_connection(
                 source_id, target_id, weight, delay, connection_type, source_area_id, target_area_id
             )
         else:
-            # Fallback Python implementation
-            if source_id not in self._connections:
-                self._connections[source_id] = []
+            # Check if we need to resize the arrays
+            if self._connection_count >= len(self.target_indices):
+                # Double capacity (typical amortized growth strategy)
+                new_capacity = max(self._connection_count * 2, self.initial_capacity)
+                self._resize_arrays(new_capacity)
             
-            self._connections[source_id].append(
-                (target_id, weight, delay, connection_type, source_area_id, target_area_id)
-            )
+            # Find position to insert: after existing connections from source_id
+            insert_pos = self.source_offsets[source_id]
+            
+            # Shift existing connections from later sources
+            # We need to:
+            # 1. Shift all connections after insert_pos
+            # 2. Update all source_offsets after source_id
+            
+            # Make space for new connection
+            if self._connection_count > insert_pos:
+                # Move existing connections one position forward
+                self.target_indices[insert_pos+1:self._connection_count+1] = self.target_indices[insert_pos:self._connection_count]
+                self.weights[insert_pos+1:self._connection_count+1] = self.weights[insert_pos:self._connection_count]
+                self.delays[insert_pos+1:self._connection_count+1] = self.delays[insert_pos:self._connection_count]
+                self.connection_types[insert_pos+1:self._connection_count+1] = self.connection_types[insert_pos:self._connection_count]
+                self.source_area_ids[insert_pos+1:self._connection_count+1] = self.source_area_ids[insert_pos:self._connection_count]
+                self.target_area_ids[insert_pos+1:self._connection_count+1] = self.target_area_ids[insert_pos:self._connection_count]
+            
+            # Insert new connection
+            self.target_indices[insert_pos] = target_id
+            self.weights[insert_pos] = weight
+            self.delays[insert_pos] = delay
+            self.connection_types[insert_pos] = connection_type
+            self.source_area_ids[insert_pos] = source_area_id
+            self.target_area_ids[insert_pos] = target_area_id
+            
+            # Update offsets for all sources after this one
+            self.source_offsets[source_id+1:] += 1
+            
+            # Increment connection count
+            self._connection_count += 1
+    
+    def _resize_arrays(self, new_capacity: int) -> None:
+        """
+        Resize internal arrays to new capacity.
+        
+        Args:
+            new_capacity: New capacity for arrays
+        """
+        self.target_indices = np.resize(self.target_indices, new_capacity)
+        self.weights = np.resize(self.weights, new_capacity)
+        self.delays = np.resize(self.delays, new_capacity)
+        self.connection_types = np.resize(self.connection_types, new_capacity)
+        self.source_area_ids = np.resize(self.source_area_ids, new_capacity)
+        self.target_area_ids = np.resize(self.target_area_ids, new_capacity)
     
     def get_connections_for_neuron(self, neuron_id: int) -> List[Dict[str, Any]]:
-        """Get all connections for a specific neuron."""
+        """
+        Get all outgoing connections for a neuron.
+        
+        Args:
+            neuron_id: Source neuron ID
+            
+        Returns:
+            List of dictionaries with connection details
+        """
         if self._use_rust:
             return self._rust_connectome.get_connections_for_neuron(neuron_id)
         else:
-            if neuron_id not in self._connections:
-                return []
+            # Get range of connections for this neuron
+            start_idx = self.source_offsets[neuron_id]
+            end_idx = self.source_offsets[neuron_id + 1]
             
-            return [
-                {
-                    "target_id": conn[0],
-                    "weight": conn[1],
-                    "delay": conn[2],
-                    "type": conn[3],
-                    "source_area_id": conn[4],
-                    "target_area_id": conn[5],
-                }
-                for conn in self._connections[neuron_id]
-            ]
+            # Create list of dictionaries
+            connections = []
+            for i in range(start_idx, end_idx):
+                connections.append({
+                    "source_id": neuron_id,
+                    "target_id": int(self.target_indices[i]),
+                    "weight": float(self.weights[i]),
+                    "delay": int(self.delays[i]),
+                    "connection_type": int(self.connection_types[i]),
+                    "source_area_id": int(self.source_area_ids[i]),
+                    "target_area_id": int(self.target_area_ids[i])
+                })
+            
+            return connections
     
     def connection_count(self) -> int:
-        """Get the total number of connections in the connectome."""
+        """Get the total number of connections."""
         if self._use_rust:
             return self._rust_connectome.connection_count()
         else:
-            return sum(len(conns) for conns in self._connections.values())
+            return self._connection_count
     
     def propagate_activations(
         self, source_activations: List[float], target_buffer: List[float]
     ) -> List[float]:
-        """Propagate activations through the connectome."""
+        """
+        Propagate activations from source neurons to target neurons.
+        
+        Args:
+            source_activations: Activation values for all source neurons
+            target_buffer: Buffer to store target neuron activations
+            
+        Returns:
+            Updated target buffer
+        """
         if self._use_rust:
             return self._rust_connectome.propagate_activations(source_activations, target_buffer)
         else:
-            # Slow Python implementation
-            for source_id, activation in enumerate(source_activations):
-                if activation <= 0.0:
-                    continue
-                
-                if source_id not in self._connections:
-                    continue
-                
-                for target_id, weight, _, _, _, _ in self._connections[source_id]:
-                    target_buffer[target_id] += activation * weight
+            # Convert to NumPy arrays for vectorized operations
+            src_act = np.asarray(source_activations, dtype=np.float32)
+            tgt_buff = np.asarray(target_buffer, dtype=np.float32)
             
-            return target_buffer
+            # For each source with nonzero activation
+            nonzero_sources = np.nonzero(src_act)[0]
+            for src_id in nonzero_sources:
+                # Get connections for this source
+                start_idx = self.source_offsets[src_id]
+                end_idx = self.source_offsets[src_id + 1]
+                
+                if start_idx == end_idx:
+                    continue  # No connections
+                
+                # Get target neurons and weights
+                targets = self.target_indices[start_idx:end_idx]
+                conn_weights = self.weights[start_idx:end_idx]
+                
+                # Calculate PSP contribution (activation * weight)
+                psp = src_act[src_id] * conn_weights
+                
+                # Add to target buffer (using np.add.at for safe accumulation)
+                np.add.at(tgt_buff, targets, psp)
+            
+            return tgt_buff.tolist()
 
 class OptimizedFeagiCore:
     """
-    Optimized FEAGI Core with SIMD and WebGPU acceleration.
+    Optimized FEAGI Core integrating GNA, FCL, and Connectome.
     
-    Combines GNA, FCL, and Connectome in an optimized processing system.
+    This class provides a unified interface for the core FEAGI components,
+    optimized for SIMD and WebGPU operations.
     """
     
     def __init__(self, neuron_capacity: int, estimated_connections: int = 1000000):
         """
-        Initialize the FEAGI core.
+        Initialize an optimized FEAGI core.
         
         Args:
             neuron_capacity: Maximum number of neurons to support
-            estimated_connections: Estimated number of connections
+            estimated_connections: Estimated number of synaptic connections
         """
         if RUST_AVAILABLE:
-            self._use_rust = True
             self._rust_core = create_feagi_core(neuron_capacity, estimated_connections)
-        else:
-            self._use_rust = False
+            self._use_rust = True
+            
+            # These are just Python wrappers around Rust objects
             self.gna = GlobalNeuronArray(neuron_capacity)
             self.fcl = FireCandidateList()
             self.connectome = Connectome(neuron_capacity, estimated_connections)
-            self.current_timestep = 0
+            self._current_timestep = 0
+        else:
+            # Use our SIMD/GPU-friendly NumPy implementations
+            self._use_rust = False
+            self.gna = GlobalNeuronArray(neuron_capacity)
+            self.fcl = FireCandidateList(capacity=neuron_capacity)
+            self.connectome = Connectome(neuron_capacity, estimated_connections)
+            self._current_timestep = 0
     
     def step(self):
-        """Perform a single simulation timestep."""
+        """Step the simulation forward by one timestep."""
         if self._use_rust:
             self._rust_core.step()
+            self._current_timestep += 1
         else:
+            # Use our vectorized implementations
             # 1. Decay membrane potentials
             self.gna.update_membrane_potentials(0.95)  # Example decay factor
             
@@ -356,17 +531,50 @@ class OptimizedFeagiCore:
             self.gna.update_refractory_counters()
             
             # 3. Find neurons ready to fire
-            fire_candidates = self.gna.find_fire_candidates(self.current_timestep)
+            fire_candidates = self.gna.find_fire_candidates(self._current_timestep)
             
-            # 4. Update the FCL
+            # 4. Update FCL
             self.fcl.clear()
             self.fcl.add_multiple(fire_candidates)
             
             # 5. Process fired neurons
-            self.gna.process_fired_neurons(fire_candidates, self.current_timestep)
+            if fire_candidates:  # Only process if there are any candidates
+                self.gna.process_fired_neurons(fire_candidates, self._current_timestep)
             
             # Increment timestep
-            self.current_timestep += 1
+            self._current_timestep += 1
+    
+    def propagate_activations(self) -> List[float]:
+        """
+        Propagate activations from all firing neurons to their targets.
+        
+        Returns:
+            New membrane potentials after propagation
+        """
+        if self._use_rust:
+            return self._rust_core.propagate_activations()
+        else:
+            # Get firing neurons
+            firing_neurons = self.fcl.to_list()
+            
+            # Create source activations (1.0 for firing, 0.0 for others)
+            source_activations = np.zeros(self.gna.capacity, dtype=np.float32)
+            if firing_neurons:  # Only set if there are firing neurons
+                source_activations[firing_neurons] = 1.0
+            
+            # Create target buffer with current membrane potentials
+            target_buffer = self.gna.membrane_potentials.copy()
+            
+            # Propagate through the connectome
+            updated_buffer = self.connectome.propagate_activations(
+                source_activations.tolist(), target_buffer.tolist()
+            )
+            
+            # Update membrane potentials (could be optimized further)
+            for i, potential in enumerate(updated_buffer):
+                self.gna.set_membrane_potential(i, potential)
+            
+            return updated_buffer
     
     @property
     def current_timestep(self) -> int:
@@ -379,23 +587,6 @@ class OptimizedFeagiCore:
     @current_timestep.setter
     def current_timestep(self, value: int):
         """Set the current timestep."""
-        if not self._use_rust:
-            self._current_timestep = value
-    
-    def propagate_activations(self) -> List[float]:
-        """Propagate activations from fired neurons through the connectome."""
         if self._use_rust:
-            return self._rust_core.propagate_activations()
-        else:
-            # Create a temporary buffer of activations (1.0 for fired neurons, 0.0 otherwise)
-            activations = [0.0] * self.gna.capacity
-            
-            # Set activations for fired neurons
-            for neuron_id in self.fcl:
-                activations[neuron_id] = 1.0
-            
-            # Create target buffer
-            target_buffer = [0.0] * self.gna.capacity
-            
-            # Propagate through the connectome
-            return self.connectome.propagate_activations(activations, target_buffer) 
+            self._rust_core.set_current_timestep(value)
+        self._current_timestep = value 

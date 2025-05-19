@@ -2313,3 +2313,99 @@ class ConnectomeManager:
             return sorted_neurons[neuron_index]
         
         return None
+
+    @classmethod
+    def load(cls, filename):
+        """Load a connectome from a file."""
+        try:
+            with open(filename, 'rb') as f:
+                connectome = pickle.load(f)
+                
+                if not isinstance(connectome, ConnectomeManager):
+                    raise ValueError(f"File {filename} does not contain a ConnectomeManager instance")
+                
+                return connectome
+        except Exception as e:
+            logger.error(f"Failed to load connectome from file {filename}: {e}")
+            raise
+
+    def to_gpu_optimized(self):
+        """Create a GPU-optimized version of this ConnectomeManager.
+        
+        This method creates a new ConnectomeManagerGPU instance and transfers
+        the current state to it, enabling GPU-accelerated operations.
+        
+        Returns:
+            A GPU-optimized ConnectomeManager instance.
+            
+        Note:
+            This is a one-way conversion. The returned instance should be used
+            for all subsequent operations. The original instance should not be used
+            after calling this method, as changes will not be synchronized between
+            the two instances.
+        """
+        try:
+            # Import here to avoid circular imports
+            from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
+            
+            # Create a new GPU-optimized instance with the same configuration
+            gpu_connectome = ConnectomeManagerGPU(
+                max_neurons=self.max_neurons, 
+                max_synapses=self.max_synapses
+            )
+            
+            # Transfer cortical areas
+            for area_id, area in self.cortical_areas.items():
+                gpu_area_id = gpu_connectome.add_cortical_area(
+                    name=area.name,
+                    dimensions=area.dimensions,
+                    position=area.position,
+                    area_type=area.area_type,
+                    properties=area.properties.copy(),
+                    area_id=area.id
+                )
+            
+            # Transfer neurons
+            for neuron_id, neuron_data in self.neurons.items():
+                area_id = neuron_data["area_id"]
+                position = neuron_data["position"]
+                
+                # Create the neuron with the same ID and properties
+                gpu_neuron_id = gpu_connectome.create_neuron(
+                    area_id=area_id,
+                    position=position,
+                    threshold=neuron_data["threshold"],
+                    membrane_potential=neuron_data["membrane_potential"],
+                    resting_potential=neuron_data["resting_potential"],
+                    decay_rate=neuron_data["decay_rate"],
+                    refractory_period=neuron_data["refractory_period"]
+                )
+            
+            # Transfer synapses
+            self._ensure_csr_format_outgoing()
+            for pre_id in range(self.outgoing_matrix.shape[0]):
+                if pre_id not in self._neuron_id_to_index:
+                    continue
+                    
+                row = self.outgoing_matrix.getrow(pre_id)
+                for post_id, weight in zip(row.indices, row.data):
+                    if post_id not in self._neuron_id_to_index:
+                        continue
+                        
+                    # Convert indices back to neuron IDs
+                    if pre_id in self.index_to_neuron_id and post_id in self.index_to_neuron_id:
+                        pre_neuron_id = self.index_to_neuron_id[pre_id]
+                        post_neuron_id = self.index_to_neuron_id[post_id]
+                        
+                        # Create the synapse in the GPU connectome
+                        gpu_connectome.create_synapse(pre_neuron_id, post_neuron_id, float(weight))
+            
+            # Copy the current timestep
+            gpu_connectome.current_timestep = self.current_timestep
+            
+            logger.info("Successfully created GPU-optimized ConnectomeManager")
+            return gpu_connectome
+            
+        except Exception as e:
+            logger.error(f"Failed to create GPU-optimized ConnectomeManager: {e}")
+            raise

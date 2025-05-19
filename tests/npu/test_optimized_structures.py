@@ -191,22 +191,23 @@ class TestConnectome:
         connectome.add_connection(0, 2, 0.6)
         connectome.add_connection(1, 2, 0.7)
         connectome.add_connection(1, 3, 0.8)
-        
+    
         # Create source activations (only neurons 0 and 1 are active)
         source_activations = [0.0] * 1000
         source_activations[0] = 1.0
         source_activations[1] = 0.5
-        
+    
         # Create target buffer
         target_buffer = [0.0] * 1000
-        
+    
         # Propagate activations
         result = connectome.propagate_activations(source_activations, target_buffer)
-        
-        # Check the result
-        assert result[1] == 0.5  # From neuron 0 to 1
-        assert result[2] == 0.6 + 0.5 * 0.7  # From neuron 0 to 2 + neuron 1 to 2
-        assert result[3] == 0.5 * 0.8  # From neuron 1 to 3
+    
+        # Check the result with pytest.approx to account for floating point precision
+        assert result[1] == pytest.approx(0.5, abs=1e-5)  # From neuron 0 to 1
+        assert result[2] == pytest.approx(0.6 + 0.5 * 0.7, abs=1e-5)  # From neuron 0 to 2 + neuron 1 to 2
+        assert result[3] == pytest.approx(0.5 * 0.8, abs=1e-5)  # From neuron 1 to 3
+        assert result[0] == pytest.approx(0.0, abs=1e-5)  # Neuron 0 has no incoming connections
 
 class TestOptimizedFeagiCore:
     @pytest.fixture
