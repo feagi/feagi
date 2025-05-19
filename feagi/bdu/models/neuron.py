@@ -7,7 +7,9 @@ using CSR (Compressed Sparse Row) format compatible with GPU acceleration.
 import numpy as np
 from typing import Dict, List, Tuple, Any, Optional, Union
 import torch
+import logging
 
+logger = logging.getLogger(__name__)
 class NeuronArray:
     """GPU-optimized neuron storage using contiguous memory arrays.
     
@@ -479,6 +481,333 @@ class NeuronArray:
             "refractory_counter": int(self.refractory_counters[index]),
             "is_active": bool(self.is_active[index])
         }
+
+    def batch_create_neurons(self, area_id: int, positions: List[Tuple[int, int, int]],
+                         thresholds: Union[float, List[float]] = 1.0,
+                         membrane_potentials: Union[float, List[float]] = 0.0,
+                         resting_potentials: Union[float, List[float]] = 0.0,
+                         decay_rates: Union[float, List[float]] = 0.5,
+                         refractory_periods: Union[int, List[int]] = 1) -> List[int]:
+        """Create multiple neurons with the same or different properties in batch.
+        
+        This method is optimized for creating large numbers of neurons at once by
+        using vectorized operations instead of loops.
+        
+        Args:
+            area_id: ID of the cortical area (int)
+            positions: List of 3D coordinates for each neuron
+            thresholds: Either a single value for all neurons or a list of values
+            membrane_potentials: Either a single value for all neurons or a list of values
+            resting_potentials: Either a single value for all neurons or a list of values
+            decay_rates: Either a single value for all neurons or a list of values
+            refractory_periods: Either a single value for all neurons or a list of values
+            
+        Returns:
+            List of neuron IDs created
+            
+        Raises:
+            ValueError: If any list parameter doesn't match the length of positions
+        """
+        num_neurons = len(positions)
+        
+        # Validate lengths of parameters if they are lists
+        for param_name, param_value in [
+            ("thresholds", thresholds),
+            ("membrane_potentials", membrane_potentials),
+            ("resting_potentials", resting_potentials),
+            ("decay_rates", decay_rates),
+            ("refractory_periods", refractory_periods)
+        ]:
+            if isinstance(param_value, list) and len(param_value) != num_neurons:
+                raise ValueError(f"Length of {param_name} ({len(param_value)}) does not match length of positions ({num_neurons})")
+        
+        # Find indices for all neurons
+        if len(self.free_indices) >= num_neurons:
+            # We have enough free indices
+            indices = np.array(self.free_indices[:num_neurons])
+            self.free_indices = self.free_indices[num_neurons:]
+        else:
+            # Use free indices + new indices
+            num_new_indices = num_neurons - len(self.free_indices)
+            
+            if self.next_index + num_new_indices > self.max_neurons:
+                raise ValueError(f"Maximum number of neurons ({self.max_neurons}) exceeded")
+            
+            free_indices = np.array(self.free_indices) if self.free_indices else np.array([], dtype=np.int32)
+            new_indices = np.arange(self.next_index, self.next_index + num_new_indices, dtype=np.int32)
+            indices = np.concatenate([free_indices, new_indices])
+            
+            self.free_indices = []
+            self.next_index += num_new_indices
+        
+        # Generate neuron IDs (in this case, same as indices for simplicity)
+        neuron_ids = indices.copy()
+        
+        # Prepare property arrays (convert to arrays if they are single values)
+        if not isinstance(thresholds, list):
+            thresholds = np.full(num_neurons, thresholds, dtype=np.float32)
+        else:
+            thresholds = np.array(thresholds, dtype=np.float32)
+        
+        if not isinstance(membrane_potentials, list):
+            membrane_potentials = np.full(num_neurons, membrane_potentials, dtype=np.float32)
+        else:
+            membrane_potentials = np.array(membrane_potentials, dtype=np.float32)
+        
+        if not isinstance(resting_potentials, list):
+            resting_potentials = np.full(num_neurons, resting_potentials, dtype=np.float32)
+        else:
+            resting_potentials = np.array(resting_potentials, dtype=np.float32)
+        
+        if not isinstance(decay_rates, list):
+            decay_rates = np.full(num_neurons, decay_rates, dtype=np.float32)
+        else:
+            decay_rates = np.array(decay_rates, dtype=np.float32)
+        
+        if not isinstance(refractory_periods, list):
+            refractory_periods = np.full(num_neurons, refractory_periods, dtype=np.int32)
+        else:
+            refractory_periods = np.array(refractory_periods, dtype=np.int32)
+        
+        # Extract position components
+        positions_x = np.array([pos[0] for pos in positions], dtype=np.int32)
+        positions_y = np.array([pos[1] for pos in positions], dtype=np.int32)
+        positions_z = np.array([pos[2] for pos in positions], dtype=np.int32)
+        
+        # Set neuron properties using vectorized operations
+        self.membrane_potentials[indices] = membrane_potentials
+        self.resting_potentials[indices] = resting_potentials
+        self.thresholds[indices] = thresholds
+        self.decay_rates[indices] = decay_rates
+        self.refractory_periods[indices] = refractory_periods
+        self.refractory_counters[indices] = 0
+        self.is_active[indices] = False
+        
+        # Set area and positions
+        self.area_ids[indices] = area_id
+        self.positions_x[indices] = positions_x
+        self.positions_y[indices] = positions_y
+        self.positions_z[indices] = positions_z
+        
+        # Mark as valid
+        self.valid_mask[indices] = True
+        
+        # Update ID to index mapping
+        for neuron_id, index in zip(neuron_ids, indices):
+            self.id_to_index_map[int(neuron_id)] = int(index)
+        
+        return neuron_ids.tolist()
+
+    def batch_update_membrane_potentials(self, neuron_ids: List[int], values: List[float]) -> None:
+        """Update membrane potentials for multiple neurons at once.
+        
+        Args:
+            neuron_ids: List of neuron IDs
+            values: List of new membrane potential values
+            
+        Raises:
+            ValueError: If lengths of neuron_ids and values don't match
+        """
+        if len(neuron_ids) != len(values):
+            raise ValueError(f"Length of neuron_ids ({len(neuron_ids)}) does not match length of values ({len(values)})")
+        
+        # Get indices for the neuron IDs
+        indices = np.array([self.id_to_index_map[nid] for nid in neuron_ids], dtype=np.int32)
+        
+        # Update membrane potentials in a vectorized way
+        self.membrane_potentials[indices] = np.array(values, dtype=np.float32)
+        
+    def process_incoming_signals(self, signal_matrix, batch_size=10000):
+        """Process incoming signals and update membrane potentials using GPU acceleration.
+        
+        This method takes a sparse matrix of pre-synaptic signals and updates all neuron
+        membrane potentials in a vectorized operation that can be executed on GPU.
+        
+        Args:
+            signal_matrix: Sparse matrix (CSR format) where rows are source neurons,
+                          columns are target neurons, and values are signal strengths
+            batch_size: Size of batches to process at once to avoid memory overflow
+                        
+        Returns:
+            ndarray: Boolean mask of neurons that fired
+        """
+        if self.device == "cuda" and isinstance(self.membrane_potentials, torch.Tensor):
+            # Use PyTorch for GPU acceleration if available
+            # Process in batches to avoid memory overflow
+            rows, cols = signal_matrix.nonzero()
+            data = signal_matrix.data
+            
+            for i in range(0, len(rows), batch_size):
+                batch_rows = rows[i:i+batch_size]
+                batch_cols = cols[i:i+batch_size]
+                batch_data = data[i:i+batch_size]
+                
+                if isinstance(batch_data, np.ndarray):
+                    batch_data = torch.from_numpy(batch_data).to(self.device)
+                
+                # Convert to PyTorch tensors if they're numpy arrays
+                if isinstance(batch_rows, np.ndarray):
+                    batch_rows = torch.from_numpy(batch_rows).to(self.device)
+                if isinstance(batch_cols, np.ndarray):
+                    batch_cols = torch.from_numpy(batch_cols).to(self.device)
+                
+                # Use PyTorch scatter_add_ for efficient updates
+                self.membrane_potentials.scatter_add_(0, batch_cols, batch_data)
+                
+            # Check for firing neurons
+            fired_mask = self.membrane_potentials >= self.thresholds
+            
+            # Reset membrane potentials for neurons that fired
+            self.membrane_potentials[fired_mask] = self.resting_potentials[fired_mask]
+            
+            # Set refractory counters for neurons that fired
+            self.refractory_counters[fired_mask] = self.refractory_periods[fired_mask]
+            
+            # Update active neurons mask
+            self.is_active = fired_mask
+            
+            return fired_mask.cpu().numpy() if isinstance(fired_mask, torch.Tensor) else fired_mask
+            
+        else:
+            # NumPy implementation for CPU
+            # Update all membrane potentials at once
+            for i in range(0, signal_matrix.shape[0], batch_size):
+                batch_end = min(i + batch_size, signal_matrix.shape[0])
+                # Extract the batch of signals
+                batch_signals = signal_matrix[i:batch_end, :]
+                
+                # Identify target neurons and signal values
+                targets, values = batch_signals.nonzero()[1], batch_signals.data
+                
+                # Add signals to membrane potentials
+                for target, value in zip(targets, values):
+                    self.membrane_potentials[target] += value
+            
+            # Check for firing neurons - vectorized operation
+            fired_mask = self.membrane_potentials >= self.thresholds
+            
+            # Reset membrane potentials for neurons that fired
+            self.membrane_potentials[fired_mask] = self.resting_potentials[fired_mask]
+            
+            # Set refractory counters for neurons that fired
+            self.refractory_counters[fired_mask] = self.refractory_periods[fired_mask]
+            
+            # Update active neurons mask
+            self.is_active = fired_mask
+            
+            return fired_mask
+
+    def use_best_available_device(self):
+        """Automatically use the best available device (GPU if available, CPU otherwise).
+        
+        This method attempts to move the neuron arrays to GPU memory if a CUDA-capable
+        GPU is available and has sufficient memory. If not, it falls back to CPU with
+        a warning.
+        
+        Returns:
+            str: The device being used ('cuda' or 'cpu')
+        """
+        try:
+            if not torch.cuda.is_available():
+                logger.info("CUDA is not available. Using CPU.")
+                return "cpu"
+            
+            # Calculate approximate memory requirements
+            # Each float32 value takes 4 bytes, each int32 value takes 4 bytes, each bool takes 1 byte
+            float_arrays_count = 4  # membrane_potentials, resting_potentials, thresholds, decay_rates
+            int_arrays_count = 4    # refractory_periods, refractory_counters, area_ids
+            bool_arrays_count = 2   # is_active, valid_mask
+            positions_count = 3     # positions_x, positions_y, positions_z
+            
+            bytes_per_neuron = (float_arrays_count * 4) + (int_arrays_count * 4) + \
+                             (bool_arrays_count * 1) + (positions_count * 4)
+            
+            total_bytes_needed = bytes_per_neuron * self.max_neurons
+            
+            # Add buffer for temporary arrays during computation (50% extra)
+            total_bytes_needed = int(total_bytes_needed * 1.5)
+            
+            # Check available GPU memory
+            free_memory, total_memory = torch.cuda.mem_get_info()
+            
+            if free_memory < total_bytes_needed:
+                logger.warning(
+                    f"Insufficient GPU memory. Need {total_bytes_needed/1e9:.2f} GB, "
+                    f"but only {free_memory/1e9:.2f} GB free out of {total_memory/1e9:.2f} GB total."
+                )
+                return "cpu"
+            
+            # We have enough memory, move to GPU
+            logger.info(
+                f"Using GPU with {free_memory/1e9:.2f} GB free memory. "
+                f"Estimated requirement: {total_bytes_needed/1e9:.2f} GB."
+            )
+            
+            self.to_gpu()
+            return "cuda"
+            
+        except Exception as e:
+            logger.exception(f"Error switching to GPU: {e}")
+            # Ensure we're using CPU if there was an error
+            if self.device != "cpu":
+                self.to_cpu()
+            return "cpu"
+
+    def get_device_stats(self):
+        """Get statistics about the current device and memory usage.
+        
+        Returns:
+            dict: Dictionary containing device information and memory usage
+        """
+        stats = {
+            "device": self.device,
+            "max_neurons": self.max_neurons,
+            "used_neurons": np.sum(self.valid_mask),
+            "arrays_size_mb": 0
+        }
+        
+        # Calculate approximate memory usage
+        # Each float32 array
+        float_arrays = [
+            self.membrane_potentials,
+            self.resting_potentials,
+            self.thresholds,
+            self.decay_rates
+        ]
+        
+        # Each int32 array
+        int_arrays = [
+            self.refractory_periods,
+            self.refractory_counters,
+            self.area_ids,
+            self.positions_x,
+            self.positions_y,
+            self.positions_z
+        ]
+        
+        # Each bool array
+        bool_arrays = [
+            self.is_active,
+            self.valid_mask
+        ]
+        
+        # Calculate sizes
+        float_size = sum(4 * self.max_neurons for _ in float_arrays)
+        int_size = sum(4 * self.max_neurons for _ in int_arrays)
+        bool_size = sum(1 * self.max_neurons for _ in bool_arrays)
+        
+        total_bytes = float_size + int_size + bool_size
+        stats["arrays_size_mb"] = total_bytes / (1024 * 1024)
+        
+        # Add GPU-specific stats if on GPU
+        if self.device == "cuda" and torch.cuda.is_available():
+            stats["cuda_device_name"] = torch.cuda.get_device_name(0)
+            free_memory, total_memory = torch.cuda.mem_get_info()
+            stats["cuda_total_memory_gb"] = total_memory / (1024**3)
+            stats["cuda_free_memory_gb"] = free_memory / (1024**3)
+            stats["cuda_used_memory_gb"] = (total_memory - free_memory) / (1024**3)
+        
+        return stats
 
 
 # For backwards compatibility

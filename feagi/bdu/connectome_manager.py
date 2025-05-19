@@ -2330,82 +2330,163 @@ class ConnectomeManager:
             raise
 
     def to_gpu_optimized(self):
-        """Create a GPU-optimized version of this ConnectomeManager.
+        """Convert this ConnectomeManager to a GPU-optimized ConnectomeManagerGPU.
         
-        This method creates a new ConnectomeManagerGPU instance and transfers
-        the current state to it, enabling GPU-accelerated operations.
+        This method transfers all connectome data including neurons, synapses, cortical areas,
+        and other structures to the GPU-optimized implementation.
         
         Returns:
-            A GPU-optimized ConnectomeManager instance.
-            
-        Note:
-            This is a one-way conversion. The returned instance should be used
-            for all subsequent operations. The original instance should not be used
-            after calling this method, as changes will not be synchronized between
-            the two instances.
+            ConnectomeManagerGPU: A new GPU-optimized connectome manager
         """
-        try:
-            # Import here to avoid circular imports
-            from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
+        # Import here to avoid circular imports
+        from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
+        
+        # Create a new GPU-optimized manager with the same capacity
+        gpu_manager = ConnectomeManagerGPU(self.max_neurons, self.max_synapses)
+        
+        # Transfer cortical areas
+        for area_id, area in self.cortical_areas.items():
+            # Get area properties
+            name = area.name
+            dimensions = area.dimensions
+            position = area.position
+            area_type = area.area_type
+            properties = area.properties
             
-            # Create a new GPU-optimized instance with the same configuration
-            gpu_connectome = ConnectomeManagerGPU(
-                max_neurons=self.max_neurons, 
-                max_synapses=self.max_synapses
+            # Create area in GPU manager with the same ID
+            gpu_manager.add_cortical_area(
+                name=name, 
+                dimensions=dimensions, 
+                position=position, 
+                area_type=area_type, 
+                properties=properties,
+                area_id=area_id
             )
-            
-            # Transfer cortical areas
-            for area_id, area in self.cortical_areas.items():
-                gpu_area_id = gpu_connectome.add_cortical_area(
-                    name=area.name,
-                    dimensions=area.dimensions,
-                    position=area.position,
-                    area_type=area.area_type,
-                    properties=area.properties.copy(),
-                    area_id=area.id
-                )
-            
-            # Transfer neurons
-            for neuron_id, neuron_data in self.neurons.items():
-                area_id = neuron_data["area_id"]
-                position = neuron_data["position"]
+        
+        # Transfer brain regions
+        for region_id, region in self.brain_regions.items():
+            # Create region in GPU manager
+            gpu_manager.add_brain_region(
+                name=region.get('name', 'Unknown Region'),
+                region_type=region.get('region_type', 'custom'),
+                properties=region.get('properties', {}),
+                region_id=region_id
+            )
+        
+        # Transfer region-area mappings
+        for region_id, area_ids in self.region_area_map.items():
+            for area_id in area_ids:
+                gpu_manager.assign_area_to_region(area_id, region_id)
+        
+        # Transfer all neurons in batches to optimize performance
+        # Group neurons by area for more efficient batch creation
+        neurons_by_area = {}
+        for neuron_id, neuron_data in self.neurons.items():
+            area_id = neuron_data['area_id']
+            if area_id not in neurons_by_area:
+                neurons_by_area[area_id] = []
+            neurons_by_area[area_id].append((neuron_id, neuron_data))
+        
+        # Process neurons area by area
+        neuron_id_map = {}  # Map from old neuron IDs to new neuron IDs
+        logger.info(f"Transferring {len(self.neurons)} neurons to GPU-optimized manager")
+        for area_id, neuron_list in neurons_by_area.items():
+            # For each area, batch create neurons
+            batch_size = 10000  # Process in batches to avoid memory issues
+            for i in range(0, len(neuron_list), batch_size):
+                batch = neuron_list[i:i+batch_size]
                 
-                # Create the neuron with the same ID and properties
-                gpu_neuron_id = gpu_connectome.create_neuron(
+                # Extract neuron data
+                positions = []
+                thresholds = []
+                membrane_potentials = []
+                resting_potentials = []
+                decay_rates = []
+                refractory_periods = []
+                old_neuron_ids = []
+                
+                for old_id, data in batch:
+                    positions.append(data['position'])
+                    thresholds.append(data['threshold'])
+                    membrane_potentials.append(data['membrane_potential'])
+                    resting_potentials.append(data['resting_potential'])
+                    decay_rates.append(data['decay_rate'])
+                    refractory_periods.append(data['refractory_period'])
+                    old_neuron_ids.append(old_id)
+                
+                # Batch create neurons
+                new_neuron_ids = gpu_manager.batch_create_neurons(
                     area_id=area_id,
-                    position=position,
-                    threshold=neuron_data["threshold"],
-                    membrane_potential=neuron_data["membrane_potential"],
-                    resting_potential=neuron_data["resting_potential"],
-                    decay_rate=neuron_data["decay_rate"],
-                    refractory_period=neuron_data["refractory_period"]
+                    positions=positions,
+                    threshold=thresholds,
+                    membrane_potential=membrane_potentials,
+                    resting_potential=resting_potentials,
+                    decay_rate=decay_rates,
+                    refractory_period=refractory_periods
                 )
+                
+                # Map old neuron IDs to new neuron IDs
+                for old_id, new_id in zip(old_neuron_ids, new_neuron_ids):
+                    neuron_id_map[old_id] = new_id
+        
+        # Transfer synapses in batches
+        # First, convert to list of (pre, post, weight) tuples
+        synapse_list = []
+        
+        # Convert to CSR for efficient iteration over non-zero elements
+        self._ensure_csr_format_outgoing()
+        
+        # Extract non-zero elements from sparse matrix
+        rows, cols = self.outgoing_matrix.nonzero()
+        for i, (pre, post) in enumerate(zip(rows, cols)):
+            weight = self.outgoing_matrix[pre, post]
             
-            # Transfer synapses
-            self._ensure_csr_format_outgoing()
-            for pre_id in range(self.outgoing_matrix.shape[0]):
-                if pre_id not in self._neuron_id_to_index:
-                    continue
-                    
-                row = self.outgoing_matrix.getrow(pre_id)
-                for post_id, weight in zip(row.indices, row.data):
-                    if post_id not in self._neuron_id_to_index:
-                        continue
-                        
-                    # Convert indices back to neuron IDs
-                    if pre_id in self.index_to_neuron_id and post_id in self.index_to_neuron_id:
-                        pre_neuron_id = self.index_to_neuron_id[pre_id]
-                        post_neuron_id = self.index_to_neuron_id[post_id]
-                        
-                        # Create the synapse in the GPU connectome
-                        gpu_connectome.create_synapse(pre_neuron_id, post_neuron_id, float(weight))
-            
-            # Copy the current timestep
-            gpu_connectome.current_timestep = self.current_timestep
-            
-            logger.info("Successfully created GPU-optimized ConnectomeManager")
-            return gpu_connectome
-            
-        except Exception as e:
-            logger.error(f"Failed to create GPU-optimized ConnectomeManager: {e}")
-            raise
+            # Map to new IDs
+            if pre in neuron_id_map and post in neuron_id_map:
+                new_pre = neuron_id_map[pre]
+                new_post = neuron_id_map[post]
+                synapse_list.append((new_pre, new_post, weight))
+        
+        # Batch create synapses in GPU manager
+        logger.info(f"Transferring {len(synapse_list)} synapses to GPU-optimized manager")
+        batch_size = 100000  # Process in batches to avoid memory issues
+        for i in range(0, len(synapse_list), batch_size):
+            batch = synapse_list[i:i+batch_size]
+            gpu_manager.batch_create_synapses(batch)
+        
+        # Transfer connectivity rules
+        for rule_id, rule in self.connectivity_rules.items():
+            # Transfer the rule
+            gpu_manager.add_connectivity_rule(
+                name=rule.get('name', 'Unknown Rule'),
+                source_area_id=rule.get('source_area_id', ''),
+                target_area_id=rule.get('target_area_id', ''),
+                rule_type=rule.get('rule_type', 'custom'),
+                parameters=rule.get('parameters', {}),
+                description=rule.get('description', ''),
+                rule_id=rule_id
+            )
+        
+        # Transfer cortical connections
+        for conn_id, conn in self.cortical_connections.items():
+            # Transfer the connection
+            gpu_manager.add_cortical_connection(
+                name=conn.get('name', 'Unknown Connection'),
+                source_area_id=conn.get('source_area_id', ''),
+                target_area_id=conn.get('target_area_id', ''),
+                properties=conn.get('properties', {}),
+                connection_id=conn_id
+            )
+        
+        # Transfer simulation state
+        gpu_manager.current_timestep = self.current_timestep
+        
+        # Transfer active neurons
+        if hasattr(self, 'active_neurons') and self.active_neurons:
+            for neuron_id in self.active_neurons:
+                if neuron_id in neuron_id_map:
+                    gpu_manager.active_neurons[neuron_id_map[neuron_id]] = True
+        
+        logger.info("Successfully converted ConnectomeManager to GPU-optimized implementation")
+        
+        return gpu_manager

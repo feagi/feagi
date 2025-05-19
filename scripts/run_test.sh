@@ -1,0 +1,2 @@
+export FEAGI_LOG_LEVEL=DEBUG
+python3 test_sensorimotor_binary.py
