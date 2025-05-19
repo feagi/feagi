@@ -373,11 +373,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
     # If no connectome was provided, create a new one
     if connectome is None:
         connectome = ConnectomeManager()
-        connectome.initialize_arrays()
-    # If connectome was provided but isn't initialized, initialize it
-    elif not hasattr(connectome, 'fcl_manager') or connectome.fcl_manager is None:
-        connectome.initialize_arrays()
-        
+    
     # Set the connectome in the dependencies module, not in a local variable
     from feagi.api.rest.dependencies import set_connectome_instance, set_core_api_service
     set_connectome_instance(connectome)

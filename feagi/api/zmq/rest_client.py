@@ -114,13 +114,26 @@ class ZMQRestClient:
         
         # Send request
         try:
-            self.socket.send_json(request)
+            # Convert request to bytes
+            request_bytes = json.dumps(request).encode('utf-8')
+            
+            # Send as multipart message for DEALER/ROUTER pattern
+            # [empty_frame, payload]
+            self.socket.send_multipart([b"", request_bytes])
         except zmq.ZMQError as e:
             raise ConnectionError(f"Failed to send request: {e}")
         
         # Wait for response
         try:
-            response = self.socket.recv_json()
+            # Receive multipart response
+            response_parts = self.socket.recv_multipart()
+            
+            # Parse response (should be [empty_frame, payload])
+            if len(response_parts) < 2:
+                raise ValueError(f"Invalid response format: missing parts")
+                
+            # Get JSON payload
+            response = json.loads(response_parts[1].decode('utf-8'))
         except zmq.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 raise TimeoutError("Request timed out")

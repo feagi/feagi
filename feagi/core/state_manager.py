@@ -437,8 +437,17 @@ class FeagiStateManager:
         self.state_ptr.contents.state_version += 1
         logger.info(f"Brain readiness changed: {old} → {ready}", emoji1="🧠")
 
+    def get_connectome(self):
+        """Get the current connectome instance"""
+        try:
+            from feagi.api.rest.dependencies import get_connectome
+            return get_connectome()
+        except (ImportError, RuntimeError):
+            logger.warning("Failed to get connectome from dependencies")
+            return None
+
     def register_sync_observer(self, observer):
-        """Register a component to be notified of sync events"""
+        """Register an observer for genome sync events"""
         self.sync_observers.append(observer)
         
     def set_genome_sync_state(self, state, details=None):

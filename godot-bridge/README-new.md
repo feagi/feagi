@@ -1,86 +1,105 @@
-# FEAGI 2.0 Godot Bridge
+# FEAGI Godot Bridge
 
-This bridge connects FEAGI 2.0 to the Godot game engine for 3D visualization of neural activity.
-
-## Overview
-
-The FEAGI 2.0 Godot Bridge subscribes to FEAGI's visualization data stream, processes neural activity data, and forwards it to Godot for real-time visualization. It serves as a critical component for monitoring and debugging neural networks running in FEAGI.
+This bridge enables real-time visualization and interaction between FEAGI and the Godot game engine. The bridge visualizes neural activity, cortical areas, and provides an interactive interface for monitoring and interacting with FEAGI.
 
 ## Features
 
-- Real-time visualization of neuron firing patterns
-- Performance optimizations for handling large neural networks
-- Caching of coordinate data to minimize CPU usage
-- WebSocket interface for Godot communication
-- Support for direct neuron stimulation from Godot
+- Real-time neural activity visualization
+- Connectome structure visualization
+- Interactive cortical area inspection
+- Direct stimulation of neurons
+- Support for standard REST API and ZMQ protocols
+- Configurable bridge settings
+
+## Communication Methods
+
+The Godot Bridge can communicate with FEAGI using two different methods:
+
+1. **Legacy HTTP REST API**: The original communication method using HTTP for control commands.
+2. **ZMQ REST API**: A more efficient method using ZeroMQ that mirrors the REST API format.
 
 ## Requirements
 
-- Python 3.9+
-- FEAGI 2.0+
-- Godot 4.0+ with the FEAGI Brain Visualizer project
+- Python 3.8+
+- FEAGI 2.1+
+- WebSockets support
+- ZeroMQ
 
 ## Installation
 
-1. Clone the FEAGI repository
-2. Navigate to the godot-bridge directory
-3. Install dependencies: `pip install -r requirements.txt`
+1. Clone the repository or navigate to the `godot-bridge` directory in your FEAGI installation.
+2. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Configuration
+
+Configuration is stored in `configuration.json`:
+
+```json
+{
+  "feagi_settings": {
+    "feagi_host": "127.0.0.1",
+    "feagi_api_port": "8000",
+    "feagi_zmq_port": "5559",
+    "feagi_viz_port": "5560"
+  },
+  "agent_settings": {
+    "godot_websocket_port": "9050"
+  }
+}
+```
+
+You can override these settings with environment variables:
+- `FEAGI_HOST_INTERNAL` - FEAGI host address
+- `FEAGI_API_PORT` - HTTP REST API port 
+- `FEAGI_ZMQ_PORT` - ZMQ control port
+- `FEAGI_VIZ_PORT` - ZMQ visualization port
+- `WS_BRIDGE_PORT` - WebSocket port for Godot
 
 ## Usage
 
-### Running the Bridge
+### Using the ZMQ REST API Bridge (Recommended)
+
+The ZMQ REST API bridge provides better performance and a more efficient protocol:
+
+```bash
+python godot_zmq_rest_bridge.py
+```
+
+Options:
+- `--config` - Path to configuration file (default: `configuration.json`)
+- `--log-level` - Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)
+
+### Using the Legacy Bridge
+
+The legacy bridge uses the HTTP REST API:
 
 ```bash
 python bridge_godot_python_new.py
 ```
 
-### Configuration
+## Testing
 
-The bridge can be configured using the `configuration.json` file or environment variables:
+Several test scripts are available to verify functionality:
 
-| Setting | Environment Variable | Default | Description |
-|---------|---------------------|---------|-------------|
-| FEAGI Host | FEAGI_HOST_INTERNAL | 127.0.0.1 | IP address or hostname of FEAGI |
-| FEAGI API Port | FEAGI_API_PORT | 8000 | FEAGI API port |
-| WebSocket Port | WS_BRIDGE_PORT | 9050 | Port for Godot WebSocket connection |
+- `test_zmq_rest_api.py`: Test the ZMQ REST API client
+- `check_feagi_api.py`: Check which API endpoints are available
+- `test_direct_fcl_injection.py`: Test direct FCL injection
+- `test_sensory_input.py`: Test sending sensory input to FEAGI
 
-### Godot Integration
+## Godot Integration
 
-In your Godot project, connect to the bridge using the WebSocket protocol:
+The Godot game engine connects to this bridge via WebSocket. Your Godot project needs a WebSocket client implementation that can:
 
-```gdscript
-func _ready():
-    var client = WebSocketClient.new()
-    client.connect_to_url("ws://localhost:9050")
-    # Implement handlers for receiving visualization data
-```
-
-## Architecture
-
-The bridge consists of several components:
-
-1. **FEAGI Client**: Connects to FEAGI using the ZMQ protocol
-2. **Data Processor**: Transforms neuron firing data for Godot visualization
-3. **WebSocket Server**: Provides real-time data to Godot
-4. **Command Handler**: Processes stimulation commands from Godot
-
-## Performance Considerations
-
-The bridge is optimized for performance with large neural networks:
-
-- Coordinate caching reduces CPU usage for repeated patterns
-- Pre-allocated buffers minimize memory allocations
-- Rate limiting prevents overwhelming the WebSocket connection
-
-## Troubleshooting
-
-- **Connection Issues**: Verify FEAGI is running and accessible
-- **No Visualization**: Check if the visualization stream is enabled in FEAGI
-- **High Latency**: Reduce the number of neurons or increase stimulation period
+1. Connect to the bridge's WebSocket server (default port 9050)
+2. Send and receive JSON messages
+3. Process binary frame data (for neural activity visualization)
 
 ## Contributing
 
-Contributions are welcome! Please follow the FEAGI contribution guidelines.
+Contributions are welcome! Please follow the project's coding guidelines.
 
 ## License
 

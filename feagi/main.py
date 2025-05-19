@@ -105,7 +105,6 @@ def main():
     # Initialize the main connectome instance
     from feagi.bdu.connectome_manager import ConnectomeManager
     connectome = ConnectomeManager()
-    connectome.initialize_arrays()  # Explicitly initialize arrays before using the connectome
     
     # Set the connectome instance for FastAPI dependency injection
     from feagi.api.rest.dependencies import set_connectome_instance
@@ -118,7 +117,7 @@ def main():
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):
         logger.info("\nShutting down FEAGI servers...", emoji1="  ")
-        process_manager.shutdown_all()
+        process_manager.shutdown()
         FeagiStateManager.instance().cleanup()
         sys.exit(0)
         

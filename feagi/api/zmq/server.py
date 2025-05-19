@@ -396,9 +396,9 @@ class ZmqServer:
         try:
             while self._running and not self._shutdown_event.is_set():
                 await asyncio.sleep(1.0)
-        except asyncio.CancelledError:
+            except asyncio.CancelledError:
             logger.info("Monitor loop cancelled")
-        except Exception as e:
+            except Exception as e:
             logger.error(f"Error in monitor loop: {e}")
             self._running = False
     
@@ -411,7 +411,7 @@ class ZmqServer:
         if not self._running:
             logger.warning("ZMQ server is not running")
             return
-            
+        
         logger.info("Shutting down ZMQ server")
         
         # Signal the monitor loop to stop
@@ -445,32 +445,32 @@ class ZmqServer:
         """
         logger.info("Stopping ZMQ services")
         
-        # Stop all services
-        stop_tasks = []
+            # Stop all services
+            stop_tasks = []
+            
+            if self._req_rep:
+                stop_tasks.append(self._req_rep.stop())
         
-        if self._req_rep:
-            stop_tasks.append(self._req_rep.stop())
+            if self._pub_sub:
+                stop_tasks.append(self._pub_sub.stop())
         
-        if self._pub_sub:
-            stop_tasks.append(self._pub_sub.stop())
+            if self._push_pull:
+                stop_tasks.append(self._push_pull.stop())
         
-        if self._push_pull:
-            stop_tasks.append(self._push_pull.stop())
-        
-        if self._sensorimotor:
-            stop_tasks.append(self._sensorimotor.stop())
+            if self._sensorimotor:
+                stop_tasks.append(self._sensorimotor.stop())
         
         if self._control:
             stop_tasks.append(self._control.stop())
         
-        if self._visualization:
-            stop_tasks.append(self._visualization.stop())
-        
-        # Wait for all services
-        if stop_tasks:
-            await asyncio.gather(*stop_tasks, return_exceptions=True)
+            if self._visualization:
+                stop_tasks.append(self._visualization.stop())
             
-        logger.info("All ZMQ services stopped")
+        # Wait for all services
+            if stop_tasks:
+                await asyncio.gather(*stop_tasks, return_exceptions=True)
+                
+            logger.info("All ZMQ services stopped")
         
         # Close sockets
         for socket in [self.control_socket, self.sensorimotor_socket, 
@@ -668,14 +668,14 @@ class ZmqServer:
                     # Handle based on topic
                     if topic == b"sensory":
                         await self._handle_sensory_data(message_data)
-                    else:
+            else:
                         logger.warning(f"Unknown sensorimotor topic: {topic}")
                     
                 except asyncio.CancelledError:
                     break
-                except Exception as e:
+        except Exception as e:
                     logger.error(f"Error handling sensorimotor message: {e}")
-                    
+    
         except asyncio.CancelledError:
             logger.debug("Sensorimotor message handler cancelled")
     
@@ -856,7 +856,7 @@ class ZmqServer:
         if fsmp_message.type != FSMPChannelType.FSMP_SENSORY:
             logger.warning(f"Received non-sensory message type: {fsmp_message.type}")
             return
-        
+            
         # Extract data
         channel_id = fsmp_message.sensory_data.channel_id
         data = fsmp_message.sensory_data.data
@@ -879,7 +879,7 @@ class ZmqServer:
         if not self._running or not self.sensorimotor_socket:
             logger.warning("Cannot send motor data: server not running")
             return
-        
+            
         # Create timestamp
         current_time = Timestamp()
         current_time.time_ms = int(time.time() * 1000)
@@ -1285,7 +1285,7 @@ class ZmqServer:
             
             return await self._handle_status_request(identity, request)
         
-        else:
+            else:
             logger.warning(f"Unknown control message type: {message_type}")
             # Create JSON error response
             response = {"status": "error", "message": f"Unknown message type: {message_type}"}

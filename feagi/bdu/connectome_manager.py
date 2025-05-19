@@ -272,7 +272,7 @@ class ConnectomeManager:
             return neuron[property_name]
         elif property_name in neuron["properties"]:
             return neuron["properties"][property_name]
-        else:
+            else:
             raise KeyError(f"Property {property_name} not found for neuron {neuron_id}")
     
     def set_neuron_property(self, neuron_id: int, property_name: str, value: Any) -> None:
@@ -784,7 +784,7 @@ class ConnectomeManager:
             # Check for name conflicts
             for other_area in self.cortical_areas.values():
                 if other_area.id != area_id and other_area.name == updates["name"]:
-                    return False
+            return False
             area.name = updates["name"]
         
         if "position" in updates:
@@ -1401,7 +1401,7 @@ class ConnectomeManager:
                         if params.get("scale_by_distance", False):
                             distance_weight = 1.0 - (distance / max_distance)
                             synapse_specs.append((source_id, target_id, weight * distance_weight))
-                        else:
+        else:
                             synapse_specs.append((source_id, target_id, weight))
                     
                     candidates += 1
@@ -1970,7 +1970,7 @@ class ConnectomeManager:
         filtered_neurons = []
         for neuron_id in area_neurons:
             position = self.get_neuron_position(neuron_id)
-            x, y, z = position
+        x, y, z = position
             
             if (x_range is None or (x_range[0] <= x <= x_range[1])) and \
                (y_range is None or (y_range[0] <= y <= y_range[1])) and \

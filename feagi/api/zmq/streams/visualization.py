@@ -137,7 +137,7 @@ class VisualizationStream:
             self._active_mode = False
             return
             
-        genome_state = state_manager.genome_state
+        genome_state = state_manager.get_genome_state()
         
         if genome_state == GenomeState.LOADED:
             if not self._active_mode:
@@ -757,14 +757,24 @@ class VisualizationStream:
             logger.warning("State manager not available, visualization data unavailable")
             return
         
-        # Get FCL manager
-        fcl_manager = state_manager.get_fcl_manager()
+        # Get FCL manager - handle missing method case
+        fcl_manager = None
+        if hasattr(state_manager, 'get_fcl_manager'):
+            fcl_manager = state_manager.get_fcl_manager()
+        elif hasattr(self.core_api, 'get_fcl_manager'):
+            fcl_manager = self.core_api.get_fcl_manager()
+            
         if not fcl_manager:
             logger.warning("FCL manager not available, visualization data unavailable")
             return
             
-        # Get connectome manager
-        connectome_manager = state_manager.get_connectome()
+        # Get connectome manager - handle missing method case
+        connectome_manager = None
+        if hasattr(state_manager, 'get_connectome'):
+            connectome_manager = state_manager.get_connectome()
+        elif hasattr(self.core_api, 'get_connectome_manager'):
+            connectome_manager = self.core_api.get_connectome_manager()
+            
         if not connectome_manager:
             logger.warning("Connectome manager not available, visualization data unavailable")
             return
@@ -811,9 +821,15 @@ class VisualizationStream:
         if not state_manager:
             return
             
-        # Get connectome manager
-        connectome_manager = state_manager.get_connectome()
+        # Get connectome manager - handle missing method case
+        connectome_manager = None
+        if hasattr(state_manager, 'get_connectome'):
+            connectome_manager = state_manager.get_connectome()
+        elif hasattr(self.core_api, 'get_connectome_manager'):
+            connectome_manager = self.core_api.get_connectome_manager()
+            
         if not connectome_manager:
+            logger.warning("Connectome manager not available, structure data unavailable")
             return
             
         # Build structure data
