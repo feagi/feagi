@@ -13,7 +13,31 @@ import json
 from typing import Dict, Any, Optional, Callable, List, Tuple, Union
 
 import zmq
-import zmq.asyncio
+# Try to import asyncio from zmq, use mock if that fails
+try:
+    import zmq.asyncio
+except ImportError:
+    logging.warning("zmq.asyncio not found, using mock implementation")
+    try:
+        # Use the local mock implementation rather than importing from feagi
+        from feagi_connector.zmq.mock_asyncio import Context as AsyncioContext
+        # Monkey patch zmq to provide asyncio context
+        if not hasattr(zmq, 'asyncio'):
+            class AsyncioModule:
+                Context = AsyncioContext
+            zmq.asyncio = AsyncioModule()
+    except ImportError:
+        logging.warning("Could not import mock_asyncio, creating minimal stub")
+        # Create minimal zmq.asyncio stub
+        if not hasattr(zmq, 'asyncio'):
+            class AsyncioContext(zmq.Context):
+                @classmethod
+                def instance(cls):
+                    return zmq.Context.instance()
+                    
+            class AsyncioModule:
+                Context = AsyncioContext
+            zmq.asyncio = AsyncioModule()
 
 # Import protocol definitions
 from feagi_connector.protocols import (

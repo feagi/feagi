@@ -1,6 +1,18 @@
 # FEAGI Connector Tests
 
-This directory contains tests for the FEAGI connector library, which provides a Python client for connecting to and interacting with FEAGI.
+## Status
+
+**TEMPORARILY DISABLED**: These tests are currently disabled as feagi_connector is planned to be moved to the FEAGI Bridge project.
+
+Once feagi_connector is moved to FEAGI Bridge, these tests will be re-enabled and updated to import from `feagi_bridge import feagi_connector`.
+
+## Test Coverage
+
+These tests verify the basic functionality of the FEAGI connector, including:
+
+- Basic connectivity to FEAGI
+- Protocol handling
+- Message serialization/deserialization
 
 ## Test Files
 

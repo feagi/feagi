@@ -15,8 +15,25 @@ import concurrent.futures
 import json
 from typing import Dict, Any, List, Optional, Union, Callable
 
-import zmq
-import zmq.asyncio
+# Force importing the actual ZMQ module first to avoid circular imports
+try:
+    import zmq
+    try:
+        import zmq.asyncio
+    except ImportError:
+        logger.warning("zmq.asyncio not available - using minimal mock")
+        # Simple dummy class when asyncio support is not available
+        if not hasattr(zmq, 'asyncio'):
+            class DummyAsync:
+                class Context:
+                    @classmethod
+                    def instance(cls):
+                        return zmq.Context.instance()
+            zmq.asyncio = DummyAsync()
+except ImportError:
+    logger.warning("zmq package not available - server functionality will be limited")
+    import zmq
+
 from zmq.auth.thread import ThreadAuthenticator
 
 from ..core.service import CoreApiService

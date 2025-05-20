@@ -1,33 +1,97 @@
 """
-Smart initialization strategy for API tests.
+Fixtures and configuration for FEAGI REST API tests.
 
-This module creates a flexible framework that:
-1. Provides session-scoped fixtures for one-time initialization
-2. Supports test grouping via markers for different initialization requirements
-3. Uses a client factory pattern to create specialized test clients while reusing expensive components
-4. Implements complete mocking of ConnectomeManager and CoreAPIService to avoid actual initialization
-5. Provides a caching system for client instances to reuse across test modules
-
-Usage:
-- Basic tests can use `client` fixture directly
-- Tests needing custom behavior can use the `client_factory` to create specialized clients
-- Tests can be grouped with pytest markers (e.g., @pytest.mark.api_group("genome"))
+This module provides fixtures for testing the FEAGI REST API,
+including mocks for the connectome manager, core API service, etc.
 """
 
-import pytest
 import logging
+import sys
+import pytest
 import os
 import json
 import tempfile
 from typing import Dict, Any, Callable, Optional, Set, List, Tuple
 from unittest.mock import MagicMock, patch, create_autospec
-from fastapi.testclient import TestClient
 
-# Import needed components
-from feagi.api.rest.app import create_rest_app 
-from feagi.api.rest.dependencies import get_core_api, get_connectome, set_connectome_instance, set_core_api_service
+# Create comprehensive mock for ZMQ to allow tests to run without circular dependencies
+def setup_zmq_mocks():
+    """Set up comprehensive ZMQ mocks for testing."""
+    # Create core ZMQ module structure
+    mock_zmq = MagicMock()
+    
+    # Add common ZMQ constants
+    mock_zmq.POLLIN = 1
+    mock_zmq.POLLOUT = 2
+    mock_zmq.DEALER = 5
+    mock_zmq.ROUTER = 6
+    mock_zmq.PUSH = 8
+    mock_zmq.PULL = 9
+    mock_zmq.EAGAIN = 35
+    mock_zmq.LINGER = 17
+    mock_zmq.RCVTIMEO = 27
+    mock_zmq.SNDHWM = 23
+    
+    # Create ZMQ auth module
+    mock_auth_thread = MagicMock()
+    mock_auth_thread.ThreadAuthenticator = MagicMock()
+    mock_auth = MagicMock()
+    mock_auth.thread = mock_auth_thread
+    
+    # Create ZMQ asyncio module
+    mock_asyncio = MagicMock()
+    mock_asyncio.Context = MagicMock()
+    mock_asyncio.Socket = MagicMock()
+    mock_asyncio.Poller = MagicMock()
+    
+    # Populate the auth and asyncio modules
+    mock_zmq.auth = mock_auth
+    mock_zmq.asyncio = mock_asyncio
+    
+    # Create error class
+    class ZMQError(Exception):
+        def __init__(self, errno):
+            self.errno = errno
+            super().__init__(f"ZMQ Error {errno}")
+    mock_zmq.ZMQError = ZMQError
+    
+    # Set up in sys.modules
+    sys.modules['zmq'] = mock_zmq
+    sys.modules['zmq.auth'] = mock_auth
+    sys.modules['zmq.auth.thread'] = mock_auth_thread
+    sys.modules['zmq.asyncio'] = mock_asyncio
+    
+    # Mock feagi_connector to prevent circular dependencies
+    sys.modules['feagi_connector'] = MagicMock()
+    sys.modules['feagi_connector.zmq'] = MagicMock()
+    sys.modules['feagi_connector.zmq.client'] = MagicMock()
+    sys.modules['feagi_connector.zmq.rest_client'] = MagicMock()
+    sys.modules['feagi_connector.zmq_rest_client'] = MagicMock()
+
+# Apply mocks before other imports
+setup_zmq_mocks()
+
+# Async mock for async methods
+class AsyncMock:
+    """Mock for async methods."""
+    
+    def __init__(self, return_value=None):
+        self.return_value = return_value
+        
+    def __call__(self, *args, **kwargs):
+        return self
+        
+    def __await__(self):
+        async def _await_me():
+            return self.return_value
+        return _await_me().__await__()
+
+# Import needed components including create_rest_app before it's needed
+from fastapi.testclient import TestClient
+from feagi.api.rest.app import create_rest_app
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.api.core.services.core_api_service import CoreAPIService
+from feagi.api.rest.dependencies import get_core_api, get_connectome, set_connectome_instance, set_core_api_service
 
 # Configure test logging
 logging.basicConfig(level=logging.WARNING)
@@ -231,6 +295,12 @@ def core_api_mock(connectome_manager_mock):
         "active_neurons": [1, 2, 3, 4, 5],
         "areas": {"1": {"active_count": 5}}
     }
+    
+    # In the core_api_mock fixture, add this method to support essential genome upload
+    mock.load_genome.return_value = True
+    mock.get_burst_engine.return_value = MagicMock()
+    # Add a specific method to process the essential genome
+    mock.process_essential_genome = MagicMock(return_value={"success": True, "data": {"genome_id": "essential"}, "timestamp": 1234567890})
     
     return mock
 
@@ -583,4 +653,6 @@ def use_appropriate_client(request):
         elif group_name == "region":
             request.getfixturevalue("region_client")
         elif group_name == "cortical_area":
-            request.getfixturevalue("cortical_area_client") 
+            request.getfixturevalue("cortical_area_client")
+
+# Client fixtures already defined earlier 

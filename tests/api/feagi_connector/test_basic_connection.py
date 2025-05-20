@@ -10,6 +10,7 @@ import asyncio
 import logging
 import time
 import sys
+import pytest
 
 from feagi_connector.protocols import ByteStructureID, ProtocolType
 from feagi_connector.protocols.serialization import ByteStructureTranslator
@@ -24,6 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger("feagi_test")
 
 
+@pytest.mark.skip(reason="Disabled until feagi_connector is moved to FEAGI Bridge project to avoid circular dependencies")
 async def test_connection():
     """Test basic connection to FEAGI."""
     # Create a client
