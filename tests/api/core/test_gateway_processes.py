@@ -78,7 +78,6 @@ class TestGatewayProcessIntegration(unittest.TestCase):
                 # Verify ZmqClient constructor was called
                 mock_zmq_client_cls.assert_called_once()
     
-    @pytest.mark.skip(reason="Requires create_core_api to be updated with proper parameters")
     def test_local_core_api_initialization(self):
         """Test that the gateway recognizes the local core environment variable."""
         # Set environment variable for local core
@@ -87,17 +86,25 @@ class TestGatewayProcessIntegration(unittest.TestCase):
         # Reset the gateway singleton to force re-initialization
         APIGateway._instance = None
     
-        # Patch the logger to verify the right message is logged
-        with patch("feagi.api.gateway.api_gateway.logger") as mock_logger:
+        # Create a mock for create_core_api with the expected parameter
+        mock_core_api = MagicMock()
+        
+        # Patch both the logger and the create_core_api function
+        # Note: create_core_api is imported inside the _initialize_core_api method
+        # so we need to patch feagi.core.create_core_api
+        with patch("feagi.api.gateway.api_gateway.logger") as mock_logger, \
+             patch("feagi.core.create_core_api", return_value=mock_core_api):
+            
             # Create a new gateway instance
             gateway = get_api_gateway()
             
             # Verify the correct message was logged
             mock_logger.info.assert_any_call("Creating local Core API instance")
-    
-        # Verify the gateway initialized properly
-        assert gateway is not None
-        assert APIGateway._instance is not None
+            
+            # Verify the gateway initialized properly
+            self.assertIsNotNone(gateway)
+            self.assertIs(APIGateway._instance, gateway)
+            self.assertEqual(gateway.core_api, mock_core_api)
 
 
 if __name__ == "__main__":
