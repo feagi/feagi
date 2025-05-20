@@ -31,9 +31,9 @@ async def genome_default_upload_v2(core_api_service: CoreAPIService = Depends(ge
     # Process and load the genome
     result = process_and_load_genome(genome_data, core_api_service)
     
-    # Update burst engine with new genome
+    # Update burst engine with new genome - don't check result["success"] as it doesn't exist
     burst_engine = core_api_service.get_burst_engine()
-    if burst_engine and result["success"]:
+    if burst_engine:
         burst_engine.update_with_genome()
         logger.info("Burst Engine updated with new genome", emoji1="⚡")
     
@@ -63,9 +63,9 @@ async def genome_file_upload_v2(file: UploadFile = File(...)):
         # Process and load genome
         result = process_and_load_genome(genome_data, core_api_service)
         
-        # Update burst engine
+        # Update burst engine - don't check result["success"] as it doesn't exist
         burst_engine = core_api_service.get_burst_engine()
-        if burst_engine and result["success"]:
+        if burst_engine:
             burst_engine.update_with_genome()
             logger.info("Burst Engine updated with new genome", emoji1="⚡")
             
