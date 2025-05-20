@@ -1,0 +1,81 @@
+"""
+FEAGI Byte Processing Utilities - Rust Implementation
+
+This module provides direct wrappers to the Rust implementations in feagi-data-processing-py.
+These functions require the feagi-data-processing package to be installed.
+"""
+
+import feagi_data_processing as fdp
+from typing import List, Dict, Tuple, Any
+
+# Constants for byte structure types (should match Rust implementation)
+MULTI_STRUCT_HOLDER = 0
+NEURON_POTENTIAL_CATEGORICAL_XYZ = 11
+
+
+def infer_byte_structure_type_rust(bytes_data: bytes) -> int:
+    """
+    Infer the type of FEAGI byte structure from raw bytes (Rust implementation).
+    
+    Args:
+        bytes_data: Raw bytes data
+        
+    Returns:
+        Integer representing the byte structure type
+        
+    Raises:
+        ValueError: If the byte structure type cannot be inferred
+        ImportError: If feagi-data-processing is not installed
+    """
+    return fdp.byte_data_functions.infer_byte_structure_type(bytes_data)
+
+
+def extract_sub_structures_rust(bytes_data: bytes) -> List[bytes]:
+    """
+    Extract sub-structures from a multi-structure holder (Rust implementation).
+    
+    Args:
+        bytes_data: Raw bytes data of a multi-structure holder
+        
+    Returns:
+        List of byte arrays representing the sub-structures
+        
+    Raises:
+        ValueError: If the bytes data is not a valid multi-structure holder
+        ImportError: If feagi-data-processing is not installed
+    """
+    return fdp.byte_data_functions.extract_sub_structures(bytes_data)
+
+
+def decode_neuron_potential_xyz_rust(bytes_data: bytes) -> Dict[Tuple[int, int, int], float]:
+    """
+    Decode neuron potential data from XYZ categorical format (Rust implementation).
+    
+    Args:
+        bytes_data: Raw bytes in NEURON_POTENTIAL_CATEGORICAL_XYZ format
+        
+    Returns:
+        Dictionary mapping (x, y, z) coordinates to activation values (0.0-1.0)
+        
+    Raises:
+        ValueError: If the bytes data is not in the expected format
+        ImportError: If feagi-data-processing is not installed
+    """
+    return fdp.byte_data_functions.decode_neuron_potential_xyz(bytes_data)
+
+
+def encode_neuron_potential_xyz_rust(neuron_data: Dict[Tuple[int, int, int], float]) -> bytes:
+    """
+    Encode neuron potential data into XYZ categorical format (Rust implementation).
+    
+    Args:
+        neuron_data: Dictionary mapping (x, y, z) coordinates to activation values (0.0-1.0)
+        
+    Returns:
+        Bytes in NEURON_POTENTIAL_CATEGORICAL_XYZ format
+        
+    Raises:
+        ValueError: If the input data is invalid
+        ImportError: If feagi-data-processing is not installed
+    """
+    return fdp.byte_data_functions.encode_neuron_potential_xyz(neuron_data) 

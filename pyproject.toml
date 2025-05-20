@@ -30,6 +30,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+rust = [
+    "feagi-data-processing>=0.0.8",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -44,6 +47,9 @@ docs = [
     "mkdocs-material>=9.0.0",
     "mkdocstrings>=0.20.0",
     "mkdocstrings-python>=1.0.0",
+]
+full = [
+    "feagi-data-processing>=0.0.8",
 ]
 
 [project.urls]

@@ -18,6 +18,11 @@ from feagi_connector.protocols import FSMPChannel, FCPMessageType, FVPMessageTyp
 from feagi_connector.api.command_client import FeagiCommandClient
 from feagi_connector.api.sensory_client import FeagiSensoryClient
 from feagi_connector.api.viz_client import FeagiVizClient
+from feagi_connector.utils import NEURON_POTENTIAL_CATEGORICAL_XYZ
+from feagi_connector.utils.processing import (
+    infer_byte_structure_type_python as infer_byte_structure_type,
+    extract_sub_structures_python as extract_sub_structures
+)
 
 # Configure logging
 logger = logging.getLogger("feagi_connector")

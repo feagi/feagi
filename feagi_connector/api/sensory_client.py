@@ -14,6 +14,16 @@ import zmq
 import zmq.asyncio
 from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
 
+# Import constants
+from feagi_connector.utils import NEURON_POTENTIAL_CATEGORICAL_XYZ
+
+# Import default implementation - this should be the Python implementation
+# for backward compatibility
+from feagi_connector.utils.processing import (
+    infer_byte_structure_type_python as infer_byte_structure_type,
+    decode_neuron_potential_xyz_python as decode_neuron_potential_xyz
+)
+
 # Configure logging
 logger = logging.getLogger("feagi_connector.sensory")
 
@@ -217,6 +227,37 @@ class FeagiSensoryClient:
             logger.error(f"Error sending sensory data: {e}")
             return False
     
+    async def process_motor_data(self, data: bytes) -> Optional[Dict]:
+        """
+        Process motor data received from FEAGI.
+        
+        Args:
+            data: Raw binary data from FEAGI
+            
+        Returns:
+            Processed motor data or None if processing failed
+        """
+        try:
+            # Determine the data type
+            data_type = infer_byte_structure_type(data)
+            
+            if data_type == NEURON_POTENTIAL_CATEGORICAL_XYZ:
+                # Decode neuron potential data
+                neuron_data = decode_neuron_potential_xyz(data)
+                    
+                return {
+                    "type": "neuron_potential",
+                    "format": "xyz",
+                    "neurons": neuron_data
+                }
+            else:
+                logger.warning(f"Unsupported data type: {data_type}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error processing motor data: {e}")
+            return None
+    
     async def receive_motor_data(self, timeout: int = None) -> Optional[Tuple[int, bytes]]:
         """
         Receive motor data from FEAGI.
@@ -255,7 +296,8 @@ class FeagiSensoryClient:
                     if header.get("message_type") == "motor_data":
                         channel_id = header.get("channel_id")
                         logger.debug(f"Received motor data on channel {channel_id}: {len(motor_data)} bytes")
-                        return channel_id, motor_data
+                        processed_data = await self.process_motor_data(motor_data)
+                        return channel_id, processed_data
                     else:
                         logger.warning(f"Unexpected message type: {header.get('message_type')}")
                         return None

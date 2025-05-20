@@ -88,6 +88,72 @@ FEAGI Connector is designed to work with FEAGI's communication protocols:
 - **FVP (FEAGI Visualization Protocol)**: For receiving neural activity and structure data
 - **FCP (FEAGI Control Protocol)**: For agent registration and control
 
+## Rust Integration
+
+FEAGI Connector provides optional high-performance Rust implementations for computationally intensive operations through the `feagi-data-processing` package.
+
+### Installation with Rust Support
+
+To install FEAGI Connector with Rust support:
+
+```bash
+# Install with Rust support
+pip install "feagi_connector[rust]"
+
+# Or install full version with all extras
+pip install "feagi_connector[full]"
+```
+
+### Explicit Implementation Selection
+
+FEAGI Connector uses a fully explicit approach for accessing implementations - Python and Rust implementations are kept separate with clear naming, giving you maximum control and clarity:
+
+```python
+# Import Python implementations directly (always available)
+from feagi_connector.utils.processing import (
+    decode_neuron_potential_xyz_python
+)
+
+# Import Rust implementations directly (will raise ImportError if not available)
+from feagi_connector.utils.rust_processing import (
+    decode_neuron_potential_xyz_rust
+)
+
+# Helper for checking availability if needed
+from feagi_connector.utils import is_rust_available
+
+# Example function that lets the caller choose which implementation to use
+def process_data(data: bytes, use_rust: bool = True):
+    if use_rust:
+        try:
+            # Use Rust implementation
+            return decode_neuron_potential_xyz_rust(data)
+        except ImportError:
+            print("Rust implementation not available, falling back to Python")
+            return decode_neuron_potential_xyz_python(data)
+    else:
+        # Use Python implementation
+        return decode_neuron_potential_xyz_python(data)
+```
+
+This explicit approach offers several benefits:
+
+1. **Maximum Performance**: No runtime overhead from conditional checks
+2. **Code Clarity**: It's always clear which implementation you're using
+3. **Full Control**: You decide exactly when to use each implementation
+4. **Easier Debugging**: Clear code paths simplify troubleshooting
+5. **Simple Error Handling**: ImportErrors are handled where appropriate
+
+The module provides the `is_rust_available()` helper function to check for Rust availability, but it's used only when needed - not on every function call.
+
+### Performance Benefits
+
+The Rust implementation provides significant performance improvements, particularly for:
+
+- Byte structure parsing and manipulation
+- Neuron data processing
+- Vision data processing
+
 ## Development
 
 ### Running Tests
