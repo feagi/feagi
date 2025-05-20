@@ -14,80 +14,126 @@ import tempfile
 from typing import Dict, Any, Callable, Optional, Set, List, Tuple
 from unittest.mock import MagicMock, patch, create_autospec
 
-# Create comprehensive mock for ZMQ to allow tests to run without circular dependencies
-def setup_zmq_mocks():
-    """Set up comprehensive ZMQ mocks for testing."""
-    # Create core ZMQ module structure
-    mock_zmq = MagicMock()
-    
-    # Add common ZMQ constants
-    mock_zmq.POLLIN = 1
-    mock_zmq.POLLOUT = 2
-    mock_zmq.DEALER = 5
-    mock_zmq.ROUTER = 6
-    mock_zmq.PUSH = 8
-    mock_zmq.PULL = 9
-    mock_zmq.EAGAIN = 35
-    mock_zmq.LINGER = 17
-    mock_zmq.RCVTIMEO = 27
-    mock_zmq.SNDHWM = 23
-    
-    # Create ZMQ auth module
-    mock_auth_thread = MagicMock()
-    mock_auth_thread.ThreadAuthenticator = MagicMock()
-    mock_auth = MagicMock()
-    mock_auth.thread = mock_auth_thread
-    
-    # Create ZMQ asyncio module
-    mock_asyncio = MagicMock()
-    mock_asyncio.Context = MagicMock()
-    mock_asyncio.Socket = MagicMock()
-    mock_asyncio.Poller = MagicMock()
-    
-    # Populate the auth and asyncio modules
-    mock_zmq.auth = mock_auth
-    mock_zmq.asyncio = mock_asyncio
-    
-    # Create error class
-    class ZMQError(Exception):
-        def __init__(self, errno):
-            self.errno = errno
-            super().__init__(f"ZMQ Error {errno}")
-    mock_zmq.ZMQError = ZMQError
-    
-    # Set up in sys.modules
-    sys.modules['zmq'] = mock_zmq
-    sys.modules['zmq.auth'] = mock_auth
-    sys.modules['zmq.auth.thread'] = mock_auth_thread
-    sys.modules['zmq.asyncio'] = mock_asyncio
-    
-    # Mock feagi_connector to prevent circular dependencies
-    sys.modules['feagi_connector'] = MagicMock()
-    sys.modules['feagi_connector.zmq'] = MagicMock()
-    sys.modules['feagi_connector.zmq.client'] = MagicMock()
-    sys.modules['feagi_connector.zmq.rest_client'] = MagicMock()
-    sys.modules['feagi_connector.zmq_rest_client'] = MagicMock()
+# Import from pytest root conftest - no need to recreate ZMQ mocks here
+# ZMQ mocks are already set up in tests/conftest.py
 
-# Apply mocks before other imports
-setup_zmq_mocks()
+# Mock main FEAGI objects for REST API testing
+from fastapi.testclient import TestClient
+from fastapi import FastAPI
+import numpy as np
+
+# Get mocks from main conftest if needed and reuse them
+# The main conftest already sets up:
+# - sys.modules['zmq'] and related modules
+# - sys.modules['feagi_connector'] and related modules
+
+@pytest.fixture
+def mock_connectome_manager():
+    """Create a mock ConnectomeManager for REST API tests."""
+    mock_cm = MagicMock()
+    
+    # Set up basic cortical areas data
+    mock_cm.get_all_cortical_areas.return_value = [
+        {
+            "id": "visual_cortex",
+            "name": "Visual Cortex",
+            "type": "sensory",
+            "dimensions": [10, 10, 1],
+            "position": [0, 0, 0],
+            "parameters": {"growth_rate": 0.01}
+        },
+        {
+            "id": "motor_cortex",
+            "name": "Motor Cortex",
+            "type": "motor",
+            "dimensions": [10, 10, 1],
+            "position": [20, 0, 0],
+            "parameters": {"growth_rate": 0.01}
+        }
+    ]
+    
+    # Set up mappings data
+    mock_cm.get_all_cortical_mappings.return_value = [
+        {
+            "source_id": "visual_cortex",
+            "destination_id": "motor_cortex",
+            "mapping_type": "one_to_one",
+            "parameters": {"synaptic_weight": 0.5}
+        }
+    ]
+    
+    # Add detailed area mock implementations
+    def get_cortical_area(area_id: str):
+        areas = {item["id"]: item for item in mock_cm.get_all_cortical_areas()}
+        return areas.get(area_id)
+    
+    mock_cm.get_cortical_area.side_effect = get_cortical_area
+    
+    # Add genome mocks
+    mock_cm.get_genome_template.return_value = {"version": "2.0", "areas": []}
+    
+    # Ensure fcl_manager exists
+    mock_cm.fcl_manager = MagicMock()
+    
+    return mock_cm
+
+@pytest.fixture
+def mock_core_api_service(mock_connectome_manager):
+    """Create a mock CoreAPIService for REST API tests."""
+    mock_service = MagicMock()
+    
+    # Set up connectome-related methods
+    mock_service.get_cortical_areas.return_value = mock_connectome_manager.get_all_cortical_areas()
+    mock_service.get_cortical_area.side_effect = mock_connectome_manager.get_cortical_area
+    mock_service.get_cortical_mappings.return_value = mock_connectome_manager.get_all_cortical_mappings()
+    
+    # Set up genome-related methods
+    mock_service.get_genome_template.return_value = mock_connectome_manager.get_genome_template()
+    mock_service.load_genome.return_value = True
+    
+    # Set up system config methods
+    mock_service.get_configuration.return_value = {
+        "burst_engine": {"rate": 60},
+        "learning": {"enabled": True, "rate": 0.01}
+    }
+    
+    # Set up state methods
+    mock_service.get_state.return_value = {"status": "running"}
+    mock_service.genome_is_loaded.return_value = True
+    
+    return mock_service
+
+@pytest.fixture
+def test_app(mock_core_api_service, mock_connectome_manager):
+    """Create a test FastAPI application with mocked dependencies."""
+    from feagi.api.rest.routers.v1 import root_router as v1_router
+    
+    # Create FastAPI app
+    app = FastAPI(title="FEAGI API Test")
+    
+    # Patch dependencies to use mocks
+    with patch('feagi.api.rest.dependencies.get_connectome') as mock_get_connectome:
+        mock_get_connectome.return_value = mock_connectome_manager
+        
+        with patch('feagi.api.rest.dependencies._connectome_instance', mock_connectome_manager):
+            # Include routers
+            app.include_router(v1_router, prefix="/v1")
+            
+            # Create and return TestClient
+            client = TestClient(app)
+            yield client
+
+@pytest.fixture
+def temp_directory():
+    """Create a temporary directory for file operations during tests."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield temp_dir
 
 # Async mock for async methods
-class AsyncMock:
-    """Mock for async methods."""
-    
-    def __init__(self, return_value=None):
-        self.return_value = return_value
-        
-    def __call__(self, *args, **kwargs):
-        return self
-        
-    def __await__(self):
-        async def _await_me():
-            return self.return_value
-        return _await_me().__await__()
+async def async_mock(*args, **kwargs):
+    return MagicMock()
 
 # Import needed components including create_rest_app before it's needed
-from fastapi.testclient import TestClient
 from feagi.api.rest.app import create_rest_app
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.api.core.services.core_api_service import CoreAPIService

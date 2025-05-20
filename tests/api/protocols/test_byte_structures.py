@@ -23,6 +23,7 @@ This module contains unit tests for the byte structure encoder and decoder.
 import unittest
 import json
 import numpy as np
+import pytest
 
 from feagi.api.protocols.constants import ByteStructureID
 from feagi.api.protocols.byte_structures import ByteStructureEncoder, ByteStructureDecoder
