@@ -26,7 +26,7 @@ def client(app):
     # Construct the absolute path to the essential genome file
     genome_path = os.path.join(
         os.path.dirname(__file__),
-        "..", "..", "..", "feagi", "evo", "defaults", "genome", "essential_genome.json"
+        "..", "..", "..", "..", "feagi", "evo", "defaults", "genome", "essential_genome.json"
     )
     genome_path = os.path.abspath(genome_path)
 
