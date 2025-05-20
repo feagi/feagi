@@ -4,21 +4,9 @@ import os
 import json
 import numpy as np
 from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
 import pytest
 
-from feagi.api.rest.app import create_rest_app
-
-@pytest.fixture
-def app():
-    """Create a FastAPI app for testing."""
-    return create_rest_app()
-
-@pytest.fixture
-def client(app):
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
-
+# Remove redundant fixtures and use the ones from conftest.py
 @pytest.fixture
 def mock_core_api():
     """Create a mock CoreAPIService."""

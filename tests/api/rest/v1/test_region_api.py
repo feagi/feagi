@@ -4,87 +4,10 @@ import os
 import json
 import tempfile
 from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
-from fastapi import FastAPI
 import pytest
 import shutil
 
-from feagi.api.rest.app import create_rest_app
-
-@pytest.fixture
-def app():
-    """Create a FastAPI app for testing."""
-    return create_rest_app()
-
-@pytest.fixture
-def client(app):
-    """Create a test client for the FastAPI app and load essential genome."""
-    from feagi.core.state_manager import FeagiStateManager
-    import os
-    import json
-
-    # Construct the absolute path to the essential genome file
-    genome_path = os.path.join(
-        os.path.dirname(__file__),
-        "..", "..", "..", "..", "feagi", "evo", "defaults", "genome", "essential_genome.json"
-    )
-    genome_path = os.path.abspath(genome_path)
-
-    # Check if the file exists
-    if not os.path.exists(genome_path):
-        # Try an alternative path
-        genome_path = os.path.join(
-            os.path.dirname(__file__),
-            "..", "..", "..", "..", "evo", "defaults", "genome", "essential_genome.json"
-        )
-        genome_path = os.path.abspath(genome_path)
-
-    # Load essential genome
-    try:
-        with open(genome_path) as f:
-            essential_genome = json.load(f)
-
-        # Inject a minimal valid 'brain_regions' structure if missing
-        if "brain_regions" not in essential_genome:
-            essential_genome["brain_regions"] = {
-                "root": {
-                    "title": "Root Region",
-                    "description": "Root region for testing",
-                    "parent_region_id": None,
-                    "coordinate_2d": [0, 0],
-                    "coordinate_3d": [0, 0, 0],
-                    "areas": [],
-                    "regions": [],
-                    "inputs": [],
-                    "outputs": []
-                }
-            }
-
-        # Set the genome in the global state manager
-        state = FeagiStateManager.instance()
-        state.genome = essential_genome
-    except Exception as e:
-        print(f"Warning: Could not load essential genome: {e}")
-        # Set a minimal genome structure
-        state = FeagiStateManager.instance()
-        state.genome = {
-            "brain_regions": {
-                "root": {
-                    "title": "Root Region",
-                    "description": "Root region for testing",
-                    "parent_region_id": None,
-                    "coordinate_2d": [0, 0],
-                    "coordinate_3d": [0, 0, 0],
-                    "areas": [],
-                    "regions": [],
-                    "inputs": [],
-                    "outputs": []
-                }
-            }
-        }
-    
-    return TestClient(app)
-
+# Remove custom client fixture and use the one from conftest.py
 @pytest.fixture
 def mock_core_api():
     """Create a mock CoreAPIService."""

@@ -3,20 +3,7 @@
 import os
 import json
 from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
 import pytest
-
-from feagi.api.rest.app import create_rest_app
-
-@pytest.fixture
-def app():
-    """Create a FastAPI app for testing."""
-    return create_rest_app()
-
-@pytest.fixture
-def client(app):
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
 
 def test_api_root(client):
     """Test the API root endpoint."""
