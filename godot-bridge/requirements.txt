@@ -1,5 +1,0 @@
-feagi-connector>=0.0.19
-websockets>=10.0
-numpy>=1.20.0
-setuptools
-pyzmq>=22.0.0

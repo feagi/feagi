@@ -55,7 +55,7 @@ pip install feagi-connector
 2. **Create a simple agent**:
 
 ```python
-from feagi_connector import FeagiConnector
+from feagi_connector_old import FeagiConnector
 
 # Create connector
 connector = FeagiConnector(
@@ -143,7 +143,7 @@ decoded_data = fb.decode_array(received_bytes)
 
 ```python
 import cv2
-from feagi_connector import FeagiConnector
+from feagi_connector_old import FeagiConnector
 
 # Initialize camera
 cap = cv2.VideoCapture(0)

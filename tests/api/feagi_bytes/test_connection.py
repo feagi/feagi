@@ -25,7 +25,7 @@ import zmq.asyncio
 
 import feagi_bytes
 from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureTranslator
-from feagi_connector.protocols import ByteStructureID, ProtocolType, FCPMessageType
+from feagi_connector_old.protocols import ByteStructureID, ProtocolType, FCPMessageType
 
 # Set up logging
 logging.basicConfig(

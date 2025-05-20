@@ -16,7 +16,7 @@ import numpy as np
 import zmq
 import zmq.asyncio
 from feagi_bytes import ByteStructureTranslator
-from feagi_connector.zmq.client import ZmqFeagiClient
+from feagi_connector_old.zmq.client import ZmqFeagiClient
 
 # Set up logging
 logging.basicConfig(

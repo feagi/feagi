@@ -87,7 +87,7 @@ FEAGI provides client connectors for various languages:
 ### Python
 
 ```python
-from feagi_connector import FeagiClient
+from feagi_connector_old import FeagiClient
 
 async def main():
     client = FeagiClient(host="localhost")

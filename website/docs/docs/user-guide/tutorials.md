@@ -110,7 +110,7 @@ A complete project for classifying images:
 
 ```python
 # Sample code snippet
-from feagi_connector import FeagiConnector
+from feagi_connector_old import FeagiConnector
 import numpy as np
 from PIL import Image
 
