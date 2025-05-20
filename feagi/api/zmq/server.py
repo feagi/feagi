@@ -445,32 +445,32 @@ class ZmqServer:
         """
         logger.info("Stopping ZMQ services")
         
-            # Stop all services
-            stop_tasks = []
-            
-            if self._req_rep:
-                stop_tasks.append(self._req_rep.stop())
+        # Stop all services
+        stop_tasks = []
         
-            if self._pub_sub:
-                stop_tasks.append(self._pub_sub.stop())
-        
-            if self._push_pull:
-                stop_tasks.append(self._push_pull.stop())
-        
-            if self._sensorimotor:
-                stop_tasks.append(self._sensorimotor.stop())
-        
+        if self._req_rep:
+            stop_tasks.append(self._req_rep.stop())
+    
+        if self._pub_sub:
+            stop_tasks.append(self._pub_sub.stop())
+    
+        if self._push_pull:
+            stop_tasks.append(self._push_pull.stop())
+    
+        if self._sensorimotor:
+            stop_tasks.append(self._sensorimotor.stop())
+    
         if self._control:
             stop_tasks.append(self._control.stop())
+    
+        if self._visualization:
+            stop_tasks.append(self._visualization.stop())
         
-            if self._visualization:
-                stop_tasks.append(self._visualization.stop())
-            
         # Wait for all services
-            if stop_tasks:
-                await asyncio.gather(*stop_tasks, return_exceptions=True)
-                
-            logger.info("All ZMQ services stopped")
+        if stop_tasks:
+            await asyncio.gather(*stop_tasks, return_exceptions=True)
+            
+        logger.info("All ZMQ services stopped")
         
         # Close sockets
         for socket in [self.control_socket, self.sensorimotor_socket, 
@@ -668,14 +668,13 @@ class ZmqServer:
                     # Handle based on topic
                     if topic == b"sensory":
                         await self._handle_sensory_data(message_data)
-            else:
+                    else:
                         logger.warning(f"Unknown sensorimotor topic: {topic}")
                     
                 except asyncio.CancelledError:
                     break
-        except Exception as e:
+                except Exception as e:
                     logger.error(f"Error handling sensorimotor message: {e}")
-    
         except asyncio.CancelledError:
             logger.debug("Sensorimotor message handler cancelled")
     
@@ -1285,7 +1284,7 @@ class ZmqServer:
             
             return await self._handle_status_request(identity, request)
         
-            else:
+        else:
             logger.warning(f"Unknown control message type: {message_type}")
             # Create JSON error response
             response = {"status": "error", "message": f"Unknown message type: {message_type}"}
