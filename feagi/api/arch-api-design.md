@@ -345,7 +345,7 @@ Provide simplified interfaces for different programming languages.
 ```python
 class FeagiClient:
     def __init__(self, host, port, use_zmq=False):
-        self.base_url = f"http://{host}:{port}/v0"
+        self.base_url = f"http://{host}:{port}/v1"
         self.use_zmq = use_zmq
         
         if use_zmq:

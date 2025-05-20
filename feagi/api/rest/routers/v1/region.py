@@ -30,15 +30,15 @@ from feagi.api.rest.dependencies import get_core_api_service
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 """
-[POST] create a new brain region: /v0/region/region
-[PUT] Update brain region properties (title, coordinates) /v0/region/region
-[GET] Update brain region properties (title, coordinates) /v0/region/region
-[DELETE] Deletes a brain region /v0/region/region
+[POST] create a new brain region: /v1/region/region
+[PUT] Update brain region properties (title, coordinates) /v1/region/region
+[GET] Update brain region properties (title, coordinates) /v1/region/region
+[DELETE] Deletes a brain region /v1/region/region
 
-[GET] list all brain regions (summary): /v0/TBD
-[GET] list all brain regions and their members (comprehensive): /v0/TBD
-[GET] list members of a given brain region: /v0/TBD
-[PUT] associate a cortical area or brain region to another brain region: /v0/TBD
+[GET] list all brain regions (summary): /v1/TBD
+[GET] list all brain regions and their members (comprehensive): /v1/TBD
+[GET] list members of a given brain region: /v1/TBD
+[PUT] associate a cortical area or brain region to another brain region: /v1/TBD
 """
 
 router = APIRouter()

@@ -31,7 +31,7 @@ router = APIRouter()
 # state = FeagiStateManager.instance()
 
 
-# @router.post("/v0/feagi/genome/cortical_mappings")
+# @router.post("/v1/feagi/genome/cortical_mappings")
 # async def add_cortical_mapping(cortical_area):
 #     """
 #     Returns the list of cortical areas downstream to the given cortical areas
