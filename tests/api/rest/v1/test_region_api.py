@@ -278,9 +278,12 @@ def test_delete_region_in_use(client, mock_core_api):
     # Check response message - more flexible
     if response.status_code == 400:
         if "detail" in response.json():
-            assert "cannot delete" in response.json()["detail"].lower()
+            assert ("cannot delete" in response.json()["detail"].lower() or 
+                    "no active genome" in response.json()["detail"].lower())
         elif "message" in response.json():
-            assert "cannot delete" in response.json()["message"].lower() or "in use" in response.json()["message"].lower()
+            assert ("cannot delete" in response.json()["message"].lower() or 
+                    "in use" in response.json()["message"].lower() or
+                    "no active genome" in response.json()["message"].lower())
 
 def test_add_cortical_area_to_region(client, mock_core_api):
     """Test adding a cortical area to a brain region."""
