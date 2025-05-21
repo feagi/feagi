@@ -158,7 +158,7 @@ class ProcessManager:
             state_manager.set_fcl_sampler_frequency(sampler_frequency)
             state_manager.set_fcl_sampler_consumer(sampler_consumer)
             # Create output queue for visualization/motor consumers
-            self._fcl_sampler_queue = Queue(maxsize=10)
+            self._fcl_sampler_queue = Queue(maxsize=50)  # Increased from 10 to 50
             # Use the FCL manager from critical processes
             fcl_manager = self._fcl_manager
             if fcl_manager is None:
@@ -168,7 +168,8 @@ class ProcessManager:
             self._fcl_sampler = FCLSampler(
                 fcl_manager=fcl_manager,
                 sample_frequency_hz=sampler_frequency,
-                output_queue=self._fcl_sampler_queue
+                output_queue=self._fcl_sampler_queue,
+                connectome_manager=self._connectome_manager
             )
             self._fcl_sampler_thread = threading.Thread(target=self._fcl_sampler.run, daemon=True)
             self._fcl_sampler_thread.start()
@@ -206,7 +207,9 @@ class ProcessManager:
                 push_pull_port=push_pull_port,
                 sensorimotor_port=sensorimotor_port,
                 control_port=control_port,
-                vis_base_port=vis_base_port
+                vis_base_port=vis_base_port,
+                fcl_sampler=self._fcl_sampler,
+                fcl_sampler_queue=self._fcl_sampler_queue
             )
             
             # Start the ZMQ server
