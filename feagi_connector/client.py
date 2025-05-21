@@ -1,7 +1,11 @@
 """
 FEAGI Client
 
-Main client interface for connecting to FEAGI and exchanging data.
+Main client interface for connecting to FEAGI and exchanging data through four stream types:
+1. Control Stream: Bidirectional JSON-based messaging for control commands and health status
+2. Sensory Stream: One-directional binary data flow from agent to FEAGI
+3. Motor Stream: One-directional binary data flow from FEAGI to agent
+4. Visualization Stream: One-directional binary data flow from FEAGI to agent for neuron activity
 """
 
 import asyncio
@@ -15,8 +19,9 @@ import zmq.asyncio
 from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
 
 from feagi_connector.protocols import FSMPChannel, FCPMessageType, FVPMessageType
-from feagi_connector.api.command_client import FeagiCommandClient
+from feagi_connector.api.control_client import FeagiControlClient
 from feagi_connector.api.sensory_client import FeagiSensoryClient
+from feagi_connector.api.motor_client import FeagiMotorClient
 from feagi_connector.api.viz_client import FeagiVizClient
 from feagi_connector.utils import NEURON_POTENTIAL_CATEGORICAL_XYZ
 from feagi_connector.utils.processing import (
@@ -32,10 +37,11 @@ class FeagiClient:
     """
     High-level client for connecting to FEAGI.
     
-    This client provides a unified interface for all FEAGI communication protocols:
-    - Command API (FCP)
-    - Sensorimotor data (FSMP)
-    - Visualization data (FVP)
+    This client provides a unified interface for all FEAGI communication streams:
+    1. Control Stream: Bidirectional JSON-based messaging for control commands and health status
+    2. Sensory Stream: One-directional binary data flow from agent to FEAGI
+    3. Motor Stream: One-directional binary data flow from FEAGI to agent
+    4. Visualization Stream: One-directional binary data flow from FEAGI to agent for neuron activity
     
     It handles connection management, agent registration, and data exchange.
     """
@@ -43,9 +49,10 @@ class FeagiClient:
     def __init__(
         self,
         host: str = "127.0.0.1",
-        command_port: int = 5555,
+        control_port: int = 5559,
         sensory_port: int = 5558,
-        viz_port: int = 5560,
+        motor_port: int = 5564,
+        visualization_port: int = 5560,
         agent_id: Optional[str] = None,
         agent_type: str = "external",
         timeout: int = 5000,
@@ -55,9 +62,10 @@ class FeagiClient:
         
         Args:
             host: FEAGI hostname or IP
-            command_port: Command API port (default 5555)
-            sensory_port: Sensorimotor data port (default 5558)
-            viz_port: Visualization data port (default 5560)
+            control_port: Control stream port (default 5559)
+            sensory_port: Sensory stream port (default 5558)
+            motor_port: Motor stream port (default 5564)
+            visualization_port: Visualization stream port (default 5560)
             agent_id: Agent ID for FEAGI registration (default: auto-generated)
             agent_type: Agent type for categorization
             timeout: Socket timeout in milliseconds
@@ -70,12 +78,13 @@ class FeagiClient:
         # Initialize ZMQ context
         self.context = zmq.asyncio.Context.instance()
         
-        # Initialize clients for different protocols
-        self.command_client = FeagiCommandClient(
+        # Initialize clients for different streams
+        self.control_client = FeagiControlClient(
             host=host,
-            port=command_port,
+            port=control_port,
+            agent_id=self.agent_id,
+            agent_type=self.agent_type,
             timeout=timeout,
-            auth_token=None,  # TODO: Add auth token support
         )
         
         self.sensory_client = FeagiSensoryClient(
@@ -85,9 +94,16 @@ class FeagiClient:
             socket_timeout=timeout,
         )
         
+        self.motor_client = FeagiMotorClient(
+            host=host,
+            port=motor_port,
+            agent_id=self.agent_id,
+            socket_timeout=timeout,
+        )
+        
         self.viz_client = FeagiVizClient(
             host=host,
-            port=viz_port,
+            port=visualization_port,
             agent_id=self.agent_id,
             socket_timeout=timeout,
         )
@@ -95,8 +111,7 @@ class FeagiClient:
         # State
         self.connected = False
         self.motor_callback = None
-        self.activity_callback = None
-        self.structure_callback = None
+        self.visualization_callback = None
         
         # Tasks
         self.heartbeat_task = None
@@ -111,30 +126,38 @@ class FeagiClient:
             True if connection was successful
         """
         try:
-            # Check if FEAGI is running
-            status = await self.command_client.ping()
-            if not status or "error" in status:
-                logger.error(f"Failed to connect to FEAGI command API: {status}")
+            # Connect control client and register agent
+            if not await self.control_client.connect():
+                logger.error("Failed to connect to FEAGI control stream")
                 return False
             
             # Connect sensory client
             if not await self.sensory_client.connect():
-                logger.error("Failed to connect to FEAGI sensory API")
+                logger.error("Failed to connect to FEAGI sensory stream")
                 return False
             
-            # Register agent
-            if not await self.sensory_client.register_agent(
-                agent_type=self.agent_type,
-            ):
-                logger.error("Failed to register agent with FEAGI")
+            # Connect motor client
+            if not await self.motor_client.connect():
+                logger.error("Failed to connect to FEAGI motor stream")
                 return False
+            
+            # Connect visualization client if needed
+            if self.visualization_callback:
+                if not await self.viz_client.connect():
+                    logger.error("Failed to connect to FEAGI visualization stream")
+                    return False
             
             # Start heartbeat task
             self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
             
             # Start motor listen task if callback is registered
             if self.motor_callback:
+                await self.motor_client.subscribe_to_motor_channel("*")
                 self.motor_listen_task = asyncio.create_task(self._motor_listen_loop())
+            
+            # Start visualization listen task if callback is registered
+            if self.visualization_callback:
+                self.viz_listen_task = asyncio.create_task(self._viz_listen_loop())
             
             self.connected = True
             logger.info(f"Connected to FEAGI as agent {self.agent_id}")
@@ -149,6 +172,12 @@ class FeagiClient:
         Disconnect from FEAGI.
         """
         self.connected = False
+        
+        # Send goodbye message
+        try:
+            await self.control_client.send_goodbye()
+        except Exception as e:
+            logger.warning(f"Error sending goodbye message: {e}")
         
         # Cancel background tasks
         if self.heartbeat_task:
@@ -176,14 +205,16 @@ class FeagiClient:
             self.viz_listen_task = None
         
         # Close clients
+        await self.control_client.close()
         await self.sensory_client.close()
+        await self.motor_client.close()
         await self.viz_client.close()
         
         logger.info("Disconnected from FEAGI")
     
     async def send_sensory_data(
         self, 
-        channel: Union[FSMPChannel, int],
+        channel: Union[str, FSMPChannel, int],
         data: Union[bytes, Dict[Tuple[int, int, int], float]]
     ) -> bool:
         """
@@ -200,138 +231,97 @@ class FeagiClient:
             logger.error("Not connected to FEAGI")
             return False
         
-        # Convert channel enum to int if needed
+        # Convert channel to string if needed
         if isinstance(channel, FSMPChannel):
-            channel_id = channel.value
+            channel_str = str(channel.value)
+        elif isinstance(channel, int):
+            channel_str = str(channel)
         else:
-            channel_id = channel
+            channel_str = channel
         
-        return await self.sensory_client.send_sensory_data(channel_id, data)
+        # Convert dictionary to bytes if needed
+        if isinstance(data, dict):
+            # This is a neuron activation dictionary, encode it
+            encoder = ByteStructureEncoder()
+            data = encoder.encode_neuron_potentials(data)
+        
+        # Send through sensory client
+        return await self.sensory_client.send_sensory_data(channel_str, data)
     
-    async def register_motor_callback(
+    def register_motor_callback(
         self, 
-        callback: Callable[[int, bytes], None]
+        callback: Callable[[str, bytes], None]
     ) -> None:
         """
-        Register a callback for motor data from FEAGI.
+        Register a callback for motor data.
         
         Args:
             callback: Function to call when motor data is received
+                     (parameters: channel_id, data)
         """
         self.motor_callback = callback
-        
-        # Start motor listen task if connected
         if self.connected and not self.motor_listen_task:
             self.motor_listen_task = asyncio.create_task(self._motor_listen_loop())
     
-    async def register_visualization_callbacks(
+    def register_visualization_callback(
         self,
-        activity_callback: Optional[Callable[[Dict], None]] = None,
-        structure_callback: Optional[Callable[[Dict], None]] = None,
-    ) -> bool:
+        callback: Callable[[bytes], None]
+    ) -> None:
         """
-        Register callbacks for visualization data.
+        Register a callback for visualization data.
         
         Args:
-            activity_callback: Function to call when neural activity data is received
-            structure_callback: Function to call when brain structure data is received
-            
-        Returns:
-            True if registration was successful
+            callback: Function to call when visualization data is received
+                     (parameter: data)
         """
-        self.activity_callback = activity_callback
-        self.structure_callback = structure_callback
-        
-        # Connect to visualization server if needed
-        if not self.viz_client.is_connected():
-            if not await self.viz_client.connect():
-                logger.error("Failed to connect to visualization server")
-                return False
-        
-        # Register with visualization server
-        if not await self.viz_client.register_viz_agent():
-            logger.error("Failed to register with visualization server")
-            return False
-        
-        # Start visualization listen task
-        if not self.viz_listen_task:
+        self.visualization_callback = callback
+        if self.connected and not self.viz_listen_task:
             self.viz_listen_task = asyncio.create_task(self._viz_listen_loop())
-        
-        return True
-    
-    async def request_visualization(self) -> bool:
-        """
-        Request visualization data from FEAGI.
-        
-        Returns:
-            True if request was sent successfully
-        """
-        if not self.viz_client.is_connected():
-            logger.error("Not connected to visualization server")
-            return False
-        
-        await self.viz_client.request_visualization()
-        return True
     
     async def get_status(self) -> Dict[str, Any]:
         """
-        Get FEAGI status.
+        Get FEAGI system status.
         
         Returns:
-            Status dictionary
+            Dictionary with system status information
         """
-        return await self.command_client.get_status()
+        if not self.connected:
+            logger.error("Not connected to FEAGI")
+            return {"error": "Not connected"}
+        
+        return await self.control_client.get_status()
     
     async def _heartbeat_loop(self) -> None:
-        """
-        Background task to send periodic heartbeats.
-        """
-        while self.connected:
-            try:
-                await self.sensory_client.send_heartbeat()
-                await asyncio.sleep(5)  # Send heartbeat every 5 seconds
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in heartbeat loop: {e}")
-                await asyncio.sleep(1)
+        """Send periodic heartbeats to keep the connection alive."""
+        try:
+            while self.connected:
+                await self.control_client.send_heartbeat()
+                await asyncio.sleep(30)  # Send heartbeat every 30 seconds
+        except asyncio.CancelledError:
+            # Task was cancelled, exit gracefully
+            pass
+        except Exception as e:
+            logger.error(f"Error in heartbeat loop: {e}")
+            self.connected = False
     
     async def _motor_listen_loop(self) -> None:
-        """
-        Background task to listen for motor data.
-        """
-        while self.connected:
-            try:
-                motor_data = await self.sensory_client.receive_motor_data()
-                if motor_data and self.motor_callback:
-                    channel_id, data = motor_data
-                    await asyncio.to_thread(self.motor_callback, channel_id, data)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in motor listen loop: {e}")
-                await asyncio.sleep(0.1)
+        """Listen for motor data."""
+        try:
+            await self.motor_client.start_motor_listener(self.motor_callback)
+        except asyncio.CancelledError:
+            # Task was cancelled, exit gracefully
+            pass
+        except Exception as e:
+            logger.error(f"Error in motor listen loop: {e}")
+            self.connected = False
     
     async def _viz_listen_loop(self) -> None:
-        """
-        Background task to listen for visualization data.
-        """
-        while self.connected:
-            try:
-                viz_data = await self.viz_client.receive_visualization_data()
-                if not viz_data:
-                    await asyncio.sleep(0.1)
-                    continue
-                
-                msg_type = viz_data.get("message_type")
-                
-                if msg_type == "activity" and self.activity_callback:
-                    await asyncio.to_thread(self.activity_callback, viz_data)
-                elif msg_type == "structure" and self.structure_callback:
-                    await asyncio.to_thread(self.structure_callback, viz_data)
-                    
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in visualization listen loop: {e}")
-                await asyncio.sleep(0.1) 
+        """Listen for visualization data."""
+        try:
+            await self.viz_client.start_visualization_listener(self.visualization_callback)
+        except asyncio.CancelledError:
+            # Task was cancelled, exit gracefully
+            pass
+        except Exception as e:
+            logger.error(f"Error in visualization listen loop: {e}")
+            self.connected = False 
