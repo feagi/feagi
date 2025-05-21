@@ -391,19 +391,19 @@ class NeuroEmbryogenesis:
                 
         return properties
         
-    def _calculate_subregion(self, area_id: int, morphology: Dict) -> BoundingBox:
+    def _calculate_subregion(self, cortical_id: str, morphology: Dict) -> BoundingBox:
         """
         Calculate a bounding box for a subregion of the cortical area.
         
         Args:
-            area_id: Internal area ID
+            cortical_id: 6-character cortical identifier
             morphology: Morphology parameters
             
         Returns:
             Bounding box tuple ((min_x, min_y, min_z), (max_x, max_y, max_z))
         """
         # Get the area from the connectome manager
-        area = self.cortical_areas[area_id]
+        area = self.cortical_areas[cortical_id]
         dimensions = area.dimensions
         
         # Check if there's a specific subregion in the morphology
@@ -543,7 +543,7 @@ class NeuroEmbryogenesis:
     
     def _perform_neurogenesis(self) -> bool:
         """
-        Create neurons for all cortical areas.
+        Create neurons in each cortical area.
         
         Returns:
             True if successful, False otherwise
@@ -554,8 +554,8 @@ class NeuroEmbryogenesis:
             total_areas = len(self.cortical_areas)
             total_neurons = 0
             
-            for i, (area_id, area) in enumerate(self.cortical_areas.items()):
-                cortical_id = self.cortical_id_map[area_id]
+            for i, (cortical_id, area) in enumerate(self.cortical_areas.items()):
+                # cortical_id is the 6-character identifier, we're already using it correctly
                 properties = self._extract_cortical_properties(cortical_id)
                 
                 # Skip memory areas in initial development if configured
@@ -580,8 +580,8 @@ class NeuroEmbryogenesis:
                 area_neuron_count = 0
                 
                 # Initialize voxel tracking for this area
-                if area_id not in self.voxel_neuron_map:
-                    self.voxel_neuron_map[area_id] = {}
+                if cortical_id not in self.voxel_neuron_map:
+                    self.voxel_neuron_map[cortical_id] = {}
                 
                 # Performance optimization: Batch neuron creation
                 batch_size = 1000  # Create neurons in batches of 1000
@@ -603,7 +603,7 @@ class NeuroEmbryogenesis:
                             # Add neuron specifications to the batch
                             for n_idx in range(neurons_per_voxel):
                                 neuron_specs.append((
-                                    area_id,
+                                    cortical_id,
                                     position,
                                     neuron_properties["threshold"],
                                     neuron_properties["refractory_period"],
@@ -657,9 +657,12 @@ class NeuroEmbryogenesis:
             return True
             
         except Exception as e:
+            import traceback
             self.error = f"Failed to create neurons: {str(e)}"
             self._report_progress(DevelopmentStage.FAILED, 0, self.error)
             logger.exception("Error during neurogenesis")
+            logger.error(f"Detailed error: {str(e)}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             return False
             
     def _batch_create_neurons(self, neuron_specs):
@@ -667,19 +670,19 @@ class NeuroEmbryogenesis:
         Create multiple neurons in batch for performance optimization.
         
         Args:
-            neuron_specs: List of (area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties) tuples
+            neuron_specs: List of (cortical_id, position, threshold, refractory_period, decay_rate, resting_potential, properties) tuples
             
         Returns:
             List of created neuron IDs with their associated voxel IDs
         """
         neuron_ids = []
         
-        # Group neuron specs by area_id for batch processing
+        # Group neuron specs by cortical_id for batch processing
         by_area = {}
         for spec in neuron_specs:
-            area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
-            if area_id not in by_area:
-                by_area[area_id] = {
+            cortical_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
+            if cortical_id not in by_area:
+                by_area[cortical_id] = {
                     "positions": [],
                     "properties": [],
                     "voxel_ids": [],
@@ -689,24 +692,24 @@ class NeuroEmbryogenesis:
                     "resting_potentials": []
                 }
             
-            by_area[area_id]["positions"].append(position)
-            by_area[area_id]["properties"].append(properties)
-            by_area[area_id]["voxel_ids"].append(properties["voxel_id"])
-            by_area[area_id]["thresholds"].append(threshold)
-            by_area[area_id]["refractory_periods"].append(refractory_period)
-            by_area[area_id]["decay_rates"].append(decay_rate)
-            by_area[area_id]["resting_potentials"].append(resting_potential)
+            by_area[cortical_id]["positions"].append(position)
+            by_area[cortical_id]["properties"].append(properties)
+            by_area[cortical_id]["voxel_ids"].append(properties["voxel_id"])
+            by_area[cortical_id]["thresholds"].append(threshold)
+            by_area[cortical_id]["refractory_periods"].append(refractory_period)
+            by_area[cortical_id]["decay_rates"].append(decay_rate)
+            by_area[cortical_id]["resting_potentials"].append(resting_potential)
         
         # Process neurons by area using batch API if available
-        for area_id, area_specs in by_area.items():
+        for cortical_id, area_specs in by_area.items():
             positions = area_specs["positions"]
             
-            # Check if ConnectomeManager supports batch operation with separate area_id and positions
+            # Check if ConnectomeManager supports batch operation with separate cortical_id and positions
             if hasattr(self.connectome_manager, 'batch_create_neurons'):
                 try:
-                    # Try to use the batch API with area_id and positions
+                    # Try to use the batch API with cortical_id and positions
                     area_neuron_ids = self.connectome_manager.batch_create_neurons(
-                        area_id=area_id,
+                        area_id=cortical_id,  # Keep parameter name as area_id for API compatibility
                         positions=positions,
                         threshold=area_specs["thresholds"][0],  # Use first value for all or support lists
                         refractory_period=area_specs["refractory_periods"][0],
@@ -728,7 +731,7 @@ class NeuroEmbryogenesis:
                         resting_potential = area_specs["resting_potentials"][i]
                         
                         neuron_id = self.connectome_manager.create_neuron(
-                            area_id=area_id,
+                            area_id=cortical_id,  # Keep parameter name as area_id for API compatibility
                             position=position,
                             threshold=threshold,
                             refractory_period=refractory_period,
@@ -747,7 +750,7 @@ class NeuroEmbryogenesis:
                     resting_potential = area_specs["resting_potentials"][i]
                     
                     neuron_id = self.connectome_manager.create_neuron(
-                        area_id=area_id,
+                        area_id=cortical_id,  # Keep parameter name as area_id for API compatibility
                         position=position,
                         threshold=threshold,
                         refractory_period=refractory_period,
@@ -777,10 +780,10 @@ class NeuroEmbryogenesis:
         # Add neurons to voxel_neuron_map
         for voxel_id, neurons in voxel_neurons.items():
             position = positions_map[voxel_id]
-            area_id = self.connectome_manager.get_area_for_neuron(neurons[0])
-            if area_id not in self.voxel_neuron_map:
-                self.voxel_neuron_map[area_id] = {}
-            self.voxel_neuron_map[area_id][position] = neurons
+            cortical_id = self.connectome_manager.get_area_for_neuron(neurons[0])
+            if cortical_id not in self.voxel_neuron_map:
+                self.voxel_neuron_map[cortical_id] = {}
+            self.voxel_neuron_map[cortical_id][position] = neurons
     
     def _perform_synaptogenesis(self) -> bool:
         """
@@ -810,8 +813,7 @@ class NeuroEmbryogenesis:
                     
                     mapping_data[src_id].append(mapping)
             
-            for i, (src_area_id, src_area) in enumerate(self.cortical_areas.items()):
-                src_cortical_id = self.cortical_id_map[src_area_id]
+            for i, (src_cortical_id, src_area) in enumerate(self.cortical_areas.items()):
                 properties = self._extract_cortical_properties(src_cortical_id)
                 
                 # Get mappings for this area
@@ -819,7 +821,7 @@ class NeuroEmbryogenesis:
                     self._report_progress(
                         DevelopmentStage.SYNAPTOGENESIS, 
                         100 * i / total_areas, 
-                        f"No mappings found for area {src_area_id} ({src_area.name})"
+                        f"No mappings found for area {i+1}/{total_areas} ({src_area.name})"
                     )
                     continue
                 
@@ -829,22 +831,17 @@ class NeuroEmbryogenesis:
                     dst_cortical_id = mapping["destination"]
                     
                     # Skip if destination area not created
-                    if dst_cortical_id not in self.reverse_cortical_id_map:
+                    if dst_cortical_id not in self.cortical_areas:
                         continue
                     
-                    dst_area_id = self.reverse_cortical_id_map[dst_cortical_id]
-                    
-                    if dst_area_id not in self.cortical_areas:
-                        continue
-                    
-                    dst_area = self.cortical_areas[dst_area_id]
+                    dst_area = self.cortical_areas[dst_cortical_id]
                     morphology = mapping["morphology"]
                     
                     # Get source area neurons
-                    src_neurons = self.connectome_manager.get_neurons_by_area(src_area_id)
+                    src_neurons = self.connectome_manager.get_neurons_by_area(src_cortical_id)
                     
                     # Calculate source subregion
-                    src_subregion = self._calculate_subregion(src_area_id, morphology)
+                    src_subregion = self._calculate_subregion(src_cortical_id, morphology)
                     
                     # Process each source neuron
                     neuron_count = len(src_neurons)
@@ -860,8 +857,8 @@ class NeuroEmbryogenesis:
                         
                         # Find target neurons based on connectivity rules
                         dst_neurons_with_weights = neighbor_finder(
-                            src_area_id=src_area_id,
-                            dst_area_id=dst_area_id,
+                            src_cortical_id=src_cortical_id,
+                            dst_cortical_id=dst_cortical_id,
                             src_neuron_id=src_neuron_id,
                             morphology=morphology,
                             src_subregion=src_subregion,
