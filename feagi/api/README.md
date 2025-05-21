@@ -39,8 +39,10 @@ All interfaces (REST, WebSocket, ZMQ) must follow the **critical architectural r
 
 - **zmq/**: ZeroMQ-based communication streams
   - **streams/**: Implementation of specific stream types
-    - **sensorimotor.py**: Handles sensory input and motor output
-    - **visualization.py**: Handles visualization data streaming
+    - **control.py**: Handles bidirectional control messages and agent registration
+    - **sensory.py**: Handles one-directional sensory input from agents to FEAGI
+    - **motor.py**: Handles one-directional motor output from FEAGI to agents
+    - **visualization.py**: Handles one-directional visualization data streaming
   - **server.py**: Central ZMQ server implementation
   - **connection_manager.py**: Manages ZMQ socket lifecycle
 

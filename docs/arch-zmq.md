@@ -19,7 +19,7 @@ This document describes the ZeroMQ (ZMQ) architecture in FEAGI, which provides h
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           FEAGI Core                                │
-└───────────────────────────────┬─────────────────────────────────────┘
+└───────────────────────────┬─────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -30,30 +30,30 @@ This document describes the ZeroMQ (ZMQ) architecture in FEAGI, which provides h
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        ZMQManager                                   │
 │                                                                     │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │
-│  │ControlStream    │  │SensorimotorStream│  │VisualizationStream │  │
-│  │(FCP Protocol)   │  │(FSMP Protocol)   │  │(FVP Protocol)      │  │
-│  └────────┬────────┘  └────────┬────────┘  └──────────┬──────────┘  │
-│           │                    │                      │             │
-│  ┌────────┴────────┐  ┌────────┴────────┐  ┌──────────┴──────────┐  │
-│  │ ROUTER Socket   │  │ ROUTER Socket   │  │ ROUTER Socket       │  │
-│  └────────┬────────┘  └────────┬────────┘  └──────────┬──────────┘  │
-└───────────┼─────────────────────┼───────────────────┬─┼─────────────┘
-            │                     │                   │ │
-            │                     │                   │ │
-┌───────────┼─────────────────────┼───────────────────┼─┼─────────────┐
-│           │                     │                   │ │             │
-│  ┌────────┴────────┐  ┌─────────┴───────┐  ┌────────┴──┴────────┐   │
-│  │ DEALER Socket   │  │ DEALER Socket   │  │ DEALER Socket      │   │
-│  └────────┬────────┘  └─────────┬───────┘  └─────────┬─────────┘    │
-│           │                     │                    │              │
-│  ┌────────┴────────┐  ┌─────────┴───────┐  ┌─────────┴─────────┐    │
-│  │ControlClient    │  │SensorimotorClient│  │VisualizationClient│    │
-│  │(FCP Protocol)   │  │(FSMP Protocol)   │  │(FVP Protocol)     │    │
-│  └─────────────────┘  └─────────────────┘  └───────────────────┘    │
-│                                                                     │
-│                         External Agent                              │
-└─────────────────────────────────────────────────────────────────────┘
+│  ┌─────────────────┐  ┌────────────┐  ┌───────────┐  ┌───────────┐  │
+│  │ControlStream    │  │SensoryStream│  │MotorStream│  │VisStream  │  │
+│  │(FCP Protocol)   │  │(FSMP Input) │  │(FSMP Out) │  │(FVP)      │  │
+│  └────────┬────────┘  └────────┬────┘  └─────┬─────┘  └─────┬─────┘  │
+│           │                    │              │              │       │
+│  ┌────────┴────────┐  ┌────────┴────┐  ┌─────┴─────┐  ┌─────┴─────┐  │
+│  │ ROUTER Socket   │  │ PULL Socket │  │PUB Socket │  │PUB Socket │  │
+│  └────────┬────────┘  └────────┬────┘  └─────┬─────┘  └─────┬─────┘  │
+└───────────┼─────────────────────┼──────────────┼────────────┼────────┘
+            │                     │              │            │
+            │                     │              │            │
+┌───────────┼─────────────────────┼──────────────┼────────────┼────────┐
+│           │                     │              │            │        │
+│  ┌────────┴────────┐  ┌────────┴────┐  ┌──────┴──────┐ ┌───┴───────┐ │
+│  │ DEALER Socket   │  │ PUSH Socket │  │ SUB Socket  │ │SUB Socket │ │
+│  └────────┬────────┘  └─────────┬───┘  └──────┬──────┘ └────┬──────┘ │
+│           │                     │             │              │       │
+│  ┌────────┴────────┐  ┌─────────┴───┐  ┌──────┴──────┐ ┌────┴──────┐ │
+│  │ControlClient    │  │SensoryClient │  │MotorClient  │ │VizClient  │ │
+│  │(FCP Protocol)   │  │(FSMP Input)  │  │(FSMP Output)│ │(FVP)      │ │
+│  └─────────────────┘  └─────────────┘  └─────────────┘ └───────────┘ │
+│                                                                      │
+│                         External Agent                               │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Components
@@ -70,13 +70,14 @@ The central coordinator for all ZMQ communications:
 
 ```python
 class ZMQManager:
-    def __init__(self, host="*", control_port=5555, sensorimotor_port=5556, 
-                 visualization_port=5557):
+    def __init__(self, host="*", control_port=5559, sensory_port=5558, 
+                 motor_port=5564, visualization_port=5560):
         self.context = zmq.Context.instance()
         self.host = host
         self.ports = {
             "control": control_port,
-            "sensorimotor": sensorimotor_port,
+            "sensory": sensory_port,
+            "motor": motor_port,
             "visualization": visualization_port
         }
         self.connection_manager = ConnectionManager(self.context, **self.ports)
@@ -94,11 +95,15 @@ Specialized stream handlers for each protocol:
 - Processes control commands and status updates
 - Implements the FEAGI Control Protocol (FCP)
 
-#### SensorimotorStream (FSMP)
-- Processes sensory input data
-- Delivers motor output commands
-- Optimized for high-frequency, low-latency data exchange
-- Implements the FEAGI Sensorimotor Protocol (FSMP)
+#### SensoryStream (FSMP Input)
+- Processes sensory input data from agents to FEAGI
+- Optimized for high-frequency, low-latency data reception
+- Implements the input part of FEAGI Sensorimotor Protocol (FSMP)
+
+#### MotorStream (FSMP Output)
+- Delivers motor output commands from FEAGI to agents
+- Optimized for efficient command broadcasting
+- Implements the output part of FEAGI Sensorimotor Protocol (FSMP)
 
 #### VisualizationStream (FVP)
 - Streams neural activity data
@@ -117,15 +122,18 @@ Manages client connections and message routing:
 
 ```python
 class ConnectionManager:
-    def __init__(self, context, control_port, sensorimotor_port, visualization_port):
-        # Create ROUTER sockets for each protocol
+    def __init__(self, context, control_port, sensory_port, motor_port, visualization_port):
+        # Create sockets for each stream
         self.control_socket = context.socket(zmq.ROUTER)
         self.control_socket.bind(f"tcp://*:{control_port}")
         
-        self.sensorimotor_socket = context.socket(zmq.ROUTER)
-        self.sensorimotor_socket.bind(f"tcp://*:{sensorimotor_port}")
+        self.sensory_socket = context.socket(zmq.PULL)
+        self.sensory_socket.bind(f"tcp://*:{sensory_port}")
         
-        self.visualization_socket = context.socket(zmq.ROUTER)
+        self.motor_socket = context.socket(zmq.PUB)
+        self.motor_socket.bind(f"tcp://*:{motor_port}")
+        
+        self.visualization_socket = context.socket(zmq.PUB)
         self.visualization_socket.bind(f"tcp://*:{visualization_port}")
         
         # Store client information
@@ -151,8 +159,10 @@ class MessageHandler:
         # Get appropriate socket based on protocol type
         if protocol_type == "fcp":
             self.socket = connection_manager.control_socket
-        elif protocol_type == "fsmp":
-            self.socket = connection_manager.sensorimotor_socket
+        elif protocol_type == "fsmp_sensory":
+            self.socket = connection_manager.sensory_socket
+        elif protocol_type == "fsmp_motor":
+            self.socket = connection_manager.motor_socket
         elif protocol_type == "fvp":
             self.socket = connection_manager.visualization_socket
 ```

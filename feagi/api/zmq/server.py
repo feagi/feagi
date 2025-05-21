@@ -159,10 +159,10 @@ class ZmqServer:
         req_rep_port: int = 5555,
         pub_sub_port: int = 5556,
         push_pull_port: int = 5557,
-        sensorimotor_port: int = 5558,
+        sensory_port: int = 5558,
         motor_port: int = 5564,
         control_port: int = 5559,
-        vis_base_port: int = 5560,
+        vis_port: int = 5560,
         context: Optional[zmq.asyncio.Context] = None,
         fcl_sampler: Optional[Any] = None,
         fcl_sampler_queue: Optional[Any] = None
@@ -176,10 +176,10 @@ class ZmqServer:
             req_rep_port: Port for REQ/REP pattern (5555)
             pub_sub_port: Port for PUB/SUB pattern (5556)
             push_pull_port: Port for PUSH/PULL pattern (5557)
-            sensorimotor_port: Port for sensorimotor interface (5558)
+            sensory_port: Port for sensory data (5558)
             motor_port: Port for motor data (5564)
             control_port: Port for control interface (5559)
-            vis_base_port: Base port for visualization stream (5560)
+            vis_port: Port for visualization data (5560)
             context: Optional ZeroMQ context to use
             fcl_sampler: Optional FCL sampler instance for visualization data
             fcl_sampler_queue: Optional queue for FCL data from the sampler
@@ -189,10 +189,10 @@ class ZmqServer:
         self.req_rep_port = req_rep_port
         self.pub_sub_port = pub_sub_port
         self.push_pull_port = push_pull_port
-        self.sensorimotor_port = sensorimotor_port
+        self.sensory_port = sensory_port
         self.motor_port = motor_port
         self.control_port = control_port
-        self.vis_base_port = vis_base_port
+        self.vis_port = vis_port
         
         # Create ZeroMQ context
         self._context = context or zmq.asyncio.Context.instance()
@@ -204,9 +204,10 @@ class ZmqServer:
         self._req_rep = None
         self._pub_sub = None
         self._push_pull = None
-        self._sensorimotor = None
-        self._visualization = None
+        self._sensory = None
+        self._motor = None
         self._control = None
+        self._visualization = None
         
         # FCL Sampler integration
         self._fcl_sampler = fcl_sampler
@@ -219,9 +220,9 @@ class ZmqServer:
         
         # Initialize sockets (will be created on start)
         self.control_socket = None
-        self.sensorimotor_socket = None
-        self.viz_structure_socket = None
-        self.viz_activity_socket = None
+        self.sensory_socket = None
+        self.motor_socket = None
+        self.vis_socket = None
         
         # State tracking
         self.agents = {}  # agent_id -> agent_info
@@ -234,8 +235,8 @@ class ZmqServer:
         self.connection_manager = ConnectionManager(
             context=self._context,
             control_port=self.control_port,
-            sensorimotor_port=self.sensorimotor_port,
-            visualization_port=self.vis_base_port
+            sensory_port=self.sensory_port,
+            visualization_port=self.vis_port
         )
         
         # Create protocol translator
@@ -333,9 +334,10 @@ class ZmqServer:
             from .patterns.req_rep import RequestReplyManager
             from .patterns.pub_sub import PubSubManager
             from .patterns.push_pull import PushPullManager
-            from .streams.sensorimotor import SensorimotorStream
-            from .streams.visualization import VisualizationStream
+            from .streams.sensory import SensoryStream
+            from .streams.motor import MotorStream
             from .streams.control import ControlStream
+            from .streams.visualization import VisualizationStream
             
             # Initialize all managers with the current thread's event loop
             self._req_rep = RequestReplyManager(
@@ -359,11 +361,17 @@ class ZmqServer:
                 context=self._context
             )
             
-            self._sensorimotor = SensorimotorStream(
+            self._sensory = SensoryStream(
                 core_api=self.core_api,
                 host=self.host,
-                sensory_port=self.sensorimotor_port,
-                motor_port=self.motor_port,
+                port=self.sensory_port,
+                context=self._context
+            )
+            
+            self._motor = MotorStream(
+                core_api=self.core_api,
+                host=self.host,
+                port=self.motor_port,
                 context=self._context
             )
             
@@ -377,9 +385,7 @@ class ZmqServer:
             self._visualization = VisualizationStream(
                 core_api=self.core_api,
                 host=self.host,
-                structure_port=self.vis_base_port,
-                activity_port=self.vis_base_port + 1,
-                control_port=self.vis_base_port + 2,
+                port=self.vis_port,
                 context=self._context,
                 fcl_sampler=self._fcl_sampler,
                 fcl_sampler_queue=self._fcl_sampler_queue
@@ -389,23 +395,26 @@ class ZmqServer:
             await self._req_rep.start()
             await self._pub_sub.start()
             await self._push_pull.start()
-            await self._sensorimotor.start()
+            await self._sensory.start()
+            await self._motor.start()
             await self._control.start()
             await self._visualization.start()
             
             # Create control socket (ROUTER) - Using existing socket from ControlStream to avoid double binding
             self.control_socket = self._control.router_socket
             
-            # Create sensorimotor socket (XPUB/XSUB pattern) - Using existing socket from SensorimotorStream
-            self.sensorimotor_socket = self._sensorimotor.socket
+            # Create sensory socket (XPUB/XSUB pattern) - Using existing socket from SensoryStream
+            self.sensory_socket = self._sensory.socket
+            
+            # Create motor socket (XPUB/XSUB pattern) - Using existing socket from MotorStream
+            self.motor_socket = self._motor.socket
             
             # Create visualization sockets (PUB) - Using existing sockets from VisualizationStream
-            self.viz_structure_socket = self._visualization.structure_socket
-            self.viz_activity_socket = self._visualization.activity_socket
+            self.vis_socket = self._visualization.socket
             
             # Start message handling tasks
             self.tasks.append(asyncio.create_task(self._handle_control_messages()))
-            self.tasks.append(asyncio.create_task(self._handle_sensorimotor_messages()))
+            self.tasks.append(asyncio.create_task(self._handle_sensory_data()))
             
             # Start message handlers
             self.message_handlers = await start_message_handlers(
@@ -491,8 +500,11 @@ class ZmqServer:
         if self._push_pull:
             stop_tasks.append(self._push_pull.stop())
     
-        if self._sensorimotor:
-            stop_tasks.append(self._sensorimotor.stop())
+        if self._sensory:
+            stop_tasks.append(self._sensory.stop())
+    
+        if self._motor:
+            stop_tasks.append(self._motor.stop())
     
         if self._control:
             stop_tasks.append(self._control.stop())
@@ -507,15 +519,15 @@ class ZmqServer:
         logger.info("All ZMQ services stopped")
         
         # Close sockets
-        for socket in [self.control_socket, self.sensorimotor_socket, 
-                      self.viz_structure_socket, self.viz_activity_socket]:
+        for socket in [self.control_socket, self.sensory_socket, 
+                      self.motor_socket, self.vis_socket]:
             if socket:
                 socket.close(linger=0)
                 
         self.control_socket = None
-        self.sensorimotor_socket = None
-        self.viz_structure_socket = None
-        self.viz_activity_socket = None
+        self.sensory_socket = None
+        self.motor_socket = None
+        self.vis_socket = None
     
     def _cleanup(self):
         """
@@ -537,7 +549,8 @@ class ZmqServer:
             self._req_rep = None
             self._pub_sub = None
             self._push_pull = None
-            self._sensorimotor = None
+            self._sensory = None
+            self._motor = None
             self._control = None
             self._visualization = None
             
@@ -686,15 +699,15 @@ class ZmqServer:
                 socket.close()
             logger.info("Control message handler stopped")
     
-    async def _handle_sensorimotor_messages(self):
-        """Handle incoming sensorimotor messages."""
+    async def _handle_sensory_data(self):
+        """Handle incoming sensory data."""
         try:
-            while self._running and self.sensorimotor_socket:
+            while self._running and self.sensory_socket:
                 try:
                     # Receive message
-                    frames = await self.sensorimotor_socket.recv_multipart()
+                    frames = await self.sensory_socket.recv_multipart()
                     if len(frames) != 2:  # [topic, message]
-                        logger.warning(f"Invalid sensorimotor frame count: {len(frames)}")
+                        logger.warning(f"Invalid sensory frame count: {len(frames)}")
                         continue
                     
                     topic, message_data = frames
@@ -703,14 +716,14 @@ class ZmqServer:
                     if topic == b"sensory":
                         await self._handle_sensory_data(message_data)
                     else:
-                        logger.warning(f"Unknown sensorimotor topic: {topic}")
+                        logger.warning(f"Unknown sensory topic: {topic}")
                     
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
-                    logger.error(f"Error handling sensorimotor message: {e}")
+                    logger.error(f"Error handling sensory message: {e}")
         except asyncio.CancelledError:
-            logger.debug("Sensorimotor message handler cancelled")
+            logger.debug("Sensory message handler cancelled")
     
     async def _handle_register(self, identity: bytes, request: RegisterRequest) -> bytes:
         """
@@ -909,7 +922,7 @@ class ZmqServer:
             channel_id: Motor channel ID
             data: Motor data
         """
-        if not self._running or not self.sensorimotor_socket:
+        if not self._running or not self.motor_socket:
             logger.warning("Cannot send motor data: server not running")
             return
             
@@ -932,7 +945,7 @@ class ZmqServer:
         
         # Serialize and send
         data = message.SerializeToString()
-        await self.sensorimotor_socket.send_multipart([b"motor", data])
+        await self.motor_socket.send_multipart([b"motor", data])
         
     async def send_activity_data(self, data: bytes):
         """
@@ -941,7 +954,7 @@ class ZmqServer:
         Args:
             data: Serialized activity data
         """
-        if not self._running or not self.viz_activity_socket:
+        if not self._running or not self.vis_socket:
             logger.warning("Cannot send activity data: server not running")
             return
         
@@ -967,7 +980,7 @@ class ZmqServer:
         
         # Serialize and send
         data = message.SerializeToString()
-        await self.viz_activity_socket.send_multipart([b"activity", data])
+        await self.vis_socket.send_multipart([b"activity", data])
         
     async def send_structure_data(self, data: bytes):
         """
@@ -976,7 +989,7 @@ class ZmqServer:
         Args:
             data: Serialized structure data
         """
-        if not self._running or not self.viz_structure_socket:
+        if not self._running or not self.vis_socket:
             logger.warning("Cannot send structure data: server not running")
             return
         
@@ -1002,7 +1015,7 @@ class ZmqServer:
         
         # Serialize and send
         data = message.SerializeToString()
-        await self.viz_structure_socket.send_multipart([b"structure", data])
+        await self.vis_socket.send_multipart([b"structure", data])
     
     def register_sensory_callback(self, callback: Callable[[int, bytes], None]):
         """
