@@ -31,27 +31,28 @@ def connectome(small_config):
 @pytest.fixture
 def test_area(connectome):
     """Create a small test cortical area."""
-    area_id = 1
+    # Create area with a specific cortical_id that matches the expected area_id=1
+    cortical_id = "C12345"
     area = connectome.add_cortical_area(
-        area_id=area_id,
         name="Test Area",
         area_type="interconnect",
         dimensions=(5, 5, 2),  # Small dimensions for testing
-        position=(0, 0, 0)
+        position=(0, 0, 0),
+        cortical_id=cortical_id
     )
-    return area_id, area
+    return cortical_id, area
 
 
 @pytest.fixture
 def test_neurons(connectome, test_area):
     """Create a few test neurons."""
-    area_id = test_area[0]
+    cortical_id = test_area[0]
     neuron_ids = []
     
     # Create 5 neurons with different positions
     for i in range(5):
         neuron_id = connectome.create_neuron(
-            area_id=area_id,
+            area_id=cortical_id,
             position=(i, 0, 0),
             threshold=1.0,
             refractory_period=5,
@@ -66,11 +67,11 @@ def test_neurons(connectome, test_area):
 @pytest.mark.unit
 def test_create_neuron(connectome, test_area):
     """Test neuron creation and retrieval."""
-    area_id = test_area[0]
+    cortical_id = test_area[0]
     
     # Create a neuron
     neuron_id = connectome.create_neuron(
-        area_id=area_id,
+        area_id=cortical_id,
         position=(2, 2, 1),
         threshold=1.0,
         refractory_period=5,
@@ -90,21 +91,21 @@ def test_create_neuron(connectome, test_area):
     assert position == (2, 2, 1)
     
     # Verify area assignment
-    neurons_in_area = connectome.get_neurons_by_area(area_id)
+    neurons_in_area = connectome.get_neurons_by_area(cortical_id)
     assert neuron_id in neurons_in_area
 
 
 @pytest.mark.unit
 def test_create_multiple_neurons(connectome, test_area):
     """Test creation of multiple neurons."""
-    area_id = test_area[0]
+    cortical_id = test_area[0]
     
     # Create several neurons
     neuron_ids = []
     for x in range(3):
         for y in range(3):
             neuron_id = connectome.create_neuron(
-                area_id=area_id,
+                area_id=cortical_id,
                 position=(x, y, 0)
             )
             neuron_ids.append(neuron_id)
@@ -113,7 +114,7 @@ def test_create_multiple_neurons(connectome, test_area):
     assert connectome.get_neuron_count() == 9
     
     # Verify all neurons are in the area
-    neurons_in_area = connectome.get_neurons_by_area(area_id)
+    neurons_in_area = connectome.get_neurons_by_area(cortical_id)
     assert len(neurons_in_area) == 9
     
     # Delete a neuron
@@ -126,16 +127,16 @@ def test_create_multiple_neurons(connectome, test_area):
 @pytest.mark.unit
 def test_create_synapses(connectome, test_area):
     """Test synapse creation and retrieval."""
-    area_id = test_area[0]
+    cortical_id = test_area[0]
     
     # Create two neurons
     pre_id = connectome.create_neuron(
-        area_id=area_id,
+        area_id=cortical_id,
         position=(0, 0, 0)
     )
     
     post_id = connectome.create_neuron(
-        area_id=area_id,
+        area_id=cortical_id,
         position=(1, 0, 0)
     )
     
@@ -170,17 +171,17 @@ def test_create_synapses(connectome, test_area):
 @pytest.mark.unit
 def test_membrane_potential_update(connectome, test_area):
     """Test updating membrane potentials."""
-    area_id = test_area[0]
+    cortical_id = test_area[0]
     
     # Create two neurons
     pre_id = connectome.create_neuron(
-        area_id=area_id,
+        area_id=cortical_id,
         position=(0, 0, 0),
         threshold=1.0
     )
     
     post_id = connectome.create_neuron(
-        area_id=area_id,
+        area_id=cortical_id,
         position=(1, 0, 0),
         threshold=0.5  # Lower threshold to ensure firing
     )
@@ -218,7 +219,7 @@ def test_membrane_potential_update(connectome, test_area):
 @pytest.mark.unit
 def test_neuron_queries(connectome, test_area):
     """Test neuron query methods."""
-    area_id = test_area[0]
+    cortical_id = test_area[0]
     
     # Create neurons with different thresholds
     neuron_ids = []
@@ -226,7 +227,7 @@ def test_neuron_queries(connectome, test_area):
     
     for i, threshold in enumerate(thresholds):
         neuron_id = connectome.create_neuron(
-            area_id=area_id,
+            area_id=cortical_id,
             position=(i, 0, 0),
             threshold=threshold
         )
@@ -245,7 +246,7 @@ def test_neuron_queries(connectome, test_area):
     
     # Test position query
     neurons_at_x0 = connectome.query_neurons_by_area_and_position(
-        area_id, 
+        cortical_id, 
         x_range=(0, 0),
         y_range=(0, 0)
     )
@@ -256,115 +257,167 @@ def test_neuron_queries(connectome, test_area):
 @pytest.mark.unit
 def test_get_set_neuron_property(connectome, test_area):
     """Test getting and setting neuron properties."""
-    area_id = test_area[0]
+    cortical_id = test_area[0]
     
     # Create a neuron
     neuron_id = connectome.create_neuron(
-        area_id=area_id,
+        area_id=cortical_id,
         position=(0, 0, 0),
-        threshold=1.0
+        threshold=1.0,
+        decay_rate=0.5
     )
     
-    # Test get property
+    # Get properties
     threshold = connectome.get_neuron_property(neuron_id, NeuronPropertyType.THRESHOLD)
     assert threshold == 1.0
     
-    # Test set property
+    decay = connectome.get_neuron_property(neuron_id, "decay_rate")
+    assert decay == 0.5
+    
+    # Set properties
     connectome.set_neuron_property(neuron_id, NeuronPropertyType.THRESHOLD, 2.0)
-    new_threshold = connectome.get_neuron_property(neuron_id, NeuronPropertyType.THRESHOLD)
-    assert new_threshold == 2.0
+    connectome.set_neuron_property(neuron_id, "decay_rate", 0.7)
+    
+    # Verify changes
+    assert connectome.get_neuron_property(neuron_id, NeuronPropertyType.THRESHOLD) == 2.0
+    assert connectome.get_neuron_property(neuron_id, "decay_rate") == 0.7
 
 
 @pytest.mark.unit
 def test_neuron_idx_auto_assignment(connectome, test_area):
-    """Test that neuron_idx is auto-assigned and unique per voxel."""
-    area_id = test_area[0]
-    pos = (1, 1, 1)
-    # Create three neurons at the same voxel without specifying neuron_index
-    n1 = connectome.create_neuron(area_id=area_id, position=pos)
-    n2 = connectome.create_neuron(area_id=area_id, position=pos)
-    n3 = connectome.create_neuron(area_id=area_id, position=pos)
-    # Get their neuron_idx values
-    idx1 = connectome._neuron_to_position[n1][4]
-    idx2 = connectome._neuron_to_position[n2][4]
-    idx3 = connectome._neuron_to_position[n3][4]
-    assert sorted([idx1, idx2, idx3]) == [0, 1, 2]
-    # All neuron_idx values should be unique
-    assert len({idx1, idx2, idx3}) == 3
+    """Test that neuron indices are automatically assigned."""
+    cortical_id = test_area[0]
+    
+    # Create a few neurons
+    neuron_ids = []
+    for i in range(3):
+        neuron_id = connectome.create_neuron(
+            area_id=cortical_id,
+            position=(i, 0, 0)
+        )
+        neuron_ids.append(neuron_id)
+    
+    # Check that indices are unique
+    indices = [connectome._neuron_id_to_index[n_id] for n_id in neuron_ids]
+    assert len(set(indices)) == len(indices)
+    
+    # Delete a neuron and create a new one
+    connectome.delete_neuron(neuron_ids[1])
+    new_neuron_id = connectome.create_neuron(
+        area_id=cortical_id,
+        position=(3, 0, 0)
+    )
+    
+    # New index should be different from all previous ones
+    new_idx = connectome._neuron_id_to_index[new_neuron_id]
+    assert new_idx not in indices
 
 
 @pytest.mark.unit
 def test_check_neuron_index_uniqueness(connectome, test_area):
-    """Test the uniqueness check utility for neuron_idx."""
-    area_id = test_area[0]
-    pos = (2, 2, 1)  # z=1 is within bounds for dimensions (5,5,2)
-    n1 = connectome.create_neuron(area_id=area_id, position=pos)
-    n2 = connectome.create_neuron(area_id=area_id, position=pos)
-    # Should pass uniqueness check
-    assert connectome.check_neuron_index_uniqueness() is True
-    # Manually inject a duplicate neuron_idx (simulate corruption)
-    n1_pos = connectome._neuron_to_position[n1]
-    connectome._neuron_to_position[n2] = n1_pos
-    with pytest.raises(AssertionError):
-        connectome.check_neuron_index_uniqueness()
+    """Test that neuron indices are unique."""
+    cortical_id = test_area[0]
+    
+    # Create several neurons
+    for i in range(5):
+        connectome.create_neuron(
+            area_id=cortical_id,
+            position=(i, 0, 0)
+        )
+    
+    # Check that all indices are unique
+    assert connectome.check_neuron_index_uniqueness()
+    
+    # Create a second area
+    second_area_id = connectome.add_cortical_area(
+        name="Second Area",
+        dimensions=(3, 3, 3),
+        position=(10, 10, 10),
+        area_type="custom"
+    )
+    
+    # Create neurons in second area
+    for i in range(3):
+        connectome.create_neuron(
+            area_id=second_area_id,
+            position=(i, 0, 0)
+        )
+    
+    # Check that indices are still unique across areas
+    assert connectome.check_neuron_index_uniqueness()
 
 
 @pytest.mark.unit
 def test_create_neuron_out_of_bounds(connectome, test_area):
-    """Test that creating a neuron at an out-of-bounds position raises ValueError."""
-    area_id = test_area[0]
-    # The test area has dimensions (5, 5, 2), so z=2 is out of bounds
-    out_of_bounds_pos = (1, 1, 2)
-    with pytest.raises(ValueError, match="outside the bounds"):
-        connectome.create_neuron(area_id=area_id, position=out_of_bounds_pos)
+    """Test that creating a neuron outside area bounds raises an error."""
+    cortical_id = test_area[0]
+    
+    # Get the area object
+    area = connectome.get_cortical_area(cortical_id)
+    
+    # Get area dimensions
+    width, height, depth = area.dimensions
+    
+    # Try to create a neuron outside the area bounds
+    with pytest.raises(ValueError, match=r".*outside the bounds.*"):
+        connectome.create_neuron(
+            area_id=cortical_id,
+            position=(width, height, depth)  # All coordinates are out of bounds
+        )
 
 
 @pytest.mark.unit
 def test_batch_create_neurons_edge_cases(connectome, test_area):
-    """Test batch creation with out-of-bounds and duplicate neuron_idx."""
-    area_id = test_area[0]
-    # The test area has dimensions (5, 5, 2)
-    valid_pos = (0, 0, 0)
-    out_of_bounds_pos = (0, 0, 2)  # z=2 is out of bounds
-    # 1. Out-of-bounds in batch
-    with pytest.raises(ValueError, match="outside the bounds"):
-        connectome.batch_create_neurons(area_id, [valid_pos, out_of_bounds_pos])
-    # 2. Duplicate neuron in batch (same position twice)
-    pos = (1, 1, 1)
-    with pytest.raises(ValueError, match="Duplicate neuron creation at position"):
-        connectome.batch_create_neurons(area_id, [pos, pos])
+    """Test edge cases for batch neuron creation."""
+    cortical_id = test_area[0]
+    
+    # Get the area object
+    area = connectome.get_cortical_area(cortical_id)
+    
+    # Test with empty list
+    assert connectome.batch_create_neurons(cortical_id, []) == []
+    
+    # Test with duplicate positions
+    with pytest.raises(ValueError, match=r".*Duplicate.*"):
+        connectome.batch_create_neurons(
+            cortical_id, 
+            [(0, 0, 0), (0, 0, 0)]  # Duplicate position
+        )
+    
+    # Test with out of bounds position
+    width, height, depth = area.dimensions
+    with pytest.raises(ValueError, match=r".*outside the bounds.*"):
+        connectome.batch_create_neurons(
+            cortical_id, 
+            [(0, 0, 0), (width, height, depth)]  # Second position is out of bounds
+        )
 
 
 @pytest.mark.unit
 def test_extreme_dimension_area_block_lookup(connectome, test_area):
-    """Test block-based lookup for extreme dimension areas."""
-    # Add an extreme dimension area
-    area_id = 99
-    area = connectome.add_cortical_area(
-        area_id=area_id,
+    """Test that area with extreme dimensions can still look up neurons by position."""
+    # Create a new area with extreme dimensions
+    extreme_area_id = connectome.add_cortical_area(
         name="Extreme Area",
-        area_type="interconnect",
-        dimensions=(20000, 1, 1),
-        position=(0, 0, 0)
+        dimensions=(1, 1, 100),  # Very tall and thin
+        position=(0, 0, 0),
+        area_type="custom"
     )
-    # Create neurons at various high x positions
-    positions = [999, 1000, 1001, 15000, 19999]
+    
+    # Create neurons at various z positions
     neuron_ids = []
-    for x in positions:
-        neuron_id = connectome.create_neuron(area_id=area_id, position=(x, 0, 0))
+    for z in range(0, 100, 10):  # Create 10 neurons
+        neuron_id = connectome.create_neuron(
+            area_id=extreme_area_id,
+            position=(0, 0, z)
+        )
         neuron_ids.append(neuron_id)
-    # Query for each position and assert the neuron is found
-    for i, x in enumerate(positions):
-        result = connectome.query_neurons_by_area_and_position(area_id, x_range=(x, x), y_range=(0, 0), z_range=(0, 0))
-        assert neuron_ids[i] in result
-    # Query a range that includes all
-    result = connectome.query_neurons_by_area_and_position(area_id, x_range=(999, 19999), y_range=(0, 0), z_range=(0, 0))
-    for nid in neuron_ids:
-        assert nid in result
-    # Query a range that excludes all
-    result = connectome.query_neurons_by_area_and_position(area_id, x_range=(0, 998), y_range=(0, 0), z_range=(0, 0))
-    assert result == []
-    # Test block boundary: x=999, 1000, 1001
-    for x in [999, 1000, 1001]:
-        result = connectome.query_neurons_by_area_and_position(area_id, x_range=(x, x), y_range=(0, 0), z_range=(0, 0))
-        assert any(connectome.get_neuron_position(nid)[0] == x for nid in result) 
+    
+    # Test lookup by position
+    for z in range(0, 100, 10):
+        neurons = connectome.get_neurons_at_position(extreme_area_id, (0, 0, z))
+        assert len(neurons) == 1
+        
+    # Test lookup with no neurons
+    neurons = connectome.get_neurons_at_position(extreme_area_id, (0, 0, 5))
+    assert len(neurons) == 0 

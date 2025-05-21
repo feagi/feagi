@@ -6,13 +6,13 @@ transfer to GPU memory.
 """
 
 import logging
+import uuid
 import numpy as np
+import torch
 from enum import Enum
 from typing import Dict, Any, List, Tuple, Optional, Set, Union
-import uuid
-from scipy import sparse
 import os
-import torch
+from scipy import sparse
 
 # Import models
 from feagi.bdu.models.neuron import NeuronArray
@@ -23,6 +23,7 @@ from feagi.bdu.utils.position import (
     delinearize_position,
     validate_position
 )
+from feagi.utils.config import FeagiConfig
 
 logger = logging.getLogger(__name__)
 
@@ -259,11 +260,15 @@ class ConnectomeManagerGPU:
         
         # Update FCL manager
         fired_indices = np.where(fired_mask)[0]
+        
+        # Add fired neurons to the current FCL
+        if len(fired_indices) > 0:
+            self.fcl_manager.add_to_current_fcl(fired_indices)
+        
+        # Convert fired indices to neuron IDs
         fired_neuron_ids = [
             self.index_to_neuron_id.get(idx, idx) for idx in fired_indices
         ]
-        
-        self.fcl_manager.register_event(self.current_timestep, fired_neuron_ids)
         
         # Increment timestep
         self.current_timestep += 1
@@ -282,19 +287,32 @@ class ConnectomeManagerGPU:
     
     def _ensure_csr_format_outgoing(self):
         """Ensure outgoing matrix is in CSR format for efficient row access."""
-        if not isinstance(self.outgoing_matrix, sparse.csr_matrix):
+        if isinstance(self.outgoing_matrix, torch.Tensor):
+            # PyTorch tensors don't need conversion
+            pass
+        elif not isinstance(self.outgoing_matrix, sparse.csr_matrix):
             self.outgoing_matrix = self.outgoing_matrix.tocsr()
     
     def _ensure_csc_format_incoming(self):
         """Ensure incoming matrix is in CSC format for efficient column access."""
-        if not isinstance(self.incoming_matrix, sparse.csc_matrix):
+        if isinstance(self.incoming_matrix, torch.Tensor):
+            # PyTorch tensors don't need conversion
+            pass
+        elif not isinstance(self.incoming_matrix, sparse.csc_matrix):
             self.incoming_matrix = self.incoming_matrix.tocsc()
             
     def _convert_to_lil_if_needed(self):
         """Convert matrices to LIL format if needed for modifications."""
-        if not isinstance(self.outgoing_matrix, sparse.lil_matrix):
+        if isinstance(self.outgoing_matrix, torch.Tensor):
+            # PyTorch tensors don't need conversion
+            pass
+        elif not isinstance(self.outgoing_matrix, sparse.lil_matrix):
             self.outgoing_matrix = self.outgoing_matrix.tolil()
-        if not isinstance(self.incoming_matrix, sparse.lil_matrix):
+            
+        if isinstance(self.incoming_matrix, torch.Tensor):
+            # PyTorch tensors don't need conversion
+            pass
+        elif not isinstance(self.incoming_matrix, sparse.lil_matrix):
             self.incoming_matrix = self.incoming_matrix.tolil()
     
     #----------------------------------------------------------------------
@@ -632,15 +650,25 @@ class ConnectomeManagerGPU:
         
         # Check if synapse already exists
         self._ensure_csr_format_outgoing()
-        if self.outgoing_matrix[pre_idx, post_idx] != 0:
-            return False
         
-        # Convert matrices to LIL for modification
-        self._convert_to_lil_if_needed()
-        
-        # Create synapse by setting weight
-        self.outgoing_matrix[pre_idx, post_idx] = weight
-        self.incoming_matrix[post_idx, pre_idx] = weight
+        # Handle PyTorch tensors differently
+        if isinstance(self.outgoing_matrix, torch.Tensor):
+            if self.outgoing_matrix[pre_idx, post_idx] != 0:
+                return False
+            
+            # Create synapse by setting weight
+            self.outgoing_matrix[pre_idx, post_idx] = weight
+            self.incoming_matrix[post_idx, pre_idx] = weight
+        else:
+            if self.outgoing_matrix[pre_idx, post_idx] != 0:
+                return False
+            
+            # Convert matrices to LIL for modification
+            self._convert_to_lil_if_needed()
+            
+            # Create synapse by setting weight
+            self.outgoing_matrix[pre_idx, post_idx] = weight
+            self.incoming_matrix[post_idx, pre_idx] = weight
         
         # Note: We don't store plasticity information in the basic implementation
         # In a more advanced implementation, we could use additional sparse matrices
@@ -812,20 +840,36 @@ class ConnectomeManagerGPU:
         # Ensure CSR format for efficient row access
         self._ensure_csr_format_outgoing()
         
-        # Get the row for this neuron
-        row = self.outgoing_matrix.getrow(index)
-        
-        # Get the non-zero column indices and data
-        col_indices, data = row.indices, row.data
-        
-        # Map column indices back to neuron IDs and build result
-        result = []
-        for col_idx, weight in zip(col_indices, data):
-            if col_idx in self.index_to_neuron_id:
-                target_id = self.index_to_neuron_id[col_idx]
-                result.append((target_id, float(weight)))
-        
-        return result
+        # For PyTorch tensors, we need to handle differently
+        if isinstance(self.outgoing_matrix, torch.Tensor):
+            # Get all non-zero elements in the row
+            row = self.outgoing_matrix[index, :]
+            non_zero_indices = torch.nonzero(row).squeeze(-1)
+            
+            # Build result list
+            result = []
+            for col_idx in non_zero_indices:
+                col_idx_int = int(col_idx.item())
+                if col_idx_int in self.index_to_neuron_id:
+                    target_id = self.index_to_neuron_id[col_idx_int]
+                    weight = float(row[col_idx].item())
+                    result.append((target_id, weight))
+            return result
+        else:
+            # Get the row for this neuron
+            row = self.outgoing_matrix.getrow(index)
+            
+            # Get the non-zero column indices and data
+            col_indices, data = row.indices, row.data
+            
+            # Map column indices back to neuron IDs and build result
+            result = []
+            for col_idx, weight in zip(col_indices, data):
+                if col_idx in self.index_to_neuron_id:
+                    target_id = self.index_to_neuron_id[col_idx]
+                    result.append((target_id, float(weight)))
+            
+            return result
     
     def get_incoming_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
         """Get all incoming connections to a neuron.
@@ -848,20 +892,40 @@ class ConnectomeManagerGPU:
         # Ensure CSC format for efficient column access
         self._ensure_csc_format_incoming()
         
-        # Get the column for this neuron
-        col = self.incoming_matrix.getcol(index)
-        
-        # Get the non-zero row indices and data
-        row_indices, data = col.indices, col.data
-        
-        # Map row indices back to neuron IDs and build result
-        result = []
-        for row_idx, weight in zip(row_indices, data):
-            if row_idx in self.index_to_neuron_id:
-                source_id = self.index_to_neuron_id[row_idx]
-                result.append((source_id, float(weight)))
-        
-        return result
+        # For PyTorch tensors, we need to handle differently
+        if isinstance(self.incoming_matrix, torch.Tensor):
+            # Get all non-zero elements in the column
+            col = self.incoming_matrix[:, index]
+            non_zero_indices = torch.nonzero(col).squeeze(-1)
+            
+            # Build result list
+            result = []
+            for row_idx in non_zero_indices:
+                row_idx_int = int(row_idx.item())
+                if row_idx_int in self.index_to_neuron_id:
+                    source_id = self.index_to_neuron_id[row_idx_int]
+                    weight = float(col[row_idx].item())
+                    result.append((source_id, weight))
+            return result
+        else:
+            # In our implementation, we're storing the transpose of what we expect
+            # The incoming_matrix[post_idx, pre_idx] = weight means that
+            # we need to look at the pre_idx column for connections to post_idx
+            
+            # Check all columns for connections to this neuron
+            result = []
+            
+            # Iterate through all columns
+            for col_idx in range(self.incoming_matrix.shape[1]):
+                # Check if there's a connection from col_idx to index
+                weight = self.incoming_matrix[index, col_idx]
+                if weight != 0:
+                    # There's a connection
+                    if col_idx in self.index_to_neuron_id:
+                        source_id = self.index_to_neuron_id[col_idx]
+                        result.append((source_id, float(weight)))
+            
+            return result
     
     def get_synapse_count(self) -> int:
         """Get the total number of synapses in the connectome.
@@ -885,14 +949,14 @@ class ConnectomeManagerGPU:
             List of neuron IDs that fired
         """
         # Move to the next FCL window
-        self.fcl_manager.advance_window(self.current_timestep)
+        self.fcl_manager.advance_timestep()
         
         # Let the neuron array handle the update
         fired_indices = self.neuron_array.decay_and_check_firing()
         
         # Add fired neurons to the next FCL
         if len(fired_indices):
-            self.fcl_manager.add_to_fcl(fired_indices, self.current_timestep + 1)
+            self.fcl_manager.add_to_current_fcl(fired_indices)
         
         # Convert fired indices to neuron IDs
         fired_neuron_ids = [self.index_to_neuron_id[idx] for idx in fired_indices if idx in self.index_to_neuron_id]
@@ -941,7 +1005,7 @@ class ConnectomeManagerGPU:
             position=position,
             area_type=area_type,
             properties=properties or {},
-            area_id=area_id
+            cortical_id=area_id
         )
         
         # Add to cortical areas dict

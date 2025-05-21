@@ -95,6 +95,11 @@ def main():
     parser.add_argument("--memory-limit", type=int, default=None, help="Memory limit in MB (default: no limit)")
     parser.add_argument("--genome-path", type=str, default=None, help="Path to genome file to load on startup")
     
+    # Test mode arguments
+    parser.add_argument("--test", action="store_true", help="Run FEAGI in test mode")
+    parser.add_argument("--test-duration", type=int, default=10, help="Duration of the test in seconds")
+    parser.add_argument("--test-frequency", type=int, default=10, help="Frequency of sensory input generation in Hz")
+    
     args = parser.parse_args()
     
     # Check dependencies
@@ -145,6 +150,11 @@ def main():
             "cpu_cores": args.cpu_cores,
             "memory_limit": args.memory_limit,
             "genome_path": args.genome_path
+        },
+        "test": {
+            "enabled": args.test,
+            "duration": args.test_duration,
+            "frequency": args.test_frequency
         }
     }
     
@@ -152,6 +162,36 @@ def main():
     if not process_manager.start(config):
         logger.error("Failed to start FEAGI. See logs for details.")
         return 1
+    
+    # If in test mode, run tests
+    if args.test:
+        logger.info("Starting FEAGI in test mode")
+        
+        # Import test module
+        from feagi.test_mode import run_test_mode
+        
+        # Get the core API from the process manager
+        core_api = process_manager.get_core_api()
+        
+        # Run tests
+        test_result = run_test_mode(
+            core_api_service=core_api,
+            genome_path=args.genome_path,
+            test_duration=args.test_duration,
+            frequency_hz=args.test_frequency
+        )
+        
+        # Exit with appropriate exit code
+        if test_result:
+            logger.info("Tests passed successfully", emoji1="✓ ")
+            process_manager.shutdown()
+            FeagiStateManager.instance().cleanup()
+            return 0
+        else:
+            logger.error("Tests failed", emoji1="❌")
+            process_manager.shutdown()
+            FeagiStateManager.instance().cleanup()
+            return 1
     
     # Keep the main thread alive to handle signals
     try:

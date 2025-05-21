@@ -364,7 +364,10 @@ class NeuronArray:
         Returns:
             Total number of neurons
         """
-        return np.sum(self.valid_mask)
+        if isinstance(self.valid_mask, torch.Tensor):
+            return int(torch.sum(self.valid_mask).item())
+        else:
+            return int(np.sum(self.valid_mask))
 
     def update_membrane_potentials(self, synapse_indices, synapse_data):
         """Update membrane potentials based on firing neurons and incoming connections.

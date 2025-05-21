@@ -305,34 +305,34 @@ class CoreAPIService:
             return None
         
         try:
-            # Generate a unique ID for the new area
-            # In a real implementation, this might be more sophisticated
-            existing_ids = set(self._connectome_manager.cortical_areas.keys())
-            new_id = 1
-            while new_id in existing_ids:
-                new_id += 1
-            
             # Convert API format to internal representation
             position = (coordinates["x"], coordinates["y"], coordinates["z"])
             dims = (dimensions["width"], dimensions["height"], dimensions["depth"])
             
+            # Generate a cortical_id based on the area type
+            prefix = 'M' if area_type == "memory" else 'C'
+            
             # Create the area in the connectome manager
-            area = self._connectome_manager.add_cortical_area(
-                area_id=new_id,
+            cortical_id = self._connectome_manager.add_cortical_area(
                 name=name,
                 area_type=area_type,
                 dimensions=dims,
                 position=position,
                 properties=parameters or {}
+                # Let ConnectomeManager generate the cortical_id
             )
+            
+            # Get the created area
+            area = self._connectome_manager.get_cortical_area(cortical_id)
             
             # Return the created area information
             return {
-                "id": str(new_id),
+                "cortical_id": cortical_id,
+                "cortical_idx": area.cortical_idx,
                 "name": area.name,
                 "coordinates": coordinates,
                 "dimensions": dimensions,
-                "type": area.type,
+                "type": area.area_type,
                 "parameters": area.properties,
                 "neuron_count": 0  # New area has no neurons yet
             }
@@ -342,7 +342,7 @@ class CoreAPIService:
     
     def update_cortical_area(
         self,
-        area_id: str,
+        cortical_id: str,
         name: Optional[str] = None,
         coordinates: Optional[Dict[str, int]] = None,
         dimensions: Optional[Dict[str, int]] = None,
@@ -353,7 +353,7 @@ class CoreAPIService:
         Update an existing cortical area.
         
         Args:
-            area_id: ID of the cortical area to update.
+            cortical_id: ID of the cortical area to update.
             name: New name for the cortical area.
             coordinates: New coordinates for the cortical area.
             dimensions: New dimensions for the cortical area.
@@ -370,12 +370,7 @@ class CoreAPIService:
             return None
         
         try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return None
-        
-        try:
-            area = self._connectome_manager.cortical_areas.get(area_id_int)
+            area = self._connectome_manager.cortical_areas.get(cortical_id)
             if not area:
                 return None
             
@@ -390,15 +385,16 @@ class CoreAPIService:
                 area.dimensions = (dimensions["width"], dimensions["height"], dimensions["depth"])
             
             if area_type is not None:
-                area.type = area_type
+                area.area_type = area_type
             
             if parameters is not None:
                 area.properties.update(parameters)
             
             # Return the updated area
-            neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id_int))
+            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_id))
             return {
-                "id": str(area_id_int),
+                "cortical_id": cortical_id,
+                "cortical_idx": area.cortical_idx,
                 "name": area.name,
                 "coordinates": {
                     "x": area.position[0],
@@ -410,7 +406,7 @@ class CoreAPIService:
                     "height": area.dimensions[1],
                     "depth": area.dimensions[2]
                 },
-                "type": area.type,
+                "type": area.area_type,
                 "parameters": area.properties,
                 "neuron_count": neuron_count
             }
@@ -418,12 +414,12 @@ class CoreAPIService:
             self.logger.error(f"Error updating cortical area {area_id}: {str(e)}")
             return None
     
-    def delete_cortical_area(self, area_id: str) -> bool:
+    def delete_cortical_area(self, cortical_id: str) -> bool:
         """
         Delete a cortical area.
         
         Args:
-            area_id: String representation of the cortical_idx to delete.
+            cortical_id: The 6-character cortical ID to delete.
             
         Returns:
             True if the cortical area was deleted, False otherwise.
@@ -434,73 +430,45 @@ class CoreAPIService:
             return False
         
         try:
-            cortical_idx = int(area_id)
-        except ValueError:
-            return False
-        
-        try:
-            if cortical_idx not in self._connectome_manager.cortical_areas:
+            if cortical_id not in self._connectome_manager.cortical_areas:
                 return False
             
-            # Get all neurons in this area
-            neurons = self._connectome_manager.get_neurons_by_area(cortical_idx)
-            
-            # Delete all neurons in the area
-            for neuron_id in neurons:
-                self._connectome_manager.delete_neuron(neuron_id)
-            
-            # Remove the area
-            del self._connectome_manager.cortical_areas[cortical_idx]
-            
-            # Clean up any area-specific data structures
-            if cortical_idx in self._connectome_manager._occupied_voxels:
-                del self._connectome_manager._occupied_voxels[cortical_idx]
-            
-            if cortical_idx in self._connectome_manager._area_lookup_tables:
-                del self._connectome_manager._area_lookup_tables[cortical_idx]
-            
-            # Remove from area classification sets
-            if cortical_idx in self._connectome_manager._small_regular_areas:
-                self._connectome_manager._small_regular_areas.remove(cortical_idx)
-            
-            if cortical_idx in self._connectome_manager._large_regular_areas:
-                self._connectome_manager._large_regular_areas.remove(cortical_idx)
-            
-            if cortical_idx in self._connectome_manager._extreme_dimension_areas:
-                self._connectome_manager._extreme_dimension_areas.remove(cortical_idx)
-                
+            # Use the ConnectomeManager's delete_cortical_area method
+            self._connectome_manager.delete_cortical_area(cortical_id, delete_neurons=True)
             return True
+            
         except Exception as e:
-            self.logger.error(f"Error deleting cortical area {area_id}: {str(e)}")
+            self.logger.error(f"Error deleting cortical area {cortical_id}: {str(e)}")
             return False
+            
+            # Already handled in the try block above
+            pass
     
-    def get_cortical_area_neurons(self, area_id: str) -> Optional[List[Dict[str, Any]]]:
+    def get_cortical_area_neurons(self, cortical_id: str) -> Optional[List[Dict[str, Any]]]:
         """
-        Get neurons for a specific cortical area.
+        Get all neurons in a cortical area.
         
         Args:
-            area_id: ID of the cortical area.
+            cortical_id: ID of the cortical area.
             
         Returns:
             List of dictionaries containing neuron information,
             or None if the area doesn't exist.
         """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot retrieve cortical area neurons")
-            return None
-        
         try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return None
-        
-        try:
-            if area_id_int not in self._connectome_manager.cortical_areas:
-                return None
+            # Check if area exists by cortical_id
+            if cortical_id not in self._connectome_manager.cortical_areas:
+                # If not found by ID, try to find by name
+                area = self._connectome_manager.get_cortical_area_by_name(cortical_id)
+                if area:
+                    cortical_id = area.cortical_id
+                else:
+                    return None
             
             # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
+            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_id)
+            
+            # Format results
             result = []
             
             for neuron_id in neuron_ids:
@@ -533,7 +501,7 @@ class CoreAPIService:
             
             return result
         except Exception as e:
-            self.logger.error(f"Error retrieving neurons for cortical area {area_id}: {str(e)}")
+            self.logger.error(f"Error retrieving neurons for cortical area {cortical_id}: {str(e)}")
             return None
     
     def get_cortical_area_activity(self, area_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
@@ -1085,6 +1053,24 @@ class CoreAPIService:
             return self._current_genome.get("stats", {}).get("counter", 1)
         except Exception:
             return 1
+    
+    def load_essential_genome(self) -> dict:
+        """
+        Load the essential genome as a template for starting FEAGI.
+        
+        This is a convenience method to load the essential genome that is bundled with FEAGI.
+        It uses the more general load_genome_by_name method.
+        
+        Returns:
+            dict: Result of the genome loading process with load_time and other metadata
+            
+        Raises:
+            FileNotFoundError: If the essential genome file is not found
+            ValueError: If the genome format is invalid
+            Exception: For other errors during loading
+        """
+        self.logger.info("Loading essential genome")
+        return self.load_genome_by_name("essential_genome.json")
     
     def reset_genome(self) -> bool:
         """
@@ -4837,3 +4823,46 @@ class CoreAPIService:
         except Exception as e:
             logger.error(f"Error processing sensory data: {str(e)}")
             return False
+    
+    def load_genome_by_name(self, genome_name: str) -> dict:
+        """
+        Load a genome by name from the default genomes directory.
+        
+        This method provides a unified interface to load any genome from the default genomes
+        directory by name. It handles finding the file, loading it, and setting up the state manager.
+        
+        Args:
+            genome_name: Name of the genome file (e.g., "essential_genome.json", "barebones_genome.json")
+            
+        Returns:
+            dict: Result of the genome loading process with load_time and other metadata
+            
+        Raises:
+            FileNotFoundError: If the genome file is not found
+            ValueError: If the genome format is invalid
+            Exception: For other errors during loading
+        """
+        self.logger.info(f"Loading genome by name: {genome_name}")
+        
+        # Get the data path and construct the path to the genome
+        genome_path = os.path.join(self.get_data_path(), "genome", genome_name)
+        
+        # Check if the file exists
+        if not os.path.exists(genome_path):
+            error_msg = f"Genome file not found at {genome_path}"
+            self.logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+        
+        # Use deploy_genome which handles file loading and state management
+        success = self.deploy_genome(genome_path)
+        
+        if not success:
+            error_msg = f"Failed to load genome {genome_name}"
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
+            
+        # Get the load time and genome counter for the result
+        return {
+            "load_time": 0.0,  # We don't have the actual load time since deploy_genome returns bool
+            "genome_counter": self.get_genome_counter()
+        }

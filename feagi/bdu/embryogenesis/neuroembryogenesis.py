@@ -459,7 +459,7 @@ class NeuroEmbryogenesis:
             cortical_ids = self._get_cortical_ids_from_genome()
             total_areas = len(cortical_ids)
             
-            for cortical_idx, cortical_id in enumerate(cortical_ids):
+            for i, cortical_id in enumerate(cortical_ids):
                 properties = self._extract_cortical_properties(cortical_id)
                 
                 # Skip if required properties are missing
@@ -484,32 +484,41 @@ class NeuroEmbryogenesis:
                 
                 # Add to connectome manager
                 try:
-                    print(f">>>>> cortical_id {cortical_id}")
+                    logger.debug(f"Creating cortical area with ID {cortical_id}")
                     # Update to match the new ConnectomeManager API
-                    area_id = self.connectome_manager.add_cortical_area(
+                    created_cortical_id = self.connectome_manager.add_cortical_area(
                         name=name,
                         dimensions=dimensions,
                         position=position,
                         area_type=area_type,
-                        properties={**properties, "cortical_id": cortical_id}  # Store cortical_id in properties
+                        properties={**properties},
+                        cortical_id=cortical_id  # Pass the cortical_id from genome
                     )
                     
-                    # Store in our tracking maps
-                    self.cortical_areas[area_id] = self.connectome_manager.get_cortical_area(area_id)
-                    self.cortical_id_map[area_id] = cortical_id
-                    self.reverse_cortical_id_map[cortical_id] = area_id
+                    # Get the created area
+                    area = self.connectome_manager.get_cortical_area(created_cortical_id)
                     
-                    logger.debug(f"Created cortical area {name} (internal ID {area_id}, genome ID {cortical_id})")
+                    # Store in our tracking maps
+                    self.cortical_areas[created_cortical_id] = area
+                    
+                    # Get the cortical_idx assigned by ConnectomeManager
+                    cortical_idx = area.cortical_idx
+                    
+                    # Store mappings
+                    self.cortical_id_map[cortical_idx] = cortical_id
+                    self.reverse_cortical_id_map[cortical_id] = cortical_idx
+                    
+                    logger.debug(f"Created cortical area {name} (cortical_idx {cortical_idx}, cortical_id {cortical_id})")
                 except Exception as e:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
                 
                 # Report progress
-                progress = ((cortical_idx + 1) / total_areas) * 100
+                progress = ((i + 1) / total_areas) * 100
                 self._report_progress(
                     DevelopmentStage.CORTICOGENESIS, 
                     progress, 
-                    f"Created cortical area {cortical_idx+1}/{total_areas}: {name}"
+                    f"Created cortical area {i+1}/{total_areas}: {name}"
                 )
             
             self.development_stats["cortical_areas"] = len(self.cortical_areas)
