@@ -65,9 +65,11 @@ class GlobalNeuronArray:
             self.enabled_flags = np.ones(capacity, dtype=np.int32, order='C')  # 1=enabled, 0=disabled
             self.cortical_area_ids = np.zeros(capacity, dtype=np.int32, order='C')
             
-            # For coordinates, use structured array (less ideal for GPU but keeps API clean)
-            # Could be refactored to separate x, y, z arrays for optimal SoA on GPU
-            self.coordinates = np.zeros(capacity, dtype=[('x', np.int32), ('y', np.int32), ('z', np.int32)])
+            # Use separate arrays for coordinates - optimal SoA layout for SIMD/GPU processing
+            # Each coordinate component gets its own contiguous memory array
+            self.coordinates_x = np.zeros(capacity, dtype=np.int32, order='C')
+            self.coordinates_y = np.zeros(capacity, dtype=np.int32, order='C')
+            self.coordinates_z = np.zeros(capacity, dtype=np.int32, order='C')
     
     def get_membrane_potential(self, neuron_id: int) -> float:
         """Get membrane potential for a neuron."""
@@ -82,6 +84,40 @@ class GlobalNeuronArray:
             self._rust_gna.set_membrane_potential(neuron_id, value)
         else:
             self.membrane_potentials[neuron_id] = float(value)
+    
+    def get_coordinates(self, neuron_id: int) -> Tuple[int, int, int]:
+        """Get 3D coordinates for a neuron.
+        
+        Args:
+            neuron_id: ID of the neuron
+            
+        Returns:
+            Tuple of (x, y, z) coordinates
+        """
+        if self._use_rust:
+            return self._rust_gna.get_coordinates(neuron_id)
+        else:
+            return (
+                int(self.coordinates_x[neuron_id]),
+                int(self.coordinates_y[neuron_id]),
+                int(self.coordinates_z[neuron_id])
+            )
+    
+    def set_coordinates(self, neuron_id: int, x: int, y: int, z: int) -> None:
+        """Set 3D coordinates for a neuron.
+        
+        Args:
+            neuron_id: ID of the neuron
+            x: X coordinate
+            y: Y coordinate
+            z: Z coordinate
+        """
+        if self._use_rust:
+            self._rust_gna.set_coordinates(neuron_id, x, y, z)
+        else:
+            self.coordinates_x[neuron_id] = int(x)
+            self.coordinates_y[neuron_id] = int(y)
+            self.coordinates_z[neuron_id] = int(z)
     
     def update_membrane_potentials(self, decay_factor: float) -> None:
         """Update all membrane potentials with decay."""
