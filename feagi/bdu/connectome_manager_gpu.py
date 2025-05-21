@@ -319,14 +319,15 @@ class ConnectomeManagerGPU:
     # Neuron CRUD Operations
     #----------------------------------------------------------------------
     
-    def create_neuron(self, area_id: str, position: Tuple[int, int, int], 
+    def create_neuron(self, cortical_id: str, position: Tuple[int, int, int], 
                      threshold: float = 1.0, membrane_potential: float = 0.0,
                      resting_potential: float = 0.0, decay_rate: float = 0.5,
-                     refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None) -> int:
+                     refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None,
+                     cortical_idx: Optional[int] = None) -> int:
         """Create a new neuron in the specified cortical area.
         
         Args:
-            area_id: ID of the cortical area
+            cortical_id: ID of the cortical area
             position: 3D coordinates within the cortical area (x, y, z)
             threshold: Firing threshold potential
             membrane_potential: Initial membrane potential
@@ -334,19 +335,20 @@ class ConnectomeManagerGPU:
             decay_rate: Rate at which potential decays each timestep
             refractory_period: Number of timesteps after firing during which the neuron cannot fire
             properties: Additional properties for the neuron (optional)
+            cortical_idx: Integer index of the cortical area (optional, will be determined from cortical_id if not provided)
             
         Returns:
             Unique ID of the created neuron
             
         Raises:
-            ValueError: If the area_id doesn't exist
+            ValueError: If the cortical_id doesn't exist
             ValueError: If the position is outside the area's boundaries
         """
         # Validate area exists
-        if area_id not in self.cortical_areas:
-            raise ValueError(f"Cortical area {area_id} does not exist")
+        if cortical_id not in self.cortical_areas:
+            raise ValueError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas[area_id]
+        area = self.cortical_areas[cortical_id]
         
         # Validate position
         if not area.contains_position(position):
@@ -356,14 +358,13 @@ class ConnectomeManagerGPU:
         neuron_id = self.next_neuron_id
         self.next_neuron_id += 1
         
-        # Create the neuron in the NeuronArray
-        # Convert string area_id to integer for the array using a hash function
-        # that will fit within int32 range
-        area_id_int = hash(area_id) & 0x7FFFFFFF  # Ensure positive and within int32 range
+        # Use the provided cortical_idx or get it from the area
+        if cortical_idx is None:
+            cortical_idx = area.cortical_idx
         
         # Get next available index in the NeuronArray
         index = self.neuron_array.create_neuron(
-            area_id=area_id_int,
+            cortical_id=cortical_idx,
             position=position,
             threshold=threshold,
             membrane_potential=membrane_potential,
@@ -377,13 +378,13 @@ class ConnectomeManagerGPU:
         self.index_to_neuron_id[index] = neuron_id
         
         # Update area tracking
-        if area_id not in self.area_neuron_masks:
-            self.area_neuron_masks[area_id] = np.zeros(self.max_neurons, dtype=np.bool_)
-        self.area_neuron_masks[area_id][index] = True
+        if cortical_id not in self.area_neuron_masks:
+            self.area_neuron_masks[cortical_id] = np.zeros(self.max_neurons, dtype=np.bool_)
+        self.area_neuron_masks[cortical_id][index] = True
         
         # Update _neuron_to_position for test compatibility 
-        # Format matches test expectation: (area_id, x, y, z, neuron_index)
-        self._neuron_to_position[neuron_id] = (area_id, *position, index)
+        # Format matches test expectation: (cortical_id, x, y, z, neuron_index)
+        self._neuron_to_position[neuron_id] = (cortical_id, *position, index)
         
         # Add to cortical area
         area.add_neuron(neuron_id, position)
@@ -415,18 +416,18 @@ class ConnectomeManagerGPU:
             int(self.neuron_array.positions_z[index])
         )
         
-        # Find area_id from the area_id_int
-        area_id_int = int(self.neuron_array.area_ids[index])
-        # We need to map this back to the string area_id
-        # For now, we'll have to search through the area masks
-        area_id = None
-        for area_str, mask in self.area_neuron_masks.items():
-            if mask[index]:
-                area_id = area_str
+        # Get the cortical_idx from the neuron array
+        cortical_idx = int(self.neuron_array.cortical_ids[index])
+        
+        # Find the corresponding cortical_id
+        cortical_id = None
+        for area_id, area in self.cortical_areas.items():
+            if area.cortical_idx == cortical_idx:
+                cortical_id = area_id
                 break
         
         result = {
-            "area_id": area_id,
+            "cortical_id": cortical_id,  # Using the standardized terminology
             "position": position,
             "threshold": float(self.neuron_array.thresholds[index]),
             "membrane_potential": float(self.neuron_array.membrane_potentials[index]),
@@ -487,26 +488,26 @@ class ConnectomeManagerGPU:
         
         self.neuron_array.set_neuron_property(neuron_id, property_name, value)
     
-    def get_neurons_by_area(self, area_id: str) -> List[int]:
+    def get_neurons_by_cortical_area(self, cortical_id: str) -> List[int]:
         """Get all neurons in a specific cortical area.
         
         Args:
-            area_id: ID of the cortical area
+            cortical_id: ID of the cortical area
             
         Returns:
             List of neuron IDs in the area
             
         Raises:
-            KeyError: If the area_id doesn't exist
+            KeyError: If the cortical_id doesn't exist
         """
-        if area_id not in self.cortical_areas:
-            raise KeyError(f"Cortical area {area_id} does not exist")
+        if cortical_id not in self.cortical_areas:
+            raise KeyError(f"Cortical area {cortical_id} does not exist")
         
-        if area_id not in self.area_neuron_masks:
+        if cortical_id not in self.area_neuron_masks:
             return []
         
         # Get the mask for this area
-        mask = self.area_neuron_masks[area_id]
+        mask = self.area_neuron_masks[cortical_id]
         
         # Get the indices where the mask is True
         indices = np.where(mask)[0]
@@ -516,14 +517,14 @@ class ConnectomeManagerGPU:
         
         return neuron_ids
     
-    def get_area_for_neuron(self, neuron_id: int) -> str:
+    def get_cortical_area_for_neuron(self, neuron_id: int) -> str:
         """Get the ID of the cortical area containing a neuron.
         
         Args:
             neuron_id: ID of the neuron
             
         Returns:
-            ID of the cortical area
+            ID of the cortical area containing the neuron
             
         Raises:
             KeyError: If the neuron_id doesn't exist
@@ -533,13 +534,40 @@ class ConnectomeManagerGPU:
         
         index = self.neuron_id_to_index[neuron_id]
         
-        # Find the area_id by checking the masks
-        for area_id, mask in self.area_neuron_masks.items():
-            if mask[index]:
-                return area_id
+        # Get the cortical_idx using the neuron array
+        cortical_idx = self.neuron_array.cortical_ids[index]
         
-        # This should not happen if the neuron exists
-        raise RuntimeError(f"Neuron {neuron_id} exists but is not assigned to any area")
+        # Find the original string cortical_id by matching with the cortical_idx
+        for cortical_id, area in self.cortical_areas.items():
+            if area.cortical_idx == cortical_idx:
+                return cortical_id
+                
+        # This should not happen, but just in case
+        raise RuntimeError(f"Could not find cortical area for neuron {neuron_id}")
+
+    # For backward compatibility, maintain the old method name
+    def get_area_for_neuron(self, neuron_id: int) -> str:
+        """Get the ID of the cortical area containing a neuron (backward compatibility).
+        
+        Args:
+            neuron_id: ID of the neuron
+            
+        Returns:
+            ID of the cortical area containing the neuron
+        """
+        return self.get_cortical_area_for_neuron(neuron_id)
+        
+    # For backward compatibility, maintain the old method name
+    def get_neurons_by_area(self, area_id: str) -> List[int]:
+        """Get all neurons in a specific cortical area (backward compatibility).
+        
+        Args:
+            area_id: ID of the cortical area
+            
+        Returns:
+            List of neuron IDs in the area
+        """
+        return self.get_neurons_by_cortical_area(area_id)
     
     def get_neuron_count(self) -> int:
         """Get the total number of neurons in the connectome.
@@ -550,45 +578,47 @@ class ConnectomeManagerGPU:
         return self.neuron_array.get_neuron_count()
     
     def delete_neuron(self, neuron_id: int) -> None:
-        """Delete a neuron from the connectome.
+        """Delete a neuron and all its connections.
         
         Args:
             neuron_id: ID of the neuron to delete
             
         Raises:
-            KeyError: If the neuron_id doesn't exist
+            ValueError: If the neuron doesn't exist
         """
+        # Check if neuron exists
         if neuron_id not in self.neuron_id_to_index:
-            raise KeyError(f"Neuron {neuron_id} does not exist")
+            raise ValueError(f"Neuron {neuron_id} does not exist")
         
-        index = self.neuron_id_to_index[neuron_id]
+        # Get the neuron's index
+        neuron_index = self.neuron_id_to_index[neuron_id]
         
-        # Get the area_id before deleting the neuron
-        area_id = self.get_area_for_neuron(neuron_id)
+        # Delete outgoing synapses (synapses where this neuron is pre-synaptic)
+        outgoing_connections = self.get_outgoing_connections(neuron_id)
+        for target_id, _ in outgoing_connections:
+            self.remove_synapse(neuron_id, target_id)
+            
+        # Delete incoming synapses (synapses where this neuron is post-synaptic)
+        incoming_connections = self.get_incoming_connections(neuron_id)
+        for source_id, _ in incoming_connections:
+            self.remove_synapse(source_id, neuron_id)
         
-        # Delete the neuron from the area
-        if area_id in self.cortical_areas:
-            self.cortical_areas[area_id].remove_neuron(neuron_id)
-        
-        # Delete the neuron from the mask
-        if area_id in self.area_neuron_masks:
-            self.area_neuron_masks[area_id][index] = False
-        
-        # Remove from neuron array
+        # Mark neuron as inactive in neuron array
+        cortical_id = self.get_cortical_area_for_neuron(neuron_id)
         self.neuron_array.delete_neuron(neuron_id)
         
-        # Delete from mappings
-        del self.index_to_neuron_id[index]
+        # Remove neuron from area-to-neuron mappings if it exists
+        if cortical_id in self.area_neuron_masks:
+            # Create a temporary copy as a numpy array
+            mask = np.array(self.area_neuron_masks[cortical_id])
+            if neuron_index < len(mask):
+                mask[neuron_index] = False
+                self.area_neuron_masks[cortical_id] = mask
+        
+        # Remove from ID-to-index mapping
         del self.neuron_id_to_index[neuron_id]
-        
-        # Remove from _neuron_to_position for test compatibility
-        if neuron_id in self._neuron_to_position:
-            del self._neuron_to_position[neuron_id]
-        
-        # Delete all synapses connected to this neuron
-        self._convert_to_lil_if_needed()
-        self.outgoing_matrix[index, :] = 0
-        self.incoming_matrix[:, index] = 0
+        if neuron_index in self.index_to_neuron_id:
+            del self.index_to_neuron_id[neuron_index]
     
     def get_neuron_position(self, neuron_id: int) -> Tuple[int, int, int]:
         """Get the position of a neuron.
@@ -1083,22 +1113,22 @@ class ConnectomeManagerGPU:
         
         index = self.neuron_id_to_index[neuron_id]
         
-        # Get the area ID using the hash 
-        area_id_int = self.neuron_array.area_ids[index]
+        # Get the cortical_idx from the neuron array
+        cortical_idx = int(self.neuron_array.cortical_ids[index])
         
-        # Find the original string area_id by matching with the hash
-        area_id = None
-        for a_id in self.cortical_areas:
-            if hash(a_id) & 0x7FFFFFFF == area_id_int:
-                area_id = a_id
+        # Find the corresponding cortical_id
+        cortical_id = None
+        for area_id, area in self.cortical_areas.items():
+            if area.cortical_idx == cortical_idx:
+                cortical_id = area_id
                 break
         
-        if area_id is None:
-            logger.error(f"Could not find area for neuron {neuron_id}")
+        if cortical_id is None:
+            logger.error(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}")
             return False
         
         # Validate new position
-        area = self.cortical_areas[area_id]
+        area = self.cortical_areas[cortical_id]
         if not area.contains_position(new_position):
             raise ValueError(f"Position {new_position} is outside the bounds of area {area.name}")
         
@@ -1109,53 +1139,64 @@ class ConnectomeManagerGPU:
         
         # Update position tracking
         if hasattr(self, '_neuron_to_position'):
-            self._neuron_to_position[neuron_id] = new_position
+            self._neuron_to_position[neuron_id] = (cortical_id, *new_position, index)
         
-        return True 
+        return True
 
-    def batch_create_neurons(self, area_id: str, positions: List[Tuple[int, int, int]],
+    def batch_create_neurons(self, cortical_id: str, positions: List[Tuple[int, int, int]],
                            threshold: float = 1.0, membrane_potential: float = 0.0,
                            resting_potential: float = 0.0, decay_rate: float = 0.5,
-                           refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None) -> List[int]:
-        """Create multiple neurons in the specified cortical area in a batch operation.
+                           refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None,
+                           cortical_idx: Optional[int] = None) -> List[int]:
+        """Create multiple neurons in a cortical area in a batch operation.
         
-        This method is optimized for creating large numbers of neurons at once using
-        vectorized operations instead of loops.
+        This is more efficient than creating neurons one by one, especially for large batches.
         
         Args:
-            area_id: ID of the cortical area
-            positions: List of 3D coordinates within the cortical area
+            cortical_id: ID of the cortical area
+            positions: List of 3D coordinates (x, y, z) for each neuron
             threshold: Firing threshold potential (can be a single value or a list)
             membrane_potential: Initial membrane potential (can be a single value or a list)
             resting_potential: Base membrane potential (can be a single value or a list)
             decay_rate: Rate at which potential decays each timestep (can be a single value or a list)
-            refractory_period: Refractory period (can be a single value or a list)
+            refractory_period: Number of timesteps after firing during which neurons cannot fire (can be a single value or a list)
             properties: Additional properties for the neurons (optional)
+            cortical_idx: Integer index of the cortical area (optional, will be determined from cortical_id if not provided)
             
         Returns:
-            List of unique IDs of the created neurons
+            List of neuron IDs for the created neurons
             
         Raises:
-            ValueError: If the area_id doesn't exist
+            ValueError: If the cortical_id doesn't exist
             ValueError: If any position is outside the area's boundaries
+            ValueError: If there are duplicate positions
         """
         # Validate area exists
-        if area_id not in self.cortical_areas:
-            raise ValueError(f"Cortical area {area_id} does not exist")
+        if cortical_id not in self.cortical_areas:
+            raise ValueError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas[area_id]
+        area = self.cortical_areas[cortical_id]
         
         # Validate positions
         for pos in positions:
             if not area.contains_position(pos):
                 raise ValueError(f"Position {pos} is outside the bounds of area {area.name}")
         
-        # Convert area_id to integer for storage in NeuronArray
-        area_id_int = hash(area_id) & 0x7FFFFFFF  # Ensure positive and within int32 range
+        # Check for duplicates
+        if len(positions) != len(set(positions)):
+            raise ValueError("Duplicate positions detected. All positions must be unique.")
+        
+        # Get next available neuron IDs
+        neuron_ids = list(range(self.next_neuron_id, self.next_neuron_id + len(positions)))
+        self.next_neuron_id += len(positions)
+        
+        # Use the provided cortical_idx or get it from the area
+        if cortical_idx is None:
+            cortical_idx = area.cortical_idx
         
         # Create neurons in batch using NeuronArray's batch method
-        neuron_ids = self.neuron_array.batch_create_neurons(
-            area_id=area_id_int,
+        indices = self.neuron_array.batch_create_neurons(
+            cortical_id=cortical_idx,
             positions=positions,
             thresholds=threshold,
             membrane_potentials=membrane_potential,
@@ -1164,26 +1205,24 @@ class ConnectomeManagerGPU:
             refractory_periods=refractory_period
         )
         
-        # Update ID mapping for all created neurons
-        for neuron_id in neuron_ids:
-            self.neuron_id_to_index[neuron_id] = neuron_id  # In this implementation, ID = index
-            self.index_to_neuron_id[neuron_id] = neuron_id
+        # Map neuron IDs to indices
+        for i, neuron_id in enumerate(neuron_ids):
+            idx = indices[i]
+            self.neuron_id_to_index[neuron_id] = idx
+            self.index_to_neuron_id[idx] = neuron_id
+            
+            # Update area tracking
+            if cortical_id not in self.area_neuron_masks:
+                self.area_neuron_masks[cortical_id] = np.zeros(self.max_neurons, dtype=np.bool_)
+            self.area_neuron_masks[cortical_id][idx] = True
+            
+            # Add to cortical area
+            area.add_neuron(neuron_id, positions[i])
+            
+            # Update for test compatibility
+            self._neuron_to_position[neuron_id] = (cortical_id, *positions[i], idx)
         
-        # Update area tracking using boolean mask
-        if area_id not in self.area_neuron_masks:
-            self.area_neuron_masks[area_id] = np.zeros(self.max_neurons, dtype=np.bool_)
-        
-        # Set mask bits for new neurons
-        for neuron_id in neuron_ids:
-            self.area_neuron_masks[area_id][neuron_id] = True
-        
-        # Store additional properties if provided
-        if properties:
-            # Currently, additional properties are not stored in the GPU-optimized implementation
-            # This would require additional arrays in NeuronArray for each property
-            pass
-        
-        return neuron_ids 
+        return neuron_ids
 
     def batch_update_neuron_properties(self, neuron_ids: List[int], property_name: Union[str, NeuronPropertyType], 
                                      values: Union[List[float], List[int], float, int]) -> bool:
@@ -1528,8 +1567,8 @@ class ConnectomeManagerGPU:
             target_area_id = rule["target_area_id"]
             
             # Get neurons in both areas
-            source_neurons = self.get_neurons_by_area(source_area_id)
-            target_neurons = self.get_neurons_by_area(target_area_id)
+            source_neurons = self.get_neurons_by_cortical_area(source_area_id)
+            target_neurons = self.get_neurons_by_cortical_area(target_area_id)
             
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
@@ -1592,8 +1631,8 @@ class ConnectomeManagerGPU:
             target_area_id = rule["target_area_id"]
             
             # Get neurons in both areas
-            source_neurons = self.get_neurons_by_area(source_area_id)
-            target_neurons = self.get_neurons_by_area(target_area_id)
+            source_neurons = self.get_neurons_by_cortical_area(source_area_id)
+            target_neurons = self.get_neurons_by_cortical_area(target_area_id)
             
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
@@ -1639,8 +1678,8 @@ class ConnectomeManagerGPU:
             target_area_id = rule["target_area_id"]
             
             # Get neurons in both areas
-            source_neurons = self.get_neurons_by_area(source_area_id)
-            target_neurons = self.get_neurons_by_area(target_area_id)
+            source_neurons = self.get_neurons_by_cortical_area(source_area_id)
+            target_neurons = self.get_neurons_by_cortical_area(target_area_id)
             
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
@@ -1679,8 +1718,8 @@ class ConnectomeManagerGPU:
             target_area_id = rule["target_area_id"]
             
             # Get neurons in both areas
-            source_neurons = self.get_neurons_by_area(source_area_id)
-            target_neurons = self.get_neurons_by_area(target_area_id)
+            source_neurons = self.get_neurons_by_cortical_area(source_area_id)
+            target_neurons = self.get_neurons_by_cortical_area(target_area_id)
             
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
@@ -1800,8 +1839,8 @@ class ConnectomeManagerGPU:
             target_area_id = rule["target_area_id"]
             
             # Get neurons in both areas
-            source_neurons = self.get_neurons_by_area(source_area_id)
-            target_neurons = self.get_neurons_by_area(target_area_id)
+            source_neurons = self.get_neurons_by_cortical_area(source_area_id)
+            target_neurons = self.get_neurons_by_cortical_area(target_area_id)
             
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
@@ -1832,3 +1871,186 @@ class ConnectomeManagerGPU:
             results[rule_id] = created_count
         
         return results 
+
+    def add_neuron(self, cortical_id: Optional[str] = None, position: Optional[Tuple[int, int, int]] = None,
+                threshold: float = 1.0, membrane_potential: float = 0.0,
+                resting_potential: float = 0.0, decay_rate: float = 0.5,
+                refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None) -> int:
+        """Create a new neuron and add it to the network.
+        
+        This is an alias for create_neuron to maintain compatibility with tests.
+        
+        Args:
+            cortical_id: ID of the cortical area this neuron belongs to
+            position: 3D coordinates (x, y, z)
+            threshold: Firing threshold
+            membrane_potential: Initial membrane potential
+            resting_potential: Resting potential
+            decay_rate: Membrane potential decay rate
+            refractory_period: Refractory period in timesteps
+            properties: Additional properties to set
+            
+        Returns:
+            ID of the created neuron
+        """
+        if position is None:
+            position = (0, 0, 0)
+            
+        # For test compatibility, create a temporary cortical area if none is provided
+        if cortical_id is None:
+            # Create a test cortical area if it doesn't exist
+            test_area_id = "TEST__"
+            if test_area_id not in self.cortical_areas:
+                self.add_cortical_area(
+                    name="Test Area",
+                    dimensions=(100, 100, 100),
+                    position=(0, 0, 0),
+                    area_type="test",
+                    area_id=test_area_id
+                )
+            cortical_id = test_area_id
+            
+        return self.create_neuron(
+            cortical_id=cortical_id,
+            position=position,
+            threshold=threshold,
+            membrane_potential=membrane_potential,
+            resting_potential=resting_potential,
+            decay_rate=decay_rate,
+            refractory_period=refractory_period,
+            properties=properties
+        )
+    
+    def add_neurons(self, count: int, cortical_id: Optional[str] = None,
+                   position: Optional[Tuple[int, int, int]] = None,
+                   threshold: float = 1.0, membrane_potential: float = 0.0,
+                   resting_potential: float = 0.0, decay_rate: float = 0.5,
+                   refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None) -> List[int]:
+        """Create multiple neurons with the same properties.
+        
+        Args:
+            count: Number of neurons to create
+            cortical_id: ID of the cortical area these neurons belong to
+            position: Base 3D coordinates (x, y, z) - if provided, neurons will be placed sequentially from this position
+            threshold: Firing threshold
+            membrane_potential: Initial membrane potential
+            resting_potential: Resting potential
+            decay_rate: Membrane potential decay rate
+            refractory_period: Refractory period in timesteps
+            properties: Additional properties to set
+            
+        Returns:
+            List of IDs of the created neurons
+        """
+        if position is None:
+            position = (0, 0, 0)
+            
+        # For test compatibility, create a temporary cortical area if none is provided
+        if cortical_id is None:
+            # Create a test cortical area if it doesn't exist
+            test_area_id = "TEST__"
+            if test_area_id not in self.cortical_areas:
+                self.add_cortical_area(
+                    name="Test Area",
+                    dimensions=(100, 100, 100),
+                    position=(0, 0, 0),
+                    area_type="test",
+                    area_id=test_area_id
+                )
+            cortical_id = test_area_id
+            
+        # Generate sequential positions if base position is provided
+        positions = []
+        x, y, z = position
+        for i in range(count):
+            positions.append((x + i, y, z))
+            
+        return self.batch_create_neurons(
+            cortical_id=cortical_id,
+            positions=positions,
+            threshold=threshold,
+            membrane_potential=membrane_potential,
+            resting_potential=resting_potential,
+            decay_rate=decay_rate,
+            refractory_period=refractory_period,
+            properties=properties
+        ) 
+
+    def add_synapse(self, pre_neuron: int, post_neuron: int, weight: float,
+                    is_plastic: bool = False, plasticity_coeff: float = 0.0,
+                    plasticity_decay: float = 0.0, **kwargs) -> bool:
+        """Add a synapse between two neurons.
+        
+        This is an alias for create_synapse to maintain compatibility with tests.
+        
+        Args:
+            pre_neuron: ID of the pre-synaptic neuron
+            post_neuron: ID of the post-synaptic neuron
+            weight: Synapse weight
+            is_plastic: Whether the synapse is plastic (can change weight)
+            plasticity_coeff: Coefficient for plasticity
+            plasticity_decay: Decay rate for plasticity
+            **kwargs: Additional properties for the synapse
+            
+        Returns:
+            True if synapse was created, False if it already existed
+        """
+        return self.create_synapse(
+            pre_neuron_id=pre_neuron,
+            post_neuron_id=post_neuron,
+            weight=weight,
+            is_plastic=is_plastic,
+            plasticity_coeff=plasticity_coeff,
+            plasticity_decay=plasticity_decay,
+            **kwargs
+        )
+
+    @property
+    def neuron_count(self) -> int:
+        """Get the total number of neurons in the connectome."""
+        return self.get_neuron_count()
+    
+    @property
+    def synapse_count(self) -> int:
+        """Get the total number of synapses in the connectome."""
+        return self.get_synapse_count()
+    
+    def has_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
+        """Check if a synapse exists between two neurons.
+        
+        Args:
+            pre_neuron: ID of the pre-synaptic neuron
+            post_neuron: ID of the post-synaptic neuron
+            
+        Returns:
+            True if the synapse exists, False otherwise
+        """
+        # Check if both neurons exist
+        if pre_neuron not in self.neuron_id_to_index or post_neuron not in self.neuron_id_to_index:
+            return False
+        
+        # Get synaptic weight - if > 0, the synapse exists
+        try:
+            weight = self.get_synapse_weight(pre_neuron, post_neuron)
+            return weight > 0
+        except ValueError:
+            return False
+            
+    def update_neuron_property(self, neuron_id: int, property_name: str, value: Any) -> bool:
+        """Update a property of a neuron.
+        
+        This is an alias for set_neuron_property to maintain compatibility with tests.
+        
+        Args:
+            neuron_id: ID of the neuron
+            property_name: Name of the property to update
+            value: New value for the property
+            
+        Returns:
+            True if the property was updated, False otherwise
+        """
+        try:
+            self.set_neuron_property(neuron_id, property_name, value)
+            return True
+        except (ValueError, KeyError):
+            return False
