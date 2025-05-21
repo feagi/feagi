@@ -266,7 +266,7 @@ def check_amalgamation_ready(
 
 # Check for specific cortical area
 def check_cortical_area_exists(
-    area_id: str,
+    cortical_id: str,
     core_api_service: CoreAPIService = Depends(get_core_api_service),
     _: str = Depends(check_connectome_ready)
 ):
@@ -274,27 +274,27 @@ def check_cortical_area_exists(
     Verify a specific cortical area exists.
     
     Args:
-        area_id: The ID of the cortical area to check
+        cortical_id: The ID of the cortical area to check
         
     Raises HTTPException if the area doesn't exist.
     """
     try:
         # Try as cortical_idx (integer ID)
         try:
-            cortical_idx = int(area_id)
+            cortical_idx = int(cortical_id)
             areas = core_api_service.get_cortical_areas()
             
             if not any(area["id"] == str(cortical_idx) for area in areas):
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Cortical area with ID {area_id} not found"
+                    detail=f"Cortical area with ID {cortical_id} not found"
                 )
         except ValueError:
             # Try as cortical_id (6-char ID)
-            if not core_api_service.get_cortical_area_properties(area_id):
+            if not core_api_service.get_cortical_area_properties(cortical_id):
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Cortical area with ID {area_id} not found"
+                    detail=f"Cortical area with ID {cortical_id} not found"
                 )
     except HTTPException:
         # Re-raise HTTPExceptions

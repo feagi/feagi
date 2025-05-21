@@ -293,10 +293,17 @@ class ZMQRouterServer:
                         logger.info(f"Sensory data statistics: min={data_min:.2f}, max={data_max:.2f}, avg={data_avg:.2f}")
                         
                         # Convert to neuron data format (array type)
+                        # Generate a standard 6-character cortical_id format
+                        # This ensures we're using proper cortical_id (string identifier)
+                        # rather than converting cortical_idx to string
+                        cortical_id = f"CH{channel_id}".ljust(6)[:6]
+                        
+                        # Using the parameter name 'cortical_area_id' here because we're calling 
+                        # an external library API which requires that specific parameter name
                         neuron_data = convert_raw_to_neuron_data(
                             data=data,
                             data_type="array",
-                            cortical_area_id=f"CH{channel_id}"
+                            cortical_area_id=cortical_id  # This is the expected parameter name in feagi_bytes library
                         )
                     
                     # For binary data, log the first few bytes
@@ -329,12 +336,19 @@ class ZMQRouterServer:
                             
                             # Convert to neuron data format (image type)
                             # Note: router_server receives raw binary data directly without byte structure headers
+                            # Generate a standard 6-character cortical_id format
+                            # This ensures we're using proper cortical_id (string identifier)
+                            # rather than converting cortical_idx to string
+                            cortical_id = f"CH{channel_id}".ljust(6)[:6]
+                            
+                            # Using the parameter name 'cortical_area_id' here because we're calling 
+                            # an external library API which requires that specific parameter name
                             neuron_data = convert_raw_to_neuron_data(
                                 data=data,
                                 data_type="image",
                                 dimensions=dimensions,
                                 channels=channels,
-                                cortical_area_id=f"CH{channel_id}"
+                                cortical_area_id=cortical_id  # This is the expected parameter name in feagi_bytes library
                             )
                         else:
                             # Treat as unknown binary data
@@ -347,14 +361,14 @@ class ZMQRouterServer:
                         return None
                     
                     # Log the neuron data conversion result
-                    for area_id, area_data in neuron_data.items():
+                    for area_cortical_id, area_data in neuron_data.items():
                         num_neurons = len(area_data["x"])
                         if num_neurons > 0:
                             pot_min = min(area_data["potentials"]) if area_data["potentials"] else 0
                             pot_max = max(area_data["potentials"]) if area_data["potentials"] else 0
                             pot_avg = sum(area_data["potentials"]) / len(area_data["potentials"]) if area_data["potentials"] else 0
                             
-                            logger.info(f"Converted to {num_neurons} neurons in area {area_id}: "
+                            logger.info(f"Converted to {num_neurons} neurons in area {area_cortical_id}: "
                                       f"potential min={pot_min:.2f}, max={pot_max:.2f}, avg={pot_avg:.2f}")
                     
                     # TODO: Forward this neuron data to the appropriate processing module
