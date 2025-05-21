@@ -13,7 +13,7 @@ from typing import Dict, List, Set, Optional, Union, Tuple, Any, cast
 
 from feagi.core.backend import BackendType, get_backend
 from feagi.core.backend.interface import BackendInterface
-from feagi.npu.fcl_manager import BitMap, BitMapProtocol, NeuronId, AreaId, MembraneUpdate, EnhancedFCLManager
+from feagi.npu.fcl_manager import BitMap, BitMapProtocol, NeuronId, CorticalIdx, MembraneUpdate, EnhancedFCLManager
 
 
 
@@ -417,27 +417,27 @@ class GPUAcceleratedFCL:
         """
         return getattr(self.cpu_fcl, name)
     
-    def update_fcl(self, current_timestep: int, neurons_by_area: Dict[AreaId, Union[BitMap, List[int], Set[int]]]) -> None:
+    def update_fcl(self, current_timestep: int, neurons_by_cortical: Dict[CorticalIdx, Union[BitMap, List[int], Set[int]]]) -> None:
         """
         Update the FCL with new firing neurons, accelerated with GPU.
         
         Args:
             current_timestep: Current simulation timestep
-            neurons_by_area: Dictionary mapping area IDs to collections of firing neurons
+            neurons_by_cortical: Dictionary mapping cortical indices to collections of firing neurons
         """
         # For now, delegate to CPU implementation
         # A fully GPU-accelerated version would require more complex data structures
         # that match the FCL implementation
-        self.cpu_fcl.update_fcl(current_timestep, neurons_by_area)
+        self.cpu_fcl.update_fcl(current_timestep, neurons_by_cortical)
     
-    def get_fcl_delta(self, start_time: int, end_time: int, area_ids: Optional[List[AreaId]] = None) -> BitMap:
+    def get_fcl_delta(self, start_time: int, end_time: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Compute the delta (difference) between FCLs at two timesteps, accelerated with GPU.
         
         Args:
             start_time: Starting timestep
             end_time: Ending timestep
-            area_ids: Optional list of area IDs to restrict the delta computation
+            cortical_indices: Optional list of cortical indices to restrict the delta computation
             
         Returns:
             BitMap containing neurons that fired in end_time but not start_time
@@ -447,10 +447,10 @@ class GPUAcceleratedFCL:
         fcl2 = self.cpu_fcl.get_global_fcl(end_time)
         
         # Convert to numpy arrays
-        if area_ids:
-            # Filter by areas
-            fcl1 = self.cpu_fcl.get_neurons_by_areas(area_ids, start_time)
-            fcl2 = self.cpu_fcl.get_neurons_by_areas(area_ids, end_time)
+        if cortical_indices:
+            # Filter by cortical areas
+            fcl1 = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, start_time)
+            fcl2 = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, end_time)
         
         # Convert to GPU bitmaps
         gpu_fcl1 = GPUBitMap(fcl1)
@@ -462,13 +462,13 @@ class GPUAcceleratedFCL:
         # Convert back to CPU bitmap
         return result.to_cpu_bitmap()
     
-    def get_consistently_active_neurons(self, n_steps: int, area_ids: Optional[List[AreaId]] = None) -> BitMap:
+    def get_consistently_active_neurons(self, n_steps: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Get neurons that have been consistently active over the last n steps, accelerated with GPU.
         
         Args:
             n_steps: Number of timesteps to check
-            area_ids: Optional list of area IDs to restrict the check
+            cortical_indices: Optional list of cortical indices to restrict the check
             
         Returns:
             BitMap containing neurons that were active in all n_steps
@@ -478,8 +478,8 @@ class GPUAcceleratedFCL:
         
         # Initialize with the first FCL
         first_fcl = self.cpu_fcl.get_global_fcl(current_timestep)
-        if area_ids:
-            first_fcl = self.cpu_fcl.get_neurons_by_areas(area_ids, current_timestep)
+        if cortical_indices:
+            first_fcl = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, current_timestep)
         
         # Convert to GPU bitmap
         result = GPUBitMap(first_fcl)
@@ -494,8 +494,8 @@ class GPUAcceleratedFCL:
                 
             # Get FCL for this timestep
             fcl = self.cpu_fcl.get_global_fcl(timestep)
-            if area_ids:
-                fcl = self.cpu_fcl.get_neurons_by_areas(area_ids, timestep)
+            if cortical_indices:
+                fcl = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, timestep)
                 
             # Convert to GPU bitmap and intersect
             gpu_fcl = GPUBitMap(fcl)
@@ -508,13 +508,13 @@ class GPUAcceleratedFCL:
         # Convert back to CPU bitmap
         return result.to_cpu_bitmap()
     
-    def get_neurons_fired_in_last_n_steps(self, n_steps: int, area_ids: Optional[List[AreaId]] = None) -> BitMap:
+    def get_neurons_fired_in_last_n_steps(self, n_steps: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Get neurons that fired in any of the last n steps, accelerated with GPU.
         
         Args:
             n_steps: Number of timesteps to check
-            area_ids: Optional list of area IDs to restrict the check
+            cortical_indices: Optional list of cortical indices to restrict the check
             
         Returns:
             BitMap containing neurons that fired in any of the last n_steps
@@ -524,8 +524,8 @@ class GPUAcceleratedFCL:
         
         # Initialize with the first FCL
         first_fcl = self.cpu_fcl.get_global_fcl(current_timestep)
-        if area_ids:
-            first_fcl = self.cpu_fcl.get_neurons_by_areas(area_ids, current_timestep)
+        if cortical_indices:
+            first_fcl = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, current_timestep)
         
         # Convert to GPU bitmap
         result = GPUBitMap(first_fcl)
@@ -540,8 +540,8 @@ class GPUAcceleratedFCL:
                 
             # Get FCL for this timestep
             fcl = self.cpu_fcl.get_global_fcl(timestep)
-            if area_ids:
-                fcl = self.cpu_fcl.get_neurons_by_areas(area_ids, timestep)
+            if cortical_indices:
+                fcl = self.cpu_fcl.get_neurons_by_corticals(cortical_indices, timestep)
                 
             # Convert to GPU bitmap and union
             gpu_fcl = GPUBitMap(fcl)

@@ -8,7 +8,7 @@ Key features:
 - Maintains multi-timestep FCL history
 - Thread-safe operations
 - Optimized for fast lookups and modifications
-- Area-specific sampling capabilities
+- Cortical-specific sampling capabilities
 - Dependency-injected design
 """
 
@@ -30,8 +30,7 @@ except ImportError:
 
 # Type definitions to make migration to Rust more straightforward
 NeuronId = int
-AreaId = int  # Alias for backward compatibility
-CorticalIdx = int  # Changed from AreaId to CorticalIdx for consistency
+CorticalIdx = int  # Integer identifier for cortical areas internally
 Timestep = int
 
 
@@ -252,29 +251,29 @@ class FCLManager:
             window_size: Number of timesteps to maintain in history
         """
         self.window_size: int = window_size
-        # Main FCL history - stores all neurons regardless of area
+        # Main FCL history - stores all neurons regardless of cortical
         self.global_fcl_history: List[BitMap] = [BitMap() for _ in range(window_size)]
-        # Area-specific FCL history - mapping from cortical_idx to list of bitmaps
-        self.area_fcl_history: Dict[CorticalIdx, List[BitMap]] = {}
+        # Cortical-specific FCL history - mapping from cortical_idx to list of bitmaps
+        self.cortical_fcl_history: Dict[CorticalIdx, List[BitMap]] = {}
         self.current_window_index: int = 0
         self.current_timestep: int = 0
         
         # Stats
         self.total_neurons_fired: int = 0
-        self.neurons_per_area: Dict[CorticalIdx, int] = {}
+        self.neurons_per_cortical: Dict[CorticalIdx, int] = {}
         
         # Logger
         self.logger = setup_logger("feagi.npu.fcl_manager")
         
-    def _ensure_area_initialized(self, cortical_idx: CorticalIdx) -> None:
+    def _ensure_cortical_initialized(self, cortical_idx: CorticalIdx) -> None:
         """
-        Ensure an area is initialized in the FCL history.
+        Ensure a cortical area is initialized in the FCL history.
         
         Args:
             cortical_idx: ID of the cortical area to initialize
         """
-        if cortical_idx not in self.area_fcl_history:
-            self.area_fcl_history[cortical_idx] = [BitMap() for _ in range(self.window_size)]
+        if cortical_idx not in self.cortical_fcl_history:
+            self.cortical_fcl_history[cortical_idx] = [BitMap() for _ in range(self.window_size)]
     
     def _get_index_for_timestep(self, timestep: Optional[int] = None) -> int:
         """
@@ -302,13 +301,13 @@ class FCLManager:
             
         return timestep % self.window_size
         
-    def update_fcl(self, current_timestep: int, neurons_by_area: Dict[CorticalIdx, Union[BitMap, List[int], Set[int]]]) -> None:
+    def update_fcl(self, current_timestep: int, neurons_by_cortical: Dict[CorticalIdx, Union[BitMap, List[int], Set[int]]]) -> None:
         """
-        Update the FCL with neurons firing in the current timestep, preserving area information.
+        Update the FCL with neurons firing in the current timestep, preserving cortical information.
         
         Args:
             current_timestep: Current simulation timestep
-            neurons_by_area: Dictionary mapping cortical_idx -> list/set/bitmap of neuron_ids
+            neurons_by_cortical: Dictionary mapping cortical_idx -> list/set/bitmap of neuron_ids
         """
         self.current_timestep = current_timestep
         current_index = current_timestep % self.window_size
@@ -319,34 +318,34 @@ class FCLManager:
         # Track firing statistics
         burst_total = 0
         
-        # Update area-specific FCLs
-        for cortical_idx, neuron_ids in neurons_by_area.items():
-            # Create area bitmap if not exists
-            self._ensure_area_initialized(cortical_idx)
+        # Update cortical-specific FCLs
+        for cortical_idx, neuron_ids in neurons_by_cortical.items():
+            # Create cortical bitmap if not exists
+            self._ensure_cortical_initialized(cortical_idx)
             
-            # Clear the oldest bitmap for this area
-            self.area_fcl_history[cortical_idx][current_index].clear()
+            # Clear the oldest bitmap for this cortical
+            self.cortical_fcl_history[cortical_idx][current_index].clear()
             
             # Convert to bitmap using the wrapper
             neuron_collection = NeuronCollection.from_any(neuron_ids)
-            area_bitmap = neuron_collection.to_bitmap()
+            cortical_bitmap = neuron_collection.to_bitmap()
                 
-            # Count neurons in this area
-            area_neuron_count = len(area_bitmap)
-            burst_total += area_neuron_count
-            self.neurons_per_area[cortical_idx] = area_neuron_count
+            # Count neurons in this cortical
+            cortical_neuron_count = len(cortical_bitmap)
+            burst_total += cortical_neuron_count
+            self.neurons_per_cortical[cortical_idx] = cortical_neuron_count
                 
-            # Update area-specific bitmap
-            self.area_fcl_history[cortical_idx][current_index] = area_bitmap
+            # Update cortical-specific bitmap
+            self.cortical_fcl_history[cortical_idx][current_index] = cortical_bitmap
             
-            # Update global bitmap (union of all areas)
-            self.global_fcl_history[current_index] = self.global_fcl_history[current_index] | area_bitmap
+            # Update global bitmap (union of all corticals)
+            self.global_fcl_history[current_index] = self.global_fcl_history[current_index] | cortical_bitmap
         
         # Update total count and window index
         self.total_neurons_fired = burst_total
         self.current_window_index = current_index
         
-        self.logger.debug(f"FCL updated for timestep {current_timestep}: {burst_total} neurons fired across {len(neurons_by_area)} areas")
+        self.logger.debug(f"FCL updated for timestep {current_timestep}: {burst_total} neurons fired across {len(neurons_by_cortical)} cortical areas")
     
     def get_global_fcl(self, timestep: Optional[int] = None) -> BitMap:
         """
@@ -364,7 +363,7 @@ class FCLManager:
         index = self._get_index_for_timestep(timestep)
         return self.global_fcl_history[index].copy()
     
-    def get_area_fcl(self, cortical_idx: CorticalIdx, timestep: Optional[int] = None) -> BitMap:
+    def get_cortical_fcl(self, cortical_idx: CorticalIdx, timestep: Optional[int] = None) -> BitMap:
         """
         Get FCL for a specific cortical area at a specific timestep.
         
@@ -378,13 +377,13 @@ class FCLManager:
         index = self._get_index_for_timestep(timestep)
         
         # Return empty bitmap if area not initialized
-        if cortical_idx not in self.area_fcl_history:
+        if cortical_idx not in self.cortical_fcl_history:
             return BitMap()
             
         # Return copy to prevent modification of internal state
-        return self.area_fcl_history[cortical_idx][index].copy()
+        return self.cortical_fcl_history[cortical_idx][index].copy()
     
-    def get_fcl_by_area(self, timestep: Optional[int] = None) -> Dict[CorticalIdx, BitMap]:
+    def get_fcl_by_cortical(self, timestep: Optional[int] = None) -> Dict[CorticalIdx, BitMap]:
         """
         Return a dictionary mapping each cortical area to its firing neurons.
         
@@ -397,13 +396,13 @@ class FCLManager:
         index = self._get_index_for_timestep(timestep)
         
         result: Dict[CorticalIdx, BitMap] = {}
-        for cortical_idx, fcl_history in self.area_fcl_history.items():
+        for cortical_idx, fcl_history in self.cortical_fcl_history.items():
             if not fcl_history[index].is_empty():
                 result[cortical_idx] = fcl_history[index].copy()
                 
         return result
     
-    def get_active_areas(self, timestep: Optional[int] = None) -> Set[CorticalIdx]:
+    def get_active_corticals(self, timestep: Optional[int] = None) -> Set[CorticalIdx]:
         """
         Return a set of cortical indices that have any firing neurons.
         
@@ -416,18 +415,18 @@ class FCLManager:
         index = self._get_index_for_timestep(timestep)
             
         result: Set[CorticalIdx] = set()
-        for cortical_idx, fcl_history in self.area_fcl_history.items():
+        for cortical_idx, fcl_history in self.cortical_fcl_history.items():
             if not fcl_history[index].is_empty():
                 result.add(cortical_idx)
                 
         return result
     
-    def get_neurons_by_areas(self, area_ids: List[CorticalIdx], timestep: Optional[int] = None) -> BitMap:
+    def get_neurons_by_corticals(self, cortical_indices: List[CorticalIdx], timestep: Optional[int] = None) -> BitMap:
         """
-        Get neurons firing in any of the specified areas.
+        Get neurons firing in any of the specified cortical areas.
         
         Args:
-            area_ids: List of cortical area IDs to query
+            cortical_indices: List of cortical area IDs to query
             timestep: Optional timestep (defaults to current)
             
         Returns:
@@ -439,20 +438,20 @@ class FCLManager:
         index = self._get_index_for_timestep(timestep)
             
         result = BitMap()
-        for area_id in area_ids:
-            if area_id in self.area_fcl_history:
-                result = result | self.area_fcl_history[area_id][index]
+        for cortical_idx in cortical_indices:
+            if cortical_idx in self.cortical_fcl_history:
+                result = result | self.cortical_fcl_history[cortical_idx][index]
                 
         return result
     
-    def get_neurons_fired_in_last_n_steps(self, n_steps: int, area_ids: Optional[List[CorticalIdx]] = None) -> BitMap:
+    def get_neurons_fired_in_last_n_steps(self, n_steps: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Get neurons that fired in any of the last n timesteps.
         Optionally filter by specific cortical areas.
         
         Args:
             n_steps: Number of timesteps to look back
-            area_ids: Optional list of area IDs to filter by
+            cortical_indices: Optional list of cortical area IDs to filter by
             
         Returns:
             BitMap containing neuron IDs that fired in the specified timespan
@@ -466,30 +465,30 @@ class FCLManager:
         if n_steps > self.window_size:
             n_steps = self.window_size
         
-        if area_ids is None:
-            # Use global FCL history if no area filtering
-            result = BitMap()
+        result = BitMap()
+        
+        # No specific areas requested, use global FCL
+        if cortical_indices is None:
             for i in range(n_steps):
                 step_index = (self.current_window_index - i) % self.window_size
                 result = result | self.global_fcl_history[step_index]
         else:
-            # Filter by specified areas
-            result = BitMap()
-            for area_id in area_ids:
-                if area_id in self.area_fcl_history:
-                    for i in range(n_steps):
+            # Process both standard and memory areas
+            for cortical_idx in cortical_indices:
+                if cortical_idx in self.cortical_fcl_history:
+                    for i in range(min(n_steps, self.window_size)):
                         step_index = (self.current_window_index - i) % self.window_size
-                        result = result | self.area_fcl_history[area_id][step_index]
+                        result = result | self.cortical_fcl_history[cortical_idx][step_index]
         
         return result
     
-    def get_consistently_active_neurons(self, n_steps: int, area_ids: Optional[List[CorticalIdx]] = None) -> BitMap:
+    def get_consistently_active_neurons(self, n_steps: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Get neurons that fired in ALL of the last n timesteps.
         
         Args:
             n_steps: Number of timesteps to look back
-            area_ids: Optional list of area IDs to filter by
+            cortical_indices: Optional list of cortical area IDs to filter by
             
         Returns:
             BitMap of neuron IDs that fired consistently across the timespan
@@ -506,7 +505,7 @@ class FCLManager:
         # Initialize result with neurons from the first relevant timestep
         first_step_index = (self.current_window_index) % self.window_size
         
-        if area_ids is None:
+        if cortical_indices is None:
             # Start with all neurons from first timestep
             result = self.global_fcl_history[first_step_index].copy()
             
@@ -516,25 +515,25 @@ class FCLManager:
                 result = result & self.global_fcl_history[step_index]
         else:
             # Filter by specified areas
-            first_step_neurons = self.get_neurons_by_areas(area_ids, timestep=self.current_timestep - n_steps + 1)
+            first_step_neurons = self.get_neurons_by_corticals(cortical_indices, timestep=self.current_timestep - n_steps + 1)
             result = first_step_neurons
             
             # Intersect with each subsequent timestep
             for i in range(1, n_steps):
                 current_step = self.current_timestep - n_steps + 1 + i
-                filtered_step = self.get_neurons_by_areas(area_ids, timestep=current_step)
+                filtered_step = self.get_neurons_by_corticals(cortical_indices, timestep=current_step)
                 result = result & filtered_step
         
         return result
     
-    def get_fcl_delta(self, start_time: int, end_time: int, area_ids: Optional[List[CorticalIdx]] = None) -> BitMap:
+    def get_fcl_delta(self, start_time: int, end_time: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Get neurons that became active between start and end times.
         
         Args:
             start_time: Starting timestep
             end_time: Ending timestep
-            area_ids: Optional list of cortical area IDs to filter by
+            cortical_indices: Optional list of cortical area IDs to filter by
             
         Returns:
             BitMap of neurons that became active between the two timesteps
@@ -555,18 +554,18 @@ class FCLManager:
         start_index = self._get_index_for_timestep(start_time)
         end_index = self._get_index_for_timestep(end_time)
         
-        if area_ids is None:
+        if cortical_indices is None:
             # Neurons active at end but not at start (newly activated)
             return self.global_fcl_history[end_index] - self.global_fcl_history[start_index]
         else:
             # Filter by specified areas
-            start_neurons = self.get_neurons_by_areas(area_ids, timestep=start_time)
-            end_neurons = self.get_neurons_by_areas(area_ids, timestep=end_time)
+            start_neurons = self.get_neurons_by_corticals(cortical_indices, timestep=start_time)
+            end_neurons = self.get_neurons_by_corticals(cortical_indices, timestep=end_time)
             
             # Neurons active at end but not at start (newly activated)
             return end_neurons - start_neurons
     
-    def get_fcl_xor(self, time1: int, time2: int, area_ids: Optional[List[CorticalIdx]] = None) -> BitMap:
+    def get_fcl_xor(self, time1: int, time2: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Get neurons that fired at either time1 or time2, but not both.
         Useful for detecting changes in firing patterns.
@@ -574,7 +573,7 @@ class FCLManager:
         Args:
             time1: First timestep
             time2: Second timestep
-            area_ids: Optional list of cortical area IDs to filter by
+            cortical_indices: Optional list of cortical area IDs to filter by
             
         Returns:
             BitMap of neurons that changed activation state between timesteps
@@ -585,21 +584,21 @@ class FCLManager:
         idx1 = self._get_index_for_timestep(time1)
         idx2 = self._get_index_for_timestep(time2)
         
-        if area_ids is None:
+        if cortical_indices is None:
             return self.global_fcl_history[idx1] ^ self.global_fcl_history[idx2]
         else:
-            neurons1 = self.get_neurons_by_areas(area_ids, timestep=time1)
-            neurons2 = self.get_neurons_by_areas(area_ids, timestep=time2)
+            neurons1 = self.get_neurons_by_corticals(cortical_indices, timestep=time1)
+            neurons2 = self.get_neurons_by_corticals(cortical_indices, timestep=time2)
             
             return neurons1 ^ neurons2
     
-    def count_firing_neurons(self, timestep: Optional[int] = None, area_id: Optional[CorticalIdx] = None) -> int:
+    def count_firing_neurons(self, timestep: Optional[int] = None, cortical_idx: Optional[CorticalIdx] = None) -> int:
         """
         Efficiently count the number of firing neurons.
         
         Args:
             timestep: Optional timestep (defaults to current)
-            area_id: Optional area ID to count neurons for a specific area
+            cortical_idx: Optional cortical area ID to count neurons for a specific area
             
         Returns:
             Count of firing neurons
@@ -607,7 +606,7 @@ class FCLManager:
         Raises:
             TimestepOutOfRangeError: If timestep is outside valid range
         """
-        if timestep is None and area_id is None:
+        if timestep is None and cortical_idx is None:
             # Use cached total for current timestep
             return self.total_neurons_fired
         
@@ -616,49 +615,54 @@ class FCLManager:
             
         index = self._get_index_for_timestep(timestep)
             
-        if area_id is None:
+        if cortical_idx is None:
             # Count all neurons at the specified timestep
             return len(self.global_fcl_history[index])
         else:
             # Count neurons in the specified area
-            if area_id in self.area_fcl_history:
-                return len(self.area_fcl_history[area_id][index])
+            if cortical_idx in self.cortical_fcl_history:
+                return len(self.cortical_fcl_history[cortical_idx][index])
             return 0
     
     def get_firing_statistics(self) -> Dict[str, Any]:
         """
-        Get statistics about the current FCL state.
+        Get statistics about firing patterns across the FCL history.
         
         Returns:
-            Dictionary with statistics about firing neurons and active areas
+            Dictionary with statistics about firing neurons and active corticals
         """
-        active_areas = self.get_active_areas()
+        active_corticals = self.get_active_corticals()
         
-        return {
-            "timestep": self.current_timestep,
+        stats = {
             "total_neurons_fired": self.total_neurons_fired,
-            "active_areas_count": len(active_areas),
-            "active_areas": list(active_areas),
-            "neurons_per_area": dict(self.neurons_per_area),
-            "window_size": self.window_size
+            "neurons_per_cortical": self.neurons_per_cortical,
+            "active_corticals_count": len(active_corticals),
+            "active_corticals": list(active_corticals),
         }
+        
+        return stats
 
     # Methods for two-phase membrane potential update process
     
     def advance_timestep(self) -> None:
         """
-        Advance to the next timestep, shifting FCL history.
-        """
-        self.current_timestep += 1
-        self.current_window_index = (self.current_window_index + 1) % self.window_size
+        Advance to the next timestep by clearing the next slot in the circular buffer.
         
-        # Clear the current FCL slot (both global and per-area)
+        This is called at the beginning of each timestep.
+        """
+        # Increment the current timestep
+        self.current_timestep += 1
+        
+        # Calculate the new window index
+        self.current_window_index = self.current_timestep % self.window_size
+        
+        # Clear the current FCL slot (both global and per-cortical)
         self.global_fcl_history[self.current_window_index].clear()
         
-        for area_id in self.area_fcl_history:
-            self.area_fcl_history[area_id][self.current_window_index].clear()
+        for cortical_idx in self.cortical_fcl_history:
+            self.cortical_fcl_history[cortical_idx][self.current_window_index].clear()
             
-        # Reset update queue for new timestep
+        # Reset update queue
         self._reset_update_queue()
     
     def _reset_update_queue(self) -> None:
@@ -778,36 +782,36 @@ class EnhancedFCLManager:
     
     def __init__(self, default_window_size: int = 20):
         """
-        Initialize an enhanced FCL manager with support for area-specific window sizes.
+        Initialize an enhanced FCL manager with support for cortical-specific window sizes.
         
         Args:
-            default_window_size: Default number of timesteps to maintain for standard areas
+            default_window_size: Default number of timesteps to maintain for standard corticals
         """
         self.default_window_size: int = default_window_size
         self.global_fcl_history: List[BitMap] = [BitMap() for _ in range(default_window_size)]
         
-        # Main FCL history - stores all neurons regardless of area
+        # Main FCL history - stores all neurons regardless of cortical
         self.current_window_index: int = 0
         self.current_timestep: int = 0
         
-        # Standard area storage using default window size
-        self.area_fcl_history: Dict[CorticalIdx, List[BitMap]] = {}
+        # Standard cortical storage using default window size
+        self.cortical_fcl_history: Dict[CorticalIdx, List[BitMap]] = {}
         
-        # Storage for areas with custom window sizes
-        # Maps area_id -> (window_size, [BitMaps], start_timestep)
-        self.custom_area_history: Dict[CorticalIdx, Tuple[int, List[BitMap], int]] = {}
+        # Storage for corticals with custom window sizes
+        # Maps cortical_idx -> (window_size, [BitMaps], start_timestep)
+        self.custom_cortical_history: Dict[CorticalIdx, Tuple[int, List[BitMap], int]] = {}
         
-        # Track area types for quick lookup
-        self.memory_area_ids: Set[CorticalIdx] = set()
+        # Track cortical types for quick lookup
+        self.memory_cortical_indices: Set[CorticalIdx] = set()
         
         # Stats
         self.total_neurons_fired: int = 0
-        self.neurons_per_area: Dict[CorticalIdx, int] = {}
+        self.neurons_per_cortical: Dict[CorticalIdx, int] = {}
         
         # Logger
         self.logger = logging.getLogger("feagi.npu.fcl_manager.enhanced")
         
-    def register_memory_area(self, cortical_idx: CorticalIdx, window_size: int) -> None:
+    def register_memory_cortical(self, cortical_idx: CorticalIdx, window_size: int) -> None:
         """
         Register a memory-type cortical area with a custom window size.
         
@@ -816,77 +820,77 @@ class EnhancedFCLManager:
             window_size: Custom history window size for this area (must be >= default_window_size)
             
         Raises:
-            ValueError: If window_size is less than default_window_size
+            ValueError: If window_size is smaller than default_window_size
         """
         if window_size < self.default_window_size:
-            raise ValueError(f"Custom window size ({window_size}) must be >= default window size ({self.default_window_size})")
+            raise ValueError(
+                f"Memory area window size ({window_size}) must be >= default window size ({self.default_window_size})"
+            )
             
-        # Initialize with empty bitmaps
+        # Create array of empty bitmaps for this area's history
         history_array = [BitMap() for _ in range(window_size)]
         
         # Store area with custom settings
         # The third element is the start timestep, initialized to current timestep
-        self.custom_area_history[cortical_idx] = (window_size, history_array, self.current_timestep)
-        self.memory_area_ids.add(cortical_idx)
+        self.custom_cortical_history[cortical_idx] = (window_size, history_array, self.current_timestep)
+        self.memory_cortical_indices.add(cortical_idx)
         
-        self.logger.info(f"Registered memory area {cortical_idx} with window size {window_size}")
+        self.logger.info(f"Registered memory cortical area {cortical_idx} with window size {window_size}")
         
-    def is_memory_area(self, cortical_idx: CorticalIdx) -> bool:
+    def is_memory_cortical(self, cortical_idx: CorticalIdx) -> bool:
         """
-        Check if an area is registered as a memory-type area with custom window size.
+        Check if a cortical area is registered as a memory-type area with custom window size.
         
         Args:
-            cortical_idx: Area ID to check
+            cortical_idx: Cortical ID to check
             
         Returns:
-            True if this is a memory area with custom window size, False otherwise
+            True if this is a memory cortical area with custom window size, False otherwise
         """
-        return cortical_idx in self.memory_area_ids
+        return cortical_idx in self.memory_cortical_indices
         
-    def get_area_window_size(self, cortical_idx: CorticalIdx) -> int:
+    def get_cortical_window_size(self, cortical_idx: CorticalIdx) -> int:
         """
-        Get the window size for a specific area.
+        Get the window size for a specific cortical area.
         
         Args:
             cortical_idx: ID of the cortical area
             
         Returns:
-            Window size for the specified area (custom size for memory areas, default size for others)
+            Window size for the specified cortical area (custom size for memory areas, default size for others)
         """
-        if cortical_idx in self.custom_area_history:
-            return self.custom_area_history[cortical_idx][0]
+        if cortical_idx in self.custom_cortical_history:
+            return self.custom_cortical_history[cortical_idx][0]
         return self.default_window_size
         
-    def _get_custom_area_index(self, cortical_idx: CorticalIdx, timestep: int) -> int:
+    def _get_custom_cortical_index(self, cortical_idx: CorticalIdx, timestep: int) -> int:
         """
-        Calculate the correct index in the custom window size history for a given area and timestep.
+        Calculate the correct index in the custom window size history for a given cortical area and timestep.
         
         Args:
             cortical_idx: ID of the memory-type cortical area
-            timestep: Specific timestep to get index for
+            timestep: Timestep to calculate index for
             
         Returns:
-            Index in the area's custom-sized history array
+            Index in the cortical area's custom-sized history array
             
         Raises:
-            ValueError: If cortical_idx is not a registered memory area
-            TimestepOutOfRangeError: If timestep is outside valid range for this area
+            ValueError: If cortical_idx is not a registered memory cortical area
+            TimestepOutOfRangeError: If timestep is outside valid range for this cortical area
         """
-        if cortical_idx not in self.custom_area_history:
-            raise ValueError(f"Area {cortical_idx} is not registered as a memory area")
+        if cortical_idx not in self.custom_cortical_history:
+            raise ValueError(f"Cortical area {cortical_idx} is not registered as a memory area")
             
-        window_size, history_array, start_timestep = self.custom_area_history[cortical_idx]
-        
-        # Check if timestep is within valid range for this area
-        oldest_time = max(start_timestep, self.current_timestep - window_size + 1)
-        if timestep < oldest_time or timestep > self.current_timestep:
+        window_size, history_array, start_timestep = self.custom_cortical_history[cortical_idx]
+            
+        # Check if timestep is too old for this area
+        if timestep < start_timestep:
             raise TimestepOutOfRangeError(
-                f"Timestep {timestep} is outside valid range [{oldest_time}, {self.current_timestep}] for area {cortical_idx}"
+                f"Timestep {timestep} is before the start timestep {start_timestep} for cortical area {cortical_idx}"
             )
             
-        # Convert relative to start_timestep, then modulo window_size
-        relative_timestep = timestep - start_timestep
-        return relative_timestep % window_size
+        # Calculate the index in the circular buffer
+        return (timestep - start_timestep) % window_size
     
     def _get_index_for_timestep(self, timestep: Optional[int] = None) -> int:
         """
@@ -914,13 +918,13 @@ class EnhancedFCLManager:
             
         return timestep % self.default_window_size
      
-    def update_fcl(self, current_timestep: int, neurons_by_area: Dict[CorticalIdx, Union[BitMap, List[int], Set[int]]]) -> None:
+    def update_fcl(self, current_timestep: int, neurons_by_cortical: Dict[CorticalIdx, Union[BitMap, List[int], Set[int]]]) -> None:
         """
-        Update the FCL with neurons firing in the current timestep, with support for memory areas.
+        Update the FCL with neurons firing in the current timestep, with support for memory corticals.
         
         Args:
             current_timestep: Current simulation timestep
-            neurons_by_area: Dictionary mapping cortical_idx -> list/set/bitmap of neuron_ids
+            neurons_by_cortical: Dictionary mapping cortical_idx -> list/set/bitmap of neuron_ids
         """
         self.current_timestep = current_timestep
         standard_index = current_timestep % self.default_window_size
@@ -931,43 +935,43 @@ class EnhancedFCLManager:
         # Track firing statistics
         burst_total = 0
         
-        # Process each area
-        for cortical_idx, neuron_ids in neurons_by_area.items():
+        # Process each cortical
+        for cortical_idx, neuron_ids in neurons_by_cortical.items():
             # Convert to bitmap if needed
             neuron_collection = NeuronCollection.from_any(neuron_ids)
-            area_bitmap = neuron_collection.to_bitmap()
+            cortical_bitmap = neuron_collection.to_bitmap()
             
-            # Count neurons in this area
-            area_neuron_count = len(area_bitmap)
-            burst_total += area_neuron_count
-            self.neurons_per_area[cortical_idx] = area_neuron_count
+            # Count neurons in this cortical
+            cortical_neuron_count = len(cortical_bitmap)
+            burst_total += cortical_neuron_count
+            self.neurons_per_cortical[cortical_idx] = cortical_neuron_count
             
-            # Check if this is a memory area with custom window size
-            if self.is_memory_area(cortical_idx):
-                window_size, history_array, start_timestep = self.custom_area_history[cortical_idx]
-                custom_index = self._get_custom_area_index(cortical_idx, current_timestep)
+            # Check if this is a memory cortical with custom window size
+            if self.is_memory_cortical(cortical_idx):
+                window_size, history_array, start_timestep = self.custom_cortical_history[cortical_idx]
+                custom_index = self._get_custom_cortical_index(cortical_idx, current_timestep)
                 
                 # Clear the bitmap at the current position
                 history_array[custom_index].clear()
                 # Update with new neurons
-                history_array[custom_index] = area_bitmap
+                history_array[custom_index] = cortical_bitmap
             else:
-                # Standard area processing
-                if cortical_idx not in self.area_fcl_history:
-                    self.area_fcl_history[cortical_idx] = [BitMap() for _ in range(self.default_window_size)]
+                # Standard cortical processing
+                if cortical_idx not in self.cortical_fcl_history:
+                    self.cortical_fcl_history[cortical_idx] = [BitMap() for _ in range(self.default_window_size)]
                     
-                # Clear and update the standard area bitmap
-                self.area_fcl_history[cortical_idx][standard_index].clear()
-                self.area_fcl_history[cortical_idx][standard_index] = area_bitmap
+                # Clear and update the standard cortical bitmap
+                self.cortical_fcl_history[cortical_idx][standard_index].clear()
+                self.cortical_fcl_history[cortical_idx][standard_index] = cortical_bitmap
             
-            # Always update the global FCL (for all areas)
-            self.global_fcl_history[standard_index] = self.global_fcl_history[standard_index] | area_bitmap
+            # Always update the global FCL (for all corticals)
+            self.global_fcl_history[standard_index] = self.global_fcl_history[standard_index] | cortical_bitmap
         
         # Update total count and window index
         self.total_neurons_fired = burst_total
         self.current_window_index = standard_index
         
-        self.logger.debug(f"FCL updated for timestep {current_timestep}: {burst_total} neurons fired across {len(neurons_by_area)} areas")
+        self.logger.debug(f"FCL updated for timestep {current_timestep}: {burst_total} neurons fired across {len(neurons_by_cortical)} cortical areas")
     
     def get_global_fcl(self, timestep: Optional[int] = None) -> BitMap:
         """
@@ -985,98 +989,70 @@ class EnhancedFCLManager:
         index = self._get_index_for_timestep(timestep)
         return self.global_fcl_history[index].copy()
     
-    def get_area_fcl(self, cortical_idx: CorticalIdx, timestep: Optional[int] = None) -> BitMap:
+    def get_cortical_fcl(self, cortical_idx: CorticalIdx, timestep: Optional[int] = None) -> BitMap:
         """
-        Get FCL for a specific cortical area, handling both standard and memory areas.
+        Get FCL for a specific cortical area at a specific timestep.
         
         Args:
             cortical_idx: ID of the cortical area to query
-            timestep: Specific timestep (defaults to current)
+            timestep: Optional timestep to query (defaults to current timestep)
             
         Returns:
-            BitMap containing firing neuron IDs in the specified area
-            
-        Raises:
-            TimestepOutOfRangeError: If timestep is outside valid range
+            BitMap of neurons firing in the specified area at the specified timestep
         """
-        if timestep is None:
-            timestep = self.current_timestep
+        index = self._get_index_for_timestep(timestep)
+        
+        # Return empty bitmap if area not initialized
+        if cortical_idx not in self.cortical_fcl_history:
+            return BitMap()
             
-        # Check if this is a memory area with custom window size
-        if self.is_memory_area(cortical_idx):
-            custom_index = self._get_custom_area_index(cortical_idx, timestep)
-            window_size, history_array, start_timestep = self.custom_area_history[cortical_idx]
-            return history_array[custom_index].copy()
-        else:
-            # Use standard area processing
-            standard_index = self._get_index_for_timestep(timestep)
-            
-            if cortical_idx not in self.area_fcl_history:
-                return BitMap()
-                
-            return self.area_fcl_history[cortical_idx][standard_index].copy()
+        # Return copy to prevent modification of internal state
+        return self.cortical_fcl_history[cortical_idx][index].copy()
     
-    def get_fcl_by_area(self, timestep: Optional[int] = None) -> Dict[CorticalIdx, BitMap]:
+    def get_fcl_by_cortical(self, timestep: Optional[int] = None) -> Dict[CorticalIdx, BitMap]:
         """
         Return a dictionary mapping each cortical area to its firing neurons.
         
         Args:
-            timestep: Optional timestep (defaults to current)
+            timestep: Optional timestep to query (defaults to current timestep)
             
         Returns:
             Dict[cortical_idx, BitMap] mapping areas to their active neurons
-            
-        Raises:
-            TimestepOutOfRangeError: If timestep is outside valid range
         """
-        if timestep is None:
-            timestep = self.current_timestep
-        
-        standard_index = self._get_index_for_timestep(timestep)
+        index = self._get_index_for_timestep(timestep)
         
         result: Dict[CorticalIdx, BitMap] = {}
-        
-        # Process standard areas
-        for cortical_idx, fcl_history in self.area_fcl_history.items():
-            if not fcl_history[standard_index].is_empty():
-                result[cortical_idx] = fcl_history[standard_index].copy()
-        
-        # Process memory areas with custom window sizes
-        for cortical_idx in self.memory_area_ids:
-            try:
-                custom_index = self._get_custom_area_index(cortical_idx, timestep)
-                window_size, history_array, start_timestep = self.custom_area_history[cortical_idx]
-                bitmap = history_array[custom_index]
-                if not bitmap.is_empty():
-                    result[cortical_idx] = bitmap.copy()
-            except TimestepOutOfRangeError:
-                # Skip this area if the timestep is out of range for it
-                pass
+        for cortical_idx, fcl_history in self.cortical_fcl_history.items():
+            if not fcl_history[index].is_empty():
+                result[cortical_idx] = fcl_history[index].copy()
                 
         return result
     
-    def get_active_areas(self, timestep: Optional[int] = None) -> Set[CorticalIdx]:
+    def get_active_corticals(self, timestep: Optional[int] = None) -> Set[CorticalIdx]:
         """
         Return a set of cortical indices that have any firing neurons.
         
         Args:
-            timestep: Optional timestep (defaults to current)
+            timestep: Optional timestep to query (defaults to current timestep)
             
         Returns:
             Set of cortical indices with active neurons
         """
-        if timestep is None:
-            timestep = self.current_timestep
-        
-        fcl_by_area = self.get_fcl_by_area(timestep=timestep)
-        return set(fcl_by_area.keys())
+        index = self._get_index_for_timestep(timestep)
+            
+        result: Set[CorticalIdx] = set()
+        for cortical_idx, fcl_history in self.cortical_fcl_history.items():
+            if not fcl_history[index].is_empty():
+                result.add(cortical_idx)
+                
+        return result
     
-    def get_neurons_by_areas(self, area_ids: List[CorticalIdx], timestep: Optional[int] = None) -> BitMap:
+    def get_neurons_by_corticals(self, cortical_indices: List[CorticalIdx], timestep: Optional[int] = None) -> BitMap:
         """
-        Get neurons firing in any of the specified areas.
+        Get neurons firing in any of the specified cortical areas.
         
         Args:
-            area_ids: List of cortical area IDs to query
+            cortical_indices: List of cortical area IDs to query
             timestep: Optional timestep (defaults to current)
             
         Returns:
@@ -1085,59 +1061,51 @@ class EnhancedFCLManager:
         Raises:
             TimestepOutOfRangeError: If timestep is outside valid range
         """
+        index = self._get_index_for_timestep(timestep)
+            
         result = BitMap()
-        
-        for area_id in area_ids:
-            try:
-                area_neurons = self.get_area_fcl(area_id, timestep)
-                result = result | area_neurons
-            except TimestepOutOfRangeError:
-                # Skip this area if the timestep is out of range for it
-                pass
+        for cortical_idx in cortical_indices:
+            if cortical_idx in self.cortical_fcl_history:
+                result = result | self.cortical_fcl_history[cortical_idx][index]
                 
         return result
     
-    def get_area_temporal_pattern(self, cortical_idx: CorticalIdx, n_steps: int) -> BitMap:
+    def get_cortical_temporal_pattern(self, cortical_idx: CorticalIdx, n_steps: int) -> BitMap:
         """
-        Get neurons in a memory area that fired in the last n timesteps.
-        Optimized for memory areas with longer history windows.
+        Get combined firing pattern for a memory-type cortical area over multiple timesteps.
+        Similar to get_neurons_fired_in_last_n_steps but optimized for memory areas.
         
         Args:
-            cortical_idx: ID of the memory-type cortical area 
-            n_steps: Number of timesteps to look back
+            cortical_idx: ID of the memory-type cortical area
+            n_steps: Number of timesteps to include
             
         Returns:
-            BitMap of neuron IDs that fired in the specified timespan
+            BitMap of all neurons that fired in the area over the timespan
             
         Raises:
             ValueError: If n_steps is negative or cortical_idx is not a memory area
         """
-        if not self.is_memory_area(cortical_idx):
+        if not self.is_memory_cortical(cortical_idx):
             raise ValueError(f"Area {cortical_idx} is not registered as a memory area")
             
-        window_size, history_array, start_timestep = self.custom_area_history[cortical_idx]
-        
         if n_steps <= 0:
             raise ValueError(f"n_steps must be positive, got {n_steps}")
             
-        if n_steps > window_size:
-            n_steps = window_size
-            self.logger.warning(f"n_steps {n_steps} exceeds window size {window_size}, limiting to window size")
+        window_size, history_array, start_timestep = self.custom_cortical_history[cortical_idx]
         
         result = BitMap()
         for i in range(n_steps):
-            if self.current_timestep - i < start_timestep:
-                break  # Don't go before the start timestep
+            if i >= window_size:
+                break
                 
-            timestep = self.current_timestep - i
-            custom_index = self._get_custom_area_index(cortical_idx, timestep)
-            result = result | history_array[custom_index]
+            step_index = (self._get_custom_cortical_index(cortical_idx, self.current_timestep) - i) % window_size
+            result = result | history_array[step_index]
             
         return result
     
-    def get_memory_area_consistency(self, cortical_idx: CorticalIdx, pattern_duration: int, window_duration: int) -> float:
+    def get_memory_cortical_consistency(self, cortical_idx: CorticalIdx, pattern_duration: int, window_duration: int) -> float:
         """
-        Calculate how consistently a pattern has been maintained in a memory area.
+        Calculate how consistently a pattern has been maintained in a memory cortical.
         
         Args:
             cortical_idx: ID of the memory-type cortical area
@@ -1148,15 +1116,15 @@ class EnhancedFCLManager:
             Consistency score between 0.0 (no consistency) and 1.0 (perfect consistency)
             
         Raises:
-            ValueError: If cortical_idx is not a memory area or if window parameters are invalid
+            ValueError: If cortical_idx is not a memory cortical or if window parameters are invalid
         """
-        if not self.is_memory_area(cortical_idx):
-            raise ValueError(f"Area {cortical_idx} is not registered as a memory area")
+        if not self.is_memory_cortical(cortical_idx):
+            raise ValueError(f"Cortical {cortical_idx} is not registered as a memory cortical")
             
         if window_duration < pattern_duration:
             raise ValueError(f"Window duration ({window_duration}) must be >= pattern duration ({pattern_duration})")
             
-        window_size, history_array, start_timestep = self.custom_area_history[cortical_idx]
+        window_size, history_array, start_timestep = self.custom_cortical_history[cortical_idx]
         
         if pattern_duration > window_size:
             pattern_duration = window_size
@@ -1167,7 +1135,7 @@ class EnhancedFCLManager:
             self.logger.warning(f"Window duration {window_duration} exceeds window size {window_size}, limiting to window size")
         
         # Get the pattern to check for consistency
-        pattern = self.get_area_temporal_pattern(cortical_idx, pattern_duration)
+        pattern = self.get_cortical_temporal_pattern(cortical_idx, pattern_duration)
         
         if len(pattern) == 0:
             return 0.0  # No pattern to check
@@ -1185,7 +1153,7 @@ class EnhancedFCLManager:
                     match = False
                     break
                     
-                idx = self._get_custom_area_index(cortical_idx, timestep)
+                idx = self._get_custom_cortical_index(cortical_idx, timestep)
                 step_neurons = history_array[idx]
                 
                 # Check if this timestep's neurons match the pattern
@@ -1200,9 +1168,9 @@ class EnhancedFCLManager:
         possible_positions = window_duration - pattern_duration + 1
         return match_count / possible_positions if possible_positions > 0 else 0.0
     
-    def get_consistent_neurons_in_memory_area(self, cortical_idx: CorticalIdx, n_steps: int) -> BitMap:
+    def get_consistent_neurons_in_memory_cortical(self, cortical_idx: CorticalIdx, n_steps: int) -> BitMap:
         """
-        Get neurons in a memory area that fired consistently across all specified timesteps.
+        Get neurons in a memory cortical area that fired consistently across all specified timesteps.
         
         Args:
             cortical_idx: ID of the memory-type cortical area
@@ -1214,13 +1182,13 @@ class EnhancedFCLManager:
         Raises:
             ValueError: If n_steps is negative or cortical_idx is not a memory area
         """
-        if not self.is_memory_area(cortical_idx):
+        if not self.is_memory_cortical(cortical_idx):
             raise ValueError(f"Area {cortical_idx} is not registered as a memory area")
         
         if n_steps <= 0:
             raise ValueError(f"n_steps must be positive, got {n_steps}")
             
-        window_size, history_array, start_timestep = self.custom_area_history[cortical_idx]
+        window_size, history_array, start_timestep = self.custom_cortical_history[cortical_idx]
         
         if n_steps > window_size:
             n_steps = window_size
@@ -1228,7 +1196,7 @@ class EnhancedFCLManager:
         
         # Initialize result with neurons from the first relevant timestep
         timestep = self.current_timestep
-        custom_index = self._get_custom_area_index(cortical_idx, timestep)
+        custom_index = self._get_custom_cortical_index(cortical_idx, timestep)
         result = history_array[custom_index].copy()
         
         # Intersect with each subsequent timestep
@@ -1238,7 +1206,7 @@ class EnhancedFCLManager:
                 return BitMap()
                 
             timestep = self.current_timestep - i
-            custom_index = self._get_custom_area_index(cortical_idx, timestep)
+            custom_index = self._get_custom_cortical_index(cortical_idx, timestep)
             result = result & history_array[custom_index]
             
             if result.is_empty():
@@ -1247,29 +1215,24 @@ class EnhancedFCLManager:
                 
         return result
     
-    def get_neurons_fired_in_last_n_steps(self, n_steps: int, area_ids: Optional[List[CorticalIdx]] = None) -> BitMap:
+    def get_neurons_fired_in_last_n_steps(self, n_steps: int, cortical_indices: Optional[List[CorticalIdx]] = None) -> BitMap:
         """
         Get neurons that fired in any of the last n timesteps.
         Optionally filter by specific cortical areas.
         
         Args:
             n_steps: Number of timesteps to look back
-            area_ids: Optional list of area IDs to filter by
+            cortical_indices: Optional list of cortical area IDs to filter by
             
         Returns:
             BitMap containing neuron IDs that fired in the specified timespan
             
         Raises:
-            ValueError: If n_steps is negative
+            ValueError: If n_steps is negative or exceeds window size
         """
         if n_steps <= 0:
             raise ValueError(f"n_steps must be positive, got {n_steps}")
-        
-        # For memory areas, we can use the specialized function if requested
-        if area_ids is not None and len(area_ids) == 1 and self.is_memory_area(area_ids[0]):
-            return self.get_area_temporal_pattern(area_ids[0], n_steps)
-        
-        # Standard implementation for multiple areas or non-memory areas
+            
         if n_steps > self.default_window_size:
             n_steps = self.default_window_size
             self.logger.warning(f"For standard areas, n_steps {n_steps} exceeds default window size {self.default_window_size}, limiting to default window size")
@@ -1277,33 +1240,33 @@ class EnhancedFCLManager:
         result = BitMap()
         
         # No specific areas requested, use global FCL
-        if area_ids is None:
+        if cortical_indices is None:
             for i in range(n_steps):
                 step_index = (self.current_window_index - i) % self.default_window_size
                 result = result | self.global_fcl_history[step_index]
         else:
             # Process both standard and memory areas
-            for area_id in area_ids:
-                if self.is_memory_area(area_id):
+            for cortical_idx in cortical_indices:
+                if self.is_memory_cortical(cortical_idx):
                     # For memory areas, use their specialized temporal pattern function
-                    area_result = self.get_area_temporal_pattern(area_id, n_steps)
+                    area_result = self.get_cortical_temporal_pattern(cortical_idx, n_steps)
                     result = result | area_result
                 else:
                     # For standard areas, use the default processing
-                    if area_id in self.area_fcl_history:
+                    if cortical_idx in self.cortical_fcl_history:
                         for i in range(min(n_steps, self.default_window_size)):
                             step_index = (self.current_window_index - i) % self.default_window_size
-                            result = result | self.area_fcl_history[area_id][step_index]
+                            result = result | self.cortical_fcl_history[cortical_idx][step_index]
         
         return result
     
-    def count_firing_neurons(self, timestep: Optional[int] = None, area_id: Optional[CorticalIdx] = None) -> int:
+    def count_firing_neurons(self, timestep: Optional[int] = None, cortical_idx: Optional[CorticalIdx] = None) -> int:
         """
         Efficiently count the number of firing neurons.
         
         Args:
             timestep: Optional timestep (defaults to current)
-            area_id: Optional area ID to count neurons for a specific area
+            cortical_idx: Optional cortical area ID to count neurons for a specific area
             
         Returns:
             Count of firing neurons
@@ -1311,24 +1274,23 @@ class EnhancedFCLManager:
         Raises:
             TimestepOutOfRangeError: If timestep is outside valid range
         """
-        if timestep is None and area_id is None:
+        if timestep is None and cortical_idx is None:
             # Use cached total for current timestep
             return self.total_neurons_fired
         
         if timestep is None:
             timestep = self.current_timestep
-        
-        if area_id is None:
+            
+        index = self._get_index_for_timestep(timestep)
+            
+        if cortical_idx is None:
             # Count all neurons at the specified timestep
-            index = self._get_index_for_timestep(timestep)
             return len(self.global_fcl_history[index])
         else:
             # Count neurons in the specified area
-            try:
-                area_fcl = self.get_area_fcl(area_id, timestep)
-                return len(area_fcl)
-            except (ValueError, TimestepOutOfRangeError):
-                return 0
+            if cortical_idx in self.cortical_fcl_history:
+                return len(self.cortical_fcl_history[cortical_idx][index])
+            return 0
     
     def get_firing_statistics(self) -> Dict[str, Any]:
         """
@@ -1339,9 +1301,9 @@ class EnhancedFCLManager:
         """
         stats = {
             "total_neurons_fired": self.total_neurons_fired,
-            "neurons_per_area": self.neurons_per_area,
-            "active_areas": len(self.area_fcl_history),
-            "memory_areas": len(self.memory_area_ids),
+            "neurons_per_cortical": self.neurons_per_cortical,
+            "active_corticals": len(self.cortical_fcl_history),
+            "memory_corticals": len(self.memory_cortical_indices),
             "current_window_index": self.current_window_index,
             "current_timestep": self.current_timestep
         }
@@ -1359,10 +1321,10 @@ class EnhancedFCLManager:
         # Clear the current FCL slot (both global and per-area)
         self.global_fcl_history[self.current_window_index].clear()
         
-        for area_id in self.area_fcl_history:
-            window_size = self.get_area_window_size(area_id)
-            idx = self._get_custom_area_index(area_id, self.current_timestep)
-            self.area_fcl_history[area_id][idx].clear()
+        for cortical_idx in self.cortical_fcl_history:
+            window_size = self.get_cortical_window_size(cortical_idx)
+            idx = self._get_custom_cortical_index(cortical_idx, self.current_timestep)
+            self.cortical_fcl_history[cortical_idx][idx].clear()
             
         # Reset update queue for new timestep
         self._reset_update_queue()
@@ -1488,7 +1450,7 @@ def example_fcl_usage() -> None:
     }
     
     # Update FCL with timestep 1 data
-    fcl_manager.update_fcl(current_timestep=1, neurons_by_area=firing_neurons_t1)
+    fcl_manager.update_fcl(current_timestep=1, neurons_by_cortical=firing_neurons_t1)
     
     # Example data for second timestep
     firing_neurons_t2: Dict[CorticalIdx, Union[BitMap, List[int]]] = {
@@ -1498,7 +1460,7 @@ def example_fcl_usage() -> None:
     }
     
     # Update FCL with timestep 2 data
-    fcl_manager.update_fcl(current_timestep=2, neurons_by_area=firing_neurons_t2)
+    fcl_manager.update_fcl(current_timestep=2, neurons_by_cortical=firing_neurons_t2)
     
     # Example data for third timestep
     firing_neurons_t3: Dict[CorticalIdx, Union[BitMap, Set[int]]] = {
@@ -1508,14 +1470,14 @@ def example_fcl_usage() -> None:
     }
     
     # Update FCL with timestep 3 data
-    fcl_manager.update_fcl(current_timestep=3, neurons_by_area=firing_neurons_t3)
+    fcl_manager.update_fcl(current_timestep=3, neurons_by_cortical=firing_neurons_t3)
     
     # Get global FCL for current timestep
     global_fcl = fcl_manager.get_global_fcl()
     self.logger.info(f"All firing neurons at timestep 3: {global_fcl}")
     
     # Get FCL for a specific cortical area
-    area_fcl = fcl_manager.get_area_fcl(cortical_idx=100)
+    area_fcl = fcl_manager.get_cortical_fcl(cortical_idx=100)
     self.logger.info(f"Firing neurons in cortical area 100: {area_fcl}")
     
     # Get FCL for timestep 2
@@ -1523,7 +1485,7 @@ def example_fcl_usage() -> None:
     self.logger.info(f"All firing neurons at timestep 2: {prev_fcl}")
     
     # Get all firing neurons across areas 100 and 300
-    selected_areas_fcl = fcl_manager.get_neurons_by_areas([100, 300])
+    selected_areas_fcl = fcl_manager.get_neurons_by_corticals([100, 300])
     self.logger.info(f"Firing neurons in areas 100 and 300: {selected_areas_fcl}")
     
     # Get neurons that fired in any of the last 2 timesteps (3 and 2)
@@ -1531,91 +1493,69 @@ def example_fcl_usage() -> None:
     self.logger.info(f"Neurons firing in recent 2 timesteps: {recent_fcl}")
     
     # Get active cortical areas
-    active_areas = fcl_manager.get_active_areas()
+    active_areas = fcl_manager.get_active_corticals()
     self.logger.info(f"Active cortical areas: {active_areas}")
 
 
 def example_enhanced_fcl_usage() -> None:
-    """Example usage of the enhanced FCL manager with memory areas."""
-    
-    # Create FCL manager with default window size of 5
+    """Example showing the usage of the EnhancedFCLManager with memory corticals."""
+    # Create manager
     fcl_manager = EnhancedFCLManager(default_window_size=5)
     
-    # Register some memory areas with custom window sizes
-    fcl_manager.register_memory_area(cortical_idx=400, window_size=20)  # Memory area 1 with 20-step window
-    fcl_manager.register_memory_area(cortical_idx=500, window_size=10)  # Memory area 2 with 10-step window
+    # Register memory corticals
+    fcl_manager.register_memory_cortical(400, window_size=10)  # 10 timesteps of history
+    fcl_manager.register_memory_cortical(500, window_size=20)  # 20 timesteps of history
     
-    # Create some example neuron firing data
-    # Regular areas and memory areas can be mixed freely
-    for timestep in range(1, 30):
-        firing_neurons = {}
+    # Simulate some activity over multiple timesteps
+    for t in range(30):
+        # Create firing neurons for this timestep
+        # In a real system, these would come from the neural processing unit
+        neurons_by_cortical = {
+            100: BitMap([1, 2, 3]),        # Standard cortical
+            200: BitMap([4, 5, 6]),        # Standard cortical
+            300: BitMap([7, 8, 9]),        # Standard cortical
+            400: BitMap([10, 11, 12]),     # Memory cortical with 10-step history
+            500: BitMap([13, 14, 15])      # Memory cortical with 20-step history
+        }
         
-        # Regular areas with default window
-        firing_neurons[100] = BitMap([1001, 1002, 1005])  # Visual cortex always has same neurons
+        # Every 5 steps, change the pattern slightly
+        if t % 5 == 0:
+            # Change pattern for memory area 400
+            neurons_by_cortical[400] = BitMap([10, 11, 12, t])
         
-        # Variable neurons in motor cortex
-        if timestep % 2 == 0:
-            firing_neurons[200] = BitMap([2001, 2003, 2005])
-        else:
-            firing_neurons[200] = BitMap([2002, 2004, 2006])
-            
-        # First memory area (400) with stable pattern that changes every 5 steps
-        pattern_set = (timestep // 5) % 4
-        if pattern_set == 0:
-            firing_neurons[400] = BitMap([4001, 4002, 4003])
-        elif pattern_set == 1:
-            firing_neurons[400] = BitMap([4010, 4011, 4012])
-        elif pattern_set == 2:
-            firing_neurons[400] = BitMap([4020, 4021, 4022])
-        else:
-            firing_neurons[400] = BitMap([4030, 4031, 4032])
-            
-        # Second memory area (500) with accumulating neuron activations
-        memory_neurons = list(range(5001, 5001 + timestep % 10))
-        firing_neurons[500] = BitMap(memory_neurons)
+        # Add activity for this timestep
+        fcl_manager.update_fcl(t, neurons_by_cortical)
         
-        # Update the FCL with this timestep's data
-        fcl_manager.update_fcl(timestep, firing_neurons)
-        
-        self.logger.info(f"\nTimestep {timestep}:")
-        self.logger.info(f"Active areas: {fcl_manager.get_active_areas()}")
-        
-        # Perform some analysis at specific timesteps
-        if timestep == 15:
-            # At timestep 15, examine memory area patterns
-            memory_fcl = fcl_manager.get_area_fcl(cortical_idx=400)
-            self.logger.info(f"Memory area 400 current neurons: {memory_fcl}")
-            
-            # Look back to a much earlier timestep for memory area (only possible in memory areas)
-            old_memory_fcl = fcl_manager.get_area_fcl(cortical_idx=400, timestep=5)
-            self.logger.info(f"Memory area 400 at timestep 5: {old_memory_fcl}")
-            
-            # Looking back at regular areas is limited to the default window size
-            try:
-                old_regular_fcl = fcl_manager.get_area_fcl(cortical_idx=100, timestep=5)
-                self.logger.info(f"Regular area 100 at timestep 5: {old_regular_fcl}")
-            except TimestepOutOfRangeError:
-                self.logger.warning("Cannot look back that far for regular areas")
+        # Print firing statistics periodically
+        if t % 5 == 0:
+            print(f"Timestep {t} - Total firing neurons: {fcl_manager.total_neurons_fired}")
     
-    # Check memory consistency for the first memory area
-    pattern_consistency = fcl_manager.get_memory_area_consistency(
-        cortical_idx=400,  # The area to check
-        pattern_duration=3,  # How long a pattern typically lasts
-        window_duration=15  # How far back to look
+    # Get neurons from specific corticals
+    standard_cortical_fcl = fcl_manager.get_cortical_fcl(100)
+    memory_cortical_fcl = fcl_manager.get_cortical_fcl(400)
+    
+    # Get combined activity from multiple corticals
+    selected_corticals_fcl = fcl_manager.get_neurons_by_corticals([100, 300])
+    
+    # Check for temporal patterns in the memory cortical
+    temporal_pattern = fcl_manager.get_cortical_temporal_pattern(400, n_steps=5)
+    
+    # For memory corticals, we can analyze consistency over time
+    pattern_consistency = fcl_manager.get_memory_cortical_consistency(
+        400,                # Memory cortical ID
+        pattern_duration=3, # Length of the pattern to check
+        window_duration=8   # Total window to analyze
     )
-    self.logger.info(f"\nPattern consistency in memory area 400: {pattern_consistency:.2f}")
     
-    # Look for consistently active neurons in the past 6 timesteps
-    consistent_neurons = fcl_manager.get_consistent_neurons_in_memory_area(
-        cortical_idx=500,  # The area to check
-        n_steps=5  # Number of consecutive steps neurons must be active
-    )
-    self.logger.info(f"\nConsistently active neurons in memory area 500: {consistent_neurons}")
+    # Get the most consistently active neurons in the memory cortical
+    consistent_neurons = fcl_manager.get_consistent_neurons_in_memory_cortical(400, n_steps=5)
     
-    # Get neurons that fired in any memory area in the past 10 timesteps
-    memory_areas = [400, 500]
-    recent_memory_fcl = fcl_manager.get_neurons_fired_in_last_n_steps(10, memory_areas)
-    self.logger.info(f"\nRecent memory neurons: {recent_memory_fcl}")
+    # We can access firing history from the last n timesteps
+    # Even for a mix of standard and memory corticals
+    memory_corticals = [400, 500]
+    recent_memory_fcl = fcl_manager.get_neurons_fired_in_last_n_steps(10, memory_corticals)
+    
+    print(f"Completed simulation with {fcl_manager.total_neurons_fired} total firing neurons")
 
 def inject_neurons_into_fcl(fcl_manager, cortical_idx, neuron_ids, timestep=None):
     """
@@ -1627,10 +1567,10 @@ def inject_neurons_into_fcl(fcl_manager, cortical_idx, neuron_ids, timestep=None
         neuron_ids: List of neuron IDs to inject
         timestep: Optional timestep, defaults to current
     """
-    neurons_by_area = {cortical_idx: neuron_ids}
+    neurons_by_cortical = {cortical_idx: neuron_ids}
     if timestep is None:
         timestep = fcl_manager.current_timestep
-    fcl_manager.update_fcl(timestep, neurons_by_area)
+    fcl_manager.update_fcl(timestep, neurons_by_cortical)
 
 
 if __name__ == "__main__":
@@ -1645,14 +1585,14 @@ if __name__ == "__main__":
     fcl = EnhancedFCLManager(default_window_size=5)
 
     # Register a memory area
-    fcl.register_memory_area(cortical_idx=500, window_size=100)
+    fcl.register_memory_cortical(cortical_idx=500, window_size=100)
 
     # Inject specific neurons into the hippocampus memory area
     hippocampus_neurons = [501, 502, 503, 504]
     inject_neurons_into_fcl(fcl, cortical_idx=500, neuron_ids=hippocampus_neurons)
 
     # Check the injected neurons
-    result = fcl.get_area_fcl(cortical_idx=500)
+    result = fcl.get_cortical_fcl(cortical_idx=500)
     self.logger.info(f"Neurons in hippocampus: {result}")
 
 # Compatibility aliases for backward compatibility
