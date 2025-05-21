@@ -1,14 +1,17 @@
 """
-FEAGI API Clients
+FEAGI API Client Library
 
-This package contains client implementations for the different FEAGI APIs:
-- Command API (REQ/REP pattern on port 5555)
-- Sensorimotor API (DEALER/ROUTER pattern on port 5558)
-- Visualization API (DEALER/ROUTER pattern on port 5560)
+This module provides the client implementations for FEAGI.
 """
 
-from feagi_connector.api.command_client import FeagiCommandClient
-from feagi_connector.api.sensory_client import FeagiSensoryClient
-from feagi_connector.api.viz_client import FeagiVizClient
+from .command_client import FeagiControlClient
+from .sensory_client import FeagiSensoryClient
+from .motor_client import FeagiMotorClient
+from .viz_client import FeagiVizClient
 
-__all__ = ["FeagiCommandClient", "FeagiSensoryClient", "FeagiVizClient"] 
+__all__ = [
+    'FeagiControlClient',
+    'FeagiSensoryClient',
+    'FeagiMotorClient',
+    'FeagiVizClient'
+] 

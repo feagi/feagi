@@ -19,7 +19,7 @@ import zmq.asyncio
 from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
 
 from feagi_connector.protocols import FSMPChannel, FCPMessageType, FVPMessageType
-from feagi_connector.api.control_client import FeagiControlClient
+from feagi_connector.api.command_client import FeagiControlClient
 from feagi_connector.api.sensory_client import FeagiSensoryClient
 from feagi_connector.api.motor_client import FeagiMotorClient
 from feagi_connector.api.viz_client import FeagiVizClient

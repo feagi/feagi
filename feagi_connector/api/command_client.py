@@ -1,7 +1,7 @@
 """
-FEAGI Command Client
+FEAGI Control Client
 
-Client for the FEAGI command API using ZMQ REQ/REP pattern.
+Client for the FEAGI control API using ZMQ REQ/REP pattern.
 """
 
 import json
@@ -13,24 +13,24 @@ import zmq
 import zmq.asyncio
 
 # Configure logging
-logger = logging.getLogger("feagi_connector.command")
+logger = logging.getLogger("feagi_connector.control")
 
 
-class FeagiCommandClient:
+class FeagiControlClient:
     """
-    Command client for FEAGI using REQ/REP pattern (port 5555).
+    Control client for FEAGI using REQ/REP pattern (port 5559).
     
-    This client implements the command-based API over ZMQ REQ/REP pattern,
+    This client implements the control-based API over ZMQ REQ/REP pattern,
     correctly handling message formatting and state.
     """
     
-    def __init__(self, host: str = "127.0.0.1", port: int = 5555, timeout: int = 5000, auth_token: Optional[str] = None):
+    def __init__(self, host: str = "127.0.0.1", port: int = 5559, timeout: int = 5000, auth_token: Optional[str] = None):
         """
-        Initialize the command client.
+        Initialize the control client.
         
         Args:
             host: FEAGI hostname or IP
-            port: ZMQ REQ/REP port (default 5555)
+            port: ZMQ REQ/REP port (default 5559)
             timeout: Request timeout in milliseconds
             auth_token: Authentication token (optional)
         """
