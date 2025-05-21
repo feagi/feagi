@@ -13,6 +13,7 @@ import pickle
 import numpy as np
 import scipy.sparse as sparse
 from typing import Dict, Any, List, Tuple, Optional, Set, Union
+import warnings
 
 from feagi.bdu.models.cortical_area import CorticalArea, generate_cortical_id
 from feagi.bdu.models.neuron import Neuron
@@ -139,7 +140,7 @@ class ConnectomeManager:
     # Neuron CRUD Operations
     #----------------------------------------------------------------------
     
-    def create_neuron(self, cortical_id: str, position: Tuple[int, int, int], 
+    def create_neuron(self, cortical_id: Optional[str] = None, position: Optional[Tuple[int, int, int]] = None, 
                      threshold: float = 1.0, membrane_potential: float = 0.0,
                      resting_potential: float = 0.0, decay_rate: float = 0.5,
                      refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None) -> int:
@@ -162,14 +163,11 @@ class ConnectomeManager:
             ValueError: If the cortical_id doesn't exist
             ValueError: If the position is outside the area's boundaries
         """
-        # Use area_id internally for backward compatibility
-        area_id = cortical_id
-        
         # Validate area exists
-        if area_id not in self.cortical_areas:
-            raise ValueError(f"Cortical area {area_id} does not exist")
+        if cortical_id not in self.cortical_areas:
+            raise ValueError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas[area_id]
+        area = self.cortical_areas[cortical_id]
         
         # Validate position
         if not area.contains_position(position):
@@ -181,12 +179,11 @@ class ConnectomeManager:
         self.next_neuron_index += 1
         
         # Generate a unique ID based on area and position
-        neuron_id = self._generate_neuron_id(area_id, position, neuron_index)
+        neuron_id = self._generate_neuron_id(cortical_id, position, neuron_index)
         
         # Store neuron data
         self.neurons[neuron_id] = {
-            "cortical_id": area_id,  # Use the new key
-            "area_id": area_id,      # Keep for backward compatibility
+            "cortical_id": cortical_id,
             "position": position,
             "threshold": threshold,
             "membrane_potential": membrane_potential,
@@ -198,17 +195,17 @@ class ConnectomeManager:
         }
         
         # Update area tracking
-        if area_id not in self.cortical_neuron_map:
-            self.cortical_neuron_map[area_id] = set()
-        self.cortical_neuron_map[area_id].add(neuron_id)
+        if cortical_id not in self.cortical_neuron_map:
+            self.cortical_neuron_map[cortical_id] = set()
+        self.cortical_neuron_map[cortical_id].add(neuron_id)
         
         # Update position maps
         self.position_map[neuron_id] = position
-        self.index_position_map[neuron_index] = (area_id, position)
+        self.index_position_map[neuron_index] = (cortical_id, position)
         
         # Update _neuron_to_position for test compatibility 
         # Format matches test expectation: (area_id, x, y, z, neuron_index)
-        self._neuron_to_position[neuron_id] = (area_id, *position, neuron_index)
+        self._neuron_to_position[neuron_id] = (cortical_id, *position, neuron_index)
         
         # Add to cortical area
         area.add_neuron(neuron_id, position)
@@ -326,6 +323,12 @@ class ConnectomeManager:
         Returns:
             List of neuron IDs in the area
         """
+        warnings.warn(
+            "get_neurons_by_area is deprecated and will be removed in a future version. "
+            "Use get_neurons_by_cortical_area instead.", 
+            DeprecationWarning, 
+            stacklevel=2
+        )
         return self.get_neurons_by_cortical_area(area_id)
     
     def get_cortical_area_for_neuron(self, neuron_id: int) -> str:
@@ -335,7 +338,7 @@ class ConnectomeManager:
             neuron_id: ID of the neuron
             
         Returns:
-            6-character ID of the cortical area containing the neuron
+            Cortical area ID
             
         Raises:
             KeyError: If the neuron_id doesn't exist
@@ -344,18 +347,6 @@ class ConnectomeManager:
             raise KeyError(f"Neuron {neuron_id} does not exist")
         
         return self.neurons[neuron_id]["cortical_id"]
-        
-    # Alias for backward compatibility
-    def get_area_for_neuron(self, neuron_id: int) -> str:
-        """Alias for get_cortical_area_for_neuron for backward compatibility.
-        
-        Args:
-            neuron_id: ID of the neuron
-            
-        Returns:
-            ID of the cortical area containing the neuron
-        """
-        return self.get_cortical_area_for_neuron(neuron_id)
     
     def get_neuron_count(self) -> int:
         """Get the total number of neurons in the connectome."""
@@ -1237,64 +1228,40 @@ class ConnectomeManager:
                             target_cortical_id: Optional[str] = None,
                             rule_type: str = None, parameters: Optional[Dict[str, Any]] = None,
                             description: Optional[str] = None,
-                            rule_id: Optional[str] = None,
-                            source_area_id: Optional[str] = None,
-                            target_area_id: Optional[str] = None) -> str:
+                            rule_id: Optional[str] = None) -> str:
         """Add a new connectivity rule for generating synapses between cortical areas.
         
         Args:
             name: Human-readable name for this rule
             source_cortical_id: 6-character ID of the source cortical area
             target_cortical_id: 6-character ID of the target cortical area
-            rule_type: Type of connectivity rule (e.g., "distance", "probabilistic", "one-to-one")
-            parameters: Rule-specific parameters like max_distance, probability, etc.
-            description: Optional description of the rule
-            rule_id: Unique identifier for this rule (optional, generated if not provided)
-            source_area_id: Legacy parameter, use source_cortical_id instead
-            target_area_id: Legacy parameter, use target_cortical_id instead
+            rule_type: Type of connectivity rule (e.g., "random", "one-to-one")
+            parameters: Additional parameters for the rule
+            description: Human-readable description of the rule
+            rule_id: Optional pre-generated rule ID
             
         Returns:
             ID of the created connectivity rule
             
         Raises:
-            KeyError: If either the source or target area doesn't exist
-            ValueError: If a rule with the same name already exists
+            ValueError: If source_cortical_id or target_cortical_id doesn't exist
+            ValueError: If rule_type is invalid
         """
-        # Handle backward compatibility
-        if source_cortical_id is None and source_area_id is not None:
-            source_cortical_id = source_area_id
-        if target_cortical_id is None and target_area_id is not None:
-            target_cortical_id = target_area_id
-            
-        # Required parameters check
-        if source_cortical_id is None or target_cortical_id is None or rule_type is None:
-            raise ValueError("source_cortical_id, target_cortical_id, and rule_type are required parameters")
-            
-        if parameters is None:
-            parameters = {}
-            
-        # Verify areas exist
-        if source_cortical_id not in self.cortical_areas:
-            raise KeyError(f"Source cortical area {source_cortical_id} does not exist")
-        if target_cortical_id not in self.cortical_areas:
-            raise KeyError(f"Target cortical area {target_cortical_id} does not exist")
+        # Validate source and target areas
+        if source_cortical_id and source_cortical_id not in self.cortical_areas:
+            raise ValueError(f"Source cortical area {source_cortical_id} does not exist")
+        if target_cortical_id and target_cortical_id not in self.cortical_areas:
+            raise ValueError(f"Target cortical area {target_cortical_id} does not exist")
         
-        # Check if rule with same name already exists
-        for rule in self.connectivity_rules.values():
-            if rule["name"] == name:
-                raise ValueError(f"Connectivity rule with name '{name}' already exists")
-        
-        # Generate ID if not provided
-        if rule_id is None:
-            rule_id = str(uuid.uuid4())
+        # Generate rule ID if not provided
+        if not rule_id:
+            rule_id = self._generate_connectivity_rule_id(source_cortical_id, target_cortical_id)
         
         # Create rule
         self.connectivity_rules[rule_id] = {
             "name": name,
             "source_cortical_id": source_cortical_id,
             "target_cortical_id": target_cortical_id,
-            "source_area_id": source_cortical_id,  # For backward compatibility
-            "target_area_id": target_cortical_id,  # For backward compatibility
             "rule_type": rule_type,
             "parameters": parameters,
             "description": description,
@@ -1414,20 +1381,17 @@ class ConnectomeManager:
         matching_rules = []
         
         for rule_id, rule in self.connectivity_rules.items():
-            # Try both new and legacy keys for backward compatibility
             source_match = (source_cortical_id is None or 
-                           rule.get("source_cortical_id") == source_cortical_id or 
-                           rule.get("source_area_id") == source_cortical_id)
+                           rule.get("source_cortical_id") == source_cortical_id)
                            
             target_match = (target_cortical_id is None or 
-                           rule.get("target_cortical_id") == target_cortical_id or 
-                           rule.get("target_area_id") == target_cortical_id)
+                           rule.get("target_cortical_id") == target_cortical_id)
                            
             if source_match and target_match:
                 matching_rules.append(rule_id)
         
         return matching_rules
-        
+    
     # Alias for backward compatibility
     def get_connectivity_rules_for_areas(self, source_area_id: Optional[str] = None, 
                                        target_area_id: Optional[str] = None) -> List[str]:
