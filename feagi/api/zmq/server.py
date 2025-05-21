@@ -163,22 +163,26 @@ class ZmqServer:
         motor_port: int = 5564,
         control_port: int = 5559,
         vis_base_port: int = 5560,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
+        fcl_sampler: Optional[Any] = None,
+        fcl_sampler_queue: Optional[Any] = None
     ):
         """
-        Initialize the ZMQ server.
+        Initialize the ZeroMQ server for FEAGI.
         
         Args:
-            core_api: Core API service for accessing FEAGI
-            host: Host to bind to
-            req_rep_port: Port for REQ/REP pattern
-            pub_sub_port: Port for PUB/SUB pattern
-            push_pull_port: Port for PUSH/PULL pattern
-            sensorimotor_port: Port for sensorimotor stream
-            motor_port: Port for motor commands stream
-            control_port: Port for control protocol stream
-            vis_base_port: Base port for visualization stream
-            context: Optional existing ZMQ context to use
+            core_api: Core API service for delegating calls to FEAGI core
+            host: Host address to bind to
+            req_rep_port: Port for REQ/REP pattern (5555)
+            pub_sub_port: Port for PUB/SUB pattern (5556)
+            push_pull_port: Port for PUSH/PULL pattern (5557)
+            sensorimotor_port: Port for sensorimotor interface (5558)
+            motor_port: Port for motor data (5564)
+            control_port: Port for control interface (5559)
+            vis_base_port: Base port for visualization stream (5560)
+            context: Optional ZeroMQ context to use
+            fcl_sampler: Optional FCL sampler instance for visualization data
+            fcl_sampler_queue: Optional queue for FCL data from the sampler
         """
         self.core_api = core_api
         self.host = host
@@ -190,20 +194,28 @@ class ZmqServer:
         self.control_port = control_port
         self.vis_base_port = vis_base_port
         
-        # Thread and event loop management
-        self._thread = None
-        self._loop = None
+        # Create ZeroMQ context
         self._context = context or zmq.asyncio.Context.instance()
-        self._running = False
-        self._shutdown_event = threading.Event()
         
-        # Pattern managers
+        # State tracking
+        self._running = False
+        
+        # Store components
         self._req_rep = None
         self._pub_sub = None
         self._push_pull = None
         self._sensorimotor = None
         self._visualization = None
         self._control = None
+        
+        # FCL Sampler integration
+        self._fcl_sampler = fcl_sampler
+        self._fcl_sampler_queue = fcl_sampler_queue
+        
+        # Thread and event loop management
+        self._thread = None
+        self._loop = None
+        self._shutdown_event = threading.Event()
         
         # Initialize sockets (will be created on start)
         self.control_socket = None
@@ -303,9 +315,12 @@ class ZmqServer:
     
     async def _start_server(self):
         """
-        Start the ZMQ server and its components.
+        Start the ZMQ server components.
         
-        This method initializes all sockets and message handlers.
+        This method:
+        1. Initializes all the ZMQ patterns (REQ/REP, PUB/SUB, etc.)
+        2. Sets up the message handlers
+        3. Starts the control and data processing tasks
         """
         try:
             logger.info("Starting ZMQ server")
@@ -365,7 +380,9 @@ class ZmqServer:
                 structure_port=self.vis_base_port,
                 activity_port=self.vis_base_port + 1,
                 control_port=self.vis_base_port + 2,
-                context=self._context
+                context=self._context,
+                fcl_sampler=self._fcl_sampler,
+                fcl_sampler_queue=self._fcl_sampler_queue
             )
             
             # Start all managers
