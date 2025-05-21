@@ -49,7 +49,11 @@ class MessageHandler:
         if protocol_type == "fcp":
             self.socket = connection_manager.control_socket
         elif protocol_type == "fsmp":
-            self.socket = connection_manager.sensorimotor_socket
+            # Using sensory socket for FSMP as it's primarily for receiving data
+            self.socket = connection_manager.sensory_socket
+        elif protocol_type == "fsmp_motor":
+            # Separate handler type for motor data
+            self.socket = connection_manager.motor_socket
         elif protocol_type == "fvp":
             self.socket = connection_manager.visualization_socket
         else:

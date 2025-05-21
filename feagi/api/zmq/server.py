@@ -414,7 +414,7 @@ class ZmqServer:
             
             # Start message handling tasks
             self.tasks.append(asyncio.create_task(self._handle_control_messages()))
-            self.tasks.append(asyncio.create_task(self._handle_sensory_data()))
+            self.tasks.append(asyncio.create_task(self._sensory_data_loop()))
             
             # Start message handlers
             self.message_handlers = await start_message_handlers(
@@ -699,7 +699,7 @@ class ZmqServer:
                 socket.close()
             logger.info("Control message handler stopped")
     
-    async def _handle_sensory_data(self):
+    async def _sensory_data_loop(self):
         """Handle incoming sensory data."""
         try:
             while self._running and self.sensory_socket:

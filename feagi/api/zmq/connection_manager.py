@@ -257,18 +257,19 @@ class ConnectionManager:
         }
     
     def close(self) -> None:
-        """Close all sockets."""
-        # Close all sockets
-        for socket in [self.control_socket, self.sensory_socket, self.motor_socket, self.visualization_socket]:
-            try:
-                socket.close()
-            except Exception as e:
-                logger.error(f"Error closing socket: {e}")
-                
-        logger.info("All sockets closed")
+        """Close all sockets and clean up resources."""
+        logger.info("Closing ConnectionManager sockets")
+        for socket_name in ["control_socket", "sensory_socket", "motor_socket", "visualization_socket"]:
+            socket = getattr(self, socket_name, None)
+            if socket:
+                try:
+                    socket.close(linger=0)
+                except Exception as e:
+                    logger.error(f"Error closing {socket_name}: {e}")
         
-        # Clear connections
+        # Clear connection tracking
         self.connections.clear()
+        logger.info("ConnectionManager closed")
 
 
 class ZMQConnectionManager:
