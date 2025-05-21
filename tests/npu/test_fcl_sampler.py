@@ -95,6 +95,10 @@ def test_fcl_sampler_run_without_connectome(mock_fcl_manager, output_queue):
     # Create sampler with high frequency for faster testing
     sampler = FCLSampler(mock_fcl_manager, 50, output_queue)
     
+    # Set retry parameters for faster testing
+    sampler._max_retries = 1
+    sampler._retry_delay = 0.001
+    
     # Run in a separate thread
     t = threading.Thread(target=sampler.run)
     t.start()
@@ -120,12 +124,12 @@ def test_fcl_sampler_run_without_connectome(mock_fcl_manager, output_queue):
     # Should have at least 1 sample
     assert len(samples) >= 1, "Did not get any samples"
     
-    # Check format of samples (should be global FCL)
-    for sample in samples:
-        assert sample == mock_fcl_manager.fcl_response
-    
     # Check that get_global_fcl was called
     assert len(mock_fcl_manager.global_fcl_calls) >= 1
+    
+    # Verify the content of the samples - each sample should match the expected format
+    for i, sample in enumerate(samples):
+        assert sample == f"fcl_snapshot_{i+1}"
 
 
 def test_fcl_sampler_run_with_connectome(mock_fcl_manager, output_queue, mock_connectome_manager):
@@ -297,7 +301,14 @@ def test_fcl_sampler_custom_response_formats(output_queue, mock_connectome_manag
     list_response = [1, 2, 3, 4]
     list_fcl_manager = MockFCLManager(fcl_response=list_response)
     
+    # Patch the get_global_fcl method directly
+    list_fcl_manager.get_global_fcl = MagicMock(return_value=list_response)
+    
     sampler = FCLSampler(list_fcl_manager, 50, output_queue)
+    
+    # Set retry parameters for faster testing
+    sampler._max_retries = 1
+    sampler._retry_delay = 0.001
     
     # Run briefly
     t = threading.Thread(target=sampler.run)
@@ -317,12 +328,16 @@ def test_fcl_sampler_custom_response_formats(output_queue, mock_connectome_manag
     while not output_queue.empty():
         output_queue.get()
     
-    # Test with empty response - create a new class instance to avoid reusing the same state
-    fcl_manager = MockFCLManager()
-    # Directly patch the get_global_fcl method for this test
-    fcl_manager.get_global_fcl = lambda: set()
+    # Test with empty response
+    empty_fcl_manager = MockFCLManager()
+    # Patch the get_global_fcl method directly
+    empty_fcl_manager.get_global_fcl = MagicMock(return_value=set())
     
-    sampler = FCLSampler(fcl_manager, 50, output_queue)
+    sampler = FCLSampler(empty_fcl_manager, 50, output_queue)
+    
+    # Set retry parameters for faster testing
+    sampler._max_retries = 1
+    sampler._retry_delay = 0.001
     
     # Run briefly
     t = threading.Thread(target=sampler.run)

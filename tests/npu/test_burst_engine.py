@@ -286,11 +286,20 @@ def test_load_shedding_behavior():
 @patch('feagi.npu.burst_engine.logger')
 def test_run_test_function(mock_logger, mock_time, engine):
     """Test the run_test method."""
-    # Call the run_test method
-    engine.run_test()
+    # Setup mocks
+    mock_time.perf_counter.side_effect = [0.0, 0.005]  # Start and end times
+    engine.connectome_manager.update_membrane_potentials = MagicMock(return_value=[1, 2, 3])
+    engine.state_manager.set_burst_frequency = MagicMock()  # Replace with a proper mock
     
-    # Since it's an empty function for testing, just verify it exists and runs
-    assert callable(engine.run_test)
+    # Call the run_test method
+    result = engine.run_test()
+    
+    # Verify the function calls
+    assert engine.connectome_manager.update_membrane_potentials.called
+    assert engine.state_manager.set_burst_frequency.called
+    
+    # Verify the returned fired neurons
+    assert result == [1, 2, 3]
 
 def test_optimized_fire_queue_setup():
     """Test fire queue optimization setup in BurstEngine."""
