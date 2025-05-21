@@ -709,7 +709,7 @@ class NeuroEmbryogenesis:
                 try:
                     # Try to use the batch API with cortical_id and positions
                     area_neuron_ids = self.connectome_manager.batch_create_neurons(
-                        area_id=cortical_id,  # Keep parameter name as area_id for API compatibility
+                        cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
                         positions=positions,
                         threshold=area_specs["thresholds"][0],  # Use first value for all or support lists
                         refractory_period=area_specs["refractory_periods"][0],
@@ -731,7 +731,7 @@ class NeuroEmbryogenesis:
                         resting_potential = area_specs["resting_potentials"][i]
                         
                         neuron_id = self.connectome_manager.create_neuron(
-                            area_id=cortical_id,  # Keep parameter name as area_id for API compatibility
+                            cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
                             position=position,
                             threshold=threshold,
                             refractory_period=refractory_period,
@@ -750,7 +750,7 @@ class NeuroEmbryogenesis:
                     resting_potential = area_specs["resting_potentials"][i]
                     
                     neuron_id = self.connectome_manager.create_neuron(
-                        area_id=cortical_id,  # Keep parameter name as area_id for API compatibility
+                        cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
                         position=position,
                         threshold=threshold,
                         refractory_period=refractory_period,
