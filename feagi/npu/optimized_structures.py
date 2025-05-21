@@ -70,7 +70,7 @@ class GlobalNeuronArray:
             self.last_fired = np.zeros(capacity, dtype=np.int32, order='C')
             self.neuron_types = np.zeros(capacity, dtype=np.int32, order='C')  # 0=excitatory, 1=inhibitory, etc.
             self.enabled_flags = np.ones(capacity, dtype=np.int32, order='C')  # 1=enabled, 0=disabled
-            self.cortical_ids = np.zeros(capacity, dtype=np.int32, order='C')
+            self.cortical_idxs = np.zeros(capacity, dtype=np.int32, order='C')
             
             # Use separate arrays for coordinates - optimal SoA layout for SIMD/GPU processing
             # Each coordinate component gets its own contiguous memory array
@@ -364,8 +364,8 @@ class Connectome:
             self.weights = np.zeros(estimated_connections, dtype=np.float32)
             self.delays = np.zeros(estimated_connections, dtype=np.int32)
             self.connection_types = np.zeros(estimated_connections, dtype=np.int32)
-            self.source_cortical_ids = np.zeros(estimated_connections, dtype=np.int32)
-            self.target_cortical_ids = np.zeros(estimated_connections, dtype=np.int32)
+            self.source_cortical_idxs = np.zeros(estimated_connections, dtype=np.int32)
+            self.target_cortical_idxs = np.zeros(estimated_connections, dtype=np.int32)
             
             # Track actual used size
             self._connection_count = 0
@@ -377,25 +377,26 @@ class Connectome:
         weight: float,
         delay: int = 0,
         connection_type: int = 0,
-        source_cortical_id: int = 0,
-        target_cortical_id: int = 0,
+        source_cortical_idx: int = 0,
+        target_cortical_idx: int = 0,
     ) -> None:
-        """
-        Add a synaptic connection.
+        """Add a connection between neurons.
         
         Args:
-            source_id: Source neuron ID
-            target_id: Target neuron ID
-            weight: Synaptic weight
-            delay: Synaptic delay in timesteps
+            source_id: ID of the source neuron
+            target_id: ID of the target neuron
+            weight: Connection weight
+            delay: Connection delay in timesteps
             connection_type: Type of connection (0=excitatory, 1=inhibitory, etc.)
-            source_cortical_id: ID of the source cortical area
-            target_cortical_id: ID of the target cortical area
+            source_cortical_idx: Index of the source cortical area
+            target_cortical_idx: Index of the target cortical area
         """
         if self._use_rust:
+            # Use Rust implementation if available
             self._rust_connectome.add_connection(
-                source_id, target_id, weight, delay, connection_type, source_cortical_id, target_cortical_id
+                source_id, target_id, weight, delay, connection_type, source_cortical_idx, target_cortical_idx
             )
+            return
         else:
             # Check if we need to resize the arrays
             if self._connection_count >= len(self.target_indices):
@@ -418,16 +419,16 @@ class Connectome:
                 self.weights[insert_pos+1:self._connection_count+1] = self.weights[insert_pos:self._connection_count]
                 self.delays[insert_pos+1:self._connection_count+1] = self.delays[insert_pos:self._connection_count]
                 self.connection_types[insert_pos+1:self._connection_count+1] = self.connection_types[insert_pos:self._connection_count]
-                self.source_cortical_ids[insert_pos+1:self._connection_count+1] = self.source_cortical_ids[insert_pos:self._connection_count]
-                self.target_cortical_ids[insert_pos+1:self._connection_count+1] = self.target_cortical_ids[insert_pos:self._connection_count]
+                self.source_cortical_idxs[insert_pos+1:self._connection_count+1] = self.source_cortical_idxs[insert_pos:self._connection_count]
+                self.target_cortical_idxs[insert_pos+1:self._connection_count+1] = self.target_cortical_idxs[insert_pos:self._connection_count]
             
             # Insert new connection
             self.target_indices[insert_pos] = target_id
             self.weights[insert_pos] = weight
             self.delays[insert_pos] = delay
             self.connection_types[insert_pos] = connection_type
-            self.source_cortical_ids[insert_pos] = source_cortical_id
-            self.target_cortical_ids[insert_pos] = target_cortical_id
+            self.source_cortical_idxs[insert_pos] = source_cortical_idx
+            self.target_cortical_idxs[insert_pos] = target_cortical_idx
             
             # Update offsets for all sources after this one
             self.source_offsets[source_id+1:] += 1
@@ -446,8 +447,8 @@ class Connectome:
         self.weights = np.resize(self.weights, new_capacity)
         self.delays = np.resize(self.delays, new_capacity)
         self.connection_types = np.resize(self.connection_types, new_capacity)
-        self.source_cortical_ids = np.resize(self.source_cortical_ids, new_capacity)
-        self.target_cortical_ids = np.resize(self.target_cortical_ids, new_capacity)
+        self.source_cortical_idxs = np.resize(self.source_cortical_idxs, new_capacity)
+        self.target_cortical_idxs = np.resize(self.target_cortical_idxs, new_capacity)
     
     def get_connections_for_neuron(self, neuron_id: int) -> List[Dict[str, Any]]:
         """
@@ -475,8 +476,8 @@ class Connectome:
                     "weight": float(self.weights[i]),
                     "delay": int(self.delays[i]),
                     "connection_type": int(self.connection_types[i]),
-                    "source_cortical_id": int(self.source_cortical_ids[i]),
-                    "target_cortical_id": int(self.target_cortical_ids[i])
+                    "source_cortical_id": int(self.source_cortical_idxs[i]),
+                    "target_cortical_id": int(self.target_cortical_idxs[i])
                 })
             
             return connections
