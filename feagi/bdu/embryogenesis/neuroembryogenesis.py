@@ -780,7 +780,7 @@ class NeuroEmbryogenesis:
         # Add neurons to voxel_neuron_map
         for voxel_id, neurons in voxel_neurons.items():
             position = positions_map[voxel_id]
-            cortical_id = self.connectome_manager.get_area_for_neuron(neurons[0])
+            cortical_id = self.connectome_manager.get_cortical_area_for_neuron(neurons[0])
             if cortical_id not in self.voxel_neuron_map:
                 self.voxel_neuron_map[cortical_id] = {}
             self.voxel_neuron_map[cortical_id][position] = neurons

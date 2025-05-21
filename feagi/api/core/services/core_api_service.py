@@ -23,7 +23,7 @@ from feagi.core.feagi import FEAGI
 from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis, develop_brain_from_genome
 from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
 from feagi.core.state_manager import FeagiStateManager
-from feagi.core.state_manager import ServiceState
+from feagi.core.state_manager import ServiceState, SimulationState
 from feagi.core.genome_transaction import GenomeTransaction
 from feagi.core.state_manager import GenomeState
 from feagi.bdu.connectivity import synaptogenesis_rules
@@ -2286,3 +2286,206 @@ class CoreAPIService:
         except Exception as e:
             logger.error(f"Error processing sensory data: {str(e)}")
             return False
+
+    def get_data_path(self) -> str:
+        """
+        Get the data directory path.
+        
+        Returns:
+            Path to the data directory
+        """
+        # Try multiple possible locations
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), "../../../../data"),
+            os.path.join(os.getcwd(), "data"),
+            os.path.join(os.getcwd(), "feagi_core/data"),
+            os.environ.get("FEAGI_DATA_PATH", "")
+        ]
+        
+        for path in possible_paths:
+            if path and os.path.exists(path):
+                return path
+                
+        # If no path exists, return the first one as default
+        return possible_paths[0]
+        
+    async def get_simulation_status(self) -> Dict[str, Any]:
+        """
+        Get the current simulation status.
+        
+        Returns:
+            Dictionary containing simulation status details
+        """
+        try:
+            if not self.state_manager:
+                return {
+                    "running": False,
+                    "paused": False,
+                    "burst_count": 0,
+                    "burst_frequency": 0,
+                    "timestamp": datetime.now().timestamp()
+                }
+                
+            # Return simulation status from state manager
+            # Get simulation state
+            sim_state = self.state_manager.get_simulation_state()
+            
+            # Check if burst engine is in running state
+            burst_engine_state = self.state_manager.get_burst_engine_state()
+            is_burst_engine_ready = self.state_manager.is_burst_engine_ready()
+            
+            # Determine running status
+            running = (sim_state == SimulationState.RUNNING) and is_burst_engine_ready
+            paused = (sim_state == SimulationState.PAUSED)
+            
+            return {
+                "running": running,
+                "paused": paused,
+                "burst_count": getattr(self.state_manager, 'burst_count', 0),
+                "burst_frequency": self.state_manager.get_burst_frequency(),
+                "timestamp": datetime.now().timestamp()
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting simulation status: {str(e)}")
+            return {
+                "running": False,
+                "paused": False,
+                "burst_count": 0,
+                "burst_frequency": 0,
+                "timestamp": datetime.now().timestamp()
+            }
+            
+    async def get_performance_stats(self) -> Dict[str, Any]:
+        """
+        Get performance statistics for the current simulation.
+        
+        Returns:
+            Dictionary containing performance metrics
+        """
+        try:
+            if not self.state_manager:
+                return {
+                    "burst_time_ms": 0,
+                    "memory_usage_mb": 0,
+                    "cpu_usage_percent": 0,
+                    "active_neurons": 0,
+                    "timestamp": datetime.now().timestamp()
+                }
+                
+            # Get basic stats from state manager
+            return {
+                "burst_time_ms": getattr(self.state_manager, 'average_burst_time', 0) * 1000,
+                "memory_usage_mb": getattr(self.state_manager, 'memory_usage', 0),
+                "cpu_usage_percent": getattr(self.state_manager, 'cpu_usage', 0),
+                "active_neurons": getattr(self.state_manager, 'active_neurons', 0),
+                "timestamp": datetime.now().timestamp()
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting performance stats: {str(e)}")
+            return {
+                "burst_time_ms": 0,
+                "memory_usage_mb": 0,
+                "cpu_usage_percent": 0,
+                "active_neurons": 0,
+                "timestamp": datetime.now().timestamp()
+            }
+            
+    def load_genome(self, genome_data: Dict[str, Any], filename: str = "genome.json") -> Dict[str, Any]:
+        """
+        Load a genome and prepare it for use.
+        
+        Args:
+            genome_data: The genome data dictionary to load
+            filename: Name of the source file (for reference)
+            
+        Returns:
+            Dictionary with success indicator and additional information
+        """
+        try:
+            self.logger.info(f"Loading genome from {filename}")
+            
+            # Store genome filename 
+            self._genome_filename = filename
+            
+            # Validate genome structure - returns a boolean now
+            validation_result = genome_validator(genome_data)
+            if not validation_result:
+                self.logger.error(f"Invalid genome structure")
+                return {"success": False, "error": "Invalid genome structure"}
+                
+            # Store the current genome
+            self._current_genome = genome_data
+            
+            # Update state manager
+            if self.state_manager:
+                self.state_manager.genome = genome_data
+                self.state_manager.genome_file_name = filename
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                
+            # Save genome data to a temporary file
+            temp_genome_path = os.path.join(self._temp_dir, "temp_genome.json")
+            with open(temp_genome_path, 'w') as f:
+                json.dump(genome_data, f)
+                
+            # Initialize embryogenesis
+            embry = NeuroEmbryogenesis(
+                connectome_manager=self._connectome_manager,
+                progress_callback=self._handle_embryogenesis_progress
+            )
+            
+            # Develop brain from genome using the temporary file
+            success, stats = develop_brain_from_genome(
+                genome_path=temp_genome_path,
+                connectome_manager=self._connectome_manager
+            )
+            
+            if not success:
+                self.logger.error(f"Failed to develop brain from genome")
+                return {"success": False, "error": "Failed to develop brain from genome"}
+                
+            # Get cortical area count
+            cortical_areas = self.get_cortical_areas()
+            cortical_area_count = len(cortical_areas)
+            
+            # Log success
+            self.logger.info(f"Genome loaded successfully: {cortical_area_count} cortical areas created")
+            
+            # Return success
+            return {
+                "success": True, 
+                "cortical_area_count": cortical_area_count,
+                "cortical_areas": cortical_areas
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error loading genome: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            
+            # Update state manager with error
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.ERROR)
+                
+            return {"success": False, "error": str(e)}
+
+    def get_genome(self) -> Dict[str, Any]:
+        """
+        Get the currently loaded genome data.
+        
+        Returns:
+            The genome data dictionary, or None if no genome is loaded
+        """
+        if self._current_genome is None:
+            logger.warning("No genome has been loaded")
+            return None
+            
+        return self._current_genome
+        
+    def get_genome_filename(self) -> Optional[str]:
+        """
+        Get the filename of the currently loaded genome.
+        
+        Returns:
+            The filename of the genome, or None if no genome is loaded
+        """
+        return self._genome_filename
