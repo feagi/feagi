@@ -2170,3 +2170,41 @@ class ConnectomeManagerGPU:
     def next_neuron_index(self) -> int:
         """Alias for next_neuron_id for backward compatibility with tests."""
         return self.next_neuron_id
+
+    def delete_neurons(self, neuron_ids: List[int]) -> int:
+        """Delete multiple neurons at once.
+        
+        Args:
+            neuron_ids: List of neuron IDs to delete
+            
+        Returns:
+            Number of neurons successfully deleted
+        """
+        deleted_count = 0
+        for neuron_id in neuron_ids:
+            try:
+                self.delete_neuron(neuron_id)
+                deleted_count += 1
+            except (ValueError, KeyError) as e:
+                logger.warning(f"Failed to delete neuron {neuron_id}: {e}")
+        
+        return deleted_count
+
+    def delete_synapses(self, synapse_specs: List[Tuple[int, int]]) -> int:
+        """Delete multiple synapses at once.
+        
+        Args:
+            synapse_specs: List of (pre_neuron_id, post_neuron_id) tuples
+            
+        Returns:
+            Number of synapses successfully deleted
+        """
+        deleted_count = 0
+        for pre_id, post_id in synapse_specs:
+            try:
+                if self.remove_synapse(pre_id, post_id):
+                    deleted_count += 1
+            except (ValueError, KeyError) as e:
+                logger.warning(f"Failed to delete synapse {pre_id}->{post_id}: {e}")
+        
+        return deleted_count
