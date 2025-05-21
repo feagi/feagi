@@ -18,9 +18,9 @@ def populated_neuron_array():
     na = NeuronArray(max_neurons=100)
     
     # Create test neurons
-    na.create_neuron(cortical_id=1, position=(0, 0, 0), threshold=1.0)
-    na.create_neuron(cortical_id=1, position=(1, 0, 0), threshold=0.8)
-    na.create_neuron(cortical_id=2, position=(0, 0, 0), threshold=1.2)
+    na.create_neuron(cortical_idx=1, position=(0, 0, 0), threshold=1.0)
+    na.create_neuron(cortical_idx=1, position=(1, 0, 0), threshold=0.8)
+    na.create_neuron(cortical_idx=2, position=(0, 0, 0), threshold=1.2)
     
     return na
 
@@ -49,7 +49,7 @@ def test_create_neuron(neuron_array):
     
     # Create a neuron
     neuron_id = na.create_neuron(
-        cortical_id=1, 
+        cortical_idx=1, 
         position=(1, 2, 3),
         threshold=0.7,
         membrane_potential=0.2,
@@ -61,7 +61,7 @@ def test_create_neuron(neuron_array):
     assert na.valid_mask[0] == True
     
     # Check if properties were set correctly
-    assert na.cortical_ids[0] == 1
+    assert na.cortical_idxs[0] == 1
     assert na.positions_x[0] == 1
     assert na.positions_y[0] == 2
     assert na.positions_z[0] == 3
@@ -74,7 +74,7 @@ def test_get_neuron_property(populated_neuron_array):
     na = populated_neuron_array
     
     # Check properties for a specific neuron
-    assert na.get_neuron_property(0, "cortical_id") == 1
+    assert na.get_neuron_property(0, "cortical_idx") == 1
     assert na.get_neuron_property(0, "position") == (0, 0, 0)
     assert na.get_neuron_property(0, "threshold") == 1.0
     
@@ -213,7 +213,7 @@ def test_gpu_transfer():
     
     # Create some test neurons
     for i in range(3):
-        na.create_neuron(cortical_id=1, position=(i, 0, 0))
+        na.create_neuron(cortical_idx=1, position=(i, 0, 0))
     
     # Skip test if torch.cuda is not available
     try:

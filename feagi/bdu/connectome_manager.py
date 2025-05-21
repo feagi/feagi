@@ -1,27 +1,21 @@
-"""ConnectomeManager for the BDU.
+"""
+Brain Connectome Manager for the Brain Development Unit.
 
-This module provides the primary interface for creating and managing
-the neural connectome, organizing neurons, synapses, cortical areas,
-and other connectome elements.
+This module provides the core data management for the brain's connectome,
+including cortical areas, neurons, and synapses.
 """
 
-import logging
-import numpy as np
 from enum import Enum
-from typing import Dict, Any, List, Tuple, Optional, Set, Union
+import logging
 import uuid
+import time
 import pickle
-from scipy import sparse
+import numpy as np
+import scipy.sparse as sparse
+from typing import Dict, Any, List, Tuple, Optional, Set, Union
 
-# Import models
+from feagi.bdu.models.cortical_area import CorticalArea, generate_cortical_id
 from feagi.bdu.models.neuron import Neuron
-from feagi.bdu.models.cortical_area import CorticalArea
-# Import utility functions
-from feagi.bdu.utils.position import (
-    linearize_position,
-    delinearize_position,
-    validate_position
-)
 
 logger = logging.getLogger(__name__)
 
@@ -818,18 +812,25 @@ class ConnectomeManager:
         logger.info(f"Added cortical area '{name}' with ID {area.cortical_id} and dimensions {dimensions}")
         return area.cortical_id
     
-    def get_cortical_area(self, cortical_id: str) -> CorticalArea:
+    def get_cortical_area(self, cortical_id: Union[str, int]) -> CorticalArea:
         """Get a cortical area by ID.
         
         Args:
-            cortical_id: ID of the cortical area
-            
+            cortical_id: ID of the cortical area. Can be either a string (cortical_id) or an integer (cortical_idx)
+        
         Returns:
             The cortical area object
-            
+        
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
+        # If we got an integer, treat it as a cortical_idx and convert to cortical_id
+        if isinstance(cortical_id, int):
+            if cortical_id in self._cortical_idx_to_id:
+                cortical_id = self._cortical_idx_to_id[cortical_id]
+            else:
+                raise KeyError(f"Cortical area with index {cortical_id} does not exist")
+        
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         

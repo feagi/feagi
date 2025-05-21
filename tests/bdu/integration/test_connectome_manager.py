@@ -48,7 +48,7 @@ class TestConnectomeManager(unittest.TestCase):
         for x in range(5):
             for y in range(5):
                 neuron_id = self.connectome.create_neuron(
-                    area_id=self.v1_id,
+                    cortical_idx=self.v1_id,
                     position=(x, y, 0)
                 )
                 self.v1_neurons.append(neuron_id)
@@ -57,7 +57,7 @@ class TestConnectomeManager(unittest.TestCase):
         for x in range(4):
             for y in range(4):
                 neuron_id = self.connectome.create_neuron(
-                    area_id=self.v2_id,
+                    cortical_idx=self.v2_id,
                     position=(x, y, 0)
                 )
                 self.v2_neurons.append(neuron_id)
@@ -66,7 +66,7 @@ class TestConnectomeManager(unittest.TestCase):
         for x in range(3):
             for y in range(3):
                 neuron_id = self.connectome.create_neuron(
-                    area_id=self.motor_id,
+                    cortical_idx=self.motor_id,
                     position=(x, y, 0)
                 )
                 self.motor_neurons.append(neuron_id)
@@ -129,8 +129,8 @@ class TestConnectomeManager(unittest.TestCase):
         # Create a connectivity rule
         rule_id = self.connectome.add_connectivity_rule(
             name="V1 to V2 Probabilistic",
-            source_area_id=self.v1_id,
-            target_area_id=self.v2_id,
+            source_cortical_id=self.v1_id,
+            target_cortical_id=self.v2_id,
             rule_type="random-subset",
             parameters={"num_targets": 2, "weight": 0.5}
         )
@@ -138,7 +138,7 @@ class TestConnectomeManager(unittest.TestCase):
         # Test getting rule
         rule = self.connectome.get_connectivity_rule(rule_id)
         self.assertEqual(rule["name"], "V1 to V2 Probabilistic")
-        self.assertEqual(rule["source_area_id"], self.v1_id)
+        self.assertEqual(rule["source_cortical_id"], self.v1_id)
         self.assertEqual(rule["rule_type"], "random-subset")
         self.assertEqual(rule["parameters"]["num_targets"], 2)
         
@@ -152,8 +152,8 @@ class TestConnectomeManager(unittest.TestCase):
         
         # Test getting rules for areas
         rules = self.connectome.get_connectivity_rules_for_areas(
-            source_area_id=self.v1_id,
-            target_area_id=self.v2_id
+            source_cortical_id=self.v1_id,
+            target_cortical_id=self.v2_id
         )
         self.assertEqual(len(rules), 1)
         self.assertEqual(rules[0], rule_id)
@@ -186,16 +186,16 @@ class TestConnectomeManager(unittest.TestCase):
         # Create a cortical connection
         connection_id = self.connectome.add_cortical_connection(
             name="V1-V2 Pathway",
-            source_area_id=self.v1_id,
-            target_area_id=self.v2_id,
+            source_cortical_id=self.v1_id,
+            target_cortical_id=self.v2_id,
             properties={"function": "visual processing"}
         )
         
         # Test getting connection
         connection = self.connectome.get_cortical_connection(connection_id)
         self.assertEqual(connection["name"], "V1-V2 Pathway")
-        self.assertEqual(connection["source_area_id"], self.v1_id)
-        self.assertEqual(connection["target_area_id"], self.v2_id)
+        self.assertEqual(connection["source_cortical_id"], self.v1_id)
+        self.assertEqual(connection["target_cortical_id"], self.v2_id)
         self.assertEqual(connection["properties"]["function"], "visual processing")
         
         # Create some synapses to test with
@@ -253,8 +253,8 @@ class TestConnectomeManager(unittest.TestCase):
         # Create a connectivity rule
         rule_id = self.connectome.add_connectivity_rule(
             name="V1 to V2 One-to-One",
-            source_area_id=self.v1_id,
-            target_area_id=self.v2_id,
+            source_cortical_id=self.v1_id,
+            target_cortical_id=self.v2_id,
             rule_type="one-to-one",
             parameters={"weight": 0.5}
         )
@@ -262,8 +262,8 @@ class TestConnectomeManager(unittest.TestCase):
         # Create a cortical connection
         connection_id = self.connectome.add_cortical_connection(
             name="V1-V2 Pathway",
-            source_area_id=self.v1_id,
-            target_area_id=self.v2_id
+            source_cortical_id=self.v1_id,
+            target_cortical_id=self.v2_id
         )
         
         # Apply the rule to create synapses
