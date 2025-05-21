@@ -1196,7 +1196,7 @@ class ConnectomeManagerGPU:
         
         # Create neurons in batch using NeuronArray's batch method
         indices = self.neuron_array.batch_create_neurons(
-            cortical_id=cortical_idx,
+            cortical_idx=cortical_idx,
             positions=positions,
             thresholds=threshold,
             membrane_potentials=membrane_potential,

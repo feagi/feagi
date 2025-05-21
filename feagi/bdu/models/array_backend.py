@@ -258,7 +258,12 @@ class ArrayBackend:
             return np.zeros(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.PYTORCH:
             torch_dtype = self._numpy_to_torch_dtype(adjusted_dtype)
-            return torch.zeros(shape, dtype=torch_dtype, device=self.device)
+            # Convert shape to tuple if it's a single integer
+            if isinstance(shape, int):
+                shape = (shape,)
+            # Convert string device to torch.device
+            device = torch.device(self.device) if hasattr(self, 'device') else None
+            return torch.zeros(shape, dtype=torch_dtype, device=device)
         elif self.backend_type == BackendType.CUPY:
             return cp.zeros(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.WEBGPU:
@@ -286,7 +291,12 @@ class ArrayBackend:
             return np.ones(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.PYTORCH:
             torch_dtype = self._numpy_to_torch_dtype(adjusted_dtype)
-            return torch.ones(shape, dtype=torch_dtype, device=self.device)
+            # Convert shape to tuple if it's a single integer
+            if isinstance(shape, int):
+                shape = (shape,)
+            # Convert string device to torch.device
+            device = torch.device(self.device) if hasattr(self, 'device') else None
+            return torch.ones(shape, dtype=torch_dtype, device=device)
         elif self.backend_type == BackendType.CUPY:
             return cp.ones(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.WEBGPU:
@@ -315,7 +325,12 @@ class ArrayBackend:
             return np.full(shape, fill_value, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.PYTORCH:
             torch_dtype = self._numpy_to_torch_dtype(adjusted_dtype)
-            return torch.full(shape, fill_value, dtype=torch_dtype, device=self.device)
+            # Convert shape to tuple if it's a single integer
+            if isinstance(shape, int):
+                shape = (shape,)
+            # Convert string device to torch.device
+            device = torch.device(self.device) if hasattr(self, 'device') else None
+            return torch.full(shape, fill_value, dtype=torch_dtype, device=device)
         elif self.backend_type == BackendType.CUPY:
             return cp.full(shape, fill_value, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.WEBGPU:
@@ -358,72 +373,36 @@ class ArrayBackend:
             
             return result
         elif self.backend_type == BackendType.PYTORCH:
-            torch_dtype = self._numpy_to_torch_dtype(adjusted_dtype) if adjusted_dtype is not None else None
-            
-            # Handle mixed precision explicitly
-            if self.precision == PrecisionType.MIXED and torch_dtype is None:
-                torch_dtype = torch.float32
-            
-            if isinstance(data, np.ndarray):
-                # Apply precision conversion before moving to torch
-                if adjusted_dtype is not None and data.dtype != adjusted_dtype:
-                    data = data.astype(adjusted_dtype)
-                elif dtype is None:
-                    # Handle precision settings
-                    if self.precision == PrecisionType.FP16 and np.issubdtype(data.dtype, np.floating):
-                        data = data.astype(np.float16)
-                        torch_dtype = torch.float16
-                    elif self.precision == PrecisionType.FP32 and np.issubdtype(data.dtype, np.floating):
-                        data = data.astype(np.float32)
-                        torch_dtype = torch.float32
-                        
-                tensor = torch.from_numpy(data).to(self.device)
-                if torch_dtype is not None:
-                    tensor = tensor.to(dtype=torch_dtype)
-                return tensor
-            else:
-                if self.precision == PrecisionType.FP16 and torch_dtype is None:
-                    torch_dtype = torch.float16
-                elif self.precision == PrecisionType.FP32 and torch_dtype is None:
-                    torch_dtype = torch.float32
-                    
-                tensor = torch.tensor(data, dtype=torch_dtype, device=self.device)
-                return tensor
-        elif self.backend_type == BackendType.CUPY:
-            if isinstance(data, np.ndarray):
-                # Apply precision conversion before moving to cupy
-                if adjusted_dtype is not None and data.dtype != adjusted_dtype:
-                    data = data.astype(adjusted_dtype)
-                elif dtype is None:
-                    # Handle precision settings
-                    if self.precision == PrecisionType.FP16 and np.issubdtype(data.dtype, np.floating):
-                        data = data.astype(np.float16)
-                    elif self.precision == PrecisionType.FP32 and np.issubdtype(data.dtype, np.floating):
-                        data = data.astype(np.float32)
-                    elif self.precision == PrecisionType.MIXED and np.issubdtype(data.dtype, np.floating):
-                        data = data.astype(np.float32)
+            # Convert data to NumPy first if it's not already a tensor
+            if not isinstance(data, torch.Tensor):
+                data_np = np.array(data)
+                # Get PyTorch dtype
+                torch_dtype = None if adjusted_dtype is None else self._numpy_to_torch_dtype(adjusted_dtype)
                 
-                return cp.array(data)
+                # Convert string device to torch.device
+                device = torch.device(self.device) if hasattr(self, 'device') else None
+                
+                # Create tensor with specified dtype and device
+                return torch.tensor(data_np, dtype=torch_dtype, device=device)
             else:
-                if self.precision == PrecisionType.MIXED and adjusted_dtype is None:
-                    adjusted_dtype = np.float32
-                return cp.array(data, dtype=adjusted_dtype)
-        elif self.backend_type == BackendType.WEBGPU:
-            # For WebGPU, we create a NumPy array first, then transfer it to GPU
+                # If already a tensor, just ensure it's on the right device
+                device = torch.device(self.device) if hasattr(self, 'device') else None
+                if device is not None and data.device != device:
+                    data = data.to(device)
+                return data
+        elif self.backend_type == BackendType.CUPY:
+            # Create CuPy array with specified dtype
             if adjusted_dtype is not None:
-                cpu_array = np.array(data, dtype=adjusted_dtype)
+                return cp.array(data, dtype=adjusted_dtype)
             else:
-                cpu_array = np.array(data)
-                if self.precision == PrecisionType.FP16 and np.issubdtype(cpu_array.dtype, np.floating):
-                    cpu_array = cpu_array.astype(np.float16)
-                elif self.precision == PrecisionType.INT8 and np.issubdtype(cpu_array.dtype, np.integer):
-                    cpu_array = cpu_array.astype(np.int8)
-                elif self.precision == PrecisionType.FP32 and np.issubdtype(cpu_array.dtype, np.floating):
-                    cpu_array = cpu_array.astype(np.float32)
-                elif self.precision == PrecisionType.MIXED and np.issubdtype(cpu_array.dtype, np.floating):
-                    cpu_array = cpu_array.astype(np.float32)
-                    
-            return self._numpy_to_wgpu(cpu_array)
+                return cp.array(data)
+        elif self.backend_type == BackendType.WEBGPU:
+            # For WebGPU, first create a NumPy array, then transfer to GPU
+            data_np = np.array(data, dtype=adjusted_dtype)
+            return self._numpy_to_wgpu(data_np)
+        else:
+            # Fallback to NumPy
+            return np.array(data, dtype=adjusted_dtype)
     
     def to_numpy(self, array: Any) -> np.ndarray:
         """Convert any array to NumPy array.

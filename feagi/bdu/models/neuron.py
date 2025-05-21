@@ -63,13 +63,13 @@ class NeuronArray:
         # For quickly accessing neurons by area
         self.cortical_id_to_indices: Dict[int, List[int]] = {}
         
+        # Device tracking for GPU support
+        self.device = getattr(self.backend, 'device', 'cpu')
+        
         # Capacity tracking
         self.max_neurons = max_neurons
         self.next_index = 0
         self.free_indices: Set[int] = set()
-        
-        # Device tracking for GPU support
-        self.device = self.backend.device
 
     def to_gpu(self):
         """Transfer neuron arrays to GPU for accelerated computation."""
@@ -597,7 +597,7 @@ class NeuronArray:
             "is_active": bool(self.is_active[index])
         }
 
-    def batch_create_neurons(self, cortical_id: int, positions: List[Tuple[int, int, int]],
+    def batch_create_neurons(self, cortical_idx: Optional[int], positions: List[Tuple[int, int, int]],
                          thresholds: Union[float, List[float]] = 1.0,
                          membrane_potentials: Union[float, List[float]] = 0.0,
                          resting_potentials: Union[float, List[float]] = 0.0,
@@ -609,7 +609,7 @@ class NeuronArray:
         using vectorized operations instead of loops.
         
         Args:
-            cortical_id: ID of the cortical area (int)
+            cortical_idx: Integer index of the cortical area
             positions: List of 3D coordinates for each neuron
             thresholds: Either a single value for all neurons or a list of values
             membrane_potentials: Either a single value for all neurons or a list of values
@@ -623,6 +623,10 @@ class NeuronArray:
         Raises:
             ValueError: If any list parameter doesn't match the length of positions
         """
+        # Default cortical_idx to 0 if None
+        if cortical_idx is None:
+            cortical_idx = 0
+            
         num_neurons = len(positions)
         
         # Validate lengths of parameters if they are lists
@@ -706,7 +710,7 @@ class NeuronArray:
             self.positions_x.index_copy_(0, idx_tensor, positions_x)
             self.positions_y.index_copy_(0, idx_tensor, positions_y)
             self.positions_z.index_copy_(0, idx_tensor, positions_z)
-            self.cortical_ids.index_copy_(0, idx_tensor, torch.full_like(idx_tensor, cortical_id))
+            self.cortical_ids.index_copy_(0, idx_tensor, torch.full_like(idx_tensor, cortical_idx))
             
             # Set valid mask
             valid_mask = self.backend.to_numpy(self.valid_mask)
@@ -722,7 +726,7 @@ class NeuronArray:
             self.positions_x[idx_array] = positions_x
             self.positions_y[idx_array] = positions_y
             self.positions_z[idx_array] = positions_z
-            self.cortical_ids[idx_array] = cortical_id
+            self.cortical_ids[idx_array] = cortical_idx
             self.valid_mask[idx_array] = True
         
         # Update mappings
@@ -732,9 +736,9 @@ class NeuronArray:
             self.index_to_id_map[idx] = neuron_id
             
             # Add to cortical area mapping
-            if cortical_id not in self.cortical_id_to_indices:
-                self.cortical_id_to_indices[cortical_id] = []
-            self.cortical_id_to_indices[cortical_id].append(idx)
+            if cortical_idx not in self.cortical_id_to_indices:
+                self.cortical_id_to_indices[cortical_idx] = []
+            self.cortical_id_to_indices[cortical_idx].append(idx)
         
         return neuron_ids
 
