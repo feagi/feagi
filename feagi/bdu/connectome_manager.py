@@ -2353,29 +2353,13 @@ class ConnectomeManager:
         
         return None
 
-    @classmethod
-    def load(cls, filename):
-        """Load a connectome from a file."""
-        try:
-            with open(filename, 'rb') as f:
-                connectome = pickle.load(f)
-                
-                if not isinstance(connectome, ConnectomeManager):
-                    raise ValueError(f"File {filename} does not contain a ConnectomeManager instance")
-                
-                return connectome
-        except Exception as e:
-            logger.error(f"Failed to load connectome from file {filename}: {e}")
-            raise
+
 
     def to_gpu_optimized(self):
         """Convert this ConnectomeManager to a GPU-optimized ConnectomeManagerGPU.
         
-        This method transfers all connectome data including neurons, synapses, cortical areas,
-        and other structures to the GPU-optimized implementation.
-        
         Returns:
-            ConnectomeManagerGPU: A new GPU-optimized connectome manager
+            A GPU-optimized ConnectomeManagerGPU instance
         """
         # Import here to avoid circular imports
         from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU

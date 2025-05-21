@@ -1,137 +1,81 @@
-# FEAGI Test Framework
+# FEAGI Tests
 
-This directory contains test code for FEAGI, organized into a comprehensive structure that separates tests by their purpose, scope, and resource requirements.
+This directory contains all tests for the FEAGI project. Tests are organized according to the following structure:
 
 ## Test Organization
 
-### Unit Tests (`tests/unit/`)
-Fast, isolated tests of individual components without external dependencies. These verify that each unit of code works correctly in isolation.
+Tests are organized by module and test type:
 
-- `bdu/`: Brain Dynamics Unit tests
-- `npu/`: Neural Processing Unit tests
-- `utils/`: Utility function tests
-- `config/`: Configuration system tests
-- `models/`: Model system tests
+```
+tests/
+  ├── bdu/                # Brain Development Unit tests
+  │   ├── unit/           # Unit tests for BDU components
+  │   ├── integration/    # Integration tests within BDU module
+  │   └── performance/    # Performance benchmarks for BDU components
+  ├── npu/                # Neural Processing Unit tests
+  │   ├── unit/           # Unit tests for NPU components
+  │   ├── integration/    # Integration tests within NPU module
+  │   └── performance/    # Performance benchmarks for NPU components
+  ├── api/                # API tests
+  │   ├── unit/           # Unit tests for API components
+  │   └── integration/    # Integration tests within API module
+  └── system/             # Cross-module system tests
+      ├── integration/    # Integration tests across multiple modules
+      └── performance/    # System-level performance tests
+```
 
-### Integration Tests (`tests/integration/`)
-Tests that verify multiple components work correctly together.
+## Test Types
 
-- `bdu/`: BDU integration tests
-- `npu/`: NPU integration tests
-- `workflows/`: Tests for cross-component workflows
-
-### API Tests (`tests/api/`)
-Tests that verify the external API interfaces work correctly.
-
-- `rest/`: REST API tests
-- `grpc/`: gRPC API tests
-- `websocket/`: WebSocket API tests
-- `zmq/`: ZeroMQ communication tests
-
-### Rust Tests (`tests/rust/`)
-Tests specifically for the Rust implementations and Python-Rust bindings.
-
-- `unit/`: Unit tests for Rust components
-- `integration/`: Integration tests for Rust components
-- `binding/`: Tests that verify Python-Rust bindings work correctly
-
-### Performance Tests (`tests/performance/`)
-Tests that verify the system's performance characteristics, scalability, and behavior under load.
-
-- `bdu/`: BDU performance and scalability tests
-- `npu/`: NPU performance and scalability tests
-- `system/`: Whole-system performance tests
-
-### Backend Tests (`tests/backends/`)
-Tests specific to different computational backends.
-
-- `cpu/`: Tests for CPU-specific behavior
-- `cuda/`: Tests for CUDA GPU backends
-- `wgpu/`: Tests for WebGPU backends
-- `tensorrt/`: Tests for TensorRT acceleration
-
-### End-to-End Tests (`tests/e2e/`)
-Tests that verify complete workflows from input to output, simulating real-world usage.
+- **Unit Tests**: Tests for individual components in isolation
+- **Integration Tests**: Tests for interactions between components within a module
+- **Performance Tests**: Benchmarks for performance-critical components
+- **System Tests**: Tests that span multiple modules
 
 ## Running Tests
 
-### Running Unit Tests
+### Module-specific Tests
 
-Unit tests should be run frequently during development as they're fast and focused:
-
-```bash
-# Run all unit tests
-pytest tests/unit/
-
-# Run specific unit tests
-pytest tests/unit/bdu/
-```
-
-### Running Integration Tests
+To run tests for a specific module:
 
 ```bash
-# Run all integration tests
-pytest tests/integration/
+# Run all BDU tests
+python -m pytest feagi_core/tests/bdu
 
-# Run specific integration tests
-pytest tests/integration/bdu/
+# Run only BDU unit tests
+python -m pytest feagi_core/tests/bdu/unit
 ```
 
-### Running API Tests
+### Run BDU Non-GPU Tests
+
+We provide a script to run all non-GPU tests for the BDU module:
 
 ```bash
-# Run all API tests
-pytest tests/api/
+# Run all non-GPU BDU tests
+./feagi_core/tests/bdu/run_non_gpu_tests.sh
 
-# Run specific API tests
-pytest tests/api/rest/
+# Run with verbose output
+./feagi_core/tests/bdu/run_non_gpu_tests.sh -v
 ```
 
-### Running Rust Tests
+### Run System Integration Tests
+
+For system-level integration tests:
 
 ```bash
-# Run all Rust-related tests
-pytest tests/rust/
+# Run all system integration tests
+./feagi_core/tests/system/run_integration_tests.sh
 
-# Run only Python-Rust binding tests
-pytest tests/rust/binding/
-
-# Run only Rust unit tests
-pytest tests/rust/unit/
+# Run with verbose output
+./feagi_core/tests/system/run_integration_tests.sh -v
 ```
 
-### Running Performance Tests
+## Test Guidelines
 
-These tests are resource-intensive and slow. Run them less frequently:
-
-```bash
-# Run all performance tests
-pytest tests/performance/
-
-# Run with specific markers
-pytest -m performance
-```
-
-### Running Backend-specific Tests
-
-```bash
-# Run tests for a specific backend
-pytest tests/backends/cuda/
-
-# Run WebGPU backend tests
-pytest tests/backends/wgpu/
-
-# Run with a specific backend configuration
-FEAGI_BACKEND=cuda pytest tests/unit/
-FEAGI_BACKEND=wgpu pytest tests/unit/
-```
-
-### Running End-to-End Tests
-
-```bash
-# Run all end-to-end tests
-pytest tests/e2e/
-```
+1. Always place tests in the appropriate module directory
+2. Use proper test fixtures and setup/teardown
+3. Write descriptive test names that explain what is being tested
+4. Include both happy path and edge case tests
+5. For performance tests, include baseline metrics and clear pass/fail criteria
 
 ## Test Development Guidelines
 
