@@ -67,9 +67,9 @@ class GlobalNeuronArray:
             
             # Use separate arrays for coordinates - optimal SoA layout for SIMD/GPU processing
             # Each coordinate component gets its own contiguous memory array
-            self.coordinates_x = np.zeros(capacity, dtype=np.int32, order='C')
-            self.coordinates_y = np.zeros(capacity, dtype=np.int32, order='C')
-            self.coordinates_z = np.zeros(capacity, dtype=np.int32, order='C')
+            self.coordinates_x = np.zeros(capacity, dtype=np.uint32, order='C')
+            self.coordinates_y = np.zeros(capacity, dtype=np.uint32, order='C')
+            self.coordinates_z = np.zeros(capacity, dtype=np.uint32, order='C')
     
     def get_membrane_potential(self, neuron_id: int) -> float:
         """Get membrane potential for a neuron."""
@@ -115,9 +115,10 @@ class GlobalNeuronArray:
         if self._use_rust:
             self._rust_gna.set_coordinates(neuron_id, x, y, z)
         else:
-            self.coordinates_x[neuron_id] = int(x)
-            self.coordinates_y[neuron_id] = int(y)
-            self.coordinates_z[neuron_id] = int(z)
+            # Convert to uint32, ensuring non-negative values
+            self.coordinates_x[neuron_id] = np.uint32(max(0, x))
+            self.coordinates_y[neuron_id] = np.uint32(max(0, y))
+            self.coordinates_z[neuron_id] = np.uint32(max(0, z))
     
     def update_membrane_potentials(self, decay_factor: float) -> None:
         """Update all membrane potentials with decay."""

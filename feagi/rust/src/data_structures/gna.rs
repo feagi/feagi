@@ -35,9 +35,9 @@ pub struct GlobalNeuronArray {
     pub cortical_area_ids: Vec<u32>,
     
     /// 3D coordinates of neurons (x,y,z packed into sequential memory)
-    pub coordinates_x: Vec<u16>,
-    pub coordinates_y: Vec<u16>,
-    pub coordinates_z: Vec<u16>,
+    pub coordinates_x: Vec<u32>,
+    pub coordinates_y: Vec<u32>,
+    pub coordinates_z: Vec<u32>,
 }
 
 /// Fire Queue - Structure of Arrays (SoA) for neurons being evaluated for firing
