@@ -121,9 +121,9 @@ class BurstEngine:
             self.state_manager.set_burst_frequency(actual_freq)
             # 3. Load shedding if needed
             if actual_freq < self.desired_frequency:
-                for area_id in self.shed_areas:
+                for cortical_id in self.shed_areas:
                     # Clear FCL for this area for the current burst
-                    self.fcl_manager.area_fcl_history[area_id][self.fcl_manager.current_window_index].clear()
+                    self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
             # 4. Sleep for the remainder of the interval
             if elapsed < self.burst_interval:
                 time.sleep(self.burst_interval - elapsed)
@@ -157,9 +157,9 @@ class BurstEngine:
         
         # Load shedding if needed
         if actual_freq < self.desired_frequency:
-            for area_id in self.shed_areas:
+            for cortical_id in self.shed_areas:
                 # Clear FCL for this area for the current burst
-                self.fcl_manager.area_fcl_history[area_id][self.fcl_manager.current_window_index].clear()
+                self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
         
         return fired_neurons
 
@@ -259,6 +259,7 @@ class FCLSampler:
     - Now supports per-area sample rates using the 'fcl_sample_rate' property in each cortical area's properties dict.
     - RTOS/Rust-friendly: runs as a periodic task/thread, no dynamic allocation in the main loop
     - Supports graceful shutdown
+    - Only samples when there are consumers (visualization clients or motor outputs)
     """
     def __init__(self, fcl_manager: Any, sample_frequency_hz: float, output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
         """
@@ -279,6 +280,10 @@ class FCLSampler:
         self._last_sample_time_per_area = {}  # cortical_id -> last sample time
         self._max_retries = 3  # Maximum number of retries for transient errors
         self._retry_delay = 0.01  # Delay between retries in seconds
+        
+        # Visualization clients tracking
+        self._has_visualization_subscribers = False
+        self._has_motor_subscribers = False
 
     def run(self) -> None:
         """
@@ -291,9 +296,16 @@ class FCLSampler:
         while self.running:
             start = time.perf_counter()
             now = start
+            
+            # Skip sampling if no subscribers
+            if not self._has_visualization_subscribers and not self._has_motor_subscribers:
+                # Sleep for the sample interval and check again
+                time.sleep(self.sample_interval)
+                continue
+                
             # If connectome_manager is provided, support per-area sample rates
             if self.connectome_manager is not None:
-                for area in self.connectome_manager._areas.values():
+                for area in self.connectome_manager.cortical_areas.values():
                     cortical_id = area.id
                     # Get per-area sample rate if set, else use global
                     rate = area.properties.get('fcl_sample_rate', self.sample_frequency)
@@ -353,19 +365,32 @@ class FCLSampler:
     def stop(self) -> None:
         """Stop the FCL sampler."""
         self.running = False
-
-    def update_area_sample_rate(self, cortical_id: int, rate: float) -> None:
+        
+    def update_area_sample_rate(self, cortical_id, rate):
+        """Set the sampling rate for a specific cortical area."""
+        # Store the last sample time to avoid immediate sampling
+        if cortical_id not in self._last_sample_time_per_area:
+            self._last_sample_time_per_area[cortical_id] = time.perf_counter()
+        # Rate will be picked up from cortical area properties
+        
+    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
         """
-        Update the sample rate for a specific area at runtime (live reconfiguration).
-        This updates the last sample time and ensures the new rate is used immediately.
+        Update whether there are visualization subscribers.
         
         Args:
-            cortical_id: ID of the cortical area to update
-            rate: New sample rate in Hz
+            has_subscribers: Whether there are visualization subscribers
         """
-        if self.connectome_manager is not None:
-            area = self.connectome_manager._areas.get(cortical_id)
-            if area is not None:
-                area.properties['fcl_sample_rate'] = rate
-                # Optionally reset last sample time to force immediate sample
-                self._last_sample_time_per_area[cortical_id] = 0 
+        if has_subscribers != self._has_visualization_subscribers:
+            logger.info(f"FCLSampler visualization subscribers changed: {has_subscribers}")
+            self._has_visualization_subscribers = has_subscribers
+            
+    def set_motor_subscribers(self, has_subscribers: bool) -> None:
+        """
+        Update whether there are motor subscribers.
+        
+        Args:
+            has_subscribers: Whether there are motor subscribers
+        """
+        if has_subscribers != self._has_motor_subscribers:
+            logger.info(f"FCLSampler motor subscribers changed: {has_subscribers}")
+            self._has_motor_subscribers = has_subscribers 
