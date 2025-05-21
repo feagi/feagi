@@ -11,6 +11,7 @@ import pytest
 from queue import Queue, Empty, Full
 from unittest.mock import Mock, patch, MagicMock, call
 import logging
+import unittest
 
 from feagi.npu.burst_engine import FCLSampler
 
@@ -21,13 +22,19 @@ class MockFCLManager:
         self.global_fcl_calls = []
         self.should_raise_exception = should_raise_exception
         self.fcl_response = fcl_response if fcl_response is not None else set([1, 2, 3])
+        self.area_fcl_history = {1: [set() for _ in range(3)]}
+        self.cortical_fcl_history = {1: [set() for _ in range(3)]}
+        self.current_window_index = 0
+        self.counter = 0
+        self._last_sample_time_per_area = {}
         
-    def get_global_fcl(self):
+    def get_global_fcl(self, offset=0):
         """Return a global FCL for testing."""
         self.global_fcl_calls.append(time.time())
         if self.should_raise_exception:
             raise Exception("Test exception from get_global_fcl")
-        return self.fcl_response
+        self.counter += 1
+        return f"fcl_snapshot_{self.counter}"
         
     def get_area_fcl(self, area_id):
         """Return an area-specific FCL for testing."""
@@ -367,6 +374,151 @@ def test_fcl_sampler_with_racing_threads(mock_fcl_manager, output_queue, mock_co
         pass
     
     assert len(samples) > 0, "No samples were collected"
+
+
+class TestFCLSampler(unittest.TestCase):
+    
+    def setUp(self):
+        self.fcl_manager = MockFCLManager()
+        self.output_queue = Queue(maxsize=10)
+        self.sample_frequency = 10
+        self.sampler = FCLSampler(
+            self.fcl_manager,
+            sample_frequency_hz=self.sample_frequency,
+            output_queue=self.output_queue
+        )
+    
+    def test_initialization(self):
+        """Test FCLSampler initialization with correct properties."""
+        self.assertEqual(self.sampler.sample_frequency, self.sample_frequency)
+        self.assertEqual(self.sampler.sample_interval, 1.0/self.sample_frequency)
+        self.assertEqual(self.sampler.fcl_manager, self.fcl_manager)
+        self.assertEqual(self.sampler.output_queue, self.output_queue)
+        self.assertFalse(self.sampler.running)
+        self.assertEqual(self.sampler._last_sample_time_per_area, {})
+    
+    def test_run_and_stop(self):
+        """Test that FCLSampler correctly runs and stops."""
+        # Start sampler in a separate thread
+        t = threading.Thread(target=self.sampler.run)
+        t.start()
+        
+        # Let it run for a while
+        time.sleep(0.15)  # Run for 150ms, enough for ~1-2 samples
+        
+        # Stop it
+        self.sampler.stop()
+        t.join(timeout=2)
+        
+        # Check that it's stopped
+        self.assertFalse(self.sampler.running)
+        
+        # Check that we got samples
+        samples = []
+        try:
+            while True:
+                samples.append(self.output_queue.get_nowait())
+        except Empty:
+            pass
+        
+        self.assertGreater(len(samples), 0, "FCLSampler did not produce any samples")
+    
+    def test_update_area_sample_rate(self):
+        """Test updating an area's sample rate."""
+        # Mock the connectome manager
+        connectome_manager = Mock()
+        area1 = Mock()
+        area1.id = 1
+        area1.properties = {}
+        connectome_manager._areas = {1: area1}
+        
+        # Create a new sampler with the mock connectome manager
+        sampler = FCLSampler(
+            self.fcl_manager,
+            sample_frequency_hz=self.sample_frequency,
+            output_queue=self.output_queue,
+            connectome_manager=connectome_manager
+        )
+        
+        # Update the sample rate
+        sampler.update_area_sample_rate(1, 20)
+        
+        # Verify the area property was updated
+        self.assertEqual(area1.properties['fcl_sample_rate'], 20)
+        
+        # Verify last sample time was reset
+        self.assertEqual(sampler._last_sample_time_per_area.get(1, None), 0)
+    
+    def test_per_area_sampling(self):
+        """Test sampling with different rates per area."""
+        # Mock the connectome manager with areas having different sample rates
+        connectome_manager = Mock()
+        area1 = Mock()
+        area1.id = 1
+        area1.properties = {'fcl_sample_rate': 20}  # Higher rate
+        area2 = Mock()
+        area2.id = 2
+        area2.properties = {'fcl_sample_rate': 5}   # Lower rate
+        connectome_manager._areas = {1: area1, 2: area2}
+        
+        # Create a new sampler with the mock connectome manager
+        sampler = FCLSampler(
+            self.fcl_manager,
+            sample_frequency_hz=self.sample_frequency,
+            output_queue=self.output_queue,
+            connectome_manager=connectome_manager
+        )
+        
+        # Run sampler briefly
+        t = threading.Thread(target=sampler.run)
+        t.start()
+        time.sleep(0.2)  # Run for 200ms
+        sampler.stop()
+        t.join(timeout=2)
+        
+        # Collect samples
+        samples = []
+        try:
+            while True:
+                samples.append(self.output_queue.get_nowait())
+        except Empty:
+            pass
+        
+        # Check that we got at least one sample
+        self.assertGreater(len(samples), 0, "FCLSampler did not produce any samples")
+    
+    @patch('feagi.npu.burst_engine.logger')
+    def test_error_handling(self, mock_logger):
+        """Test error handling in the FCLSampler."""
+        # Make the FCL manager raise an exception when getting an area FCL
+        def mock_get_area_fcl(area_id):
+            raise ValueError("Test error")
+        self.fcl_manager.get_area_fcl = mock_get_area_fcl
+        
+        # Mock the connectome manager
+        connectome_manager = Mock()
+        area1 = Mock()
+        area1.id = 1
+        area1.properties = {}
+        connectome_manager._areas = {1: area1}
+        
+        # Create a new sampler with the mock connectome manager
+        sampler = FCLSampler(
+            self.fcl_manager,
+            sample_frequency_hz=self.sample_frequency,
+            output_queue=self.output_queue,
+            connectome_manager=connectome_manager
+        )
+        
+        # Run sampler briefly
+        t = threading.Thread(target=sampler.run)
+        t.start()
+        time.sleep(0.15)
+        sampler.stop()
+        t.join(timeout=2)
+        
+        # Verify the error was logged
+        mock_logger.error.assert_called()
 
 
 if __name__ == "__main__":
