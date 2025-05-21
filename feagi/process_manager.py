@@ -186,12 +186,13 @@ class ProcessManager:
             req_rep_port = self.find_available_port(zmq_config.get("req_port", 5555))
             pub_sub_port = self.find_available_port(zmq_config.get("pub_port", 5556))
             push_pull_port = self.find_available_port(zmq_config.get("push_port", 5557))
-            sensorimotor_port = self.find_available_port(zmq_config.get("sensorimotor_port", 5558))
+            sensory_port = self.find_available_port(zmq_config.get("sensory_port", 5558))
+            motor_port = self.find_available_port(zmq_config.get("motor_port", 5564))
             control_port = self.find_available_port(zmq_config.get("control_port", 5559))
             vis_base_port = self.find_available_port(zmq_config.get("vis_base_port", 5560))
             
             # Ensure we found available ports
-            if not all([req_rep_port, pub_sub_port, push_pull_port, sensorimotor_port, control_port, vis_base_port]):
+            if not all([req_rep_port, pub_sub_port, push_pull_port, sensory_port, motor_port, control_port, vis_base_port]):
                 logger.error("Could not find available ports for ZMQ server")
                 return False
                 
@@ -205,9 +206,10 @@ class ProcessManager:
                 req_rep_port=req_rep_port,
                 pub_sub_port=pub_sub_port,
                 push_pull_port=push_pull_port,
-                sensorimotor_port=sensorimotor_port,
+                sensory_port=sensory_port,
+                motor_port=motor_port,
                 control_port=control_port,
-                vis_base_port=vis_base_port,
+                vis_port=vis_base_port,
                 fcl_sampler=self._fcl_sampler,
                 fcl_sampler_queue=self._fcl_sampler_queue
             )
@@ -281,7 +283,7 @@ class ProcessManager:
                 env["FEAGI_ZMQ_REQ_PORT"] = str(self._zmq_server.req_rep_port)
                 env["FEAGI_ZMQ_PUB_PORT"] = str(self._zmq_server.pub_sub_port)
                 env["FEAGI_ZMQ_PUSH_PORT"] = str(self._zmq_server.push_pull_port)
-                env["FEAGI_ZMQ_STREAM_PORT"] = str(self._zmq_server.sensorimotor_port)
+                env["FEAGI_ZMQ_STREAM_PORT"] = str(self._zmq_server.sensory_port)
             else:
                 env["FEAGI_ZMQ_ENABLED"] = "0"
                 

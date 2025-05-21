@@ -85,7 +85,8 @@ def main():
     parser.add_argument("--zmq-req-port", type=int, default=5555, help="Port for REQ/REP ZMQ pattern")
     parser.add_argument("--zmq-pub-port", type=int, default=5556, help="Port for PUB/SUB ZMQ pattern")
     parser.add_argument("--zmq-push-port", type=int, default=5557, help="Port for PUSH/PULL ZMQ pattern")
-    parser.add_argument("--zmq-sensorimotor-port", type=int, default=5558, help="Port for sensorimotor ZMQ stream")
+    parser.add_argument("--zmq-sensory-port", type=int, default=5558, help="Port for sensory ZMQ stream")
+    parser.add_argument("--zmq-motor-port", type=int, default=5564, help="Port for motor ZMQ stream")
     parser.add_argument("--zmq-control-port", type=int, default=5559, help="Port for control ZMQ stream")
     parser.add_argument("--zmq-vis-base-port", type=int, default=5560, help="Base port for visualization ZMQ streams")
     
@@ -141,7 +142,8 @@ def main():
             "req_port": args.zmq_req_port,
             "pub_port": args.zmq_pub_port,
             "push_port": args.zmq_push_port,
-            "sensorimotor_port": args.zmq_sensorimotor_port,
+            "sensory_port": args.zmq_sensory_port,
+            "motor_port": args.zmq_motor_port,
             "control_port": args.zmq_control_port,
             "vis_base_port": args.zmq_vis_base_port
         },

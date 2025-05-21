@@ -7,7 +7,7 @@ communication with FEAGI, including:
 - Request-Reply pattern for CRUD operations
 - Publish-Subscribe pattern for events and updates
 - Push-Pull pattern for high-throughput data processing
-- Specialized streams for sensorimotor data and visualization
+- Specialized streams for sensory data, motor control, and visualization
 """
 
 import os
@@ -27,17 +27,45 @@ from .patterns import (
 )
 
 from .streams import (
-    SensorimotorStream, SensorimotorClient,
-    VisualizationStream, VisualizationClient
+    SensoryStream,
+    MotorStream,
+    VisualizationStream,
+    ControlStream
 )
 
-
+# Export top-level classes
+__all__ = [
+    # Server
+    'ZmqServer',
+    'create_zmq_server',
+    
+    # Client
+    'ZmqClient',
+    
+    # Patterns
+    'RequestReplyServer',
+    'RequestReplyClient',
+    'RequestReplyManager',
+    'PublisherServer',
+    'SubscriberClient',
+    'PubSubManager',
+    'PushServer',
+    'PullClient',
+    'PushPullManager',
+    
+    # Streams
+    'SensoryStream',
+    'MotorStream',
+    'VisualizationStream',
+    'ControlStream',
+]
 
 def create_zmq_server(
     host: str = None,
-    pub_port: int = None, 
-    sub_port: int = None,
-    topics=None,
+    sensory_port: int = None, 
+    motor_port: int = None,
+    control_port: int = None,
+    visualization_port: int = None,
     use_auth=False,
     use_encryption=False,
     config=None
@@ -49,9 +77,10 @@ def create_zmq_server(
     
     Args:
         host: Host address to bind to
-        pub_port: Port for the publisher socket
-        sub_port: Port for the subscriber socket  
-        topics: List of topics to support
+        sensory_port: Port for the sensory socket
+        motor_port: Port for the motor socket
+        control_port: Port for the control socket
+        visualization_port: Port for the visualization socket
         use_auth: Whether to use authentication (deprecated)
         use_encryption: Whether to use encryption (deprecated)
         config: Additional configuration (deprecated)
@@ -59,114 +88,35 @@ def create_zmq_server(
     Returns:
         Initialized ZmqServer instance or None if initialization fails
     """
-    # Log deprecation warnings for removed parameters
-    if use_auth:
-        logger.warning("The 'use_auth' parameter is deprecated and will be ignored.")
-    if use_encryption:
-        logger.warning("The 'use_encryption' parameter is deprecated and will be ignored.")
-    if config:
-        logger.warning("The 'config' parameter is deprecated and will be ignored.")
+    # Import here to avoid circular import issues with server module
+    from .connection_manager import ZMQConnectionManager
+    
+    server = None
     
     try:
-        # Import the CoreAPIService stub if needed
-        try:
-            from ..core.service import CoreApiService
-        except ImportError:
-            # Create a stub class 
-            class CoreApiService:
-                def __init__(self):
-                    pass
-                
-                async def get_simulation_status(self):
-                    return {"running": False, "burst_count": 0}
-                    
-                async def get_performance_stats(self):
-                    return {"cpu": 0, "memory": 0}
-                    
-                async def get_system_events(self):
-                    return {"events": []}
-                    
-                async def get_log_events(self):
-                    return {"logs": []}
-                    
-                async def get_brain_activity(self):
-                    return {}
-                    
-                async def get_brain_structure(self):
-                    return {}
-                
-                async def get_system_metrics(self):
-                    return {"cpu": 0, "memory": 0, "gpu": 0}
+        # Get connection manager instance
+        conn_manager = ZMQConnectionManager.instance(host=host)
         
-        # Create core API service
-        core_api = CoreApiService()
-        
-        # Create the server
-        server = ZmqServer(
-            core_api=core_api,
-            host=host or "127.0.0.1",
-            req_rep_port=5555,  # Default req_rep port
-            pub_sub_port=pub_port or 5556,
-            push_pull_port=sub_port or 5557,  # Reuse sub_port for push_pull for compatibility
-            sensorimotor_port=5558,
-            vis_base_port=5560
-        )
-        
-        # Create a wrapper class to mimic the old ZMQServer API
-        class ZmqServerWrapper:
-            def __init__(self, server):
-                self.server = server
-                self.running = False
+        # Create server with specified parameters
+        kwargs = {}
+        if host is not None:
+            kwargs["host"] = host
+        if sensory_port is not None:
+            kwargs["sensory_port"] = sensory_port
+        if motor_port is not None:
+            kwargs["motor_port"] = motor_port
+        if control_port is not None:
+            kwargs["control_port"] = control_port
+        if visualization_port is not None:
+            kwargs["vis_port"] = visualization_port
             
-            def start(self):
-                """Start the server"""
-                # Create and run a background thread to run the server
-                def run_server():
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(self.server.start())
-                    loop.run_forever()
-                
-                self.thread = threading.Thread(target=run_server, daemon=True)
-                self.thread.start()
-                self.running = True
-                return True
-            
-            def shutdown(self):
-                """Shutdown the server"""
-                if self.running:
-                    # Create a new event loop for shutdown
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(self.server.stop())
-                    loop.close()
-                    self.running = False
-            
-            def publish(self, topic, message):
-                """Publish a message to a topic"""
-                # Create a new event loop for publishing
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(self.server.pub_sub.publish_event(topic, message))
-                loop.close()
-                return True
-            
-            def subscribe(self, topic, callback):
-                """Subscribe to a topic (stub - not supported in wrapper)"""
-                logger.warning("subscribe() not supported in ZmqServer wrapper")
-                return False
-            
-            def is_healthy(self):
-                """Check if the server is healthy"""
-                return self.running
-        
-        # Wrap the server
-        return ZmqServerWrapper(server)
+        server = conn_manager.create_server(server_type="default", **kwargs)
         
     except Exception as e:
-        logger.error(f"Failed to create ZMQServer: {e}")
+        logger.error(f"Failed to create ZMQ server: {e}")
+        return None
         
-    return None
+    return server
 
 
 def create_zmq_client(
@@ -269,35 +219,4 @@ def create_zmq_client(
         
     except Exception as e:
         logger.error(f"Failed to create ZMQ client: {e}")
-        return None
-
-__all__ = [
-    # Factory functions
-    'create_zmq_server',
-    'create_zmq_client',
-    
-    # Main server/client
-    'ZmqServer',
-    'ZmqClient',
-    
-    # Request-Reply Pattern
-    'RequestReplyServer',
-    'RequestReplyClient',
-    'RequestReplyManager',
-    
-    # Publish-Subscribe Pattern
-    'PublisherServer',
-    'SubscriberClient',
-    'PubSubManager',
-    
-    # Push-Pull Pattern
-    'PushServer',
-    'PullClient',
-    'PushPullManager',
-    
-    # Specialized Streams
-    'SensorimotorStream',
-    'SensorimotorClient',
-    'VisualizationStream',
-    'VisualizationClient',
-] 
+        return None 
