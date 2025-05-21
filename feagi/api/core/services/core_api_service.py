@@ -228,12 +228,12 @@ class CoreAPIService:
         
         return result
         
-    def get_cortical_area(self, area_id: str) -> Optional[Dict[str, Any]]:
+    def get_cortical_area(self, cortical_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a cortical area by ID.
         
         Args:
-            area_id: String representation of the cortical_idx.
+            cortical_id: String representation of the cortical_idx.
             
         Returns:
             Dictionary containing cortical area information, or None if not found.
@@ -241,19 +241,19 @@ class CoreAPIService:
         try:
             # Convert string ID to integer (cortical_idx)
             try:
-                cortical_idx = int(area_id)
+                cortical_idx = int(cortical_id)
             except ValueError:
-                self.logger.error(f"Invalid cortical area ID format: {area_id}")
+                self.logger.error(f"Invalid cortical area ID format: {cortical_id}")
                 return None
             
             # Get the area from connectome manager
             area = self._connectome_manager.cortical_areas.get(cortical_idx)
             if not area:
-                self.logger.warning(f"Cortical area {area_id} not found")
+                self.logger.warning(f"Cortical area {cortical_id} not found")
                 return None
             
             # Return area information
-            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_idx))
+            neuron_count = len(self._connectome_manager.get_neurons_by_cortical_area(cortical_idx))
             
             # Format response
             return {
@@ -276,7 +276,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error retrieving cortical area: {str(e)}")
             return None
-        
+    
     def create_cortical_area(
         self, 
         name: str,
@@ -411,7 +411,7 @@ class CoreAPIService:
                 "neuron_count": neuron_count
             }
         except Exception as e:
-            self.logger.error(f"Error updating cortical area {area_id}: {str(e)}")
+            self.logger.error(f"Error updating cortical area {cortical_id}: {str(e)}")
             return None
     
     def delete_cortical_area(self, cortical_id: str) -> bool:
@@ -504,12 +504,12 @@ class CoreAPIService:
             self.logger.error(f"Error retrieving neurons for cortical area {cortical_id}: {str(e)}")
             return None
     
-    def get_cortical_area_activity(self, area_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
+    def get_cortical_area_activity(self, cortical_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
         """
         Get activity data for a specific cortical area.
         
         Args:
-            area_id: ID of the cortical area.
+            cortical_id: ID of the cortical area.
             window: Time window for activity data (in bursts).
             
         Returns:
@@ -522,16 +522,16 @@ class CoreAPIService:
             return None
         
         try:
-            area_id_int = int(area_id)
+            cortical_id_int = int(cortical_id)
         except ValueError:
             return None
         
         try:
-            if area_id_int not in self._connectome_manager.cortical_areas:
+            if cortical_id_int not in self._connectome_manager.cortical_areas:
                 return None
             
             # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
+            neuron_ids = self._connectome_manager.get_neurons_by_cortical_area(cortical_id_int)
             
             # Current timestep
             current_time = self._connectome_manager.current_timestep
@@ -567,15 +567,15 @@ class CoreAPIService:
                 "active_details": active_neurons[:100]  # Limit to prevent huge responses
             }
         except Exception as e:
-            self.logger.error(f"Error retrieving activity for cortical area {area_id}: {str(e)}")
+            self.logger.error(f"Error retrieving activity for cortical area {cortical_id}: {str(e)}")
             return None
     
-    def get_cortical_area_connectivity(self, area_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
+    def get_cortical_area_connectivity(self, cortical_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
         """
         Get connectivity information for a specific cortical area.
         
         Args:
-            area_id: ID of the cortical area.
+            cortical_id: ID of the cortical area.
             direction: Connection direction ('incoming', 'outgoing', or 'both').
             
         Returns:
@@ -588,16 +588,16 @@ class CoreAPIService:
             return None
         
         try:
-            area_id_int = int(area_id)
+            cortical_id_int = int(cortical_id)
         except ValueError:
             return None
         
         try:
-            if area_id_int not in self._connectome_manager.cortical_areas:
+            if cortical_id_int not in self._connectome_manager.cortical_areas:
                 return None
             
             # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
+            neuron_ids = self._connectome_manager.get_neurons_by_cortical_area(cortical_id_int)
             
             # Collect connectivity information
             incoming_connections = set()
@@ -609,7 +609,7 @@ class CoreAPIService:
                     for pre_id, _ in connections:
                         # Skip connections within the same area
                         pre_area = self._connectome_manager._neuron_to_area.get(pre_id)
-                        if pre_area is not None and pre_area != area_id_int:
+                        if pre_area is not None and pre_area != cortical_id_int:
                             incoming_connections.add(pre_area)
             
             if direction in ["outgoing", "both"]:
@@ -618,12 +618,12 @@ class CoreAPIService:
                     for post_id, _ in connections:
                         # Skip connections within the same area
                         post_area = self._connectome_manager._neuron_to_area.get(post_id)
-                        if post_area is not None and post_area != area_id_int:
+                        if post_area is not None and post_area != cortical_id_int:
                             outgoing_connections.add(post_area)
             
             # Format results
             result = {
-                "area_id": str(area_id_int),
+                "area_id": str(cortical_id_int),
                 "direction": direction
             }
             
@@ -647,15 +647,15 @@ class CoreAPIService:
             
             return result
         except Exception as e:
-            self.logger.error(f"Error retrieving connectivity for cortical area {area_id}: {str(e)}")
+            self.logger.error(f"Error retrieving connectivity for cortical area {cortical_id}: {str(e)}")
             return None
     
-    def stimulate_cortical_area(self, area_id: str, pattern: Dict[str, Any]) -> bool:
+    def stimulate_cortical_area(self, cortical_id: str, pattern: Dict[str, Any]) -> bool:
         """
         Stimulate a cortical area with a specific pattern.
         
         Args:
-            area_id: ID of the cortical area.
+            cortical_id: ID of the cortical area.
             pattern: Stimulation pattern.
             
         Returns:
@@ -1285,6 +1285,9 @@ class CoreAPIService:
             self.logger.error(f"Error deleting brain region: {str(e)}")
             return False
             
+            # Already handled in the try block above
+            pass
+    
     def delete_brain_region_with_members(self, region_id: str) -> bool:
         """
         Delete a brain region and all its members.
@@ -2193,16 +2196,16 @@ class CoreAPIService:
             for neuron_id, potential in neuron_potentials.items():
                 # Get area for this neuron
                 try:
-                    area_id = self._connectome_manager.get_area_for_neuron(neuron_id)
-                    if area_id not in area_neuron_map:
-                        area_neuron_map[area_id] = {}
-                    area_neuron_map[area_id][neuron_id] = potential
+                    cortical_id = self._connectome_manager.get_cortical_area_for_neuron(neuron_id)
+                    if cortical_id not in area_neuron_map:
+                        area_neuron_map[cortical_id] = {}
+                    area_neuron_map[cortical_id][neuron_id] = potential
                 except KeyError:
                     self.logger.warning(f"Neuron {neuron_id} not found in any area, skipping")
                     continue
             
             # Apply updates
-            for area_id, area_neurons in area_neuron_map.items():
+            for cortical_id, area_neurons in area_neuron_map.items():
                 for neuron_id, potential in area_neurons.items():
                     neuron = self._connectome_manager.neurons.get(neuron_id)
                     if neuron:
@@ -2213,13 +2216,13 @@ class CoreAPIService:
             self.logger.error(f"Error updating membrane potentials: {str(e)}")
             return False
     
-    def batch_create_neurons(self, area_id: str, positions: List[Tuple[int, int, int]], 
+    def batch_create_neurons(self, cortical_id: str, positions: List[Tuple[int, int, int]], 
                           properties: Optional[Dict[str, Any]] = None) -> List[int]:
         """
         Create multiple neurons in a batch operation.
         
         Args:
-            area_id: ID of the cortical area
+            cortical_id: ID of the cortical area
             positions: List of (x, y, z) positions for the neurons
             properties: Shared properties for all neurons
             
@@ -2228,8 +2231,8 @@ class CoreAPIService:
         """
         try:
             # Validate the cortical area exists
-            if not self._connectome_manager.cortical_areas.get(area_id):
-                self.logger.error(f"Cortical area {area_id} not found")
+            if not self._connectome_manager.cortical_areas.get(cortical_id):
+                self.logger.error(f"Cortical area {cortical_id} not found")
                 return []
                 
             # Default properties if not provided
@@ -2246,7 +2249,7 @@ class CoreAPIService:
             for position in positions:
                 try:
                     neuron_id = self._connectome_manager.create_neuron(
-                        area_id=area_id,
+                        cortical_id=cortical_id,
                         position=position,
                         **properties
                     )
