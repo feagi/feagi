@@ -276,7 +276,7 @@ class FCLSampler:
         self.output_queue = output_queue
         self.connectome_manager = connectome_manager  # Needed for per-area properties
         self.running = False
-        self._last_sample_time_per_area = {}  # area_id -> last sample time
+        self._last_sample_time_per_area = {}  # cortical_id -> last sample time
         self._max_retries = 3  # Maximum number of retries for transient errors
         self._retry_delay = 0.01  # Delay between retries in seconds
 
@@ -294,35 +294,35 @@ class FCLSampler:
             # If connectome_manager is provided, support per-area sample rates
             if self.connectome_manager is not None:
                 for area in self.connectome_manager._areas.values():
-                    area_id = area.id
+                    cortical_id = area.id
                     # Get per-area sample rate if set, else use global
                     rate = area.properties.get('fcl_sample_rate', self.sample_frequency)
                     interval = 1.0 / rate if rate > 0 else self.sample_interval
-                    last_time = self._last_sample_time_per_area.get(area_id, 0)
+                    last_time = self._last_sample_time_per_area.get(cortical_id, 0)
                     if now - last_time >= interval:
                         # Sample this area's FCL with retry mechanism
                         retry_count = 0
                         while retry_count < self._max_retries:
                             try:
-                                area_fcl = self.fcl_manager.get_area_fcl(area_id)
-                                # Put (area_id, area_fcl) in the output queue (non-blocking, drop if full)
+                                area_fcl = self.fcl_manager.get_area_fcl(cortical_id)
+                                # Put (cortical_id, area_fcl) in the output queue (non-blocking, drop if full)
                                 try:
-                                    self.output_queue.put_nowait((area_id, area_fcl))
+                                    self.output_queue.put_nowait((cortical_id, area_fcl))
                                     break  # Success, exit retry loop
                                 except Exception as e:
                                     # Queue is likely full, log and continue
                                     if retry_count == self._max_retries - 1:  # Only log on last retry
-                                        logger.warning(f"Output queue full, skipping FCL sample for area {area_id}")
+                                        logger.warning(f"Output queue full, skipping FCL sample for area {cortical_id}")
                             except Exception as e:
                                 # Log error but continue with other areas
                                 if retry_count == self._max_retries - 1:  # Only log on last retry
-                                    logger.error(f"FCLSampler error (area {area_id}): {e}")
+                                    logger.error(f"FCLSampler error (area {cortical_id}): {e}")
                                 # Wait before retrying
                                 time.sleep(self._retry_delay)
                             retry_count += 1
                         
                         # Update last sample time even if sampling failed
-                        self._last_sample_time_per_area[area_id] = now
+                        self._last_sample_time_per_area[cortical_id] = now
             else:
                 # Global sampling (legacy behavior)
                 retry_count = 0
@@ -354,18 +354,18 @@ class FCLSampler:
         """Stop the FCL sampler."""
         self.running = False
 
-    def update_area_sample_rate(self, area_id: int, rate: float) -> None:
+    def update_area_sample_rate(self, cortical_id: int, rate: float) -> None:
         """
         Update the sample rate for a specific area at runtime (live reconfiguration).
         This updates the last sample time and ensures the new rate is used immediately.
         
         Args:
-            area_id: ID of the cortical area to update
+            cortical_id: ID of the cortical area to update
             rate: New sample rate in Hz
         """
         if self.connectome_manager is not None:
-            area = self.connectome_manager._areas.get(area_id)
+            area = self.connectome_manager._areas.get(cortical_id)
             if area is not None:
                 area.properties['fcl_sample_rate'] = rate
                 # Optionally reset last sample time to force immediate sample
-                self._last_sample_time_per_area[area_id] = 0 
+                self._last_sample_time_per_area[cortical_id] = 0 

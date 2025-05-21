@@ -52,7 +52,7 @@ def test_neurons(connectome, test_area):
     # Create 5 neurons with different positions
     for i in range(5):
         neuron_id = connectome.create_neuron(
-            area_id=cortical_id,
+            cortical_id=cortical_id,
             position=(i, 0, 0),
             threshold=1.0,
             refractory_period=5,
@@ -71,7 +71,7 @@ def test_create_neuron(connectome, test_area):
     
     # Create a neuron
     neuron_id = connectome.create_neuron(
-        area_id=cortical_id,
+        cortical_id=cortical_id,
         position=(2, 2, 1),
         threshold=1.0,
         refractory_period=5,
@@ -91,7 +91,7 @@ def test_create_neuron(connectome, test_area):
     assert position == (2, 2, 1)
     
     # Verify area assignment
-    neurons_in_area = connectome.get_neurons_by_area(cortical_id)
+    neurons_in_area = connectome.get_neurons_by_cortical_area(cortical_id)
     assert neuron_id in neurons_in_area
 
 
@@ -105,7 +105,7 @@ def test_create_multiple_neurons(connectome, test_area):
     for x in range(3):
         for y in range(3):
             neuron_id = connectome.create_neuron(
-                area_id=cortical_id,
+                cortical_id=cortical_id,
                 position=(x, y, 0)
             )
             neuron_ids.append(neuron_id)
@@ -114,7 +114,7 @@ def test_create_multiple_neurons(connectome, test_area):
     assert connectome.get_neuron_count() == 9
     
     # Verify all neurons are in the area
-    neurons_in_area = connectome.get_neurons_by_area(cortical_id)
+    neurons_in_area = connectome.get_neurons_by_cortical_area(cortical_id)
     assert len(neurons_in_area) == 9
     
     # Delete a neuron
@@ -131,12 +131,12 @@ def test_create_synapses(connectome, test_area):
     
     # Create two neurons
     pre_id = connectome.create_neuron(
-        area_id=cortical_id,
+        cortical_id=cortical_id,
         position=(0, 0, 0)
     )
     
     post_id = connectome.create_neuron(
-        area_id=cortical_id,
+        cortical_id=cortical_id,
         position=(1, 0, 0)
     )
     
@@ -175,13 +175,13 @@ def test_membrane_potential_update(connectome, test_area):
     
     # Create two neurons
     pre_id = connectome.create_neuron(
-        area_id=cortical_id,
+        cortical_id=cortical_id,
         position=(0, 0, 0),
         threshold=1.0
     )
     
     post_id = connectome.create_neuron(
-        area_id=cortical_id,
+        cortical_id=cortical_id,
         position=(1, 0, 0),
         threshold=0.5  # Lower threshold to ensure firing
     )
@@ -227,7 +227,7 @@ def test_neuron_queries(connectome, test_area):
     
     for i, threshold in enumerate(thresholds):
         neuron_id = connectome.create_neuron(
-            area_id=cortical_id,
+            cortical_id=cortical_id,
             position=(i, 0, 0),
             threshold=threshold
         )
@@ -261,7 +261,7 @@ def test_get_set_neuron_property(connectome, test_area):
     
     # Create a neuron
     neuron_id = connectome.create_neuron(
-        area_id=cortical_id,
+        cortical_id=cortical_id,
         position=(0, 0, 0),
         threshold=1.0,
         decay_rate=0.5
@@ -292,7 +292,7 @@ def test_neuron_idx_auto_assignment(connectome, test_area):
     neuron_ids = []
     for i in range(3):
         neuron_id = connectome.create_neuron(
-            area_id=cortical_id,
+            cortical_id=cortical_id,
             position=(i, 0, 0)
         )
         neuron_ids.append(neuron_id)
@@ -304,7 +304,7 @@ def test_neuron_idx_auto_assignment(connectome, test_area):
     # Delete a neuron and create a new one
     connectome.delete_neuron(neuron_ids[1])
     new_neuron_id = connectome.create_neuron(
-        area_id=cortical_id,
+        cortical_id=cortical_id,
         position=(3, 0, 0)
     )
     
@@ -321,7 +321,7 @@ def test_check_neuron_index_uniqueness(connectome, test_area):
     # Create several neurons
     for i in range(5):
         connectome.create_neuron(
-            area_id=cortical_id,
+            cortical_id=cortical_id,
             position=(i, 0, 0)
         )
     
@@ -339,7 +339,7 @@ def test_check_neuron_index_uniqueness(connectome, test_area):
     # Create neurons in second area
     for i in range(3):
         connectome.create_neuron(
-            area_id=second_area_id,
+            cortical_id=second_area_id,
             position=(i, 0, 0)
         )
     
@@ -361,7 +361,7 @@ def test_create_neuron_out_of_bounds(connectome, test_area):
     # Try to create a neuron outside the area bounds
     with pytest.raises(ValueError, match=r".*outside the bounds.*"):
         connectome.create_neuron(
-            area_id=cortical_id,
+            cortical_id=cortical_id,
             position=(width, height, depth)  # All coordinates are out of bounds
         )
 
@@ -408,7 +408,7 @@ def test_extreme_dimension_area_block_lookup(connectome, test_area):
     neuron_ids = []
     for z in range(0, 100, 10):  # Create 10 neurons
         neuron_id = connectome.create_neuron(
-            area_id=extreme_area_id,
+            cortical_id=extreme_area_id,
             position=(0, 0, z)
         )
         neuron_ids.append(neuron_id)

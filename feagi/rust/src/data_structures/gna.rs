@@ -32,7 +32,7 @@ pub struct GlobalNeuronArray {
     pub enabled_flags: Vec<u8>,
     
     /// Cortical area ID for each neuron
-    pub cortical_area_ids: Vec<u32>,
+    pub cortical_ids: Vec<u32>,
     
     /// 3D coordinates of neurons (x,y,z packed into sequential memory)
     pub coordinates_x: Vec<u32>,
@@ -80,7 +80,7 @@ impl GlobalNeuronArray {
             refractory_counters: vec![0; aligned_capacity],
             neuron_types: vec![0; aligned_capacity],
             enabled_flags: vec![1; aligned_capacity], // Default to enabled
-            cortical_area_ids: vec![0; aligned_capacity],
+            cortical_ids: vec![0; aligned_capacity],
             coordinates_x: vec![0; aligned_capacity],
             coordinates_y: vec![0; aligned_capacity],
             coordinates_z: vec![0; aligned_capacity],

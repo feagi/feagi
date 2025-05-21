@@ -37,13 +37,13 @@ def connectome(small_config):
 @pytest.fixture
 def test_area(connectome):
     """Create a small test cortical area."""
-    area_id = connectome.add_cortical_area(
+    cortical_id = connectome.add_cortical_area(
         name="Test Area",
         area_type="interconnect",
         dimensions=(5, 5, 2),  # Small dimensions for testing
         position=(0, 0, 0)
     )
-    return area_id
+    return cortical_id
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def test_neurons(connectome, test_area):
     # Create 5 neurons with different positions
     for i in range(5):
         neuron_id = connectome.create_neuron(
-            area_id=test_area,
+            cortical_id=test_area,
             position=(i, 0, 0),
             threshold=1.0,
             refractory_period=5,
@@ -71,7 +71,7 @@ def test_create_neuron(connectome, test_area):
     """Test neuron creation and retrieval."""
     # Create a neuron
     neuron_id = connectome.create_neuron(
-        area_id=test_area,
+        cortical_id=test_area,
         position=(2, 2, 1),
         threshold=1.0,
         refractory_period=5,
@@ -91,7 +91,7 @@ def test_create_neuron(connectome, test_area):
     assert position == (2, 2, 1)
     
     # Verify area assignment
-    neurons_in_area = connectome.get_neurons_by_area(test_area)
+    neurons_in_area = connectome.get_neurons_by_cortical_area(test_area)
     assert neuron_id in neurons_in_area
 
 
@@ -103,7 +103,7 @@ def test_create_multiple_neurons(connectome, test_area):
     for x in range(3):
         for y in range(3):
             neuron_id = connectome.create_neuron(
-                area_id=test_area,
+                cortical_id=test_area,
                 position=(x, y, 0)
             )
             neuron_ids.append(neuron_id)
@@ -112,7 +112,7 @@ def test_create_multiple_neurons(connectome, test_area):
     assert connectome.get_neuron_count() == 9
     
     # Verify all neurons are in the area
-    neurons_in_area = connectome.get_neurons_by_area(test_area)
+    neurons_in_area = connectome.get_neurons_by_cortical_area(test_area)
     assert len(neurons_in_area) == 9
     
     # Delete a neuron
@@ -127,12 +127,12 @@ def test_create_synapses(connectome, test_area):
     """Test synapse creation and retrieval."""
     # Create two neurons
     pre_id = connectome.create_neuron(
-        area_id=test_area,
+        cortical_id=test_area,
         position=(0, 0, 0)
     )
 
     post_id = connectome.create_neuron(
-        area_id=test_area,
+        cortical_id=test_area,
         position=(1, 0, 0)
     )
 
@@ -191,7 +191,7 @@ def test_batch_create_synapses(connectome, test_area):
     neuron_ids = []
     for i in range(5):
         neuron_id = connectome.create_neuron(
-            area_id=test_area,
+            cortical_id=test_area,
             position=(i, 0, 0)
         )
         neuron_ids.append(neuron_id)
@@ -221,12 +221,12 @@ def test_update_synapse_weight(connectome, test_area):
     """Test updating synapse weights."""
     # Create two neurons
     pre_id = connectome.create_neuron(
-        area_id=test_area,
+        cortical_id=test_area,
         position=(0, 0, 0)
     )
     
     post_id = connectome.create_neuron(
-        area_id=test_area,
+        cortical_id=test_area,
         position=(1, 0, 0)
     )
     
@@ -253,14 +253,14 @@ def test_membrane_potential_update(connectome, test_area):
     """Test updating membrane potentials."""
     # Create two neurons
     pre_id = connectome.create_neuron(
-        area_id=test_area,
+        cortical_id=test_area,
         position=(0, 0, 0),
         threshold=1.0,
         membrane_potential=1.5  # Set above threshold to ensure firing
     )
 
     post_id = connectome.create_neuron(
-        area_id=test_area,
+        cortical_id=test_area,
         position=(1, 0, 0),
         threshold=0.5  # Lower threshold to ensure firing from incoming spike
     )
@@ -295,7 +295,7 @@ def test_delete_neuron_with_synapses(connectome, test_area):
     neuron_ids = []
     for i in range(3):
         neuron_id = connectome.create_neuron(
-            area_id=test_area,
+            cortical_id=test_area,
             position=(i, 0, 0)
         )
         neuron_ids.append(neuron_id)

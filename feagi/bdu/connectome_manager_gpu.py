@@ -36,7 +36,7 @@ class NeuronPropertyType(Enum):
     THRESHOLD = "threshold"
     REFRACTORY_PERIOD = "refractory_period"
     DECAY_RATE = "decay_rate"
-    AREA_ID = "area_id"
+    CORTICAL_ID = "cortical_id"
     POSITION = "position"
     FIRING = "firing"
     REFRACTORY_COUNTER = "refractory_counter"

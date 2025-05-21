@@ -537,12 +537,12 @@ class ProcessManager:
         """Handle termination signals."""
         self.shutdown()
         
-    def update_area_sample_rate(self, area_id, rate):
+    def update_area_sample_rate(self, cortical_id, rate):
         """
         Notify the running FCLSampler of a per-area sample rate change.
         """
         if self._fcl_sampler is not None:
-            self._fcl_sampler.update_area_sample_rate(area_id, rate)
+            self._fcl_sampler.update_area_sample_rate(cortical_id, rate)
         # If FCLSampler is not running, do nothing
 
 # Global instance for the process manager
