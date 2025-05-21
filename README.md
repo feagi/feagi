@@ -1,6 +1,6 @@
-# FEAGI - Flexible & Extensible Artificial General Intelligence
+# FEAGI - Framework for Evolutionary Artificial General Intelligence
 
-FEAGI (Flexible & Extensible Artificial General Intelligence) is a brain-inspired cognitive architecture and framework.
+FEAGI (Framework for Evolutionary Artificial General Intelligence) is a brain-inspired cognitive architecture and framework.
 
 ## Architecture Overview
 

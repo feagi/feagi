@@ -2558,3 +2558,22 @@ class ConnectomeManager:
         logger.info("Successfully converted ConnectomeManager to GPU-optimized implementation")
         
         return gpu_manager
+    
+    # Alias for backward compatibility    
+    def get_area_for_neuron(self, neuron_id: int) -> str:
+        """Alias for get_cortical_area_for_neuron for backward compatibility.
+        
+        Args:
+            neuron_id: ID of the neuron
+            
+        Returns:
+            Cortical area ID
+        """
+        import warnings
+        warnings.warn(
+            "get_area_for_neuron is deprecated and will be removed in a future version. "
+            "Use get_cortical_area_for_neuron instead.", 
+            DeprecationWarning, 
+            stacklevel=2
+        )
+        return self.get_cortical_area_for_neuron(neuron_id)
