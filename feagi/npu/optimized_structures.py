@@ -18,16 +18,23 @@ from typing import Dict, List, Optional, Set, Tuple, Union, Any
 
 # Try to import the Rust extension
 try:
-    from feagi_rust import (
-        create_gna, 
-        create_fcl, 
-        create_connectome, 
-        create_feagi_core,
-    )
-    RUST_AVAILABLE = True
-except ImportError:
+    # Try to import the Rust extension
+    try:
+        from feagi_rust import (
+            create_gna, 
+            create_fcl, 
+            create_connectome, 
+            create_feagi_core,
+        )
+        RUST_AVAILABLE = True
+    except (ImportError, AttributeError) as e:
+        # Log the specific error to help with debugging
+        logging.warning(f"Rust optimized structures not available (Error: {str(e)}). Using NumPy-based SIMD fallback.")
+        RUST_AVAILABLE = False
+except Exception as e:
+    # Catch any other errors during import
+    logging.warning(f"Error importing Rust components: {str(e)}. Using NumPy-based SIMD fallback.")
     RUST_AVAILABLE = False
-    logging.warning("Rust optimized structures not available. Using NumPy-based SIMD fallback.")
 
 class GlobalNeuronArray:
     """
@@ -63,7 +70,7 @@ class GlobalNeuronArray:
             self.last_fired = np.zeros(capacity, dtype=np.int32, order='C')
             self.neuron_types = np.zeros(capacity, dtype=np.int32, order='C')  # 0=excitatory, 1=inhibitory, etc.
             self.enabled_flags = np.ones(capacity, dtype=np.int32, order='C')  # 1=enabled, 0=disabled
-            self.cortical_area_ids = np.zeros(capacity, dtype=np.int32, order='C')
+            self.cortical_ids = np.zeros(capacity, dtype=np.int32, order='C')
             
             # Use separate arrays for coordinates - optimal SoA layout for SIMD/GPU processing
             # Each coordinate component gets its own contiguous memory array
@@ -172,6 +179,8 @@ class GlobalNeuronArray:
             return self._rust_gna.get_all_membrane_potentials()
         else:
             return self.membrane_potentials.tolist()
+            
+
 
 class FireCandidateList:
     """
@@ -478,6 +487,8 @@ class Connectome:
             return self._rust_connectome.connection_count()
         else:
             return self._connection_count
+    
+
     
     def propagate_activations(
         self, source_activations: List[float], target_buffer: List[float]

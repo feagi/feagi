@@ -90,14 +90,16 @@ class MockRustFCL:
 
 
 class MockRustConnectome:
-    """Mock implementation of the Rust Connectome for testing."""
+    """Mock version of the Rust Connectome implementation for testing."""
     
     def __init__(self, neuron_count, estimated_connections):
-        self.connections = {}  # source_id -> list of target connections
-        self.connection_count = 0
+        """Initialize the mock Connectome."""
+        self.neuron_count = neuron_count
+        self.connections = {}  # source_id -> list of connections
     
     def add_connection(self, source_id, target_id, weight, delay=0, 
-                      connection_type=0, source_area_id=0, target_area_id=0):
+                      connection_type=0, source_cortical_id=0, target_cortical_id=0):
+        """Add a connection between neurons."""
         if source_id not in self.connections:
             self.connections[source_id] = []
         
@@ -106,16 +108,17 @@ class MockRustConnectome:
             "weight": weight,
             "delay": delay,
             "type": connection_type,
-            "source_area_id": source_area_id,
-            "target_area_id": target_area_id
+            "source_cortical_id": source_cortical_id,
+            "target_cortical_id": target_cortical_id
         })
-        self.connection_count += 1
+        
+        return True
     
     def get_connections_for_neuron(self, neuron_id):
         return self.connections.get(neuron_id, [])
     
     def count(self):
-        return self.connection_count
+        return len(self.connections)
     
     def propagate_activations(self, source_activations, target_buffer):
         return target_buffer  # Simplified mock implementation
@@ -179,8 +182,8 @@ class TestConnectome:
         assert numpy_connectome.weights.size > 0             # Initial capacity
         assert numpy_connectome.delays.size > 0              # Initial capacity
         assert numpy_connectome.connection_types.size > 0    # Initial capacity
-        assert numpy_connectome.source_area_ids.size > 0     # Initial capacity
-        assert numpy_connectome.target_area_ids.size > 0     # Initial capacity
+        assert numpy_connectome.source_cortical_ids.size > 0 # Initial capacity
+        assert numpy_connectome.target_cortical_ids.size > 0 # Initial capacity
         assert numpy_connectome._connection_count == 0       # No connections yet
     
     def test_initialization_rust(self, rust_connectome):
@@ -199,8 +202,8 @@ class TestConnectome:
         assert numpy_connectome.target_indices[idx] == 2
         assert numpy_connectome.weights[idx] == 0.5
         assert numpy_connectome.connection_types[idx] == 1
-        assert numpy_connectome.source_area_ids[idx] == 10
-        assert numpy_connectome.target_area_ids[idx] == 20
+        assert numpy_connectome.source_cortical_ids[idx] == 10
+        assert numpy_connectome.target_cortical_ids[idx] == 20
         assert numpy_connectome._connection_count == 1
     
     def test_add_connection_rust(self, rust_connectome):
@@ -214,8 +217,8 @@ class TestConnectome:
         assert connections[0]["target_id"] == 2
         assert connections[0]["weight"] == 0.5
         assert connections[0]["type"] == 1
-        assert connections[0]["source_area_id"] == 10
-        assert connections[0]["target_area_id"] == 20
+        assert connections[0]["source_cortical_id"] == 10
+        assert connections[0]["target_cortical_id"] == 20
     
     def test_resize_arrays_numpy(self, numpy_connectome):
         """Test resizing arrays using NumPy implementation."""

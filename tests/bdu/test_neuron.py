@@ -4,6 +4,7 @@ Test module for Neuron and NeuronArray classes.
 
 import pytest
 import numpy as np
+import torch
 from feagi.bdu.models.neuron import Neuron, NeuronArray
 
 @pytest.fixture
@@ -17,9 +18,9 @@ def populated_neuron_array():
     na = NeuronArray(max_neurons=100)
     
     # Create test neurons
-    na.create_neuron(area_id=1, position=(0, 0, 0), threshold=1.0)
-    na.create_neuron(area_id=1, position=(1, 0, 0), threshold=0.8)
-    na.create_neuron(area_id=2, position=(0, 0, 0), threshold=1.2)
+    na.create_neuron(cortical_id=1, position=(0, 0, 0), threshold=1.0)
+    na.create_neuron(cortical_id=1, position=(1, 0, 0), threshold=0.8)
+    na.create_neuron(cortical_id=2, position=(0, 0, 0), threshold=1.2)
     
     return na
 
@@ -32,10 +33,15 @@ def test_neuron_array_init():
     assert len(na.thresholds) == 1000
     assert len(na.valid_mask) == 1000
     
-    # Check default values
-    assert np.all(na.membrane_potentials == 0.0)
-    assert np.all(na.thresholds == 1.0)
-    assert np.all(na.valid_mask == False)
+    # Check default values - convert PyTorch tensors to numpy if needed
+    if isinstance(na.membrane_potentials, torch.Tensor):
+        assert torch.all(na.membrane_potentials == 0.0).item()
+        assert torch.all(na.thresholds == 1.0).item()
+        assert torch.all(na.valid_mask == False).item()
+    else:
+        assert np.all(na.membrane_potentials == 0.0)
+        assert np.all(na.thresholds == 1.0)
+        assert np.all(na.valid_mask == False)
 
 def test_create_neuron(neuron_array):
     """Test neuron creation in NeuronArray."""
@@ -43,7 +49,7 @@ def test_create_neuron(neuron_array):
     
     # Create a neuron
     neuron_id = na.create_neuron(
-        area_id=1, 
+        cortical_id=1, 
         position=(1, 2, 3),
         threshold=0.7,
         membrane_potential=0.2,
@@ -55,7 +61,7 @@ def test_create_neuron(neuron_array):
     assert na.valid_mask[0] == True
     
     # Check if properties were set correctly
-    assert na.area_ids[0] == 1
+    assert na.cortical_ids[0] == 1
     assert na.positions_x[0] == 1
     assert na.positions_y[0] == 2
     assert na.positions_z[0] == 3
@@ -68,7 +74,7 @@ def test_get_neuron_property(populated_neuron_array):
     na = populated_neuron_array
     
     # Check properties for a specific neuron
-    assert na.get_neuron_property(0, "area_id") == 1
+    assert na.get_neuron_property(0, "cortical_id") == 1
     assert na.get_neuron_property(0, "position") == (0, 0, 0)
     assert na.get_neuron_property(0, "threshold") == 1.0
     
@@ -112,7 +118,10 @@ def test_delete_neuron(populated_neuron_array):
     na = populated_neuron_array
     
     # Check initial count
-    assert np.sum(na.valid_mask) == 3
+    if isinstance(na.valid_mask, torch.Tensor):
+        assert torch.sum(na.valid_mask).item() == 3
+    else:
+        assert np.sum(na.valid_mask) == 3
     
     # Delete a neuron
     result = na.delete_neuron(0)
@@ -121,7 +130,10 @@ def test_delete_neuron(populated_neuron_array):
     assert result == True
     
     # Check if neuron was deleted
-    assert np.sum(na.valid_mask) == 2
+    if isinstance(na.valid_mask, torch.Tensor):
+        assert torch.sum(na.valid_mask).item() == 2
+    else:
+        assert np.sum(na.valid_mask) == 2
     
     # Check if neuron properties are reset
     with pytest.raises(KeyError):
@@ -131,23 +143,23 @@ def test_delete_neuron(populated_neuron_array):
     result = na.delete_neuron(0)
     assert result == False  # Should return False for non-existent neuron
 
-def test_get_neurons_by_area(populated_neuron_array):
-    """Test getting neurons by area."""
+def test_get_neurons_by_cortical_area(populated_neuron_array):
+    """Test getting neurons by cortical area."""
     na = populated_neuron_array
     
-    # Get neurons in area 1
-    area1_neurons = na.get_neurons_by_area(1)
+    # Get neurons in cortical area 1
+    area1_neurons = na.get_neurons_by_cortical_area(1)
     assert len(area1_neurons) == 2
     assert 0 in area1_neurons
     assert 1 in area1_neurons
     
-    # Get neurons in area 2
-    area2_neurons = na.get_neurons_by_area(2)
+    # Get neurons in cortical area 2
+    area2_neurons = na.get_neurons_by_cortical_area(2)
     assert len(area2_neurons) == 1
     assert 2 in area2_neurons
     
-    # Get neurons in non-existent area
-    area3_neurons = na.get_neurons_by_area(3)
+    # Get neurons in non-existent cortical area
+    area3_neurons = na.get_neurons_by_cortical_area(3)
     assert len(area3_neurons) == 0
 
 def test_get_neuron_count(populated_neuron_array):
@@ -168,7 +180,7 @@ def test_neuron_wrapper_class():
     # Create a Neuron object
     neuron = Neuron(
         neuron_id=42,
-        area_id="test_area",
+        cortical_id="test_area",
         position=(1, 2, 3),
         threshold=0.5,
         membrane_potential=0.2,
@@ -177,7 +189,7 @@ def test_neuron_wrapper_class():
     
     # Check properties
     assert neuron.id == 42
-    assert neuron.area_id == "test_area"
+    assert neuron.cortical_id == "test_area"
     assert neuron.position == (1, 2, 3)
     assert neuron.threshold == 0.5
     assert neuron.membrane_potential == 0.2
@@ -186,13 +198,13 @@ def test_neuron_wrapper_class():
     # Test to_dict method
     neuron_dict = neuron.to_dict()
     assert neuron_dict["id"] == 42
-    assert neuron_dict["area_id"] == "test_area"
+    assert neuron_dict["cortical_id"] == "test_area"
     assert neuron_dict["position"] == (1, 2, 3)
     
     # Test from_dict method
     recreated_neuron = Neuron.from_dict(neuron_dict)
     assert recreated_neuron.id == 42
-    assert recreated_neuron.area_id == "test_area"
+    assert recreated_neuron.cortical_id == "test_area"
     assert recreated_neuron.position == (1, 2, 3)
 
 def test_gpu_transfer():
@@ -201,11 +213,10 @@ def test_gpu_transfer():
     
     # Create some test neurons
     for i in range(3):
-        na.create_neuron(area_id=1, position=(i, 0, 0))
+        na.create_neuron(cortical_id=1, position=(i, 0, 0))
     
     # Skip test if torch.cuda is not available
     try:
-        import torch
         if not torch.cuda.is_available():
             pytest.skip("CUDA not available, skipping GPU transfer test")
     except ImportError:
