@@ -51,7 +51,9 @@ class VisualizationStream:
         structure_port: int = 5560,
         activity_port: int = 5561,
         control_port: int = 5562,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
+        fcl_sampler: Optional[Any] = None,
+        fcl_sampler_queue: Optional[Any] = None
     ):
         """
         Initialize a new Visualization Stream.
@@ -63,6 +65,8 @@ class VisualizationStream:
             activity_port: Port for activity data
             control_port: Port for client control messages
             context: Optional existing ZMQ context to use
+            fcl_sampler: Optional FCL sampler instance for visualization data
+            fcl_sampler_queue: Optional queue for FCL data from the sampler
         """
         self.core_api = core_api
         self.host = host
@@ -96,6 +100,10 @@ class VisualizationStream:
         
         # Periodic task references
         self.periodic_tasks = {}
+        
+        # FCL Sampler integration
+        self.fcl_sampler = fcl_sampler
+        self.fcl_sampler_queue = fcl_sampler_queue
         
         # Register for genome state change notifications
         if hasattr(core_api, 'register_genome_change_listener'):
@@ -374,6 +382,10 @@ class VisualizationStream:
         self.clients[client_id] = settings
         logger.info(f"Registered new visualization client: {client_id}")
         
+        # Update FCL sampler if provided
+        if self.fcl_sampler:
+            self.fcl_sampler.set_visualization_subscribers(len(self.clients) > 0)
+        
         # Send current state information
         await self.control_socket.send_multipart([
             client_id.encode(),
@@ -401,6 +413,10 @@ class VisualizationStream:
         if client_id in self.clients:
             del self.clients[client_id]
             logger.info(f"Unregistered visualization client: {client_id}")
+            
+            # Update FCL sampler if provided
+            if self.fcl_sampler:
+                self.fcl_sampler.set_visualization_subscribers(len(self.clients) > 0)
         else:
             logger.warning(f"Attempt to unregister unknown client: {client_id}")
 
@@ -546,7 +562,7 @@ class VisualizationStream:
         """
         summary = {}
         
-        for area_id, area_data in brain_state.items():
+        for cortical_id, area_data in brain_state.items():
             # Count active neurons
             if hasattr(area_data, "nonzero"):
                 # NumPy array
@@ -562,7 +578,7 @@ class VisualizationStream:
                 total_count = 0
             
             # Create area summary
-            summary[area_id] = {
+            summary[cortical_id] = {
                 "active_count": active_count,
                 "total_count": total_count,
                 "activity_ratio": active_count / max(1, total_count)
@@ -586,20 +602,20 @@ class VisualizationStream:
         # Tailor detail based on level
         if detail_level == 1:
             # Level 1: Region-level activity summaries
-            for area_id, area_data in brain_state.items():
+            for cortical_id, area_data in brain_state.items():
                 # Simple downsampling
-                result[area_id] = self._downsample_area(area_data, factor=16)
+                result[cortical_id] = self._downsample_area(area_data, factor=16)
                 
         elif detail_level == 2:
             # Level 2: Medium resolution data
-            for area_id, area_data in brain_state.items():
-                result[area_id] = self._downsample_area(area_data, factor=4)
+            for cortical_id, area_data in brain_state.items():
+                result[cortical_id] = self._downsample_area(area_data, factor=4)
                 
         elif detail_level == 3:
             # Level 3: High resolution data
-            for area_id, area_data in brain_state.items():
+            for cortical_id, area_data in brain_state.items():
                 # No downsampling, but still use delta encoding if possible
-                result[area_id] = self._delta_encode_area(area_id, area_data)
+                result[cortical_id] = self._delta_encode_area(cortical_id, area_data)
         
         return result
 
@@ -622,22 +638,31 @@ class VisualizationStream:
             "data": "downsampled_data_placeholder"
         }
 
-    def _delta_encode_area(self, area_id: str, current_data: Any) -> Dict:
+    def _delta_encode_area(self, cortical_id: str, current_data: Any) -> Dict:
         """
-        Create delta-encoded data based on previous state.
+        Apply delta encoding to an area's data compared to its previous state.
         
         Args:
-            area_id: Area identifier
-            current_data: Current area data
+            cortical_id: Area identifier
+            current_data: Current state data
             
         Returns:
-            Delta-encoded data or full data if no previous state exists
+            Delta-encoded data with only changes from previous state
         """
-        # Simple placeholder for delta encoding
-        return {
-            "delta_encoded": True,
-            "data": "delta_encoded_data_placeholder"
-        }
+        # Get previous data for this area
+        previous_data = self.previous_state.get(cortical_id, {})
+        
+        # Calculate delta
+        delta = {}
+        for neuron_id, current_value in current_data.items():
+            # Only include values that are different from previous state
+            if neuron_id not in previous_data or abs(current_value - previous_data[neuron_id]) > 0.001:
+                delta[neuron_id] = current_value
+        
+        # Update previous state
+        self.previous_state[cortical_id] = current_data.copy()
+        
+        return delta
 
     def _extract_roi_data(self, brain_state: Dict, roi: Dict) -> Dict:
         """
@@ -737,14 +762,17 @@ class VisualizationStream:
         Collect FCL data from FCL manager and send it through the visualization stream.
         
         This method:
-        1. Gets the current FCL data by area
-        2. Gathers neuron positions from the connectome manager
-        3. Formats data for visualization clients
-        4. Sends the prepared data through the stream
+        1. Gets the current FCL data from the FCL sampler queue if available
+        2. Formats data for visualization clients
+        3. Sends the prepared data through the stream
         """
         # Check if we're in active mode
         if not self._active_mode:
             await self.send_status_update({"status": "standby", "message": "No genome loaded"})
+            return
+            
+        # Check if we have clients
+        if not self.clients:
             return
             
         # Get state manager
@@ -757,7 +785,72 @@ class VisualizationStream:
             logger.warning("State manager not available, visualization data unavailable")
             return
         
-        # Get FCL manager - handle missing method case
+        # Try to get data from the FCL sampler queue first
+        if self.fcl_sampler_queue and not self.fcl_sampler_queue.empty():
+            try:
+                # Get data from queue (non-blocking)
+                fcl_data = self.fcl_sampler_queue.get_nowait()
+                
+                # Process based on the format of the data
+                if isinstance(fcl_data, tuple) and len(fcl_data) == 2:
+                    # Per-area data: (cortical_id, area_fcl)
+                    cortical_id, area_fcl = fcl_data
+                    
+                    # Create FCL by area dictionary with this single area
+                    fcl_by_area = {cortical_id: area_fcl}
+                else:
+                    # Global FCL data
+                    fcl_by_area = {}
+                    
+                    # Get connectome manager
+                    connectome_manager = None
+                    if hasattr(state_manager, 'get_connectome'):
+                        connectome_manager = state_manager.get_connectome()
+                    elif hasattr(self.core_api, 'get_connectome_manager'):
+                        connectome_manager = self.core_api.get_connectome_manager()
+                    
+                    if connectome_manager:
+                        # Distribute the global FCL to areas
+                        for cortical_id, area in connectome_manager.cortical_areas.items():
+                            # Check if any neurons in this area are in the FCL
+                            area_neurons = set()
+                            for neuron_id in fcl_data:
+                                try:
+                                    # Use get_area_for_neuron which is the correct method name
+                                    if connectome_manager.get_area_for_neuron(neuron_id) == cortical_id:
+                                        area_neurons.add(neuron_id)
+                                except KeyError:
+                                    # Neuron may not exist, skip it
+                                    continue
+                            
+                            if area_neurons:
+                                fcl_by_area[cortical_id] = area_neurons
+                    else:
+                        # Fallback: Just use the raw FCL data
+                        fcl_by_area = {"global": fcl_data}
+                
+                # Convert FCL data to serializable format
+                serializable_data = {}
+                for cortical_id, neuron_bitmap in fcl_by_area.items():
+                    # Convert to regular list for serialization
+                    serializable_data[cortical_id] = list(neuron_bitmap)
+                
+                # Prepare visualization data
+                activity_data = {
+                    "timestamp": int(time.time() * 1000),
+                    "fcl_by_area": serializable_data
+                }
+                
+                # Send activity data
+                await self.send_activity_update(activity_data)
+                return
+            except Empty:
+                # Queue is empty, continue with direct FCL manager approach
+                pass
+            except Exception as e:
+                logger.exception(f"Error processing FCL queue data: {e}")
+        
+        # Fallback to direct FCL manager approach if queue is empty or unavailable
         fcl_manager = None
         if hasattr(state_manager, 'get_fcl_manager'):
             fcl_manager = state_manager.get_fcl_manager()
@@ -791,9 +884,9 @@ class VisualizationStream:
             
         # Convert FCL data to serializable format
         fcl_data = {}
-        for area_id, neuron_bitmap in fcl_by_area.items():
+        for cortical_id, neuron_bitmap in fcl_by_area.items():
             # Convert to regular list for serialization
-            fcl_data[area_id] = list(neuron_bitmap)
+            fcl_data[cortical_id] = list(neuron_bitmap)
             
         # Prepare visualization data
         activity_data = {
@@ -841,7 +934,7 @@ class VisualizationStream:
         # Get all cortical areas
         try:
             # Add cortical area information
-            for area_id, area in connectome_manager.cortical_areas.items():
+            for cortical_id, area in connectome_manager.cortical_areas.items():
                 area_data = {
                     "name": area.name,
                     "dimensions": area.dimensions,
@@ -849,9 +942,9 @@ class VisualizationStream:
                     "area_type": area.area_type,
                     # We don't send all neurons to avoid huge messages
                     # Clients can request specific neuron data if needed
-                    "neuron_count": len(connectome_manager.get_neurons_by_area(area_id))
+                    "neuron_count": len(connectome_manager.get_neurons_by_area(cortical_id))
                 }
-                structure_data["cortical_areas"][area_id] = area_data
+                structure_data["cortical_areas"][cortical_id] = area_data
                 
             # Add genome information
             structure_data["genome"] = {
