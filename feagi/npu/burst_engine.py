@@ -529,3 +529,332 @@ class FCLSampler:
         if has_subscribers != self._has_motor_subscribers:
             logger.info(f"FCLSampler motor subscribers changed: {has_subscribers}")
             self._has_motor_subscribers = has_subscribers 
+
+class FQSampler:
+    """
+    Fire Queue Sampler for visualization.
+    
+    Samples neuron firing data directly from the fire queue, providing richer
+    information including membrane potentials, thresholds, and coordinates.
+    This replaces FCLSampler which only provided neuron IDs.
+    """
+    
+    def __init__(self, fire_queue_provider: Any, sample_frequency_hz: float, 
+                 output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
+        """
+        Initialize FQ sampler.
+        
+        Args:
+            fire_queue_provider: Object that provides access to fire queue data
+            sample_frequency_hz: Sampling rate in Hz
+            output_queue: Queue to put sampled data into
+            connectome_manager: Optional connectome manager for area-specific sampling
+        """
+        self.fire_queue_provider = fire_queue_provider
+        self.sample_frequency = sample_frequency_hz
+        self.sample_interval = 1.0 / sample_frequency_hz if sample_frequency_hz > 0 else 0.1
+        self.output_queue = output_queue
+        self.connectome_manager = connectome_manager
+        self.running = False
+        
+        # Per-area sampling support
+        self._last_sample_time_per_area = {}
+        
+        # Subscriber tracking
+        self._has_visualization_subscribers = False
+        self._has_motor_subscribers = False
+        
+        # Error handling
+        self._max_retries = 3
+        self._retry_delay = 0.001
+        
+        logger.info(f"FQSampler initialized with {sample_frequency_hz}Hz sampling")
+
+    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
+        """
+        Update whether there are visualization subscribers.
+        
+        Args:
+            has_subscribers: Whether there are visualization subscribers
+        """
+        if has_subscribers != self._has_visualization_subscribers:
+            logger.info(f"FQSampler visualization subscribers changed: {has_subscribers}")
+            self._has_visualization_subscribers = has_subscribers
+
+    def set_motor_subscribers(self, has_subscribers: bool) -> None:
+        """
+        Update whether there are motor subscribers.
+        
+        Args:
+            has_subscribers: Whether there are motor subscribers
+        """
+        if has_subscribers != self._has_motor_subscribers:
+            logger.info(f"FQSampler motor subscribers changed: {has_subscribers}")
+            self._has_motor_subscribers = has_subscribers
+
+    def run(self) -> None:
+        """Main sampling loop."""
+        logger.info("FQSampler started")
+        self.running = True
+        
+        while self.running:
+            start = time.perf_counter()
+            now = time.perf_counter()
+            
+            # Skip sampling if no subscribers
+            if not self._has_visualization_subscribers and not self._has_motor_subscribers:
+                time.sleep(self.sample_interval)
+                continue
+                
+            # Sample fire queue data
+            if self.connectome_manager is not None:
+                # Per-area sampling
+                for area in self.connectome_manager.cortical_areas.values():
+                    cortical_id = area.id
+                    # Get per-area sample rate if set, else use global
+                    rate = area.properties.get('fq_sample_rate', self.sample_frequency)
+                    interval = 1.0 / rate if rate > 0 else self.sample_interval
+                    last_time = self._last_sample_time_per_area.get(cortical_id, 0)
+                    
+                    if now - last_time >= interval:
+                        self._sample_area_fire_queue(cortical_id)
+                        self._last_sample_time_per_area[cortical_id] = now
+            else:
+                # Global sampling
+                self._sample_global_fire_queue()
+                    
+            # Sleep for the remainder of the sample interval
+            elapsed = time.perf_counter() - start
+            if elapsed < self.sample_interval:
+                time.sleep(self.sample_interval - elapsed)
+                
+        logger.info("FQSampler stopped.")
+
+    def _sample_area_fire_queue(self, cortical_id: str) -> None:
+        """Sample fire queue data for a specific cortical area."""
+        retry_count = 0
+        while retry_count < self._max_retries:
+            try:
+                # Get fire queue data for this area
+                area_fire_data = self._get_area_fire_queue_data(cortical_id)
+                
+                if area_fire_data:
+                    # Put (cortical_id, fire_data) in the output queue
+                    try:
+                        self.output_queue.put_nowait((cortical_id, area_fire_data))
+                        break  # Success
+                    except Exception:
+                        # Queue full - drop data (conflating behavior)
+                        break
+                else:
+                    # No fire data for this area
+                    break
+                    
+            except Exception as e:
+                if retry_count == self._max_retries - 1:
+                    logger.error(f"FQSampler error (area {cortical_id}): {e}")
+                time.sleep(self._retry_delay)
+            retry_count += 1
+
+    def _sample_global_fire_queue(self) -> None:
+        """Sample global fire queue data."""
+        retry_count = 0
+        while retry_count < self._max_retries:
+            try:
+                # Get global fire queue data
+                fire_data = self._get_global_fire_queue_data()
+                
+                if fire_data:
+                    try:
+                        self.output_queue.put_nowait(fire_data)
+                        break  # Success
+                    except Exception:
+                        # Queue full - drop data
+                        break
+                else:
+                    break
+                    
+            except Exception as e:
+                if retry_count == self._max_retries - 1:
+                    logger.error(f"FQSampler error: {e}")
+                time.sleep(self._retry_delay)
+            retry_count += 1
+
+    def _get_area_fire_queue_data(self, cortical_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get fire queue data for a specific cortical area.
+        
+        Returns:
+            Dictionary with fire queue data: {
+                'neuron_ids': List[int],
+                'membrane_potentials': List[float], 
+                'thresholds': List[float],
+                'consecutive_fire_counts': List[int],
+                'refractory_counters': List[int],
+                'coordinates': List[Tuple[int, int, int]]  # (x, y, z) positions
+            }
+        """
+        try:
+            # Get fire queue from provider
+            if hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
+                fire_queue = self.fire_queue_provider.get_area_fire_queue(cortical_id)
+            elif hasattr(self.fire_queue_provider, 'get_fire_queue'):
+                # Filter global fire queue for this area
+                global_fire_queue = self.fire_queue_provider.get_fire_queue()
+                fire_queue = self._filter_fire_queue_by_area(global_fire_queue, cortical_id)
+            else:
+                return None
+                
+            if not fire_queue or not fire_queue.get('neuron_ids'):
+                return None
+                
+            # Add coordinate information
+            coordinates = self._get_neuron_coordinates(cortical_id, fire_queue['neuron_ids'])
+            fire_queue['coordinates'] = coordinates
+            
+            return fire_queue
+            
+        except Exception as e:
+            logger.error(f"Error getting area fire queue data for {cortical_id}: {e}")
+            return None
+
+    def _get_global_fire_queue_data(self) -> Optional[Dict[str, Any]]:
+        """Get global fire queue data."""
+        try:
+            if hasattr(self.fire_queue_provider, 'get_fire_queue'):
+                fire_queue = self.fire_queue_provider.get_fire_queue()
+                
+                if not fire_queue or not fire_queue.get('neuron_ids'):
+                    return None
+                    
+                # Add coordinate information
+                coordinates = self._get_global_neuron_coordinates(fire_queue['neuron_ids'])
+                fire_queue['coordinates'] = coordinates
+                
+                return fire_queue
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting global fire queue data: {e}")
+            return None
+
+    def _filter_fire_queue_by_area(self, fire_queue: Dict[str, Any], cortical_id: str) -> Dict[str, Any]:
+        """Filter fire queue data to only include neurons from specified area."""
+        if not fire_queue or not self.connectome_manager:
+            return fire_queue
+            
+        try:
+            area = self.connectome_manager.cortical_areas.get(cortical_id)
+            if not area:
+                return {'neuron_ids': [], 'membrane_potentials': [], 'thresholds': [], 
+                       'consecutive_fire_counts': [], 'refractory_counters': []}
+                
+            # Get neuron ID range for this area
+            area_neuron_ids = set(area.get_neuron_ids()) if hasattr(area, 'get_neuron_ids') else set()
+            
+            # Filter fire queue data
+            filtered_data = {
+                'neuron_ids': [],
+                'membrane_potentials': [],
+                'thresholds': [],
+                'consecutive_fire_counts': [],
+                'refractory_counters': []
+            }
+            
+            for i, neuron_id in enumerate(fire_queue.get('neuron_ids', [])):
+                if neuron_id in area_neuron_ids:
+                    filtered_data['neuron_ids'].append(neuron_id)
+                    filtered_data['membrane_potentials'].append(fire_queue['membrane_potentials'][i])
+                    filtered_data['thresholds'].append(fire_queue['thresholds'][i])
+                    filtered_data['consecutive_fire_counts'].append(fire_queue['consecutive_fire_counts'][i])
+                    filtered_data['refractory_counters'].append(fire_queue['refractory_counters'][i])
+                    
+            return filtered_data
+            
+        except Exception as e:
+            logger.error(f"Error filtering fire queue by area {cortical_id}: {e}")
+            return fire_queue
+
+    def _get_neuron_coordinates(self, cortical_id: str, neuron_ids: List[int]) -> List[tuple]:
+        """Get 3D coordinates for neurons in a specific cortical area."""
+        coordinates = []
+        
+        try:
+            if self.connectome_manager:
+                area = self.connectome_manager.cortical_areas.get(cortical_id)
+                if area:
+                    for neuron_id in neuron_ids:
+                        try:
+                            # Try to get actual neuron position
+                            if hasattr(area, 'get_neuron_by_id'):
+                                neuron = area.get_neuron_by_id(neuron_id)
+                                if neuron and hasattr(neuron, 'position'):
+                                    coordinates.append(neuron.position)
+                                    continue
+                            
+                            # Fallback: estimate position from area dimensions
+                            dimensions = area.properties.get('dimensions', {'x': 10, 'y': 10, 'z': 1})
+                            x = neuron_id % dimensions['x']
+                            y = (neuron_id // dimensions['x']) % dimensions['y']
+                            z = (neuron_id // (dimensions['x'] * dimensions['y'])) % dimensions['z']
+                            coordinates.append((x, y, z))
+                            
+                        except Exception:
+                            # Default coordinates
+                            coordinates.append((0, 0, 0))
+                else:
+                    # No area found, use default coordinates
+                    coordinates = [(0, 0, 0) for _ in neuron_ids]
+            else:
+                # No connectome manager, estimate coordinates
+                coordinates = [(nid % 100, (nid // 100) % 100, nid // 10000) for nid in neuron_ids]
+                
+        except Exception as e:
+            logger.error(f"Error getting neuron coordinates: {e}")
+            coordinates = [(0, 0, 0) for _ in neuron_ids]
+            
+        return coordinates
+
+    def _get_global_neuron_coordinates(self, neuron_ids: List[int]) -> List[tuple]:
+        """Get 3D coordinates for neurons globally."""
+        coordinates = []
+        
+        try:
+            if self.connectome_manager:
+                # Map neuron IDs to their areas and get coordinates
+                for neuron_id in neuron_ids:
+                    found = False
+                    for area_id, area in self.connectome_manager.cortical_areas.items():
+                        try:
+                            if hasattr(area, 'contains_neuron') and area.contains_neuron(neuron_id):
+                                coord = self._get_neuron_coordinates(area_id, [neuron_id])
+                                coordinates.append(coord[0] if coord else (0, 0, 0))
+                                found = True
+                                break
+                        except Exception:
+                            continue
+                    
+                    if not found:
+                        # Fallback coordinate calculation
+                        x = neuron_id % 100
+                        y = (neuron_id // 100) % 100
+                        z = neuron_id // 10000
+                        coordinates.append((x, y, z))
+            else:
+                # No connectome manager, use simple mapping
+                coordinates = [(nid % 100, (nid // 100) % 100, nid // 10000) for nid in neuron_ids]
+                
+        except Exception as e:
+            logger.error(f"Error getting global neuron coordinates: {e}")
+            coordinates = [(0, 0, 0) for _ in neuron_ids]
+            
+        return coordinates
+
+    def stop(self) -> None:
+        """Stop the FQ sampler."""
+        self.running = False
+        
+    def update_area_sample_rate(self, cortical_id: str, rate: float) -> None:
+        """Set the sampling rate for a specific cortical area."""
+        if cortical_id not in self._last_sample_time_per_area:
+            self._last_sample_time_per_area[cortical_id] = time.perf_counter() 

@@ -131,6 +131,99 @@ class CoreAPIService:
         """Get the Memory & Learning Manager component."""
         # For now, return None as this component isn't fully implemented
         return None
+    
+    # Fire queue methods for FQSampler
+    
+    def get_fire_queue(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the current global fire queue data.
+        
+        Returns:
+            Dictionary with fire queue data: {
+                'neuron_ids': List[int],
+                'membrane_potentials': List[float], 
+                'thresholds': List[float],
+                'consecutive_fire_counts': List[int],
+                'refractory_counters': List[int]
+            }
+        """
+        try:
+            # Get fire queue from optimized core if available
+            if hasattr(self._connectome_manager, 'get_optimized_core'):
+                core = self._connectome_manager.get_optimized_core()
+                if core and hasattr(core, 'get_fire_queue'):
+                    return core.get_fire_queue()
+            
+            # Fallback: create fire queue from current FCL state
+            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
+                fcl_manager = self._connectome_manager.fcl_manager
+                global_fcl = fcl_manager.get_global_fcl()
+                
+                if isinstance(global_fcl, dict):
+                    # Aggregate all area FCLs
+                    neuron_ids = []
+                    for area_id, area_fcl in global_fcl.items():
+                        if hasattr(area_fcl, '__iter__'):
+                            neuron_ids.extend(list(area_fcl))
+                elif hasattr(global_fcl, '__iter__'):
+                    neuron_ids = list(global_fcl)
+                else:
+                    neuron_ids = []
+                
+                # Create mock fire queue data
+                return {
+                    'neuron_ids': neuron_ids,
+                    'membrane_potentials': [1.0] * len(neuron_ids),  # Default potential
+                    'thresholds': [1.0] * len(neuron_ids),  # Default threshold
+                    'consecutive_fire_counts': [0] * len(neuron_ids),  # Default count
+                    'refractory_counters': [0] * len(neuron_ids)  # Default counter
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting fire queue: {e}")
+            return None
+    
+    def get_area_fire_queue(self, cortical_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get fire queue data for a specific cortical area.
+        
+        Args:
+            cortical_id: The cortical area ID
+            
+        Returns:
+            Dictionary with fire queue data for the area
+        """
+        try:
+            # Get fire queue from optimized core if available
+            if hasattr(self._connectome_manager, 'get_optimized_core'):
+                core = self._connectome_manager.get_optimized_core()
+                if core and hasattr(core, 'get_area_fire_queue'):
+                    return core.get_area_fire_queue(cortical_id)
+            
+            # Fallback: get area FCL and convert to fire queue format
+            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
+                fcl_manager = self._connectome_manager.fcl_manager
+                area_fcl = fcl_manager.get_cortical_fcl(cortical_id)
+                
+                if area_fcl and hasattr(area_fcl, '__iter__'):
+                    neuron_ids = list(area_fcl)
+                    
+                    # Create mock fire queue data
+                    return {
+                        'neuron_ids': neuron_ids,
+                        'membrane_potentials': [1.0] * len(neuron_ids),  # Default potential
+                        'thresholds': [1.0] * len(neuron_ids),  # Default threshold
+                        'consecutive_fire_counts': [0] * len(neuron_ids),  # Default count
+                        'refractory_counters': [0] * len(neuron_ids)  # Default counter
+                    }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting area fire queue for {cortical_id}: {e}")
+            return None
         
     # Brain state management methods
     

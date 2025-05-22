@@ -164,8 +164,8 @@ class ZmqServer:
         control_port: int = 5559,
         vis_port: int = 5560,
         context: Optional[zmq.asyncio.Context] = None,
-        fcl_sampler: Optional[Any] = None,
-        fcl_sampler_queue: Optional[Any] = None
+        fq_sampler: Optional[Any] = None,
+        fq_sampler_queue: Optional[Any] = None
     ):
         """
         Initialize the ZeroMQ server for FEAGI.
@@ -181,8 +181,8 @@ class ZmqServer:
             control_port: Port for control interface (5559)
             vis_port: Port for visualization data (5560)
             context: Optional ZeroMQ context to use
-            fcl_sampler: Optional FCL sampler instance for visualization data
-            fcl_sampler_queue: Optional queue for FCL data from the sampler
+            fq_sampler: Optional FQ sampler instance for visualization data
+            fq_sampler_queue: Optional queue for FQ data from the sampler
         """
         self.core_api = core_api
         self.host = host
@@ -209,9 +209,9 @@ class ZmqServer:
         self._control = None
         self._visualization = None
         
-        # FCL Sampler integration
-        self._fcl_sampler = fcl_sampler
-        self._fcl_sampler_queue = fcl_sampler_queue
+        # FQ Sampler integration
+        self._fq_sampler = fq_sampler
+        self._fq_sampler_queue = fq_sampler_queue
         
         # Thread and event loop management
         self._thread = None
@@ -387,8 +387,8 @@ class ZmqServer:
                 host=self.host,
                 port=self.vis_port,
                 context=self._context,
-                fcl_sampler=self._fcl_sampler,
-                fcl_sampler_queue=self._fcl_sampler_queue
+                fq_sampler=self._fq_sampler,
+                fq_sampler_queue=self._fq_sampler_queue
             )
             
             # Start all managers

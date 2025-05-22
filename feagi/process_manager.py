@@ -16,7 +16,7 @@ import sys
 import threading
 import time
 from typing import Dict, Any, Optional, List, Tuple, Set
-from feagi.npu.burst_engine import FCLSampler
+from feagi.npu.burst_engine import FQSampler
 from queue import Queue
 import re
 
@@ -148,34 +148,34 @@ class ProcessManager:
         logger.info("Initializing important (Priority 2) processes...")
         
         try:
-            # --- FCLSampler Integration ---
+            # --- FQSampler Integration ---
             from feagi.core.state_manager import FeagiStateManager, ServiceState
             state_manager = FeagiStateManager.instance()
-            state_manager.set_fcl_sampler_state(ServiceState.INITIALIZING)
-            # Set FCLSampler frequency and consumer in state manager
+            state_manager.set_fcl_sampler_state(ServiceState.INITIALIZING)  # Keep same state for compatibility
+            # Set FQSampler frequency and consumer in state manager
             sampler_frequency = 20.0  # TODO: Make configurable
             sampler_consumer = 1      # 1=Visualization, 2=Motor, 3=Both (default: Visualization)
             state_manager.set_fcl_sampler_frequency(sampler_frequency)
             state_manager.set_fcl_sampler_consumer(sampler_consumer)
             # Create output queue for visualization/motor consumers
-            self._fcl_sampler_queue = Queue(maxsize=50)  # Best-effort queue - newer samples are prioritized over processing every sample
-            # Use the FCL manager from critical processes
-            fcl_manager = self._fcl_manager
-            if fcl_manager is None:
-                logger.error("FCL Manager not initialized before FCLSampler!")
+            self._fq_sampler_queue = Queue(maxsize=50)  # Best-effort queue - newer samples are prioritized over processing every sample
+            # Use the fire queue provider (core object) from critical processes
+            fire_queue_provider = self._core_api  # Core API provides fire queue access
+            if fire_queue_provider is None:
+                logger.error("Core API not initialized before FQSampler!")
                 state_manager.set_fcl_sampler_state(ServiceState.ERROR)
                 return False
-            self._fcl_sampler = FCLSampler(
-                fcl_manager=fcl_manager,
+            self._fq_sampler = FQSampler(
+                fire_queue_provider=fire_queue_provider,
                 sample_frequency_hz=sampler_frequency,
-                output_queue=self._fcl_sampler_queue,
+                output_queue=self._fq_sampler_queue,
                 connectome_manager=self._connectome_manager
             )
-            self._fcl_sampler_thread = threading.Thread(target=self._fcl_sampler.run, daemon=True)
-            self._fcl_sampler_thread.start()
+            self._fq_sampler_thread = threading.Thread(target=self._fq_sampler.run, daemon=True)
+            self._fq_sampler_thread.start()
             state_manager.set_fcl_sampler_state(ServiceState.READY)
-            logger.info("FCLSampler started successfully.", emoji1="✓ ")
-            # --- FCLSampler Integration ---
+            logger.info("FQSampler started successfully.", emoji1="✓ ")
+            # --- FQSampler Integration ---
             # If you add dynamic reconfiguration of frequency/consumer, update state manager here as well.
             
             # Initialize ZMQ server (acts as PNS Message Broker)
@@ -210,8 +210,8 @@ class ProcessManager:
                 motor_port=motor_port,
                 control_port=control_port,
                 vis_port=vis_base_port,
-                fcl_sampler=self._fcl_sampler,
-                fcl_sampler_queue=self._fcl_sampler_queue
+                fq_sampler=self._fq_sampler,
+                fq_sampler_queue=self._fq_sampler_queue
             )
             
             # Start the ZMQ server
@@ -526,15 +526,15 @@ class ProcessManager:
                     if process.poll() is None:
                         process.kill()
         
-        # Stop FCLSampler if running
-        if self._fcl_sampler:
-            logger.info("Stopping FCLSampler...")
-            self._fcl_sampler.stop()
-            if self._fcl_sampler_thread:
-                self._fcl_sampler_thread.join(timeout=2)
-            self._fcl_sampler = None
-            self._fcl_sampler_thread = None
-            self._fcl_sampler_queue = None
+        # Stop FQSampler if running
+        if hasattr(self, '_fq_sampler') and self._fq_sampler:
+            logger.info("Stopping FQSampler...")
+            self._fq_sampler.stop()
+            if hasattr(self, '_fq_sampler_thread') and self._fq_sampler_thread:
+                self._fq_sampler_thread.join(timeout=2)
+            self._fq_sampler = None
+            self._fq_sampler_thread = None
+            self._fq_sampler_queue = None
         
         logger.info("FEAGI servers shut down")
         
@@ -544,11 +544,11 @@ class ProcessManager:
         
     def update_area_sample_rate(self, cortical_id, rate):
         """
-        Notify the running FCLSampler of a per-area sample rate change.
+        Notify the running FQSampler of a per-area sample rate change.
         """
-        if self._fcl_sampler is not None:
-            self._fcl_sampler.update_area_sample_rate(cortical_id, rate)
-        # If FCLSampler is not running, do nothing
+        if hasattr(self, '_fq_sampler') and self._fq_sampler is not None:
+            self._fq_sampler.update_area_sample_rate(cortical_id, rate)
+        # If FQSampler is not running, do nothing
 
 # Global instance for the process manager
 _process_manager = None
