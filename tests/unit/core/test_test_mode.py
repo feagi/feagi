@@ -47,6 +47,14 @@ def mock_core_api():
     # Setup load_essential_genome mock
     mock_api.load_essential_genome.return_value = True
     
+    # Setup register_agent mock
+    mock_api.register_agent.return_value = True
+    
+    # Setup FCL sampler mock
+    mock_fcl_sampler = MagicMock()
+    mock_fcl_sampler.sample_fcl = MagicMock(return_value={})
+    mock_api.fcl_sampler = mock_fcl_sampler
+    
     return mock_api
 
 
@@ -272,6 +280,54 @@ class TestFeagiTestRunner:
         result = test_runner.get_test_result()
         
         assert result is True
+        
+    def test_register_visualization_agent(self, test_runner, mock_core_api):
+        """Test that register_visualization_agent registers a visualization agent."""
+        # Call the method
+        result = test_runner.register_visualization_agent()
+        
+        assert result is True
+        assert test_runner.is_visualization_agent_registered is True
+        
+        # Verify that the agent was registered with the right parameters
+        mock_core_api.register_agent.assert_called_once_with(
+            agent_id=test_runner.visualization_agent_id,
+            agent_type="visualization",
+            agent_ip="127.0.0.1",
+            agent_data_port=5555,
+            agent_version="1.0.0",
+            controller_version="1.0.0",
+            capabilities={"visualization": True}
+        )
+    
+    def test_hook_fcl_sampler(self, test_runner, mock_core_api):
+        """Test that hook_fcl_sampler correctly hooks into the FCL sampler."""
+        # Call the method
+        result = test_runner.hook_fcl_sampler()
+        
+        assert result is True
+        
+        # Test that the hook function increments the counter
+        # First, let's create some FCL data
+        fcl_data = {
+            "visual_cortex": {1, 2, 3},
+            "motor_cortex": {4, 5, 6, 7}
+        }
+        
+        # Get the hooked function
+        hooked_sample_fcl = mock_core_api.fcl_sampler.sample_fcl
+        
+        # Call it with our test data
+        hooked_sample_fcl(fcl_data)
+        
+        # Check that the counter was incremented
+        assert test_runner.visualization_neuron_counter == 7  # 3 + 4 neurons
+        
+        # Call it again to make sure the counter accumulates
+        hooked_sample_fcl(fcl_data)
+        
+        # Check the counter again
+        assert test_runner.visualization_neuron_counter == 14  # 7 + 7 neurons
 
 
 class TestRunTestMode:
@@ -292,7 +348,8 @@ class TestRunTestMode:
             core_api_service=mock_core_api,
             sample_genome_path=None,
             test_duration=5,
-            frequency_hz=10
+            frequency_hz=10,
+            test_visualization=False
         )
         
         # Verify that the test was run
@@ -316,11 +373,37 @@ class TestRunTestMode:
             core_api_service=mock_core_api,
             sample_genome_path=None,
             test_duration=10,
-            frequency_hz=10
+            frequency_hz=10,
+            test_visualization=False
         )
         
         # Verify that the test was run
         mock_test_runner._run_test_thread.assert_called_once()
         
         # Verify that the result was returned
-        assert result is False 
+        assert result is False
+        
+    @patch('feagi.test_mode.FeagiTestRunner')
+    def test_run_test_mode_with_visualization(self, mock_test_runner_cls, mock_core_api):
+        """Test that run_test_mode runs a test with visualization testing."""
+        # Configure the mock test runner
+        mock_test_runner = mock_test_runner_cls.return_value
+        mock_test_runner.get_test_result.return_value = True
+        
+        # Call the function with visualization testing enabled
+        result = run_test_mode(mock_core_api, test_visualization=True)
+        
+        # Verify that the test runner was created with the correct parameters
+        mock_test_runner_cls.assert_called_once_with(
+            core_api_service=mock_core_api,
+            sample_genome_path=None,
+            test_duration=10,
+            frequency_hz=10,
+            test_visualization=True
+        )
+        
+        # Verify that the test was run
+        mock_test_runner._run_test_thread.assert_called_once()
+        
+        # Verify that the result was returned
+        assert result is True 

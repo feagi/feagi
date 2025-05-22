@@ -100,6 +100,7 @@ def main():
     parser.add_argument("--test", action="store_true", help="Run FEAGI in test mode")
     parser.add_argument("--test-duration", type=int, default=10, help="Duration of the test in seconds")
     parser.add_argument("--test-frequency", type=int, default=10, help="Frequency of sensory input generation in Hz")
+    parser.add_argument("--test-visualization", action="store_true", help="Test visualization data flow without using ZMQ")
     
     args = parser.parse_args()
     
@@ -156,7 +157,8 @@ def main():
         "test": {
             "enabled": args.test,
             "duration": args.test_duration,
-            "frequency": args.test_frequency
+            "frequency": args.test_frequency,
+            "visualization": args.test_visualization
         }
     }
     
@@ -180,7 +182,8 @@ def main():
             core_api_service=core_api,
             genome_path=args.genome_path,
             test_duration=args.test_duration,
-            frequency_hz=args.test_frequency
+            frequency_hz=args.test_frequency,
+            test_visualization=args.test_visualization
         )
         
         # Exit with appropriate exit code

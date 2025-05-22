@@ -316,7 +316,7 @@ class FCLSampler:
                         retry_count = 0
                         while retry_count < self._max_retries:
                             try:
-                                area_fcl = self.fcl_manager.get_area_fcl(cortical_id)
+                                area_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
                                 # Put (cortical_id, area_fcl) in the output queue (non-blocking, drop if full)
                                 try:
                                     self.output_queue.put_nowait((cortical_id, area_fcl))

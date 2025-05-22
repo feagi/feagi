@@ -168,4 +168,109 @@ def test_test_mode_parameters(test_duration, frequency_hz):
                 # The sleep calls should be approximately 1/frequency_hz
                 expected_sleep = 1.0 / frequency_hz
                 for call in mock_sleep.call_args_list:
-                    assert abs(call[0][0] - expected_sleep) < 0.001 
+                    assert abs(call[0][0] - expected_sleep) < 0.001
+
+
+@pytest.mark.parametrize("test_visualization", [
+    True,   # With visualization testing
+    False,  # Without visualization testing
+])
+def test_test_mode_visualization(test_visualization):
+    """Test the visualization testing functionality."""
+    # Create a mock CoreAPIService with more visualization-related mocks
+    fcl_sampler = MagicMock()
+    fcl_sampler.sample_fcl = MagicMock(return_value={})
+    
+    mock_core_api = type('obj', (object,), {
+        'get_connectome_manager': lambda: type('obj', (object,), {
+            'cortical_areas': {
+                'test_area': type('obj', (object,), {
+                    'properties': {'group': 'IPU'},
+                    'get_neurons_at_position': lambda pos: {1, 2}
+                })
+            },
+            'fcl_sampler': fcl_sampler
+        }),
+        'get_fcl_manager': lambda: type('obj', (object,), {
+            'current_timestep': 1,
+            'get_cortical_fcl': lambda area_id: set(),
+            'update_fcl': lambda ts, areas: None
+        }),
+        'get_burst_engine': lambda: type('obj', (object,), {}),
+        'get_genome': lambda: {
+            'cortical_areas': {
+                'test_area': {'group': 'IPU', 'dimensions': {'x': 10, 'y': 10, 'z': 1}}
+            }
+        },
+        'load_essential_genome': lambda: True,
+        'register_agent': lambda **kwargs: True,
+        'fcl_sampler': fcl_sampler
+    })
+    
+    # Patch the dependencies
+    with patch('feagi.test_mode.FeagiStateManager') as mock_state_manager_cls, \
+         patch('feagi.test_mode.timed_cortical_activity_generator') as mock_activity_generator:
+        
+        # Configure the mocks
+        mock_state_manager = type('obj', (object,), {})
+        mock_state_manager_cls.instance.return_value = mock_state_manager
+        
+        mock_activity_generator.return_value.__next__.return_value = {
+            'test_area': ([1, 2], [1, 2], [0, 0], [0.5, 0.8])
+        }
+        
+        # Create the test runner with visualization testing enabled/disabled
+        test_runner = FeagiTestRunner(
+            core_api_service=mock_core_api,
+            test_duration=1,
+            frequency_hz=10,
+            test_visualization=test_visualization
+        )
+        
+        # Verify that test_visualization parameter was set correctly
+        assert test_runner.test_visualization is test_visualization
+        
+        # Run the test synchronously
+        with patch('feagi.npu.fcl_manager.BitMap') as mock_bitmap_class:
+            # Create a proper mock for BitMap
+            mock_bitmap = MagicMock()
+            mock_bitmap.__len__.return_value = 2
+            mock_bitmap_class.return_value = mock_bitmap
+            
+            # Override time.time to control the test duration
+            original_time = time.time
+            time_counter = [0]
+            
+            def mock_time():
+                # Increment time each call to simulate passage of time
+                time_counter[0] += 0.1
+                return time_counter[0]
+            
+            with patch('time.time', mock_time), \
+                 patch('time.sleep') as mock_sleep:
+                
+                # Run the test
+                test_runner._run_test_thread()
+                
+                # Verify that the test completed
+                assert test_runner.is_running is False
+                
+                # Check visualization setup based on test_visualization flag
+                if test_visualization:
+                    # If visualization testing is enabled, we should have registered an agent
+                    assert test_runner.is_visualization_agent_registered is True
+                    
+                    # And the FCL sampler should have been hooked
+                    # Let's simulate some FCL data to verify the neuron counter
+                    fcl_data = {
+                        'test_area': {1, 2, 3, 4, 5}
+                    }
+                    # Get the hooked sample_fcl function
+                    hooked_sample_fcl = fcl_sampler.sample_fcl
+                    # Call it with our test data
+                    hooked_sample_fcl(fcl_data)
+                    # We should see some neurons counted
+                    assert test_runner.visualization_neuron_counter > 0
+                else:
+                    # If visualization testing is disabled, we should not have registered an agent
+                    assert test_runner.is_visualization_agent_registered is False 

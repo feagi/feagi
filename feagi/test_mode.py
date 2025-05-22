@@ -11,7 +11,7 @@ import json
 import logging
 import time
 import threading
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Set
 
 from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
 from feagi.utils.logger import setup_logger
@@ -35,9 +35,10 @@ class FeagiTestRunner:
     2. Generating and injecting synthetic sensory data
     3. Monitoring neural activity
     4. Reporting test results
+    5. Testing visualization data flow (when test_visualization=True)
     """
     
-    def __init__(self, core_api_service, sample_genome_path=None, test_duration=10, frequency_hz=10):
+    def __init__(self, core_api_service, sample_genome_path=None, test_duration=10, frequency_hz=10, test_visualization=False):
         """
         Initialize the test runner.
         
@@ -46,6 +47,7 @@ class FeagiTestRunner:
             sample_genome_path: Path to the sample genome to load
             test_duration: Duration of the test in seconds
             frequency_hz: Frequency of sensory input generation in Hz
+            test_visualization: Whether to test visualization data flow
         """
         self.core_api = core_api_service
         self.connectome = self.core_api.get_connectome_manager()
@@ -56,6 +58,7 @@ class FeagiTestRunner:
         # Test configuration
         self.test_duration = test_duration
         self.frequency_hz = frequency_hz
+        self.test_visualization = test_visualization
         
         # If no sample genome path is provided, use the essential genome
         self.sample_genome_path = sample_genome_path
@@ -67,6 +70,11 @@ class FeagiTestRunner:
         self.sensory_data_generator = None
         self.initial_fcls = {}
         self.areas_with_activity = set()
+        
+        # Visualization test variables
+        self.visualization_neuron_counter = 0
+        self.visualization_agent_id = "test_viz_agent"
+        self.is_visualization_agent_registered = False
     
     def load_genome(self):
         """
@@ -199,6 +207,89 @@ class FeagiTestRunner:
             logger.error(f"Error injecting sensory data: {e}")
             return False
     
+    def register_visualization_agent(self):
+        """
+        Register a fake visualization agent for testing.
+        
+        Returns:
+            bool: True if agent was registered successfully, False otherwise
+        """
+        if self.is_visualization_agent_registered:
+            return True
+            
+        try:
+            # Check if the method exists (as it might not in all FEAGI versions)
+            if not hasattr(self.core_api, 'register_agent'):
+                logger.warning("register_agent method not available, skipping visualization agent registration")
+                return False
+                
+            # Register a fake visualization agent
+            result = self.core_api.register_agent(
+                agent_id=self.visualization_agent_id,
+                agent_type="visualization",
+                agent_ip="127.0.0.1",
+                agent_data_port=5555,
+                agent_version="1.0.0",
+                controller_version="1.0.0",
+                capabilities={"visualization": True}
+            )
+            
+            if result:
+                self.is_visualization_agent_registered = True
+                logger.info(f"Registered test visualization agent: {self.visualization_agent_id}")
+                return True
+            else:
+                logger.error("Failed to register visualization agent")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error registering visualization agent: {e}")
+            return False
+    
+    def hook_fcl_sampler(self):
+        """
+        Enable visualization on the FCL sampler without modifying its behavior.
+        
+        This method simply tells the FCL sampler that there are visualization
+        subscribers, causing it to sample data without our code intercepting it.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Find the FCL sampler if it exists
+            fcl_sampler = None
+            
+            # Check if we can access the FCL sampler through different paths
+            if hasattr(self.core_api, 'fcl_sampler'):
+                fcl_sampler = self.core_api.fcl_sampler
+            elif hasattr(self.connectome, 'fcl_sampler'):
+                fcl_sampler = self.connectome.fcl_sampler
+            
+            # Try to get it from the process manager if available
+            if not fcl_sampler:
+                from feagi.process_manager import get_process_manager
+                process_manager = get_process_manager()
+                if process_manager and hasattr(process_manager, '_fcl_sampler'):
+                    fcl_sampler = process_manager._fcl_sampler
+            
+            if not fcl_sampler:
+                logger.warning("FCL sampler not found, cannot enable visualization data")
+                return False
+            
+            # Enable visualization subscribers mode - this is the only change we make
+            if hasattr(fcl_sampler, 'set_visualization_subscribers'):
+                fcl_sampler.set_visualization_subscribers(True)
+                logger.info("Enabled visualization subscribers on FCL sampler")
+                return True
+            else:
+                logger.warning("FCL sampler does not support visualization subscribers")
+                return False
+            
+        except Exception as e:
+            logger.error(f"Error enabling visualization on FCL sampler: {e}")
+            return False
+    
     def check_neural_activity(self):
         """
         Check if there is any neural activity.
@@ -249,6 +340,7 @@ class FeagiTestRunner:
             self.is_running = True
             self.test_result = None
             self.areas_with_activity = set()
+            self.visualization_neuron_counter = 0
             
             # Load the genome
             if not self.load_genome():
@@ -264,6 +356,12 @@ class FeagiTestRunner:
                 
             # Capture initial state
             self.capture_initial_state()
+            
+            # If testing visualization, register a fake visualization agent
+            if self.test_visualization:
+                logger.info("Setting up visualization testing")
+                self.register_visualization_agent()
+                self.hook_fcl_sampler()
             
             # Get the IPU (sensory) areas from the connectome
             ipu_areas = {id: area for id, area in self.connectome.cortical_areas.items() 
@@ -301,12 +399,21 @@ class FeagiTestRunner:
             # Test completion
             test_duration = time.time() - test_start_time
             
+            # Check test results
             if self.areas_with_activity:
                 logger.info(f"TEST PASSED: Neural activity detected in {len(self.areas_with_activity)} areas: {list(self.areas_with_activity)}")
                 self.test_result = True
             else:
                 logger.error("TEST FAILED: No neural activity detected")
                 self.test_result = False
+            
+            # Report visualization test results if applicable
+            if self.test_visualization:
+                logger.info("Visualization test completed")
+                if self.is_visualization_agent_registered:
+                    logger.info("Visualization test PASSED: Successfully registered visualization agent")
+                else:
+                    logger.warning("Visualization test WARNING: Failed to register visualization agent")
                 
             logger.info(f"Test completed in {test_duration:.2f} seconds ({cycle_count} cycles)")
             
@@ -351,6 +458,10 @@ def run_test_mode(core_api_service, **kwargs):
     Args:
         core_api_service: FEAGI's core API service
         **kwargs: Additional test configuration options
+            - genome_path: Path to a specific genome to load
+            - test_duration: Duration of the test in seconds (default: 10)
+            - frequency_hz: Frequency of sensory input generation in Hz (default: 10)
+            - test_visualization: Whether to test visualization data flow (default: False)
         
     Returns:
         bool: True if tests passed, False otherwise
@@ -362,7 +473,8 @@ def run_test_mode(core_api_service, **kwargs):
         core_api_service=core_api_service,
         sample_genome_path=kwargs.get('genome_path'),
         test_duration=kwargs.get('test_duration', 10),
-        frequency_hz=kwargs.get('frequency_hz', 10)
+        frequency_hz=kwargs.get('frequency_hz', 10),
+        test_visualization=kwargs.get('test_visualization', False)
     )
     
     # Run the test synchronously in the current thread
