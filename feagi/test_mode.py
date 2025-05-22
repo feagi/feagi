@@ -94,6 +94,8 @@ class FeagiTestRunner:
         # Visualization test variables
         self.visualization_agent_id = "test_viz_agent"
         self.is_visualization_agent_registered = False
+        self.heartbeat_thread = None
+        self.send_heartbeats = False
     
     def load_genome(self):
         """
@@ -256,6 +258,9 @@ class FeagiTestRunner:
             if result:
                 self.is_visualization_agent_registered = True
                 logger.info(f"Registered test visualization agent: {self.visualization_agent_id}")
+                
+                # Start sending heartbeats
+                self.start_heartbeat_thread()
                 return True
             else:
                 logger.error("Failed to register visualization agent")
@@ -264,6 +269,169 @@ class FeagiTestRunner:
         except Exception as e:
             logger.error(f"Error registering visualization agent: {e}")
             return False
+            
+    def start_heartbeat_thread(self):
+        """Start a thread to send periodic heartbeats for the test visualization agent."""
+        if self.heartbeat_thread and self.heartbeat_thread.is_alive():
+            logger.debug("Heartbeat thread already running")
+            return
+            
+        self.send_heartbeats = True
+        self.heartbeat_thread = threading.Thread(target=self._heartbeat_thread_func)
+        self.heartbeat_thread.daemon = True
+        self.heartbeat_thread.start()
+        logger.info("Started visualization agent heartbeat thread")
+        
+    def stop_heartbeat_thread(self):
+        """Stop the heartbeat thread."""
+        self.send_heartbeats = False
+        if self.heartbeat_thread and self.heartbeat_thread.is_alive():
+            self.heartbeat_thread.join(1.0)  # Wait for up to 1 second
+            logger.info("Stopped visualization agent heartbeat thread")
+            
+    def _heartbeat_thread_func(self):
+        """Thread function for sending periodic heartbeats."""
+        logger.info(f"Heartbeat thread started for test visualization agent: {self.visualization_agent_id}")
+        
+        while self.send_heartbeats:
+            try:
+                # Sleep first to allow the heartbeat to be processed
+                time.sleep(5.0)
+                
+                if not self.send_heartbeats:
+                    break
+                    
+                # Check if the core API is available
+                if hasattr(self.core_api, 'register_agent_heartbeat'):
+                    self.core_api.register_agent_heartbeat(self.visualization_agent_id)
+                    logger.debug(f"Sent heartbeat for test visualization agent: {self.visualization_agent_id}")
+                    
+                    # Also send a test activity message every 3rd heartbeat (15 seconds)
+                    if hasattr(self, '_heartbeat_counter'):
+                        self._heartbeat_counter += 1
+                    else:
+                        self._heartbeat_counter = 1
+                        
+                    if self._heartbeat_counter % 3 == 0:
+                        self.send_test_activity_data()
+                        
+            except Exception as e:
+                logger.error(f"Error sending test visualization agent heartbeat: {e}")
+                
+        logger.info("Heartbeat thread stopped")
+        
+    def send_test_activity_data(self):
+        """Send test activity data directly to the visualization stream."""
+        try:
+            logger.info("Sending TEST ACTIVITY DATA to visualization stream")
+            print("\n==================================================")
+            print("SENDING TEST ACTIVITY DATA TO VISUALIZATION STREAM")
+            print("==================================================\n")
+            
+            # Find the visualization stream if available
+            viz_stream = None
+            
+            # Try different paths to find it
+            if hasattr(self.core_api, 'visualization_stream'):
+                viz_stream = self.core_api.visualization_stream
+                logger.info("Found visualization stream in core_api.visualization_stream")
+            
+            if not viz_stream:
+                # Check if we can access it through process manager
+                try:
+                    from feagi.process_manager import get_process_manager
+                    pm = get_process_manager()
+                    if pm and hasattr(pm, '_visualization_stream'):
+                        viz_stream = pm._visualization_stream
+                        logger.info("Found visualization stream in process_manager._visualization_stream")
+                except Exception as e:
+                    logger.error(f"Error finding visualization stream through process manager: {e}")
+            
+            if not viz_stream:
+                logger.error("Could not find visualization stream, cannot send test activity data")
+                return
+                
+            # Create a simple test activity data structure using feagi_bytes
+            try:
+                from feagi_bytes import ByteStructureEncoder
+                
+                # Create the encoder
+                encoder = ByteStructureEncoder()
+                
+                # Create simple test data - a 3x3x3 grid of neurons with random activity
+                cortical_ids = []
+                x_coords = []
+                y_coords = []
+                z_coords = []
+                potentials = []
+                
+                # Fill with test data
+                import random
+                for x in range(3):
+                    for y in range(3):
+                        for z in range(3):
+                            cortical_ids.append("TEST_A")  # Test cortical area
+                            x_coords.append(x)
+                            y_coords.append(y)
+                            z_coords.append(z)
+                            # Random potential between 0 and 1
+                            potentials.append(random.random())
+                
+                # Add a few more areas for testing
+                for i in range(10):
+                    cortical_ids.append("TEST_B")
+                    x_coords.append(random.randint(0, 5))
+                    y_coords.append(random.randint(0, 5))
+                    z_coords.append(random.randint(0, 5))
+                    potentials.append(random.random())
+                
+                # Encode the neuron data
+                if hasattr(encoder, 'encode_neuron_flat'):
+                    bytes_data = encoder.encode_neuron_flat(
+                        cortical_ids=cortical_ids,
+                        x_coords=x_coords,
+                        y_coords=y_coords,
+                        z_coords=z_coords,
+                        potentials=potentials
+                    )
+                    
+                    # Log the bytes data 
+                    hex_dump = ' '.join([f'{b:02x}' for b in bytes_data[:50]])
+                    logger.info(f"Encoded test activity data ({len(bytes_data)} bytes): {hex_dump}")
+                    
+                    # Schedule the data to be sent asynchronously
+                    if hasattr(viz_stream, 'send_visualization_data'):
+                        # Need to run in event loop for async functions
+                        import asyncio
+                        
+                        # Create a task to send the data
+                        async def send_data():
+                            await viz_stream.send_visualization_data(bytes_data)
+                            logger.info("Test activity data sent to visualization stream")
+                            
+                        # Run the task in the current event loop or create a new one
+                        try:
+                            loop = asyncio.get_event_loop()
+                            if loop.is_running():
+                                loop.create_task(send_data())
+                            else:
+                                asyncio.run(send_data())
+                        except Exception as e:
+                            logger.error(f"Error sending data in event loop: {e}")
+                    else:
+                        logger.error("Visualization stream does not have send_visualization_data method")
+                else:
+                    logger.error("ByteStructureEncoder does not have encode_neuron_flat method")
+                
+            except Exception as e:
+                logger.error(f"Error creating test activity data: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                
+        except Exception as e:
+            logger.error(f"Error in send_test_activity_data: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     def hook_fcl_sampler(self):
         """
@@ -282,8 +450,10 @@ class FeagiTestRunner:
             # Check if we can access the FCL sampler through different paths
             if hasattr(self.core_api, 'fcl_sampler'):
                 fcl_sampler = self.core_api.fcl_sampler
+                logger.info("Found FCL sampler in core_api.fcl_sampler")
             elif hasattr(self.connectome, 'fcl_sampler'):
                 fcl_sampler = self.connectome.fcl_sampler
+                logger.info("Found FCL sampler in connectome.fcl_sampler")
             
             # Try to get it from the process manager if available
             if not fcl_sampler:
@@ -291,15 +461,28 @@ class FeagiTestRunner:
                 process_manager = get_process_manager()
                 if process_manager and hasattr(process_manager, '_fcl_sampler'):
                     fcl_sampler = process_manager._fcl_sampler
+                    logger.info("Found FCL sampler in process_manager._fcl_sampler")
             
             if not fcl_sampler:
                 logger.warning("FCL sampler not found, cannot enable visualization data")
                 return False
             
+            # Log FCL sampler attributes
+            logger.info(f"FCL sampler attributes: {dir(fcl_sampler)}")
+            
             # Enable visualization subscribers mode - this is the only change we make
             if hasattr(fcl_sampler, 'set_visualization_subscribers'):
                 fcl_sampler.set_visualization_subscribers(True)
                 logger.info("Enabled visualization subscribers on FCL sampler")
+                
+                # Also check if the FCL sampler has a queue and verify its state
+                if hasattr(fcl_sampler, 'visualization_queue'):
+                    logger.info(f"FCL sampler has visualization_queue: {fcl_sampler.visualization_queue}")
+                    
+                # Check if the FCL sampler has a callback and verify its state
+                if hasattr(fcl_sampler, 'viz_data_callback'):
+                    logger.info(f"FCL sampler has viz_data_callback: {fcl_sampler.viz_data_callback}")
+                
                 return True
             else:
                 logger.warning("FCL sampler does not support visualization subscribers")
@@ -307,6 +490,8 @@ class FeagiTestRunner:
             
         except Exception as e:
             logger.error(f"Error enabling visualization on FCL sampler: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
     def check_neural_activity(self):
@@ -435,6 +620,9 @@ class FeagiTestRunner:
                 else:
                     logger.warning("Visualization test WARNING: Failed to register visualization agent")
                 
+                # Stop heartbeat thread
+                self.stop_heartbeat_thread()
+                
             logger.info(f"Test completed in {test_duration:.2f} seconds ({cycle_count} cycles)")
             
         except Exception as e:
@@ -444,6 +632,8 @@ class FeagiTestRunner:
             self.test_result = False
             
         finally:
+            if self.test_visualization:
+                self.stop_heartbeat_thread()
             self.is_running = False
     
     def wait_for_completion(self, timeout=None):
