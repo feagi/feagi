@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import time
 import threading
 
-from feagi.npu.burst_engine import BurstEngine, FCLSampler
+from feagi.npu.burst_engine import BurstEngine, FQSampler
 from feagi.core.state_manager import ServiceState
 
 

@@ -2,7 +2,7 @@ import time
 import threading
 import types
 from queue import Queue, Empty
-from feagi.npu.burst_engine import BurstEngine, FCLSampler
+from feagi.npu.burst_engine import BurstEngine, FQSampler
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 
@@ -24,6 +24,34 @@ class MockFCLManager:
     
     def get_cortical_fcl(self, cortical_idx):
         return set([cortical_idx * 10, cortical_idx * 10 + 1])
+    
+    # Fire queue provider interface for FQSampler
+    def get_fire_queue(self):
+        """Return a global fire queue for testing."""
+        self.counter += 1
+        return {
+            'neuron_ids': [self.counter, self.counter + 10, self.counter + 20],
+            'membrane_potentials': [0.8 + self.counter * 0.1, 1.2, 0.9],
+            'thresholds': [1.0, 1.0, 1.0],
+            'consecutive_fire_counts': [1, 2, 1],
+            'refractory_counters': [0, 0, 0]
+        }
+        
+    def get_area_fire_queue(self, cortical_id):
+        """Return a cortical area-specific fire queue for testing."""
+        # Convert cortical_id to numeric if it's a string like 'cortex1'
+        if isinstance(cortical_id, str) and cortical_id.startswith('cortex'):
+            numeric_id = int(cortical_id[6:]) if len(cortical_id) > 6 else 1
+        else:
+            numeric_id = cortical_id if isinstance(cortical_id, int) else 1
+            
+        return {
+            'neuron_ids': [numeric_id * 100, numeric_id * 100 + 1, numeric_id * 100 + 2],
+            'membrane_potentials': [0.8, 1.2, 0.9],
+            'thresholds': [1.0, 1.0, 1.0],
+            'consecutive_fire_counts': [1, 2, 1],
+            'refractory_counters': [0, 0, 0]
+        }
 
 class MockConnectomeManager:
     def __init__(self):
@@ -100,10 +128,11 @@ def test_burst_engine_runs_and_stops():
         assert not engine._running
         assert connectome.calls > 0
 
-def test_fcl_sampler_samples_and_stops():
-    fcl_manager = MockFCLManager()
+def test_fq_sampler_samples_and_stops():
+    fire_queue_provider = MockFCLManager()  # Using same mock but treating as fire queue provider
     output_queue = Queue(maxsize=10)
-    sampler = FCLSampler(fcl_manager, sample_frequency_hz=10, output_queue=output_queue)
+    sampler = FQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue)
+    sampler.set_visualization_subscribers(True)  # Enable sampling
     t = threading.Thread(target=sampler.run)
     t.start()
     # Let it sample a few times
@@ -117,22 +146,23 @@ def test_fcl_sampler_samples_and_stops():
             samples.append(output_queue.get_nowait())
     except Empty:
         pass
-    assert len(samples) > 0, "FCLSampler did not sample any FCLs."
+    assert len(samples) > 0, "FQSampler did not sample any fire queue data."
 
-def test_fcl_sampler_with_connectome_manager():
-    """Test FCL sampler with per-area sample rates via connectome manager."""
-    fcl_manager = MockFCLManager()
+def test_fq_sampler_with_connectome_manager():
+    """Test FQ sampler with per-area sample rates via connectome manager."""
+    fire_queue_provider = MockFCLManager()  # Using same mock but treating as fire queue provider
     output_queue = Queue(maxsize=10)
     
-    # Create a mock connectome manager with areas that have custom sample rates
+    # Create a mock connectome manager with cortical areas that have custom sample rates
     connectome_manager = Mock()
-    area1 = types.SimpleNamespace(id=1, properties={'fcl_sample_rate': 20})
-    area2 = types.SimpleNamespace(id=2, properties={'fcl_sample_rate': 5})
-    connectome_manager._areas = {1: area1, 2: area2}
+    cortical1 = types.SimpleNamespace(id='cortex1', properties={'fq_sample_rate': 20})
+    cortical2 = types.SimpleNamespace(id='cortex2', properties={'fq_sample_rate': 5})
+    connectome_manager.cortical_areas = {'cortex1': cortical1, 'cortex2': cortical2}
     
     # Create sampler with connectome manager
-    sampler = FCLSampler(fcl_manager, sample_frequency_hz=10, output_queue=output_queue, 
+    sampler = FQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue, 
                         connectome_manager=connectome_manager)
+    sampler.set_visualization_subscribers(True)  # Enable sampling
     
     # Run sampler briefly
     t = threading.Thread(target=sampler.run)
@@ -149,27 +179,30 @@ def test_fcl_sampler_with_connectome_manager():
     except Empty:
         pass
     
-    assert len(samples) > 0, "FCLSampler did not sample any FCLs"
+    assert len(samples) > 0, "FQSampler did not sample any fire queue data"
     
-    # Verify we have samples for both areas
-    area_ids = [sample[0] for sample in samples]
-    assert 1 in area_ids, "Area 1 was not sampled"
-    assert 2 in area_ids, "Area 2 was not sampled"
+    # Verify we have samples for both cortical areas
+    cortical_ids = [sample[0] for sample in samples if isinstance(sample, tuple)]
+    assert 'cortex1' in cortical_ids, "cortex1 was not sampled"
+    assert 'cortex2' in cortical_ids, "cortex2 was not sampled"
 
-def test_fcl_sampler_update_area_sample_rate():
-    """Test updating area sample rate in FCL sampler."""
-    fcl_manager = MockFCLManager()
+def test_fq_sampler_update_area_sample_rate():
+    """Test updating cortical area sample rate in FQ sampler."""
+    fire_queue_provider = MockFCLManager()  # Using same mock but treating as fire queue provider
     output_queue = Queue(maxsize=10)
-    sampler = FCLSampler(fcl_manager, sample_frequency_hz=10, output_queue=output_queue)
+    sampler = FQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue)
     
-    # Update area sample rate
-    sampler.update_area_sample_rate(1, 20)
+    # Update cortical area sample rate
+    sampler.update_area_sample_rate('cortex1', 20.0)
     
     # Manually add to _last_sample_time_per_area since we're not running the sampler
-    sampler._last_sample_time_per_area[1] = time.time()
+    sampler._last_sample_time_per_area['cortex1'] = time.time()
     
     # Verify internal state is updated
-    assert 1 in sampler._last_sample_time_per_area
+    assert 'cortex1' in sampler._last_sample_time_per_area
+    
+    # Enable sampling
+    sampler.set_visualization_subscribers(True)
     
     # Run sampler briefly
     t = threading.Thread(target=sampler.run)
@@ -186,7 +219,7 @@ def test_fcl_sampler_update_area_sample_rate():
     except Empty:
         pass
     
-    assert len(samples) > 0, "FCLSampler did not sample any FCLs"
+    assert len(samples) > 0, "FQSampler did not sample any fire queue data"
 
 def test_update_with_genome(engine):
     """Test updating the burst engine with a genome."""
@@ -274,11 +307,11 @@ def test_load_shedding_behavior():
         
         # Apply load shedding logic as in the run method
         if actual_freq < engine.desired_frequency:
-            for area_id in engine.shed_areas:
-                # Clear FCL for this area for the current burst
-                fcl.area_fcl_history[area_id][fcl.current_window_index].clear()
+            for cortical_idx in engine.shed_areas:
+                # Clear FCL for this cortical area for the current burst
+                fcl.area_fcl_history[cortical_idx][fcl.current_window_index].clear()
         
-        # Verify FCL was cleared only for shed area (100)
+        # Verify FCL was cleared only for shed cortical area (100)
         fcl.area_fcl_history[100][fcl.current_window_index].clear.assert_called_once()
         fcl.area_fcl_history[200][fcl.current_window_index].clear.assert_not_called()
 

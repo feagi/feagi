@@ -445,8 +445,8 @@ class FCLSampler:
                                     # If it's a dictionary, add it to the combined data
                                     if isinstance(fcl_snapshot, dict):
                                         # Add each area's data to the combined dictionary
-                                        for area_id, fcl_data in fcl_snapshot.items():
-                                            cort_id_6 = area_id[:6].ljust(6)
+                                        for cortical_id, fcl_data in fcl_snapshot.items():
+                                            cort_id_6 = cortical_id[:6].ljust(6)
                                             # Process FCL data based on its structure
                                             # (This is an example - actual format may vary)
                                             x_values, y_values, z_values, potentials = [], [], [], []
@@ -613,7 +613,12 @@ class FQSampler:
                     cortical_id = area.id
                     # Get per-area sample rate if set, else use global
                     rate = area.properties.get('fq_sample_rate', self.sample_frequency)
-                    interval = 1.0 / rate if rate > 0 else self.sample_interval
+                    
+                    # Skip sampling if rate is zero
+                    if rate <= 0:
+                        continue
+                        
+                    interval = 1.0 / rate
                     last_time = self._last_sample_time_per_area.get(cortical_id, 0)
                     
                     if now - last_time >= interval:
@@ -824,10 +829,10 @@ class FQSampler:
                 # Map neuron IDs to their areas and get coordinates
                 for neuron_id in neuron_ids:
                     found = False
-                    for area_id, area in self.connectome_manager.cortical_areas.items():
+                    for cortical_id, area in self.connectome_manager.cortical_areas.items():
                         try:
                             if hasattr(area, 'contains_neuron') and area.contains_neuron(neuron_id):
-                                coord = self._get_neuron_coordinates(area_id, [neuron_id])
+                                coord = self._get_neuron_coordinates(cortical_id, [neuron_id])
                                 coordinates.append(coord[0] if coord else (0, 0, 0))
                                 found = True
                                 break

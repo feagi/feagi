@@ -50,10 +50,10 @@ def mock_core_api():
     # Setup register_agent mock
     mock_api.register_agent.return_value = True
     
-    # Setup FCL sampler mock
-    mock_fcl_sampler = MagicMock()
-    mock_fcl_sampler.sample_fcl = MagicMock(return_value={})
-    mock_api.fcl_sampler = mock_fcl_sampler
+    # Setup FQ sampler mock
+    mock_fq_sampler = MagicMock()
+    mock_fq_sampler.sample_fq = MagicMock(return_value={})
+    mock_api.fq_sampler = mock_fq_sampler
     
     return mock_api
 
@@ -300,20 +300,20 @@ class TestFeagiTestRunner:
             capabilities={"visualization": True}
         )
     
-    def test_hook_fcl_sampler(self, test_runner, mock_core_api):
-        """Test that hook_fcl_sampler correctly hooks into the FCL sampler."""
-        # Configure mock FCL sampler with set_visualization_subscribers method
-        mock_fcl_sampler = mock_core_api.fcl_sampler
-        mock_fcl_sampler.set_visualization_subscribers = MagicMock()
+    def test_hook_fq_sampler(self, test_runner, mock_core_api):
+        """Test that hook_fq_sampler correctly hooks into the FQ sampler."""
+        # Configure mock FQ sampler with set_visualization_subscribers method
+        mock_fq_sampler = mock_core_api.fq_sampler
+        mock_fq_sampler.set_visualization_subscribers = MagicMock()
         
         # Call the method
-        result = test_runner.hook_fcl_sampler()
+        result = test_runner.hook_fq_sampler()
         
         # Verify the result is True
         assert result is True
         
         # Verify that set_visualization_subscribers was called with True
-        mock_fcl_sampler.set_visualization_subscribers.assert_called_once_with(True)
+        mock_fq_sampler.set_visualization_subscribers.assert_called_once_with(True)
 
 
 class TestRunTestMode:

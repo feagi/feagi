@@ -433,63 +433,63 @@ class FeagiTestRunner:
             import traceback
             logger.error(traceback.format_exc())
     
-    def hook_fcl_sampler(self):
+    def hook_fq_sampler(self):
         """
-        Enable visualization on the FCL sampler without modifying its behavior.
+        Enable visualization on the FQ sampler without modifying its behavior.
         
-        This method simply tells the FCL sampler that there are visualization
+        This method simply tells the FQ sampler that there are visualization
         subscribers, causing it to sample data without our code intercepting it.
         
         Returns:
             bool: True if successful, False otherwise
         """
         try:
-            # Find the FCL sampler if it exists
-            fcl_sampler = None
+            # Find the FQ sampler if it exists
+            fq_sampler = None
             
-            # Check if we can access the FCL sampler through different paths
-            if hasattr(self.core_api, 'fcl_sampler'):
-                fcl_sampler = self.core_api.fcl_sampler
-                logger.info("Found FCL sampler in core_api.fcl_sampler")
-            elif hasattr(self.connectome, 'fcl_sampler'):
-                fcl_sampler = self.connectome.fcl_sampler
-                logger.info("Found FCL sampler in connectome.fcl_sampler")
+            # Check if we can access the FQ sampler through different paths
+            if hasattr(self.core_api, 'fq_sampler'):
+                fq_sampler = self.core_api.fq_sampler
+                logger.info("Found FQ sampler in core_api.fq_sampler")
+            elif hasattr(self.connectome, 'fq_sampler'):
+                fq_sampler = self.connectome.fq_sampler
+                logger.info("Found FQ sampler in connectome.fq_sampler")
             
             # Try to get it from the process manager if available
-            if not fcl_sampler:
+            if not fq_sampler:
                 from feagi.process_manager import get_process_manager
                 process_manager = get_process_manager()
-                if process_manager and hasattr(process_manager, '_fcl_sampler'):
-                    fcl_sampler = process_manager._fcl_sampler
-                    logger.info("Found FCL sampler in process_manager._fcl_sampler")
+                if process_manager and hasattr(process_manager, '_fq_sampler'):
+                    fq_sampler = process_manager._fq_sampler
+                    logger.info("Found FQ sampler in process_manager._fq_sampler")
             
-            if not fcl_sampler:
-                logger.warning("FCL sampler not found, cannot enable visualization data")
+            if not fq_sampler:
+                logger.warning("FQ sampler not found, cannot enable visualization data")
                 return False
             
-            # Log FCL sampler attributes
-            logger.info(f"FCL sampler attributes: {dir(fcl_sampler)}")
+            # Log FQ sampler attributes
+            logger.info(f"FQ sampler attributes: {dir(fq_sampler)}")
             
             # Enable visualization subscribers mode - this is the only change we make
-            if hasattr(fcl_sampler, 'set_visualization_subscribers'):
-                fcl_sampler.set_visualization_subscribers(True)
-                logger.info("Enabled visualization subscribers on FCL sampler")
+            if hasattr(fq_sampler, 'set_visualization_subscribers'):
+                fq_sampler.set_visualization_subscribers(True)
+                logger.info("Enabled visualization subscribers on FQ sampler")
                 
-                # Also check if the FCL sampler has a queue and verify its state
-                if hasattr(fcl_sampler, 'visualization_queue'):
-                    logger.info(f"FCL sampler has visualization_queue: {fcl_sampler.visualization_queue}")
+                # Also check if the FQ sampler has a queue and verify its state
+                if hasattr(fq_sampler, 'visualization_queue'):
+                    logger.info(f"FQ sampler has visualization_queue: {fq_sampler.visualization_queue}")
                     
-                # Check if the FCL sampler has a callback and verify its state
-                if hasattr(fcl_sampler, 'viz_data_callback'):
-                    logger.info(f"FCL sampler has viz_data_callback: {fcl_sampler.viz_data_callback}")
+                # Check if the FQ sampler has a callback and verify its state
+                if hasattr(fq_sampler, 'viz_data_callback'):
+                    logger.info(f"FQ sampler has viz_data_callback: {fq_sampler.viz_data_callback}")
                 
                 return True
             else:
-                logger.warning("FCL sampler does not support visualization subscribers")
+                logger.warning("FQ sampler does not support visualization subscribers")
                 return False
             
         except Exception as e:
-            logger.error(f"Error enabling visualization on FCL sampler: {e}")
+            logger.error(f"Error enabling visualization on FQ sampler: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return False
@@ -566,7 +566,7 @@ class FeagiTestRunner:
                 # Enable test visualization mode in the state manager
                 self.state_manager.set_test_visualization_mode(True)
                 self.register_visualization_agent()
-                self.hook_fcl_sampler()
+                self.hook_fq_sampler()
             
             # Get the IPU (sensory) areas from the connectome
             ipu_areas = {id: area for id, area in self.connectome.cortical_areas.items() 
