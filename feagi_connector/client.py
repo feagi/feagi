@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import uuid
+import time
 from typing import Dict, Any, Optional, List, Union, Tuple, Callable, Awaitable
 
 import zmq
@@ -141,9 +142,13 @@ class FeagiClient:
             
             # Connect visualization client if needed
             if self.visualization_callback:
+                logger.debug(f"Connecting visualization client (callback is registered)")
                 if not await self.viz_client.connect():
                     logger.error("Failed to connect to FEAGI visualization stream")
                     return False
+                logger.debug("Visualization client connected successfully")
+            else:
+                logger.debug("Skipping visualization client connection (no callback registered)")
             
             # Start heartbeat task
             self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
@@ -272,9 +277,13 @@ class FeagiClient:
             callback: Function to call when visualization data is received
                      (parameter: data)
         """
+        logger.info(f"Registering visualization callback function: {callback.__name__ if hasattr(callback, '__name__') else 'anonymous'}")
         self.visualization_callback = callback
         if self.connected and not self.viz_listen_task:
+            logger.debug("Already connected, starting visualization listener task")
             self.viz_listen_task = asyncio.create_task(self._viz_listen_loop())
+        elif not self.connected:
+            logger.debug("Not connected yet, visualization listener will start on connection")
     
     async def get_status(self) -> Dict[str, Any]:
         """
@@ -315,11 +324,18 @@ class FeagiClient:
     
     async def _viz_listen_loop(self) -> None:
         """Listen for visualization data."""
+        logger.info("Starting visualization listen loop")
         try:
+            start_time = time.time()
+            logger.debug(f"Calling viz_client.start_visualization_listener with callback: {self.visualization_callback.__name__ if hasattr(self.visualization_callback, '__name__') else 'anonymous'}")
             await self.viz_client.start_visualization_listener(self.visualization_callback)
+            total_time = time.time() - start_time
+            logger.info(f"Visualization listener exited after {total_time:.1f} seconds")
         except asyncio.CancelledError:
             # Task was cancelled, exit gracefully
+            logger.info("Visualization listen loop cancelled")
             pass
         except Exception as e:
-            logger.error(f"Error in visualization listen loop: {e}")
-            self.connected = False 
+            logger.error(f"Error in visualization listen loop: {e}", exc_info=True)
+            self.connected = False
+        logger.debug("Visualization listen loop exited") 
