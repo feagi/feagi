@@ -179,10 +179,10 @@ class VisualizationStream:
     async def _process_fq_data(self) -> None:
         """Process FQ data from the sampler queue."""
         if not self.fq_sampler_queue:
-            logger.debug("No FQ sampler queue available")
+            logger.info("🚫 No FQ sampler queue available")
             return
             
-        logger.info("Starting FQ data processing")
+        logger.info("🔄 Starting FQ data processing")
         
         while self.running:
             try:
@@ -203,6 +203,9 @@ class VisualizationStream:
                 if fq_data is None:
                     await asyncio.sleep(0.01)
                     continue
+                    
+                # Log when we receive data
+                logger.info(f"🎯 Received FQ data: type={type(fq_data)}, data={str(fq_data)[:100]}...")
                 
                 # Handle different data types
                 if isinstance(fq_data, bytes):
@@ -239,8 +242,16 @@ class VisualizationStream:
             if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
                 return
                 
-            if self.get_connected_client_count() == 0:
+            # Check if we have connected clients OR if in test mode (where we assume clients)
+            client_count = self.get_connected_client_count()
+            is_test_mode = self._is_test_visualization_mode()
+            
+            if client_count == 0 and not is_test_mode:
+                logger.debug(f"🚫 No clients connected and not in test mode, skipping data for {cortical_id}")
                 return
+                
+            if is_test_mode and client_count == 0:
+                logger.info(f"🧪 Test mode: assuming clients for area {cortical_id} ({len(fire_queue_data.get('neuron_ids', []))} neurons)")
                 
             # Extract data from fire queue
             neuron_ids = fire_queue_data['neuron_ids']
@@ -294,8 +305,16 @@ class VisualizationStream:
             if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
                 return
                 
-            if self.get_connected_client_count() == 0:
+            # Check if we have connected clients OR if in test mode (where we assume clients)
+            client_count = self.get_connected_client_count()
+            is_test_mode = self._is_test_visualization_mode()
+            
+            if client_count == 0 and not is_test_mode:
+                logger.debug(f"🚫 No clients connected and not in test mode, skipping dict data")
                 return
+                
+            if is_test_mode and client_count == 0:
+                logger.info(f"🧪 Test mode: assuming clients for dict data ({len(fire_queue_data.get('neuron_ids', []))} neurons)")
                 
             # Extract data from fire queue
             neuron_ids = fire_queue_data['neuron_ids']
@@ -348,11 +367,16 @@ class VisualizationStream:
         try:
             # Skip if in standby mode
             if not self._active_mode:
+                logger.info(f"🚫 Visualization stream in STANDBY mode, skipping data send")
                 return
                 
             # Apply rate limiting
             if not self.rate_limiter.check_rate("visualization", 0.05):  # Max 20Hz
+                logger.debug(f"⏱️ Rate limited, skipping visualization data send")
                 return
+            
+            # Log before sending
+            logger.info(f"📊 SENDING visualization data: {len(binary_data)} bytes to {self.get_connected_client_count()} clients")
             
             # Send data on activity topic
             await self.socket.send_multipart([
@@ -360,10 +384,10 @@ class VisualizationStream:
                 binary_data
             ])
             
-            logger.debug(f"Sent {len(binary_data)} bytes of visualization data")
+            logger.info(f"✅ Successfully sent {len(binary_data)} bytes of visualization data")
             
         except Exception as e:
-            logger.error(f"Error sending binary data: {e}")
+            logger.error(f"❌ Error sending binary data: {e}")
 
     async def _cleanup_disconnected_clients(self) -> None:
         """Periodically clean up disconnected clients based on heartbeat timeout."""
@@ -386,6 +410,15 @@ class VisualizationStream:
     def get_connected_client_count(self) -> int:
         """Get the estimated number of connected visualization clients."""
         return len(self.client_last_heartbeat)
+
+    def _is_test_visualization_mode(self) -> bool:
+        """Check if FEAGI is running in test visualization mode."""
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            return state_manager.get_test_visualization_mode()
+        except Exception:
+            return False
 
     async def record_client_heartbeat(self, client_id: str) -> None:
         """Record a heartbeat from a client."""

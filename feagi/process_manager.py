@@ -59,6 +59,11 @@ class ProcessManager:
         self._fcl_sampler_thread = None
         self._fcl_sampler_queue = None
         
+        # FQ Sampler (Fire Queue Sampler) - replacement for FCL sampler
+        self._fq_sampler = None
+        self._fq_sampler_thread = None
+        self._fq_sampler_queue = None
+        
     def find_available_port(self, start_port: int, max_tries: int = 10) -> Optional[int]:
         """
         Find an available port starting from start_port.
@@ -558,6 +563,7 @@ def get_process_manager(connectome=None) -> ProcessManager:
     global _process_manager
     if _process_manager is None:
         _process_manager = ProcessManager(connectome=connectome)
+    # If instance already exists, ignore connectome parameter to maintain singleton pattern
     return _process_manager
 
 # Removed the global process_manager instantiation that was here 

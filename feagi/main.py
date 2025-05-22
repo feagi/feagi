@@ -162,12 +162,12 @@ def main():
         }
     }
     
-    # Start all FEAGI processes
+    # Start all FEAGI processes FIRST (required for both normal and test mode)
     if not process_manager.start(config):
         logger.error("Failed to start FEAGI. See logs for details.")
         return 1
     
-    # If in test mode, run tests
+    # If in test mode, run tests AFTER processes are started
     if args.test:
         logger.info("Starting FEAGI in test mode")
         
