@@ -258,16 +258,80 @@ class VisualizationStream:
             membrane_potentials = fire_queue_data.get('membrane_potentials', [])
             coordinates = fire_queue_data.get('coordinates', [])
             
-            # Use coordinates if available, otherwise generate from IDs
-            if coordinates and len(coordinates) == len(neuron_ids):
-                x_values = [coord[0] for coord in coordinates]
-                y_values = [coord[1] for coord in coordinates]
-                z_values = [coord[2] for coord in coordinates]
-            else:
-                # Fallback to ID-based coordinates
-                x_values = [nid % 100 for nid in neuron_ids]
-                y_values = [(nid // 100) % 100 for nid in neuron_ids]
-                z_values = [nid // 10000 for nid in neuron_ids]
+            # **CRITICAL FIX**: Always resolve coordinates through connectome manager
+            try:
+                if self.core_api and hasattr(self.core_api, '_connectome_manager'):
+                    connectome_manager = self.core_api._connectome_manager
+                    
+                    # Get the cortical area
+                    area = connectome_manager.cortical_areas.get(cortical_id)
+                    if area:
+                        resolved_coordinates = []
+                        for neuron_id in neuron_ids:
+                            try:
+                                # Try to get actual neuron position from connectome
+                                if hasattr(connectome_manager, 'get_neuron_position'):
+                                    pos = connectome_manager.get_neuron_position(neuron_id)
+                                    if pos:
+                                        resolved_coordinates.append(pos)
+                                        continue
+                                
+                                # Try area-specific lookup
+                                if hasattr(area, 'get_neuron_by_id'):
+                                    neuron = area.get_neuron_by_id(neuron_id)
+                                    if neuron and hasattr(neuron, 'position'):
+                                        resolved_coordinates.append(neuron.position)
+                                        continue
+                                
+                                # Fallback: calculate from area dimensions and neuron_id
+                                dimensions = getattr(area, 'dimensions', (10, 10, 1))
+                                if isinstance(dimensions, dict):
+                                    x_dim = dimensions.get('x', 10)
+                                    y_dim = dimensions.get('y', 10)
+                                    z_dim = dimensions.get('z', 1)
+                                else:
+                                    x_dim, y_dim, z_dim = dimensions
+                                
+                                # Calculate position within area
+                                local_id = neuron_id % (x_dim * y_dim * z_dim)
+                                x = local_id % x_dim
+                                y = (local_id // x_dim) % y_dim
+                                z = local_id // (x_dim * y_dim)
+                                resolved_coordinates.append((x, y, z))
+                                
+                            except Exception as e:
+                                logger.warning(f"Could not resolve position for neuron {neuron_id}: {e}")
+                                # Last resort: use simple modulo but make it non-zero
+                                x = (neuron_id % 100) if neuron_id > 0 else 1
+                                y = ((neuron_id // 100) % 100) if neuron_id > 0 else 1
+                                z = (neuron_id // 10000) if neuron_id > 0 else 0
+                                resolved_coordinates.append((x, y, z))
+                        
+                        # Use resolved coordinates
+                        if resolved_coordinates and len(resolved_coordinates) == len(neuron_ids):
+                            x_values = [coord[0] for coord in resolved_coordinates]
+                            y_values = [coord[1] for coord in resolved_coordinates]
+                            z_values = [coord[2] for coord in resolved_coordinates]
+                            logger.info(f"🎯 Resolved {len(resolved_coordinates)} coordinates for {cortical_id}: {resolved_coordinates[:3]}...")
+                        else:
+                            raise Exception("Could not resolve all coordinates")
+                    else:
+                        raise Exception(f"Area {cortical_id} not found")
+                else:
+                    raise Exception("No connectome manager available")
+                    
+            except Exception as e:
+                logger.warning(f"Coordinate resolution failed for {cortical_id}: {e}, using fallback")
+                # Fallback to original logic but improved
+                if coordinates and len(coordinates) == len(neuron_ids):
+                    x_values = [coord[0] for coord in coordinates]
+                    y_values = [coord[1] for coord in coordinates]
+                    z_values = [coord[2] for coord in coordinates]
+                else:
+                    # Improved fallback: ensure non-zero coordinates for valid neuron IDs
+                    x_values = [(nid % 100) if nid > 0 else 1 for nid in neuron_ids]
+                    y_values = [((nid // 100) % 100) if nid > 0 else 1 for nid in neuron_ids]
+                    z_values = [(nid // 10000) if nid > 0 else 0 for nid in neuron_ids]
             
             # Use membrane potentials if available, otherwise default to 1.0
             if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
@@ -277,6 +341,9 @@ class VisualizationStream:
             
             # Create cortical ID list (one per neuron)
             cortical_ids = [cortical_id] * len(neuron_ids)
+            
+            # Log the actual data being sent
+            logger.info(f"📊 Sending {len(neuron_ids)} neurons for {cortical_id}: IDs={neuron_ids[:3]}..., coords={(x_values[0], y_values[0], z_values[0]) if neuron_ids else 'N/A'}, potentials={potentials[:3] if potentials else 'N/A'}...")
             
             # Encode using feagi_bytes
             try:
