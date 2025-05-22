@@ -179,11 +179,11 @@ class VisualizationStream:
     async def _process_fq_data(self) -> None:
         """Process FQ data from the sampler queue."""
         if not self.fq_sampler_queue:
-            logger.info("🚫 No FQ sampler queue available")
+            logger.debug("No FQ sampler queue available")
             return
             
-        logger.info("🔄 Starting FQ data processing")
-        
+        logger.debug("Starting FQ data processing")
+            
         while self.running:
             try:
                 # Get data from queue (non-blocking)
@@ -204,9 +204,6 @@ class VisualizationStream:
                     await asyncio.sleep(0.01)
                     continue
                     
-                # Log when we receive data
-                logger.info(f"🎯 Received FQ data: type={type(fq_data)}, data={str(fq_data)[:100]}...")
-                
                 # Handle different data types
                 if isinstance(fq_data, bytes):
                     # Already encoded binary data
@@ -223,14 +220,14 @@ class VisualizationStream:
                 
                 elif isinstance(fq_data, str) and fq_data == "STOP":
                     logger.info("Received STOP signal")
-                    break
+                    break 
                 
                 else:
-                    logger.warning(f"Unsupported FQ data type: {type(fq_data)}")
+                    logger.debug(f"Unsupported FQ data type: {type(fq_data)}")
                 
             except asyncio.CancelledError:
-                break
-            except Exception as e:
+                break 
+            except Exception as e: 
                 logger.error(f"Error in FQ data processing: {e}")
                 await asyncio.sleep(0.1)
 
@@ -247,11 +244,11 @@ class VisualizationStream:
             is_test_mode = self._is_test_visualization_mode()
             
             if client_count == 0 and not is_test_mode:
-                logger.debug(f"🚫 No clients connected and not in test mode, skipping data for {cortical_id}")
+                logger.debug(f"No clients connected and not in test mode, skipping data for {cortical_id}")
                 return
                 
             if is_test_mode and client_count == 0:
-                logger.info(f"🧪 Test mode: assuming clients for area {cortical_id} ({len(fire_queue_data.get('neuron_ids', []))} neurons)")
+                logger.debug(f"Test mode: assuming clients for area {cortical_id} ({len(fire_queue_data.get('neuron_ids', []))} neurons)")
                 
             # Extract data from fire queue
             neuron_ids = fire_queue_data['neuron_ids']
@@ -312,7 +309,7 @@ class VisualizationStream:
                             x_values = [coord[0] for coord in resolved_coordinates]
                             y_values = [coord[1] for coord in resolved_coordinates]
                             z_values = [coord[2] for coord in resolved_coordinates]
-                            logger.info(f"🎯 Resolved {len(resolved_coordinates)} coordinates for {cortical_id}: {resolved_coordinates[:3]}...")
+                            logger.debug(f"Resolved {len(resolved_coordinates)} coordinates for {cortical_id}")
                         else:
                             raise Exception("Could not resolve all coordinates")
                     else:
@@ -321,7 +318,7 @@ class VisualizationStream:
                     raise Exception("No connectome manager available")
                     
             except Exception as e:
-                logger.warning(f"Coordinate resolution failed for {cortical_id}: {e}, using fallback")
+                logger.debug(f"Coordinate resolution failed for {cortical_id}: {e}, using fallback")
                 # Fallback to original logic but improved
                 if coordinates and len(coordinates) == len(neuron_ids):
                     x_values = [coord[0] for coord in coordinates]
@@ -341,9 +338,6 @@ class VisualizationStream:
             
             # Create cortical ID list (one per neuron)
             cortical_ids = [cortical_id] * len(neuron_ids)
-            
-            # Log the actual data being sent
-            logger.info(f"📊 Sending {len(neuron_ids)} neurons for {cortical_id}: IDs={neuron_ids[:3]}..., coords={(x_values[0], y_values[0], z_values[0]) if neuron_ids else 'N/A'}, potentials={potentials[:3] if potentials else 'N/A'}...")
             
             # Encode using feagi_bytes
             try:
@@ -377,11 +371,11 @@ class VisualizationStream:
             is_test_mode = self._is_test_visualization_mode()
             
             if client_count == 0 and not is_test_mode:
-                logger.debug(f"🚫 No clients connected and not in test mode, skipping dict data")
+                logger.debug("No clients connected and not in test mode, skipping dict data")
                 return
                 
             if is_test_mode and client_count == 0:
-                logger.info(f"🧪 Test mode: assuming clients for dict data ({len(fire_queue_data.get('neuron_ids', []))} neurons)")
+                logger.debug(f"Test mode: assuming clients for dict data ({len(fire_queue_data.get('neuron_ids', []))} neurons)")
                 
             # Extract data from fire queue
             neuron_ids = fire_queue_data['neuron_ids']
@@ -434,16 +428,14 @@ class VisualizationStream:
         try:
             # Skip if in standby mode
             if not self._active_mode:
-                logger.info(f"🚫 Visualization stream in STANDBY mode, skipping data send")
+                logger.debug("Visualization stream in STANDBY mode, skipping data send")
                 return
                 
-            # Apply rate limiting
-            if not self.rate_limiter.check_rate("visualization", 0.05):  # Max 20Hz
-                logger.debug(f"⏱️ Rate limited, skipping visualization data send")
+            # Apply rate limiting (but skip rate limiting in test mode to allow high-frequency testing)
+            is_test_mode = self._is_test_visualization_mode()
+            if not is_test_mode and not self.rate_limiter.check_rate("visualization", 0.05):  # Max 20Hz
+                logger.debug("Rate limited, skipping visualization data send")
                 return
-            
-            # Log before sending
-            logger.info(f"📊 SENDING visualization data: {len(binary_data)} bytes to {self.get_connected_client_count()} clients")
             
             # Send data on activity topic
             await self.socket.send_multipart([
@@ -451,10 +443,10 @@ class VisualizationStream:
                 binary_data
             ])
             
-            logger.info(f"✅ Successfully sent {len(binary_data)} bytes of visualization data")
+            logger.debug(f"Sent {len(binary_data)} bytes of visualization data")
             
         except Exception as e:
-            logger.error(f"❌ Error sending binary data: {e}")
+            logger.error(f"Error sending binary data: {e}")
 
     async def _cleanup_disconnected_clients(self) -> None:
         """Periodically clean up disconnected clients based on heartbeat timeout."""

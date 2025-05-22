@@ -181,9 +181,10 @@ class FeagiTestRunner:
                 logger.warning("No sensory data generated")
                 return False
                 
-            logger.info(f"Generated sensory data for {len(sensory_data)} cortical areas")
+            logger.debug(f"Generated sensory data for {len(sensory_data)} cortical areas")
             
             # Process each sensory area's data
+            total_active_neurons = 0
             for cortical_id, data in sensory_data.items():
                 # Find the cortical area in the connectome
                 cortical_area = self.connectome.cortical_areas.get(cortical_id)
@@ -219,8 +220,13 @@ class FeagiTestRunner:
                 
                 # Add the bitmap to FCL updates
                 if len(bitmap) > 0:
-                    logger.info(f"Adding {len(bitmap)} neurons to FCL for area {cortical_id}")
+                    logger.debug(f"Adding {len(bitmap)} neurons to FCL for area {cortical_id}")
+                    total_active_neurons += len(bitmap)
                     self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
+            
+            # Single summary log instead of individual area logs
+            if total_active_neurons > 0:
+                logger.info(f"Injected {total_active_neurons} neurons across {len(sensory_data)} areas")
             
             return True
             
@@ -503,6 +509,7 @@ class FeagiTestRunner:
         """
         changed_fcls = False
         active_fcls = []
+        total_active_neurons = 0
         
         for cortical_id in self.connectome.cortical_areas:
             current_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
@@ -517,7 +524,12 @@ class FeagiTestRunner:
                 changed_fcls = True
                 active_fcls.append(cortical_id)
                 self.areas_with_activity.add(cortical_id)
-                logger.info(f"FCL for area {cortical_id} changed: {len(current_fcl_set)} neurons active")
+                total_active_neurons += len(current_fcl_set)
+                logger.debug(f"FCL for area {cortical_id} changed: {len(current_fcl_set)} neurons active")
+        
+        # Single summary log instead of individual area logs
+        if changed_fcls:
+            logger.info(f"Neural activity: {total_active_neurons} neurons active across {len(active_fcls)} areas")
         
         return changed_fcls, active_fcls
     
@@ -584,9 +596,17 @@ class FeagiTestRunner:
             end_time = test_start_time + self.test_duration
             
             cycle_count = 0
+            last_report_time = test_start_time
+            report_interval = 5.0  # Report every 5 seconds
+            
             while time.time() < end_time:
                 cycle_count += 1
-                logger.info(f"Test cycle {cycle_count}")
+                
+                # Only log cycle numbers every 5 seconds to reduce verbosity
+                current_time = time.time()
+                if current_time - last_report_time >= report_interval:
+                    logger.info(f"Test progress: cycle {cycle_count} ({current_time - test_start_time:.1f}s elapsed)")
+                    last_report_time = current_time
                 
                 # Inject sensory data
                 if not self.inject_sensory_data():
@@ -599,7 +619,7 @@ class FeagiTestRunner:
                 # Check neural activity
                 activity_detected, active_areas = self.check_neural_activity()
                 if activity_detected:
-                    logger.info(f"Neural activity detected in cycle {cycle_count}")
+                    logger.debug(f"Neural activity detected in cycle {cycle_count}")
             
             # Test completion
             test_duration = time.time() - test_start_time

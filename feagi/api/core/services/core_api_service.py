@@ -203,57 +203,47 @@ class CoreAPIService:
                     return core.get_area_fire_queue(cortical_id)
             
             # Fallback: get area FCL and convert to fire queue format
-            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
-                fcl_manager = self._connectome_manager.fcl_manager
-                area_fcl = fcl_manager.get_cortical_fcl(cortical_id)
+            if not self._connectome_manager:
+                logger.warning("No connectome manager available for fire queue data")
+                return None
+
+            fcl_manager = self._connectome_manager.fcl_manager
+            area_fcl = fcl_manager.get_cortical_fcl(cortical_id)
+            
+            if area_fcl and hasattr(area_fcl, '__iter__'):
+                neuron_ids = list(area_fcl)
                 
-                # DEBUG: Log what we get from FCL manager
-                logger.info(f"🔍 DEBUG - FCL data for {cortical_id}: type={type(area_fcl)}, data={area_fcl}")
-                
-                if area_fcl and hasattr(area_fcl, '__iter__'):
-                    neuron_ids = list(area_fcl)
-                    
-                    # DEBUG: Log the neuron IDs we extracted
-                    logger.info(f"🔍 DEBUG - Extracted neuron IDs: {neuron_ids[:10] if len(neuron_ids) > 10 else neuron_ids}")
-                    
-                    # Check if we have valid neuron IDs or if we need to generate test data
-                    if not neuron_ids or all(nid == 0 for nid in neuron_ids):
-                        logger.info(f"🔍 DEBUG - No valid neuron IDs from FCL, checking for test visualization mode")
-                        
-                        # Check if we're in test visualization mode and generate synthetic activity
-                        if self._is_test_visualization_mode():
-                            neuron_ids = self._generate_synthetic_neural_activity(cortical_id)
-                            logger.info(f"🧪 TEST MODE - Generated synthetic neural activity: {len(neuron_ids)} neurons for {cortical_id}")
-                    
-                    if neuron_ids:
-                        # Create mock fire queue data
-                        fire_queue_data = {
-                            'neuron_ids': neuron_ids,
-                            'membrane_potentials': [1.0] * len(neuron_ids),  # Default potential
-                            'thresholds': [1.0] * len(neuron_ids),  # Default threshold
-                            'consecutive_fire_counts': [0] * len(neuron_ids),  # Default count
-                            'refractory_counters': [0] * len(neuron_ids)  # Default counter
-                        }
-                        
-                        logger.info(f"🔍 DEBUG - Created fire queue data: {len(neuron_ids)} neurons")
-                        return fire_queue_data
-                else:
-                    logger.info(f"🔍 DEBUG - No FCL data for {cortical_id} (empty or None)")
-                    
-                    # Check if we're in test visualization mode and generate synthetic activity
+                # Check if we have valid neuron IDs or if we need to generate test data
+                if not neuron_ids or all(nid == 0 for nid in neuron_ids):
                     if self._is_test_visualization_mode():
                         neuron_ids = self._generate_synthetic_neural_activity(cortical_id)
                         if neuron_ids:
-                            logger.info(f"🧪 TEST MODE - Generated synthetic neural activity: {len(neuron_ids)} neurons for {cortical_id}")
-                            
-                            fire_queue_data = {
-                                'neuron_ids': neuron_ids,
-                                'membrane_potentials': [1.0] * len(neuron_ids),
-                                'thresholds': [1.0] * len(neuron_ids),
-                                'consecutive_fire_counts': [0] * len(neuron_ids),
-                                'refractory_counters': [0] * len(neuron_ids)
-                            }
-                            return fire_queue_data
+                            logger.debug(f"Generated synthetic neural activity: {len(neuron_ids)} neurons for {cortical_id}")
+                
+                if neuron_ids:
+                    # Create mock fire queue data
+                    fire_queue_data = {
+                        'neuron_ids': neuron_ids,
+                        'membrane_potentials': [1.0] * len(neuron_ids),  # Default potential
+                        'thresholds': [1.0] * len(neuron_ids),  # Default threshold
+                        'consecutive_fire_counts': [0] * len(neuron_ids),  # Default count
+                        'refractory_counters': [0] * len(neuron_ids)  # Default counter
+                    }
+                    
+                    return fire_queue_data
+            else:
+                # Check if we're in test visualization mode and generate synthetic activity
+                if self._is_test_visualization_mode():
+                    neuron_ids = self._generate_synthetic_neural_activity(cortical_id)
+                    if neuron_ids:
+                        fire_queue_data = {
+                            'neuron_ids': neuron_ids,
+                            'membrane_potentials': [1.0] * len(neuron_ids),
+                            'thresholds': [1.0] * len(neuron_ids),
+                            'consecutive_fire_counts': [0] * len(neuron_ids),
+                            'refractory_counters': [0] * len(neuron_ids)
+                        }
+                        return fire_queue_data
             
             return None
             
@@ -295,8 +285,16 @@ class CoreAPIService:
             dimensions = getattr(area, 'dimensions', (10, 10, 1))
             total_neurons = dimensions[0] * dimensions[1] * dimensions[2]
             
+            # Skip areas with zero or very small neuron counts
+            if total_neurons <= 0:
+                return []
+            
             # Generate realistic neuron IDs based on area size
             max_neurons = min(total_neurons, 1000)  # Cap at 1000 for performance
+            
+            # Skip areas with insufficient neurons for meaningful activity
+            if max_neurons < 2:
+                return []
             
             # Create a deterministic but varied pattern based on time and cortical_id
             random.seed(int(time.time()) + hash(cortical_id) % 1000)
@@ -318,7 +316,6 @@ class CoreAPIService:
             # Remove duplicates and sort
             neuron_ids = sorted(list(set(neuron_ids)))
             
-            logger.debug(f"Generated {len(neuron_ids)} synthetic neurons for {cortical_id} (area size: {total_neurons})")
             return neuron_ids
             
         except Exception as e:

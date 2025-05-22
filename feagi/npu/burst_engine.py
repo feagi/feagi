@@ -644,18 +644,12 @@ class FQSampler:
                 area_fire_data = self._get_area_fire_queue_data(cortical_id)
                 
                 if area_fire_data:
-                    # Put (cortical_id, fire_data) in the output queue
                     try:
-                        self.output_queue.put_nowait((cortical_id, area_fire_data))
-                        logger.info(f"🎯 FQSampler PUT area data: {cortical_id} -> {len(area_fire_data.get('neuron_ids', []))} neurons")
+                        self.output_queue.put((cortical_id, area_fire_data))
                         break  # Success
                     except Exception as e:
-                        # Queue full - drop data (conflating behavior)
-                        logger.warning(f"⚠️ FQSampler queue full, dropping data for {cortical_id}: {e}")
-                        break
+                        logger.error(f"Error putting area data in queue: {e}")
                 else:
-                    # No fire data for this area
-                    logger.debug(f"🔍 No fire data for area {cortical_id}")
                     break
                     
             except Exception as e:
@@ -675,14 +669,12 @@ class FQSampler:
                 if fire_data:
                     try:
                         self.output_queue.put_nowait(fire_data)
-                        logger.info(f"🎯 FQSampler PUT global data: {len(fire_data.get('neuron_ids', []))} neurons")
                         break  # Success
                     except Exception as e:
                         # Queue full - drop data
-                        logger.warning(f"⚠️ FQSampler queue full, dropping global data: {e}")
+                        logger.warning(f"FQSampler queue full, dropping global data: {e}")
                         break
                 else:
-                    logger.debug(f"🔍 No global fire data available")
                     break
                     
             except Exception as e:
