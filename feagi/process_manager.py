@@ -158,7 +158,7 @@ class ProcessManager:
             state_manager.set_fcl_sampler_frequency(sampler_frequency)
             state_manager.set_fcl_sampler_consumer(sampler_consumer)
             # Create output queue for visualization/motor consumers
-            self._fcl_sampler_queue = Queue(maxsize=50)  # Increased from 10 to 50
+            self._fcl_sampler_queue = Queue(maxsize=50)  # Best-effort queue - newer samples are prioritized over processing every sample
             # Use the FCL manager from critical processes
             fcl_manager = self._fcl_manager
             if fcl_manager is None:

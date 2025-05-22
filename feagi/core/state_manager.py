@@ -123,6 +123,7 @@ class FeagiStateStruct(ctypes.Structure):
         ("state_version", ctypes.c_uint64),
         ("genome_counter", ctypes.c_uint32),
         ("brain_readiness", ctypes.c_uint8),  # 0 = False, 1 = True
+        ("test_visualization_mode", ctypes.c_uint8),  # 0 = False, 1 = True
     ]
 
 
@@ -436,6 +437,26 @@ class FeagiStateManager:
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
         self.state_ptr.contents.state_version += 1
         logger.info(f"Brain readiness changed: {old} → {ready}", emoji1="🧠")
+
+    def get_test_visualization_mode(self) -> bool:
+        """Get the test visualization mode flag (True if test visualization is enabled)"""
+        return bool(self.state_ptr.contents.test_visualization_mode)
+
+    def set_test_visualization_mode(self, enabled: bool) -> None:
+        """
+        Set the test visualization mode flag.
+        
+        When enabled, visualization data will be logged for debugging purposes
+        even if no ZMQ clients are connected.
+        
+        Args:
+            enabled: True to enable test visualization mode, False to disable
+        """
+        old = bool(self.state_ptr.contents.test_visualization_mode)
+        self.state_ptr.contents.test_visualization_mode = 1 if enabled else 0
+        self.state_ptr.contents.state_version += 1
+        if old != enabled:
+            logger.info(f"Test visualization mode changed: {old} → {enabled}", emoji1="🧮")
 
     def get_connectome(self):
         """Get the current connectome instance"""

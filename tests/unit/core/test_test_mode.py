@@ -302,32 +302,18 @@ class TestFeagiTestRunner:
     
     def test_hook_fcl_sampler(self, test_runner, mock_core_api):
         """Test that hook_fcl_sampler correctly hooks into the FCL sampler."""
+        # Configure mock FCL sampler with set_visualization_subscribers method
+        mock_fcl_sampler = mock_core_api.fcl_sampler
+        mock_fcl_sampler.set_visualization_subscribers = MagicMock()
+        
         # Call the method
         result = test_runner.hook_fcl_sampler()
         
+        # Verify the result is True
         assert result is True
         
-        # Test that the hook function increments the counter
-        # First, let's create some FCL data
-        fcl_data = {
-            "visual_cortex": {1, 2, 3},
-            "motor_cortex": {4, 5, 6, 7}
-        }
-        
-        # Get the hooked function
-        hooked_sample_fcl = mock_core_api.fcl_sampler.sample_fcl
-        
-        # Call it with our test data
-        hooked_sample_fcl(fcl_data)
-        
-        # Check that the counter was incremented
-        assert test_runner.visualization_neuron_counter == 7  # 3 + 4 neurons
-        
-        # Call it again to make sure the counter accumulates
-        hooked_sample_fcl(fcl_data)
-        
-        # Check the counter again
-        assert test_runner.visualization_neuron_counter == 14  # 7 + 7 neurons
+        # Verify that set_visualization_subscribers was called with True
+        mock_fcl_sampler.set_visualization_subscribers.assert_called_once_with(True)
 
 
 class TestRunTestMode:

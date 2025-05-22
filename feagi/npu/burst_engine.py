@@ -260,42 +260,78 @@ class FCLSampler:
     - RTOS/Rust-friendly: runs as a periodic task/thread, no dynamic allocation in the main loop
     - Supports graceful shutdown
     - Only samples when there are consumers (visualization clients or motor outputs)
+    - Uses best-effort delivery - silently drops samples when output queue is full to prioritize real-time performance
     """
     def __init__(self, fcl_manager: Any, sample_frequency_hz: float, output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
         """
         Initialize the FCL Sampler.
         
         Args:
-            fcl_manager: The FCL manager to sample from
-            sample_frequency_hz: Frequency to sample FCLs at (global default)
-            output_queue: Queue to output sampled FCLs to
-            connectome_manager: Optional connectome manager for per-area sampling rates
+            fcl_manager: FCL manager instance to sample from
+            sample_frequency_hz: Sampling frequency in Hz
+            output_queue: Queue to put sampled FCL data into
+            connectome_manager: Optional connectome manager to get cortical area properties
         """
         self.fcl_manager = fcl_manager
         self.sample_frequency = sample_frequency_hz  # Global default
         self.sample_interval = 1.0 / sample_frequency_hz
         self.output_queue = output_queue
         self.connectome_manager = connectome_manager  # Needed for per-area properties
+        
         self.running = False
         self._last_sample_time_per_area = {}  # cortical_id -> last sample time
-        self._max_retries = 3  # Maximum number of retries for transient errors
+        self._max_retries = 2  # Maximum number of retries for transient errors
         self._retry_delay = 0.01  # Delay between retries in seconds
         
         # Visualization clients tracking
         self._has_visualization_subscribers = False
         self._has_motor_subscribers = False
+        
+    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
+        """
+        Set whether there are visualization subscribers.
+        
+        Args:
+            has_subscribers: True if there are visualization subscribers, False otherwise
+        """
+        if has_subscribers != self._has_visualization_subscribers:
+            logger.info(f"FCLSampler visualization subscribers changed: {has_subscribers}")
+            self._has_visualization_subscribers = has_subscribers
+            
+            # Check if test visualization mode is enabled
+            test_viz_mode = False
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                state_manager = FeagiStateManager.instance()
+                test_viz_mode = state_manager.get_test_visualization_mode()
+                if test_viz_mode and has_subscribers:
+                    logger.debug("TEST VISUALIZATION MODE IS ACTIVE - Will log raw neuron data")
+            except Exception as e:
+                pass
 
     def run(self) -> None:
         """
         Run the FCL sampler main loop.
         
         This method continuously samples FCLs according to the configured
-        sample rate and outputs them to the queue.
+        sample rate and outputs them to the queue using a best-effort approach.
+        When the output queue is full, new samples are silently dropped to maintain
+        real-time performance.
         """
         self.running = True
         while self.running:
             start = time.perf_counter()
             now = start
+            
+            # For test visualization mode - collect all data in one dictionary
+            combined_neuron_data = {}
+            in_test_viz_mode = False
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                state_manager = FeagiStateManager.instance()
+                in_test_viz_mode = state_manager.get_test_visualization_mode()
+            except Exception:
+                pass
             
             # Skip sampling if no subscribers
             if not self._has_visualization_subscribers and not self._has_motor_subscribers:
@@ -320,11 +356,68 @@ class FCLSampler:
                                 # Put (cortical_id, area_fcl) in the output queue (non-blocking, drop if full)
                                 try:
                                     self.output_queue.put_nowait((cortical_id, area_fcl))
+                                    
+                                    # Check if in test visualization mode and log the raw data
+                                    try:
+                                        from feagi.core.state_manager import FeagiStateManager
+                                        state_manager = FeagiStateManager.instance()
+                                        if state_manager.get_test_visualization_mode():
+                                            # Format the data for logging
+                                            if area_fcl:
+                                                # Convert the bitmap to a list format
+                                                neuron_ids = list(area_fcl)
+                                                x_values = []
+                                                y_values = []
+                                                z_values = []
+                                                potentials = []
+                                                
+                                                # Get the area object to access neuron positions
+                                                area_obj = self.connectome_manager.cortical_areas.get(cortical_id)
+                                                if area_obj:
+                                                    for neuron_id in neuron_ids:
+                                                        # Try to get neuron position
+                                                        try:
+                                                            # If get_neuron_by_id exists, use it
+                                                            if hasattr(area_obj, 'get_neuron_by_id'):
+                                                                neuron = area_obj.get_neuron_by_id(neuron_id)
+                                                                if neuron and hasattr(neuron, 'position'):
+                                                                    x, y, z = neuron.position
+                                                                else:
+                                                                    # Estimate position from ID
+                                                                    dimensions = area_obj.properties.get('dimensions', {'x': 10, 'y': 10, 'z': 1})
+                                                                    x = neuron_id % dimensions['x']
+                                                                    y = (neuron_id // dimensions['x']) % dimensions['y']
+                                                                    z = (neuron_id // (dimensions['x'] * dimensions['y'])) % dimensions['z']
+                                                            else:
+                                                                # Estimate position from ID
+                                                                dimensions = area_obj.properties.get('dimensions', {'x': 10, 'y': 10, 'z': 1})
+                                                                x = neuron_id % dimensions['x']
+                                                                y = (neuron_id // dimensions['x']) % dimensions['y']
+                                                                z = (neuron_id // (dimensions['x'] * dimensions['y'])) % dimensions['z']
+                                                        except Exception as e:
+                                                            # Fallback to default coordinates
+                                                            x, y, z = 0, 0, 0
+                                                        
+                                                        # Add coordinates and default potential for this neuron
+                                                        x_values.append(x)
+                                                        y_values.append(y)
+                                                        z_values.append(z)
+                                                        potentials.append(1.0)  # Default potential for firing neurons
+                                                
+                                                # Format cortical ID (6 characters) and add to combined data
+                                                cort_id_6 = cortical_id[:6].ljust(6)
+                                                combined_neuron_data[cort_id_6] = [x_values, y_values, z_values, potentials]
+                                    except Exception as e:
+                                        # Don't let errors in test mode logging affect normal operation
+                                        print(f"Error in test visualization logging: {e}")
+                                        import traceback
+                                        print(traceback.format_exc())
+                                    
                                     break  # Success, exit retry loop
                                 except Exception as e:
-                                    # Queue is likely full, log and continue
-                                    if retry_count == self._max_retries - 1:  # Only log on last retry
-                                        logger.warning(f"Output queue full, skipping FCL sample for area {cortical_id}")
+                                    # Queue is full - silently drop instead of logging warnings
+                                    # This implements a conflating behavior where we prioritize new data
+                                    break  # Skip retries when queue is full
                             except Exception as e:
                                 # Log error but continue with other areas
                                 if retry_count == self._max_retries - 1:  # Only log on last retry
@@ -343,11 +436,50 @@ class FCLSampler:
                         fcl_snapshot = self.fcl_manager.get_global_fcl()
                         try:
                             self.output_queue.put_nowait(fcl_snapshot)
+                            
+                            # Check if in test visualization mode
+                            try:
+                                from feagi.core.state_manager import FeagiStateManager
+                                state_manager = FeagiStateManager.instance()
+                                if state_manager.get_test_visualization_mode():
+                                    # If it's a dictionary, add it to the combined data
+                                    if isinstance(fcl_snapshot, dict):
+                                        # Add each area's data to the combined dictionary
+                                        for area_id, fcl_data in fcl_snapshot.items():
+                                            cort_id_6 = area_id[:6].ljust(6)
+                                            # Process FCL data based on its structure
+                                            # (This is an example - actual format may vary)
+                                            x_values, y_values, z_values, potentials = [], [], [], []
+                                            if isinstance(fcl_data, set):
+                                                # It's just a set of neuron IDs
+                                                for neuron_id in fcl_data:
+                                                    # Simplified coordinates based on neuron ID
+                                                    x_values.append(neuron_id % 10)
+                                                    y_values.append((neuron_id // 10) % 10)
+                                                    z_values.append(0)
+                                                    potentials.append(1.0)
+                                            combined_neuron_data[cort_id_6] = [x_values, y_values, z_values, potentials]
+                                    # For debugging, still log a summary of the snapshot
+                                    print(f"\n=== GLOBAL FCL SNAPSHOT: {type(fcl_snapshot)} ===")
+                                    if isinstance(fcl_snapshot, dict):
+                                        print(f"Contains data for {len(fcl_snapshot)} areas")
+                                    elif isinstance(fcl_snapshot, bytes):
+                                        # If it's bytes, print first 50 bytes as hex
+                                        hex_dump = ' '.join([f'{b:02x}' for b in fcl_snapshot[:50]])
+                                        print(f"First 50 bytes: {hex_dump}")
+                                    print("================================\n")
+                            except Exception as e:
+                                # Don't let test mode logging failures affect normal operation
+                                print(f"Error in global test visualization logging: {e}")
+                            
                             break  # Success, exit retry loop
                         except Exception as e:
-                            # Queue is likely full, log and continue
+                            # Log error but continue
                             if retry_count == self._max_retries - 1:  # Only log on last retry
-                                logger.warning("Output queue full, skipping global FCL sample")
+                                logger.error(f"FCLSampler error: {e}")
+                            # Wait before retrying
+                            time.sleep(self._retry_delay)
+                        retry_count += 1
                     except Exception as e:
                         # Log error but continue
                         if retry_count == self._max_retries - 1:  # Only log on last retry
@@ -358,6 +490,20 @@ class FCLSampler:
                     
             # Sleep for the remainder of the global sample interval
             elapsed = time.perf_counter() - start
+            
+            # Print combined neuron data if in test visualization mode
+            if in_test_viz_mode and combined_neuron_data:
+                # Log the combined data
+                import json
+                combined_data_str = json.dumps(combined_neuron_data, separators=(',', ':'))
+                logger.debug(f"COMBINED NEURON DATA ({len(combined_neuron_data)} areas):")
+                logger.debug(combined_data_str)
+                
+                # Also print to stdout directly for maximum visibility
+                print(f"\n=== COMBINED NEURON DATA FOR {len(combined_neuron_data)} AREAS ===")
+                print(combined_data_str)
+                print("===========================================================\n")
+            
             if elapsed < self.sample_interval:
                 time.sleep(self.sample_interval - elapsed)
         logger.info("FCLSampler stopped.")
@@ -373,17 +519,6 @@ class FCLSampler:
             self._last_sample_time_per_area[cortical_id] = time.perf_counter()
         # Rate will be picked up from cortical area properties
         
-    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
-        """
-        Update whether there are visualization subscribers.
-        
-        Args:
-            has_subscribers: Whether there are visualization subscribers
-        """
-        if has_subscribers != self._has_visualization_subscribers:
-            logger.info(f"FCLSampler visualization subscribers changed: {has_subscribers}")
-            self._has_visualization_subscribers = has_subscribers
-            
     def set_motor_subscribers(self, has_subscribers: bool) -> None:
         """
         Update whether there are motor subscribers.

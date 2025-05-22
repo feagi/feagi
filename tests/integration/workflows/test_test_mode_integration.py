@@ -180,6 +180,7 @@ def test_test_mode_visualization(test_visualization):
     # Create a mock CoreAPIService with more visualization-related mocks
     fcl_sampler = MagicMock()
     fcl_sampler.sample_fcl = MagicMock(return_value={})
+    fcl_sampler.set_visualization_subscribers = MagicMock()
     
     mock_core_api = type('obj', (object,), {
         'get_connectome_manager': lambda: type('obj', (object,), {
@@ -261,16 +262,7 @@ def test_test_mode_visualization(test_visualization):
                     assert test_runner.is_visualization_agent_registered is True
                     
                     # And the FCL sampler should have been hooked
-                    # Let's simulate some FCL data to verify the neuron counter
-                    fcl_data = {
-                        'test_area': {1, 2, 3, 4, 5}
-                    }
-                    # Get the hooked sample_fcl function
-                    hooked_sample_fcl = fcl_sampler.sample_fcl
-                    # Call it with our test data
-                    hooked_sample_fcl(fcl_data)
-                    # We should see some neurons counted
-                    assert test_runner.visualization_neuron_counter > 0
+                    fcl_sampler.set_visualization_subscribers.assert_called_once_with(True)
                 else:
                     # If visualization testing is disabled, we should not have registered an agent
                     assert test_runner.is_visualization_agent_registered is False 

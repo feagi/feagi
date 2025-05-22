@@ -4,7 +4,27 @@ FEAGI Test Mode Module.
 This module provides test functionality for FEAGI, allowing automated testing of
 sensory input processing using the activity_generator from feagi_sim.
 
-It is designed to be called from the main FEAGI process when the --test flag is provided.
+Key Testing Features:
+1. Loading a test genome (essential genome by default)
+2. Generating and injecting synthetic sensory data into FCL
+3. Monitoring neural activity across cortical areas
+4. Reporting test results
+
+Visualization Testing Mode:
+When the --test-visualization flag is enabled, test_mode will:
+1. Register a fake visualization agent with FEAGI
+2. Set the visualization_subscribers flag on the FCL sampler to TRUE
+3. This causes the FCL sampler to collect visualization data as if real clients were connected
+4. No custom data processing is performed in test_mode - the existing FCL sampler handles this
+
+Important Notes:
+- Test_mode is designed to be minimal and non-intrusive to the main FEAGI code
+- It enables testing of the visualization data flow without requiring actual ZMQ connections
+- All visualization data processing happens in the main FEAGI codebase, not in test_mode
+- The actual visualization logging occurs in the main FEAGI logging system
+
+This module is designed to be called from the main FEAGI process when the 
+--test or --test-visualization flags are provided.
 """
 import os
 import json
@@ -72,7 +92,6 @@ class FeagiTestRunner:
         self.areas_with_activity = set()
         
         # Visualization test variables
-        self.visualization_neuron_counter = 0
         self.visualization_agent_id = "test_viz_agent"
         self.is_visualization_agent_registered = False
     
@@ -340,7 +359,6 @@ class FeagiTestRunner:
             self.is_running = True
             self.test_result = None
             self.areas_with_activity = set()
-            self.visualization_neuron_counter = 0
             
             # Load the genome
             if not self.load_genome():
@@ -360,6 +378,8 @@ class FeagiTestRunner:
             # If testing visualization, register a fake visualization agent
             if self.test_visualization:
                 logger.info("Setting up visualization testing")
+                # Enable test visualization mode in the state manager
+                self.state_manager.set_test_visualization_mode(True)
                 self.register_visualization_agent()
                 self.hook_fcl_sampler()
             
