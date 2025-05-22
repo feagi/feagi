@@ -431,11 +431,7 @@ class VisualizationStream:
                 logger.debug("Visualization stream in STANDBY mode, skipping data send")
                 return
                 
-            # Apply rate limiting (but skip rate limiting in test mode to allow high-frequency testing)
-            is_test_mode = self._is_test_visualization_mode()
-            if not is_test_mode and not self.rate_limiter.check_rate("visualization", 0.05):  # Max 20Hz
-                logger.debug("Rate limited, skipping visualization data send")
-                return
+            # No artificial rate limiting - let the natural sampling frequency determine the rate
             
             # Send data on activity topic
             await self.socket.send_multipart([
@@ -535,9 +531,7 @@ class VisualizationStream:
             return
             
         try:
-            # Apply rate limiting
-            if not self.rate_limiter.check_rate(f"broadcast_{data_type}", 0.05):
-                return
+            # No artificial rate limiting - let the natural sampling frequency determine the rate
                 
             await self.socket.send_multipart([
                 data_type.encode('utf-8'),
