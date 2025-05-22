@@ -41,6 +41,36 @@ class FeagiControlClient:
         self.context = zmq.asyncio.Context.instance()
         self.next_id = 1
     
+    async def connect(self) -> bool:
+        """
+        Connect to the FEAGI control stream.
+        
+        This method doesn't actually establish a persistent connection since 
+        each request creates a new socket, but it's provided for API consistency.
+        
+        Returns:
+            True indicating success (always returns True)
+        """
+        # Test connection by sending a ping
+        try:
+            result = await self.ping()
+            if 'error' in result:
+                logger.error(f"Failed to connect to control stream: {result['error']}")
+                return False
+            return True
+        except Exception as e:
+            logger.error(f"Error connecting to control stream: {e}")
+            return False
+    
+    async def close(self) -> None:
+        """
+        Clean up resources.
+        
+        This method doesn't need to do much since each request creates and closes its own socket.
+        """
+        # Nothing to do here, each request creates and closes its own socket
+        pass
+    
     async def make_request(self, command: str, params: Optional[Dict] = None) -> Dict:
         """
         Make a direct command request with proper message formatting.
@@ -169,4 +199,34 @@ class FeagiControlClient:
         Returns:
             Response dictionary
         """
-        return await self.make_request("load_genome", {"name": name}) 
+        return await self.make_request("load_genome", {"name": name})
+        
+    async def send_heartbeat(self, agent_id: str = "heartbeat", agent_type: str = "external") -> Dict:
+        """
+        Send a heartbeat to FEAGI.
+        
+        This keeps the connection alive by letting FEAGI know the agent is still running.
+        
+        Args:
+            agent_id: Agent ID to include in the heartbeat
+            agent_type: Agent type to include in the heartbeat
+            
+        Returns:
+            Response dictionary
+        """
+        return await self.make_request("heartbeat", {"agent_id": agent_id, "agent_type": agent_type})
+        
+    async def send_goodbye(self, agent_id: str = "goodbye", agent_type: str = "external") -> Dict:
+        """
+        Send a goodbye message to FEAGI.
+        
+        This lets FEAGI know the agent is disconnecting gracefully.
+        
+        Args:
+            agent_id: Agent ID to include in the goodbye message
+            agent_type: Agent type to include in the goodbye message
+            
+        Returns:
+            Response dictionary
+        """
+        return await self.make_request("goodbye", {"agent_id": agent_id, "agent_type": agent_type}) 

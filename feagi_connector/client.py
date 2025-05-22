@@ -82,8 +82,6 @@ class FeagiClient:
         self.control_client = FeagiControlClient(
             host=host,
             port=control_port,
-            agent_id=self.agent_id,
-            agent_type=self.agent_type,
             timeout=timeout,
         )
         
@@ -175,7 +173,7 @@ class FeagiClient:
         
         # Send goodbye message
         try:
-            await self.control_client.send_goodbye()
+            await self.control_client.send_goodbye(agent_id=self.agent_id, agent_type=self.agent_type)
         except Exception as e:
             logger.warning(f"Error sending goodbye message: {e}")
         
@@ -295,7 +293,7 @@ class FeagiClient:
         """Send periodic heartbeats to keep the connection alive."""
         try:
             while self.connected:
-                await self.control_client.send_heartbeat()
+                await self.control_client.make_request("heartbeat", {"agent_id": self.agent_id, "agent_type": self.agent_type})
                 await asyncio.sleep(30)  # Send heartbeat every 30 seconds
         except asyncio.CancelledError:
             # Task was cancelled, exit gracefully
