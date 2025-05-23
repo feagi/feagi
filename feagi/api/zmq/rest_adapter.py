@@ -6,10 +6,11 @@ using the same format and structure as the HTTP-based REST API.
 
 The adapter:
 1. Receives ZMQ messages in REST API format
-2. Translates them to internal API calls
+2. Translates them to transport-agnostic v1 API calls
 3. Returns responses in the same format as the REST API
 
-This approach provides a unified API experience regardless of transport.
+This approach provides a unified API experience regardless of transport,
+ensuring identical behavior between HTTP and ZMQ clients.
 """
 
 import json
@@ -17,17 +18,20 @@ import time
 import asyncio
 import traceback
 from typing import Dict, Any, Optional, Tuple, Union, List, Callable
+import inspect
 
 from feagi.utils.logger import setup_logger
+from feagi.api.transport.zmq_adapter import ZMQRestAdapter
 
 logger = setup_logger(__name__)
 
 class ZMQRestAPIAdapter:
     """
-    Adapter for handling REST API-style requests over ZMQ.
+    Enhanced ZMQ REST API Adapter using transport-agnostic v1 API.
     
-    This adapter converts ZMQ messages formatted like REST API calls into internal
-    API service calls, and formats responses to match REST API responses.
+    This adapter now delegates system endpoints to the transport-agnostic v1 API
+    while maintaining existing implementations for genome and connectome endpoints.
+    This ensures identical behavior between HTTP and ZMQ transports.
     """
     
     def __init__(self, core_api_service):
@@ -38,32 +42,56 @@ class ZMQRestAPIAdapter:
             core_api_service: Core API service instance for processing requests
         """
         self.core_api_service = core_api_service
+        
+        # Create the transport-agnostic ZMQ adapter for system endpoints
+        self.v1_adapter = ZMQRestAdapter(core_api_service)
+        
         self.route_handlers = {}
         self._initialize_route_handlers()
         
     def _initialize_route_handlers(self):
         """Initialize the mapping of routes to handler methods."""
-        # This could also be done with introspection of the core_api_service
-        # or by importing the route mapping from the REST API module
-        
-        # Basic handlers for now, expand as needed
         self.route_handlers = {
-            # System endpoints
-            "GET:/v1/system/health_check": self._handle_health_check,
-            "GET:/v1/system/configuration": self._handle_get_configuration,
-            "PUT:/v1/system/configuration": self._handle_update_configuration,
-            "GET:/v1/system/versions": self._handle_get_versions,
-            "GET:/v1/system/cortical_area_types": self._handle_get_cortical_area_types,
+            # ===== System endpoints - Delegated to v1 API =====
+            "GET:/v1/system/health_check": self._delegate_to_v1_api,
+            "GET:/v1/system/configuration": self._delegate_to_v1_api,
+            "PUT:/v1/system/configuration": self._delegate_to_v1_api,
+            "GET:/v1/system/versions": self._delegate_to_v1_api,
+            "GET:/v1/system/cortical_area_types": self._delegate_to_v1_api,
+            "GET:/v1/system/user_preferences": self._delegate_to_v1_api,
+            "PUT:/v1/system/user_preferences": self._delegate_to_v1_api,
+            "GET:/v1/system/db/influxdb/test": self._delegate_to_v1_api,
+            "POST:/v1/system/circuit_library_path": self._delegate_to_v1_api,
+            "POST:/v1/system/fcl_reset": self._delegate_to_v1_api,
+            "POST:/v1/system/register": self._delegate_to_v1_api,
+            "POST:/v1/system/logs": self._delegate_to_v1_api,
+            "GET:/v1/system/beacon/subscribers": self._delegate_to_v1_api,
+            "POST:/v1/system/beacon/subscribe": self._delegate_to_v1_api,
+            "DELETE:/v1/system/beacon/unsubscribe": self._delegate_to_v1_api,
+            "GET:/v1/system/version": self._delegate_to_v1_api,
             
-            # Genome endpoints
+            # ===== Genome endpoints - Existing implementations =====
             "GET:/v1/genome/blueprint": self._handle_get_genome_blueprint,
             "GET:/v1/genome": self._handle_get_genome,
+            "GET:/v1/genome/file_name": self._handle_get_genome_file_name,
+            "GET:/v1/genome/defaults/files": self._handle_get_genome_defaults,
+            "GET:/v1/genome/download": self._handle_download_genome,
+            "GET:/v1/genome/genome_number": self._handle_get_genome_number,
+            "GET:/v1/genome/cortical_template": self._handle_get_cortical_template,
+            "GET:/v1/genome/circuits": self._handle_get_circuits,
+            "GET:/v1/genome/amalgamation_history": self._handle_get_amalgamation_history,
+            "GET:/v1/genome/download_region": self._handle_download_genome_region,
+            "POST:/v1/genome/upload/barebones": self._handle_upload_barebones_genome,
+            "POST:/v1/genome/upload/essential": self._handle_upload_essential_genome,
+            "POST:/v1/genome/upload/file": self._handle_upload_genome_file,
+            "POST:/v1/genome/upload/string": self._handle_upload_genome_string,
+            "POST:/v1/genome/reset": self._handle_reset_genome,
             
-            # Connectome endpoints
+            # ===== Connectome endpoints - Existing implementations =====
             "GET:/v1/connectome/cortical_areas": self._handle_get_cortical_areas,
             "GET:/v1/connectome/cortical_area/{cortical_id}": self._handle_get_cortical_area,
             
-            # Status endpoint
+            # ===== Status endpoint =====
             "GET:/v1/status": self._handle_status,
         }
     
@@ -93,6 +121,49 @@ class ZMQRestAPIAdapter:
             logger.error(f"Error processing REST API message: {str(e)}")
             logger.error(traceback.format_exc())
             return self._create_error_response(500, f"Internal server error: {str(e)}")
+    
+    async def _delegate_to_v1_api(self, params, query, body, headers) -> Any:
+        """
+        Delegate system endpoint requests to the transport-agnostic v1 API.
+        
+        This ensures identical behavior between HTTP and ZMQ transports.
+        """
+        # We need to extract the route and method from the current context
+        # Since this is called from _process_request, we can get it from the frame
+        frame = inspect.currentframe()
+        caller_frame = frame.f_back
+        caller_locals = caller_frame.f_locals
+        
+        route = caller_locals.get('route', '')
+        method = caller_locals.get('method', 'GET')
+        
+        # Reconstruct the request format expected by the v1 adapter
+        request_dict = {
+            "route": route,
+            "method": method,
+            "params": params,
+            "query": query,
+            "body": body,
+            "headers": headers,
+            "timestamp": int(time.time() * 1000)
+        }
+        request_json = json.dumps(request_dict).encode('utf-8')
+        
+        try:
+            # Process through the v1 adapter
+            response_bytes = await self.v1_adapter.process_message(request_json)
+            response = json.loads(response_bytes.decode('utf-8'))
+            
+            # Return the body part of the response (the v1 adapter wraps it)
+            if response.get('status') == 200:
+                return response.get('body')
+            else:
+                # Re-raise as an error for consistent handling
+                error_body = response.get('body', {})
+                raise ValueError(error_body.get('message', 'Unknown error'))
+        except Exception as e:
+            logger.error(f"Error delegating to v1 API: {e}")
+            raise ValueError(f"v1 API delegation failed: {str(e)}")
     
     def _parse_message(self, message_data: bytes) -> Optional[Dict[str, Any]]:
         """
@@ -375,11 +446,92 @@ class ZMQRestAPIAdapter:
     
     async def _handle_status(self, params, query, body, headers):
         """Handler for GET /v1/status"""
-        # Return the combined status of all FEAGI components
-        return {
-            "genome_availability": self.core_api_service.genome_is_loaded(),
-            "genome_validity": self.core_api_service.genome_is_loaded(),  # Simplified for now
-            "brain_readiness": self.core_api_service.get_state_manager().is_ready(),
-            "burst_engine_status": str(self.core_api_service.get_state_manager().get_burst_engine_state()),
-            "timestamp": int(time.time() * 1000)
-        } 
+        return await self.core_api_service.get_system_health()
+    
+    # Additional genome endpoint handlers
+    
+    async def _handle_get_genome_file_name(self, params, query, body, headers):
+        """Handler for GET /v1/genome/file_name"""
+        return self.core_api_service.get_genome_file_name()
+    
+    async def _handle_get_genome_defaults(self, params, query, body, headers):
+        """Handler for GET /v1/genome/defaults/files"""
+        return {"genome": self.core_api_service.get_default_genomes()}
+    
+    async def _handle_download_genome(self, params, query, body, headers):
+        """Handler for GET /v1/genome/download"""
+        # This typically returns a file, but for ZMQ we'll return the genome data
+        genome = self.core_api_service.get_genome()
+        if not genome:
+            raise ValueError("No genome loaded")
+        return genome
+    
+    async def _handle_get_genome_number(self, params, query, body, headers):
+        """Handler for GET /v1/genome/genome_number"""
+        return self.core_api_service.get_genome_counter()
+    
+    async def _handle_get_cortical_template(self, params, query, body, headers):
+        """Handler for GET /v1/genome/cortical_template"""
+        # Return cortical area template
+        template = self.core_api_service.get_cortical_template()
+        return template
+    
+    async def _handle_get_circuits(self, params, query, body, headers):
+        """Handler for GET /v1/genome/circuits"""
+        # Return available circuits/genome library
+        circuits = self.core_api_service.get_circuit_library()
+        return circuits
+    
+    async def _handle_get_amalgamation_history(self, params, query, body, headers):
+        """Handler for GET /v1/genome/amalgamation_history"""
+        history = self.core_api_service.get_amalgamation_history()
+        return history
+    
+    async def _handle_download_genome_region(self, params, query, body, headers):
+        """Handler for GET /v1/genome/download_region"""
+        region_id = query.get('region_id')
+        if not region_id:
+            raise ValueError("Missing required query parameter: region_id")
+        
+        genome = self.core_api_service.get_genome_from_region(region_id)
+        if not genome:
+            raise ValueError(f"Region {region_id} not found")
+        return genome
+    
+    async def _handle_upload_barebones_genome(self, params, query, body, headers):
+        """Handler for POST /v1/genome/upload/barebones"""
+        result = self.core_api_service.load_essential_genome()
+        return result
+    
+    async def _handle_upload_essential_genome(self, params, query, body, headers):
+        """Handler for POST /v1/genome/upload/essential"""
+        result = self.core_api_service.load_essential_genome()
+        return result
+    
+    async def _handle_upload_genome_file(self, params, query, body, headers):
+        """Handler for POST /v1/genome/upload/file"""
+        # For ZMQ, expect genome data in body instead of file upload
+        if not body or 'genome_data' not in body:
+            raise ValueError("Missing genome_data in request body")
+        
+        genome_data = body['genome_data']
+        filename = body.get('filename', 'uploaded_genome.json')
+        
+        result = self.core_api_service.load_genome(genome_data, filename)
+        return result
+    
+    async def _handle_upload_genome_string(self, params, query, body, headers):
+        """Handler for POST /v1/genome/upload/string"""
+        if not body:
+            raise ValueError("Missing genome data in request body")
+        
+        result = self.core_api_service.load_genome(body)
+        return {"loaded": result, "genome_counter": self.core_api_service.get_genome_counter()}
+    
+    async def _handle_reset_genome(self, params, query, body, headers):
+        """Handler for POST /v1/genome/reset"""
+        success = self.core_api_service.reset_genome()
+        if success:
+            return {"message": "Genome reset successfully"}
+        else:
+            raise ValueError("Failed to reset genome") 

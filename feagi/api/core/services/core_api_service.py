@@ -2146,7 +2146,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error retrieving system health: {str(e)}")
             return {"error": str(e)}
-            
+    
     def get_user_preferences(self) -> Dict[str, Any]:
         """
         Get user preferences.
@@ -2222,53 +2222,6 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error getting versions: {str(e)}")
             return {}
-    
-    async def get_system_health(self) -> Dict[str, Any]:
-        """
-        Get system health status.
-        
-        Returns:
-            Dictionary with system health information
-        """
-        try:
-            health = {
-                "status": "healthy",
-                "timestamp": datetime.now().isoformat(),
-                "components": {}
-            }
-            
-            # Check connectome manager
-            if self._connectome_manager:
-                health["components"]["connectome_manager"] = "available"
-            else:
-                health["components"]["connectome_manager"] = "unavailable"
-                health["status"] = "degraded"
-            
-            # Check state manager
-            if self.state_manager:
-                health["components"]["state_manager"] = "available"
-            else:
-                health["components"]["state_manager"] = "unavailable"
-                health["status"] = "degraded"
-            
-            # Check genome state
-            if self._current_genome:
-                health["components"]["genome"] = "loaded"
-            else:
-                health["components"]["genome"] = "not_loaded"
-            
-            # Check memory usage
-            import psutil
-            memory = psutil.virtual_memory()
-            health["memory"] = {
-                "percent_used": memory.percent,
-                "available_gb": memory.available / (1024**3)
-            }
-            
-            return health
-        except Exception as e:
-            self.logger.error(f"Error getting system health: {str(e)}")
-            return {"status": "error", "error": str(e)}
     
     def test_influxdb(self) -> Optional[Dict[str, Any]]:
         """
