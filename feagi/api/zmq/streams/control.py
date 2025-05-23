@@ -40,10 +40,11 @@ class ControlStream:
     asynchronous operation.
     
     The control stream handles:
-    - Agent registration and configuration
-    - Health status monitoring and heartbeats
-    - Command and control operations
-    - System status monitoring
+    - REST API requests (primary protocol)
+    - Agent registration and configuration (legacy)
+    - Health status monitoring and heartbeats (legacy)
+    - Command and control operations (legacy)
+    - System status monitoring (legacy)
     """
     
     def __init__(
@@ -210,8 +211,27 @@ class ControlStream:
                         ])
                         continue
                     
-                    # Process the message based on type
-                    response = await self._handle_control_message(client_id, message)
+                    # Handle ONLY legacy control message format (message_type field)
+                    # REST API messages (method + route) are handled by dedicated REST stream
+                    if isinstance(message, dict) and 'route' in message and 'method' in message:
+                        # This is a REST API format message - it should go to the REST stream!
+                        logger.warning(f"Received REST format message on control stream. "
+                                     f"REST messages should be sent to the dedicated REST stream port.")
+                        
+                        error_response = {
+                            "message_type": "error",
+                            "error": "REST API messages should be sent to the dedicated REST stream port",
+                            "timestamp": int(time.time() * 1000)
+                        }
+                        await worker_socket.send_multipart([
+                            client_id,
+                            b'',
+                            json.dumps(error_response).encode('utf-8')
+                        ])
+                        continue
+                    
+                    # Process legacy control message
+                    response = await self._handle_legacy_control_message(client_id, message)
                     
                     # Send response if any
                     if response:
@@ -236,9 +256,9 @@ class ControlStream:
             # Clean up worker socket
             worker_socket.close()
             
-    async def _handle_control_message(self, client_id: bytes, message: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_legacy_control_message(self, client_id: bytes, message: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Handle a control message.
+        Handle a legacy control message (backward compatibility).
         
         Args:
             client_id: Client's ZMQ identity
@@ -250,7 +270,7 @@ class ControlStream:
         message_type = message.get("message_type")
         
         if not message_type:
-            logger.warning(f"Message missing 'message_type' field: {message}")
+            logger.warning(f"Legacy message missing 'message_type' field: {message}")
             return {
                 "message_type": "error",
                 "error": "Missing message_type field",
@@ -295,51 +315,6 @@ class ControlStream:
             # Simple heartbeat, just respond with current status
             return {
                 "message_type": "heartbeat_response",
-                "status": "ok",
-                "timestamp": int(time.time() * 1000)
-            }
-            
-        elif message_type == "status_request":
-            # System status request
-            # Get status from core API
-            try:
-                status = {}
-                
-                # Add system info if possible
-                if hasattr(self.core_api, 'get_system_status'):
-                    status.update(self.core_api.get_system_status())
-                    
-                # Add basic info if missing
-                if 'uptime' not in status:
-                    status['uptime'] = 0  # Placeholder
-                    
-                # Add client count
-                status['client_count'] = len(self.clients)
-                
-                return {
-                    "message_type": "status_response",
-                    "status": "ok",
-                    "data": status,
-                    "timestamp": int(time.time() * 1000)
-                }
-            except Exception as e:
-                logger.error(f"Error getting system status: {e}")
-                return {
-                    "message_type": "status_response",
-                    "status": "error",
-                    "error": str(e),
-                    "timestamp": int(time.time() * 1000)
-                }
-                
-        elif message_type == "goodbye":
-            # Client disconnection
-            agent_id = message.get("agent_id")
-            if agent_id and client_id_str in self.clients:
-                logger.info(f"Client {agent_id} ({self.clients[client_id_str].get('agent_type', 'unknown')}) disconnected")
-                del self.clients[client_id_str]
-                
-            return {
-                "message_type": "goodbye_response",
                 "status": "ok",
                 "timestamp": int(time.time() * 1000)
             }

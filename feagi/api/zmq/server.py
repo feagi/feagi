@@ -156,14 +156,15 @@ class ZmqServer:
     def __init__(
         self,
         core_api: CoreApiService,
-        host: str = "*",
+        host: str = "127.0.0.1",
         req_rep_port: int = 5555,
         pub_sub_port: int = 5556,
         push_pull_port: int = 5557,
         sensory_port: int = 5558,
         motor_port: int = 5564,
         control_port: int = 5559,
-        vis_port: int = 5560,
+        rest_port: int = 5563,
+        vis_port: int = 5562,
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
         fq_sampler_queue: Optional[Any] = None
@@ -180,7 +181,8 @@ class ZmqServer:
             sensory_port: Port for sensory data (5558)
             motor_port: Port for motor data (5564)
             control_port: Port for control interface (5559)
-            vis_port: Port for visualization data (5560)
+            rest_port: Port for REST API (5563)
+            vis_port: Port for visualization data (5562)
             context: Optional ZeroMQ context to use
             fq_sampler: Optional FQ sampler instance for visualization data
             fq_sampler_queue: Optional queue for FQ data from the sampler
@@ -193,6 +195,7 @@ class ZmqServer:
         self.sensory_port = sensory_port
         self.motor_port = motor_port
         self.control_port = control_port
+        self.rest_port = rest_port
         self.vis_port = vis_port
         
         # Create ZeroMQ context
@@ -338,6 +341,7 @@ class ZmqServer:
             from .streams.sensory import SensoryStream
             from .streams.motor import MotorStream
             from .streams.control import ControlStream
+            from .streams.rest import RestStream
             from .streams.visualization import VisualizationStream
             
             # Initialize all managers with the current thread's event loop
@@ -383,13 +387,20 @@ class ZmqServer:
                 context=self._context
             )
             
+            self._rest = RestStream(
+                core_api=self.core_api,
+                host=self.host,
+                port=self.rest_port,
+                context=self._context
+            )
+            
             self._visualization = VisualizationStream(
                 core_api=self.core_api,
                 host=self.host,
                 port=self.vis_port,
-                context=self._context,
                 fq_sampler=self._fq_sampler,
-                fq_sampler_queue=self._fq_sampler_queue
+                fq_sampler_queue=self._fq_sampler_queue,
+                context=self._context
             )
             
             # Start all managers
@@ -399,6 +410,7 @@ class ZmqServer:
             await self._sensory.start()
             await self._motor.start()
             await self._control.start()
+            await self._rest.start()
             await self._visualization.start()
             
             # Create control socket (ROUTER) - Using existing socket from ControlStream to avoid double binding
@@ -414,7 +426,7 @@ class ZmqServer:
             self.vis_socket = self._visualization.socket
             
             # Start message handling tasks
-            self.tasks.append(asyncio.create_task(self._handle_control_messages()))
+            # Note: Control messages are handled by ControlStream on port 5559
             self.tasks.append(asyncio.create_task(self._sensory_data_loop()))
             
             # Start message handlers
@@ -516,6 +528,9 @@ class ZmqServer:
         
             if self._control:
                 stop_tasks.append(self._control.stop())
+        
+            if self._rest:
+                stop_tasks.append(self._rest.stop())
         
             if self._visualization:
                 stop_tasks.append(self._visualization.stop())
@@ -637,79 +652,6 @@ class ZmqServer:
         except Exception as e:
             logger.error(f"Error sending control message: {e}")
             return False
-    
-    async def _handle_control_messages(self):
-        """
-        Handle messages on the control socket.
-        
-        This includes commands, queries, and management operations.
-        
-        Uses the new REST API adapter to process standard-format control commands.
-        """
-        try:
-            # Create socket for control protocol
-            logger.info(f"Starting control message handler on port {self.control_port}")
-            socket = self._context.socket(zmq.ROUTER)
-            socket.bind(f"tcp://{self.host}:{self.control_port}")
-            
-            self.control_socket = socket
-            
-            # Process messages in a loop
-            while self._running and not self._shutdown_event.is_set():
-                try:
-                    # Wait for message with timeout
-                    if not await self._receive_with_timeout(socket, 1.0):
-                        continue
-                    
-                    # Receive message parts
-                    message_parts = await socket.recv_multipart()
-                    
-                    # Basic format checking
-                    if len(message_parts) < 2:
-                        logger.warning(f"Received invalid message format on control socket: {message_parts}")
-                        continue
-                    
-                    # Split into identity and payload
-                    identity = message_parts[0]
-                    payload = message_parts[1]
-                    
-                    # Try to detect and handle REST API format messages first
-                    try:
-                        # Check if this looks like a REST API format message
-                        # (has "route" and "method" fields)
-                        message_json = json.loads(payload.decode('utf-8'))
-                        if isinstance(message_json, dict) and 'route' in message_json and 'method' in message_json:
-                            # This is a REST API format message
-                            logger.debug(f"Processing REST API format message: {message_json['method']} {message_json['route']}")
-                            
-                            # Process with REST API adapter
-                            response_data = await self.rest_api_adapter.process_message(payload)
-                            
-                            # Send response back
-                            await socket.send_multipart([identity, response_data])
-                            continue
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        # Not JSON or not REST API format, continue with legacy handling
-                        pass
-                    
-                    # Legacy message handling (for backward compatibility)
-                    response = await self._process_control_message(identity, payload)
-                    if response:
-                        await socket.send_multipart([identity, response])
-                    
-                except asyncio.CancelledError:
-                    logger.info("Control message handler cancelled")
-                    break
-                except Exception as e:
-                    logger.error(f"Error handling control message: {str(e)}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-        
-        finally:
-            # Clean up
-            if socket:
-                socket.close()
-            logger.info("Control message handler stopped")
     
     async def _sensory_data_loop(self):
         """Handle incoming sensory data."""

@@ -88,7 +88,8 @@ def main():
     parser.add_argument("--zmq-sensory-port", type=int, default=5558, help="Port for sensory ZMQ stream")
     parser.add_argument("--zmq-motor-port", type=int, default=5564, help="Port for motor ZMQ stream")
     parser.add_argument("--zmq-control-port", type=int, default=5559, help="Port for control ZMQ stream")
-    parser.add_argument("--zmq-vis-base-port", type=int, default=5560, help="Base port for visualization ZMQ streams")
+    parser.add_argument("--zmq-rest-port", type=int, default=5563, help="Port for REST API ZMQ stream")
+    parser.add_argument("--zmq-vis-port", type=int, default=5562, help="Port for visualization ZMQ stream")
     
     # Core configuration
     parser.add_argument("--gpu", action="store_true", help="Use GPU acceleration if available")
@@ -101,6 +102,9 @@ def main():
     parser.add_argument("--test-duration", type=int, default=10, help="Duration of the test in seconds")
     parser.add_argument("--test-frequency", type=int, default=10, help="Frequency of sensory input generation in Hz")
     parser.add_argument("--test-visualization", action="store_true", help="Test visualization data flow without using ZMQ")
+    
+    # Debug arguments
+    parser.add_argument("--debug-api", action="store_true", help="Enable detailed API request/response logging")
     
     args = parser.parse_args()
     
@@ -149,7 +153,8 @@ def main():
         "api": {
             "host": args.api_host,
             "port": args.api_port,
-            "reload": args.api_reload
+            "reload": args.api_reload,
+            "debug_api": args.debug_api
         },
         "zmq": {
             "host": args.zmq_host,
@@ -159,7 +164,8 @@ def main():
             "sensory_port": args.zmq_sensory_port,
             "motor_port": args.zmq_motor_port,
             "control_port": args.zmq_control_port,
-            "vis_base_port": args.zmq_vis_base_port
+            "rest_port": args.zmq_rest_port,
+            "vis_port": args.zmq_vis_port
         },
         "core": {
             "use_gpu": args.gpu,

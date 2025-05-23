@@ -6,6 +6,7 @@ It provides:
 - Request-Reply server for handling command requests
 - Request-Reply client for sending commands
 - Command routing and execution framework
+- REST API support for unified interface
 """
 
 import asyncio
@@ -21,6 +22,7 @@ from typing import Dict, Any, List, Callable, Optional, Union
 from ...core.service import CoreApiService
 from ..serialization import serialize_message, deserialize_message
 from ...utils.auth import validate_token
+from ..rest_adapter import ZMQRestAPIAdapter
 
 
 

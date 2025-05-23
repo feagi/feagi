@@ -194,10 +194,11 @@ class ProcessManager:
             sensory_port = self.find_available_port(zmq_config.get("sensory_port", 5558))
             motor_port = self.find_available_port(zmq_config.get("motor_port", 5564))
             control_port = self.find_available_port(zmq_config.get("control_port", 5559))
-            vis_base_port = self.find_available_port(zmq_config.get("vis_base_port", 5560))
+            rest_port = self.find_available_port(zmq_config.get("rest_port", 5563))
+            vis_base_port = self.find_available_port(zmq_config.get("vis_base_port", 5562))
             
             # Ensure we found available ports
-            if not all([req_rep_port, pub_sub_port, push_pull_port, sensory_port, motor_port, control_port, vis_base_port]):
+            if not all([req_rep_port, pub_sub_port, push_pull_port, sensory_port, motor_port, control_port, rest_port, vis_base_port]):
                 logger.error("Could not find available ports for ZMQ server")
                 return False
                 
@@ -214,6 +215,7 @@ class ProcessManager:
                 sensory_port=sensory_port,
                 motor_port=motor_port,
                 control_port=control_port,
+                rest_port=rest_port,
                 vis_port=vis_base_port,
                 fq_sampler=self._fq_sampler,
                 fq_sampler_queue=self._fq_sampler_queue
@@ -260,6 +262,7 @@ class ProcessManager:
             api_host = api_config.get("host", "127.0.0.1")
             api_port = self.find_available_port(api_config.get("port", 8000))
             api_reload = api_config.get("reload", False)
+            api_debug = api_config.get("debug_api", False)
             
             if not api_port:
                 logger.error("Could not find available port for API server")
@@ -277,9 +280,19 @@ class ProcessManager:
             if api_reload:
                 cmd.append("--reload")
             
+            # Set uvicorn log level based on debug-api flag
+            # TODO: Re-enable after testing if this is causing startup issues
+            # if api_debug:
+            #     cmd.extend(["--log-level", "info"])  # Show detailed uvicorn logs when debugging
+            # else:
+            #     cmd.extend(["--log-level", "warning"])  # Suppress uvicorn access logs when not debugging
+            
             # Set environment variables for ZMQ configuration
             env = os.environ.copy()
             env["FEAGI_INITIALIZED"] = "1"
+            
+            # Set debug API logging flag
+            env["FEAGI_DEBUG_API"] = "1" if api_debug else "0"
             
             # Check if ZMQ server is available and set related env vars
             if self._zmq_server:

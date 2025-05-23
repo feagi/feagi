@@ -156,19 +156,47 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
-    Credit: Phil Girard
+    Conditional API request logging middleware.
+    Only logs when FEAGI_DEBUG_API environment variable is set to '1'.
+    When enabled, provides detailed request/response information for debugging.
+    
+    Credit: Phil Girard (original middleware)
     """
+    # Check if debug API logging is enabled
+    debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+    
+    if not debug_api_enabled:
+        # If debug is not enabled, just pass through without logging
+        return await call_next(request)
+    
+    # Generate unique request ID for tracking
     idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    logger.info(f"rid={idem} start request path={request.url.path}", emoji1="🌐")
+    
+    # Log request start with detailed information
+    logger.info(f"rid={idem} start request method={request.method} path={request.url.path}", emoji1="🌐")
+    logger.debug(f"rid={idem} url={str(request.url)}")
+    logger.debug(f"rid={idem} headers={dict(request.headers)}")
+    logger.debug(f"rid={idem} query_params={dict(request.query_params)}")
+    
+    # Log path parameters if available
+    if hasattr(request, 'path_params') and request.path_params:
+        logger.debug(f"rid={idem} path_params={dict(request.path_params)}")
+    
+    # Note: We avoid reading request.body() here to prevent stream consumption issues
+    # Request body logging would require more complex caching mechanisms
+    
     start_time = time.time()
-
     response = await call_next(request)
-
     process_time = (time.time() - start_time) * 1000
     formatted_process_time = '{0:.2f}'.format(process_time)
+    
+    # Log response information
     logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}", emoji1="✅")
-
-    # print(response.status_code, ":", request.method, ":", request.url.path)
+    logger.debug(f"rid={idem} response_headers={dict(response.headers)}")
+    
+    # Note: Response body logging is also complex due to streaming responses
+    # For debugging purposes, the status code and headers are usually sufficient
+    
     return response
 
 
