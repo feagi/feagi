@@ -197,7 +197,37 @@ class GenomeAPI:
         except Exception as e:
             logger.error(f"Error getting genome file name: {e}")
             raise ValueError(f"Failed to get genome file name: {str(e)}")
-    
+
+    @genome_endpoint('GET', '/file_name')
+    def get_genome_file_name_legacy_compatible(self) -> str:
+        """Get the current genome file name (legacy compatible - returns string directly)."""
+        try:
+            filename = self.core_api_service.get_genome_filename()
+            return filename or ""
+        except Exception as e:
+            logger.error(f"Error getting genome file name: {e}")
+            raise ValueError(f"Failed to get genome file name: {str(e)}")
+
+    @genome_endpoint('GET', '/file_name')
+    def get_genome_file_name_direct(self) -> str:
+        """Get the current genome file name (returns string directly for legacy compatibility)."""
+        try:
+            filename = self.core_api_service.get_genome_filename()
+            return filename or ""
+        except Exception as e:
+            logger.error(f"Error getting genome file name: {e}")
+            raise ValueError(f"Failed to get genome file name: {str(e)}")
+
+    @genome_endpoint('GET', '/file_name')
+    def get_genome_file_name_legacy_format(self) -> str:
+        """Get the current genome file name (legacy format - returns string directly)."""
+        try:
+            filename = self.core_api_service.get_genome_filename()
+            return filename or ""
+        except Exception as e:
+            logger.error(f"Error getting genome file name: {e}")
+            raise ValueError(f"Failed to get genome file name: {str(e)}")
+
     @genome_endpoint('GET', '/genome_number', response_model=GenomeNumberResponse)
     def get_genome_number(self) -> GenomeNumberResponse:
         """Get the current genome number."""

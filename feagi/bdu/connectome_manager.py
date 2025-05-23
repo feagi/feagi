@@ -107,6 +107,9 @@ class ConnectomeManager:
         self.fcl_manager = FCLManager(window_size=fcl_window_size)
         self.is_initialized = True
         
+        # Initialize genome storage
+        self.genome = None
+        
         logger.info(f"Initialized ConnectomeManager with capacity for {self.max_neurons} neurons "
                    f"and {self.max_synapses} synapses")
     
@@ -136,6 +139,29 @@ class ConnectomeManager:
             self.outgoing_matrix = self.outgoing_matrix.tolil()
         if not isinstance(self.incoming_matrix, sparse.lil_matrix):
             self.incoming_matrix = self.incoming_matrix.tolil()
+    
+    def is_connectome_ready(self) -> bool:
+        """Check if the connectome is ready for operations.
+        
+        Returns:
+            True if the connectome is properly initialized and has data, False otherwise
+        """
+        # Check if manager is initialized
+        if not hasattr(self, 'is_initialized') or not self.is_initialized:
+            return False
+        
+        # Check if we have basic components initialized
+        if not hasattr(self, 'cortical_areas') or not hasattr(self, 'neurons'):
+            return False
+            
+        # Consider ready if we have a genome loaded (at least one cortical area or brain region)
+        has_genome_data = (
+            len(self.cortical_areas) > 0 or 
+            (hasattr(self, 'brain_regions') and len(self.brain_regions) > 0) or
+            (hasattr(self, 'genome') and self.genome is not None)
+        )
+        
+        return has_genome_data
     
     #----------------------------------------------------------------------
     # Neuron CRUD Operations

@@ -702,33 +702,61 @@ class CorticalAreaService(BaseService):
             raise ValueError(f"Failed to retrieve cortical area names: {str(e)}")
 
     def get_id_name_mapping(self) -> Dict[str, str]:
-        """Map every cortical area's 6-character cortical_id to its human-readable name."""
+        """Get mapping of cortical area IDs to names."""
+        mapping = {}
         try:
-            # Validate genome is loaded
-            if not self._validate_genome_loaded():
-                raise ValueError("No genome loaded - cannot retrieve cortical area ID mapping")
-            
-            if not hasattr(self._connectome_manager, "cortical_areas"):
-                raise ValueError("Connectome manager has no cortical areas")
-
-            mapping: Dict[str, str] = {}
-            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
-                # Only include areas that have both a valid cortical_id and name
-                cortical_id = getattr(area, "cortical_id", None)
-                name = getattr(area, "name", None)
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return mapping
                 
-                if cortical_id and name:
-                    mapping[cortical_id] = name
-                else:
-                    self.logger.warning(f"Skipping area {cortical_idx} - missing cortical_id or name")
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                # Use cortical_id if available, otherwise fall back to string of index
+                area_id = getattr(area, 'cortical_id', str(cortical_idx))
+                mapping[area_id] = area.name
+                
+        except Exception as e:
+            self.logger.error(f"Error getting ID-name mapping: {str(e)}")
+            
+        return mapping
 
-            if not mapping:
-                raise ValueError("No cortical areas with valid ID and name mappings found")
+    def get_current_ipu_list(self) -> List[str]:
+        """Get list of current IPU (Input Processing Unit) cortical areas."""
+        ipu_areas = []
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return ipu_areas
+                
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                # Check if this is an IPU area
+                if hasattr(area, 'group_id') and area.group_id == 'IPU':
+                    area_id = getattr(area, 'cortical_id', str(cortical_idx))
+                    ipu_areas.append(area_id)
+                    
+        except Exception as e:
+            self.logger.error(f"Error getting IPU list: {str(e)}")
+            
+        return ipu_areas
 
-            return mapping
-        except Exception as exc:
-            self.logger.error(f"Error building cortical_id→name mapping: {exc}")
-            raise ValueError(f"Failed to retrieve cortical area ID mapping: {str(exc)}")
+    def get_current_opu_list(self) -> List[str]:
+        """Get list of current OPU (Output Processing Unit) cortical areas."""
+        opu_areas = []
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return opu_areas
+                
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                # Check if this is an OPU area
+                if hasattr(area, 'group_id') and area.group_id == 'OPU':
+                    area_id = getattr(area, 'cortical_id', str(cortical_idx))
+                    opu_areas.append(area_id)
+                    
+        except Exception as e:
+            self.logger.error(f"Error getting OPU list: {str(e)}")
+            
+        return opu_areas
+
+    def get_cortical_locations_2d(self) -> Dict[str, List[int]]:
+        """Get 2D locations of all cortical areas (fixed method name)."""
+        return self.get_2d_locations()
 
     def get_2d_locations(self) -> Dict[str, List[int]]:
         """Get 2D locations of all cortical areas."""

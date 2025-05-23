@@ -190,54 +190,24 @@ class SystemAPI:
     # ===== Visualization Configuration =====
     
     @system_endpoint('GET', '/cortical_area_visualization_skip_rate')
-    def get_cortical_area_visualization_skip_rate(self) -> Dict[str, Any]:
-        """Get cortical area visualization skip rate."""
+    def get_cortical_area_visualization_skip_rate(self) -> int:
+        """Get cortical area visualization skip rate (returns int directly for legacy compatibility)."""
         try:
             skip_rate = self.core_api_service.get_visualization_skip_rate()
-            return {"skip_rate": skip_rate}
+            return skip_rate
         except Exception as e:
             logger.error(f"Error getting visualization skip rate: {e}")
             raise ValueError(f"Failed to get visualization skip rate: {str(e)}")
     
-    @system_endpoint('PUT', '/cortical_area_visualization_skip_rate', 
-                    request_model=VisualizationSkipRateRequest,
-                    response_model=SuccessResponse)
-    def set_cortical_area_visualization_skip_rate(self, request: VisualizationSkipRateRequest) -> SuccessResponse:
-        """Set cortical area visualization skip rate."""
-        try:
-            success = self.core_api_service.set_visualization_skip_rate(request.skip_rate)
-            if not success:
-                raise ValueError("Failed to set visualization skip rate")
-            
-            return SuccessResponse(message="Visualization skip rate updated successfully")
-        except Exception as e:
-            logger.error(f"Error setting visualization skip rate: {e}")
-            raise ValueError(f"Failed to set visualization skip rate: {str(e)}")
-    
     @system_endpoint('GET', '/cortical_area_visualization_suppression_threshold')
-    def get_cortical_area_visualization_suppression_threshold(self) -> Dict[str, Any]:
-        """Get cortical area visualization suppression threshold."""
+    def get_cortical_area_visualization_suppression_threshold(self) -> int:
+        """Get cortical area visualization suppression threshold (returns int directly for legacy compatibility)."""
         try:
             threshold = self.core_api_service.get_visualization_suppression_threshold()
-            return {"threshold": threshold}
+            return threshold
         except Exception as e:
             logger.error(f"Error getting visualization suppression threshold: {e}")
             raise ValueError(f"Failed to get visualization suppression threshold: {str(e)}")
-    
-    @system_endpoint('PUT', '/cortical_area_visualization_suppression_threshold', 
-                    request_model=VisualizationThresholdRequest,
-                    response_model=SuccessResponse)
-    def set_cortical_area_visualization_suppression_threshold(self, request: VisualizationThresholdRequest) -> SuccessResponse:
-        """Set cortical area visualization suppression threshold."""
-        try:
-            success = self.core_api_service.set_visualization_suppression_threshold(request.threshold)
-            if not success:
-                raise ValueError("Failed to set visualization suppression threshold")
-            
-            return SuccessResponse(message="Visualization suppression threshold updated successfully")
-        except Exception as e:
-            logger.error(f"Error setting visualization suppression threshold: {e}")
-            raise ValueError(f"Failed to set visualization suppression threshold: {str(e)}")
     
     @system_endpoint('GET', '/global_activity_visualization')
     def get_global_activity_visualization(self) -> Dict[str, Any]:
@@ -245,6 +215,16 @@ class SystemAPI:
         try:
             settings = self.core_api_service.get_global_activity_visualization()
             return settings
+        except Exception as e:
+            logger.error(f"Error getting global activity visualization: {e}")
+            raise ValueError(f"Failed to get global activity visualization: {str(e)}")
+    
+    @system_endpoint('GET', '/global_activity_visualization')
+    def get_global_activity_visualization(self) -> bool:
+        """Get global activity visualization status (returns bool directly for legacy compatibility)."""
+        try:
+            enabled = self.core_api_service.get_global_activity_visualization()
+            return enabled
         except Exception as e:
             logger.error(f"Error getting global activity visualization: {e}")
             raise ValueError(f"Failed to get global activity visualization: {str(e)}")
@@ -270,6 +250,17 @@ class SystemAPI:
         try:
             logs = self.core_api_service.get_unique_logs()
             return logs
+        except Exception as e:
+            logger.error(f"Error getting unique logs: {e}")
+            raise ValueError(f"Failed to get unique logs: {str(e)}")
+    
+    @system_endpoint('GET', '/unique_logs')  
+    def get_unique_logs(self) -> Dict[str, Any]:
+        """Get unique log entries (returns dict format for legacy compatibility)."""
+        try:
+            logs = self.core_api_service.get_unique_logs()
+            # Convert list to dict format for legacy compatibility
+            return {"logs": logs}
         except Exception as e:
             logger.error(f"Error getting unique logs: {e}")
             raise ValueError(f"Failed to get unique logs: {str(e)}")

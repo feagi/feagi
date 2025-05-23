@@ -145,6 +145,38 @@ class CoreAPIService:
         """Reset the Fire Candidate List."""
         return self._system_service.reset_fcl()
 
+    def get_visualization_skip_rate(self) -> int:
+        """Get visualization skip rate."""
+        return self._system_service.get_visualization_skip_rate()
+    
+    def set_visualization_skip_rate(self, skip_rate: int) -> bool:
+        """Set visualization skip rate."""
+        return self._system_service.set_visualization_skip_rate(skip_rate)
+    
+    def get_visualization_suppression_threshold(self) -> int:
+        """Get visualization suppression threshold."""
+        return self._system_service.get_visualization_suppression_threshold()
+    
+    def set_visualization_suppression_threshold(self, threshold: int) -> bool:
+        """Set visualization suppression threshold."""
+        return self._system_service.set_visualization_suppression_threshold(threshold)
+    
+    def get_global_activity_visualization(self) -> bool:
+        """Get global activity visualization status."""
+        return self._system_service.get_global_activity_visualization()
+    
+    def set_global_activity_visualization(self, enabled: bool) -> bool:
+        """Set global activity visualization status."""
+        return self._system_service.set_global_activity_visualization(enabled)
+    
+    def get_unique_logs(self) -> List[str]:
+        """Get unique log entries."""
+        return self._system_service.get_unique_logs()
+
+    def get_burst_timer(self) -> float:
+        """Get burst timer from burst engine."""
+        return self._brain_service.get_burst_timer()
+
     # =================================================================
     # GENOME SERVICE DELEGATION
     # =================================================================
@@ -165,9 +197,10 @@ class CoreAPIService:
         """Get the currently loaded genome data."""
         return self._genome_service.get_genome()
     
-    def get_genome_filename(self) -> Optional[str]:
-        """Get the filename of the currently loaded genome."""
-        return self._genome_service.get_genome_filename()
+    def get_genome_filename(self) -> str:
+        """Get the current genome filename."""
+        filename = self._genome_service.get_genome_filename()
+        return filename or ""
     
     def get_genome_file_name(self) -> Dict[str, str]:
         """Get the genome file name in the format expected by the REST API."""
@@ -270,9 +303,17 @@ class CoreAPIService:
         """Map every cortical area's 6-character cortical_id to its human-readable name."""
         return self._cortical_area_service.get_id_name_mapping()
     
-    def get_cortical_2d_locations(self) -> Dict[str, List[int]]:
+    def get_cortical_locations_2d(self) -> Dict[str, List[int]]:
         """Get 2D locations of all cortical areas."""
-        return self._cortical_area_service.get_2d_locations()
+        return self._cortical_area_service.get_cortical_locations_2d()
+    
+    def get_current_ipu_list(self) -> List[str]:
+        """Get list of current IPU cortical areas."""
+        return self._cortical_area_service.get_current_ipu_list()
+    
+    def get_current_opu_list(self) -> List[str]:
+        """Get list of current OPU cortical areas."""
+        return self._cortical_area_service.get_current_opu_list()
 
     # =================================================================
     # CONNECTOME SERVICE DELEGATION
@@ -478,6 +519,10 @@ class CoreAPIService:
         """Get the connectome manager instance."""
         return self._connectome_manager
     
+    def get_connectome(self):
+        """Get the connectome manager instance (legacy alias)."""
+        return self._connectome_manager
+    
     def get_fcl_manager(self):
         """Get the FCL manager instance."""
         if hasattr(self._connectome_manager, 'fcl_manager'):
@@ -640,22 +685,9 @@ class CoreAPIService:
         """Get list of cortical area names (legacy name)."""
         return self.get_cortical_name_list()
     
-    def get_cortical_locations_2d(self) -> Dict[str, List[int]]:
-        """Get 2D locations of all cortical areas (legacy name)."""
-        return self.get_cortical_2d_locations()
-    
     def get_cortical_area_stats(self, cortical_area: str) -> Optional[Dict[str, Any]]:
         """Get statistics for a cortical area."""
-        try:
-            return {
-                "area_id": cortical_area,
-                "neuron_count": len(self.get_cortical_area_neurons(cortical_area) or []),
-                "activity": self.get_cortical_area_activity(cortical_area),
-                "connectivity": self.get_cortical_area_connectivity(cortical_area)
-            }
-        except Exception as e:
-            self.logger.error(f"Error getting cortical area stats: {str(e)}")
-            return None 
+        return self._cortical_area_service.get_area_stats(cortical_area)
 
     # =================================================================
     # PLASTICITY AND LEARNING METHODS

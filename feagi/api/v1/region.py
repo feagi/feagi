@@ -226,8 +226,19 @@ class RegionAPI:
         """List all brain regions and their members (comprehensive)."""
         try:
             connectome = self.core_api_service.get_connectome()
-            if not connectome or not connectome.is_connectome_ready():
-                raise ValueError("Connectome is not ready!")
+            if not connectome:
+                raise ValueError("Connectome is not available!")
+            
+            # Check if connectome is ready (handle missing method gracefully)
+            if hasattr(connectome, 'is_connectome_ready'):
+                if not connectome.is_connectome_ready():
+                    raise ValueError("Connectome is not ready!")
+            elif hasattr(connectome, 'genome'):
+                # Alternative check - if we have a genome, assume it's ready
+                if not connectome.genome:
+                    raise ValueError("Connectome has no genome loaded!")
+            else:
+                raise ValueError("Cannot determine connectome readiness!")
             
             return connectome.genome["brain_regions"]
         except Exception as e:

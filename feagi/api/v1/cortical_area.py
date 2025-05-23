@@ -192,6 +192,15 @@ class CorticalAreaAPI:
             return CorticalAreaIdListResponse(cortical_ids=cortical_ids)
         except Exception as e:
             raise ValueError(f"Error getting cortical area ID list: {str(e)}")
+
+    @cortical_area_endpoint('GET', '/cortical_area_id_list')
+    def get_cortical_area_id_list_legacy(self) -> List[str]:
+        """Get list of cortical area IDs (legacy format - returns list directly)."""
+        try:
+            cortical_ids = self.core_api_service.get_cortical_area_id_list()
+            return cortical_ids
+        except Exception as e:
+            raise ValueError(f"Error getting cortical area ID list: {str(e)}")
     
     @cortical_area_endpoint('GET', '/cortical_area_index_list', response_model=CorticalAreaIndexListResponse)
     def get_cortical_area_index_list(self) -> CorticalAreaIndexListResponse:
@@ -208,6 +217,15 @@ class CorticalAreaAPI:
         try:
             names = self.core_api_service.get_cortical_area_name_list()
             return CorticalAreaNameListResponse(names=names)
+        except Exception as e:
+            raise ValueError(f"Error getting cortical area name list: {str(e)}")
+
+    @cortical_area_endpoint('GET', '/cortical_area_name_list')
+    def get_cortical_area_name_list_legacy(self) -> List[str]:
+        """Get list of cortical area names (legacy format - returns list directly)."""
+        try:
+            names = self.core_api_service.get_cortical_area_name_list()
+            return names
         except Exception as e:
             raise ValueError(f"Error getting cortical area name list: {str(e)}")
     
@@ -338,19 +356,33 @@ class CorticalAreaAPI:
     
     @cortical_area_endpoint('GET', '/ipu', response_model=List[str])
     def get_current_ipu_list(self) -> List[str]:
-        """Get current Input Processing Unit (IPU) list."""
+        """Get list of current IPU cortical areas."""
         try:
-            ipu_list = self.core_api_service.get_current_ipu_list()
-            return ipu_list
+            return self.core_api_service.get_current_ipu_list()
         except Exception as e:
             raise ValueError(f"Error getting IPU list: {str(e)}")
-    
+
+    @cortical_area_endpoint('GET', '/ipu')
+    def get_current_ipu_list_legacy(self) -> List[str]:
+        """Get list of current IPU cortical areas (legacy format - returns list directly)."""
+        try:
+            return self.core_api_service.get_current_ipu_list()
+        except Exception as e:
+            raise ValueError(f"Error getting IPU list: {str(e)}")
+
     @cortical_area_endpoint('GET', '/opu', response_model=List[str])
     def get_current_opu_list(self) -> List[str]:
-        """Get current Output Processing Unit (OPU) list."""
+        """Get list of current OPU cortical areas."""
         try:
-            opu_list = self.core_api_service.get_current_opu_list()
-            return opu_list
+            return self.core_api_service.get_current_opu_list()
+        except Exception as e:
+            raise ValueError(f"Error getting OPU list: {str(e)}")
+
+    @cortical_area_endpoint('GET', '/opu')
+    def get_current_opu_list_legacy(self) -> List[str]:
+        """Get list of current OPU cortical areas (legacy format - returns list directly)."""
+        try:
+            return self.core_api_service.get_current_opu_list()
         except Exception as e:
             raise ValueError(f"Error getting OPU list: {str(e)}")
     

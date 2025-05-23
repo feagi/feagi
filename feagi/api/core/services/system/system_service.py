@@ -2,7 +2,7 @@
 
 import sys
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from ..shared.base_service import BaseService
 
 
@@ -270,17 +270,79 @@ class SystemService(BaseService):
     def reset_fcl(self) -> bool:
         """Reset the Fire Candidate List."""
         try:
-            # First try the connectome manager's reset_fcl method
-            if hasattr(self._connectome_manager, 'reset_fcl'):
-                self._connectome_manager.reset_fcl()
-                return True
-            # Then try the FCL manager's reset method
-            elif hasattr(self._connectome_manager, 'fcl_manager') and hasattr(self._connectome_manager.fcl_manager, 'reset'):
-                self._connectome_manager.fcl_manager.reset()
-                return True
-            else:
-                self.logger.warning("Connectome manager does not support FCL reset")
-                return False
+            if self._connectome_manager and hasattr(self._connectome_manager, 'reset_fcl'):
+                return self._connectome_manager.reset_fcl()
+            return True
         except Exception as e:
             self.logger.error(f"Error resetting FCL: {str(e)}")
-            return False 
+            return False
+
+    def get_visualization_skip_rate(self) -> int:
+        """Get visualization skip rate."""
+        try:
+            if self.state_manager:
+                return getattr(self.state_manager, 'visualization_skip_rate', 1)
+            return 1
+        except Exception as e:
+            self.logger.error(f"Error getting visualization skip rate: {str(e)}")
+            return 1
+    
+    def set_visualization_skip_rate(self, skip_rate: int) -> bool:
+        """Set visualization skip rate."""
+        try:
+            if self.state_manager:
+                self.state_manager.visualization_skip_rate = skip_rate
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting visualization skip rate: {str(e)}")
+            return False
+    
+    def get_visualization_suppression_threshold(self) -> int:
+        """Get visualization suppression threshold."""
+        try:
+            if self.state_manager:
+                return getattr(self.state_manager, 'visualization_suppression_threshold', 100)
+            return 100
+        except Exception as e:
+            self.logger.error(f"Error getting visualization suppression threshold: {str(e)}")
+            return 100
+    
+    def set_visualization_suppression_threshold(self, threshold: int) -> bool:
+        """Set visualization suppression threshold."""
+        try:
+            if self.state_manager:
+                self.state_manager.visualization_suppression_threshold = threshold
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting visualization suppression threshold: {str(e)}")
+            return False
+    
+    def get_global_activity_visualization(self) -> bool:
+        """Get global activity visualization status."""
+        try:
+            if self.state_manager:
+                return getattr(self.state_manager, 'global_activity_visualization', True)
+            return True
+        except Exception as e:
+            self.logger.error(f"Error getting global activity visualization: {str(e)}")
+            return True
+    
+    def set_global_activity_visualization(self, enabled: bool) -> bool:
+        """Set global activity visualization status."""
+        try:
+            if self.state_manager:
+                self.state_manager.global_activity_visualization = enabled
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting global activity visualization: {str(e)}")
+            return False
+    
+    def get_unique_logs(self) -> List[str]:
+        """Get unique log entries."""
+        try:
+            if self.state_manager and hasattr(self.state_manager, 'unique_logs'):
+                return list(self.state_manager.unique_logs)
+            return []
+        except Exception as e:
+            self.logger.error(f"Error getting unique logs: {str(e)}")
+            return [] 

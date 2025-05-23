@@ -242,4 +242,18 @@ class BrainService(BaseService):
             return config
         except Exception as e:
             self.logger.error(f"Error getting burst engine config: {str(e)}")
-            return {"error": str(e)} 
+            return {"error": str(e)}
+
+    def get_burst_timer(self) -> float:
+        """Get burst timer (stimulation period) from burst engine."""
+        try:
+            if self.state_manager:
+                # Get burst frequency and convert to period in seconds
+                frequency = getattr(self.state_manager, 'burst_frequency', 1.0)
+                if frequency > 0:
+                    return 1.0 / frequency
+                return 1.0  # Default 1 second period
+            return 1.0
+        except Exception as e:
+            self.logger.error(f"Error getting burst timer: {str(e)}")
+            return 1.0 
