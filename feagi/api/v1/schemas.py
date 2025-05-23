@@ -254,4 +254,298 @@ class CorticalIdListRequest(BaseModel):
 
 class CoordinateUpdateRequest(BaseModel):
     """Request model for coordinate updates."""
-    coordinates: dict 
+    coordinates: dict
+
+
+# ===== Connectome Schemas =====
+
+class BatchNeuronCreationRequest(BaseModel):
+    """Request model for batch neuron creation."""
+    area_id: str
+    positions: List[tuple]  # List of (x, y, z) positions
+    properties: Optional[Dict[str, Any]] = None
+
+
+class BatchSynapseCreationRequest(BaseModel):
+    """Request model for batch synapse creation."""
+    connections: List[tuple]  # List of (pre_id, post_id, weight)
+
+
+class CorticalAreasListResponse(BaseModel):
+    """Response model for cortical areas listing."""
+    areas: List[Dict[str, Any]]
+
+
+class CorticalAreaInfoResponse(BaseModel):
+    """Response model for cortical area information."""
+    area_info: Dict[str, Any]
+
+
+class PlasticityInfoResponse(BaseModel):
+    """Response model for plasticity information."""
+    plasticity_info: Dict[str, Any]
+
+
+class ConnectomePathResponse(BaseModel):
+    """Response model for connectome path."""
+    path: str
+
+
+class ConnectomeSnapshotResponse(BaseModel):
+    """Response model for connectome snapshot."""
+    message: str
+    path: str
+
+
+class ConnectomeDimensionsResponse(BaseModel):
+    """Response model for connectome dimensions."""
+    dimensions: Dict[str, Any]
+
+
+class CorticalStatsResponse(BaseModel):
+    """Response model for cortical area statistics."""
+    stats: Dict[str, Any]
+
+
+class NeuronMappingsResponse(BaseModel):
+    """Response model for neuron mappings."""
+    mappings: Dict[str, Any]
+
+
+class BatchNeuronCreationResponse(BaseModel):
+    """Response model for batch neuron creation."""
+    created_neurons: List[int]
+    count: int
+
+
+class BatchSynapseCreationResponse(BaseModel):
+    """Response model for batch synapse creation."""
+    created_synapses: int
+
+
+# ===== Burst Engine Schemas =====
+
+class BurstEngineStatusResponse(BaseModel):
+    """Response model for burst engine status."""
+    status: str
+    is_running: bool
+    config: Optional[Dict[str, Any]] = None
+
+
+class BurstEngineConfigRequest(BaseModel):
+    """Request model for burst engine configuration."""
+    config: Dict[str, Any]
+
+
+class BurstEngineStatsResponse(BaseModel):
+    """Response model for burst engine statistics."""
+    stats: Dict[str, Any]
+
+
+# ===== Region Schemas =====
+
+class RegionInfoResponse(BaseModel):
+    """Response model for brain region information."""
+    region_info: Dict[str, Any]
+
+
+class RegionListResponse(BaseModel):
+    """Response model for brain region list."""
+    regions: List[Dict[str, Any]]
+
+
+class CreateRegionRequest(BaseModel):
+    """Request model for creating a brain region."""
+    region_data: Dict[str, Any]
+
+
+class UpdateRegionRequest(BaseModel):
+    """Request model for updating a brain region."""
+    region_id: str
+    updates: Dict[str, Any]
+
+
+# ===== Morphology Schemas =====
+
+class MorphologyListResponse(BaseModel):
+    """Response model for morphology list."""
+    morphologies: List[Dict[str, Any]]
+
+
+class MorphologyInfoResponse(BaseModel):
+    """Response model for morphology information."""
+    morphology: Dict[str, Any]
+
+
+class CreateMorphologyRequest(BaseModel):
+    """Request model for creating morphology."""
+    morphology_data: Dict[str, Any]
+
+
+class UpdateMorphologyRequest(BaseModel):
+    """Request model for updating morphology."""
+    morphology_id: str
+    updates: Dict[str, Any]
+
+
+# ===== Monitoring Schemas =====
+
+class MonitoringDataResponse(BaseModel):
+    """Response model for monitoring data."""
+    data: Dict[str, Any]
+
+
+class SystemMetricsResponse(BaseModel):
+    """Response model for system metrics."""
+    metrics: Dict[str, Any]
+
+
+class PerformanceStatsResponse(BaseModel):
+    """Response model for performance statistics."""
+    stats: Dict[str, Any]
+
+
+# ===== Simulation Schemas =====
+
+class SimulationStatusResponse(BaseModel):
+    """Response model for simulation status."""
+    status: str
+    is_running: bool
+    config: Optional[Dict[str, Any]] = None
+
+
+class SimulationConfigRequest(BaseModel):
+    """Request model for simulation configuration."""
+    config: Dict[str, Any]
+
+
+class SimulationStatsResponse(BaseModel):
+    """Response model for simulation statistics."""
+    stats: Dict[str, Any]
+
+
+# ===== Agent Schemas =====
+
+class AgentListResponse(BaseModel):
+    """Response model for FEAGI agent list."""
+    agents: List[Dict[str, Any]]
+
+
+class AgentInfoResponse(BaseModel):
+    """Response model for agent information."""
+    agent_info: Dict[str, Any]
+
+
+class AgentConfigRequest(BaseModel):
+    """Request model for agent configuration."""
+    agent_id: str
+    config: Dict[str, Any]
+
+
+# ===== Training Schemas =====
+
+class TrainingStatusResponse(BaseModel):
+    """Response model for training status."""
+    status: str
+    progress: Optional[float] = None
+    config: Optional[Dict[str, Any]] = None
+
+
+class TrainingConfigRequest(BaseModel):
+    """Request model for training configuration."""
+    config: Dict[str, Any]
+
+
+class TrainingStatsResponse(BaseModel):
+    """Response model for training statistics."""
+    stats: Dict[str, Any]
+
+
+# ===== Neuroplasticity Schemas =====
+
+class NeuroplasticityRulesResponse(BaseModel):
+    """Response model for neuroplasticity rules."""
+    rules: List[Dict[str, Any]]
+
+
+class NeuroplasticityStatsResponse(BaseModel):
+    """Response model for neuroplasticity statistics."""
+    stats: Dict[str, Any]
+
+
+class UpdateNeuroplasticityRequest(BaseModel):
+    """Request model for updating neuroplasticity rules."""
+    rule_id: str
+    updates: Dict[str, Any]
+
+
+# ===== Insights Schemas =====
+
+class InsightsDataResponse(BaseModel):
+    """Response model for insights data."""
+    insights: Dict[str, Any]
+
+
+class AnalyticsResponse(BaseModel):
+    """Response model for analytics data."""
+    analytics: Dict[str, Any]
+
+
+# ===== Network Schemas =====
+
+class NetworkStatusResponse(BaseModel):
+    """Response model for network status."""
+    status: Dict[str, Any]
+
+
+class NetworkConfigRequest(BaseModel):
+    """Request model for network configuration."""
+    config: Dict[str, Any]
+
+
+# ===== Evolution Schemas =====
+
+class EvolutionStatusResponse(BaseModel):
+    """Response model for evolution status."""
+    status: str
+    generation: Optional[int] = None
+    config: Optional[Dict[str, Any]] = None
+
+
+class EvolutionConfigRequest(BaseModel):
+    """Request model for evolution configuration."""
+    config: Dict[str, Any]
+
+
+# ===== Input/Output Schemas =====
+
+class InputSourcesResponse(BaseModel):
+    """Response model for input sources."""
+    sources: List[Dict[str, Any]]
+
+
+class OutputTargetsResponse(BaseModel):
+    """Response model for output targets."""
+    targets: List[Dict[str, Any]]
+
+
+class IOConfigRequest(BaseModel):
+    """Request model for input/output configuration."""
+    config: Dict[str, Any]
+
+
+# ===== Common Parameter Schemas =====
+
+class IdRequest(BaseModel):
+    """Generic request model for operations requiring an ID."""
+    id: str
+
+
+class FileUploadRequest(BaseModel):
+    """Request model for file upload operations."""
+    file_data: Dict[str, Any]
+
+
+class PathRequest(BaseModel):
+    """Request model for path-based operations."""
+    path: str 

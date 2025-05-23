@@ -39,9 +39,7 @@ from .config import settings
 
 from .commons import CustomError, api_queue, check_burst_engine_or_allow_genome_ops, check_burst_engine, check_brain_running, check_active_genome
 
-from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \
-    network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping, region
-from .routers.v1 import inputs
+# Remove the old router imports - no longer needed since we use universal wrapper directly
 from feagi.api.dependencies import *
 from feagi.api.models import *
 from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -49,6 +47,16 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.rest.dependencies import get_connectome
 from .response_utils import success_response, error_response
+
+# Import the universal FastAPI wrapper directly instead of individual router files
+from feagi.api.transport.universal_fastapi import (
+    get_system_router, get_genome_router, get_cortical_area_router,
+    get_connectome_router, get_burst_engine_router, get_neuroplasticity_router,
+    get_region_router, get_morphology_router, get_monitoring_router,
+    get_simulation_router, get_feagi_agent_router, get_insights_router,
+    get_training_router, get_cortical_mapping_router, get_network_router,
+    get_inputs_router, get_outputs_router, get_evolution_router
+)
 
 # Import the v2 routers
 from .routers.v2 import genome as genome_v2
@@ -255,7 +263,7 @@ standard_response = {
 #     return response
 
 app.include_router(
-    genome.router,
+    get_genome_router(),
     prefix="/v1/genome",
     tags=["GENOME"],
     dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
@@ -263,7 +271,7 @@ app.include_router(
 )
 
 app.include_router(
-    connectome.router,
+    get_connectome_router(),
     prefix="/v1/connectome",
     tags=["CONNECTOME"],
     dependencies=[Depends(check_brain_running)],
@@ -271,7 +279,7 @@ app.include_router(
 )
 
 app.include_router(
-    burst_engine.router,
+    get_burst_engine_router(),
     prefix="/v1/burst_engine",
     tags=["BURST ENGINE"],
     dependencies=[Depends(check_burst_engine)],
@@ -279,7 +287,7 @@ app.include_router(
 )
 
 app.include_router(
-    evolution.router,
+    get_evolution_router(),
     prefix="/v1/evolution",
     tags=["EVOLUTIONARY"],
     dependencies=[Depends(check_burst_engine)],
@@ -287,7 +295,7 @@ app.include_router(
 )
 
 app.include_router(
-    feagi_agent.router,
+    get_feagi_agent_router(),
     prefix="/v1/agent",
     tags=["FEAGI AGENT"],
     dependencies=[Depends(check_burst_engine)],
@@ -295,7 +303,7 @@ app.include_router(
 )
 
 app.include_router(
-    insights.router,
+    get_insights_router(),
     prefix="/v1/insight",
     tags=["INSIGHTS"],
     dependencies=[Depends(check_brain_running)],
@@ -303,7 +311,7 @@ app.include_router(
 )
 
 app.include_router(
-    morphology.router,
+    get_morphology_router(),
     prefix="/v1/morphology",
     tags=["NEURON MORPHOLOGIES"],
     dependencies=[Depends(check_active_genome)],
@@ -311,7 +319,7 @@ app.include_router(
 )
 
 app.include_router(
-    cortical_area.router,
+    get_cortical_area_router(),
     prefix="/v1/cortical_area",
     tags=["CORTICAL AREAS"],
     dependencies=[Depends(check_active_genome)],
@@ -319,7 +327,7 @@ app.include_router(
 )
 
 app.include_router(
-    region.router,
+    get_region_router(),
     prefix="/v1/region",
     tags=["BRAIN REGIONS"],
     dependencies=[Depends(check_active_genome)],
@@ -327,7 +335,7 @@ app.include_router(
 )
 
 app.include_router(
-    cortical_mapping.router,
+    get_cortical_mapping_router(),
     prefix="/v1/cortical_mapping",
     tags=["CORTICAL MAPPINGS"],
     dependencies=[Depends(check_active_genome)],
@@ -335,7 +343,7 @@ app.include_router(
 )
 
 app.include_router(
-    neuroplasticity.router,
+    get_neuroplasticity_router(),
     prefix="/v1/neuroplasticity",
     tags=["NEUROPLASTICITY"],
     dependencies=[Depends(check_active_genome)],
@@ -343,7 +351,7 @@ app.include_router(
 )
 
 app.include_router(
-    inputs.router,
+    get_inputs_router(),
     prefix="/v1/input",
     tags=["INPUT MANAGEMENT"],
     dependencies=[Depends(check_active_genome)],
@@ -351,7 +359,7 @@ app.include_router(
 )
 
 app.include_router(
-    network.router,
+    get_network_router(),
     prefix="/v1/network",
     tags=["NETWORK"],
     dependencies=[],
@@ -359,7 +367,7 @@ app.include_router(
 )
 
 app.include_router(
-    simulation.router,
+    get_simulation_router(),
     prefix="/v1/simulation",
     tags=["SIMULATION"],
     dependencies=[Depends(check_brain_running)],
@@ -367,17 +375,36 @@ app.include_router(
 )
 
 app.include_router(
-    system.router,
+    get_system_router(),
     prefix="/v1/system",
     tags=["SYSTEM"],
     dependencies=[],
     responses=standard_response
 )
+
 app.include_router(
-    training.router,
+    get_training_router(),
     prefix="/v1/training",
     tags=["TRAINING"],
     dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+# Add the missing outputs router
+app.include_router(
+    get_outputs_router(),
+    prefix="/v1/output",
+    tags=["OUTPUT MANAGEMENT"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+# Add the missing monitoring router
+app.include_router(
+    get_monitoring_router(),
+    prefix="/v1/monitoring",
+    tags=["MONITORING"],
+    dependencies=[],
     responses=standard_response
 )
 

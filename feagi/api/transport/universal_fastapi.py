@@ -19,6 +19,22 @@ from feagi.api.v1.decorators import get_endpoint_registry
 from feagi.api.v1.system import create_system_api
 from feagi.api.v1.genome import create_genome_api
 from feagi.api.v1.cortical_area import create_cortical_area_api
+# Import all the new API modules
+from feagi.api.v1.connectome import create_connectome_api
+from feagi.api.v1.burst_engine import create_burst_engine_api
+from feagi.api.v1.neuroplasticity import create_neuroplasticity_api
+from feagi.api.v1.region import create_region_api
+from feagi.api.v1.morphology import create_morphology_api
+from feagi.api.v1.monitoring import create_monitoring_api
+from feagi.api.v1.simulation import create_simulation_api
+from feagi.api.v1.feagi_agent import create_feagi_agent_api
+from feagi.api.v1.insights import create_insights_api
+from feagi.api.v1.training import create_training_api
+from feagi.api.v1.cortical_mapping import create_cortical_mapping_api
+from feagi.api.v1.network import create_network_api
+from feagi.api.v1.inputs import create_inputs_api
+from feagi.api.v1.outputs import create_outputs_api
+from feagi.api.v1.evolution import create_evolution_api
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -107,9 +123,36 @@ class UniversalFastAPIWrapper:
                     self._api_instances[module_name] = create_genome_api(core_api_service)
                 elif module_name == 'cortical_area':
                     self._api_instances[module_name] = create_cortical_area_api(core_api_service)
-                # Add other modules as needed:
-                # elif module_name == 'connectome':
-                #     self._api_instances[module_name] = create_connectome_api(core_api_service)
+                elif module_name == 'connectome':
+                    self._api_instances[module_name] = create_connectome_api(core_api_service)
+                elif module_name == 'burst_engine':
+                    self._api_instances[module_name] = create_burst_engine_api(core_api_service)
+                elif module_name == 'neuroplasticity':
+                    self._api_instances[module_name] = create_neuroplasticity_api(core_api_service)
+                elif module_name == 'region':
+                    self._api_instances[module_name] = create_region_api(core_api_service)
+                elif module_name == 'morphology':
+                    self._api_instances[module_name] = create_morphology_api(core_api_service)
+                elif module_name == 'monitoring':
+                    self._api_instances[module_name] = create_monitoring_api(core_api_service)
+                elif module_name == 'simulation':
+                    self._api_instances[module_name] = create_simulation_api(core_api_service)
+                elif module_name == 'feagi_agent':
+                    self._api_instances[module_name] = create_feagi_agent_api(core_api_service)
+                elif module_name == 'insights':
+                    self._api_instances[module_name] = create_insights_api(core_api_service)
+                elif module_name == 'training':
+                    self._api_instances[module_name] = create_training_api(core_api_service)
+                elif module_name == 'cortical_mapping':
+                    self._api_instances[module_name] = create_cortical_mapping_api(core_api_service)
+                elif module_name == 'network':
+                    self._api_instances[module_name] = create_network_api(core_api_service)
+                elif module_name == 'inputs':
+                    self._api_instances[module_name] = create_inputs_api(core_api_service)
+                elif module_name == 'outputs':
+                    self._api_instances[module_name] = create_outputs_api(core_api_service)
+                elif module_name == 'evolution':
+                    self._api_instances[module_name] = create_evolution_api(core_api_service)
                 else:
                     raise ValueError(f"Unknown module: {module_name}")
             
@@ -242,6 +285,98 @@ def create_cortical_area_router() -> APIRouter:
     return wrapper.create_router_for_module('cortical_area')
 
 
+# === NEW ROUTER CREATION FUNCTIONS ===
+
+def create_connectome_router() -> APIRouter:
+    """Create a FastAPI router for connectome endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('connectome')
+
+
+def create_burst_engine_router() -> APIRouter:
+    """Create a FastAPI router for burst engine endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('burst_engine')
+
+
+def create_neuroplasticity_router() -> APIRouter:
+    """Create a FastAPI router for neuroplasticity endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('neuroplasticity')
+
+
+def create_region_router() -> APIRouter:
+    """Create a FastAPI router for region endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('region')
+
+
+def create_morphology_router() -> APIRouter:
+    """Create a FastAPI router for morphology endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('morphology')
+
+
+def create_monitoring_router() -> APIRouter:
+    """Create a FastAPI router for monitoring endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('monitoring')
+
+
+def create_simulation_router() -> APIRouter:
+    """Create a FastAPI router for simulation endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('simulation')
+
+
+def create_feagi_agent_router() -> APIRouter:
+    """Create a FastAPI router for feagi agent endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('feagi_agent')
+
+
+def create_insights_router() -> APIRouter:
+    """Create a FastAPI router for insights endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('insights')
+
+
+def create_training_router() -> APIRouter:
+    """Create a FastAPI router for training endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('training')
+
+
+def create_cortical_mapping_router() -> APIRouter:
+    """Create a FastAPI router for cortical mapping endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('cortical_mapping')
+
+
+def create_network_router() -> APIRouter:
+    """Create a FastAPI router for network endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('network')
+
+
+def create_inputs_router() -> APIRouter:
+    """Create a FastAPI router for inputs endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('inputs')
+
+
+def create_outputs_router() -> APIRouter:
+    """Create a FastAPI router for outputs endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('outputs')
+
+
+def create_evolution_router() -> APIRouter:
+    """Create a FastAPI router for evolution endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('evolution')
+
+
 # Create the router instance that can be imported
 def get_system_router() -> APIRouter:
     """Get the system router for use in main FastAPI app."""
@@ -255,4 +390,81 @@ def get_genome_router() -> APIRouter:
 
 def get_cortical_area_router() -> APIRouter:
     """Get the cortical area router for use in main FastAPI app."""
-    return create_cortical_area_router() 
+    return create_cortical_area_router()
+
+
+# === NEW GET ROUTER FUNCTIONS ===
+
+def get_connectome_router() -> APIRouter:
+    """Get the connectome router for use in main FastAPI app."""
+    return create_connectome_router()
+
+
+def get_burst_engine_router() -> APIRouter:
+    """Get the burst engine router for use in main FastAPI app."""
+    return create_burst_engine_router()
+
+
+def get_neuroplasticity_router() -> APIRouter:
+    """Get the neuroplasticity router for use in main FastAPI app."""
+    return create_neuroplasticity_router()
+
+
+def get_region_router() -> APIRouter:
+    """Get the region router for use in main FastAPI app."""
+    return create_region_router()
+
+
+def get_morphology_router() -> APIRouter:
+    """Get the morphology router for use in main FastAPI app."""
+    return create_morphology_router()
+
+
+def get_monitoring_router() -> APIRouter:
+    """Get the monitoring router for use in main FastAPI app."""
+    return create_monitoring_router()
+
+
+def get_simulation_router() -> APIRouter:
+    """Get the simulation router for use in main FastAPI app."""
+    return create_simulation_router()
+
+
+def get_feagi_agent_router() -> APIRouter:
+    """Get the feagi agent router for use in main FastAPI app."""
+    return create_feagi_agent_router()
+
+
+def get_insights_router() -> APIRouter:
+    """Get the insights router for use in main FastAPI app."""
+    return create_insights_router()
+
+
+def get_training_router() -> APIRouter:
+    """Get the training router for use in main FastAPI app."""
+    return create_training_router()
+
+
+def get_cortical_mapping_router() -> APIRouter:
+    """Get the cortical mapping router for use in main FastAPI app."""
+    return create_cortical_mapping_router()
+
+
+def get_network_router() -> APIRouter:
+    """Get the network router for use in main FastAPI app."""
+    return create_network_router()
+
+
+def get_inputs_router() -> APIRouter:
+    """Get the inputs router for use in main FastAPI app."""
+    return create_inputs_router()
+
+
+def get_outputs_router() -> APIRouter:
+    """Get the outputs router for use in main FastAPI app."""
+    return create_outputs_router()
+
+
+def get_evolution_router() -> APIRouter:
+    """Get the evolution router for use in main FastAPI app."""
+    return create_evolution_router() 
