@@ -16,6 +16,7 @@ import zmq
 import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
+from feagi.core.state_manager import GenomeState
 
 # Import the unified CoreAPIService
 from ...core.services.core_api_service import CoreAPIService
