@@ -7,6 +7,7 @@ Provides ZeroMQ-based API access to FEAGI functionality.
 import asyncio
 import json
 import logging
+import sys
 import threading
 import time
 from typing import Dict, Any, Optional, List, Set, Callable, Callable

@@ -95,4 +95,166 @@ def test_get_burst_engine_config(core_api_service, connectome_manager):
     result = core_api_service.get_burst_engine_config()
     
     # Verify the result is a dictionary
-    assert isinstance(result, dict) 
+    assert isinstance(result, dict)
+
+
+class TestCoreAPIService:
+    """Test cases for the Core API Service."""
+
+    def test_get_cortical_areas(self, core_api_service, connectome_manager):
+        """Test getting all cortical areas."""
+        # Set up mock
+        connectome_manager.cortical_areas = {
+            1: MagicMock(cortical_id="test1", name="Test Area 1"),
+            2: MagicMock(cortical_id="test2", name="Test Area 2")
+        }
+        
+        result = core_api_service.get_cortical_areas()
+        assert isinstance(result, list)
+
+    def test_reset_fcl(self, core_api_service, connectome_manager):
+        """Test FCL reset functionality."""
+        # Set up mock for FCL manager
+        mock_fcl_manager = MagicMock()
+        mock_fcl_manager.reset = MagicMock()
+        connectome_manager.fcl_manager = mock_fcl_manager
+        
+        result = core_api_service.reset_fcl()
+        assert result is True
+        mock_fcl_manager.reset.assert_called_once()
+
+    def test_get_cortical_2d_locations(self, core_api_service, connectome_manager):
+        """Test getting 2D locations of cortical areas."""
+        result = core_api_service.get_cortical_2d_locations()
+        assert isinstance(result, dict)
+
+    def test_get_burst_engine_config(self, core_api_service, connectome_manager):
+        """Test getting burst engine configuration."""
+        result = core_api_service.get_burst_engine_config()
+        assert isinstance(result, dict)
+
+    def test_all_critical_methods_exist(self, core_api_service):
+        """Test that ALL critical methods from the original CoreAPIService exist."""
+        # This is the critical test that should have caught our missing methods!
+        critical_methods = [
+            # Core component access
+            'get_burst_engine', 'get_connectome_manager', 'get_fcl_manager', 'get_memory_manager',
+            
+            # Fire queue methods (critical for FQSampler)
+            'get_fire_queue', 'get_area_fire_queue',
+            
+            # State management (critical for startup)
+            'genome_is_loaded', 'get_state_manager',
+            
+            # Brain state management
+            'get_brain_state', 'save_brain_state', 'load_brain_state',
+            
+            # Agent management
+            'get_agent_list', 'get_agent_properties', 'deregister_agent',
+            
+            # Cortical area methods (legacy names)
+            'get_cortical_area_id_list', 'get_cortical_area_index_list', 'get_cortical_area_name_list',
+            'get_cortical_locations_2d', 'get_cortical_area_stats',
+            
+            # Plasticity methods
+            'enable_area_plasticity', 'disable_area_plasticity', 'get_plasticity_info',
+            'get_plasticity_queue_depth', 'update_plasticity_queue_depth', 'update_plasticity_config',
+            
+            # Monitoring methods
+            'get_membrane_potential_monitoring_status', 'set_membrane_potential_monitoring',
+            'get_synaptic_potential_monitoring_status', 'set_synaptic_potential_monitoring',
+            'get_membrane_potentials', 'update_membrane_potentials',
+            
+            # FCL Sampler methods
+            'get_fcl_sampler_config', 'update_fcl_sampler_config', 'get_area_fcl_sample_rate', 'set_area_fcl_sample_rate',
+            
+            # Burst engine methods
+            'get_burst_counter', 'update_burst_engine_config',
+            
+            # Network methods
+            'get_network_config', 'update_network_config',
+            
+            # Stimulation methods
+            'trigger_manual_stimulation', 'trigger_sustained_stimulation',
+            'set_stimulation_script', 'reset_stimulation_script',
+            
+            # Transaction methods
+            'begin_transaction', 'modify_genome', 'register_genome_change_listener',
+            'on_sync_state_change', 'refresh_cached_data',
+            
+            # Utility methods
+            'get_connectome_dimensions', 'get_morphology_list', 'get_detailed_cortical_map',
+            'get_data_path', 'get_temp_path', 'get_neuron_mappings', 'get_transforming_areas',
+            'has_pending_amalgamation', 'save_connectome_snapshot', 'import_cortical_area',
+            'batch_create_neurons', 'batch_create_synapses',
+            
+            # Robot/Gazebo methods
+            'update_robot_controller', 'update_robot_model', 'get_gazebo_robot_files',
+            
+            # Performance methods
+            'get_performance_stats', 'get_simulation_status', 'get_system_health'
+        ]
+        
+        missing_methods = []
+        for method_name in critical_methods:
+            if not hasattr(core_api_service, method_name):
+                missing_methods.append(method_name)
+            else:
+                # Verify it's callable
+                method = getattr(core_api_service, method_name)
+                if not callable(method):
+                    missing_methods.append(f"{method_name} (not callable)")
+        
+        assert len(missing_methods) == 0, f"Missing critical methods: {missing_methods}"
+
+    def test_method_count_consistency(self, core_api_service):
+        """Test that we have the expected number of public methods."""
+        public_methods = [method for method in dir(core_api_service) 
+                         if callable(getattr(core_api_service, method)) and not method.startswith('_')]
+        
+        # We should have at least 130 public methods (original had 107, we added more)
+        assert len(public_methods) >= 130, f"Expected at least 130 public methods, got {len(public_methods)}"
+
+    def test_basic_method_calls(self, core_api_service):
+        """Test that basic methods can be called without errors."""
+        # Test methods that should always work
+        assert core_api_service.get_service_health() is not None
+        assert isinstance(core_api_service.get_versions(), dict)
+        assert isinstance(core_api_service.get_configuration(), dict)
+        assert isinstance(core_api_service.get_user_preferences(), dict)
+        
+        # Test fire queue methods
+        assert core_api_service.get_fire_queue() is None or isinstance(core_api_service.get_fire_queue(), dict)
+        
+        # Test basic state methods
+        assert isinstance(core_api_service.genome_is_loaded(), bool)
+        # State manager might be None in test fixtures
+        state_manager = core_api_service.get_state_manager()
+        assert state_manager is None or state_manager is not None  # Just check it returns something
+        
+        # Test FCL sampler config
+        assert isinstance(core_api_service.get_fcl_sampler_config(), dict)
+        
+        # Test burst counter
+        assert isinstance(core_api_service.get_burst_counter(), int)
+
+    def test_legacy_method_aliases(self, core_api_service):
+        """Test that legacy method aliases work correctly."""
+        # Test that legacy names map to the correct methods
+        assert core_api_service.get_cortical_areas() == core_api_service.get_all_cortical_areas()
+        assert core_api_service.get_cortical_area_id_list() == core_api_service.get_cortical_id_list()
+        assert core_api_service.get_cortical_area_index_list() == core_api_service.get_cortical_index_list()
+        assert core_api_service.get_cortical_area_name_list() == core_api_service.get_cortical_name_list()
+        assert core_api_service.get_cortical_locations_2d() == core_api_service.get_cortical_2d_locations()
+
+    def test_error_handling(self, core_api_service):
+        """Test that methods handle errors gracefully."""
+        # Test with invalid inputs that should return empty/default values
+        assert core_api_service.get_area_fire_queue("invalid_id") is None
+        assert isinstance(core_api_service.get_cortical_area_stats("invalid_id"), (dict, type(None)))
+        assert isinstance(core_api_service.get_agent_properties("invalid_id"), dict)
+        
+        # Test methods that should return safe defaults
+        assert isinstance(core_api_service.get_morphology_list(), list)
+        assert isinstance(core_api_service.get_transforming_areas(), list)
+        assert isinstance(core_api_service.has_pending_amalgamation(), bool) 

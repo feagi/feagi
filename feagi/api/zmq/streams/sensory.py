@@ -19,6 +19,7 @@ from feagi.utils.logger import setup_logger
 
 # Import the unified CoreAPIService
 from ...core.services.core_api_service import CoreAPIService
+from ...utils.rate_limit import RateLimiter
 
 logger = setup_logger()
 
