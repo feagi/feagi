@@ -1,36 +1,26 @@
 """
-ZeroMQ Sensory Stream Implementation for FEAGI API
+Sensory data stream handler for ZeroMQ.
 
-This module implements a specialized streaming pattern for sensory data.
-It provides:
-- One-directional flow from agents to FEAGI
-- Efficient binary serialization for high-performance data exchange
-- Genome-dependent state management (standby when no genome loaded)
-
-Performance Optimization:
-- Socket is configured for real-time operation with minimal latency
-- Messages are treated as ephemeral - no queueing is performed
-- High water marks (HWM) are set to minimal values to prevent buffer buildup
-- Non-blocking operations ensure system responsiveness
-
-This approach ensures that sensory data, which is time-sensitive, is handled
-with priority and never queued if it cannot be processed immediately, preventing
-the system from wasting resources on outdated information.
+Handles incoming sensory data from connected agents and routes it to the brain.
 """
 
 import asyncio
-from feagi.utils.logger import setup_logger
-logger = setup_logger(__name__)
+import json
+import logging
 import time
-from typing import Dict, Any, Optional, Callable
+import threading
+from typing import Dict, Any, Optional, List, Union, Callable
+import uuid
 
 import zmq
 import zmq.asyncio
 
-from ...core.service import CoreApiService
-from ...utils.rate_limit import RateLimiter
-from feagi.core.state_manager import GenomeState
+from feagi.utils.logger import setup_logger
 
+# Import the unified CoreAPIService
+from ...core.services.core_api_service import CoreAPIService
+
+logger = setup_logger()
 
 class SensoryStream:
     """
@@ -44,7 +34,7 @@ class SensoryStream:
     
     def __init__(
         self, 
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5558,
         context: Optional[zmq.asyncio.Context] = None
@@ -53,7 +43,7 @@ class SensoryStream:
         Initialize the Sensory Stream.
         
         Args:
-            core_api: The CoreApiService instance to delegate calls to
+            core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to
             port: Port for receiving sensory data
             context: Optional existing ZMQ context to use

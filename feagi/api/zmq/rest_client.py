@@ -10,7 +10,7 @@ import json
 import time
 import zmq
 import uuid
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, Callable
 
 class ZMQRestClient:
     """

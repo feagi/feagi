@@ -20,15 +20,20 @@ the system from wasting resources on outdated information.
 """
 
 import asyncio
-from feagi.utils.logger import setup_logger
-logger = setup_logger(__name__)
+import json
+import logging
 import time
-from typing import Dict, Any, Optional, Callable
+import threading
+from typing import Dict, Any, Optional, List, Union, Callable
+import uuid
 
 import zmq
 import zmq.asyncio
 
-from ...core.service import CoreApiService
+from feagi.utils.logger import setup_logger
+
+# Import the unified CoreAPIService  
+from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
 from feagi.core.state_manager import GenomeState
 
@@ -45,7 +50,7 @@ class MotorStream:
     
     def __init__(
         self, 
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5564,
         context: Optional[zmq.asyncio.Context] = None
@@ -54,7 +59,7 @@ class MotorStream:
         Initialize the Motor Stream.
         
         Args:
-            core_api: The CoreApiService instance to delegate calls to
+            core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to
             port: Port for sending motor data
             context: Optional existing ZMQ context to use

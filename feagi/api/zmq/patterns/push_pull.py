@@ -15,9 +15,9 @@ logger = setup_logger(__name__)
 import time
 import zmq
 import zmq.asyncio
-from typing import Dict, Any, List, Callable, Optional, Union, Tuple
+from typing import Dict, Any, List, Callable, Optional, Union, Tuple, Callable
 
-from ...core.service import CoreApiService
+from ...core.services.core_api_service import CoreAPIService
 from ..serialization import serialize_message, deserialize_message
 from ...utils.rate_limit import RateLimiter
 
@@ -33,7 +33,7 @@ class PushServer:
     
     def __init__(
         self, 
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5557,
         hwm: int = 1000,
@@ -43,7 +43,7 @@ class PushServer:
         Initialize a new Push server.
         
         Args:
-            core_api: The CoreApiService instance to delegate calls to
+            core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to (default "*" to bind to all interfaces)
             port: Port number to bind to
             hwm: High water mark (max queued messages)
@@ -304,7 +304,7 @@ class PushPullManager:
     
     def __init__(
         self, 
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5557,
         context: Optional[zmq.asyncio.Context] = None
@@ -313,7 +313,7 @@ class PushPullManager:
         Initialize a new PushPull Manager.
         
         Args:
-            core_api: The CoreApiService instance to delegate calls to
+            core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to
             port: Port number to bind to
             context: Optional existing ZMQ context to use

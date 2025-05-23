@@ -23,13 +23,13 @@ import asyncio
 import json
 import time
 import uuid
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 
 import zmq
 import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
-from ...core.service import CoreApiService
+from ...core.services.core_api_service import CoreAPIService
 from ..rest_adapter import ZMQRestAPIAdapter
 
 logger = setup_logger(__name__)
@@ -53,7 +53,7 @@ class RestStream:
     
     def __init__(
         self,
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*",
         port: int = 5563,
         context: Optional[zmq.asyncio.Context] = None

@@ -15,7 +15,7 @@ from feagi.utils.logger import setup_logger
 logger = setup_logger()
 import asyncio
 import threading
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Callable
 
 from .server import ZmqServer
 from .client import ZmqClient

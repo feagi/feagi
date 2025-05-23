@@ -13,7 +13,7 @@ import time
 import logging
 from feagi.utils.logger import setup_logger
 logger = setup_logger(__name__)
-from typing import Dict, Optional, List, Set, Any, Tuple, TYPE_CHECKING
+from typing import Dict, Optional, List, Set, Any, Tuple, TYPE_CHECKING, Callable
 
 import zmq
 import zmq.asyncio
@@ -22,7 +22,7 @@ import zmq.asyncio
 if TYPE_CHECKING:
     from .server import ZMQServer
 
-from ..core.service import CoreApiService
+from ...core.services.core_api_service import CoreAPIService
 from feagi.core.state_manager import GenomeState
 from feagi.api.protocols import ProtocolID
 
@@ -284,7 +284,7 @@ class ZMQConnectionManager:
     
     @classmethod
     def instance(cls, 
-                 core_api: Optional[CoreApiService] = None,
+                 core_api: Optional[CoreAPIService] = None,
                  host: str = "*"):
         """Get the singleton instance."""
         if cls._instance is None:
@@ -292,7 +292,7 @@ class ZMQConnectionManager:
         return cls._instance
     
     def __init__(self, 
-                 core_api: Optional[CoreApiService] = None,
+                 core_api: Optional[CoreAPIService] = None,
                  host: str = "*"):
         """
         Initialize the connection manager.

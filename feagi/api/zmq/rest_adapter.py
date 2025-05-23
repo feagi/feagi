@@ -17,7 +17,7 @@ import json
 import time
 import asyncio
 import traceback
-from typing import Dict, Any, Optional, Tuple, Union, List, Callable
+from typing import Dict, Any, Optional, Tuple, Union, List, Callable, Callable
 import inspect
 
 from feagi.utils.logger import setup_logger

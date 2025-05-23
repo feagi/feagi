@@ -9,7 +9,7 @@ import asyncio
 import logging
 import os
 import uuid
-from typing import Dict, Any, Optional, List, Callable, Coroutine
+from typing import Dict, Any, Optional, List, Callable, Coroutine, Callable
 
 import zmq
 import zmq.asyncio

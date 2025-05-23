@@ -7,7 +7,7 @@ using the ROUTER-DEALER pattern and custom byte structure serialization.
 
 import asyncio
 import logging
-from typing import Any, Callable, Coroutine, Dict, Optional
+from typing import Any, Callable, Coroutine, Dict, Optional, Callable
 
 import zmq
 import zmq.asyncio

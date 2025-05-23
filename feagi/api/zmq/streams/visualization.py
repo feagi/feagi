@@ -11,12 +11,12 @@ It provides:
 
 import asyncio
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable
 import zmq
 import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
-from ...core.service import CoreApiService
+from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
 from feagi.core.state_manager import GenomeState
 
@@ -33,7 +33,7 @@ class VisualizationStream:
     
     def __init__(
         self, 
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5560,
         context: Optional[zmq.asyncio.Context] = None,
@@ -44,7 +44,7 @@ class VisualizationStream:
         Initialize a new Visualization Stream.
         
         Args:
-            core_api: The CoreApiService instance
+            core_api: The CoreAPIService instance
             host: Host address to bind to
             port: Port for visualization data
             context: Optional existing ZMQ context

@@ -23,12 +23,12 @@ from feagi.utils.logger import setup_logger
 logger = setup_logger(__name__)
 import time
 import json
-from typing import Dict, Any, Optional, Callable, List, Tuple
+from typing import Dict, Any, Optional, Callable, List, Tuple, Callable
 
 import zmq
 import zmq.asyncio
 
-from ...core.service import CoreApiService
+from ...core.services.core_api_service import CoreAPIService
 
 
 class ControlStream:
@@ -49,7 +49,7 @@ class ControlStream:
     
     def __init__(
         self,
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*",
         port: int = 5559,
         context: Optional[zmq.asyncio.Context] = None

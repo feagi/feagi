@@ -1,20 +1,46 @@
 """
-ZeroMQ Server for FEAGI API
+ZeroMQ Server for FEAGI API.
 
-This module implements the ZeroMQ server for the FEAGI API, providing
-high-performance, real-time communication with clients.
+Provides ZeroMQ-based API access to FEAGI functionality.
 """
 
-import os
-import time
-from feagi.utils.logger import setup_logger
-logger = setup_logger(__name__)
-import threading
 import asyncio
-import concurrent.futures
 import json
-from typing import Dict, Any, List, Optional, Union, Callable
-import sys
+import logging
+import threading
+import time
+from typing import Dict, Any, Optional, List, Set, Callable, Callable
+import uuid
+import traceback
+
+import zmq
+import zmq.asyncio
+
+from feagi.utils.logger import setup_logger
+
+# Core dependencies
+from feagi.core.state_manager import FeagiStateManager, GenomeState
+from feagi.bdu.connectome_manager import ConnectomeManager
+
+# Import all stream handlers
+from .streams.sensory import SensoryStream
+from .streams.motor import MotorStream  
+from .streams.visualization import VisualizationStream
+from .streams.control import ControlStream
+from .streams.rest import RestStream
+
+# Import pattern handlers
+from .patterns.req_rep import RequestReplyManager
+from .patterns.pub_sub import PubSubManager
+from .patterns.push_pull import PushPullManager
+
+# Import connection manager
+from .connection_manager import ConnectionManager
+
+# Import the unified CoreAPIService
+from ...core.services.core_api_service import CoreAPIService
+
+logger = setup_logger()
 
 # Force importing the actual ZMQ module first to avoid circular imports
 try:
@@ -37,7 +63,7 @@ except ImportError:
 
 from zmq.auth.thread import ThreadAuthenticator
 
-from ..core.service import CoreApiService
+from ...core.services.core_api_service import CoreAPIService
 from .rest_adapter import ZMQRestAPIAdapter  # Import the REST API adapter
 
 # Import protocol definitions
@@ -155,7 +181,7 @@ class ZmqServer:
     
     def __init__(
         self,
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "127.0.0.1",
         req_rep_port: int = 5555,
         pub_sub_port: int = 5556,
