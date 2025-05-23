@@ -1,289 +1,365 @@
 # FEAGI Usage Guide
 
-This document provides detailed instructions on how to use FEAGI, including command-line options, configuration, and examples.
+*Last Updated: January 15, 2025*
+
+This document provides detailed instructions on how to use FEAGI with the current **Rust/RTOS compatible architecture** that implements singleton patterns and direct task spawning.
+
+## Overview
+
+FEAGI 2.0 employs a **unified process architecture** with multiple ZMQ streams and an integrated REST API service. All components run within a single process space using direct task spawning for optimal performance and reliability.
+
+### Key Architecture Features
+- **Singleton ConnectomeManager**: Single source of truth for brain state
+- **Direct Task Spawning**: No subprocess boundaries for better performance
+- **Multi-Stream ZMQ**: Dedicated streams for different protocols
+- **Memory-Mapped State**: Zero-copy data synchronization
+- **Mission-Critical Reliability**: Clockwork precision for performance-critical applications
 
 ## Running FEAGI
 
-FEAGI has a modular architecture with two main components:
+### Standard Launch
 
-1. **API Server**: Handles external HTTP requests and provides a REST API
-2. **ZMQ Server**: Manages internal communication between components using ZeroMQ
-
-## Command-Line Usage
-
-### Unified Command
-
-The recommended way to run FEAGI is with the unified command:
+The recommended way to run FEAGI:
 
 ```bash
-feagi
+python -m feagi.main
 ```
 
-This starts:
-- API server on 127.0.0.1:8000
-- ZMQ publisher on 127.0.0.1:5556
-- ZMQ subscriber on 127.0.0.1:5557
+This starts the unified FEAGI system with:
+- **FastAPI REST Server**: Port 8001 (direct dependency injection)
+- **ZMQ Control Stream**: Port 5561 (legacy agent management)
+- **ZMQ REST Stream**: Port 5563 (modern REST-over-ZMQ)
+- **ZMQ Visualization Stream**: Port 5562 (neural data broadcasting)
+- **ZMQ REQ/REP Stream**: Port 5555 (legacy commands)
 
-### Available Options
+### Command-Line Options
 
+```bash
+python -m feagi.main [OPTIONS]
 ```
-usage: feagi [-h] [--api-host API_HOST] [--api-port API_PORT] [--api-reload] [--zmq-host ZMQ_HOST] 
-             [--zmq-pub-port ZMQ_PUB_PORT] [--zmq-sub-port ZMQ_SUB_PORT] 
-             [--zmq-topics ZMQ_TOPICS [ZMQ_TOPICS ...]] [--zmq-auth] [--zmq-encryption] 
-             [--config CONFIG] [--api-only] [--zmq-only]
-```
 
-#### General Options
-
-| Option | Description |
-|--------|-------------|
-| `-h, --help` | Show help message |
-| `--config CONFIG` | Path to configuration file |
-| `--api-only` | Start only the API server |
-| `--zmq-only` | Start only the ZMQ server |
-
-#### API Server Options
+#### Core Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--api-host API_HOST` | API server host | 127.0.0.1 |
-| `--api-port API_PORT` | API server port | 8000 |
-| `--api-reload` | Enable auto-reload for development | False |
+| `--config CONFIG` | Path to configuration file | None |
+| `--genome GENOME` | Genome file to load | None |
+| `--host HOST` | Server host for all services | 127.0.0.1 |
 
-#### ZMQ Server Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--zmq-host ZMQ_HOST` | ZMQ server host | 127.0.0.1 |
-| `--zmq-pub-port ZMQ_PUB_PORT` | ZMQ publisher port | 5556 |
-| `--zmq-sub-port ZMQ_SUB_PORT` | ZMQ subscriber port | 5557 |
-| `--zmq-topics TOPICS [TOPICS ...]` | ZMQ topics to support | neural, metrics, heartbeat |
-| `--zmq-auth` | Enable ZMQ authentication | False |
-| `--zmq-encryption` | Enable ZMQ encryption | False |
-
-### Examples
-
-```bash
-# Run with default settings
-feagi
-
-# Run on a different port
-feagi --api-port 8080
-
-# Run with development auto-reload
-feagi --api-reload
-
-# Bind to all interfaces for remote access
-feagi --api-host 0.0.0.0 --zmq-host 0.0.0.0
-
-# Configure ZMQ with custom topics
-feagi --zmq-topics neural control feedback visualization
-
-# Start only the API server
-feagi --api-only
-
-# Start only the ZMQ server
-feagi --zmq-only
-```
-
-## Component-Specific Commands
-
-You can run the API and ZMQ servers independently:
-
-### API Server
-
-```bash
-feagi-api
-```
-
-#### API Server Options
-
-```
-usage: feagi-api [-h] [--host HOST] [--port PORT] [--reload]
-```
+#### API Configuration
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-h, --help` | Show help message | |
-| `--host HOST` | Host to run the server on | 127.0.0.1 |
-| `--port PORT` | Port to run the server on | 8000 |
-| `--reload` | Enable auto-reload | False |
+| `--api-port PORT` | FastAPI REST server port | 8001 |
+| `--api-host HOST` | FastAPI server host | 127.0.0.1 |
 
-### ZMQ Server
-
-```bash
-feagi-zmq
-```
-
-#### ZMQ Server Options
-
-```
-usage: feagi-zmq [-h] [--host HOST] [--pub-port PUB_PORT] [--sub-port SUB_PORT]
-                 [--topics TOPICS [TOPICS ...]] [--auth] [--encryption]
-                 [--config CONFIG]
-```
+#### ZMQ Stream Configuration
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-h, --help` | Show help message | |
-| `--host HOST` | Host to run the server on | 127.0.0.1 |
-| `--pub-port PUB_PORT` | Publisher port | 5556 |
-| `--sub-port SUB_PORT` | Subscriber port | 5557 |
-| `--topics TOPICS [TOPICS ...]` | Topics to support | |
-| `--auth` | Enable authentication | False |
-| `--encryption` | Enable encryption | False |
-| `--config CONFIG` | Path to configuration file | |
+| `--zmq-control-port PORT` | Control stream port | 5561 |
+| `--zmq-rest-port PORT` | REST stream port | 5563 |
+| `--zmq-vis-port PORT` | Visualization stream port | 5562 |
+| `--zmq-req-port PORT` | REQ/REP stream port | 5555 |
 
-## Python Module Usage
+#### System Configuration
 
-You can run FEAGI directly as Python modules:
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--burst-rate RATE` | Neural burst processing rate | 60 |
+| `--log-level LEVEL` | Logging level (DEBUG/INFO/WARNING/ERROR) | INFO |
+
+### Usage Examples
 
 ```bash
-# Run the full system
+# Standard launch with default settings
 python -m feagi.main
 
-# Run only the API server
-python -m feagi.api.server
+# Launch with custom genome
+python -m feagi.main --genome /path/to/my_genome.json
 
-# Run only the ZMQ server
-python -m feagi.api.zmq.server
+# Custom port configuration
+python -m feagi.main --api-port 9000 --zmq-rest-port 6000
+
+# Development with debug logging
+python -m feagi.main --log-level DEBUG
+
+# Remote access configuration
+python -m feagi.main --host 0.0.0.0 --api-port 8001
+
+# Custom burst rate for high-frequency simulation
+python -m feagi.main --burst-rate 120
 ```
 
-## Programmatic Usage
+## Architecture Components
 
-You can use FEAGI programmatically in your Python code:
+### Process Manager
+The **Process Manager** coordinates all FEAGI tasks with priority-based resource allocation:
 
 ```python
-from feagi import create_feagi
-from feagi.api.zmq import create_zmq_server
-from feagi.core.resource_mgr import ResourceManager
+from feagi.process_manager import get_process_manager
 
-# Create a complete FEAGI instance
-feagi = create_feagi()
-resource_mgr = feagi["resource_mgr"]
+# Get singleton process manager
+process_manager = get_process_manager()
 
-# Or create individual components
-zmq_server = create_zmq_server(host="127.0.0.1", pub_port=5556, sub_port=5557)
-zmq_server.start()
-
-# Use the resource manager directly
-resource_mgr = ResourceManager()
+# Access core components
+core_api = process_manager.get_core_api()
+connectome_manager = process_manager.get_connectome_manager()
 ```
 
-## API Documentation
-
-Once the API server is running, you can access the interactive API documentation:
-- Swagger UI: http://127.0.0.1:8000/docs
-- ReDoc: http://127.0.0.1:8000/redoc
-
-## Development Tools
-
-### Memory Profiling
-
-FEAGI includes built-in memory profiling tools:
+### ConnectomeManager (Singleton)
+Mission-critical brain state management:
 
 ```python
-from feagi.utils.memory_profiler import MemoryProfiler
+from feagi.bdu.connectome_manager import ConnectomeManager
 
-# Create a memory profiler
-profiler = MemoryProfiler()
+# Always use singleton instance
+connectome = ConnectomeManager.instance()
 
-# Take a snapshot before operation
-profiler.take_snapshot("before_operation")
-
-# Run your code
-# ...
-
-# Take another snapshot
-profiler.take_snapshot("after_operation")
-
-# Compare snapshots to find memory growth
-diff = profiler.compare_snapshots("before_operation", "after_operation")
-print(diff)
+# Access brain state
+cortical_areas = connectome.get_cortical_areas()
+neuron_count = connectome.get_total_neuron_count()
 ```
 
-### Benchmarking
-
-FEAGI includes benchmarking tools for performance measurement:
+### State Manager (Memory-Mapped)
+Zero-copy state synchronization:
 
 ```python
-from feagi.utils.benchmarking import benchmark
+from feagi.core.state_manager import FeagiStateManager, GenomeState
 
-# Use as a decorator
-@benchmark
-def my_function():
-    # ...
+# Get singleton state manager
+state_manager = FeagiStateManager.instance()
 
-# Or use the function directly
-result = benchmark(my_function)
-print(f"Execution time: {result.execution_time_ms} ms")
+# Check system state
+if state_manager.get_genome_state() == GenomeState.LOADED:
+    print("Genome is ready for processing")
+```
+
+## ZMQ Multi-Stream Architecture
+
+FEAGI uses **dedicated streams** for different protocols and purposes:
+
+### REST Stream (Port 5563)
+Modern REST API operations over ZMQ:
+
+```python
+import zmq
+import json
+
+# Connect to REST stream
+context = zmq.Context()
+socket = context.socket(zmq.DEALER)
+socket.connect("tcp://localhost:5563")
+
+# Send REST request
+request = {
+    "method": "GET",
+    "route": "/v1/system/health_check",
+    "timestamp": int(time.time() * 1000)
+}
+socket.send_multipart([b"", json.dumps(request).encode()])
+
+# Receive response
+response_parts = socket.recv_multipart()
+response = json.loads(response_parts[1])
+print(f"Status: {response['status']}")
+```
+
+### Control Stream (Port 5561)
+Legacy agent management and heartbeats:
+
+```python
+# Agent registration
+control_message = {
+    "message_type": "hello",
+    "agent_id": "my_agent",
+    "agent_type": "godot_bridge",
+    "timestamp": int(time.time() * 1000)
+}
+```
+
+### Visualization Stream (Port 5562)
+Real-time neural activity data (publish-subscribe):
+
+```python
+import zmq
+from feagi_bytes import ByteStructureDecoder
+
+# Subscribe to neural data
+context = zmq.Context()
+socket = context.socket(zmq.SUB)
+socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all
+socket.connect("tcp://localhost:5562")
+
+# Decode neural activity
+decoder = ByteStructureDecoder()
+while True:
+    data = socket.recv()
+    neural_activity = decoder.decode_neuron_flat(data)
+    # Process neural data...
+```
+
+## API Access
+
+### FastAPI REST Server (Port 8001)
+Traditional HTTP REST API:
+
+```python
+import requests
+
+# System health check
+response = requests.get("http://localhost:8001/v1/system/health_check")
+health_data = response.json()
+
+# Get cortical areas
+response = requests.get("http://localhost:8001/v1/connectome/cortical_areas")
+cortical_areas = response.json()
+```
+
+### Interactive Documentation
+- **Swagger UI**: http://localhost:8001/docs
+- **ReDoc**: http://localhost:8001/redoc
+
+## Configuration
+
+### Configuration File Format
+
+```json
+{
+  "system": {
+    "burst_rate": 60,
+    "log_level": "INFO"
+  },
+  "api": {
+    "host": "127.0.0.1",
+    "port": 8001
+  },
+  "zmq": {
+    "host": "127.0.0.1",
+    "control_port": 5561,
+    "rest_port": 5563,
+    "vis_port": 5562,
+    "req_port": 5555
+  },
+  "genome": {
+    "file_path": "/path/to/genome.json",
+    "auto_load": true
+  }
+}
+```
+
+### Environment Variables
+
+```bash
+# Core configuration
+export FEAGI_CONFIG_FILE="/path/to/config.json"
+export FEAGI_GENOME_FILE="/path/to/genome.json"
+export FEAGI_LOG_LEVEL="INFO"
+
+# API configuration
+export FEAGI_API_HOST="127.0.0.1"
+export FEAGI_API_PORT="8001"
+
+# ZMQ configuration
+export FEAGI_ZMQ_HOST="127.0.0.1"
+export FEAGI_ZMQ_CONTROL_PORT="5561"
+export FEAGI_ZMQ_REST_PORT="5563"
+export FEAGI_ZMQ_VIS_PORT="5562"
+```
+
+## Development Usage
+
+### Programmatic Usage
+
+```python
+from feagi.process_manager import get_process_manager
+from feagi.bdu.connectome_manager import ConnectomeManager
+
+# Initialize FEAGI programmatically
+config = {
+    "api": {"host": "127.0.0.1", "port": 8001},
+    "zmq": {"host": "127.0.0.1", "rest_port": 5563}
+}
+
+# Get process manager and start services
+process_manager = get_process_manager()
+success = process_manager.start(config)
+
+if success:
+    # Access singleton components
+    connectome = ConnectomeManager.instance()
+    print(f"FEAGI ready with {connectome.get_total_neuron_count()} neurons")
+```
+
+### Testing with Singleton Architecture
+
+```python
+# In tests, ensure singleton cleanup
+def test_feagi_functionality():
+    # Test setup
+    connectome = ConnectomeManager.instance()
+    
+    # Test operations
+    cortical_area = connectome.create_cortical_area("test_area")
+    assert cortical_area is not None
+    
+    # Cleanup for next test
+    connectome.clear()  # Reset singleton state
+```
+
+## Performance Considerations
+
+### Mission-Critical Requirements
+- **Singleton consistency**: All components use single source of truth
+- **Memory-mapped state**: Zero-copy data access for performance
+- **Direct task spawning**: No subprocess overhead
+- **Priority-based scheduling**: Critical tasks get guaranteed resources
+
+### Monitoring System Health
+
+```python
+from feagi.core.state_manager import FeagiStateManager
+
+state_manager = FeagiStateManager.instance()
+
+# Check critical system states
+health_check = {
+    "genome_loaded": state_manager.get_genome_state(),
+    "brain_ready": state_manager.get_brain_state(),
+    "burst_engine": state_manager.get_burst_engine_state(),
+    "api_ready": state_manager.get_api_state()
+}
+
+print(f"System Health: {health_check}")
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Port already in use**: If ports are in use, try using different ports:
-   ```bash
-   feagi --api-port 8080 --zmq-pub-port 5566 --zmq-sub-port 5567
-   ```
-
-2. **Permission denied**: Make sure you have appropriate permissions to bind to the specified host/port.
-
-3. **Dependencies missing**: Ensure all dependencies are installed:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **ZMQ communication issues**: If ZMQ components aren't communicating, check firewall settings and ensure ports are open.
-
-## Configuration
-
-FEAGI can be configured using a YAML configuration file:
-
+**Genome not loading**:
 ```bash
-feagi --config config.yaml
+# Check genome file path and format
+python -c "from feagi.bdu.connectome_manager import ConnectomeManager; cm = ConnectomeManager.instance(); print(cm.get_genome_info())"
 ```
 
-Example configuration file:
-
-```yaml
-api:
-  host: 127.0.0.1
-  port: 8000
-  reload: false
-
-zmq:
-  host: 127.0.0.1
-  pub_port: 5556
-  sub_port: 5557
-  topics:
-    - neural
-    - metrics
-    - heartbeat
-  auth: false
-  encryption: false
-
-logging:
-  level: INFO
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: feagi.log
+**Port conflicts**:
+```bash
+# Check port availability
+ss -tuln | grep -E "8001|5561|5562|5563|5555"
 ```
 
-## Environment Variables
+**Singleton state issues**:
+```python
+# Reset singleton state if needed
+from feagi.bdu.connectome_manager import ConnectomeManager
+ConnectomeManager._instance = None  # Force singleton reset
+```
 
-FEAGI also supports configuration via environment variables:
+## Related Documentation
 
-```bash
-# Set API host and port
-export FEAGI_API_HOST=0.0.0.0
-export FEAGI_API_PORT=8080
-
-# Set ZMQ configuration
-export FEAGI_ZMQ_HOST=0.0.0.0
-export FEAGI_ZMQ_PUB_PORT=5566
-export FEAGI_ZMQ_SUB_PORT=5567
-
-# Run FEAGI (will use environment variables)
-feagi
-``` 
+- [System Architecture](arch-system-overview.md)
+- [ZMQ Architecture](arch-zmq.md)
+- [Installation Guide](guide-installation.md)
+- [Contribution Guide](guide-contribution.md)
+- [Rust/RTOS Migration](arch-rust-rtos-migration.md) 

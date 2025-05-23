@@ -1,10 +1,12 @@
 # FEAGI API Formats Specification
 
-*Last Updated: May 15, 2025*
+*Last Updated: January 15, 2025*
 
 ## Overview
 
 This specification describes the API response formats and compatibility features of the FEAGI API. The FEAGI API is designed to support both legacy clients (v1) and newer integrations (v2+) through a dual response format strategy.
+
+**Architecture Note**: FEAGI 2.0 uses a **unified process architecture** with singleton state management and direct dependency injection. All API endpoints access the same ConnectomeManager and FeagiStateManager instances for consistent, high-performance operation.
 
 ## Response Formats
 
@@ -89,7 +91,7 @@ The following legacy endpoints are directly supported:
 
 ### Response Format Middleware
 
-The API server implements middleware that automatically standardizes responses based on the API version:
+The FastAPI server implements middleware that automatically standardizes responses based on the API version:
 
 1. V1 routes (`/v1/*`) maintain their original response formats to ensure backward compatibility.
 2. V2+ routes (`/v2/*` and above) use the standardized response format.
@@ -170,16 +172,91 @@ Examples:
 - Legacy integrations can continue using V1 endpoints.
 - Migration guides will be provided when new versions are released.
 
-## Interprocess Communication
+## Singleton Architecture Integration
 
-The API server and core FEAGI components communicate through:
+### State Access Patterns
 
-1. **Shared Memory**: Data structures like the connectome are shared between processes using memory-mapped files.
-2. **Event-based Updates**: The API service receives updates through an event system when data changes.
-3. **Priority-based Process Management**: Process priorities ensure burst engine operations take precedence over API handling.
+All API endpoints access FEAGI state through singleton instances for consistent, high-performance operation:
+
+```python
+from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.core.state_manager import FeagiStateManager
+
+@app.get("/v2/connectome/cortical_areas")
+async def get_cortical_areas():
+    """Get all cortical areas using singleton ConnectomeManager"""
+    # Access singleton instance - no process boundaries
+    connectome = ConnectomeManager.instance()
+    
+    # Direct access to brain state - no IPC overhead
+    cortical_areas = connectome.get_cortical_areas()
+    
+    return success_response(
+        data=cortical_areas,
+        message="Cortical areas retrieved successfully"
+    )
+
+@app.get("/v2/system/state")
+async def get_system_state():
+    """Get system state using singleton FeagiStateManager"""
+    # Memory-mapped state access - zero-copy operations
+    state_manager = FeagiStateManager.instance()
+    
+    system_state = {
+        "genome_loaded": state_manager.get_genome_state(),
+        "brain_ready": state_manager.get_brain_state(),
+        "burst_engine": state_manager.get_burst_engine_state()
+    }
+    
+    return success_response(
+        data=system_state,
+        message="System state retrieved successfully"
+    )
+```
+
+### Performance Characteristics
+
+#### Singleton Benefits
+- **Zero IPC Overhead**: Direct access to shared state without process boundaries
+- **Memory Efficiency**: Single instance of large data structures (connectome, neural arrays)
+- **Consistency Guarantees**: All API calls see the same state simultaneously
+- **Mission-Critical Reliability**: No process communication failures or timeouts
+
+#### Response Time Optimization
+- **Direct Memory Access**: Cortical area data retrieved directly from memory-mapped arrays
+- **Vectorized Operations**: Bulk data operations using NumPy for efficient neural data access
+- **Cache-Friendly**: Singleton pattern enables efficient CPU cache utilization
+
+### State Synchronization
+
+All API responses reflect the current state of the singleton instances:
+
+```python
+# Example: Real-time neural activity endpoint
+@app.get("/v2/neural/activity")
+async def get_neural_activity():
+    """Stream current neural activity with zero-copy access"""
+    connectome = ConnectomeManager.instance()
+    
+    # Direct access to current firing neurons - no copying
+    firing_neurons = connectome.get_current_firing_neurons()
+    
+    # Memory-mapped neuron properties - zero latency
+    activity_data = {
+        "firing_neurons": firing_neurons,
+        "timestamp": time.time(),
+        "total_neurons": connectome.get_total_neuron_count()
+    }
+    
+    return success_response(
+        data=activity_data,
+        message="Neural activity retrieved successfully"
+    )
+```
 
 ## Related Documentation
 
-- [IPC Architecture](arch-ipc.md)
-- [Shared Memory Protocol](spec-shared-memory.md)
-- [ZMQ Architecture](arch-zmq.md) 
+- [System Architecture](arch-system-overview.md)
+- [State Management](arch-state-management.md)
+- [ZMQ Architecture](arch-zmq.md)
+- [Usage Guide](guide-usage.md) 
