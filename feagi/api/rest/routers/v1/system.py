@@ -25,39 +25,29 @@ from ...schemas import *
 from feagi.version import __version__
 from feagi.evo.templates import cortical_types
 from feagi.core.state_manager import FeagiStateManager
-from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 logger = setup_logger()
-
-
-router = APIRouter()
 
 # Get dependencies
 state_manager = FeagiStateManager.instance()
 
-# Get CoreAPIService instance
-def get_api_service():
-    connectome_manager = state_manager.get_connectome()
-    if not connectome_manager:
-        # Create a minimal version if not available
-        from feagi.bdu.connectome_manager import ConnectomeManager
-        connectome_manager = ConnectomeManager()
-        
-    return CoreAPIService(connectome_manager=connectome_manager, state_manager=state_manager)
+# Import the proper dependency function
+from feagi.api.rest.dependencies import get_core_api_service
 
+router = APIRouter()
 
 # ######   System Endpoints #########
 # ###################################
 
 @router.get("/user_preferences")
 async def get_user_preferences():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     return api_service.get_user_preferences()
 
 
 @router.put("/user_preferences")
 async def update_user_preferences(payload: UserPreferences):
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     preferences = {
         "adv_mode": payload.adv_mode,
         "ui_magnification": payload.ui_magnification,
@@ -87,7 +77,7 @@ def human_readable_version(version):
 
 @router.get("/versions")
 def get_versions():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     try:
         return api_service.get_versions()
     except Exception as e:
@@ -97,7 +87,7 @@ def get_versions():
 
 @router.get("/health_check")
 async def feagi_health_check():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     try:
         health = await api_service.get_system_health()
         return health
@@ -108,7 +98,7 @@ async def feagi_health_check():
 
 @router.get("/unique_logs")
 async def unique_log_entries():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     state = api_service.get_state_manager()
     if state:
         return getattr(state, 'logs', [])
@@ -123,7 +113,7 @@ async def feagi_registration(message: Registration):
 
 @router.post("/logs")
 async def log_management(message: Logs):
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     if not hasattr(api_service._connectome_manager, 'api_message_queue'):
         raise HTTPException(status_code=400, detail="API message queue not initialized")
     
@@ -135,13 +125,13 @@ async def log_management(message: Logs):
 
 @router.get("/configuration")
 async def configuration_parameters():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     return api_service.get_configuration()
 
 
 @router.get("/beacon/subscribers")
 async def beacon_query():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     state = api_service.get_state_manager()
     if state and getattr(state, 'beacon_sub', None):
         return tuple(state.beacon_sub)
@@ -151,7 +141,7 @@ async def beacon_query():
 
 @router.post("/beacon/subscribe")
 async def beacon_subscribe(message: Subscriber):
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     if not hasattr(api_service._connectome_manager, 'api_message_queue'):
         raise HTTPException(status_code=400, detail="API message queue not initialized")
     
@@ -162,7 +152,7 @@ async def beacon_subscribe(message: Subscriber):
 
 @router.delete("/beacon/unsubscribe")
 async def beacon_unsubscribe(message: Subscriber):
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     if not hasattr(api_service._connectome_manager, 'api_message_queue'):
         raise HTTPException(status_code=400, detail="API message queue not initialized")
     
@@ -176,7 +166,7 @@ async def test_influxdb():
     """
     Test the connection to the InfluxDB service.
     """
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     influx_status = api_service.test_influxdb()
     if influx_status:
         return influx_status
@@ -186,7 +176,7 @@ async def test_influxdb():
 
 @router.post("/circuit_library_path")
 async def change_circuit_library_path(circuit_library_path: str):
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     try:
         success = api_service.set_circuit_library_path(circuit_library_path)
         if success:
@@ -199,7 +189,7 @@ async def change_circuit_library_path(circuit_library_path: str):
 
 @router.get("/cortical_area_types")
 async def fetch_cortical_area_types():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     return api_service.get_cortical_area_types()
 
 
@@ -211,7 +201,7 @@ async def update_cortical_area_types(cortical_id: str):
 
 @router.get("/cortical_area_visualization_skip_rate")
 async def get_cortical_area_visualization_skip_rate():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     state = api_service.get_state_manager()
     if state:
         return getattr(state, 'cortical_viz_skip_rate', None)
@@ -220,7 +210,7 @@ async def get_cortical_area_visualization_skip_rate():
 
 @router.get("/cortical_area_visualization_suppression_threshold")
 async def get_cortical_area_visualization_suppression_threshold():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     state = api_service.get_state_manager()
     if state:
         return getattr(state, 'cortical_viz_sup_threshold', None)
@@ -232,7 +222,7 @@ async def update_cortical_area_visualization_skip_rate(viz_skip: VizSkipRate):
     """
     Set the FCL sample rate (Hz) for a specific cortical area for visualization purposes.
     """
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     area_id = viz_skip.cortical_area
     skip_rate = viz_skip.skip_rate
     
@@ -258,7 +248,7 @@ async def update_cortical_area_visualization_suppression_threshold(visualization
     if visualization_threshold.visualization_threshold < 0:
         raise HTTPException(status_code=400, detail=f"Suppression threshold cannot be negative.")
         
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     state = api_service.get_state_manager()
     if state:
         state.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
@@ -269,7 +259,7 @@ async def update_cortical_area_visualization_suppression_threshold(visualization
 
 @router.get("/global_activity_visualization")
 async def fetch_cortical_area_visualization_globally():
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     state = api_service.get_state_manager()
     if state:
         return state.brain_activity_pub
@@ -279,7 +269,7 @@ async def fetch_cortical_area_visualization_globally():
 @router.put("/global_activity_visualization")
 async def update_cortical_area_visualization_globally(viz_ctrl: BrainVisualization):
     """Future placeholder for whole brain visualization. Currently just an API placeholder."""
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     state = api_service.get_state_manager()
     if state:
         state.brain_activity_pub = viz_ctrl.visualization
@@ -291,7 +281,7 @@ async def update_cortical_area_visualization_globally(viz_ctrl: BrainVisualizati
 @router.post("/fcl_reset")
 async def reset_fire_candidate_list():
     """Reset the FCL"""
-    api_service = get_api_service()
+    api_service = get_core_api_service()
     success = api_service.reset_fcl()
     if success:
         return {"status": "success", "message": "FCL reset"}
