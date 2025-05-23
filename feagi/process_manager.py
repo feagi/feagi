@@ -1,8 +1,19 @@
 """FEAGI Process Manager.
 
 This module provides a centralized Process Manager for FEAGI that implements the
-architecture described in feagi_processes.md. It handles starting, monitoring, and
-stopping processes according to their priority levels.
+Rust/RTOS compatible architecture described in feagi_processes.md. It handles starting, 
+monitoring, and stopping async tasks and services according to their priority levels.
+
+ARCHITECTURE: Rust/RTOS Compatible
+- Uses singleton ConnectomeManager for mission-critical reliability
+- Direct task spawning instead of subprocess boundaries  
+- Memory-mapped state for zero-copy data access
+- No environment variable dependencies for IPC
+
+MIGRATION PATH: Python → Rust
+- threading.Thread → tokio::spawn
+- Memory-mapped files → memmap2 crate
+- Singleton pattern → std::sync::Once
 """
 import asyncio
 from feagi.utils.logger import setup_logger
@@ -11,7 +22,6 @@ logger = setup_logger(name="Process Manager")
 import os
 import signal
 import socket
-import subprocess
 import sys
 import threading
 import time
@@ -19,7 +29,6 @@ from typing import Dict, Any, Optional, List, Tuple, Set
 from feagi.npu.burst_engine import FQSampler
 from feagi.core.state_manager import FeagiStateManager
 from queue import Queue
-import re
 
 
 # Process priority levels
@@ -29,13 +38,19 @@ PRIORITY_BACKGROUND = 3  # Best effort processes
 
 class ProcessManager:
     """
-    FEAGI Process Manager.
+    FEAGI Process Manager - Rust/RTOS Compatible Architecture.
     
     Responsible for:
-    1. Process Creation: Launches processes with appropriate resources and parameters.
-    2. Process Monitoring: Monitors process health and performance.
+    1. Task Creation: Launches async tasks with appropriate resources and parameters.
+    2. Task Monitoring: Monitors task health and performance without subprocess overhead.
     3. Resource Allocation: Distributes computing resources based on priority.
-    4. Fault Tolerance: Restarts failed processes and maintains system integrity.
+    4. Fault Tolerance: Restarts failed tasks and maintains system integrity.
+    
+    RUST/RTOS COMPATIBLE FEATURES:
+    - Singleton ConnectomeManager for consistent state access
+    - Direct task spawning eliminates subprocess boundaries  
+    - Memory-mapped state for instant synchronization
+    - No environment variable IPC dependencies
     """
     
     def __init__(self):
@@ -355,82 +370,6 @@ class ProcessManager:
         except Exception as e:
             logger.error(f"Failed to start API service task: {e}")
             return None
-    
-    def _monitor_process_output(self, process, process_name):
-        """Monitor and log output from a subprocess."""
-        # Pattern to match log lines with emoji and log level
-        # Format: [emoji1]  [level]  [timestamp] [label] message
-        emoji_log_pattern = re.compile(r'^([^\s]{1,2})\s+(?:INFO|DEBUG|WARNING|ERROR|CRITICAL)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})(?:\s+\[[^\]]+\])?\s*(.*)')
-        
-        # Fallback pattern for standard log lines without emoji
-        std_log_pattern = re.compile(r'^\s*(?:DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})(?:\s+\[[^\]]+\])?\s*(.*)')
-        
-        # Pattern to detect nested logs within a message
-        nested_emoji_pattern = re.compile(r'([^\s]{1,2})\s+(?:INFO|DEBUG|WARNING|ERROR|CRITICAL)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\s+\[[^\]]+\])?\s*(.*)')
-        nested_std_pattern = re.compile(r'(?:DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\s+\[[^\]]+\])?\s*(.*)')
-        
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                line = line.rstrip()
-                
-                # First try to match log lines with emoji
-                match = emoji_log_pattern.search(line)
-                if match:
-                    emoji = match.group(1)
-                    message = match.group(3).strip()
-                    
-                    # Check for nested logs in the message
-                    nested_emoji_match = nested_emoji_pattern.search(message)
-                    if nested_emoji_match:
-                        # Use the emoji from the nested log if available
-                        nested_emoji = nested_emoji_match.group(1)
-                        nested_message = nested_emoji_match.group(2).strip()
-                        logger.info(f"{process_name}: {nested_message}", emoji1=nested_emoji)
-                    else:
-                        nested_std_match = nested_std_pattern.search(message)
-                        if nested_std_match:
-                            nested_message = nested_std_match.group(1).strip()
-                            logger.info(f"{process_name}: {nested_message}", emoji1=emoji)
-                        else:
-                            logger.info(f"{process_name}: {message}", emoji1=emoji)
-                else:
-                    # Try standard log pattern
-                    std_match = std_log_pattern.search(line)
-                    if std_match:
-                        message = std_match.group(2).strip()
-                        
-                        # Check for nested logs in the message
-                        nested_emoji_match = nested_emoji_pattern.search(message)
-                        if nested_emoji_match:
-                            nested_emoji = nested_emoji_match.group(1)
-                            nested_message = nested_emoji_match.group(2).strip()
-                            logger.info(f"{process_name}: {nested_message}", emoji1=nested_emoji)
-                        else:
-                            nested_std_match = nested_std_pattern.search(message)
-                            if nested_std_match:
-                                nested_message = nested_std_match.group(1).strip()
-                                logger.info(f"{process_name}: {nested_message}")
-                            else:
-                                logger.info(f"{process_name}: {message}")
-                    else:
-                        # If no log pattern matches, log the full line
-                        logger.info(f"{process_name} {line}")
-        
-        rc = process.poll()
-        if rc != 0:
-            logger.error(f"{process_name} exited with code {rc}")
-            
-    def _print_process_output(self, process):
-        """Print any available output from a process that has terminated."""
-        output, _ = process.communicate()
-        if output:
-            for line in output.splitlines():
-                logger.error(f"process output {line}", emoji1="❌")
-        else:
-            logger.error("No output available from the process")
     
     def start(self, config: Dict[str, Any]) -> bool:
         """
