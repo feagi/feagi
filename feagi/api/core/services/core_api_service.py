@@ -1088,6 +1088,64 @@ class CoreAPIService:
             self.logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
+    def load_barebones_genome(self) -> Dict[str, Any]:
+        """
+        Load the barebones genome from the default templates.
+            
+        Returns:
+            Dictionary containing the result of the genome loading process
+        """
+        try:
+            # Multiple possible locations to look for the barebones genome
+            possible_paths = [
+                # Original path
+                os.path.join(os.path.dirname(__file__), "../../../../evo/defaults/genome/barebones_genome.json"),
+                
+                # Alternative paths relative to current file
+                os.path.join(os.path.dirname(__file__), "../../../../../feagi/evo/defaults/genome/barebones_genome.json"),
+                os.path.join(os.path.dirname(__file__), "../../../../../evo/defaults/genome/barebones_genome.json"),
+                
+                # Paths relative to working directory
+                os.path.join(os.getcwd(), "feagi/evo/defaults/genome/barebones_genome.json"),
+                os.path.join(os.getcwd(), "feagi_core/feagi/evo/defaults/genome/barebones_genome.json"),
+                
+                # Check FEAGI_HOME environment variable if set
+                os.path.join(os.environ.get("FEAGI_HOME", ""), "evo/defaults/genome/barebones_genome.json"),
+            ]
+            
+            # Find the first existing path
+            barebones_path = None
+            for path in possible_paths:
+                if path and os.path.exists(path):
+                    barebones_path = path
+                    break
+                    
+            if not barebones_path:
+                self.logger.error(f"Barebones genome template not found in any expected location")
+                self.logger.error(f"Checked paths: {possible_paths}")
+                return {"success": False, "error": "Barebones genome template not found"}
+                
+            self.logger.info(f"Loading barebones genome from {barebones_path}")
+                
+            with open(barebones_path, 'r') as f:
+                genome_data = json.load(f)
+            
+            # Set the genome file name
+            if self.state_manager:
+                self.state_manager.genome_file_name = "barebones_genome.json"
+            
+            # Call the existing load_genome method
+            self._genome_filename = "barebones_genome.json"
+            result = self.load_genome(genome_data, "barebones_genome.json")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load barebones genome: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return {"success": False, "error": str(e)}
+
     def get_default_genomes(self) -> Dict[str, Any]:
         """
         Get a list of default genome files with their contents.
@@ -3221,3 +3279,18 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error getting connectome dimensions: {str(e)}")
             return {}
+
+    def get_genome_counter(self) -> int:
+        """
+        Get the current genome counter.
+        
+        Returns:
+            Current genome counter value
+        """
+        try:
+            if self.state_manager:
+                return self.state_manager.get_genome_counter()
+            return 0
+        except Exception as e:
+            self.logger.error(f"Error getting genome counter: {str(e)}")
+            return 0

@@ -46,25 +46,18 @@ class GenomeAPI:
     async def upload_barebones_genome(self) -> GenomeUploadResponse:
         """Upload the barebones genome template."""
         try:
-            # Get the path to the barebones genome
-            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
-            barebones_genome_path = os.path.join(project_root, "feagi/evo/defaults/genome/barebones_genome.json")
+            # Use CoreAPIService to handle barebones genome loading
+            result = self.core_api_service.load_barebones_genome()
             
-            if not os.path.exists(barebones_genome_path):
-                raise ValueError("Barebones genome template not found")
-                
-            # Load the genome data
-            with open(barebones_genome_path, "r") as genome_file:
-                genome_data = json.load(genome_file)
-            
-            # Load the genome using CoreAPIService
-            result = self.core_api_service.load_genome(genome_data, filename="barebones_genome.json")
+            if not result.get("success", False):
+                error_msg = result.get("error", "Unknown error occurred")
+                raise ValueError(f"Failed to upload barebones genome: {error_msg}")
             
             # Update the burst engine
             burst_engine = self.core_api_service.get_burst_engine()
             if burst_engine:
                 burst_engine.update_with_genome()
-                logger.info("Burst Engine updated with new genome", emoji1="⚡ ")
+                logger.info("Burst Engine updated with new genome", emoji1="⚡")
             
             return GenomeUploadResponse(
                 success=True,
@@ -80,21 +73,16 @@ class GenomeAPI:
     async def upload_essential_genome(self) -> GenomeUploadResponse:
         """Upload the essential genome template."""
         try:
-            essential_path = os.path.join(os.path.dirname(__file__), "../../../../../feagi/evo/defaults/genome/essential_genome.json")
+            # Use CoreAPIService to handle essential genome loading
+            result = self.core_api_service.load_essential_genome()
             
-            if not os.path.exists(essential_path):
-                raise ValueError("Essential genome template not found")
-                
-            with open(essential_path, 'r') as f:
-                genome_data = json.load(f)
-            
-            # Process and load the genome
-            from feagi.evo.genome_processor import process_and_load_genome
-            result = process_and_load_genome(genome_data, self.core_api_service)
+            if not result.get("success", False):
+                error_msg = result.get("error", "Unknown error occurred")
+                raise ValueError(f"Failed to upload essential genome: {error_msg}")
             
             # Update burst engine with new genome
             burst_engine = self.core_api_service.get_burst_engine()
-            if burst_engine and result.get("success"):
+            if burst_engine:
                 burst_engine.update_with_genome()
                 logger.info("Burst Engine updated with new genome", emoji1="⚡")
             
