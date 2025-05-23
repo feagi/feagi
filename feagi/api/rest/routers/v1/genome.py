@@ -211,8 +211,7 @@ async def genome_file_name(core_api_service: CoreAPIService = Depends(get_core_a
     """
     Returns the name of the genome file last uploaded to FEAGI
     """
-    genome_name = core_api_service.get_genome_filename()
-    return genome_name or ""
+    return core_api_service.get_genome_file_name()
 
 
 @router.post("/upload/string")

@@ -14,6 +14,7 @@ import asyncio
 import concurrent.futures
 import json
 from typing import Dict, Any, List, Optional, Union, Callable
+import sys
 
 # Force importing the actual ZMQ module first to avoid circular imports
 try:
@@ -452,82 +453,92 @@ class ZmqServer:
         This method is thread-safe and can be called from any thread.
         """
         if not self._running:
-            logger.warning("ZMQ server is not running")
+            print("ZMQ server is not running", file=sys.stderr, flush=True)
             return
         
-        logger.info("Shutting down ZMQ server")
+        # @cursor:critical-path - Signal-safe shutdown should minimize logging
+        print("Shutting down ZMQ server", file=sys.stderr, flush=True)
         
         # Signal the monitor loop to stop
         self._shutdown_event.set()
         
-        # Create a new event loop for shutdown if we're not in the server thread
-        if threading.current_thread() != self._thread:
-            # We're in a different thread, create a new event loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                # Run the shutdown in this new loop
-                loop.run_until_complete(self._stop_services())
-            finally:
-                loop.close()
-        else:
-            # We're in the server thread, use its loop
-            asyncio.ensure_future(self._stop_services())
+        try:
+            # Create a new event loop for shutdown if we're not in the server thread
+            if threading.current_thread() != self._thread:
+                # We're in a different thread, create a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    # Run the shutdown in this new loop
+                    loop.run_until_complete(self._stop_services())
+                finally:
+                    loop.close()
+            else:
+                # We're in the server thread, use its loop
+                asyncio.ensure_future(self._stop_services())
             
-        # Wait for the server thread to finish
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=5.0)
+            # Wait for the server thread to finish
+            if self._thread and self._thread.is_alive():
+                self._thread.join(timeout=5.0)
             
-        # Final cleanup
-        self._running = False
-        logger.info("ZMQ server shutdown complete")
+            # Final cleanup
+            self._running = False
+            print("ZMQ server shutdown complete", file=sys.stderr, flush=True)
+            
+        except Exception as e:
+            print(f"Error during ZMQ server shutdown: {e}", file=sys.stderr, flush=True)
     
     async def _stop_services(self):
         """
         Stop all ZMQ services asynchronously.
         """
-        logger.info("Stopping ZMQ services")
+        # @cursor:critical-path - Signal-safe shutdown should minimize logging
+        print("Stopping ZMQ services", file=sys.stderr, flush=True)
         
-        # Stop all services
-        stop_tasks = []
-        
-        if self._req_rep:
-            stop_tasks.append(self._req_rep.stop())
-    
-        if self._pub_sub:
-            stop_tasks.append(self._pub_sub.stop())
-    
-        if self._push_pull:
-            stop_tasks.append(self._push_pull.stop())
-    
-        if self._sensory:
-            stop_tasks.append(self._sensory.stop())
-    
-        if self._motor:
-            stop_tasks.append(self._motor.stop())
-    
-        if self._control:
-            stop_tasks.append(self._control.stop())
-    
-        if self._visualization:
-            stop_tasks.append(self._visualization.stop())
-        
-        # Wait for all services
-        if stop_tasks:
-            await asyncio.gather(*stop_tasks, return_exceptions=True)
+        try:
+            # Stop all services
+            stop_tasks = []
             
-        logger.info("All ZMQ services stopped")
+            if self._req_rep:
+                stop_tasks.append(self._req_rep.stop())
         
-        # Close sockets
-        for socket in [self.control_socket, self.sensory_socket, 
-                      self.motor_socket, self.vis_socket]:
-            if socket:
-                socket.close(linger=0)
+            if self._pub_sub:
+                stop_tasks.append(self._pub_sub.stop())
+        
+            if self._push_pull:
+                stop_tasks.append(self._push_pull.stop())
+        
+            if self._sensory:
+                stop_tasks.append(self._sensory.stop())
+        
+            if self._motor:
+                stop_tasks.append(self._motor.stop())
+        
+            if self._control:
+                stop_tasks.append(self._control.stop())
+        
+            if self._visualization:
+                stop_tasks.append(self._visualization.stop())
+            
+            # Wait for all services
+            if stop_tasks:
+                await asyncio.gather(*stop_tasks, return_exceptions=True)
+            
+            print("All ZMQ services stopped", file=sys.stderr, flush=True)
+            
+            # Close sockets
+            for socket in [self.control_socket, self.sensory_socket, 
+                          self.motor_socket, self.vis_socket]:
+                if socket:
+                    socket.close(linger=0)
                 
-        self.control_socket = None
-        self.sensory_socket = None
-        self.motor_socket = None
-        self.vis_socket = None
+            self.control_socket = None
+            self.sensory_socket = None
+            self.motor_socket = None
+            self.vis_socket = None
+            
+        except Exception as e:
+            print(f"Error stopping ZMQ services: {e}", file=sys.stderr, flush=True)
     
     def _cleanup(self):
         """
@@ -565,9 +576,10 @@ class ZmqServer:
             # Close connection manager
             self.connection_manager.close()
             
-            logger.info("ZMQ server resources cleaned up")
+            # @cursor:critical-path - Signal-safe cleanup should minimize logging
+            print("ZMQ server resources cleaned up", file=sys.stderr, flush=True)
         except Exception as e:
-            logger.error(f"Error during ZMQ server cleanup: {e}")
+            print(f"Error during ZMQ server cleanup: {e}", file=sys.stderr, flush=True)
     
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
         """

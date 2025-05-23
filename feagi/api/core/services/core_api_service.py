@@ -466,7 +466,7 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error retrieving cortical area: {str(e)}")
             return None
-        
+    
     def create_cortical_area(
         self, 
         name: str,
@@ -2710,3 +2710,545 @@ class CoreAPIService:
             The filename of the genome, or None if no genome is loaded
         """
         return self._genome_filename
+
+    def get_genome_file_name(self) -> Dict[str, str]:
+        """
+        Get the genome file name in the format expected by the REST API.
+        
+        Returns:
+            Dictionary with the genome file name
+        """
+        if self._genome_filename:
+            return {"file_name": self._genome_filename}
+        else:
+            return {"file_name": "No genome loaded"}
+    
+    # Cortical area methods
+    
+    def get_cortical_area_id_list(self) -> List[str]:
+        """
+        Get a list of all cortical area IDs (6-character strings) in the current genome.
+        
+        Returns:
+            List of cortical area ID strings
+        """
+        try:
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return []
+                
+            # Extract cortical IDs from blueprint keys
+            # Blueprint keys have format: {prefix}-{cortical_id}-{suffix}
+            # We want the second segment (cortical_id)
+            cortical_ids = set()  # Use set to avoid duplicates
+            
+            for blueprint_key in self._current_genome['blueprint'].keys():
+                # Split by dash and take the second segment
+                parts = blueprint_key.split('-')
+                if len(parts) >= 2:
+                    cortical_id = parts[1]
+                    cortical_ids.add(cortical_id)
+                    
+            # Return sorted list of unique cortical IDs
+            return sorted(list(cortical_ids))
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area ID list: {str(e)}")
+            return []
+    
+    def get_cortical_area_index_list(self) -> List[int]:
+        """
+        Get a list of all cortical area indices (integers) used by the FCL.
+        
+        Returns:
+            List of cortical area indices
+        """
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return []
+                
+            return list(self._connectome_manager.cortical_areas.keys())
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area index list: {str(e)}")
+            return []
+    
+    def get_cortical_area_name_list(self) -> List[str]:
+        """
+        Get a list of all cortical area names.
+        
+        Returns:
+            List of cortical area names
+        """
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return []
+                
+            names = []
+            for area in self._connectome_manager.cortical_areas.values():
+                if hasattr(area, 'name') and area.name:
+                    names.append(area.name)
+            
+            return names
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area name list: {str(e)}")
+            return []
+    
+    def get_cortical_location_by_name(self, cortical_name: str) -> Dict[str, Any]:
+        """
+        Get the 3D location of a cortical area by name.
+        
+        Args:
+            cortical_name: Name of the cortical area
+            
+        Returns:
+            Dictionary with 3D coordinates
+        """
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                raise KeyError(f"Cortical area '{cortical_name}' not found")
+                
+            # Find area by name
+            for area in self._connectome_manager.cortical_areas.values():
+                if hasattr(area, 'name') and area.name == cortical_name:
+                    return {
+                        "x": area.position[0],
+                        "y": area.position[1], 
+                        "z": area.position[2]
+                    }
+            
+            raise KeyError(f"Cortical area '{cortical_name}' not found")
+        except Exception as e:
+            self.logger.error(f"Error getting cortical location by name: {str(e)}")
+            raise
+    
+    def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
+        """
+        Get properties of a cortical area by ID.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            
+        Returns:
+            Dictionary with cortical area properties in the expected legacy format
+        """
+        try:
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                raise KeyError(f"Cortical area '{cortical_id}' not found")
+                
+            # Look for any blueprint entry that contains this cortical_id
+            found_data = None
+            
+            for blueprint_key, area_data in self._current_genome['blueprint'].items():
+                if cortical_id in str(blueprint_key):
+                    # Found a matching entry, use it
+                    found_data = area_data
+                    break
+                    
+            if found_data is None:
+                raise KeyError(f"Cortical area '{cortical_id}' not found")
+                
+            # If the data is not a dict, create a default structure
+            if not isinstance(found_data, dict):
+                found_data = {}
+            
+            # Set up safe getter with defaults
+            def safe_get(key, default):
+                try:
+                    value = found_data.get(key, default)
+                    return value if value is not None else default
+                except:
+                    return default
+            
+            def safe_get_list(key, default_list):
+                try:
+                    value = found_data.get(key, default_list)
+                    if isinstance(value, list) and len(value) >= len(default_list):
+                        return value
+                    else:
+                        return default_list
+                except:
+                    return default_list
+                    
+            # Build the properties response with safe defaults
+            cortical_properties = {
+                "cortical_id": cortical_id,
+                "cortical_name": safe_get('cortical_name', cortical_id),
+                "parent_region_id": "",
+                "parent_region_title": "",
+                "cortical_group": safe_get('group_id', 'CUSTOM'),
+                "cortical_sub_group": safe_get('sub_group_id', 'DEFAULT'),
+                "cortical_neuron_per_vox_count": safe_get('per_voxel_neuron_cnt', 1),
+                "cortical_visibility": True,
+                "cortical_synaptic_attractivity": safe_get('synapse_attractivity', 100),
+                "coordinates_3d": safe_get_list("relative_coordinate", [0, 0, 0])[:3],
+                "coordinates_2d": safe_get_list("2d_coordinate", [None, None])[:2],
+                "cortical_dimensions": safe_get_list("block_boundaries", [10, 10, 1])[:3],
+                "cortical_destinations": safe_get('cortical_mapping_dst', []),
+                "neuron_post_synaptic_potential": safe_get('postsynaptic_current', 1.0),
+                "neuron_post_synaptic_potential_max": safe_get('postsynaptic_current_max', 1000.0),
+                "neuron_fire_threshold": safe_get('firing_threshold', 100.0),
+                "neuron_fire_threshold_increment": [
+                    safe_get('firing_threshold_increment_x', 0),
+                    safe_get('firing_threshold_increment_y', 0),
+                    safe_get('firing_threshold_increment_z', 0)
+                ],
+                "neuron_firing_threshold_limit": safe_get('firing_threshold_limit', 1000.0),
+                "neuron_refractory_period": safe_get('refractory_period', 2),
+                "neuron_leak_coefficient": safe_get('leak_coefficient', 0.1),
+                "neuron_leak_variability": safe_get('leak_variability', 0),
+                "neuron_consecutive_fire_count": safe_get('consecutive_fire_cnt_max', 5),
+                "neuron_snooze_period": safe_get('snooze_length', 0),
+                "neuron_degeneracy_coefficient": safe_get('degeneration', 0.0),
+                "neuron_psp_uniform_distribution": safe_get('psp_uniform_distribution', True),
+                "neuron_mp_charge_accumulation": safe_get('mp_charge_accumulation', False),
+                "neuron_mp_driven_psp": safe_get('mp_driven_psp', False),
+                "neuron_longterm_mem_threshold": safe_get('longterm_mem_threshold', 200.0),
+                "neuron_lifespan_growth_rate": safe_get('lifespan_growth_rate', 0.0),
+                "neuron_init_lifespan": safe_get('init_lifespan', 1000.0),
+                "temporal_depth": safe_get('temporal_depth', 1),
+                "neuron_excitability": safe_get('neuron_excitability', 1.0),
+                "transforming": False
+            }
+            
+            # Add special properties for IPU/OPU types
+            cortical_type = safe_get('_group', 'CUSTOM')
+            if cortical_type in ["IPU", "OPU"]:
+                dev_count = safe_get("dev_count", 1)
+                dimensions = safe_get_list("block_boundaries", [10, 10, 1])
+                unit_dim_x = int(dimensions[0] / dev_count) if dev_count > 0 else dimensions[0]
+                unit_dim_y = dimensions[1] if len(dimensions) > 1 else 10
+                unit_dim_z = dimensions[2] if len(dimensions) > 2 else 1
+                
+                cortical_properties["dev_count"] = dev_count
+                cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
+            
+            return cortical_properties
+            
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area properties: {str(e)}")
+            raise
+
+    def get_multiple_cortical_properties(self, cortical_id_list: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get properties of multiple cortical areas by their IDs.
+        
+        Args:
+            cortical_id_list: List of cortical area IDs
+            
+        Returns:
+            List of dictionaries with cortical area properties in the expected legacy format
+        """
+        try:
+            results = []
+            for cortical_id in cortical_id_list:
+                try:
+                    properties = self.get_cortical_area_properties(cortical_id)
+                    results.append(properties)
+                except KeyError:
+                    # Skip areas that don't exist rather than failing the entire request
+                    self.logger.warning(f"Cortical area {cortical_id} not found, skipping")
+                    continue
+                except Exception as e:
+                    self.logger.error(f"Error getting properties for cortical area {cortical_id}: {str(e)}")
+                    continue
+                    
+            return results
+        except Exception as e:
+            self.logger.error(f"Error getting multiple cortical area properties: {str(e)}")
+            raise
+    
+    def update_cortical_area_properties(self, cortical_id: str, properties: Dict[str, Any]) -> bool:
+        """
+        Update properties of a cortical area.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            properties: Properties to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return False
+                
+            if cortical_id not in self._current_genome['blueprint']:
+                return False
+                
+            # Update the properties
+            self._current_genome['blueprint'][cortical_id].update(properties)
+            
+            # Notify state manager of genome changes
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating cortical area properties: {str(e)}")
+            return False
+    
+    def get_cortical_id_name_mapping(self) -> Dict[str, str]:
+        """
+        Get mapping of cortical IDs to names.
+        
+        Returns:
+            Dictionary mapping cortical IDs to names
+        """
+        try:
+            mapping = {}
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return mapping
+                
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                if hasattr(area, 'cortical_id') and hasattr(area, 'name'):
+                    mapping[area.cortical_id] = area.name
+            
+            return mapping
+        except Exception as e:
+            self.logger.error(f"Error getting cortical ID name mapping: {str(e)}")
+            return {}
+    
+    def get_cortical_locations_2d(self) -> Dict[str, Dict[str, int]]:
+        """
+        Get 2D locations of all cortical areas.
+        
+        Returns:
+            Dictionary mapping cortical IDs to 2D coordinates
+        """
+        try:
+            locations = {}
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return locations
+                
+            for cortical_id, area_data in self._current_genome['blueprint'].items():
+                coord_2d = area_data.get('2d_coordinate', [0, 0])
+                locations[cortical_id] = {
+                    "x": coord_2d[0] if len(coord_2d) > 0 else 0,
+                    "y": coord_2d[1] if len(coord_2d) > 1 else 0
+                }
+            
+            return locations
+        except Exception as e:
+            self.logger.error(f"Error getting cortical 2D locations: {str(e)}")
+            return {}
+    
+    def get_cortical_area_geometry(self) -> Dict[str, Any]:
+        """
+        Get geometry information for all cortical areas.
+        
+        Returns:
+            Dictionary with cortical area geometry data
+        """
+        try:
+            geometry = {}
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return geometry
+                
+            for cortical_id, area_data in self._current_genome['blueprint'].items():
+                # Get 3D coordinates
+                relative_coord = area_data.get('relative_coordinate', [0, 0, 0])
+                
+                # Get block boundaries (dimensions)
+                block_boundaries = area_data.get('block_boundaries', [10, 10, 1])
+                
+                geometry[cortical_id] = {
+                    "position": {
+                        "x": relative_coord[0] if len(relative_coord) > 0 else 0,
+                        "y": relative_coord[1] if len(relative_coord) > 1 else 0,
+                        "z": relative_coord[2] if len(relative_coord) > 2 else 0
+                    },
+                    "dimensions": {
+                        "width": block_boundaries[0] if len(block_boundaries) > 0 else 10,
+                        "height": block_boundaries[1] if len(block_boundaries) > 1 else 10,
+                        "depth": block_boundaries[2] if len(block_boundaries) > 2 else 1
+                    }
+                }
+            
+            return geometry
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area geometry: {str(e)}")
+            return {}
+    
+    def get_ipu_list(self) -> List[str]:
+        """
+        Get list of input cortical areas (IPU - Input Processing Units).
+        
+        Returns:
+            List of input cortical area IDs
+        """
+        try:
+            ipu_list = []
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return ipu_list
+                
+            # Group cortical areas by cortical_id to check their _group property
+            cortical_data = {}
+            for blueprint_key, area_data in self._current_genome['blueprint'].items():
+                parts = blueprint_key.split('-')
+                if len(parts) >= 4:
+                    cortical_id = parts[1]
+                    property_name = parts[3]
+                    
+                    if cortical_id not in cortical_data:
+                        cortical_data[cortical_id] = {}
+                    cortical_data[cortical_id][property_name] = area_data
+            
+            # Check each cortical area's _group property
+            for cortical_id, properties in cortical_data.items():
+                if '_group' in properties and properties['_group'] == 'IPU':
+                    ipu_list.append(cortical_id)
+            
+            return ipu_list
+        except Exception as e:
+            self.logger.error(f"Error getting IPU list: {str(e)}")
+            return []
+    
+    def get_opu_list(self) -> List[str]:
+        """
+        Get list of output cortical areas (OPU - Output Processing Units).
+        
+        Returns:
+            List of output cortical area IDs
+        """
+        try:
+            opu_list = []
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return opu_list
+                
+            # Group cortical areas by cortical_id to check their _group property
+            cortical_data = {}
+            for blueprint_key, area_data in self._current_genome['blueprint'].items():
+                parts = blueprint_key.split('-')
+                if len(parts) >= 4:
+                    cortical_id = parts[1]
+                    property_name = parts[3]
+                    
+                    if cortical_id not in cortical_data:
+                        cortical_data[cortical_id] = {}
+                    cortical_data[cortical_id][property_name] = area_data
+            
+            # Check each cortical area's _group property
+            for cortical_id, properties in cortical_data.items():
+                if '_group' in properties and properties['_group'] == 'OPU':
+                    opu_list.append(cortical_id)
+            
+            return opu_list
+        except Exception as e:
+            self.logger.error(f"Error getting OPU list: {str(e)}")
+            return []
+    
+    def get_cortical_types(self) -> List[str]:
+        """
+        Get list of available cortical types.
+        
+        Returns:
+            List of cortical type strings
+        """
+        try:
+            # Return common cortical types
+            return [
+                "MEMORY",
+                "IPU", 
+                "OPU",
+                "HIDDEN",
+                "CUSTOM"
+            ]
+        except Exception as e:
+            self.logger.error(f"Error getting cortical types: {str(e)}")
+            return []
+    
+    def get_detailed_cortical_map(self) -> Dict[str, Any]:
+        """
+        Get detailed cortical mapping information.
+        
+        Returns:
+            Dictionary with detailed cortical map data
+        """
+        try:
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return {}
+                
+            # Return the blueprint which contains the detailed cortical mapping
+            return self._current_genome['blueprint']
+        except Exception as e:
+            self.logger.error(f"Error getting detailed cortical map: {str(e)}")
+            return {}
+    
+    def get_cortical_visibility(self) -> List[str]:
+        """
+        Get list of cortical areas that are currently visible/enabled for visualization.
+        
+        Returns:
+            List of visible cortical area IDs
+        """
+        try:
+            visible_list = []
+            if not self._current_genome or 'blueprint' not in self._current_genome:
+                return visible_list
+                
+            for cortical_id, area_data in self._current_genome['blueprint'].items():
+                # Check if visualization is enabled (default to True if not specified)
+                if area_data.get('visualization', True):
+                    visible_list.append(cortical_id)
+            
+            return visible_list
+        except Exception as e:
+            self.logger.error(f"Error getting cortical visibility: {str(e)}")
+            return []
+
+    def get_cortical_areas(self) -> List[Dict[str, Any]]:
+        """
+        Get all cortical areas.
+        
+        Returns:
+            List of dictionaries containing cortical area information.
+        """
+        # Check if we can use the cached version
+        if self._cortical_areas_cache is not None:
+            return self._cortical_areas_cache
+            
+        result = []
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas') or not self._connectome_manager.cortical_areas:
+                # No areas exist at all, just return an empty list
+                # This is normal when no genome has been loaded yet
+                return []
+            
+            # Convert all areas to API format
+            for cortical_id, area in self._connectome_manager.cortical_areas.items():
+                try:
+                    # Get neuron count (safely)
+                    try:
+                        neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_id))
+                    except Exception:
+                        neuron_count = 0
+                        
+                    # Convert to API format
+                    result.append({
+                        "id": str(cortical_id),  # Convert to string for API consistency
+                        "name": area.name,
+                        "coordinates": {
+                            "x": area.position[0],
+                            "y": area.position[1],
+                            "z": area.position[2]
+                        },
+                        "dimensions": {
+                            "width": area.dimensions[0],
+                            "height": area.dimensions[1],
+                            "depth": area.dimensions[2]
+                        },
+                        "type": area.type,
+                        "parameters": area.properties,
+                        "neuron_count": neuron_count
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error converting area {cortical_id} to API format: {str(e)}")
+                    
+        except Exception as e:
+            self.logger.error(f"Error retrieving cortical areas: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+        
+        # Cache the result
+        self._cortical_areas_cache = result
+        self._cortical_areas_cache_timestamp = time.time()
+        
+        return result
