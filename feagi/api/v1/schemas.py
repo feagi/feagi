@@ -123,4 +123,135 @@ class ErrorResponse(BaseModel):
     """Standard error response."""
     status: str = "error"
     message: str
-    code: Optional[str] = None 
+    code: Optional[str] = None
+
+
+# ===== Genome Schemas =====
+
+class AmalgamationRequest(BaseModel):
+    """Request model for genome amalgamation operations."""
+    genome_id: Optional[str] = None
+    genome_title: Optional[str] = None
+    genome_payload: Optional[dict] = None
+
+
+class GenomeUploadResponse(BaseModel):
+    """Response model for genome upload operations."""
+    success: bool
+    message: str
+    genome_number: Optional[int] = None
+    loaded: Optional[dict] = None
+
+
+class GenomeFileNameResponse(BaseModel):
+    """Response model for genome file name query."""
+    file_name: str
+
+
+class GenomeNumberResponse(BaseModel):
+    """Response model for genome number query."""
+    genome_number: int
+
+
+class GenomeDownloadResponse(BaseModel):
+    """Response model for genome download."""
+    genome_data: dict
+    filename: str
+
+
+class AmalgamationResponse(BaseModel):
+    """Response model for amalgamation operations."""
+    amalgamation_id: str
+    status: str
+    message: str
+
+
+class AmalgamationHistoryResponse(BaseModel):
+    """Response model for amalgamation history."""
+    history: List[dict]
+
+
+class CircuitLibraryResponse(BaseModel):
+    """Response model for circuit library listing."""
+    circuits: List[dict]
+
+
+class CorticalTemplateResponse(BaseModel):
+    """Response model for cortical template."""
+    template: dict
+
+
+class GenomeDefaultFilesResponse(BaseModel):
+    """Response model for default genome files."""
+    files: List[str]
+
+
+# ===== Cortical Area Schemas =====
+
+class CorticalAreaPropertiesResponse(BaseModel):
+    """Response model for cortical area properties."""
+    properties: dict
+
+
+class CorticalAreaIdListResponse(BaseModel):
+    """Response model for cortical area ID list."""
+    cortical_ids: List[str]
+
+
+class CorticalAreaIndexListResponse(BaseModel):
+    """Response model for cortical area index list."""
+    indices: List[int]
+
+
+class CorticalAreaNameListResponse(BaseModel):
+    """Response model for cortical area names."""
+    names: List[str]
+
+
+class CorticalLocationResponse(BaseModel):
+    """Response model for cortical area location."""
+    x: int
+    y: int
+    z: int
+
+
+class CorticalTypesResponse(BaseModel):
+    """Response model for cortical area types."""
+    types: List[str]
+
+
+class CorticalIdNameMappingResponse(BaseModel):
+    """Response model for cortical ID to name mapping."""
+    mapping: Dict[str, str]
+
+
+class CorticalGeometryResponse(BaseModel):
+    """Response model for cortical area geometry."""
+    geometry: dict
+
+
+class NeuronCountResponse(BaseModel):
+    """Response model for neuron count."""
+    neuron_count: int
+
+
+# ===== Common Request Schemas =====
+
+class CorticalIdRequest(BaseModel):
+    """Request model for operations requiring cortical ID."""
+    cortical_id: str
+
+
+class CorticalNameRequest(BaseModel):
+    """Request model for operations requiring cortical name."""
+    cortical_name: str
+
+
+class CorticalIdListRequest(BaseModel):
+    """Request model for operations on multiple cortical areas."""
+    cortical_ids: List[str]
+
+
+class CoordinateUpdateRequest(BaseModel):
+    """Request model for coordinate updates."""
+    coordinates: dict 

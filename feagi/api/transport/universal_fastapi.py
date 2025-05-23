@@ -17,6 +17,8 @@ from feagi.api.rest.dependencies import get_core_api_service
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.v1.decorators import get_endpoint_registry
 from feagi.api.v1.system import create_system_api
+from feagi.api.v1.genome import create_genome_api
+from feagi.api.v1.cortical_area import create_cortical_area_api
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -101,9 +103,13 @@ class UniversalFastAPIWrapper:
             if module_name not in self._api_instances:
                 if module_name == 'system':
                     self._api_instances[module_name] = create_system_api(core_api_service)
+                elif module_name == 'genome':
+                    self._api_instances[module_name] = create_genome_api(core_api_service)
+                elif module_name == 'cortical_area':
+                    self._api_instances[module_name] = create_cortical_area_api(core_api_service)
                 # Add other modules as needed:
-                # elif module_name == 'genome':
-                #     self._api_instances[module_name] = create_genome_api(core_api_service)
+                # elif module_name == 'connectome':
+                #     self._api_instances[module_name] = create_connectome_api(core_api_service)
                 else:
                     raise ValueError(f"Unknown module: {module_name}")
             
@@ -224,7 +230,29 @@ def create_system_router() -> APIRouter:
     return wrapper.create_router_for_module('system')
 
 
+def create_genome_router() -> APIRouter:
+    """Create a FastAPI router for genome endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('genome')
+
+
+def create_cortical_area_router() -> APIRouter:
+    """Create a FastAPI router for cortical area endpoints."""
+    wrapper = UniversalFastAPIWrapper()
+    return wrapper.create_router_for_module('cortical_area')
+
+
 # Create the router instance that can be imported
 def get_system_router() -> APIRouter:
     """Get the system router for use in main FastAPI app."""
-    return create_system_router() 
+    return create_system_router()
+
+
+def get_genome_router() -> APIRouter:
+    """Get the genome router for use in main FastAPI app."""
+    return create_genome_router()
+
+
+def get_cortical_area_router() -> APIRouter:
+    """Get the cortical area router for use in main FastAPI app."""
+    return create_cortical_area_router() 
