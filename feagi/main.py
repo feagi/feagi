@@ -123,10 +123,23 @@ def main():
     
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):
-        logger.info("\nShutting down FEAGI servers...", emoji1="  ")
-        process_manager.shutdown()
-        FeagiStateManager.instance().cleanup()
-        sys.exit(0)
+        # @cursor:critical-path - Signal handlers must be minimal and avoid logging/locking operations
+        # Print directly to stderr instead of using logger to avoid deadlocks
+        print("\nShutting down FEAGI servers...", file=sys.stderr, flush=True)
+        
+        # Set a flag to prevent recursive shutdown calls
+        if hasattr(signal_handler, '_shutdown_in_progress'):
+            print("Shutdown already in progress, ignoring signal", file=sys.stderr, flush=True)
+            return
+        signal_handler._shutdown_in_progress = True
+        
+        try:
+            process_manager.shutdown()
+            FeagiStateManager.instance().cleanup()
+        except Exception as e:
+            print(f"Error during shutdown: {e}", file=sys.stderr, flush=True)
+        finally:
+            sys.exit(0)
         
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)

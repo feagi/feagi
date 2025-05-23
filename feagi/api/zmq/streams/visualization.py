@@ -229,7 +229,7 @@ class VisualizationStream:
                 break 
             except Exception as e: 
                 logger.error(f"Error in FQ data processing: {e}")
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1) 
 
     async def _process_fq_tuple(self, fq_data):
         """Process a 2-element FQ tuple and convert to visualization data."""
@@ -255,80 +255,16 @@ class VisualizationStream:
             membrane_potentials = fire_queue_data.get('membrane_potentials', [])
             coordinates = fire_queue_data.get('coordinates', [])
             
-            # **CRITICAL FIX**: Always resolve coordinates through connectome manager
-            try:
-                if self.core_api and hasattr(self.core_api, '_connectome_manager'):
-                    connectome_manager = self.core_api._connectome_manager
-                    
-                    # Get the cortical area
-                    area = connectome_manager.cortical_areas.get(cortical_id)
-                    if area:
-                        resolved_coordinates = []
-                        for neuron_id in neuron_ids:
-                            try:
-                                # Try to get actual neuron position from connectome
-                                if hasattr(connectome_manager, 'get_neuron_position'):
-                                    pos = connectome_manager.get_neuron_position(neuron_id)
-                                    if pos:
-                                        resolved_coordinates.append(pos)
-                                        continue
-                                
-                                # Try area-specific lookup
-                                if hasattr(area, 'get_neuron_by_id'):
-                                    neuron = area.get_neuron_by_id(neuron_id)
-                                    if neuron and hasattr(neuron, 'position'):
-                                        resolved_coordinates.append(neuron.position)
-                                        continue
-                                
-                                # Fallback: calculate from area dimensions and neuron_id
-                                dimensions = getattr(area, 'dimensions', (10, 10, 1))
-                                if isinstance(dimensions, dict):
-                                    x_dim = dimensions.get('x', 10)
-                                    y_dim = dimensions.get('y', 10)
-                                    z_dim = dimensions.get('z', 1)
-                                else:
-                                    x_dim, y_dim, z_dim = dimensions
-                                
-                                # Calculate position within area
-                                local_id = neuron_id % (x_dim * y_dim * z_dim)
-                                x = local_id % x_dim
-                                y = (local_id // x_dim) % y_dim
-                                z = local_id // (x_dim * y_dim)
-                                resolved_coordinates.append((x, y, z))
-                                
-                            except Exception as e:
-                                logger.warning(f"Could not resolve position for neuron {neuron_id}: {e}")
-                                # Last resort: use simple modulo but make it non-zero
-                                x = (neuron_id % 100) if neuron_id > 0 else 1
-                                y = ((neuron_id // 100) % 100) if neuron_id > 0 else 1
-                                z = (neuron_id // 10000) if neuron_id > 0 else 0
-                                resolved_coordinates.append((x, y, z))
-                        
-                        # Use resolved coordinates
-                        if resolved_coordinates and len(resolved_coordinates) == len(neuron_ids):
-                            x_values = [coord[0] for coord in resolved_coordinates]
-                            y_values = [coord[1] for coord in resolved_coordinates]
-                            z_values = [coord[2] for coord in resolved_coordinates]
-                            logger.debug(f"Resolved {len(resolved_coordinates)} coordinates for {cortical_id}")
-                        else:
-                            raise Exception("Could not resolve all coordinates")
-                    else:
-                        raise Exception(f"Area {cortical_id} not found")
-                else:
-                    raise Exception("No connectome manager available")
-                    
-            except Exception as e:
-                logger.debug(f"Coordinate resolution failed for {cortical_id}: {e}, using fallback")
-                # Fallback to original logic but improved
-                if coordinates and len(coordinates) == len(neuron_ids):
-                    x_values = [coord[0] for coord in coordinates]
-                    y_values = [coord[1] for coord in coordinates]
-                    z_values = [coord[2] for coord in coordinates]
-                else:
-                    # Improved fallback: ensure non-zero coordinates for valid neuron IDs
-                    x_values = [(nid % 100) if nid > 0 else 1 for nid in neuron_ids]
-                    y_values = [((nid // 100) % 100) if nid > 0 else 1 for nid in neuron_ids]
-                    z_values = [(nid // 10000) if nid > 0 else 0 for nid in neuron_ids]
+            # Use coordinates if available, otherwise generate from IDs
+            if coordinates and len(coordinates) == len(neuron_ids):
+                x_values = [coord[0] for coord in coordinates]
+                y_values = [coord[1] for coord in coordinates]
+                z_values = [coord[2] for coord in coordinates]
+            else:
+                # Fallback to ID-based coordinates
+                x_values = [(nid % 100) if nid > 0 else 1 for nid in neuron_ids]
+                y_values = [((nid // 100) % 100) if nid > 0 else 1 for nid in neuron_ids]
+                z_values = [(nid // 10000) if nid > 0 else 0 for nid in neuron_ids]
             
             # Use membrane potentials if available, otherwise default to 1.0
             if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
@@ -338,12 +274,12 @@ class VisualizationStream:
             
             # Create cortical ID list (one per neuron)
             cortical_ids = [cortical_id] * len(neuron_ids)
-            
+                        
             # Encode using feagi_bytes
             try:
                 from feagi_bytes import ByteStructureEncoder
                 encoder = ByteStructureEncoder()
-                
+                            
                 binary_data = encoder.encode_neuron_flat(
                     cortical_ids=cortical_ids,
                     x_coords=x_values,
@@ -356,7 +292,7 @@ class VisualizationStream:
                 
             except Exception as e:
                 logger.error(f"Error encoding visualization data: {e}")
-                
+                        
         except Exception as e:
             logger.error(f"Error processing FQ tuple: {e}")
 
@@ -406,7 +342,7 @@ class VisualizationStream:
             try:
                 from feagi_bytes import ByteStructureEncoder
                 encoder = ByteStructureEncoder()
-                
+                            
                 binary_data = encoder.encode_neuron_flat(
                     cortical_ids=cortical_ids,
                     x_coords=x_values,
@@ -492,8 +428,8 @@ class VisualizationStream:
             data: Visualization data (bytes, 2-element tuple, or fire queue dict)
         """
         if not self.running or not self.socket:
-            return
-            
+                    return
+                
         # Skip if in standby mode
         if not self._active_mode:
             return
@@ -511,10 +447,10 @@ class VisualizationStream:
                 await self._process_fq_dict(data)
             else:
                 logger.warning(f"Unsupported data type: {type(data)}")
-                
+            
         except Exception as e:
             logger.error(f"Error in send_visualization_data: {e}")
-
+            
     async def broadcast_update(self, data_type: str, data: bytes) -> None:
         """
         Broadcast an update to all connected agents.
@@ -541,7 +477,7 @@ class VisualizationStream:
             logger.debug(f"Broadcast {len(data)} bytes of {data_type} data")
             
         except Exception as e:
-            logger.error(f"Error broadcasting {data_type} data: {e}")
+            logger.error(f"Error broadcasting {data_type} data: {e}") 
 
     async def process_system_message(self, message: str) -> None:
         """Process system messages from clients."""
@@ -551,10 +487,10 @@ class VisualizationStream:
                 if len(parts) >= 2:
                     client_id = parts[1].strip()
                     await self.record_client_heartbeat(client_id)
-                    
+            
         except Exception as e:
             logger.error(f"Error processing system message: {e}")
-
+            
     async def receive_control_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Process control messages from clients."""
         try:

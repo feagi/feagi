@@ -496,52 +496,61 @@ class ProcessManager:
         
     def shutdown(self) -> None:
         """Shut down the Process Manager and all managed processes."""
-        logger.info("\nShutting down FEAGI servers...")
-        
-        # First, terminate the API server if it's running
-        if "api_server" in self._processes:
-            api_process = self._processes["api_server"]["process"]
-            if api_process and api_process.poll() is None:
-                try:
-                    api_process.terminate()
-                    api_process.wait(timeout=2)
-                except:
-                    if api_process.poll() is None:
-                        api_process.kill()
+        # @cursor:critical-path - Signal-safe shutdown should minimize logging
+        try:
+            print("Shutting down FEAGI servers...", file=sys.stderr, flush=True)
+            
+            # First, terminate the API server if it's running
+            if "api_server" in self._processes:
+                api_process = self._processes["api_server"]["process"]
+                if api_process and api_process.poll() is None:
+                    try:
+                        api_process.terminate()
+                        api_process.wait(timeout=2)
+                    except:
+                        if api_process.poll() is None:
+                            api_process.kill()
                         
-        # Next, shut down the ZMQ server
-        if self._zmq_server:
-            logger.info("Terminating ZMQ server...")
-            try:
-                self._zmq_server.shutdown()
-            except Exception as e:
-                logger.error(f"Error shutting down ZMQ server: {e}")
-                
-        # Finally, clean up any other managed processes
-        for name, process_info in self._processes.items():
-            if name == "api_server":
-                continue  # Already handled above
-                
-            process = process_info.get("process")
-            if process and process.poll() is None:
+            # Next, shut down the ZMQ server
+            if self._zmq_server:
+                print("Terminating ZMQ server...", file=sys.stderr, flush=True)
                 try:
-                    process.terminate()
-                    process.wait(timeout=2)
-                except:
-                    if process.poll() is None:
-                        process.kill()
-        
-        # Stop FQSampler if running
-        if hasattr(self, '_fq_sampler') and self._fq_sampler:
-            logger.info("Stopping FQSampler...")
-            self._fq_sampler.stop()
-            if hasattr(self, '_fq_sampler_thread') and self._fq_sampler_thread:
-                self._fq_sampler_thread.join(timeout=2)
-            self._fq_sampler = None
-            self._fq_sampler_thread = None
-            self._fq_sampler_queue = None
-        
-        logger.info("FEAGI servers shut down")
+                    self._zmq_server.shutdown()
+                except Exception as e:
+                    print(f"Error shutting down ZMQ server: {e}", file=sys.stderr, flush=True)
+                
+            # Finally, clean up any other managed processes
+            for name, process_info in self._processes.items():
+                if name == "api_server":
+                    continue  # Already handled above
+                    
+                process = process_info.get("process")
+                if process and process.poll() is None:
+                    try:
+                        process.terminate()
+                        process.wait(timeout=2)
+                    except:
+                        if process.poll() is None:
+                            process.kill()
+            
+            # Stop FQSampler if running
+            if hasattr(self, '_fq_sampler') and self._fq_sampler:
+                print("Stopping FQSampler...", file=sys.stderr, flush=True)
+                try:
+                    self._fq_sampler.stop()
+                    if hasattr(self, '_fq_sampler_thread') and self._fq_sampler_thread:
+                        self._fq_sampler_thread.join(timeout=2)
+                    self._fq_sampler = None
+                    self._fq_sampler_thread = None
+                    self._fq_sampler_queue = None
+                except Exception as e:
+                    print(f"Error stopping FQSampler: {e}", file=sys.stderr, flush=True)
+            
+            print("FEAGI servers shut down", file=sys.stderr, flush=True)
+            
+        except Exception as e:
+            # Last resort error handling - print to stderr and continue
+            print(f"Critical error during shutdown: {e}", file=sys.stderr, flush=True)
         
     def signal_handler(self, sig, frame):
         """Handle termination signals."""

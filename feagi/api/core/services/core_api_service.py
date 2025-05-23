@@ -2062,6 +2062,22 @@ class CoreAPIService:
     # System Health & Monitoring Methods
     #----------------------------------------------------------------------
     
+    def has_pending_amalgamation(self) -> bool:
+        """
+        Check if there is a pending amalgamation operation.
+        
+        Returns:
+            True if there is a pending amalgamation, False otherwise
+        """
+        try:
+            if not self.state_manager:
+                return False
+                
+            return bool(getattr(self.state_manager, 'pending_amalgamation', False))
+        except Exception as e:
+            self.logger.error(f"Error checking pending amalgamation: {str(e)}")
+            return False
+    
     async def get_system_health(self) -> Dict[str, Any]:
         """
         Get comprehensive system health information.
@@ -2087,7 +2103,8 @@ class CoreAPIService:
             # Genome-related information
             health["latest_changes_saved_externally"] = getattr(self.state_manager, 'changes_saved_externally', False)
             
-            if getattr(self.state_manager, 'genome', None):
+            # Use the proper state manager method to check if genome is loaded
+            if self.state_manager.is_genome_loaded():
                 health["fitness"] = getattr(self.state_manager, 'genome_fitness', None)
                 health["genome_availability"] = True
                 
@@ -2107,7 +2124,7 @@ class CoreAPIService:
                 health["genome_availability"] = False
                 
             health["genome_validity"] = getattr(self.state_manager, 'genome_validity', None)
-            health["brain_readiness"] = getattr(self.state_manager, 'brain_readiness', None)
+            health["brain_readiness"] = self.state_manager.get_brain_readiness()
             
             # Check for pending amalgamation
             if self.has_pending_amalgamation():
@@ -2594,6 +2611,10 @@ class CoreAPIService:
         try:
             self.logger.info(f"Loading genome from {filename}")
             
+            # Set brain readiness to False while loading
+            if self.state_manager:
+                self.state_manager.set_brain_readiness(False)
+            
             # Store genome filename 
             self._genome_filename = filename
             
@@ -2606,11 +2627,11 @@ class CoreAPIService:
             # Store the current genome
             self._current_genome = genome_data
             
-            # Update state manager
+            # Update state manager with genome data but not loaded state yet
             if self.state_manager:
                 self.state_manager.genome = genome_data
                 self.state_manager.genome_file_name = filename
-                self.state_manager.set_genome_state(GenomeState.LOADED)
+                # Don't set to LOADED yet - wait until brain development succeeds
                 
             # Save genome data to a temporary file
             temp_genome_path = os.path.join(self._temp_dir, "temp_genome.json")
@@ -2631,7 +2652,16 @@ class CoreAPIService:
             
             if not success:
                 self.logger.error(f"Failed to develop brain from genome")
+                # Set error state since brain development failed
+                if self.state_manager:
+                    self.state_manager.set_genome_state(GenomeState.ERROR)
+                    self.state_manager.set_brain_readiness(False)
                 return {"success": False, "error": "Failed to develop brain from genome"}
+                
+            # Only set LOADED state after successful brain development
+            if self.state_manager:
+                self.state_manager.set_genome_state(GenomeState.LOADED)
+                self.state_manager.set_brain_readiness(True)
                 
             # Get cortical area count
             cortical_areas = self.get_cortical_areas()
@@ -2655,6 +2685,7 @@ class CoreAPIService:
             # Update state manager with error
             if self.state_manager:
                 self.state_manager.set_genome_state(GenomeState.ERROR)
+                self.state_manager.set_brain_readiness(False)
                 
             return {"success": False, "error": str(e)}
 
