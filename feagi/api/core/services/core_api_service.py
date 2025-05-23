@@ -47,16 +47,63 @@ class CoreAPIService:
         self.state_manager = state_manager
         self.logger = logger
         
-        # Initialize all domain services
-        self._system_service = SystemService(connectome_manager, state_manager)
-        self._genome_service = GenomeService(connectome_manager, state_manager)
-        self._cortical_area_service = CorticalAreaService(connectome_manager, state_manager)
-        self._connectome_service = ConnectomeService(connectome_manager, state_manager)
-        self._brain_service = BrainService(connectome_manager, state_manager)
-        self._agents_service = AgentsService(connectome_manager, state_manager)
-        self._network_service = NetworkService(connectome_manager, state_manager)
+        # CRITICAL: Ensure state manager singleton consistency
+        if self.state_manager is None:
+            from feagi.core.state_manager import FeagiStateManager
+            self.state_manager = FeagiStateManager.instance()
+            self.logger.info("Using FeagiStateManager singleton instance")
+        else:
+            self.logger.info("Using provided state manager instance")
         
-        self.logger.info("CoreAPIService initialized with domain-based architecture")
+        # Initialize all domain services with the SAME state manager instance
+        self._system_service = SystemService(connectome_manager, self.state_manager)
+        self._genome_service = GenomeService(connectome_manager, self.state_manager)
+        self._cortical_area_service = CorticalAreaService(connectome_manager, self.state_manager)
+        self._connectome_service = ConnectomeService(connectome_manager, self.state_manager)
+        self._brain_service = BrainService(connectome_manager, self.state_manager)
+        self._agents_service = AgentsService(connectome_manager, self.state_manager)
+        self._network_service = NetworkService(connectome_manager, self.state_manager)
+        
+        # Validate state manager consistency across services
+        self._validate_service_state_consistency()
+        
+        self.logger.info("CoreAPIService initialized with domain-based architecture and state synchronization")
+
+    def _validate_service_state_consistency(self):
+        """Validate that all services share the same state manager instance."""
+        try:
+            services = [
+                ('system', self._system_service),
+                ('genome', self._genome_service), 
+                ('cortical_area', self._cortical_area_service),
+                ('connectome', self._connectome_service),
+                ('brain', self._brain_service),
+                ('agents', self._agents_service),
+                ('network', self._network_service)
+            ]
+            
+            core_state_id = id(self.state_manager)
+            inconsistent_services = []
+            
+            for service_name, service in services:
+                if hasattr(service, 'state_manager'):
+                    service_state_id = id(service.state_manager)
+                    if service_state_id != core_state_id:
+                        inconsistent_services.append(service_name)
+                        self.logger.error(f"Service {service_name} has different state manager instance: core={core_state_id}, service={service_state_id}")
+                else:
+                    inconsistent_services.append(service_name)
+                    self.logger.error(f"Service {service_name} missing state_manager attribute")
+            
+            if inconsistent_services:
+                self.logger.error(f"State manager inconsistency detected in services: {inconsistent_services}")
+                raise RuntimeError(f"Critical state manager inconsistency in services: {inconsistent_services}")
+            else:
+                self.logger.info("All services share the same state manager instance - consistency validated")
+                
+        except Exception as e:
+            self.logger.error(f"Error validating service state consistency: {str(e)}")
+            raise
 
     # =================================================================
     # SYSTEM SERVICE DELEGATION

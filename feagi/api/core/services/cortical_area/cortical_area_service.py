@@ -467,10 +467,33 @@ class CorticalAreaService(BaseService):
         }
 
     def get_id_list(self) -> List[str]:
-        """Get a list of all cortical area IDs (6-character strings) in the current genome."""
+        """
+        Get a list of all cortical area IDs (6-character strings) in the current genome.
+        
+        Returns:
+            List of cortical area ID strings
+        """
         try:
-            current_genome = self._get_current_genome()
-            if not current_genome or 'blueprint' not in current_genome:
+            # CRITICAL: Validate genome is loaded and state is consistent
+            if not self._validate_genome_loaded():
+                self.logger.warning("No genome loaded - cannot retrieve cortical area ID list")
+                return []
+            
+            # Validate and sync state if needed
+            state_is_consistent = self._validate_state_consistency()
+            if not state_is_consistent:
+                self.logger.warning("State inconsistency detected in cortical area service, attempting to synchronize")
+                sync_success = self._sync_state_if_needed()
+                if not sync_success:
+                    self.logger.error("Failed to synchronize state in cortical area service")
+                    # Try to continue anyway
+                else:
+                    self.logger.info("State synchronization successful in cortical area service")
+            
+            # Get genome data from state manager
+            genome_data = self._get_current_genome()
+            if not genome_data or 'blueprint' not in genome_data:
+                self.logger.warning("No valid genome blueprint found")
                 return []
                 
             # Extract cortical IDs from blueprint keys
@@ -478,7 +501,7 @@ class CorticalAreaService(BaseService):
             # We want the second segment (cortical_id)
             cortical_ids = set()  # Use set to avoid duplicates
             
-            for blueprint_key in current_genome['blueprint'].keys():
+            for blueprint_key in genome_data['blueprint'].keys():
                 # Split by dash and take the second segment
                 parts = blueprint_key.split('-')
                 if len(parts) >= 2:
@@ -486,9 +509,14 @@ class CorticalAreaService(BaseService):
                     cortical_ids.add(cortical_id)
                     
             # Return sorted list of unique cortical IDs
-            return sorted(list(cortical_ids))
+            result = sorted(list(cortical_ids))
+            self.logger.debug(f"Retrieved {len(result)} cortical area IDs from genome blueprint")
+            return result
+            
         except Exception as e:
             self.logger.error(f"Error getting cortical area ID list: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return []
 
     def get_index_list(self) -> List[int]:

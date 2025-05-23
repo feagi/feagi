@@ -141,7 +141,13 @@ class GenomeService(BaseService):
             
             # Set brain readiness to False while loading
             if self.state_manager:
+                from feagi.core.state_manager import GenomeState
+                self.state_manager.set_genome_state(GenomeState.LOADING)
                 self.state_manager.set_brain_readiness(False)
+                # Clear all brain stats during loading
+                self.state_manager.brain_stats = {}
+                self.state_manager.cortical_list = []
+                self.state_manager.genome_validity = None
             
             # Store genome filename 
             self._genome_filename = filename
@@ -150,6 +156,11 @@ class GenomeService(BaseService):
             validation_result = genome_validator(genome_data)
             if not validation_result:
                 self.logger.error(f"Invalid genome structure")
+                if self.state_manager:
+                    from feagi.core.state_manager import GenomeState
+                    self.state_manager.set_genome_state(GenomeState.ERROR)
+                    self.state_manager.set_brain_readiness(False)
+                    self.state_manager.genome_validity = False
                 return {"success": False, "error": "Invalid genome structure"}
                 
             # Store the current genome
@@ -185,13 +196,83 @@ class GenomeService(BaseService):
                     from feagi.core.state_manager import GenomeState
                     self.state_manager.set_genome_state(GenomeState.ERROR)
                     self.state_manager.set_brain_readiness(False)
+                    self.state_manager.genome_validity = False
                 return {"success": False, "error": "Failed to develop brain from genome"}
                 
-            # Only set LOADED state after successful brain development
+            # CRITICAL: Complete state manager update after successful brain development
             if self.state_manager:
                 from feagi.core.state_manager import GenomeState
-                self.state_manager.set_genome_state(GenomeState.LOADED)
-                self.state_manager.set_brain_readiness(True)
+                
+                # Update state manager with comprehensive brain statistics for health checks
+                try:
+                    # Get statistics from connectome manager
+                    cortical_area_count = len(getattr(self._connectome_manager, 'cortical_areas', {}))
+                    
+                    # Calculate neuron and synapse counts if methods exist
+                    total_neurons = 0
+                    total_synapses = 0
+                    
+                    if hasattr(self._connectome_manager, 'get_total_neuron_count'):
+                        total_neurons = self._connectome_manager.get_total_neuron_count()
+                    elif hasattr(self._connectome_manager, 'cortical_areas'):
+                        # Fallback: count neurons in all cortical areas
+                        for area_idx in self._connectome_manager.cortical_areas:
+                            try:
+                                if hasattr(self._connectome_manager, 'get_neurons_by_area'):
+                                    area_neurons = self._connectome_manager.get_neurons_by_area(area_idx)
+                                    total_neurons += len(area_neurons) if area_neurons else 0
+                            except Exception:
+                                pass
+                    
+                    if hasattr(self._connectome_manager, 'get_total_synapse_count'):
+                        total_synapses = self._connectome_manager.get_total_synapse_count()
+                    
+                    # Update state manager with brain statistics (CRITICAL for health check)
+                    self.state_manager.brain_stats = {
+                        "neuron_count": total_neurons,
+                        "synapse_count": total_synapses,
+                        "cortical_area_count": cortical_area_count
+                    }
+                    
+                    # Create cortical list for health check compatibility (CRITICAL)
+                    cortical_ids = []
+                    if hasattr(self._connectome_manager, 'cortical_areas'):
+                        for area_idx, area in self._connectome_manager.cortical_areas.items():
+                            # Try to get cortical_id from area object, fallback to string representation
+                            if hasattr(area, 'cortical_id') and area.cortical_id:
+                                cortical_ids.append(area.cortical_id)
+                            else:
+                                cortical_ids.append(f"CID{area_idx:03d}")
+                    self.state_manager.cortical_list = cortical_ids
+                    
+                    # Set genome validity to True on successful load (CRITICAL)
+                    self.state_manager.genome_validity = True
+                    
+                    # Set brain readiness and genome state (CRITICAL)
+                    self.state_manager.set_brain_readiness(True)
+                    self.state_manager.set_genome_state(GenomeState.LOADED)
+                    
+                    # Ensure connected_agents is initialized if not already set
+                    if not hasattr(self.state_manager, 'connected_agents') or self.state_manager.connected_agents is None:
+                        self.state_manager.connected_agents = 0  # Count of connected agents, not a list
+                    
+                    # Ensure changes_saved_externally is initialized
+                    if not hasattr(self.state_manager, 'changes_saved_externally'):
+                        self.state_manager.changes_saved_externally = False
+                    
+                    # Ensure exit_condition is properly set (for burst engine status)
+                    if not hasattr(self.state_manager, 'exit_condition'):
+                        self.state_manager.exit_condition = False
+                    
+                    self.logger.info(f"State manager fully synchronized: {total_neurons} neurons, {total_synapses} synapses, {cortical_area_count} cortical areas")
+                    
+                except Exception as stats_error:
+                    self.logger.error(f"CRITICAL: Error updating state manager with brain statistics: {str(stats_error)}")
+                    # Set error state since this is critical for health checks
+                    self.state_manager.set_genome_state(GenomeState.ERROR)
+                    self.state_manager.set_brain_readiness(False)
+                    self.state_manager.genome_validity = False
+                    return {"success": False, "error": f"Failed to update state manager: {str(stats_error)}"}
                 
                 # Automatically start the burst engine if it's not already running
                 try:
@@ -221,16 +302,17 @@ class GenomeService(BaseService):
                     self.logger.warning(f"Failed to auto-start burst engine: {str(burst_error)}")
                     self.logger.warning("You may need to start the burst engine manually")
                 
-            # Get cortical area count from connectome manager
+            # Get cortical area count from connectome manager for return value
             cortical_area_count = len(getattr(self._connectome_manager, 'cortical_areas', {}))
             
             # Log success
             self.logger.info(f"Genome loaded successfully: {cortical_area_count} cortical areas created")
             
-            # Return success
+            # Return success with detailed information
             return {
                 "success": True, 
-                "cortical_area_count": cortical_area_count
+                "cortical_area_count": cortical_area_count,
+                "message": "Genome loaded and state manager fully synchronized"
             }
             
         except Exception as e:
@@ -243,6 +325,7 @@ class GenomeService(BaseService):
                 from feagi.core.state_manager import GenomeState
                 self.state_manager.set_genome_state(GenomeState.ERROR)
                 self.state_manager.set_brain_readiness(False)
+                self.state_manager.genome_validity = False
                 
             return {"success": False, "error": str(e)}
 
