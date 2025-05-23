@@ -58,9 +58,8 @@ from feagi.api.transport.universal_fastapi import (
     get_inputs_router, get_outputs_router, get_evolution_router
 )
 
-# Import the v2 routers
-from .routers.v2 import genome as genome_v2
-# ... other v2 imports
+# Note: v2 routers have been removed since we now use the universal wrapper directly for all routes
+# The v2 functionality can be added in the future if needed via the universal wrapper pattern
 
 
 
@@ -405,15 +404,6 @@ app.include_router(
     prefix="/v1/monitoring",
     tags=["MONITORING"],
     dependencies=[],
-    responses=standard_response
-)
-
-# Register v2 routes
-app.include_router(
-    genome_v2.router,
-    prefix="/v2/genome",
-    tags=["GENOME V2"],
-    dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
     responses=standard_response
 )
 
