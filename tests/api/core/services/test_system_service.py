@@ -25,13 +25,14 @@ def mock_state_manager():
     sm.is_genome_loaded.return_value = True
     sm.get_brain_readiness.return_value = True
     sm.exit_condition = False
-    sm.connected_agents = ["agent1", "agent2"]
+    sm.connected_agents = 2
     sm.influxdb = True
     sm.changes_saved_externally = True
     sm.genome_fitness = 0.85
     sm.brain_stats = {
         "neuron_count": 1000,
-        "synapse_count": 5000
+        "synapse_count": 5000,
+        "cortical_area_count": 3
     }
     sm.cortical_list = ["area1", "area2", "area3"]
     sm.genome_validity = True
@@ -68,11 +69,15 @@ class TestSystemService:
     @pytest.mark.asyncio
     async def test_get_health_with_loaded_genome(self, system_service, mock_state_manager):
         """Test getting health information when genome is loaded."""
+        # Mock the state validation methods that are now called in get_health
+        system_service._validate_state_consistency = MagicMock(return_value=True)
+        system_service._sync_state_if_needed = MagicMock(return_value=True)
+        
         health = await system_service.get_health()
         
         assert isinstance(health, dict)
         assert health["burst_engine"] is True
-        assert health["connected_agents"] == ["agent1", "agent2"]
+        assert health["connected_agents"] == 2  # Updated to match integer count
         assert health["influxdb_availability"] is True
         assert health["neuron_count_max"] == 10000
         assert health["synapse_count_max"] == 50000
@@ -90,6 +95,10 @@ class TestSystemService:
     async def test_get_health_without_loaded_genome(self, system_service, mock_state_manager):
         """Test getting health information when genome is not loaded."""
         mock_state_manager.is_genome_loaded.return_value = False
+        
+        # Mock the state validation methods - they should return True when no genome is loaded
+        system_service._validate_state_consistency = MagicMock(return_value=True)
+        system_service._sync_state_if_needed = MagicMock(return_value=True)
         
         health = await system_service.get_health()
         
@@ -110,6 +119,10 @@ class TestSystemService:
         }
         system_service._has_pending_amalgamation = MagicMock(return_value=True)
         
+        # Mock the state validation methods
+        system_service._validate_state_consistency = MagicMock(return_value=True)
+        system_service._sync_state_if_needed = MagicMock(return_value=True)
+        
         health = await system_service.get_health()
         
         assert "amalgamation_pending" in health
@@ -128,6 +141,10 @@ class TestSystemService:
     async def test_get_health_with_exception(self, system_service, mock_state_manager):
         """Test get_health handling exceptions gracefully."""
         mock_state_manager.is_genome_loaded.side_effect = Exception("Test error")
+        
+        # Mock the state validation methods - they might not be called due to the exception
+        system_service._validate_state_consistency = MagicMock(return_value=True)
+        system_service._sync_state_if_needed = MagicMock(return_value=True)
         
         health = await system_service.get_health()
         

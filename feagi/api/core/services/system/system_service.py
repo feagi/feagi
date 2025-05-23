@@ -117,11 +117,6 @@ class SystemService(BaseService):
             else:
                 health["genome_availability"] = False
                 health["brain_readiness"] = self.state_manager.get_brain_readiness()
-                health["fitness"] = None
-                health["cortical_area_count"] = None
-                health["neuron_count"] = None
-                health["synapse_count"] = None
-                health["estimated_brain_size_in_MB"] = None
                 
             health["genome_validity"] = getattr(self.state_manager, 'genome_validity', None)
             
