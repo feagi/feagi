@@ -113,9 +113,10 @@ async def check_burst_engine_or_allow_genome_ops(request: Request):
     from feagi.core.state_manager import FeagiStateManager, ServiceState
     
     # Skip the check for genome loading/initial operations
-    if request.url.path.endswith("/v1/genome/upload") or \
+    if "/v1/genome/upload" in request.url.path or \
        request.url.path.endswith("/v1/genome/download") or \
-       request.url.path.endswith("/v1/genome/genome_number"):
+       request.url.path.endswith("/v1/genome/genome_number") or \
+       request.url.path.endswith("/v1/genome/file_name"):
         return
         
     # Otherwise perform the standard check

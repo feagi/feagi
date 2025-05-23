@@ -193,6 +193,34 @@ class GenomeService(BaseService):
                 self.state_manager.set_genome_state(GenomeState.LOADED)
                 self.state_manager.set_brain_readiness(True)
                 
+                # Automatically start the burst engine if it's not already running
+                try:
+                    # Check if we have access to the brain service through the core API
+                    # We need to import at runtime to avoid circular imports
+                    if hasattr(self.state_manager, 'get_burst_engine_state'):
+                        from feagi.core.state_manager import ServiceState
+                        burst_state = self.state_manager.get_burst_engine_state()
+                        
+                        if burst_state != ServiceState.RUNNING:
+                            self.logger.info("Burst engine not running, starting automatically after genome load")
+                            
+                            # Clear exit condition to start the burst engine
+                            self.state_manager.exit_condition = False
+                            
+                            self.logger.info("Burst engine started automatically")
+                        else:
+                            self.logger.info("Burst engine already running")
+                    else:
+                        # Fallback method - directly set exit_condition to False
+                        self.logger.info("Starting burst engine using fallback method")
+                        self.state_manager.exit_condition = False
+                        
+                except Exception as burst_error:
+                    # Don't fail the genome loading if burst engine auto-start fails
+                    # Just log the error and continue
+                    self.logger.warning(f"Failed to auto-start burst engine: {str(burst_error)}")
+                    self.logger.warning("You may need to start the burst engine manually")
+                
             # Get cortical area count from connectome manager
             cortical_area_count = len(getattr(self._connectome_manager, 'cortical_areas', {}))
             

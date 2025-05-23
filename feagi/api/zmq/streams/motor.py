@@ -37,6 +37,7 @@ from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
 from feagi.core.state_manager import GenomeState
 
+logger = setup_logger()
 
 class MotorStream:
     """
