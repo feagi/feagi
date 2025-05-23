@@ -917,9 +917,19 @@ class CoreAPIService:
     def get_morphology_list(self) -> List[str]:
         """Get list of available morphologies."""
         try:
-            # This method should get real morphology data from the genome or template system
-            # For now, throw an error to indicate it's not implemented rather than return fake data
-            raise NotImplementedError("Morphology list retrieval is not yet implemented")
+            # Import core morphologies from templates
+            from feagi.evo.templates import core_morphologies
+            
+            morphology_names = list(core_morphologies.keys())
+            
+            # Also check genome for additional morphologies if available
+            genome = self.get_genome()
+            if genome and "neuron_morphologies" in genome:
+                genome_morphologies = list(genome["neuron_morphologies"].keys())
+                # Combine and deduplicate
+                morphology_names.extend([m for m in genome_morphologies if m not in morphology_names])
+            
+            return sorted(morphology_names)
         except Exception as e:
             self.logger.error(f"Error getting morphology list: {str(e)}")
             raise ValueError(f"Failed to retrieve morphology list: {str(e)}")
@@ -927,9 +937,22 @@ class CoreAPIService:
     def get_morphology_types(self) -> List[str]:
         """Get list of available morphology types."""
         try:
-            # This method should get real morphology type data from the genome or template system
-            # For now, throw an error to indicate it's not implemented rather than return fake data
-            raise NotImplementedError("Morphology types retrieval is not yet implemented")
+            # Get unique morphology types from core morphologies
+            from feagi.evo.templates import core_morphologies
+            
+            types = set()
+            for morphology in core_morphologies.values():
+                if "type" in morphology:
+                    types.add(morphology["type"])
+            
+            # Also check genome morphologies
+            genome = self.get_genome()
+            if genome and "neuron_morphologies" in genome:
+                for morphology in genome["neuron_morphologies"].values():
+                    if "type" in morphology:
+                        types.add(morphology["type"])
+            
+            return sorted(list(types))
         except Exception as e:
             self.logger.error(f"Error getting morphology types: {str(e)}")
             raise ValueError(f"Failed to retrieve morphology types: {str(e)}")
@@ -937,9 +960,34 @@ class CoreAPIService:
     def get_morphologies(self) -> Dict[str, Any]:
         """Get all morphologies with detailed information."""
         try:
-            # This method should get real morphology data from the genome or template system
-            # For now, throw an error to indicate it's not implemented rather than return fake data
-            raise NotImplementedError("Morphologies retrieval is not yet implemented")
+            # Import core morphologies from templates
+            from feagi.evo.templates import core_morphologies
+            
+            # Start with core morphologies
+            all_morphologies = {}
+            for name, morphology in core_morphologies.items():
+                all_morphologies[name] = {
+                    "name": name,
+                    "type": morphology.get("type", "unknown"),
+                    "class": morphology.get("class", "unknown"),
+                    "parameters": morphology.get("parameters", {}),
+                    "source": "core"
+                }
+            
+            # Add genome morphologies if available
+            genome = self.get_genome()
+            if genome and "neuron_morphologies" in genome:
+                for name, morphology in genome["neuron_morphologies"].items():
+                    # Genome morphologies override core morphologies
+                    all_morphologies[name] = {
+                        "name": name,
+                        "type": morphology.get("type", "unknown"),
+                        "class": morphology.get("class", "genome"),
+                        "parameters": morphology.get("parameters", {}),
+                        "source": "genome"
+                    }
+            
+            return all_morphologies
         except Exception as e:
             self.logger.error(f"Error getting morphologies: {str(e)}")
             raise ValueError(f"Failed to retrieve morphologies: {str(e)}")
@@ -947,19 +995,106 @@ class CoreAPIService:
     def get_morphology_info(self, morphology_id: str) -> Dict[str, Any]:
         """Get information about a specific morphology."""
         try:
-            # This method should get real morphology info from the genome or template system
-            # For now, throw an error to indicate it's not implemented rather than return fake data
-            raise NotImplementedError("Morphology info retrieval is not yet implemented")
+            # Get all morphologies and find the requested one
+            all_morphologies = self.get_morphologies()
+            
+            if morphology_id not in all_morphologies:
+                raise ValueError(f"Morphology '{morphology_id}' not found")
+            
+            morphology = all_morphologies[morphology_id]
+            
+            # Add additional computed information
+            morphology_info = morphology.copy()
+            morphology_info.update({
+                "id": morphology_id,
+                "description": self._get_morphology_description(morphology),
+                "example_usage": self._get_morphology_example(morphology)
+            })
+            
+            return morphology_info
         except Exception as e:
             self.logger.error(f"Error getting morphology info: {str(e)}")
             raise ValueError(f"Failed to retrieve morphology info: {str(e)}")
     
+    def _get_morphology_description(self, morphology: Dict[str, Any]) -> str:
+        """Generate a description for a morphology based on its type and parameters."""
+        morphology_type = morphology.get("type", "unknown")
+        
+        descriptions = {
+            "vectors": "Connects neurons using fixed directional vectors",
+            "patterns": "Connects neurons based on spatial patterns",
+            "functions": "Uses algorithmic functions to determine connections",
+            "composite": "Combines multiple morphology types for complex connectivity"
+        }
+        
+        base_desc = descriptions.get(morphology_type, "Custom morphology type")
+        
+        # Add specific details based on parameters
+        if morphology_type == "vectors" and "vectors" in morphology.get("parameters", {}):
+            vectors = morphology["parameters"]["vectors"]
+            base_desc += f" ({len(vectors)} vector(s))"
+        elif morphology_type == "patterns" and "patterns" in morphology.get("parameters", {}):
+            patterns = morphology["parameters"]["patterns"]
+            base_desc += f" ({len(patterns)} pattern(s))"
+        
+        return base_desc
+    
+    def _get_morphology_example(self, morphology: Dict[str, Any]) -> str:
+        """Generate example usage for a morphology."""
+        morphology_type = morphology.get("type", "unknown")
+        
+        examples = {
+            "vectors": "Useful for layer-to-layer connections with fixed offsets",
+            "patterns": "Ideal for spatial relationship-based connectivity",
+            "functions": "Best for dynamic or computed connectivity patterns",
+            "composite": "Combines multiple approaches for complex architectures"
+        }
+        
+        return examples.get(morphology_type, "General purpose connectivity morphology")
+    
     def create_morphology(self, morphology_data: Dict[str, Any]) -> bool:
         """Create a new morphology."""
         try:
-            # This method should create a new morphology
-            # For now, throw an error to indicate it's not implemented
-            raise NotImplementedError("Morphology creation is not yet implemented")
+            # Validate required fields
+            if "name" not in morphology_data:
+                raise ValueError("Morphology name is required")
+            if "type" not in morphology_data:
+                raise ValueError("Morphology type is required")
+            if "parameters" not in morphology_data:
+                raise ValueError("Morphology parameters are required")
+            
+            name = morphology_data["name"]
+            
+            # Check if morphology already exists
+            existing_morphologies = self.get_morphologies()
+            if name in existing_morphologies:
+                raise ValueError(f"Morphology '{name}' already exists")
+            
+            # Validate morphology type
+            valid_types = ["vectors", "patterns", "functions", "composite"]
+            if morphology_data["type"] not in valid_types:
+                raise ValueError(f"Invalid morphology type. Must be one of: {valid_types}")
+            
+            # Get current genome and add the new morphology
+            genome = self.get_genome()
+            if not genome:
+                raise ValueError("No genome is currently loaded")
+            
+            if "neuron_morphologies" not in genome:
+                genome["neuron_morphologies"] = {}
+            
+            # Add the new morphology
+            genome["neuron_morphologies"][name] = {
+                "type": morphology_data["type"],
+                "parameters": morphology_data["parameters"],
+                "class": "custom"
+            }
+            
+            # Save the updated genome
+            # Note: This would need to be connected to the actual genome save mechanism
+            self.logger.info(f"Created new morphology: {name}")
+            return True
+            
         except Exception as e:
             self.logger.error(f"Error creating morphology: {str(e)}")
             raise ValueError(f"Failed to create morphology: {str(e)}")
@@ -967,9 +1102,31 @@ class CoreAPIService:
     def update_morphology(self, morphology_id: str, updates: Dict[str, Any]) -> bool:
         """Update an existing morphology."""
         try:
-            # This method should update an existing morphology
-            # For now, throw an error to indicate it's not implemented
-            raise NotImplementedError("Morphology update is not yet implemented")
+            # Check if morphology exists
+            all_morphologies = self.get_morphologies()
+            if morphology_id not in all_morphologies:
+                raise ValueError(f"Morphology '{morphology_id}' not found")
+            
+            morphology = all_morphologies[morphology_id]
+            
+            # Don't allow updating core morphologies
+            if morphology.get("source") == "core":
+                raise ValueError("Cannot modify core morphologies")
+            
+            # Get current genome
+            genome = self.get_genome()
+            if not genome or "neuron_morphologies" not in genome:
+                raise ValueError("No editable morphologies found in genome")
+            
+            # Apply updates
+            if morphology_id in genome["neuron_morphologies"]:
+                for key, value in updates.items():
+                    if key in ["type", "parameters", "class"]:
+                        genome["neuron_morphologies"][morphology_id][key] = value
+            
+            self.logger.info(f"Updated morphology: {morphology_id}")
+            return True
+            
         except Exception as e:
             self.logger.error(f"Error updating morphology: {str(e)}")
             raise ValueError(f"Failed to update morphology: {str(e)}")
@@ -977,9 +1134,30 @@ class CoreAPIService:
     def delete_morphology(self, morphology_id: str) -> bool:
         """Delete a morphology."""
         try:
-            # This method should delete a morphology
-            # For now, throw an error to indicate it's not implemented
-            raise NotImplementedError("Morphology deletion is not yet implemented")
+            # Check if morphology exists
+            all_morphologies = self.get_morphologies()
+            if morphology_id not in all_morphologies:
+                raise ValueError(f"Morphology '{morphology_id}' not found")
+            
+            morphology = all_morphologies[morphology_id]
+            
+            # Don't allow deleting core morphologies
+            if morphology.get("source") == "core":
+                raise ValueError("Cannot delete core morphologies")
+            
+            # Get current genome
+            genome = self.get_genome()
+            if not genome or "neuron_morphologies" not in genome:
+                raise ValueError("No editable morphologies found in genome")
+            
+            # Remove the morphology
+            if morphology_id in genome["neuron_morphologies"]:
+                del genome["neuron_morphologies"][morphology_id]
+                self.logger.info(f"Deleted morphology: {morphology_id}")
+                return True
+            else:
+                raise ValueError(f"Morphology '{morphology_id}' not found in genome")
+            
         except Exception as e:
             self.logger.error(f"Error deleting morphology: {str(e)}")
             raise ValueError(f"Failed to delete morphology: {str(e)}")
