@@ -257,19 +257,15 @@ class SystemService(BaseService):
         try:
             # Import from FEAGI templates
             from feagi.evo.templates import cortical_types
+            if not cortical_types:
+                raise ValueError("No cortical area types found in FEAGI templates")
             return cortical_types
-        except ImportError:
-            # Fallback types
-            return {
-                "MEMORY": {"description": "Memory cortical areas"},
-                "IPU": {"description": "Input Processing Units"}, 
-                "OPU": {"description": "Output Processing Units"},
-                "HIDDEN": {"description": "Hidden processing areas"},
-                "CUSTOM": {"description": "Custom cortical areas"}
-            }
+        except ImportError as e:
+            self.logger.error(f"Failed to import cortical area types: {str(e)}")
+            raise ValueError("Cortical area types not available - FEAGI templates module not found")
         except Exception as e:
             self.logger.error(f"Error getting cortical area types: {str(e)}")
-            return {}
+            raise ValueError(f"Failed to retrieve cortical area types: {str(e)}")
 
     def reset_fcl(self) -> bool:
         """Reset the Fire Candidate List."""

@@ -9,6 +9,10 @@ class CorticalAreaService(BaseService):
     """
     Cortical Area service handles cortical area operations including
     CRUD operations, activity monitoring, and cortical area management.
+    
+    IMPORTANT: This service maintains the critical distinction between:
+    - cortical_id: 6-character string identifier (e.g., "iv00_C", "motor1")
+    - cortical_idx: integer index used internally by connectome manager (e.g., 0, 1, 2)
     """
     
     def __init__(self, connectome_manager, state_manager=None):
@@ -17,6 +21,50 @@ class CorticalAreaService(BaseService):
         # Cache for frequently accessed data
         self._cortical_areas_cache = None
         self._cortical_areas_cache_timestamp = 0
+
+    def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
+        """
+        Map a cortical_id (6-character string) to its corresponding cortical_idx (integer).
+        
+        Args:
+            cortical_id: 6-character string identifier
+            
+        Returns:
+            Integer index if found, None otherwise
+        """
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return None
+                
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
+                    return cortical_idx
+            return None
+        except Exception as e:
+            self.logger.error(f"Error mapping cortical_id {cortical_id} to cortical_idx: {str(e)}")
+            return None
+
+    def _get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
+        """
+        Map a cortical_idx (integer) to its corresponding cortical_id (6-character string).
+        
+        Args:
+            cortical_idx: Integer index
+            
+        Returns:
+            6-character string identifier if found, None otherwise
+        """
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return None
+                
+            area = self._connectome_manager.cortical_areas.get(cortical_idx)
+            if area and hasattr(area, 'cortical_id'):
+                return area.cortical_id
+            return None
+        except Exception as e:
+            self.logger.error(f"Error mapping cortical_idx {cortical_idx} to cortical_id: {str(e)}")
+            return None
 
     def get_all_areas(self) -> List[Dict[str, Any]]:
         """Get all cortical areas."""
@@ -32,17 +80,20 @@ class CorticalAreaService(BaseService):
                 return []
             
             # Convert all areas to API format
-            for cortical_id, area in self._connectome_manager.cortical_areas.items():
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
                 try:
                     # Get neuron count (safely)
                     try:
-                        neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_id))
+                        neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_idx))
                     except Exception:
                         neuron_count = 0
                         
+                    # Use cortical_id if available, otherwise fall back to string of cortical_idx
+                    area_id = getattr(area, 'cortical_id', str(cortical_idx))
+                        
                     # Convert to API format
                     result.append({
-                        "id": str(cortical_id),  # Convert to string for API consistency
+                        "id": area_id,  # Use cortical_id (6-char string) or fallback
                         "name": area.name,
                         "coordinates": {
                             "x": area.position[0],
@@ -59,7 +110,7 @@ class CorticalAreaService(BaseService):
                         "neuron_count": neuron_count
                     })
                 except Exception as e:
-                    self.logger.error(f"Error converting area {cortical_id} to API format: {str(e)}")
+                    self.logger.error(f"Error converting area {cortical_idx} to API format: {str(e)}")
                     
         except Exception as e:
             self.logger.error(f"Error retrieving cortical areas: {str(e)}")
@@ -73,19 +124,26 @@ class CorticalAreaService(BaseService):
         return result
 
     def get_area(self, cortical_id: str) -> Optional[Dict[str, Any]]:
-        """Get a cortical area by ID."""
+        """
+        Get a cortical area by its cortical_id (6-character string).
+        
+        Args:
+            cortical_id: 6-character string identifier
+            
+        Returns:
+            Area information dictionary or None if not found
+        """
         try:
-            # Convert string ID to integer (cortical_idx)
-            try:
-                cortical_idx = int(cortical_id)
-            except ValueError:
-                self.logger.error(f"Invalid cortical area ID format: {cortical_id}")
+            # Map cortical_id to cortical_idx
+            cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+            if cortical_idx is None:
+                self.logger.warning(f"Cortical area with cortical_id '{cortical_id}' not found")
                 return None
             
-            # Get the area from connectome manager
+            # Get the area from connectome manager using the integer index
             area = self._connectome_manager.cortical_areas.get(cortical_idx)
             if not area:
-                self.logger.warning(f"Cortical area {cortical_id} not found")
+                self.logger.warning(f"Cortical area with cortical_idx {cortical_idx} not found in connectome")
                 return None
             
             # Return area information
@@ -93,7 +151,7 @@ class CorticalAreaService(BaseService):
             
             # Format response
             return {
-                "id": str(cortical_idx),
+                "id": cortical_id,  # Return the original cortical_id
                 "name": area.name,
                 "coordinates": {
                     "x": area.position[0],
@@ -110,7 +168,7 @@ class CorticalAreaService(BaseService):
                 "neuron_count": neuron_count
             }
         except Exception as e:
-            self.logger.error(f"Error retrieving cortical area: {str(e)}")
+            self.logger.error(f"Error retrieving cortical area with cortical_id '{cortical_id}': {str(e)}")
             return None
 
     def create_area(
@@ -172,15 +230,29 @@ class CorticalAreaService(BaseService):
         area_type: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
-        """Update an existing cortical area."""
+        """
+        Update an existing cortical area.
+        
+        Args:
+            cortical_id: 6-character string identifier
+            name: New name (optional)
+            coordinates: New coordinates (optional)
+            dimensions: New dimensions (optional)
+            area_type: New area type (optional)
+            parameters: New parameters (optional)
+            
+        Returns:
+            Updated area information or None if not found
+        """
         # In legacy FEAGI, this depends on a genome being loaded first
         if not self._validate_genome_loaded():
             self.logger.warning("No genome loaded, cannot update cortical area")
             return None
         
-        try:
-            cortical_idx = int(cortical_id)
-        except ValueError:
+        # Map cortical_id to cortical_idx
+        cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+        if cortical_idx is None:
+            self.logger.warning(f"Cortical area with cortical_id '{cortical_id}' not found for update")
             return None
         
         try:
@@ -207,8 +279,8 @@ class CorticalAreaService(BaseService):
             # Return the updated area
             neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_idx))
             return {
-                "cortical_id": cortical_id,
-                "cortical_idx": area.cortical_idx,
+                "cortical_id": cortical_id,  # Return original cortical_id
+                "cortical_idx": cortical_idx,  # Also include cortical_idx for reference
                 "name": area.name,
                 "coordinates": {
                     "x": area.position[0],
@@ -225,19 +297,28 @@ class CorticalAreaService(BaseService):
                 "neuron_count": neuron_count
             }
         except Exception as e:
-            self.logger.error(f"Error updating cortical area {cortical_id}: {str(e)}")
+            self.logger.error(f"Error updating cortical area with cortical_id '{cortical_id}': {str(e)}")
             return None
 
     def delete_area(self, cortical_id: str) -> bool:
-        """Delete a cortical area."""
+        """
+        Delete a cortical area.
+        
+        Args:
+            cortical_id: 6-character string identifier
+            
+        Returns:
+            True if successfully deleted, False otherwise
+        """
         # In legacy FEAGI, this depends on a genome being loaded first
         if not self._validate_genome_loaded():
             self.logger.warning("No genome loaded, cannot delete cortical area")
             return False
         
-        try:
-            cortical_idx = int(cortical_id)
-        except ValueError:
+        # Map cortical_id to cortical_idx
+        cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+        if cortical_idx is None:
+            self.logger.warning(f"Cortical area with cortical_id '{cortical_id}' not found for deletion")
             return False
         
         try:
@@ -273,19 +354,28 @@ class CorticalAreaService(BaseService):
                 
             return True
         except Exception as e:
-            self.logger.error(f"Error deleting cortical area {cortical_id}: {str(e)}")
+            self.logger.error(f"Error deleting cortical area with cortical_id '{cortical_id}': {str(e)}")
             return False
 
     def get_area_neurons(self, cortical_id: str) -> Optional[List[Dict[str, Any]]]:
-        """Get neurons for a specific cortical area."""
+        """
+        Get neurons for a specific cortical area.
+        
+        Args:
+            cortical_id: 6-character string identifier
+            
+        Returns:
+            List of neuron information or None if area not found
+        """
         # In legacy FEAGI, this depends on a genome being loaded first
         if not self._validate_genome_loaded():
             self.logger.warning("No genome loaded, cannot retrieve cortical area neurons")
             return None
         
-        try:
-            cortical_idx = int(cortical_id)
-        except ValueError:
+        # Map cortical_id to cortical_idx
+        cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+        if cortical_idx is None:
+            self.logger.warning(f"Cortical area with cortical_id '{cortical_id}' not found for neuron retrieval")
             return None
         
         try:
@@ -326,19 +416,29 @@ class CorticalAreaService(BaseService):
             
             return result
         except Exception as e:
-            self.logger.error(f"Error retrieving neurons for cortical area {cortical_id}: {str(e)}")
+            self.logger.error(f"Error retrieving neurons for cortical area with cortical_id '{cortical_id}': {str(e)}")
             return None
 
     def get_area_activity(self, cortical_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
-        """Get activity data for a specific cortical area."""
+        """
+        Get activity data for a specific cortical area.
+        
+        Args:
+            cortical_id: 6-character string identifier
+            window: Time window for activity analysis
+            
+        Returns:
+            Activity information or None if area not found
+        """
         # In legacy FEAGI, this depends on a genome being loaded first
         if not self._validate_genome_loaded():
             self.logger.warning("No genome loaded, cannot retrieve cortical area activity")
             return None
         
-        try:
-            cortical_idx = int(cortical_id)
-        except ValueError:
+        # Map cortical_id to cortical_idx
+        cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+        if cortical_idx is None:
+            self.logger.warning(f"Cortical area with cortical_id '{cortical_id}' not found for activity retrieval")
             return None
         
         try:
@@ -382,89 +482,129 @@ class CorticalAreaService(BaseService):
                 "active_details": active_neurons[:100]  # Limit to prevent huge responses
             }
         except Exception as e:
-            self.logger.error(f"Error retrieving activity for cortical area {cortical_id}: {str(e)}")
+            self.logger.error(f"Error retrieving activity for cortical area with cortical_id '{cortical_id}': {str(e)}")
             return None
 
     def get_area_connectivity(self, cortical_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
-        """Get connectivity information for a specific cortical area."""
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if not self._validate_genome_loaded():
-            self.logger.warning("No genome loaded, cannot retrieve cortical area connectivity")
-            return None
+        """
+        Get connectivity information for a cortical area.
         
-        try:
-            cortical_idx = int(cortical_id)
-        except ValueError:
-            return None
-        
-        try:
-            if cortical_idx not in self._connectome_manager.cortical_areas:
-                return None
+        Args:
+            cortical_id: 6-character string identifier
+            direction: "incoming", "outgoing", or "both"
             
-            # Get all neurons in this area
+        Returns:
+            Connectivity information or None if area not found
+        """
+        try:
+            # Validate genome is loaded
+            if not self._validate_genome_loaded():
+                raise ValueError("No genome loaded - cannot retrieve cortical area connectivity")
+            
+            # Map cortical_id to cortical_idx
+            cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+            if cortical_idx is None:
+                raise ValueError(f"Cortical area with cortical_id '{cortical_id}' not found")
+            
+            # Validate direction parameter
+            if direction not in ["incoming", "outgoing", "both"]:
+                raise ValueError(f"Invalid direction: {direction}. Must be 'incoming', 'outgoing', or 'both'")
+            
+            # Check if the cortical area exists
+            if not hasattr(self._connectome_manager, 'cortical_areas') or cortical_idx not in self._connectome_manager.cortical_areas:
+                raise ValueError(f"Cortical area with cortical_idx {cortical_idx} not found in connectome")
+            
+            # Get neurons in the area
             neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_idx)
+            if not neuron_ids:
+                raise ValueError(f"No neurons found in cortical area with cortical_id '{cortical_id}'")
             
-            # Collect connectivity information
             incoming_connections = set()
             outgoing_connections = set()
             
+            # Get incoming connections
             if direction in ["incoming", "both"]:
                 for neuron_id in neuron_ids:
                     connections = self._connectome_manager.get_incoming_connections(neuron_id)
                     for pre_id, _ in connections:
                         # Skip connections within the same area
-                        pre_area = self._connectome_manager._neuron_to_area.get(pre_id)
-                        if pre_area is not None and pre_area != cortical_idx:
-                            incoming_connections.add(pre_area)
+                        pre_area_idx = self._connectome_manager._neuron_to_area.get(pre_id)
+                        if pre_area_idx is not None and pre_area_idx != cortical_idx:
+                            incoming_connections.add(pre_area_idx)
         
+            # Get outgoing connections
             if direction in ["outgoing", "both"]:
                 for neuron_id in neuron_ids:
                     connections = self._connectome_manager.get_outgoing_connections(neuron_id)
                     for post_id, _ in connections:
                         # Skip connections within the same area
-                        post_area = self._connectome_manager._neuron_to_area.get(post_id)
-                        if post_area is not None and post_area != cortical_idx:
-                            outgoing_connections.add(post_area)
+                        post_area_idx = self._connectome_manager._neuron_to_area.get(post_id)
+                        if post_area_idx is not None and post_area_idx != cortical_idx:
+                            outgoing_connections.add(post_area_idx)
             
-            # Format results
+            # Format results - only include areas that actually exist
             result = {
-                "cortical_id": str(cortical_idx),
+                "cortical_id": cortical_id,  # Return original cortical_id
                 "direction": direction
             }
             
             if direction in ["incoming", "both"]:
-                result["incoming_connections"] = [
-                    {
-                        "cortical_id": str(connected_area),
-                        "name": self._connectome_manager.cortical_areas.get(connected_area, type('obj', (object,), {"name": "Unknown"})).name
-                    } 
-                    for connected_area in incoming_connections
-                ]
+                incoming_list = []
+                for connected_area_idx in incoming_connections:
+                    area_obj = self._connectome_manager.cortical_areas.get(connected_area_idx)
+                    connected_cortical_id = self._get_cortical_id_for_idx(connected_area_idx)
+                    if area_obj and hasattr(area_obj, 'name') and area_obj.name and connected_cortical_id:
+                        incoming_list.append({
+                            "cortical_id": connected_cortical_id,  # Use proper cortical_id
+                            "name": area_obj.name
+                        })
+                    else:
+                        # If no valid name or cortical_id, don't include this connection
+                        self.logger.warning(f"Skipping connection to area {connected_area_idx} - no valid name or cortical_id")
+                result["incoming_connections"] = incoming_list
             
             if direction in ["outgoing", "both"]:
-                result["outgoing_connections"] = [
-                    {
-                        "cortical_id": str(connected_area),
-                        "name": self._connectome_manager.cortical_areas.get(connected_area, type('obj', (object,), {"name": "Unknown"})).name
-                    }
-                    for connected_area in outgoing_connections
-                ]
+                outgoing_list = []
+                for connected_area_idx in outgoing_connections:
+                    area_obj = self._connectome_manager.cortical_areas.get(connected_area_idx)
+                    connected_cortical_id = self._get_cortical_id_for_idx(connected_area_idx)
+                    if area_obj and hasattr(area_obj, 'name') and area_obj.name and connected_cortical_id:
+                        outgoing_list.append({
+                            "cortical_id": connected_cortical_id,  # Use proper cortical_id
+                            "name": area_obj.name
+                        })
+                    else:
+                        # If no valid name or cortical_id, don't include this connection
+                        self.logger.warning(f"Skipping connection to area {connected_area_idx} - no valid name or cortical_id")
+                result["outgoing_connections"] = outgoing_list
             
             return result
         except Exception as e:
-            self.logger.error(f"Error retrieving connectivity for cortical area {cortical_id}: {str(e)}")
-            return None
+            self.logger.error(f"Error retrieving connectivity for cortical area with cortical_id '{cortical_id}': {str(e)}")
+            raise ValueError(f"Failed to retrieve connectivity: {str(e)}")
 
     def stimulate_area(self, cortical_id: str, pattern: str = "random", 
                       intensity: float = 1.0, duration: int = 1,
                       coordinates: Optional[List[Dict[str, int]]] = None) -> Dict[str, Any]:
-        """Stimulate a cortical area with the specified pattern."""
-        # This is a placeholder implementation
-        self.logger.info(f"stimulate_cortical_area called with cortical_id={cortical_id}, pattern={pattern}")
-        return {
-            "stimulated_neurons": 100,
-            "timestamp": 123456789
-        }
+        """
+        Stimulate a cortical area with the specified pattern.
+        
+        Args:
+            cortical_id: 6-character string identifier
+            pattern: Stimulation pattern
+            intensity: Stimulation intensity
+            duration: Stimulation duration
+            coordinates: Optional coordinate list
+            
+        Returns:
+            Stimulation result
+        """
+        # Validate genome is loaded
+        if not self._validate_genome_loaded():
+            raise ValueError("No genome loaded - cannot stimulate cortical area")
+        
+        # This should be implemented properly, not return placeholder data
+        raise NotImplementedError("Cortical area stimulation is not yet implemented")
 
     def get_id_list(self) -> List[str]:
         """
@@ -522,60 +662,84 @@ class CorticalAreaService(BaseService):
     def get_index_list(self) -> List[int]:
         """Get a list of all cortical area indices (integers) used by the FCL."""
         try:
+            # Validate genome is loaded
+            if not self._validate_genome_loaded():
+                raise ValueError("No genome loaded - cannot retrieve cortical area indices")
+            
             if not hasattr(self._connectome_manager, 'cortical_areas'):
-                return []
+                raise ValueError("Connectome manager has no cortical areas")
+            
+            indices = list(self._connectome_manager.cortical_areas.keys())
+            if not indices:
+                raise ValueError("No cortical area indices found in connectome")
                 
-            return list(self._connectome_manager.cortical_areas.keys())
+            return sorted(indices)
         except Exception as e:
             self.logger.error(f"Error getting cortical area index list: {str(e)}")
-            return []
+            raise ValueError(f"Failed to retrieve cortical area indices: {str(e)}")
 
     def get_name_list(self) -> List[str]:
         """Get a list of all cortical area names."""
         try:
+            # Validate genome is loaded
+            if not self._validate_genome_loaded():
+                raise ValueError("No genome loaded - cannot retrieve cortical area names")
+            
             if not hasattr(self._connectome_manager, 'cortical_areas'):
-                return []
+                raise ValueError("Connectome manager has no cortical areas")
                 
             names = []
             for area in self._connectome_manager.cortical_areas.values():
                 if hasattr(area, 'name') and area.name:
                     names.append(area.name)
             
-            return names
+            if not names:
+                raise ValueError("No cortical areas with valid names found in connectome")
+            
+            return sorted(names)
         except Exception as e:
             self.logger.error(f"Error getting cortical area name list: {str(e)}")
-            return []
+            raise ValueError(f"Failed to retrieve cortical area names: {str(e)}")
 
     def get_id_name_mapping(self) -> Dict[str, str]:
         """Map every cortical area's 6-character cortical_id to its human-readable name."""
-        mapping: Dict[str, str] = {}
         try:
+            # Validate genome is loaded
+            if not self._validate_genome_loaded():
+                raise ValueError("No genome loaded - cannot retrieve cortical area ID mapping")
+            
             if not hasattr(self._connectome_manager, "cortical_areas"):
-                return mapping
+                raise ValueError("Connectome manager has no cortical areas")
 
+            mapping: Dict[str, str] = {}
             for cortical_idx, area in self._connectome_manager.cortical_areas.items():
-                # Prefer the explicit cortical_id stored on the CorticalArea object (if present)
+                # Only include areas that have both a valid cortical_id and name
                 cortical_id = getattr(area, "cortical_id", None)
-                if not cortical_id:
-                    # Fallback: derive a placeholder ID from the integer index
-                    cortical_id = f"CID{cortical_idx:03d}"
-
                 name = getattr(area, "name", None)
+                
                 if cortical_id and name:
                     mapping[cortical_id] = name
+                else:
+                    self.logger.warning(f"Skipping area {cortical_idx} - missing cortical_id or name")
+
+            if not mapping:
+                raise ValueError("No cortical areas with valid ID and name mappings found")
 
             return mapping
         except Exception as exc:
             self.logger.error(f"Error building cortical_id→name mapping: {exc}")
-            return mapping
+            raise ValueError(f"Failed to retrieve cortical area ID mapping: {str(exc)}")
 
     def get_2d_locations(self) -> Dict[str, List[int]]:
         """Get 2D locations of all cortical areas."""
         try:
-            locations = {}
+            # Validate genome is loaded
+            if not self._validate_genome_loaded():
+                raise ValueError("No genome loaded - cannot retrieve cortical area locations")
+            
             current_genome = self._get_current_genome()
             if not current_genome or 'blueprint' not in current_genome:
-                return locations
+                raise ValueError("No valid genome blueprint found")
                 
             # Group cortical areas by cortical_id to extract their 2D coordinates
             cortical_data = {}
@@ -590,26 +754,33 @@ class CorticalAreaService(BaseService):
                         cortical_data[cortical_id] = {}
                     cortical_data[cortical_id][property_name] = area_data
             
+            if not cortical_data:
+                raise ValueError("No cortical area data found in genome blueprint")
+            
             # Extract 2D coordinates for each cortical area
+            locations = {}
             for cortical_id, properties in cortical_data.items():
-                x_coord = properties.get('2dcorx', 0)
-                y_coord = properties.get('2dcory', 0)
+                x_coord = properties.get('2dcorx')
+                y_coord = properties.get('2dcory')
                 
-                # Ensure coordinates are integers
-                try:
-                    x_coord = int(x_coord) if x_coord is not None else 0
-                    y_coord = int(y_coord) if y_coord is not None else 0
-                except (ValueError, TypeError):
-                    x_coord = 0
-                    y_coord = 0
-                
-                # Return as array [x, y] format
-                locations[cortical_id] = [x_coord, y_coord]
+                # Only include if both coordinates are present and valid
+                if x_coord is not None and y_coord is not None:
+                    try:
+                        x_coord = int(x_coord)
+                        y_coord = int(y_coord)
+                        locations[cortical_id] = [x_coord, y_coord]
+                    except (ValueError, TypeError):
+                        self.logger.warning(f"Invalid coordinates for cortical area {cortical_id}: x={x_coord}, y={y_coord}")
+                else:
+                    self.logger.warning(f"Missing 2D coordinates for cortical area {cortical_id}")
+            
+            if not locations:
+                raise ValueError("No valid 2D coordinates found for any cortical areas")
             
             return locations
         except Exception as e:
             self.logger.error(f"Error getting cortical 2D locations: {str(e)}")
-            return {}
+            raise ValueError(f"Failed to retrieve cortical area 2D locations: {str(e)}")
 
     def refresh_cache(self):
         """Refresh cached data when state changes occur."""

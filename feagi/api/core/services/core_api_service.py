@@ -722,48 +722,47 @@ class CoreAPIService:
     def get_membrane_potential_monitoring_status(self, cortical_areas: List[str]) -> List[Tuple[str, bool]]:
         """Get membrane potential monitoring status for cortical areas."""
         try:
-            return [(area, True) for area in cortical_areas]  # Default to enabled
+            # This should get real monitoring status from the brain service
+            raise NotImplementedError("Membrane potential monitoring status is not yet implemented")
         except Exception as e:
             self.logger.error(f"Error getting membrane potential monitoring status: {str(e)}")
-            return []
+            raise ValueError(f"Failed to get membrane potential monitoring status: {str(e)}")
     
     def set_membrane_potential_monitoring(self, cortical_areas: List[str], enabled: bool) -> bool:
         """Set membrane potential monitoring for cortical areas."""
         try:
-            self.logger.info(f"Setting membrane potential monitoring to {enabled} for areas: {cortical_areas}")
-            return True
+            # This should actually set monitoring in the brain service
+            raise NotImplementedError("Setting membrane potential monitoring is not yet implemented")
         except Exception as e:
             self.logger.error(f"Error setting membrane potential monitoring: {str(e)}")
-            return False
+            raise ValueError(f"Failed to set membrane potential monitoring: {str(e)}")
     
     def get_synaptic_potential_monitoring_status(self, cortical_areas: List[str]) -> List[Tuple[str, bool]]:
         """Get synaptic potential monitoring status for cortical areas."""
         try:
-            return [(area, True) for area in cortical_areas]  # Default to enabled
+            # This should get real monitoring status from the brain service
+            raise NotImplementedError("Synaptic potential monitoring status is not yet implemented")
         except Exception as e:
             self.logger.error(f"Error getting synaptic potential monitoring status: {str(e)}")
-            return []
+            raise ValueError(f"Failed to get synaptic potential monitoring status: {str(e)}")
     
     def set_synaptic_potential_monitoring(self, cortical_areas: List[str], enabled: bool) -> bool:
         """Set synaptic potential monitoring for cortical areas."""
         try:
-            self.logger.info(f"Setting synaptic potential monitoring to {enabled} for areas: {cortical_areas}")
-            return True
+            # This should actually set monitoring in the brain service
+            raise NotImplementedError("Setting synaptic potential monitoring is not yet implemented")
         except Exception as e:
             self.logger.error(f"Error setting synaptic potential monitoring: {str(e)}")
-            return False
+            raise ValueError(f"Failed to set synaptic potential monitoring: {str(e)}")
     
     def get_membrane_potentials(self, neuron_ids: List[int]) -> Dict[int, float]:
         """Get membrane potentials for specific neurons."""
         try:
-            result = {}
-            for neuron_id in neuron_ids:
-                # This would need implementation in connectome service
-                result[neuron_id] = 0.0  # Default value
-            return result
+            # This should get real membrane potentials from the brain service
+            raise NotImplementedError("Getting membrane potentials is not yet implemented")
         except Exception as e:
             self.logger.error(f"Error getting membrane potentials: {str(e)}")
-            return {}
+            raise ValueError(f"Failed to get membrane potentials: {str(e)}")
     
     def update_membrane_potentials(self, potentials: Dict[int, float]) -> bool:
         """Update membrane potentials for specific neurons."""
@@ -805,16 +804,12 @@ class CoreAPIService:
     
     def get_area_fcl_sample_rate(self, area_id: int) -> float:
         """Get FCL sample rate for an area."""
-        return 20.0  # Default value
-    
-    def set_area_fcl_sample_rate(self, area_id: int, sample_rate: float) -> bool:
-        """Set FCL sample rate for an area."""
         try:
-            # This would need implementation
-            return True
+            # This should get real sample rate from the FCL manager
+            raise NotImplementedError("Getting area FCL sample rate is not yet implemented")
         except Exception as e:
-            self.logger.error(f"Error setting area FCL sample rate: {str(e)}")
-            return False
+            self.logger.error(f"Error getting area FCL sample rate: {str(e)}")
+            raise ValueError(f"Failed to get area FCL sample rate: {str(e)}")
     
     def get_burst_counter(self) -> int:
         """Get current burst counter."""
@@ -864,11 +859,12 @@ class CoreAPIService:
     def get_morphology_list(self) -> List[str]:
         """Get list of available morphologies."""
         try:
-            # This would need implementation
-            return ["default", "sensory", "motor"]
+            # This method should get real morphology data from the genome or template system
+            # For now, throw an error to indicate it's not implemented rather than return fake data
+            raise NotImplementedError("Morphology list retrieval is not yet implemented")
         except Exception as e:
             self.logger.error(f"Error getting morphology list: {str(e)}")
-            return []
+            raise ValueError(f"Failed to retrieve morphology list: {str(e)}")
     
     def get_detailed_cortical_map(self) -> Dict[str, Any]:
         """Get detailed cortical map."""
@@ -971,15 +967,32 @@ class CoreAPIService:
     # =================================================================
     
     def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
-        """Get cortical index for a cortical ID."""
+        """
+        Get cortical index for a cortical ID.
+        
+        IMPORTANT: Maps cortical_id (6-character string) to cortical_idx (integer).
+        
+        Args:
+            cortical_id: 6-character string identifier
+            
+        Returns:
+            Integer index if found, None otherwise
+        """
         try:
-            for idx, area in self._connectome_manager.cortical_areas.items():
-                if area.cortical_id == cortical_id:
-                    return idx
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return None
+                
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
+                    return cortical_idx
             return None
         except Exception as e:
-            self.logger.error(f"Error getting cortical idx for {cortical_id}: {str(e)}")
+            self.logger.error(f"Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
             return None
+
+    def _validate_genome_loaded(self) -> bool:
+        """Check if a genome is currently loaded - helper method for service consistency."""
+        return self._genome_service.is_genome_loaded()
     
     def get_neuron_mappings(self) -> Dict[str, Any]:
         """Get neuron mappings."""
