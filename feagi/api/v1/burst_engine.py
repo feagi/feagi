@@ -16,8 +16,15 @@ from .schemas import (
     SuccessResponse, ErrorResponse
 )
 from .decorators import endpoint
+from pydantic import BaseModel
 
 logger = setup_logger(__name__)
+
+# ===== Burst Engine-specific Schemas =====
+
+class BurstEngineRequest(BaseModel):
+    """Request model for burst engine configuration."""
+    burst_engine_config: Dict[str, Any]
 
 
 # Define the convenience decorator for burst engine endpoints
@@ -47,6 +54,35 @@ class BurstEngineAPI:
         """Initialize with core API service dependency."""
         self.core_api_service = core_api_service
     
+    # ===== Legacy Burst Engine Endpoints =====
+    
+    @burst_engine_endpoint('GET', '/stimulation_period')
+    def get_stimulation_period(self) -> float:
+        """Returns the time it takes for each burst to execute in seconds."""
+        try:
+            burst_timer = self.core_api_service.get_burst_timer()
+            return burst_timer if burst_timer is not None else 0.0
+        except Exception as e:
+            logger.error(f"Error getting stimulation period: {e}")
+            raise ValueError(f"Failed to get stimulation period: {str(e)}")
+    
+    @burst_engine_endpoint('POST', '/stimulation_period', 
+                          request_model=BurstEngineRequest,
+                          response_model=SuccessResponse)
+    def change_stimulation_period(self, message: BurstEngineRequest) -> SuccessResponse:
+        """Enables changes against various Burst Engine parameters."""
+        try:
+            burst_config = {'burst_management': message.burst_engine_config}
+            success = self.core_api_service.send_burst_management_message(burst_config)
+            
+            if not success:
+                raise ValueError("Failed to change stimulation period")
+            
+            return SuccessResponse(message="Stimulation period changed successfully")
+        except Exception as e:
+            logger.error(f"Error changing stimulation period: {e}")
+            raise ValueError(f"Failed to change stimulation period: {str(e)}")
+
     # ===== Burst Engine Status and Info =====
     
     @burst_engine_endpoint('GET', '/burst_counter', response_model=int)

@@ -22,8 +22,41 @@ from .schemas import (
     GenomeDefaultFilesResponse, SuccessResponse, ErrorResponse
 )
 from .decorators import genome_endpoint
+from pydantic import BaseModel
+from enum import Enum
 
 logger = setup_logger(__name__)
+
+# ===== Genome-specific Schemas =====
+
+class RewiringMode(str, Enum):
+    """Enum for rewiring modes during amalgamation."""
+    rewire_all = "rewire_all"
+    no_rewiring = "no_rewiring"
+
+
+class AmalgamationDestinationRequest(BaseModel):
+    """Request model for amalgamation destination."""
+    circuit_origin_x: int
+    circuit_origin_y: int
+    circuit_origin_z: int
+    amalgamation_id: str
+    brain_region_id: str = "root"
+    rewire_mode: RewiringMode = RewiringMode.rewire_all
+
+
+class AppendFileRequest(BaseModel):
+    """Request model for appending file to genome."""
+    circuit_origin_x: int
+    circuit_origin_y: int
+    circuit_origin_z: int
+    content: str
+    filename: str
+
+
+class GenomeEditResponse(BaseModel):
+    """Response model for genome file editing."""
+    content: str
 
 
 class GenomeAPI:
@@ -347,13 +380,87 @@ class GenomeAPI:
     
     @genome_endpoint('GET', '/circuits', response_model=CircuitLibraryResponse)
     def get_circuit_library(self) -> CircuitLibraryResponse:
-        """Get available circuits from the circuit library."""
+        """Get the circuit library list."""
         try:
             circuits = self.core_api_service.get_circuit_library()
             return CircuitLibraryResponse(circuits=circuits)
         except Exception as e:
             logger.error(f"Error getting circuit library: {e}")
             raise ValueError(f"Failed to get circuit library: {str(e)}")
+
+    # ===== Missing Critical Legacy Endpoints =====
+
+    @genome_endpoint('POST', '/amalgamation_destination', response_model=str)
+    def amalgamation_destination(self, request: AmalgamationDestinationRequest) -> str:
+        """Complete amalgamation by specifying destination coordinates."""
+        try:
+            # Check if there's a pending amalgamation
+            if not self.core_api_service.has_pending_amalgamation():
+                raise ValueError("No pending amalgamation request found")
+            
+            # Prepare amalgamation payload
+            payload = {
+                "genome_str": self.core_api_service.get_pending_amalgamation_genome(),
+                "circuit_origin": [request.circuit_origin_x, request.circuit_origin_y, request.circuit_origin_z],
+                "parent_brain_region": request.brain_region_id,
+                "rewire_mode": request.rewire_mode.value
+            }
+            
+            # Send to core service for processing
+            success = self.core_api_service.complete_amalgamation(payload, request.amalgamation_id)
+            if not success:
+                raise ValueError("Failed to complete amalgamation")
+            
+            genome_title = self.core_api_service.get_pending_amalgamation_title()
+            self.core_api_service.cancel_pending_amalgamation(request.amalgamation_id)
+            self.core_api_service.mark_amalgamation_complete(request.amalgamation_id)
+            
+            return f"Amalgamation for \"{genome_title}\" is complete."
+        except Exception as e:
+            logger.error(f"Error completing amalgamation destination: {e}")
+            raise ValueError(f"Failed to complete amalgamation destination: {str(e)}")
+
+    @genome_endpoint('POST', '/append-file', response_model=SuccessResponse)
+    def append_file_to_genome(self, request: AppendFileRequest) -> SuccessResponse:
+        """Append a given circuit file to the running genome at a specific location."""
+        try:
+            # Parse the genome content
+            genome_data = json.loads(request.content)
+            
+            # Prepare payload for appending
+            payload = {
+                "genome_str": genome_data,
+                "circuit_origin": [request.circuit_origin_x, request.circuit_origin_y, request.circuit_origin_z]
+            }
+            
+            # Send to core service for processing
+            success = self.core_api_service.append_circuit_to_genome(payload)
+            if not success:
+                raise ValueError("Failed to append circuit to genome")
+            
+            return SuccessResponse(message=f"Circuit from {request.filename} successfully appended to genome")
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON content in append file request")
+            raise ValueError("Invalid JSON content provided")
+        except Exception as e:
+            logger.error(f"Error appending file to genome: {e}")
+            raise ValueError(f"Failed to append file to genome: {str(e)}")
+
+    @genome_endpoint('POST', '/upload/file/edit', response_model=GenomeEditResponse)
+    def upload_file_for_editing(self, file_data: Dict[str, Any]) -> GenomeEditResponse:
+        """Upload a genome file and return its content for editing."""
+        try:
+            # Extract file content
+            content = file_data.get('content', '')
+            
+            if not content:
+                raise ValueError("No file content provided")
+            
+            # Return the content as-is for editing
+            return GenomeEditResponse(content=content)
+        except Exception as e:
+            logger.error(f"Error uploading file for editing: {e}")
+            raise ValueError(f"Failed to upload file for editing: {str(e)}")
 
 
 # ===== Factory Function =====
