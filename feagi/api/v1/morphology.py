@@ -49,6 +49,46 @@ class MorphologyAPI:
     
     # ===== Morphology Information =====
     
+    @morphology_endpoint('GET', '/morphology_list', response_model=List[str])
+    async def get_morphology_list(self) -> List[str]:
+        """Get list of all morphology names."""
+        try:
+            morphologies = self.core_api_service.get_morphology_list()
+            return morphologies
+        except Exception as e:
+            logger.error(f"Error getting morphology list: {e}")
+            raise ValueError(f"Failed to get morphology list: {str(e)}")
+    
+    @morphology_endpoint('GET', '/morphology_types', response_model=List[str])
+    async def get_morphology_types(self) -> List[str]:
+        """Get list of all morphology types."""
+        try:
+            types = self.core_api_service.get_morphology_types()
+            return types
+        except Exception as e:
+            logger.error(f"Error getting morphology types: {e}")
+            raise ValueError(f"Failed to get morphology types: {str(e)}")
+    
+    @morphology_endpoint('GET', '/list/types', response_model=List[str])
+    async def get_morphology_list_types(self) -> List[str]:
+        """Get list of all morphology types (alias)."""
+        try:
+            types = self.core_api_service.get_morphology_types()
+            return types
+        except Exception as e:
+            logger.error(f"Error getting morphology list types: {e}")
+            raise ValueError(f"Failed to get morphology list types: {str(e)}")
+    
+    @morphology_endpoint('GET', '/morphologies', response_model=Dict[str, Any])
+    async def get_morphologies(self) -> Dict[str, Any]:
+        """Get all morphologies with detailed information."""
+        try:
+            morphologies = self.core_api_service.get_morphologies()
+            return morphologies
+        except Exception as e:
+            logger.error(f"Error getting morphologies: {e}")
+            raise ValueError(f"Failed to get morphologies: {str(e)}")
+    
     @morphology_endpoint('GET', '/list', response_model=MorphologyListResponse)
     async def get_morphologies_list(self) -> MorphologyListResponse:
         """Get list of all morphologies."""

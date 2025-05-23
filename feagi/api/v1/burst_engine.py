@@ -85,6 +85,44 @@ class BurstEngineAPI:
 
     # ===== Burst Engine Status and Info =====
     
+    @burst_engine_endpoint('GET', '/status', response_model=BurstEngineStatusResponse)
+    async def get_burst_engine_status(self) -> BurstEngineStatusResponse:
+        """Get the current burst engine status."""
+        try:
+            status_data = self.core_api_service.get_burst_engine_status()
+            return BurstEngineStatusResponse(
+                status=status_data.get("status", "unknown"),
+                is_running=status_data.get("is_running", False),
+                config=status_data.get("config")
+            )
+        except Exception as e:
+            logger.error(f"Error getting burst engine status: {e}")
+            raise ValueError(f"Failed to get burst engine status: {str(e)}")
+    
+    @burst_engine_endpoint('POST', '/start', response_model=SuccessResponse)
+    async def start_burst_engine(self) -> SuccessResponse:
+        """Start the burst engine."""
+        try:
+            success = self.core_api_service.start_burst_engine()
+            if not success:
+                raise ValueError("Failed to start burst engine")
+            return SuccessResponse(message="Burst engine started successfully")
+        except Exception as e:
+            logger.error(f"Error starting burst engine: {e}")
+            raise ValueError(f"Failed to start burst engine: {str(e)}")
+    
+    @burst_engine_endpoint('POST', '/stop', response_model=SuccessResponse)
+    async def stop_burst_engine(self) -> SuccessResponse:
+        """Stop the burst engine."""
+        try:
+            success = self.core_api_service.stop_burst_engine()
+            if not success:
+                raise ValueError("Failed to stop burst engine")
+            return SuccessResponse(message="Burst engine stopped successfully")
+        except Exception as e:
+            logger.error(f"Error stopping burst engine: {e}")
+            raise ValueError(f"Failed to stop burst engine: {str(e)}")
+    
     @burst_engine_endpoint('GET', '/burst_counter', response_model=int)
     async def get_burst_counter(self) -> int:
         """Return the number associated with current FEAGI burst instance."""

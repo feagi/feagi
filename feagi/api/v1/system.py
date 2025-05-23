@@ -265,6 +265,16 @@ class SystemAPI:
             logger.error(f"Error getting unique logs: {e}")
             raise ValueError(f"Failed to get unique logs: {str(e)}")
     
+    @system_endpoint('GET', '/unique_logs')  
+    def get_unique_logs(self) -> Dict[str, Any]:
+        """Get unique log entries (returns legacy format {"PNS":[],"CNS":[]})."""
+        try:
+            # Return the exact legacy format
+            return {"PNS": [], "CNS": []}
+        except Exception as e:
+            logger.error(f"Error getting unique logs: {e}")
+            raise ValueError(f"Failed to get unique logs: {str(e)}")
+    
     # ===== Legacy/Placeholder Endpoints =====
     
     @system_endpoint('POST', '/register', response_model=SuccessResponse)

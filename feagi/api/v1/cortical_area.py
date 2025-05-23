@@ -17,7 +17,7 @@ from .schemas import (
     CorticalLocationResponse, CorticalTypesResponse, CorticalIdNameMappingResponse,
     CorticalGeometryResponse, NeuronCountResponse, CorticalIdRequest,
     CorticalNameRequest, CorticalIdListRequest, CoordinateUpdateRequest,
-    SuccessResponse, ErrorResponse
+    SuccessResponse, ErrorResponse, CorticalAreaTypesResponse
 )
 from .decorators import endpoint
 
@@ -292,12 +292,12 @@ class CorticalAreaAPI:
     
     # ===== Cortical Area Types and Options =====
     
-    @cortical_area_endpoint('GET', '/cortical_types', response_model=CorticalTypesResponse)
-    def get_cortical_area_types(self) -> CorticalTypesResponse:
+    @cortical_area_endpoint('GET', '/cortical_types', response_model=CorticalAreaTypesResponse)
+    def get_cortical_area_types(self) -> CorticalAreaTypesResponse:
         """Get available cortical area types."""
         try:
             types = self.core_api_service.get_cortical_area_types()
-            return CorticalTypesResponse(types=types)
+            return CorticalAreaTypesResponse(types=types)
         except Exception as e:
             raise ValueError(f"Error getting cortical area types: {str(e)}")
     

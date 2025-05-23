@@ -307,6 +307,32 @@ class CoreAPIService:
         """Get 2D locations of all cortical areas."""
         return self._cortical_area_service.get_cortical_locations_2d()
     
+    def get_cortical_2d_locations(self) -> Dict[str, List[int]]:
+        """Get 2D locations of all cortical areas (alias for get_cortical_locations_2d)."""
+        return self._cortical_area_service.get_cortical_locations_2d()
+    
+    def get_cortical_area_geometry(self) -> Dict[str, Any]:
+        """Get cortical area geometry information."""
+        try:
+            # Get all cortical areas and their geometric properties
+            areas = self._cortical_area_service.get_all_areas()
+            geometry_info = {}
+            
+            for area in areas:
+                area_id = area.get('id')
+                if area_id:
+                    geometry_info[area_id] = {
+                        'coordinates': area.get('coordinates', {}),
+                        'dimensions': area.get('dimensions', {}),
+                        'type': area.get('type', 'unknown'),
+                        'neuron_count': area.get('neuron_count', 0)
+                    }
+            
+            return geometry_info
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area geometry: {str(e)}")
+            return {}
+    
     def get_current_ipu_list(self) -> List[str]:
         """Get list of current IPU cortical areas."""
         return self._cortical_area_service.get_current_ipu_list()
@@ -897,6 +923,66 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error getting morphology list: {str(e)}")
             raise ValueError(f"Failed to retrieve morphology list: {str(e)}")
+    
+    def get_morphology_types(self) -> List[str]:
+        """Get list of available morphology types."""
+        try:
+            # This method should get real morphology type data from the genome or template system
+            # For now, throw an error to indicate it's not implemented rather than return fake data
+            raise NotImplementedError("Morphology types retrieval is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error getting morphology types: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology types: {str(e)}")
+    
+    def get_morphologies(self) -> Dict[str, Any]:
+        """Get all morphologies with detailed information."""
+        try:
+            # This method should get real morphology data from the genome or template system
+            # For now, throw an error to indicate it's not implemented rather than return fake data
+            raise NotImplementedError("Morphologies retrieval is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error getting morphologies: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphologies: {str(e)}")
+    
+    def get_morphology_info(self, morphology_id: str) -> Dict[str, Any]:
+        """Get information about a specific morphology."""
+        try:
+            # This method should get real morphology info from the genome or template system
+            # For now, throw an error to indicate it's not implemented rather than return fake data
+            raise NotImplementedError("Morphology info retrieval is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error getting morphology info: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology info: {str(e)}")
+    
+    def create_morphology(self, morphology_data: Dict[str, Any]) -> bool:
+        """Create a new morphology."""
+        try:
+            # This method should create a new morphology
+            # For now, throw an error to indicate it's not implemented
+            raise NotImplementedError("Morphology creation is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error creating morphology: {str(e)}")
+            raise ValueError(f"Failed to create morphology: {str(e)}")
+    
+    def update_morphology(self, morphology_id: str, updates: Dict[str, Any]) -> bool:
+        """Update an existing morphology."""
+        try:
+            # This method should update an existing morphology
+            # For now, throw an error to indicate it's not implemented
+            raise NotImplementedError("Morphology update is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error updating morphology: {str(e)}")
+            raise ValueError(f"Failed to update morphology: {str(e)}")
+    
+    def delete_morphology(self, morphology_id: str) -> bool:
+        """Delete a morphology."""
+        try:
+            # This method should delete a morphology
+            # For now, throw an error to indicate it's not implemented
+            raise NotImplementedError("Morphology deletion is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error deleting morphology: {str(e)}")
+            raise ValueError(f"Failed to delete morphology: {str(e)}")
     
     def get_detailed_cortical_map(self) -> Dict[str, Any]:
         """Get detailed cortical map."""
