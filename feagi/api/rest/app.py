@@ -24,6 +24,7 @@ logger = setup_logger(name="api__server")
 logger.info("...")
 import json
 from pathlib import Path
+from typing import Dict, Any
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -412,6 +413,54 @@ async def set_api_state_ready():
     state = FeagiStateManager.instance()
     state.set_api_state(ServiceState.READY)
 
+def create_rest_app_direct(config: Dict[str, Any]):
+    """
+    RUST/RTOS COMPATIBLE: Factory function for REST app with direct dependency injection.
+    
+    This eliminates subprocess boundaries and environment variable dependencies,
+    making the code much easier to port to Rust where all services run as async tasks
+    in the same process space.
+    
+    Args:
+        config: Direct configuration with all dependencies:
+            - core_api: CoreAPIService instance
+            - state_manager: FeagiStateManager instance  
+            - connectome_manager: ConnectomeManager instance
+            - host: API server host
+            - port: API server port
+            - debug: Debug mode flag
+    """
+    logger.info("🔗 Creating REST app with direct dependency injection (Rust/RTOS compatible)", emoji1="🔗")
+    
+    # RUST/RTOS COMPATIBLE: Direct dependency injection instead of environment lookup
+    core_api_service = config['core_api']
+    state_manager = config['state_manager']
+    connectome_manager = config['connectome_manager']
+    
+    if not core_api_service:
+        raise RuntimeError("CoreAPIService is required for direct REST app creation")
+    
+    logger.info("✅ Using directly injected CoreAPIService and ConnectomeManager", emoji1="✅")
+    logger.info("🎯 All dependencies injected directly - no environment variables needed", emoji1="🎯")
+    
+    # Set the connectome instance for FastAPI dependency injection  
+    from feagi.api.rest.dependencies import set_connectome_instance
+    set_connectome_instance(connectome_manager)
+    
+    # Set core API service for dependency injection
+    from feagi.api.rest.dependencies import set_core_api_service_instance
+    set_core_api_service_instance(core_api_service)
+    
+    # For now, return the existing app instance (already configured with all routes)
+    # In future iterations, we can create a fresh app instance here
+    global app
+    
+    # Set state in FeagiStateManager
+    state_manager.set_api_state(ServiceState.READY)
+    logger.info("REST API state changed: UNAVAILABLE → READY", emoji1="🚦")
+    
+    return app
+
 def create_rest_app(connectome: ConnectomeManager = None):
     """Factory function to return the FastAPI app instance, with connectome dependency injection."""
     
@@ -424,38 +473,56 @@ def create_rest_app(connectome: ConnectomeManager = None):
         
         # CRITICAL FIX: In subprocess mode, we can't access parent's ProcessManager
         # Instead, use the singleton ConnectomeManager directly
-        try:
-            from feagi.bdu.connectome_manager import ConnectomeManager
-            connectome = ConnectomeManager.instance()
-            
-            # Create CoreAPIService with the singleton connectome
-            core_api_service = CoreAPIService(connectome)
-            
-            logger.info("✅ Successfully created CoreAPIService with singleton ConnectomeManager", emoji1="✅")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to create CoreAPIService with singleton ConnectomeManager: {e}", emoji1="❌")
-            raise RuntimeError(f"Singleton pattern violation: {str(e)}")
-    else:
-        # Standalone mode: create local instances
-        logger.info("🏠 Running in standalone mode, creating local CoreAPIService", emoji1="🏠")
+        from feagi.bdu.connectome_manager import ConnectomeManager
+        connectome = ConnectomeManager.instance()
+        logger.info("🎯 Created singleton ConnectomeManager instance", emoji1="🎯")
         
-        # If no connectome was provided, create a new one using singleton
+        # Create CoreAPIService with singleton instances
+        from feagi.core.state_manager import FeagiStateManager
+        from feagi.core import create_core_api
+        
+        state_manager = FeagiStateManager.instance()
+        core_api_service = create_core_api(connectome, {})
+        
+        if core_api_service:
+            logger.info("✅ Successfully created CoreAPIService with singleton ConnectomeManager", emoji1="✅")
+        else:
+            logger.error("❌ Failed to create CoreAPIService", emoji1="❌")
+            raise RuntimeError("Failed to create CoreAPIService")
+            
+        logger.info("🎯 FastAPI app configured with subprocess singleton services", emoji1="🎯")
+        
+    else:
+        # Standalone mode (development/testing)
+        logger.info("🏠 Running in standalone mode, creating new ConnectomeManager", emoji1="🏠")
+        
         if connectome is None:
             from feagi.bdu.connectome_manager import ConnectomeManager
-            connectome = ConnectomeManager.instance()
+            connectome = ConnectomeManager()
+            
+        # Create a basic CoreAPIService for standalone operation
+        from feagi.core import create_core_api
+        core_api_service = create_core_api(connectome, {})
         
-        # Create the core API service with the connectome
-        core_api_service = CoreAPIService(connectome)
-        
-        logger.info("✅ Created local CoreAPIService for standalone mode", emoji1="✅")
+        if not core_api_service:
+            logger.error("❌ Failed to create CoreAPIService in standalone mode", emoji1="❌")
+            raise RuntimeError("Failed to create CoreAPIService in standalone mode")
     
-    # Set the dependencies - CRITICAL for singleton pattern
-    from feagi.api.rest.dependencies import set_connectome_instance, set_core_api_service
+    # Set the connectome instance for FastAPI dependency injection  
+    from feagi.api.rest.dependencies import set_connectome_instance
     set_connectome_instance(connectome)
-    set_core_api_service(core_api_service)
     
-    logger.info(f"🎯 FastAPI app configured with {'subprocess singleton' if os.environ.get('FEAGI_INITIALIZED') == '1' else 'local'} services", emoji1="🎯")
+    # Set core API service for dependency injection
+    from feagi.api.rest.dependencies import set_core_api_service_instance
+    set_core_api_service_instance(core_api_service)
+    
+    # Return the existing app instance (already configured with all routes)
+    global app
+    
+    # Set state in FeagiStateManager
+    from feagi.core.state_manager import FeagiStateManager, ServiceState
+    state_manager = FeagiStateManager.instance()
+    state_manager.set_api_state(ServiceState.READY)
     
     return app
 

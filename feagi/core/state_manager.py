@@ -186,12 +186,31 @@ class ServiceState(Enum):
         return False
 
 class FeagiStateManager:
+    """
+    RUST/RTOS COMPATIBLE: High-performance memory-mapped state management system.
+    
+    This class provides near-zero overhead state synchronization between services
+    using memory-mapped files. The design translates directly to Rust using:
+    - memmap2 crate for memory mapping
+    - std::sync::atomic for atomic operations  
+    - std::sync::Once for singleton pattern
+    
+    Key Rust/RTOS benefits:
+    - No garbage collection interference
+    - Deterministic memory access patterns
+    - Lock-free state synchronization
+    - Cross-process shared memory support
+    """
     _instance = None
     _default_dir = "/tmp"
 
     @classmethod
     def instance(cls, path: Optional[str] = None):
-        """Singleton accessor for the state manager"""
+        """
+        RUST/RTOS COMPATIBLE: Singleton accessor for the state manager.
+        
+        In Rust, this would use std::sync::Once for thread-safe initialization.
+        """
         if cls._instance is None:
             if path is None:
                 # CRITICAL FIX: Check for shared state file from environment (subprocess mode)
@@ -209,7 +228,18 @@ class FeagiStateManager:
         return cls._instance
 
     def __init__(self, path: str):
-        """Initialize state manager with memory mapping to specified file path"""
+        """
+        RUST/RTOS COMPATIBLE: Initialize state manager with memory mapping.
+        
+        In Rust, this would use:
+        ```rust
+        use memmap2::MmapMut;
+        use std::fs::OpenOptions;
+        
+        let file = OpenOptions::new().read(true).write(true).create(true).open(path)?;
+        let mmap = unsafe { MmapMut::map_mut(&file)? };
+        ```
+        """
         size = ctypes.sizeof(FeagiStateStruct)
         # Create file if it doesn't exist or resize if too small
         if not os.path.exists(path) or os.path.getsize(path) != size:

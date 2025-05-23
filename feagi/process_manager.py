@@ -17,6 +17,7 @@ import threading
 import time
 from typing import Dict, Any, Optional, List, Tuple, Set
 from feagi.npu.burst_engine import FQSampler
+from feagi.core.state_manager import FeagiStateManager
 from queue import Queue
 import re
 
@@ -246,10 +247,8 @@ class ProcessManager:
         """
         Initialize Priority 3 (Background) processes.
         
-        These processes handle optional or background operations:
-        - Web Server (REST API)
-        - Stem Cell Manager
-        - Sleep Manager
+        RUST/RTOS COMPATIBLE: Uses direct task spawning instead of subprocesses.
+        All services run in the same process space with shared memory access.
         
         Args:
             config: Configuration parameters for the processes
@@ -260,100 +259,50 @@ class ProcessManager:
         logger.info("Initializing background (Priority 3) processes...")
         
         try:
-            # Start the REST API server
+            # RUST/RTOS COMPATIBLE: Direct service instantiation instead of subprocess
             api_config = config.get("api", {})
             api_host = api_config.get("host", "127.0.0.1")
             api_port = self.find_available_port(api_config.get("port", 8000))
-            api_reload = api_config.get("reload", False)
-            api_debug = api_config.get("debug_api", False)
             
             if not api_port:
                 logger.error("Could not find available port for API server")
                 return False
-                
-            # Build the command to start the API server
-            cmd = [
-                sys.executable, "-m", "uvicorn", 
-                "feagi.api.rest.app:create_rest_app", 
-                "--host", api_host,
-                "--port", str(api_port),
-                "--factory"
-            ]
             
-            if api_reload:
-                cmd.append("--reload")
+            # CRITICAL REFACTOR: Create REST API service directly in same process
+            # This eliminates subprocess boundaries and makes Rust migration trivial
             
-            # Set environment variables for ZMQ configuration
-            env = os.environ.copy()
-            env["FEAGI_INITIALIZED"] = "1"
-            
-            # CRITICAL FIX: Pass the shared state file path to subprocess
-            # This ensures both processes use the same memory-mapped state
-            from feagi.core.state_manager import FeagiStateManager
-            state_manager = FeagiStateManager.instance()
-            env["FEAGI_STATE_FILE"] = state_manager.path
-            logger.info(f"Passing shared state file to subprocess: {state_manager.path}")
-            
-            # Set debug API logging flag
-            env["FEAGI_DEBUG_API"] = "1" if api_debug else "0"
-            
-            # Check if ZMQ server is available and set related env vars
-            if self._zmq_server:
-                env["FEAGI_ZMQ_ENABLED"] = "1"
-                env["FEAGI_ZMQ_HOST"] = self._zmq_server.host
-                env["FEAGI_ZMQ_REQ_PORT"] = str(self._zmq_server.req_rep_port)
-                env["FEAGI_ZMQ_PUB_PORT"] = str(self._zmq_server.pub_sub_port)
-                env["FEAGI_ZMQ_PUSH_PORT"] = str(self._zmq_server.push_pull_port)
-                env["FEAGI_ZMQ_STREAM_PORT"] = str(self._zmq_server.sensory_port)
-            else:
-                env["FEAGI_ZMQ_ENABLED"] = "0"
-                
-            # Set environment variable for core API
-            if self._core_api:
-                env["FEAGI_CORE_API_AVAILABLE"] = "1"
-            else:
-                env["FEAGI_CORE_API_AVAILABLE"] = "0"
-                
-            # Start the API server process
-            logger.info(f"Starting FEAGI API server on {api_host}:{api_port}", emoji1="  ")
-            
-            process = subprocess.Popen(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT,
-                env=env,
-                universal_newlines=True,
-                bufsize=1
-            )
-            
-            # Store process information
-            self._processes["api_server"] = {
-                "process": process,
-                "priority": PRIORITY_BACKGROUND,
-                "start_time": time.time(),
-                "config": api_config
+            # Direct dependency injection - no environment variables needed
+            api_service_config = {
+                'core_api': self._core_api,
+                'state_manager': FeagiStateManager.instance(),
+                'connectome_manager': self._connectome_manager,
+                'host': api_host,
+                'port': api_port,
+                'debug': api_config.get("debug_api", False)
             }
             
-            # Wait briefly to see if the server starts up successfully
-            time.sleep(0.5)
-            rc = process.poll()
-            if rc is not None:
-                logger.error(f"API server exited immediately with code {rc}")
-                logger.error("API server failed to start - check the logs for details")
-                self._print_process_output(process)
+            # Create and start the API service as an async task (not subprocess)
+            api_task = self._start_api_service_task(api_service_config)
+            
+            if not api_task:
+                logger.error("Failed to start API service task")
                 return False
                 
-            # Start a thread to monitor the API server output
-            threading.Thread(
-                target=self._monitor_process_output,
-                args=(process, "api_server"),
-                daemon=True
-            ).start()
+            # Store task information instead of process information
+            self._processes["api_server"] = {
+                "task": api_task,
+                "priority": PRIORITY_BACKGROUND,
+                "start_time": time.time(),
+                "config": api_config,
+                "type": "async_task"  # Mark as task, not process
+            }
             
-            logger.info(f"API server started with PID {process.pid}")
+            logger.info(f"API service started as async task on {api_host}:{api_port}")
             
-            # Initialize additional background processes here in the future
-            # such as Stem Cell Manager, Sleep Manager, etc.
+            # Future: Add other background services here as direct tasks
+            # - Stem Cell Manager Task
+            # - Sleep Manager Task
+            # - Monitoring Task
             
             logger.info("✓ Background processes initialized successfully", emoji1="✓ ")
             return True
@@ -361,7 +310,52 @@ class ProcessManager:
         except Exception as e:
             logger.error(f"Failed to initialize background processes: {e}")
             return False
+    
+    def _start_api_service_task(self, config: Dict[str, Any]) -> Optional[Any]:
+        """
+        Start API service as async task instead of subprocess.
+        
+        RUST/RTOS COMPATIBLE: This pattern translates directly to Rust async tasks.
+        """
+        try:
+            import asyncio
+            import threading
             
+            # Create dedicated event loop for API service
+            # In Rust, this would be a tokio::spawn() call
+            def run_api_service():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                try:
+                    # Import and create FastAPI app with direct dependencies
+                    from feagi.api.rest.app import create_rest_app_direct
+                    app = create_rest_app_direct(config)
+                    
+                    # Run uvicorn in the same process
+                    import uvicorn
+                    uvicorn.run(
+                        app, 
+                        host=config['host'], 
+                        port=config['port'],
+                        loop="asyncio"
+                    )
+                except Exception as e:
+                    logger.error(f"API service task failed: {e}")
+                finally:
+                    loop.close()
+            
+            # Start as daemon thread (in Rust: tokio::spawn with proper task management)
+            api_thread = threading.Thread(target=run_api_service, daemon=True)
+            api_thread.start()
+            
+            logger.info("✓ API service task started successfully", emoji1="✓ ")
+            return api_thread
+            
+        except Exception as e:
+            logger.error(f"Failed to start API service task: {e}")
+            return None
+    
     def _monitor_process_output(self, process, process_name):
         """Monitor and log output from a subprocess."""
         # Pattern to match log lines with emoji and log level
@@ -490,18 +484,34 @@ class ProcessManager:
         self._monitor_thread.start()
     
     def _check_processes(self):
-        """Check all processes and restart any that have failed."""
-        # Check API server process
-        api_process = self._processes.get("api_server")
-        if api_process:
-            process = api_process["process"]
-            if process.poll() is not None:
-                # Process has exited
-                exit_code = process.poll()
-                logger.error(f"API server exited with code {exit_code}")
-                
-                # TODO: Implement restart logic if needed
-                
+        """
+        Check all tasks and processes and restart any that have failed.
+        
+        RUST/RTOS COMPATIBLE: Monitors both async tasks and legacy processes.
+        In Rust, this would be integrated with the async runtime's task monitoring.
+        """
+        for name, service_info in self._processes.items():
+            service_type = service_info.get("type", "process")  # Default to legacy process
+            
+            if service_type == "async_task":
+                # RUST/RTOS COMPATIBLE: Monitor async task health
+                task = service_info.get("task")
+                if task and hasattr(task, 'is_alive'):
+                    if not task.is_alive():
+                        logger.error(f"Async task {name} has stopped unexpectedly")
+                        # TODO: Implement task restart logic if needed
+                        # In Rust: respawn the task with tokio::spawn
+                else:
+                    logger.warning(f"Task {name} doesn't support health checking")
+            else:
+                # Legacy subprocess monitoring (will be removed in full Rust migration)
+                process = service_info.get("process")
+                if process and process.poll() is not None:
+                    # Process has exited
+                    exit_code = process.poll()
+                    logger.error(f"Process {name} exited with code {exit_code}")
+                    # TODO: Implement restart logic if needed
+    
     def get_core_api(self):
         """Get the Core API instance."""
         return self._core_api
@@ -511,21 +521,46 @@ class ProcessManager:
         return self._zmq_server
         
     def shutdown(self) -> None:
-        """Shut down the Process Manager and all managed processes."""
+        """
+        Shut down the Process Manager and all managed tasks/processes.
+        
+        RUST/RTOS COMPATIBLE: Handles both async tasks and legacy processes.
+        In Rust, this would be a clean async task cancellation system.
+        """
         # @cursor:critical-path - Signal-safe shutdown should minimize logging
         try:
-            print("Shutting down FEAGI servers...", file=sys.stderr, flush=True)
+            print("Shutting down FEAGI services...", file=sys.stderr, flush=True)
             
-            # First, terminate the API server if it's running
-            if "api_server" in self._processes:
-                api_process = self._processes["api_server"]["process"]
-                if api_process and api_process.poll() is None:
-                    try:
-                        api_process.terminate()
-                        api_process.wait(timeout=2)
-                    except:
-                        if api_process.poll() is None:
-                            api_process.kill()
+            # Stop running flag to signal all services to stop
+            self._running = False
+            
+            # Shutdown tasks and processes based on their type
+            for name, service_info in self._processes.items():
+                service_type = service_info.get("type", "process")  # Default to legacy process
+                
+                if service_type == "async_task":
+                    # RUST/RTOS COMPATIBLE: Clean task shutdown
+                    print(f"Stopping async task: {name}...", file=sys.stderr, flush=True)
+                    task = service_info.get("task")
+                    if task and hasattr(task, 'is_alive') and task.is_alive():
+                        try:
+                            # In Rust: task.cancel().await or similar
+                            # For now, just signal the thread to stop gracefully
+                            # The actual service should check self._running flag
+                            task.join(timeout=2)
+                        except Exception as e:
+                            print(f"Error stopping task {name}: {e}", file=sys.stderr, flush=True)
+                else:
+                    # Legacy subprocess handling (will be removed in full Rust migration)
+                    print(f"Terminating subprocess: {name}...", file=sys.stderr, flush=True)
+                    process = service_info.get("process")
+                    if process and process.poll() is None:
+                        try:
+                            process.terminate()
+                            process.wait(timeout=2)
+                        except:
+                            if process.poll() is None:
+                                process.kill()
                         
             # Next, shut down the ZMQ server
             if self._zmq_server:
@@ -534,20 +569,6 @@ class ProcessManager:
                     self._zmq_server.shutdown()
                 except Exception as e:
                     print(f"Error shutting down ZMQ server: {e}", file=sys.stderr, flush=True)
-                
-            # Finally, clean up any other managed processes
-            for name, process_info in self._processes.items():
-                if name == "api_server":
-                    continue  # Already handled above
-                    
-                process = process_info.get("process")
-                if process and process.poll() is None:
-                    try:
-                        process.terminate()
-                        process.wait(timeout=2)
-                    except:
-                        if process.poll() is None:
-                            process.kill()
             
             # Stop FQSampler if running
             if hasattr(self, '_fq_sampler') and self._fq_sampler:
@@ -562,7 +583,7 @@ class ProcessManager:
                 except Exception as e:
                     print(f"Error stopping FQSampler: {e}", file=sys.stderr, flush=True)
             
-            print("FEAGI servers shut down", file=sys.stderr, flush=True)
+            print("FEAGI services shut down", file=sys.stderr, flush=True)
             
         except Exception as e:
             # Last resort error handling - print to stderr and continue
