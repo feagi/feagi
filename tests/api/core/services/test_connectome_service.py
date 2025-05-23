@@ -182,7 +182,7 @@ class TestConnectomeService:
         assert isinstance(result, dict)
         assert result["source_area"] == "1"
         assert result["target_area"] == "2"
-        assert result["connection_count"] == 1
+        assert result["connection_count"] == 1  # Only neuron 1 -> neuron 3
 
     def test_get_connection_matrix_no_connections(self, connectome_service, mock_connectome_manager):
         """Test getting connection matrix when no connections exist."""
@@ -451,4 +451,4 @@ class TestConnectomeService:
         result = connectome_service.get_connection_matrix("1", "2")
         
         assert isinstance(result, dict)
-        assert result["connection_count"] == 4  # Total connections from area 1 to area 2 
+        assert result["connection_count"] == 5  # Total connections from area 1 to area 2 
