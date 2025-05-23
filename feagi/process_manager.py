@@ -336,6 +336,16 @@ class ProcessManager:
             import asyncio
             import threading
             
+            # CRITICAL FIX: Ensure state synchronization between main process and FastAPI thread
+            # Set environment variable so FastAPI thread uses the same state file
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            if hasattr(state_manager, 'path'):
+                os.environ["FEAGI_STATE_FILE"] = state_manager.path
+                logger.info(f"🔗 Sharing state file with FastAPI thread: {state_manager.path}")
+            else:
+                logger.warning("⚠️  State manager has no path attribute")
+            
             # Create dedicated event loop for API service
             # In Rust, this would be a tokio::spawn() call
             def run_api_service():

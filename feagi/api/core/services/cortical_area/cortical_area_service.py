@@ -105,7 +105,7 @@ class CorticalAreaService(BaseService):
                             "height": area.dimensions[1],
                             "depth": area.dimensions[2]
                         },
-                        "type": area.type,
+                        "type": area.area_type,
                         "parameters": area.properties,
                         "neuron_count": neuron_count
                     })
@@ -163,7 +163,7 @@ class CorticalAreaService(BaseService):
                     "height": area.dimensions[1],
                     "depth": area.dimensions[2]
                 },
-                "type": area.type,
+                "type": area.area_type,
                 "parameters": area.properties,
                 "neuron_count": neuron_count
             }
@@ -213,7 +213,7 @@ class CorticalAreaService(BaseService):
                 "name": area.name,
                 "coordinates": coordinates,
                 "dimensions": dimensions,
-                "type": area.type,
+                "type": area.area_type,
                 "parameters": area.properties,
                 "neuron_count": 0  # New area has no neurons yet
             }
@@ -271,7 +271,7 @@ class CorticalAreaService(BaseService):
                 area.dimensions = (dimensions["width"], dimensions["height"], dimensions["depth"])
             
             if area_type is not None:
-                area.type = area_type
+                area.area_type = area_type
             
             if parameters is not None:
                 area.properties.update(parameters)
@@ -292,7 +292,7 @@ class CorticalAreaService(BaseService):
                     "height": area.dimensions[1],
                     "depth": area.dimensions[2]
                 },
-                "type": area.type,
+                "type": area.area_type,
                 "parameters": area.properties,
                 "neuron_count": neuron_count
             }
