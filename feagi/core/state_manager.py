@@ -20,8 +20,7 @@ from feagi.utils.logger import setup_logger
 import datetime
 from contextlib import contextmanager
 
-# Need to add this at the top of the file with the other imports
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 # def feagi_logger(name="app", level=logging.DEBUG):
@@ -195,8 +194,17 @@ class FeagiStateManager:
         """Singleton accessor for the state manager"""
         if cls._instance is None:
             if path is None:
-                timestamp = int(time.time())
-                path = f"{cls._default_dir}/feagi_state_{timestamp}.bin"
+                # CRITICAL FIX: Check for shared state file from environment (subprocess mode)
+                import os
+                shared_state_file = os.environ.get("FEAGI_STATE_FILE")
+                if shared_state_file:
+                    path = shared_state_file
+                    logger.info(f"🔗 Using shared state file from environment: {path}")
+                else:
+                    # Create new state file (main process mode)
+                    timestamp = int(time.time())
+                    path = f"{cls._default_dir}/feagi_state_{timestamp}.bin"
+                    logger.info(f"🏠 Creating new state file: {path}")
             cls._instance = cls(path)
         return cls._instance
 

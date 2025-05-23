@@ -113,17 +113,17 @@ def main():
         logger.error("Dependency check failed. Please install required dependencies.")
         return 1
     
-    # Initialize the main connectome instance
+    # Initialize the main connectome instance using singleton pattern
     from feagi.bdu.connectome_manager import ConnectomeManager
-    connectome = ConnectomeManager()
+    connectome = ConnectomeManager.instance()
     
     # Set the connectome instance for FastAPI dependency injection
     from feagi.api.rest.dependencies import set_connectome_instance
     set_connectome_instance(connectome)
     
-    # Initialize process manager with the singleton connectome
+    # Initialize the ProcessManager with the connectome  
     from feagi.process_manager import get_process_manager
-    process_manager = get_process_manager(connectome=connectome)
+    process_manager = get_process_manager()
     
     # Set up signal handlers for graceful shutdown
     def signal_handler(sig, frame):

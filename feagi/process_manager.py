@@ -37,8 +37,8 @@ class ProcessManager:
     4. Fault Tolerance: Restarts failed processes and maintains system integrity.
     """
     
-    def __init__(self, connectome=None):
-        """Initialize the Process Manager."""
+    def __init__(self):
+        """Initialize the Process Manager with singleton ConnectomeManager."""
         self._processes = {}
         self._resource_allocations = {}
         self._running = False
@@ -46,9 +46,12 @@ class ProcessManager:
         self._core_api = None
         self._zmq_server = None
         
+        # CRITICAL: Use ConnectomeManager singleton for mission-critical reliability
+        from feagi.bdu.connectome_manager import ConnectomeManager
+        self._connectome_manager = ConnectomeManager.instance()
+        
         # Internal references for critical components
         self._burst_engine = None
-        self._connectome_manager = connectome
         self._fcl_manager = None
         self._memory_manager = None
         
@@ -280,16 +283,16 @@ class ProcessManager:
             if api_reload:
                 cmd.append("--reload")
             
-            # Set uvicorn log level based on debug-api flag
-            # TODO: Re-enable after testing if this is causing startup issues
-            # if api_debug:
-            #     cmd.extend(["--log-level", "info"])  # Show detailed uvicorn logs when debugging
-            # else:
-            #     cmd.extend(["--log-level", "warning"])  # Suppress uvicorn access logs when not debugging
-            
             # Set environment variables for ZMQ configuration
             env = os.environ.copy()
             env["FEAGI_INITIALIZED"] = "1"
+            
+            # CRITICAL FIX: Pass the shared state file path to subprocess
+            # This ensures both processes use the same memory-mapped state
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            env["FEAGI_STATE_FILE"] = state_manager.path
+            logger.info(f"Passing shared state file to subprocess: {state_manager.path}")
             
             # Set debug API logging flag
             env["FEAGI_DEBUG_API"] = "1" if api_debug else "0"
@@ -580,12 +583,11 @@ class ProcessManager:
 # Global instance for the process manager
 _process_manager = None
 
-def get_process_manager(connectome=None) -> ProcessManager:
+def get_process_manager() -> ProcessManager:
     """Get the global ProcessManager instance."""
     global _process_manager
     if _process_manager is None:
-        _process_manager = ProcessManager(connectome=connectome)
-    # If instance already exists, ignore connectome parameter to maintain singleton pattern
+        _process_manager = ProcessManager()
     return _process_manager
 
 # Removed the global process_manager instantiation that was here 

@@ -60,64 +60,31 @@ class SystemService(BaseService):
                 health["brain_readiness"] = self.state_manager.get_brain_readiness()
                 health["fitness"] = getattr(self.state_manager, 'genome_fitness', None)
                 
-                # Get brain statistics - prioritize state manager data (now should be synchronized)
-                brain_stats = getattr(self.state_manager, 'brain_stats', {})
-                cortical_list = getattr(self.state_manager, 'cortical_list', [])
-                
-                # Use state manager data if available (preferred after sync)
-                if brain_stats and isinstance(brain_stats, dict):
-                    connectome_neuron_count = brain_stats.get("neuron_count", 0)
-                    connectome_synapse_count = brain_stats.get("synapse_count", 0)
-                    cortical_area_count = brain_stats.get("cortical_area_count", len(cortical_list))
+                # Get data from connectome manager (now properly singleton)
+                if self._validate_connectome_ready():
+                    health["cortical_area_count"] = len(self._connectome_manager.cortical_areas)
+                    health["neuron_count"] = len(self._connectome_manager.neurons)
+                    health["synapse_count"] = self._connectome_manager.get_synapse_count()
+                    
+                    # Estimate brain size 
+                    neuron_size_mb = len(self._connectome_manager.neurons) * 0.001  # ~1KB per neuron
+                    synapse_size_mb = self._connectome_manager.get_synapse_count() * 0.0001  # ~100B per synapse  
+                    health["estimated_brain_size_in_MB"] = round(neuron_size_mb + synapse_size_mb, 2)
                 else:
-                    # Fallback: get data directly from connectome manager
-                    connectome_neuron_count = 0
-                    connectome_synapse_count = 0
-                    cortical_area_count = 0
-                    
-                    try:
-                        # Access connectome manager through the parent service if available
-                        if hasattr(self, '_connectome_manager') and self._connectome_manager:
-                            # Get cortical area count from connectome manager
-                            if hasattr(self._connectome_manager, 'cortical_areas'):
-                                cortical_area_count = len(self._connectome_manager.cortical_areas)
-                            
-                            # Get neuron count if method exists
-                            if hasattr(self._connectome_manager, 'get_total_neuron_count'):
-                                connectome_neuron_count = self._connectome_manager.get_total_neuron_count()
-                            
-                            # Get synapse count if method exists
-                            if hasattr(self._connectome_manager, 'get_total_synapse_count'):
-                                connectome_synapse_count = self._connectome_manager.get_total_synapse_count()
-                        
-                        # Final fallback: try to get from genome blueprint
-                        if cortical_area_count == 0:
-                            genome_data = getattr(self.state_manager, 'genome', None)
-                            if genome_data:
-                                blueprint = genome_data.get('blueprint', {})
-                                if blueprint:
-                                    # Count unique cortical IDs from blueprint keys
-                                    cortical_ids = set()
-                                    for key in blueprint.keys():
-                                        parts = key.split('-')
-                                        if len(parts) >= 2:
-                                            cortical_ids.add(parts[1])
-                                    cortical_area_count = len(cortical_ids)
-                    
-                    except Exception as e:
-                        self.logger.warning(f"Error getting connectome data during health check: {e}")
-                
-                # Estimate brain size in MB using a formula
-                connectome_size = 3E-08 * connectome_neuron_count ** 2 + 0.0011 * connectome_neuron_count + 2.9073
-                
-                health["cortical_area_count"] = cortical_area_count
-                health["neuron_count"] = connectome_neuron_count
-                health["synapse_count"] = connectome_synapse_count
-                health["estimated_brain_size_in_MB"] = connectome_size
+                    # Fallback to zero values if connectome not ready
+                    health["cortical_area_count"] = 0
+                    health["neuron_count"] = 0
+                    health["synapse_count"] = 0
+                    health["estimated_brain_size_in_MB"] = 0.0
             else:
                 health["genome_availability"] = False
-                health["brain_readiness"] = self.state_manager.get_brain_readiness()
-                
+                health["brain_readiness"] = False
+                health["fitness"] = None
+                health["cortical_area_count"] = 0
+                health["neuron_count"] = 0
+                health["synapse_count"] = 0
+                health["estimated_brain_size_in_MB"] = 0.0
+            
             health["genome_validity"] = getattr(self.state_manager, 'genome_validity', None)
             
             # Check for pending amalgamation

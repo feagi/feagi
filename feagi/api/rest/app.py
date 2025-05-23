@@ -18,11 +18,11 @@ import traceback
 import time
 import string
 import random
+import os
 from feagi.utils.logger import setup_logger
 logger = setup_logger(name="api__server")
 logger.info("...")
 import json
-import os
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, Request
@@ -415,19 +415,47 @@ async def set_api_state_ready():
 def create_rest_app(connectome: ConnectomeManager = None):
     """Factory function to return the FastAPI app instance, with connectome dependency injection."""
     
-    # If no connectome was provided, create a new one
-    if connectome is None:
-        connectome = ConnectomeManager()
+    # CRITICAL FIX: Ensure true singleton pattern for mission-critical reliability
+    core_api_service = None
     
-    # Set the connectome in the dependencies module, not in a local variable
+    # Check if we're running as part of the main FEAGI process (singleton mode)
+    if os.environ.get("FEAGI_INITIALIZED") == "1":
+        logger.info("🔗 Running in FEAGI subprocess, using singleton ConnectomeManager", emoji1="🔗")
+        
+        # CRITICAL FIX: In subprocess mode, we can't access parent's ProcessManager
+        # Instead, use the singleton ConnectomeManager directly
+        try:
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            connectome = ConnectomeManager.instance()
+            
+            # Create CoreAPIService with the singleton connectome
+            core_api_service = CoreAPIService(connectome)
+            
+            logger.info("✅ Successfully created CoreAPIService with singleton ConnectomeManager", emoji1="✅")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create CoreAPIService with singleton ConnectomeManager: {e}", emoji1="❌")
+            raise RuntimeError(f"Singleton pattern violation: {str(e)}")
+    else:
+        # Standalone mode: create local instances
+        logger.info("🏠 Running in standalone mode, creating local CoreAPIService", emoji1="🏠")
+        
+        # If no connectome was provided, create a new one using singleton
+        if connectome is None:
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            connectome = ConnectomeManager.instance()
+        
+        # Create the core API service with the connectome
+        core_api_service = CoreAPIService(connectome)
+        
+        logger.info("✅ Created local CoreAPIService for standalone mode", emoji1="✅")
+    
+    # Set the dependencies - CRITICAL for singleton pattern
     from feagi.api.rest.dependencies import set_connectome_instance, set_core_api_service
     set_connectome_instance(connectome)
-    
-    # Create the core API service with the initialized connectome
-    core_api_service = CoreAPIService(connectome)
-    
-    # Make it available to routers
     set_core_api_service(core_api_service)
+    
+    logger.info(f"🎯 FastAPI app configured with {'subprocess singleton' if os.environ.get('FEAGI_INITIALIZED') == '1' else 'local'} services", emoji1="🎯")
     
     return app
 

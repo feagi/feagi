@@ -44,7 +44,41 @@ class ConnectomeManager:
     The ConnectomeManager provides a comprehensive interface for all operations
     on the connectome, including neuron creation/deletion, synapse management,
     cortical area management, and simulation operations.
+    
+    This class implements a singleton pattern to ensure mission-critical reliability
+    and performance in FEAGI's multi-process architecture.
     """
+    
+    # Singleton pattern implementation
+    _instance = None
+    _initialized = False
+    
+    @classmethod
+    def instance(cls, config_or_max_neurons=10_000_000, max_synapses=100_000_000):
+        """Get the singleton instance of ConnectomeManager.
+        
+        Args:
+            config_or_max_neurons: Either a FeagiConfig object or the maximum number of neurons (only used on first call)
+            max_synapses: Maximum number of synapses (only used on first call and if first parameter is an integer)
+            
+        Returns:
+            The singleton ConnectomeManager instance
+        """
+        if cls._instance is None:
+            cls._instance = cls.__new__(cls)
+            cls._instance.__init__(config_or_max_neurons, max_synapses)
+            cls._initialized = True
+            logger.info("🎯 Created singleton ConnectomeManager instance", extra={'emoji': '🎯'})
+        else:
+            logger.debug("🔗 Returning existing ConnectomeManager singleton", extra={'emoji': '🔗'})
+        return cls._instance
+    
+    def __new__(cls, *args, **kwargs):
+        """Override __new__ to enforce singleton pattern."""
+        if cls._instance is not None:
+            logger.warning("⚠️ Attempted to create multiple ConnectomeManager instances - returning singleton", extra={'emoji': '⚠️'})
+            return cls._instance
+        return super().__new__(cls)
     
     def __init__(self, config_or_max_neurons=10_000_000, max_synapses=100_000_000):
         """Initialize the ConnectomeManager.
@@ -53,6 +87,11 @@ class ConnectomeManager:
             config_or_max_neurons: Either a FeagiConfig object or the maximum number of neurons in the connectome
             max_synapses: Maximum number of synapses in the connectome (only used if first parameter is an integer)
         """
+        # Prevent re-initialization of singleton
+        if self._initialized:
+            logger.debug("🔒 ConnectomeManager already initialized - skipping re-initialization", extra={'emoji': '🔒'})
+            return
+        
         # Handle either a config object or direct integers
         if hasattr(config_or_max_neurons, 'get'):
             # This is a FeagiConfig object
