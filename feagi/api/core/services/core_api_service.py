@@ -299,6 +299,10 @@ class CoreAPIService:
         """Stimulate specific neurons with given intensity."""
         return self._brain_service.stimulate_neurons(neuron_ids, intensity)
 
+    def get_burst_engine_config(self) -> Dict[str, Any]:
+        """Get burst engine configuration."""
+        return self._brain_service.get_burst_engine_config()
+
     # =================================================================
     # AGENTS SERVICE DELEGATION
     # =================================================================
@@ -406,3 +410,8 @@ class CoreAPIService:
     
     # Add any legacy method aliases or compatibility methods here if needed
     # For now, all existing methods are preserved with their exact signatures 
+
+    # Legacy method aliases for backward compatibility
+    def get_cortical_areas(self) -> List[Dict[str, Any]]:
+        """Get all cortical areas (alias for get_all_cortical_areas)."""
+        return self.get_all_cortical_areas() 

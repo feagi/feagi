@@ -214,8 +214,13 @@ class SystemService(BaseService):
     def reset_fcl(self) -> bool:
         """Reset the Fire Candidate List."""
         try:
+            # First try the connectome manager's reset_fcl method
             if hasattr(self._connectome_manager, 'reset_fcl'):
                 self._connectome_manager.reset_fcl()
+                return True
+            # Then try the FCL manager's reset method
+            elif hasattr(self._connectome_manager, 'fcl_manager') and hasattr(self._connectome_manager.fcl_manager, 'reset'):
+                self._connectome_manager.fcl_manager.reset()
                 return True
             else:
                 self.logger.warning("Connectome manager does not support FCL reset")

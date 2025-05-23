@@ -22,7 +22,7 @@ import zmq.asyncio
 if TYPE_CHECKING:
     from .server import ZMQServer
 
-from ...core.services.core_api_service import CoreAPIService
+from ..core.services.core_api_service import CoreAPIService
 from feagi.core.state_manager import GenomeState
 from feagi.api.protocols import ProtocolID
 

@@ -38,7 +38,7 @@ from .patterns.push_pull import PushPullManager
 from .connection_manager import ConnectionManager
 
 # Import the unified CoreAPIService
-from ...core.services.core_api_service import CoreAPIService
+from ..core.services.core_api_service import CoreAPIService
 
 logger = setup_logger()
 
@@ -63,7 +63,6 @@ except ImportError:
 
 from zmq.auth.thread import ThreadAuthenticator
 
-from ...core.services.core_api_service import CoreAPIService
 from .rest_adapter import ZMQRestAPIAdapter  # Import the REST API adapter
 
 # Import protocol definitions

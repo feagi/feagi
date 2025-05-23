@@ -201,25 +201,45 @@ class BrainService(BaseService):
             
             for neuron_id in neuron_ids:
                 try:
-                    neuron_id_int = int(neuron_id)
-                    neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id_int)
-                    
-                    if neuron_index is not None:
-                        # Add stimulation to membrane potential
-                        current_potential = self._connectome_manager.membrane_potentials[neuron_index]
-                        self._connectome_manager.membrane_potentials[neuron_index] = current_potential + intensity
-                        stimulated_count += 1
-                    else:
+                    neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
+                    if neuron_index is None:
                         failed_count += 1
-                except ValueError:
+                        continue
+                    
+                    # Apply stimulation by setting membrane potential
+                    self._connectome_manager.membrane_potentials[neuron_index] = intensity
+                    stimulated_count += 1
+                except Exception as e:
+                    self.logger.warning(f"Failed to stimulate neuron {neuron_id}: {str(e)}")
                     failed_count += 1
             
             return {
                 "success": True,
-                "stimulated_neurons": stimulated_count,
-                "failed_neurons": failed_count,
+                "stimulated_count": stimulated_count,
+                "failed_count": failed_count,
+                "total_requested": len(neuron_ids),
                 "intensity": intensity
             }
         except Exception as e:
             self.logger.error(f"Error stimulating neurons: {str(e)}")
-            return {"success": False, "error": str(e)} 
+            return {"success": False, "error": str(e)}
+
+    def get_burst_engine_config(self) -> Dict[str, Any]:
+        """Get burst engine configuration."""
+        try:
+            if not self.state_manager:
+                return {"error": "State manager not available"}
+            
+            # Get configuration from state manager or use defaults
+            config = {
+                "burst_frequency_hz": getattr(self.state_manager, 'burst_frequency', 1.0),
+                "max_neurons_per_burst": getattr(self.state_manager, 'max_neurons_per_burst', 1000),
+                "burst_timeout_ms": getattr(self.state_manager, 'burst_timeout', 1000),
+                "auto_restart": getattr(self.state_manager, 'auto_restart', True),
+                "performance_mode": getattr(self.state_manager, 'performance_mode', "normal")
+            }
+            
+            return config
+        except Exception as e:
+            self.logger.error(f"Error getting burst engine config: {str(e)}")
+            return {"error": str(e)} 
