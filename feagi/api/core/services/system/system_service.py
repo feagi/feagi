@@ -4,6 +4,7 @@ import sys
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from ..shared.base_service import BaseService
+from feagi.core.state_manager import ServiceState
 
 
 class SystemService(BaseService):
@@ -41,7 +42,26 @@ class SystemService(BaseService):
                     self.logger.info("State synchronization successful")
                 
             # Basic health metrics
-            health["burst_engine"] = not getattr(self.state_manager, 'exit_condition', False)
+            # ENFORCE DESIGN PRINCIPLE: If genome is loaded, burst engine MUST be running
+            genome_loaded = self.state_manager.is_genome_loaded()
+            burst_state = self.state_manager.get_burst_engine_state()
+            
+            # Allow ON_HOLD as a valid state when genome is loaded (user intentionally paused)
+            valid_states_with_genome = [ServiceState.READY, ServiceState.ON_HOLD]
+            
+            if genome_loaded and burst_state not in valid_states_with_genome:
+                self.logger.warning("DESIGN VIOLATION: Genome loaded but burst engine not running - auto-fixing")
+                try:
+                    # Auto-start burst engine to enforce design principle
+                    self.state_manager.exit_condition = False
+                    self.state_manager.set_burst_engine_state(ServiceState.READY)
+                    self.logger.info("Auto-started burst engine to enforce design principle")
+                    burst_state = ServiceState.READY
+                except Exception as e:
+                    self.logger.error(f"Failed to auto-start burst engine: {str(e)}")
+            
+            # Health check: burst engine is "healthy" if READY or ON_HOLD
+            health["burst_engine"] = burst_state in [ServiceState.READY, ServiceState.ON_HOLD]
             health["connected_agents"] = getattr(self.state_manager, 'connected_agents', None)
             health["influxdb_availability"] = bool(getattr(self.state_manager, 'influxdb', False))
             

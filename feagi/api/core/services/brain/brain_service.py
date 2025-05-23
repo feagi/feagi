@@ -40,6 +40,12 @@ class BrainService(BaseService):
             
             # Clear exit condition to start the burst engine
             self.state_manager.exit_condition = False
+            
+            # CRITICAL: Set burst engine state to READY 
+            from feagi.core.state_manager import ServiceState
+            self.state_manager.set_burst_engine_state(ServiceState.READY)
+            
+            self.logger.info("Burst engine started via BrainService")
             return True
         except Exception as e:
             self.logger.error(f"Error starting burst engine: {str(e)}")
@@ -53,9 +59,61 @@ class BrainService(BaseService):
             
             # Set exit condition to stop the burst engine
             self.state_manager.exit_condition = True
+            
+            # CRITICAL: Set burst engine state to UNAVAILABLE
+            from feagi.core.state_manager import ServiceState
+            self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
+            
+            self.logger.info("Burst engine stopped via BrainService")
             return True
         except Exception as e:
             self.logger.error(f"Error stopping burst engine: {str(e)}")
+            return False
+
+    def hold_burst_engine(self) -> bool:
+        """Put burst engine on hold (pause neural processing)."""
+        try:
+            if not self.state_manager:
+                return False
+            
+            # Check if burst engine is currently running
+            from feagi.core.state_manager import ServiceState
+            current_state = self.state_manager.get_burst_engine_state()
+            
+            if current_state != ServiceState.READY:
+                self.logger.warning(f"Cannot hold burst engine - current state: {current_state.name}")
+                return False
+            
+            # Set engine to ON_HOLD (keeps engine alive but pauses processing)
+            self.state_manager.set_burst_engine_state(ServiceState.ON_HOLD)
+            
+            self.logger.info("Burst engine put on hold - neural processing paused")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error putting burst engine on hold: {str(e)}")
+            return False
+
+    def resume_burst_engine(self) -> bool:
+        """Resume burst engine from hold (resume neural processing)."""
+        try:
+            if not self.state_manager:
+                return False
+            
+            # Check if burst engine is currently on hold
+            from feagi.core.state_manager import ServiceState
+            current_state = self.state_manager.get_burst_engine_state()
+            
+            if current_state != ServiceState.ON_HOLD:
+                self.logger.warning(f"Cannot resume burst engine - current state: {current_state.name}")
+                return False
+            
+            # Resume processing by setting state back to READY
+            self.state_manager.set_burst_engine_state(ServiceState.READY)
+            
+            self.logger.info("Burst engine resumed - neural processing active")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error resuming burst engine: {str(e)}")
             return False
 
     def get_brain_statistics(self) -> Dict[str, Any]:

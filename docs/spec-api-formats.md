@@ -86,6 +86,12 @@ The following legacy endpoints are directly supported:
 #### Burst Engine
 
 - GET `/v1/burst_engine/config` - Get burst engine configuration
+- GET `/v1/burst_engine/stimulation_period` - Get stimulation period (1/frequency)
+- GET `/v1/burst_engine/status` - Get burst engine status
+- POST `/v1/burst_engine/start` - Start the burst engine
+- POST `/v1/burst_engine/stop` - Stop the burst engine
+- POST `/v1/burst_engine/hold` - **NEW**: Put burst engine on hold (pause processing)
+- POST `/v1/burst_engine/resume` - **NEW**: Resume burst engine from hold
 
 ## Implementation Details
 

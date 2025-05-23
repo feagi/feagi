@@ -421,6 +421,14 @@ class CoreAPIService:
         """Get burst engine statistics."""
         return self._brain_service.get_brain_statistics()
 
+    def hold_burst_engine(self) -> bool:
+        """Put burst engine on hold (pause neural processing)."""
+        return self._brain_service.hold_burst_engine()
+
+    def resume_burst_engine(self) -> bool:
+        """Resume burst engine from hold (resume neural processing)."""
+        return self._brain_service.resume_burst_engine()
+
     # =================================================================
     # AGENTS SERVICE DELEGATION
     # =================================================================

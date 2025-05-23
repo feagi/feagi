@@ -139,6 +139,35 @@ class GenomeService(BaseService):
             
             self.logger.info(f"Loading genome from {filename}")
             
+            # STEP 1: START BURST ENGINE FIRST (new design requirement)
+            self.logger.info("Step 1: Starting burst engine before genome load")
+            if self.state_manager:
+                try:
+                    from feagi.api.core.services.brain.brain_service import BrainService
+                    from feagi.core.state_manager import ServiceState
+                    
+                    # Check current burst engine state
+                    current_state = self.state_manager.get_burst_engine_state()
+                    if current_state not in [ServiceState.READY, ServiceState.ON_HOLD]:
+                        # Need to start the burst engine
+                        brain_service = BrainService(self._connectome_manager, self.state_manager)
+                        burst_start_success = brain_service.start_burst_engine()
+                        
+                        if not burst_start_success:
+                            self.logger.error("CRITICAL: Failed to start burst engine - aborting genome load")
+                            return {"success": False, "error": "Failed to start burst engine - genome load aborted"}
+                        
+                        self.logger.info("✅ Burst engine started successfully")
+                    else:
+                        self.logger.info(f"✅ Burst engine already in acceptable state: {current_state.name}")
+                        
+                except Exception as engine_error:
+                    self.logger.error(f"CRITICAL: Error starting burst engine: {str(engine_error)}")
+                    return {"success": False, "error": f"Failed to start burst engine: {str(engine_error)}"}
+            
+            # STEP 2: PROCEED WITH GENOME LOADING (existing logic)
+            self.logger.info("Step 2: Proceeding with genome loading")
+            
             # Set brain readiness to False while loading
             if self.state_manager:
                 from feagi.core.state_manager import GenomeState
@@ -282,19 +311,31 @@ class GenomeService(BaseService):
                         from feagi.core.state_manager import ServiceState
                         burst_state = self.state_manager.get_burst_engine_state()
                         
-                        if burst_state != ServiceState.RUNNING:
+                        if burst_state != ServiceState.READY:
                             self.logger.info("Burst engine not running, starting automatically after genome load")
                             
-                            # Clear exit condition to start the burst engine
-                            self.state_manager.exit_condition = False
-                            
-                            self.logger.info("Burst engine started automatically")
+                            # Properly start the burst engine through the brain service
+                            try:
+                                from feagi.api.core.services.brain.brain_service import BrainService
+                                brain_service = BrainService(self._connectome_manager, self.state_manager)
+                                success = brain_service.start_burst_engine()
+                                if success:
+                                    self.logger.info("Burst engine started automatically")
+                                else:
+                                    self.logger.warning("Failed to start burst engine automatically")
+                            except Exception as start_error:
+                                self.logger.warning(f"Error starting burst engine: {str(start_error)}")
+                                # Fallback: Set exit condition to False (legacy method)
+                                self.state_manager.exit_condition = False
+                                self.logger.info("Used fallback method to start burst engine")
                         else:
                             self.logger.info("Burst engine already running")
                     else:
-                        # Fallback method - directly set exit_condition to False
+                        # Fallback method - directly set exit_condition to False and set burst engine state
                         self.logger.info("Starting burst engine using fallback method")
                         self.state_manager.exit_condition = False
+                        # Also set the burst engine state to READY
+                        self.state_manager.set_burst_engine_state(ServiceState.READY)
                         
                 except Exception as burst_error:
                     # Don't fail the genome loading if burst engine auto-start fails

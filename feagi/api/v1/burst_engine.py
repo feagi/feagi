@@ -17,6 +17,7 @@ from .schemas import (
 )
 from .decorators import endpoint
 from pydantic import BaseModel
+from fastapi import HTTPException, Depends
 
 logger = setup_logger(__name__)
 
@@ -263,6 +264,30 @@ class BurstEngineAPI:
         except Exception as e:
             logger.error(f"Error updating membrane potentials: {e}")
             raise ValueError(f"Failed to update membrane potentials: {str(e)}")
+
+    @burst_engine_endpoint('POST', '/hold', response_model=SuccessResponse)
+    async def hold_burst_engine(self) -> SuccessResponse:
+        """Put burst engine on hold (pause neural processing)."""
+        try:
+            success = self.core_api_service.hold_burst_engine()
+            if not success:
+                raise ValueError("Failed to put burst engine on hold")
+            return SuccessResponse(message="Burst engine put on hold - neural processing paused")
+        except Exception as e:
+            logger.error(f"Error putting burst engine on hold: {e}")
+            raise ValueError(f"Failed to put burst engine on hold: {str(e)}")
+
+    @burst_engine_endpoint('POST', '/resume', response_model=SuccessResponse)
+    async def resume_burst_engine(self) -> SuccessResponse:
+        """Resume burst engine from hold (resume neural processing)."""
+        try:
+            success = self.core_api_service.resume_burst_engine()
+            if not success:
+                raise ValueError("Failed to resume burst engine")
+            return SuccessResponse(message="Burst engine resumed - neural processing active")
+        except Exception as e:
+            logger.error(f"Error resuming burst engine: {e}")
+            raise ValueError(f"Failed to resume burst engine: {str(e)}")
 
 
 # ===== Factory Function =====

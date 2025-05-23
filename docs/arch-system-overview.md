@@ -75,6 +75,27 @@ class FeagiStateManager:
         # Direct memory access - perfect for Rust migration
 ```
 
+### Burst Engine Lifecycle
+
+FEAGI 2.0 implements a strict burst engine lifecycle that enforces system integrity:
+
+**Engine-First Design Principle**: The burst engine MUST be started before any genome can be loaded.
+
+**State Management**: 
+- `UNAVAILABLE` → Engine not started (FEAGI launch state)
+- `READY` → Engine running and processing neurons  
+- `ON_HOLD` → Engine alive but paused (new feature for debugging/analysis)
+- `FAILED/ERROR` → Engine error states
+
+**Workflow**:
+1. FEAGI launches with burst engine `UNAVAILABLE`
+2. Genome load request triggers automatic burst engine start
+3. If engine start fails → genome load is rejected (fail-fast)
+4. If engine start succeeds → genome loading proceeds
+5. Post-load: engine remains `READY`, with optional hold/resume control
+
+This design ensures that neural processing is always available when a genome is loaded, preventing inconsistent system states. See [Burst Engine Lifecycle Architecture](arch-burst-engine-lifecycle.md) for complete details.
+
 ## Task Priority Levels
 
 ### Priority 1 (Critical - Real-time)

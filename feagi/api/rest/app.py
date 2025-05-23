@@ -38,7 +38,7 @@ from starlette.exceptions import HTTPException
 
 from .config import settings
 
-from .commons import CustomError, api_queue, check_burst_engine_or_allow_genome_ops, check_burst_engine, check_brain_running, check_active_genome
+from .commons import CustomError, api_queue, check_burst_engine_or_allow_genome_ops, check_burst_engine, check_brain_running, check_active_genome, check_burst_engine_or_allow_config_ops
 
 # Remove the old router imports - no longer needed since we use universal wrapper directly
 from feagi.api.dependencies import *

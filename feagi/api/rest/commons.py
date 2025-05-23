@@ -122,4 +122,50 @@ async def check_burst_engine_or_allow_genome_ops(request: Request):
     # Otherwise perform the standard check
     state_manager = FeagiStateManager.instance()
     if state_manager.get_burst_engine_state() != ServiceState.READY:
-        raise HTTPException(status_code=400, detail="Burst engine is not running!") 
+        raise HTTPException(status_code=400, detail="Burst engine is not running!")
+
+async def check_burst_engine_or_allow_config_ops(request: Request):
+    """
+    Similar to check_burst_engine, but also allows configuration operations
+    like getting stimulation_period when the burst engine is not yet running.
+    """
+    from feagi.core.state_manager import FeagiStateManager, ServiceState
+    
+    # Allow configuration/read-only operations even when burst engine not READY
+    config_read_endpoints = [
+        "stimulation_period",  # 1/frequency - just a configuration read
+        "config",              # Burst engine configuration
+        "status",              # Burst engine status
+        "burst_counter",       # Current burst count
+        "fcl_sampler",         # FCL sampling operations
+        "neuron_fcl",          # Neuron FCL operations
+    ]
+    
+    # Check if this is a config/read operation
+    for endpoint in config_read_endpoints:
+        if endpoint in request.url.path:
+            return  # Allow config operations
+    
+    # For control operations, require burst engine to be ready
+    await check_burst_engine(request)
+
+async def check_burst_engine_for_processing(request: Request):
+    """
+    Check burst engine for operations that require active neural processing.
+    Blocks if engine is ON_HOLD (paused).
+    """
+    from feagi.core.state_manager import FeagiStateManager, ServiceState
+    
+    state_manager = FeagiStateManager.instance()
+    burst_state = state_manager.get_burst_engine_state()
+    
+    if burst_state == ServiceState.ON_HOLD:
+        raise HTTPException(
+            status_code=400, 
+            detail="Burst engine is on hold (paused) - resume to perform this operation"
+        )
+    elif burst_state != ServiceState.READY:
+        raise HTTPException(
+            status_code=400, 
+            detail="Burst engine is not running!"
+        ) 

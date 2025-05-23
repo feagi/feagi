@@ -24,6 +24,7 @@ Documents follow a standardized naming convention with prefixes indicating their
 
 ### Architecture
 - [System Overview](arch-system-overview.md) - Core FEAGI architecture
+- [Burst Engine Lifecycle](arch-burst-engine-lifecycle.md) - **NEW** - Burst engine state management and workflow
 - [GPU Architecture](arch-gpu.md) - GPU acceleration design
 - [IPC Architecture](arch-ipc.md) - Inter-process communication
 - [State Management](arch-state-management.md) - System state management

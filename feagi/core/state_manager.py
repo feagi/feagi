@@ -96,6 +96,7 @@ class ServiceState(Enum):
     SYNCING = "SYNCING"
     SYNC_COMPLETE = "SYNC_COMPLETE"
     SYNC_ERROR = "SYNC_ERROR"
+    ON_HOLD = "ON_HOLD"
 
 
 class SimulationState(IntEnum):
@@ -138,7 +139,8 @@ _SERVICE_STATE_VALUES = {
     7: "STOPPED",
     8: "SYNCING",
     9: "SYNC_COMPLETE",
-    10: "SYNC_ERROR"
+    10: "SYNC_ERROR",
+    11: "ON_HOLD"
 }
 
 # And the reverse mapping
@@ -156,6 +158,7 @@ class ServiceState(Enum):
     SYNCING = "SYNCING"
     SYNC_COMPLETE = "SYNC_COMPLETE"
     SYNC_ERROR = "SYNC_ERROR"
+    ON_HOLD = "ON_HOLD"
     
     @classmethod
     def _missing_(cls, value):
