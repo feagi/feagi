@@ -20,7 +20,7 @@ class FeagiAgentAPI:
     @agent_endpoint('GET', '/list', response_model=AgentListResponse)
     async def get_agents_list(self) -> AgentListResponse:
         try:
-            agents = self.core_api_service.get_agents_list()
+            agents = self.core_api_service.get_connected_agents()
             return AgentListResponse(agents=agents)
         except Exception as e:
             raise ValueError(f"Failed to get agents list: {str(e)}")
@@ -28,7 +28,7 @@ class FeagiAgentAPI:
     @agent_endpoint('GET', '/info/{agent_id}', response_model=AgentInfoResponse)
     async def get_agent_info(self, agent_id: str) -> AgentInfoResponse:
         try:
-            agent_info = self.core_api_service.get_agent_info(agent_id)
+            agent_info = self.core_api_service.get_agent_details(agent_id)
             return AgentInfoResponse(agent_info=agent_info)
         except Exception as e:
             raise ValueError(f"Failed to get agent info: {str(e)}")

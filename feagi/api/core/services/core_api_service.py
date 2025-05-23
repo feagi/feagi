@@ -462,8 +462,20 @@ class CoreAPIService:
         return self._agents_service.broadcast_message(message, agent_filter)
     
     def get_agent_statistics(self) -> Dict[str, Any]:
-        """Get statistics about connected agents."""
+        """Get agent statistics."""
         return self._agents_service.get_agent_statistics()
+
+    def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
+        """Configure an agent with the given configuration."""
+        try:
+            # For now, implement a basic configuration update
+            # This could be extended to support more sophisticated agent configuration
+            result = self._agents_service.update_agent_status(agent_id, "configured", config)
+            self.logger.info(f"Agent {agent_id} configured with: {config}")
+            return result
+        except Exception as e:
+            self.logger.error(f"Error configuring agent {agent_id}: {str(e)}")
+            return False
 
     # =================================================================
     # NETWORK SERVICE DELEGATION
