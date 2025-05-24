@@ -609,15 +609,9 @@ class CoreAPIService:
         try:
             if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
                 fcl_manager = self._connectome_manager.fcl_manager
-                global_fcl = fcl_manager.get_global_fcl()
+                global_fcl = fcl_manager.get_global_fcl()  # This should return a BitMap
                 
-                if isinstance(global_fcl, dict):
-                    # Aggregate all area FCLs
-                    neuron_ids = []
-                    for area_id, area_fcl in global_fcl.items():
-                        if hasattr(area_fcl, '__iter__'):
-                            neuron_ids.extend(list(area_fcl))
-                elif hasattr(global_fcl, '__iter__'):
+                if global_fcl and hasattr(global_fcl, '__iter__'):
                     neuron_ids = list(global_fcl)
                 else:
                     neuron_ids = []
@@ -640,12 +634,8 @@ class CoreAPIService:
             if not self._validate_genome_loaded():
                 return None
                 
-            area_idx = self._get_cortical_idx_for_id(cortical_id)
-            if area_idx is None:
-                return None
-                
             if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
-                area_fcl = self._connectome_manager.fcl_manager.get_area_fcl(area_idx)
+                area_fcl = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_id)  # Pass cortical_id directly
                 if area_fcl and hasattr(area_fcl, '__iter__'):
                     neuron_ids = list(area_fcl)
                     return {

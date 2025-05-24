@@ -7,6 +7,7 @@ It provides:
 - Efficient binary serialization using feagi_bytes
 - Genome-dependent state management (standby when no genome loaded)
 - Real-time performance optimization with minimal buffering
+- Automatic subscriber detection and FQ sampler control
 """
 
 import asyncio
@@ -38,7 +39,8 @@ class VisualizationStream:
         port: int = 5560,
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
-        fq_sampler_queue: Optional[Any] = None
+        fq_sampler_queue: Optional[Any] = None,
+        stream_config: Optional[Dict[str, Any]] = None
     ):
         """
         Initialize a new Visualization Stream.
@@ -50,6 +52,7 @@ class VisualizationStream:
             context: Optional existing ZMQ context
             fq_sampler: Optional FQ sampler instance
             fq_sampler_queue: Queue for FQ data from the sampler
+            stream_config: Stream configuration from TOML
         """
         self.core_api = core_api
         self.host = host
@@ -57,12 +60,22 @@ class VisualizationStream:
         self.running = False
         self.context = context or zmq.asyncio.Context.instance()
         
+        # Stream configuration
+        self.stream_config = stream_config or {}
+        self.auto_enable_on_subscribers = self.stream_config.get('auto_enable_on_subscribers', True)
+        self.subscriber_check_interval = self.stream_config.get('subscriber_check_interval', 1.0)
+        
         # State tracking
         self._active_mode = False  # True when genome is loaded and ready
         
         # Connected clients tracking
         self.client_last_heartbeat = {}  # Mapping of client_id -> last heartbeat time
         self.client_heartbeat_timeout = 30  # Consider clients disconnected after 30s
+        
+        # Subscriber monitoring
+        self._subscriber_count = 0
+        self._last_subscriber_count = 0
+        self._fq_sampler_enabled = False
         
         # Socket for visualization data
         self.socket = self._setup_socket()
@@ -149,6 +162,10 @@ class VisualizationStream:
             
         # Start client tracking task
         self.tasks.append(asyncio.create_task(self._cleanup_disconnected_clients()))
+        
+        # Start subscriber monitoring task if auto-enable is configured
+        if self.auto_enable_on_subscribers:
+            self.tasks.append(asyncio.create_task(self._monitor_subscribers()))
             
         logger.info("Visualization Stream server started")
 
@@ -517,4 +534,127 @@ class VisualizationStream:
                 "status": "error",
                 "message": str(e),
                 "timestamp": time.time()
-            } 
+            }
+
+    async def _monitor_subscribers(self) -> None:
+        """Monitor ZMQ subscribers and automatically enable/disable FQ sampler."""
+        logger.info("Starting subscriber monitoring for automatic FQ sampler control")
+        
+        while self.running:
+            try:
+                # Check current subscriber count
+                current_count = self._get_subscriber_count()
+                
+                # Update subscriber count
+                if current_count != self._last_subscriber_count:
+                    logger.info(f"Visualization subscriber count changed: {self._last_subscriber_count} -> {current_count}")
+                    self._last_subscriber_count = current_count
+                    
+                    # Auto-enable/disable FQ sampler based on subscriber count
+                    should_enable = current_count > 0
+                    
+                    if should_enable != self._fq_sampler_enabled:
+                        await self._control_fq_sampler(should_enable)
+                
+                # Wait for next check
+                await asyncio.sleep(self.subscriber_check_interval)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in subscriber monitoring: {e}")
+                await asyncio.sleep(self.subscriber_check_interval)
+        
+        logger.info("Subscriber monitoring stopped")
+
+    def _get_subscriber_count(self) -> int:
+        """Get the current number of ZMQ subscribers connected to the visualization socket."""
+        try:
+            if self.socket:
+                # Method 1: Use client heartbeat tracking as a proxy
+                now = time.time()
+                heartbeat_clients = 0
+                
+                for client_id, last_heartbeat in self.client_last_heartbeat.items():
+                    if now - last_heartbeat < self.client_heartbeat_timeout:
+                        heartbeat_clients += 1
+                
+                # Method 2: Simple heuristic - if we've sent any data recently and clients exist
+                # This is a workaround since ZMQ PUB doesn't expose direct subscriber count
+                # We'll assume clients are present if we have recent heartbeats OR if this is the first check
+                
+                # Store the count for this iteration
+                self._subscriber_count = heartbeat_clients
+                
+                # For debugging, log when we detect clients
+                if heartbeat_clients > 0:
+                    logger.debug(f"Detected {heartbeat_clients} active visualization clients via heartbeat")
+                
+                return heartbeat_clients
+            return 0
+        except Exception as e:
+            logger.warning(f"Error getting subscriber count: {e}")
+            return 0
+
+    async def register_visualization_client(self, client_id: str) -> None:
+        """Register a visualization client and update heartbeat."""
+        current_time = time.time()
+        self.client_last_heartbeat[client_id] = current_time
+        logger.info(f"📺 Visualization client registered: {client_id}")
+        
+        # Force a subscriber count update
+        current_count = self._get_subscriber_count()
+        if current_count != self._last_subscriber_count:
+            self._last_subscriber_count = current_count
+            should_enable = current_count > 0
+            if should_enable != self._fq_sampler_enabled:
+                await self._control_fq_sampler(should_enable)
+
+    async def unregister_visualization_client(self, client_id: str) -> None:
+        """Unregister a visualization client."""
+        if client_id in self.client_last_heartbeat:
+            del self.client_last_heartbeat[client_id]
+            logger.info(f"📺 Visualization client unregistered: {client_id}")
+            
+            # Force a subscriber count update
+            current_count = self._get_subscriber_count()
+            if current_count != self._last_subscriber_count:
+                self._last_subscriber_count = current_count
+                should_enable = current_count > 0
+                if should_enable != self._fq_sampler_enabled:
+                    await self._control_fq_sampler(should_enable)
+
+    async def heartbeat_visualization_client(self, client_id: str) -> None:
+        """Update heartbeat for a visualization client."""
+        self.client_last_heartbeat[client_id] = time.time()
+        # Don't log every heartbeat to avoid spam, just update the timestamp
+
+    async def _control_fq_sampler(self, enable: bool) -> None:
+        """Enable or disable the FQ sampler based on subscriber presence."""
+        try:
+            if not self.fq_sampler:
+                # Try to get FQ sampler from process manager
+                try:
+                    from feagi.process_manager import get_process_manager
+                    process_manager = get_process_manager()
+                    if process_manager and hasattr(process_manager, '_fq_sampler'):
+                        self.fq_sampler = process_manager._fq_sampler
+                        logger.info("Found FQ sampler from process manager")
+                except Exception:
+                    pass
+            
+            if self.fq_sampler and hasattr(self.fq_sampler, 'set_visualization_subscribers'):
+                if enable:
+                    logger.info("🔔 Enabling FQ sampler - visualization clients connected")
+                    self.fq_sampler.set_visualization_subscribers(True)
+                    self._fq_sampler_enabled = True
+                else:
+                    logger.info("🔕 Disabling FQ sampler - no visualization clients")
+                    self.fq_sampler.set_visualization_subscribers(False)
+                    self._fq_sampler_enabled = False
+            else:
+                if enable:
+                    logger.warning("FQ sampler not available or doesn't support set_visualization_subscribers")
+                
+        except Exception as e:
+            logger.error(f"Error controlling FQ sampler: {e}") 

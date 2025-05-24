@@ -122,7 +122,9 @@ def test_test_mode_parameters(test_duration, frequency_hz):
          patch('feagi.test_mode.timed_cortical_activity_generator') as mock_activity_generator:
         
         # Configure the mocks
-        mock_state_manager = type('obj', (object,), {})
+        mock_state_manager = type('obj', (object,), {
+            'set_test_visualization_mode': lambda enabled: None,
+        })
         mock_state_manager_cls.instance.return_value = mock_state_manager
         
         mock_activity_generator.return_value.__next__.return_value = {
@@ -205,6 +207,7 @@ def test_test_mode_visualization(test_visualization):
         },
         'load_essential_genome': lambda: True,
         'register_agent': lambda **kwargs: True,
+        'fq_sampler': fcl_sampler,
         'fcl_sampler': fcl_sampler
     })
     
@@ -213,7 +216,9 @@ def test_test_mode_visualization(test_visualization):
          patch('feagi.test_mode.timed_cortical_activity_generator') as mock_activity_generator:
         
         # Configure the mocks
-        mock_state_manager = type('obj', (object,), {})
+        mock_state_manager = type('obj', (object,), {
+            'set_test_visualization_mode': lambda enabled: None,
+        })
         mock_state_manager_cls.instance.return_value = mock_state_manager
         
         mock_activity_generator.return_value.__next__.return_value = {

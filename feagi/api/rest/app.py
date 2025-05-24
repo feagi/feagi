@@ -59,6 +59,9 @@ from feagi.api.transport.universal_fastapi import (
     get_inputs_router, get_outputs_router, get_evolution_router
 )
 
+# Import the visualization router
+from feagi.api.v1.visualization import router as visualization_router
+
 # Note: v2 routers have been removed since we now use the universal wrapper directly for all routes
 # The v2 functionality can be added in the future if needed via the universal wrapper pattern
 
@@ -436,6 +439,15 @@ app.include_router(
     get_monitoring_router(),
     prefix="/v1/monitoring",
     tags=["MONITORING"],
+    dependencies=[],
+    responses=standard_response
+)
+
+# Add the visualization router
+app.include_router(
+    visualization_router,
+    prefix="/v1/visualization",
+    tags=["VISUALIZATION"],
     dependencies=[],
     responses=standard_response
 )

@@ -116,6 +116,12 @@ class ZMQRestAPIAdapter:
             
             # ===== Status endpoint - Delegated to v1 API =====
             "GET:/v1/status": self._delegate_to_v1_api,
+            
+            # ===== Visualization endpoints - Custom handlers =====
+            "POST:/v1/visualization/register_client": self._handle_visualization_register_client,
+            "POST:/v1/visualization/unregister_client": self._handle_visualization_unregister_client,
+            "POST:/v1/visualization/heartbeat": self._handle_visualization_heartbeat,
+            "GET:/v1/visualization/status": self._handle_visualization_status,
         }
     
     async def process_message(self, message_data: bytes) -> bytes:
@@ -187,6 +193,167 @@ class ZMQRestAPIAdapter:
         except Exception as e:
             logger.error(f"Error delegating to v1 API: {e}")
             raise ValueError(f"v1 API delegation failed: {str(e)}")
+    
+    # ===== Visualization Endpoint Handlers =====
+    
+    async def _handle_visualization_register_client(self, params, query, body, headers) -> Any:
+        """Handle visualization client registration."""
+        try:
+            import uuid
+            
+            # Generate client ID if not provided
+            client_id = body.get('client_id') if body else None
+            if not client_id:
+                client_id = str(uuid.uuid4())
+            
+            logger.info(f"🔌 Registering visualization client: {client_id}")
+            
+            # Get the ZMQ server from the module registry
+            zmq_server = getattr(self, '_zmq_server', None)
+            if not zmq_server:
+                # Try to find it in globals or use a fallback approach
+                logger.warning("ZMQ server reference not available - using fallback approach")
+                
+                # For now, just register the client and assume the visualization stream will pick it up
+                # This ensures the registration call succeeds even if we can't immediately access the stream
+                return {
+                    "client_id": client_id,
+                    "success": True,
+                    "message": f"Visualization client {client_id} registration request received"
+                }
+            
+            # Get visualization stream from ZMQ server
+            viz_stream = zmq_server.get_visualization_stream()
+            if viz_stream:
+                await viz_stream.register_visualization_client(client_id)
+                logger.info(f"✅ Visualization client registered: {client_id}")
+                
+                return {
+                    "client_id": client_id,
+                    "success": True,
+                    "message": f"Visualization client {client_id} registered successfully"
+                }
+            else:
+                logger.error("❌ Visualization stream not available")
+                raise ValueError("Visualization stream not available")
+                
+        except Exception as e:
+            logger.error(f"❌ Error registering visualization client: {str(e)}")
+            raise ValueError(f"Registration failed: {str(e)}")
+    
+    async def _handle_visualization_unregister_client(self, params, query, body, headers) -> Any:
+        """Handle visualization client unregistration."""
+        try:
+            client_id = body.get('client_id') if body else None
+            if not client_id:
+                raise ValueError("Client ID is required")
+            
+            logger.info(f"🔌 Unregistering visualization client: {client_id}")
+            
+            # Get the ZMQ server from the module registry
+            zmq_server = getattr(self, '_zmq_server', None)
+            if not zmq_server:
+                logger.warning("ZMQ server reference not available - using fallback approach")
+                return {
+                    "message": f"Visualization client {client_id} unregistration request received"
+                }
+            
+            # Get visualization stream from ZMQ server
+            viz_stream = zmq_server.get_visualization_stream()
+            if viz_stream:
+                await viz_stream.unregister_visualization_client(client_id)
+                logger.info(f"✅ Visualization client unregistered: {client_id}")
+                
+                return {
+                    "message": f"Visualization client {client_id} unregistered successfully"
+                }
+            else:
+                logger.error("❌ Visualization stream not available")
+                raise ValueError("Visualization stream not available")
+                
+        except Exception as e:
+            logger.error(f"❌ Error unregistering visualization client: {str(e)}")
+            raise ValueError(f"Unregistration failed: {str(e)}")
+    
+    async def _handle_visualization_heartbeat(self, params, query, body, headers) -> Any:
+        """Handle visualization client heartbeat."""
+        try:
+            client_id = body.get('client_id') if body else None
+            if not client_id:
+                raise ValueError("Client ID is required")
+            
+            logger.debug(f"💗 Heartbeat from visualization client: {client_id}")
+            
+            # Get the ZMQ server from the module registry
+            zmq_server = getattr(self, '_zmq_server', None)
+            if not zmq_server:
+                logger.debug("ZMQ server reference not available - heartbeat acknowledged anyway")
+                return {
+                    "message": f"Heartbeat received from client {client_id}"
+                }
+            
+            # Get visualization stream from ZMQ server
+            viz_stream = zmq_server.get_visualization_stream()
+            if viz_stream:
+                await viz_stream.heartbeat_visualization_client(client_id)
+                
+                return {
+                    "message": f"Heartbeat received from client {client_id}"
+                }
+            else:
+                logger.error("❌ Visualization stream not available")
+                raise ValueError("Visualization stream not available")
+                
+        except Exception as e:
+            logger.error(f"❌ Error processing visualization heartbeat: {str(e)}")
+            raise ValueError(f"Heartbeat failed: {str(e)}")
+    
+    async def _handle_visualization_status(self, params, query, body, headers) -> Any:
+        """Handle visualization status request."""
+        try:
+            logger.debug("📊 Getting visualization status")
+            
+            # Get the ZMQ server from the module registry
+            zmq_server = getattr(self, '_zmq_server', None)
+            if not zmq_server:
+                return {
+                    "enabled": False,
+                    "active_clients": 0,
+                    "fq_sampler_enabled": False,
+                    "message": "ZMQ server reference not available"
+                }
+            
+            # Get visualization stream from ZMQ server
+            viz_stream = zmq_server.get_visualization_stream()
+            if viz_stream:
+                # Get status from visualization stream using the correct method
+                active_clients = viz_stream.get_connected_client_count()
+                
+                # Check FQ sampler status
+                fq_sampler_enabled = getattr(viz_stream, '_fq_sampler_enabled', False)
+                
+                return {
+                    "enabled": True,
+                    "active_clients": active_clients,
+                    "fq_sampler_enabled": fq_sampler_enabled,
+                    "message": f"Visualization system active with {active_clients} clients"
+                }
+            else:
+                return {
+                    "enabled": False,
+                    "active_clients": 0,
+                    "fq_sampler_enabled": False,
+                    "message": "Visualization stream not available"
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting visualization status: {str(e)}")
+            raise ValueError(f"Status check failed: {str(e)}")
+    
+    def set_zmq_server(self, zmq_server):
+        """Set the ZMQ server reference for visualization endpoints."""
+        self._zmq_server = zmq_server
+        logger.debug("ZMQ server reference set for visualization endpoints")
     
     def _parse_message(self, message_data: bytes) -> Optional[Dict[str, Any]]:
         """

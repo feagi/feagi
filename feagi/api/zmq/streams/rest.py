@@ -96,6 +96,12 @@ class RestStream:
         
         logger.info(f"REST stream initialized for {host}:{port}")
         
+    def set_zmq_server(self, zmq_server):
+        """Set the ZMQ server reference for the REST adapter."""
+        if hasattr(self.rest_adapter, 'set_zmq_server'):
+            self.rest_adapter.set_zmq_server(zmq_server)
+            logger.debug("ZMQ server reference passed to REST adapter")
+        
     async def start(self):
         """Start the REST stream."""
         if self.running:

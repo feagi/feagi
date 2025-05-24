@@ -186,14 +186,15 @@ class ZmqServer:
         req_rep_port: int = 5555,
         pub_sub_port: int = 5556,
         push_pull_port: int = 5557,
-        sensory_port: int = 5558,
-        motor_port: int = 5564,
-        control_port: int = 5559,
+        sensory_port: Optional[int] = 5558,
+        motor_port: Optional[int] = 5564,
+        control_port: Optional[int] = 5559,
         rest_port: int = 5563,
-        vis_port: int = 5562,
+        vis_port: Optional[int] = 5562,
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
-        fq_sampler_queue: Optional[Any] = None
+        fq_sampler_queue: Optional[Any] = None,
+        stream_config: Optional[Dict[str, Any]] = None
     ):
         """
         Initialize the ZeroMQ server for FEAGI.
@@ -204,14 +205,15 @@ class ZmqServer:
             req_rep_port: Port for REQ/REP pattern (5555)
             pub_sub_port: Port for PUB/SUB pattern (5556)
             push_pull_port: Port for PUSH/PULL pattern (5557)
-            sensory_port: Port for sensory data (5558)
-            motor_port: Port for motor data (5564)
-            control_port: Port for control interface (5559)
+            sensory_port: Port for sensory data (5558), None to disable
+            motor_port: Port for motor data (5564), None to disable
+            control_port: Port for control interface (5559), None to disable
             rest_port: Port for REST API (5563)
-            vis_port: Port for visualization data (5562)
+            vis_port: Port for visualization data (5562), None to disable
             context: Optional ZeroMQ context to use
             fq_sampler: Optional FQ sampler instance for visualization data
             fq_sampler_queue: Optional queue for FQ data from the sampler
+            stream_config: Optional stream configuration from TOML
         """
         self.core_api = core_api
         self.host = host
@@ -224,13 +226,16 @@ class ZmqServer:
         self.rest_port = rest_port
         self.vis_port = vis_port
         
+        # Store stream configuration
+        self.stream_config = stream_config or {}
+        
         # Create ZeroMQ context
         self._context = context or zmq.asyncio.Context.instance()
         
         # State tracking
         self._running = False
         
-        # Store components
+        # Store components (some may be None if disabled)
         self._req_rep = None
         self._pub_sub = None
         self._push_pull = None
@@ -238,6 +243,7 @@ class ZmqServer:
         self._motor = None
         self._control = None
         self._visualization = None
+        self._rest = None
         
         # FQ Sampler integration
         self._fq_sampler = fq_sampler
@@ -248,7 +254,7 @@ class ZmqServer:
         self._loop = None
         self._shutdown_event = threading.Event()
         
-        # Initialize sockets (will be created on start)
+        # Initialize sockets (will be created on start, may be None if stream disabled)
         self.control_socket = None
         self.sensory_socket = None
         self.motor_socket = None
@@ -261,11 +267,20 @@ class ZmqServer:
         # Callbacks
         self.sensory_callback = None
         
-        # Create connection manager
+        # Create connection manager (only for enabled streams)
+        enabled_ports = {}
+        if self.control_port is not None:
+            enabled_ports['control'] = self.control_port
+        if self.sensory_port is not None:
+            enabled_ports['sensory'] = self.sensory_port
+        if self.vis_port is not None:
+            enabled_ports['visualization'] = self.vis_port
+            
         self.connection_manager = ConnectionManager(
             context=self._context,
             control_port=self.control_port,
             sensory_port=self.sensory_port,
+            motor_port=self.motor_port,
             visualization_port=self.vis_port
         )
         
@@ -370,7 +385,7 @@ class ZmqServer:
             from .streams.rest import RestStream
             from .streams.visualization import VisualizationStream
             
-            # Initialize all managers with the current thread's event loop
+            # Initialize only enabled streams based on port configuration
             self._req_rep = RequestReplyManager(
                 core_api=self.core_api,
                 host=self.host,
@@ -392,26 +407,39 @@ class ZmqServer:
                 context=self._context
             )
             
-            self._sensory = SensoryStream(
-                core_api=self.core_api,
-                host=self.host,
-                port=self.sensory_port,
-                context=self._context
-            )
+            # Only create enabled streams (port != None)
+            if self.sensory_port is not None:
+                self._sensory = SensoryStream(
+                    core_api=self.core_api,
+                    host=self.host,
+                    port=self.sensory_port,
+                    context=self._context
+                )
+                logger.info(f"Sensory stream enabled on port {self.sensory_port}")
+            else:
+                logger.info("Sensory stream disabled")
             
-            self._motor = MotorStream(
-                core_api=self.core_api,
-                host=self.host,
-                port=self.motor_port,
-                context=self._context
-            )
+            if self.motor_port is not None:
+                self._motor = MotorStream(
+                    core_api=self.core_api,
+                    host=self.host,
+                    port=self.motor_port,
+                    context=self._context
+                )
+                logger.info(f"Motor stream enabled on port {self.motor_port}")
+            else:
+                logger.info("Motor stream disabled")
             
-            self._control = ControlStream(
-                core_api=self.core_api,
-                host=self.host,
-                port=self.control_port,
-                context=self._context
-            )
+            if self.control_port is not None:
+                self._control = ControlStream(
+                    core_api=self.core_api,
+                    host=self.host,
+                    port=self.control_port,
+                    context=self._context
+                )
+                logger.info(f"Control stream enabled on port {self.control_port}")
+            else:
+                logger.info("Control stream disabled")
             
             self._rest = RestStream(
                 core_api=self.core_api,
@@ -420,36 +448,54 @@ class ZmqServer:
                 context=self._context
             )
             
-            self._visualization = VisualizationStream(
-                core_api=self.core_api,
-                host=self.host,
-                port=self.vis_port,
-                fq_sampler=self._fq_sampler,
-                fq_sampler_queue=self._fq_sampler_queue,
-                context=self._context
-            )
+            # Pass ZMQ server reference to REST stream for visualization endpoints
+            if hasattr(self._rest, 'set_zmq_server'):
+                self._rest.set_zmq_server(self)
+                logger.debug("ZMQ server reference passed to REST stream")
             
-            # Start all managers
+            if self.vis_port is not None:
+                self._visualization = VisualizationStream(
+                    core_api=self.core_api,
+                    host=self.host,
+                    port=self.vis_port,
+                    fq_sampler=self._fq_sampler,
+                    fq_sampler_queue=self._fq_sampler_queue,
+                    context=self._context,
+                    stream_config=self.stream_config.get('visualization', {})
+                )
+                logger.info(f"Visualization stream enabled on port {self.vis_port}")
+            else:
+                logger.info("Visualization stream disabled")
+            
+            # Start only enabled managers
             await self._req_rep.start()
             await self._pub_sub.start()
             await self._push_pull.start()
-            await self._sensory.start()
-            await self._motor.start()
-            await self._control.start()
+            
+            if self._sensory:
+                await self._sensory.start()
+            if self._motor:
+                await self._motor.start()
+            if self._control:
+                await self._control.start()
+            
             await self._rest.start()
-            await self._visualization.start()
             
-            # Create control socket (ROUTER) - Using existing socket from ControlStream to avoid double binding
-            self.control_socket = self._control.router_socket
+            if self._visualization:
+                await self._visualization.start()
             
-            # Create sensory socket (XPUB/XSUB pattern) - Using existing socket from SensoryStream
-            self.sensory_socket = self._sensory.socket
+            # Create sockets only for enabled streams
+            if self._control:
+                self.control_socket = self._control.router_socket
             
-            # Create motor socket (XPUB/XSUB pattern) - Using existing socket from MotorStream
-            self.motor_socket = self._motor.socket
+            if self._sensory:
+                self.sensory_socket = self._sensory.socket
             
-            # Create visualization sockets (PUB) - Using existing sockets from VisualizationStream
-            self.vis_socket = self._visualization.socket
+            if self._motor:
+                self.motor_socket = self._motor.socket
+            
+            if self._visualization:
+                self.vis_socket = self._visualization.socket
             
             # Start message handling tasks
             # Note: Control messages are handled by ControlStream on port 5559
@@ -1170,29 +1216,43 @@ class ZmqServer:
     
     def get_server_stats(self) -> Dict[str, Any]:
         """
-        Get server statistics.
+        Get ZMQ server statistics.
         
         Returns:
-            Dictionary with server statistics
+            Dictionary containing server statistics
         """
-        import psutil
-        from datetime import datetime
-        
-        # Get process information
-        process = psutil.Process()
-        
-        # Calculate uptime
-        start_time = datetime.fromtimestamp(process.create_time())
-        uptime = (datetime.now() - start_time).total_seconds()
+        total_agents = len(self.agents)
+        active_agents = len([a for a in self.agents.values() if a.get('last_heartbeat')])
         
         return {
-            "cpu_usage": process.cpu_percent(),
-            "memory_usage": process.memory_info().rss / (1024 * 1024),  # MB
-            "uptime_seconds": int(uptime),
-            "agents": len(self.agents),
-            "start_time": start_time.isoformat(),
-            "active_tasks": len(self.tasks)
+            'running': self._running,
+            'total_agents': total_agents,
+            'active_agents': active_agents,
+            'host': self.host,
+            'req_rep_port': self.req_rep_port,
+            'pub_sub_port': self.pub_sub_port,
+            'push_pull_port': self.push_pull_port,
+            'control_port': self.control_port,
+            'sensory_port': self.sensory_port,
+            'motor_port': self.motor_port,
+            'rest_port': self.rest_port,
+            'vis_port': self.vis_port,
+            'enabled_streams': {
+                'sensory': self._sensory is not None,
+                'motor': self._motor is not None,
+                'control': self._control is not None,
+                'visualization': self._visualization is not None,
+            }
         }
+
+    def get_visualization_stream(self):
+        """
+        Get the visualization stream instance.
+        
+        Returns:
+            VisualizationStream instance if visualization is enabled, None otherwise
+        """
+        return self._visualization
     
     async def broadcast_message(self, 
                               protocol_type: str, 

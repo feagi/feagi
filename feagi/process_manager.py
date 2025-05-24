@@ -257,32 +257,84 @@ class ProcessManager:
             try:
                 from feagi.api.zmq.server import ZmqServer
                 
+                # Get stream configuration
+                zmq_config = config.get('zmq', {})
+                stream_config = zmq_config.get('streams', {})
+                
+                # Check which streams are enabled
+                visualization_enabled = stream_config.get('visualization', {}).get('enabled', True)
+                sensory_enabled = stream_config.get('sensory', {}).get('enabled', True)
+                motor_enabled = stream_config.get('motor', {}).get('enabled', True)
+                control_enabled = stream_config.get('control', {}).get('enabled', True)
+                
+                logger.info(f"Stream configuration: visualization={visualization_enabled}, "
+                           f"sensory={sensory_enabled}, motor={motor_enabled}, control={control_enabled}")
+                
+                # --- FQ Sampler Setup (if visualization is enabled) ---
+                if visualization_enabled:
+                    try:
+                        from feagi.npu.burst_engine import FQSampler
+                        from queue import Queue
+                        
+                        # Create FQ sampler queue
+                        self._fq_sampler_queue = Queue(maxsize=100)
+                        
+                        # Create FQ sampler
+                        self._fq_sampler = FQSampler(
+                            fire_queue_provider=self._core_api,  # Core API provides fire queue access
+                            sample_frequency_hz=50.0,  # 50Hz sampling by default
+                            output_queue=self._fq_sampler_queue,
+                            connectome_manager=self._connectome_manager
+                        )
+                        
+                        # Start FQ sampler in a thread
+                        import threading
+                        self._fq_sampler_thread = threading.Thread(
+                            target=self._fq_sampler.run,
+                            daemon=True,
+                            name="FQSampler"
+                        )
+                        self._fq_sampler_thread.start()
+                        
+                        logger.info("✅ FQ Sampler initialized and started")
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to initialize FQ Sampler: {e}")
+                        self._fq_sampler = None
+                        self._fq_sampler_queue = None
+                        self._fq_sampler_thread = None
+                else:
+                    logger.info("Visualization disabled, skipping FQ Sampler initialization")
+                
                 # Use hardcoded ports from configuration
                 zmq_ports = {
                     'req_rep': port_config.zmq_req_rep_port,
                     'pub_sub': port_config.zmq_pub_sub_port,
                     'push_pull': port_config.zmq_push_pull_port,
-                    'sensory': port_config.zmq_sensory_port,
-                    'motor': port_config.zmq_motor_port,
-                    'control': port_config.zmq_control_port,
-                    'visualization': port_config.zmq_visualization_port,
+                    'sensory': port_config.zmq_sensory_port if sensory_enabled else None,
+                    'motor': port_config.zmq_motor_port if motor_enabled else None,
+                    'control': port_config.zmq_control_port if control_enabled else None,
+                    'visualization': port_config.zmq_visualization_port if visualization_enabled else None,
                     'rest': port_config.zmq_rest_port,
                 }
                 
                 logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
                 
-                # Initialize ZMQ server with hardcoded ports
+                # Initialize ZMQ server with configuration-based stream enablement
                 zmq_server = ZmqServer(
                     core_api=self._core_api,
                     host=zmq_host,
                     req_rep_port=port_config.zmq_req_rep_port,
                     pub_sub_port=port_config.zmq_pub_sub_port,
                     push_pull_port=port_config.zmq_push_pull_port,
-                    sensory_port=port_config.zmq_sensory_port,
-                    motor_port=port_config.zmq_motor_port,
-                    control_port=port_config.zmq_control_port,
+                    sensory_port=port_config.zmq_sensory_port if sensory_enabled else None,
+                    motor_port=port_config.zmq_motor_port if motor_enabled else None,
+                    control_port=port_config.zmq_control_port if control_enabled else None,
                     rest_port=port_config.zmq_rest_port,
-                    vis_port=port_config.zmq_visualization_port
+                    vis_port=port_config.zmq_visualization_port if visualization_enabled else None,
+                    fq_sampler=self._fq_sampler,  # Pass the actual FQ sampler
+                    fq_sampler_queue=self._fq_sampler_queue,  # Pass the actual queue
+                    stream_config=stream_config  # Pass stream configuration to ZMQ server
                 )
                 
                 # Start ZMQ server
