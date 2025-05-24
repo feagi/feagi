@@ -74,9 +74,7 @@ The following legacy endpoints are directly supported:
 
 #### Cortical Areas
 
-- GET `/v1/cortical_areas` - List all cortical areas
-- GET `/v1/cortical_area/{area_id}` - Get a specific cortical area
-- GET `/v1/cortical_area_types` - List all cortical area types
+TBD
 
 #### Genome
 

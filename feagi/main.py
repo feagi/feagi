@@ -66,8 +66,8 @@ def main():
     """
     Main entry point for FEAGI.
     
-    Parses command-line arguments, initializes the process manager,
-    and starts all FEAGI processes in the correct priority order.
+    Parses command-line arguments, loads TOML configuration with overrides,
+    validates port availability, and starts all FEAGI processes.
     
     Returns:
         int: Exit code (0 for success, non-zero for failure)
@@ -75,21 +75,24 @@ def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="FEAGI - Framework for Evolutionary Artificial General Intelligence")
     
-    # API server arguments
-    parser.add_argument("--api-host", type=str, default="127.0.0.1", help="Host for the API server")
-    parser.add_argument("--api-port", type=int, default=8000, help="Port for the API server")
+    # API server arguments (maintained for backwards compatibility)
+    parser.add_argument("--api-host", type=str, help="Host for the API server (overrides config)")
+    parser.add_argument("--api-port", type=int, help="Port for the API server (overrides config)")
     parser.add_argument("--api-reload", action="store_true", help="Enable auto-reload for the API server")
     
-    # ZMQ server arguments
-    parser.add_argument("--zmq-host", type=str, default="127.0.0.1", help="Host for the ZMQ server")
-    parser.add_argument("--zmq-req-port", type=int, default=5555, help="Port for REQ/REP ZMQ pattern")
-    parser.add_argument("--zmq-pub-port", type=int, default=5556, help="Port for PUB/SUB ZMQ pattern")
-    parser.add_argument("--zmq-push-port", type=int, default=5557, help="Port for PUSH/PULL ZMQ pattern")
-    parser.add_argument("--zmq-sensory-port", type=int, default=5558, help="Port for sensory ZMQ stream")
-    parser.add_argument("--zmq-motor-port", type=int, default=5564, help="Port for motor ZMQ stream")
-    parser.add_argument("--zmq-control-port", type=int, default=5559, help="Port for control ZMQ stream")
-    parser.add_argument("--zmq-rest-port", type=int, default=5563, help="Port for REST API ZMQ stream")
-    parser.add_argument("--zmq-vis-port", type=int, default=5562, help="Port for visualization ZMQ stream")
+    # ZMQ server arguments (maintained for backwards compatibility)
+    parser.add_argument("--zmq-host", type=str, help="Host for the ZMQ server (overrides config)")
+    parser.add_argument("--zmq-req-port", type=int, help="Port for REQ/REP ZMQ pattern (overrides config)")
+    parser.add_argument("--zmq-pub-port", type=int, help="Port for PUB/SUB ZMQ pattern (overrides config)")
+    parser.add_argument("--zmq-push-port", type=int, help="Port for PUSH/PULL ZMQ pattern (overrides config)")
+    parser.add_argument("--zmq-sensory-port", type=int, help="Port for sensory ZMQ stream (overrides config)")
+    parser.add_argument("--zmq-motor-port", type=int, help="Port for motor ZMQ stream (overrides config)")
+    parser.add_argument("--zmq-control-port", type=int, help="Port for control ZMQ stream (overrides config)")
+    parser.add_argument("--zmq-rest-port", type=int, help="Port for REST API ZMQ stream (overrides config)")
+    parser.add_argument("--zmq-visualization-port", type=int, help="Port for visualization ZMQ stream (overrides config)")
+    
+    # Configuration file argument
+    parser.add_argument("--config", type=str, help="Path to TOML configuration file (default: auto-discover)")
     
     # Core configuration
     parser.add_argument("--gpu", action="store_true", help="Use GPU acceleration if available")
@@ -104,9 +107,88 @@ def main():
     parser.add_argument("--test-visualization", action="store_true", help="Test visualization data flow without using ZMQ")
     
     # Debug arguments
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument("--log-level", type=str, choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], help="Set log level")
     parser.add_argument("--debug-api", action="store_true", help="Enable detailed API request/response logging")
     
     args = parser.parse_args()
+    
+    try:
+        # Load TOML configuration with command-line overrides
+        from feagi.config.toml_loader import load_feagi_config, FeagiConfigurationError
+        from feagi.utils.port_checker import PortConflictError
+        
+        # Convert argparse Namespace to dict for CLI overrides
+        cli_overrides = {}
+        
+        # Map command-line arguments to configuration keys
+        if args.api_host is not None:
+            cli_overrides['api_host'] = args.api_host
+        if args.api_port is not None:
+            cli_overrides['api_port'] = args.api_port
+        if args.api_reload:
+            cli_overrides['api_reload'] = args.api_reload
+            
+        if args.zmq_host is not None:
+            cli_overrides['zmq_host'] = args.zmq_host
+        if args.zmq_req_port is not None:
+            cli_overrides['zmq_req_port'] = args.zmq_req_port
+        if args.zmq_pub_port is not None:
+            cli_overrides['zmq_pub_port'] = args.zmq_pub_port
+        if args.zmq_push_port is not None:
+            cli_overrides['zmq_push_port'] = args.zmq_push_port
+        if args.zmq_sensory_port is not None:
+            cli_overrides['zmq_sensory_port'] = args.zmq_sensory_port
+        if args.zmq_motor_port is not None:
+            cli_overrides['zmq_motor_port'] = args.zmq_motor_port
+        if args.zmq_control_port is not None:
+            cli_overrides['zmq_control_port'] = args.zmq_control_port
+        if args.zmq_rest_port is not None:
+            cli_overrides['zmq_rest_port'] = args.zmq_rest_port
+        if args.zmq_visualization_port is not None:
+            cli_overrides['zmq_visualization_port'] = args.zmq_visualization_port
+            
+        if args.debug:
+            cli_overrides['debug'] = True
+        if args.log_level is not None:
+            cli_overrides['log_level'] = args.log_level
+        
+        # Load configuration with CLI overrides
+        logger.info("Loading FEAGI configuration...")
+        config = load_feagi_config(cli_args=cli_overrides)
+        
+        # Log the final configuration being used
+        api_config = config.get('api', {})
+        port_config = config.get('ports', {})
+        logger.info(f"Configuration loaded successfully:")
+        logger.info(f"  API: {api_config.get('host')}:{api_config.get('port')}")
+        logger.info(f"  ZMQ Ports: REQ/REP={port_config.get('zmq_req_rep_port')}, "
+                   f"PUB/SUB={port_config.get('zmq_pub_sub_port')}, "
+                   f"Sensory={port_config.get('zmq_sensory_port')}, "
+                   f"Motor={port_config.get('zmq_motor_port')}")
+        
+    except FeagiConfigurationError as e:
+        logger.error("❌ CONFIGURATION ERROR ❌")
+        logger.error(str(e))
+        logger.error("\nTo fix this:")
+        logger.error("1. Check that feagi_configuration.toml exists and is valid")
+        logger.error("2. Verify all port numbers are unique and within range 1024-65535")
+        logger.error("3. Ensure no other processes are using the configured ports")
+        return 1
+        
+    except PortConflictError as e:
+        logger.error("❌ PORT CONFLICT ERROR ❌")
+        logger.error(str(e))
+        logger.error("\nTo resolve port conflicts:")
+        logger.error("1. Stop the process using the conflicting port, OR")
+        logger.error("2. Edit feagi_configuration.toml to use different ports")
+        logger.error("3. Check available ports with: netstat -tuln")
+        return 1
+        
+    except Exception as e:
+        logger.error(f"❌ STARTUP ERROR: {e}")
+        logger.debug(f"Full error details: {traceback.format_exc()}")
+        return 1
     
     # Check dependencies
     if not check_dependencies():
@@ -148,25 +230,8 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # Prepare configuration from command-line arguments
-    config = {
-        "api": {
-            "host": args.api_host,
-            "port": args.api_port,
-            "reload": args.api_reload,
-            "debug_api": args.debug_api
-        },
-        "zmq": {
-            "host": args.zmq_host,
-            "req_port": args.zmq_req_port,
-            "pub_port": args.zmq_pub_port,
-            "push_port": args.zmq_push_port,
-            "sensory_port": args.zmq_sensory_port,
-            "motor_port": args.zmq_motor_port,
-            "control_port": args.zmq_control_port,
-            "rest_port": args.zmq_rest_port,
-            "vis_port": args.zmq_vis_port
-        },
+    # Add legacy configuration mapping for backwards compatibility
+    legacy_config = {
         "core": {
             "use_gpu": args.gpu,
             "cpu_cores": args.cpu_cores,
@@ -181,9 +246,12 @@ def main():
         }
     }
     
-    # Start all FEAGI processes FIRST (required for both normal and test mode)
+    # Merge TOML config with legacy config for backwards compatibility
+    config.update(legacy_config)
+    
+    # Start all FEAGI processes with the loaded configuration
     if not process_manager.start(config):
-        logger.error("Failed to start FEAGI. See logs for details.")
+        logger.error("❌ Failed to start FEAGI. See logs for details.")
         return 1
     
     # If in test mode, run tests AFTER processes are started
@@ -207,15 +275,18 @@ def main():
         
         # Exit with appropriate exit code
         if test_result:
-            logger.info("Tests passed successfully", emoji1="✓ ")
+            logger.info("✓ Tests passed successfully")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 0
         else:
-            logger.error("Tests failed", emoji1="❌")
+            logger.error("❌ Tests failed")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 1
+    
+    logger.info("✓ FEAGI started successfully! All services are running.")
+    logger.info("Press Ctrl+C to stop FEAGI")
     
     # Keep the main thread alive to handle signals
     try:

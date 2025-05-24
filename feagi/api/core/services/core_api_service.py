@@ -553,8 +553,7 @@ class CoreAPIService:
             from feagi.npu.burst_engine import BurstEngine
             if not hasattr(self, '_burst_engine_instance'):
                 self._burst_engine_instance = BurstEngine(
-                    connectome_manager=self._connectome_manager,
-                    state_manager=self.state_manager
+                    connectome_manager=self._connectome_manager
                 )
             return self._burst_engine_instance
         except Exception as e:

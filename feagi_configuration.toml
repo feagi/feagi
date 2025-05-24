@@ -1,0 +1,90 @@
+# FEAGI Configuration File
+# Copyright 2016-2025 Neuraville Inc. All Rights Reserved.
+#
+# This configuration file uses TOML format for:
+# - Rust/RTOS compatibility
+# - Cloud-native deployments  
+# - Human-readable structure with comments
+
+[system]
+# System-level configuration
+max_cores = 0  # 0 = auto-detect
+debug = true
+log_level = "INFO"
+data_dir = "/tmp/feagi"  # Can be overridden with $FEAGI_DATA_DIR
+
+[api]
+# REST API server configuration
+host = "127.0.0.1"  # Can be overridden with $FEAGI_API_HOST
+port = 8000         # Can be overridden with $FEAGI_API_PORT
+workers = 1         # Can be overridden with $FEAGI_API_WORKERS
+reload = false      # Can be overridden with $FEAGI_API_RELOAD
+
+[ports]
+# ZMQ Communication Ports
+# 
+# ⚠️  CRITICAL: Edit these values if you have port conflicts
+# ⚠️  DO NOT change these ports while FEAGI is running
+# ⚠️  Restart FEAGI after making any port changes
+# ⚠️  Ensure all port numbers are unique
+#
+# Command-line overrides available:
+# --zmq-req-port, --zmq-pub-port, --zmq-push-port, etc.
+
+# Core ZMQ Communication Patterns
+zmq_req_rep_port = 5555      # Request-Reply pattern
+zmq_pub_sub_port = 5556      # Publish-Subscribe pattern  
+zmq_push_pull_port = 5557    # Push-Pull pattern
+
+# Specialized Data Streams
+zmq_sensory_port = 5558      # Sensory data input
+zmq_control_port = 5559      # Legacy control protocol
+zmq_visualization_port = 5562 # Neural activity visualization
+zmq_rest_port = 5563         # REST API over ZMQ
+zmq_motor_port = 5564        # Motor data output
+
+[zmq]
+# ZMQ-specific settings
+host = "127.0.0.1"  # Can be overridden with $FEAGI_ZMQ_HOST
+enabled = true
+polling_timeout = 100      # milliseconds
+message_buffer_size = 100  # max messages to buffer
+
+[neural]
+# Neural processing configuration
+burst_engine_timestep = 0.1    # milliseconds
+batch_size = 1000              # neurons per batch
+use_sparse_computation = true   # optimize for sparse networks
+enable_plasticity = true       # learning mechanisms
+
+[resources]
+# Resource allocation settings
+use_gpu = true                 # enable GPU acceleration if available
+gpu_memory_fraction = 0.8      # fraction of GPU memory to use
+enable_health_check = true     # monitor process health
+
+[logging]
+# Logging configuration
+global_log_level = "INFO"
+print_debug_logs = false
+print_burst_info = true
+log_file = "feagi.log"
+max_log_size = "10MB"
+backup_count = 5
+
+[database]
+# Database connections (optional)
+mongodb_enabled = false
+mongodb_host = "localhost"     # Can be overridden with $MONGODB_HOST
+mongodb_port = 27017           # Can be overridden with $MONGODB_PORT
+influxdb_enabled = false
+influxdb_url = ""              # Can be overridden with $INFLUXDB_URL
+
+[visualization]
+# Visualization settings
+enabled = true
+update_interval = 50  # milliseconds between updates
+
+# Cloud deployment example:
+# This file can be mounted as a ConfigMap in Kubernetes:
+# kubectl create configmap feagi-config --from-file=feagi_configuration.toml 

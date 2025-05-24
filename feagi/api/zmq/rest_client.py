@@ -269,7 +269,7 @@ class ZMQRestClient:
     
     def get_cortical_area(self, cortical_id: str) -> Dict[str, Any]:
         """
-        Get a specific cortical area.
+        Get a specific cortical area using the correct FEAGI endpoint.
         
         Args:
             cortical_id: Cortical area ID
@@ -277,8 +277,8 @@ class ZMQRestClient:
         Returns:
             Cortical area details
         """
-        return self.get(f'/v1/connectome/cortical_area/{cortical_id}', 
-                      params={'cortical_id': cortical_id})
+        return self.post('/v1/cortical_area/cortical_area_properties', 
+                        body={'cortical_id': cortical_id})
     
     # Status endpoint
     

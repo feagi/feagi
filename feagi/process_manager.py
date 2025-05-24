@@ -29,7 +29,18 @@ from typing import Dict, Any, Optional, List, Tuple, Set
 from feagi.npu.burst_engine import FQSampler
 from feagi.core.state_manager import FeagiStateManager
 from queue import Queue
+import traceback
 
+# Import TOML configuration system
+from feagi.config.toml_loader import (
+    load_feagi_config, 
+    FeagiConfigurationError,
+    get_port_config
+)
+from feagi.utils.port_checker import (
+    check_port_availability,
+    PortConflictError
+)
 
 # Process priority levels
 PRIORITY_CRITICAL = 1  # Real-time critical processes
@@ -83,33 +94,95 @@ class ProcessManager:
         self._fq_sampler_thread = None
         self._fq_sampler_queue = None
         
-    def find_available_port(self, start_port: int, max_tries: int = 10) -> Optional[int]:
+    def load_and_validate_ports(self, cli_args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Find an available port starting from start_port.
+        Load port configuration from TOML file and validate availability.
+        
+        This replaces the old auto port conflict resolution with fail-fast validation.
         
         Args:
-            start_port: The port to start checking from
-            max_tries: Maximum number of ports to try
+            cli_args: Optional command-line argument overrides
             
         Returns:
-            An available port or None if no port was found
-        """
-        for port_offset in range(max_tries):
-            port = start_port + port_offset
+            Complete configuration dictionary
             
-            # Skip if we already know this port is used
-            if port in self._used_ports:
-                continue
-                
+        Raises:
+            FeagiConfigurationError: If configuration loading fails
+            PortConflictError: If any port is already in use
+        """
+        try:
+            # Load TOML configuration with all overrides applied
+            config = load_feagi_config(cli_args=cli_args)
+            
+            # Extract port configuration
+            port_config = get_port_config(config)
+            
+            # Validate all ports are available
+            host = config.get('zmq', {}).get('host', '127.0.0.1')
+            
+            for port_name, port_number in port_config.get_all_ports().items():
+                try:
+                    check_port_availability(host, port_number)
+                    logger.debug(f"Port {port_number} ({port_name}) is available")
+                except PortConflictError as e:
+                    logger.error(f"Port conflict detected: {e}")
+                    raise PortConflictError(
+                        f"Port {port_number} (used for {port_name}) is already in use. "
+                        f"Edit feagi_configuration.toml to change port assignments. "
+                        f"Available ports can be found using: netstat -tuln"
+                    )
+            
+            # Also validate API port
+            api_port = config.get('api', {}).get('port', 8000)
+            api_host = config.get('api', {}).get('host', '127.0.0.1')
             try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind(("127.0.0.1", port))
-                    self._used_ports.add(port)
-                    return port
-            except OSError:
-                logger.warning(f"Port {port} is already in use, trying next port...")
+                check_port_availability(api_host, api_port)
+                logger.debug(f"API port {api_port} is available")
+            except PortConflictError as e:
+                logger.error(f"API port conflict detected: {e}")
+                raise PortConflictError(
+                    f"API port {api_port} is already in use. "
+                    f"Edit feagi_configuration.toml to change the api.port setting. "
+                    f"Available ports can be found using: netstat -tuln"
+                )
+            
+            logger.info("All port validations passed")
+            return config
+            
+        except Exception as e:
+            logger.error(f"Failed to load and validate port configuration: {e}")
+            raise
+
+    def find_available_port(self, start_port: int, max_tries: int = 10) -> Optional[int]:
+        """
+        DEPRECATED: This method is replaced by TOML-based port configuration.
         
-        logger.error(f"Could not find an available port after {max_tries} attempts")
+        Use load_and_validate_ports() instead, which loads hardcoded ports from
+        feagi_configuration.toml and validates them without auto-resolution.
+        
+        Args:
+            start_port: The port to start checking from (ignored)
+            max_tries: Maximum number of ports to try (ignored)
+            
+        Returns:
+            None - This method is deprecated
+            
+        Raises:
+            DeprecationWarning: Always, to indicate this method should not be used
+        """
+        import warnings
+        warnings.warn(
+            "find_available_port() is deprecated. "
+            "Use load_and_validate_ports() with TOML configuration instead. "
+            "Edit feagi_configuration.toml to set port assignments.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        logger.error(
+            "DEPRECATED: find_available_port() called. "
+            "FEAGI 2.0 uses hardcoded port configuration from feagi_configuration.toml. "
+            "Edit the configuration file to resolve port conflicts."
+        )
         return None
     
     def init_critical_processes(self, config: Dict[str, Any]) -> bool:
@@ -164,7 +237,7 @@ class ProcessManager:
         - Resource Manager
         
         Args:
-            config: Configuration parameters for the processes
+            config: Configuration parameters loaded from TOML file
             
         Returns:
             True if successfully initialized, False otherwise
@@ -175,87 +248,82 @@ class ProcessManager:
             # --- FQSampler Integration ---
             from feagi.core.state_manager import FeagiStateManager, ServiceState
             state_manager = FeagiStateManager.instance()
-            state_manager.set_fcl_sampler_state(ServiceState.INITIALIZING)  # Keep same state for compatibility
-            # Set FQSampler frequency and consumer in state manager
-            sampler_frequency = 20.0  # TODO: Make configurable
-            sampler_consumer = 1      # 1=Visualization, 2=Motor, 3=Both (default: Visualization)
-            state_manager.set_fcl_sampler_frequency(sampler_frequency)
-            state_manager.set_fcl_sampler_consumer(sampler_consumer)
-            # Create output queue for visualization/motor consumers
-            self._fq_sampler_queue = Queue(maxsize=50)  # Best-effort queue - newer samples are prioritized over processing every sample
-            # Use the fire queue provider (core object) from critical processes
-            fire_queue_provider = self._core_api  # Core API provides fire queue access
-            if fire_queue_provider is None:
-                logger.error("Core API not initialized before FQSampler!")
-                state_manager.set_fcl_sampler_state(ServiceState.ERROR)
-                return False
-            self._fq_sampler = FQSampler(
-                fire_queue_provider=fire_queue_provider,
-                sample_frequency_hz=sampler_frequency,
-                output_queue=self._fq_sampler_queue,
-                connectome_manager=self._connectome_manager
-            )
-            self._fq_sampler_thread = threading.Thread(target=self._fq_sampler.run, daemon=True)
-            self._fq_sampler_thread.start()
-            state_manager.set_fcl_sampler_state(ServiceState.READY)
-            logger.info("FQSampler started successfully.", emoji1="✓ ")
-            # --- FQSampler Integration ---
-            # If you add dynamic reconfiguration of frequency/consumer, update state manager here as well.
             
-            # Initialize ZMQ server (acts as PNS Message Broker)
-            zmq_config = config.get("zmq", {})
+            # Get port configuration from TOML config
+            port_config = get_port_config(config)
+            zmq_host = config.get('zmq', {}).get('host', '127.0.0.1')
             
-            # Check and adjust ports if needed
-            host = zmq_config.get("host", "127.0.0.1")
-            req_rep_port = self.find_available_port(zmq_config.get("req_port", 5555))
-            pub_sub_port = self.find_available_port(zmq_config.get("pub_port", 5556))
-            push_pull_port = self.find_available_port(zmq_config.get("push_port", 5557))
-            sensory_port = self.find_available_port(zmq_config.get("sensory_port", 5558))
-            motor_port = self.find_available_port(zmq_config.get("motor_port", 5564))
-            control_port = self.find_available_port(zmq_config.get("control_port", 5559))
-            rest_port = self.find_available_port(zmq_config.get("rest_port", 5563))
-            vis_base_port = self.find_available_port(zmq_config.get("vis_base_port", 5562))
-            
-            # Ensure we found available ports
-            if not all([req_rep_port, pub_sub_port, push_pull_port, sensory_port, motor_port, control_port, rest_port, vis_base_port]):
-                logger.error("Could not find available ports for ZMQ server")
+            # --- ZMQ Message Broker Setup ---
+            try:
+                from feagi.api.zmq.server import ZmqServer
+                
+                # Use hardcoded ports from configuration
+                zmq_ports = {
+                    'req_rep': port_config.zmq_req_rep_port,
+                    'pub_sub': port_config.zmq_pub_sub_port,
+                    'push_pull': port_config.zmq_push_pull_port,
+                    'sensory': port_config.zmq_sensory_port,
+                    'motor': port_config.zmq_motor_port,
+                    'control': port_config.zmq_control_port,
+                    'visualization': port_config.zmq_visualization_port,
+                    'rest': port_config.zmq_rest_port,
+                }
+                
+                logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
+                
+                # Initialize ZMQ server with hardcoded ports
+                zmq_server = ZmqServer(
+                    core_api=self._core_api,
+                    host=zmq_host,
+                    req_rep_port=port_config.zmq_req_rep_port,
+                    pub_sub_port=port_config.zmq_pub_sub_port,
+                    push_pull_port=port_config.zmq_push_pull_port,
+                    sensory_port=port_config.zmq_sensory_port,
+                    motor_port=port_config.zmq_motor_port,
+                    control_port=port_config.zmq_control_port,
+                    rest_port=port_config.zmq_rest_port,
+                    vis_port=port_config.zmq_visualization_port
+                )
+                
+                # Start ZMQ server
+                if zmq_server.start():
+                    self._processes['zmq_server'] = zmq_server
+                    state_manager.set_zmq_state(ServiceState.READY)
+                    logger.info("ZMQ Message Broker initialized successfully")
+                else:
+                    logger.error("Failed to start ZMQ Message Broker")
+                    return False
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize ZMQ Message Broker: {e}")
+                logger.debug(traceback.format_exc())
                 return False
                 
-            # Import here to avoid circular imports
-            from feagi.api.zmq.server import ZmqServer
-            
-            # Create and start the ZMQ server
-            self._zmq_server = ZmqServer(
-                core_api=self._core_api,
-                host=host,
-                req_rep_port=req_rep_port,
-                pub_sub_port=pub_sub_port,
-                push_pull_port=push_pull_port,
-                sensory_port=sensory_port,
-                motor_port=motor_port,
-                control_port=control_port,
-                rest_port=rest_port,
-                vis_port=vis_base_port,
-                fq_sampler=self._fq_sampler,
-                fq_sampler_queue=self._fq_sampler_queue
-            )
-            
-            # Start the ZMQ server
-            logger.info("Starting ZMQ server...")
-            success = self._zmq_server.start()
-            
-            if not success:
-                logger.error("Failed to start ZMQ server")
-                return False
+            # --- Resource Manager ---
+            try:
+                from feagi.core.resource_mgr import ResourceManager
+                resource_manager = ResourceManager.get_instance(config.get('resources', {}))
                 
-            logger.info("✓ Important processes initialized successfully", emoji1="✓ ")
+                if resource_manager.initialize_critical_structures():
+                    self._processes['resource_manager'] = resource_manager
+                    # Resource manager doesn't have a specific state in FeagiStateManager
+                    logger.info("Resource Manager initialized successfully")
+                else:
+                    logger.error("Failed to initialize Resource Manager")
+                    return False
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize Resource Manager: {e}")
+                logger.debug(traceback.format_exc())
+                # Non-critical - continue without resource manager
+                logger.warning("Continuing without Resource Manager")
+                
+            logger.info("Important processes initialization completed")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to initialize important processes: {e}")
-            from feagi.core.state_manager import FeagiStateManager, ServiceState
-            state_manager = FeagiStateManager.instance()
-            state_manager.set_fcl_sampler_state(ServiceState.ERROR)
+            logger.error(f"Critical error during important processes initialization: {e}")
+            logger.debug(traceback.format_exc())
             return False
     
     def init_background_processes(self, config: Dict[str, Any]) -> bool:
@@ -266,7 +334,7 @@ class ProcessManager:
         All services run in the same process space with shared memory access.
         
         Args:
-            config: Configuration parameters for the processes
+            config: Configuration parameters loaded from TOML file
             
         Returns:
             True if successfully initialized, False otherwise.
@@ -274,56 +342,90 @@ class ProcessManager:
         logger.info("Initializing background (Priority 3) processes...")
         
         try:
-            # RUST/RTOS COMPATIBLE: Direct service instantiation instead of subprocess
-            api_config = config.get("api", {})
-            api_host = api_config.get("host", "127.0.0.1")
-            api_port = self.find_available_port(api_config.get("port", 8000))
+            # Get API configuration from TOML config
+            api_config = config.get('api', {})
+            api_host = api_config.get('host', '127.0.0.1')
+            api_port = api_config.get('port', 8000)
+            api_workers = api_config.get('workers', 1)
+            api_reload = api_config.get('reload', False)
             
-            if not api_port:
-                logger.error("Could not find available port for API server")
-                return False
+            logger.info(f"API Configuration: host={api_host}, port={api_port}, workers={api_workers}")
             
-            # CRITICAL REFACTOR: Create REST API service directly in same process
-            # This eliminates subprocess boundaries and makes Rust migration trivial
-            
-            # Direct dependency injection - no environment variables needed
-            api_service_config = {
-                'core_api': self._core_api,
-                'state_manager': FeagiStateManager.instance(),
-                'connectome_manager': self._connectome_manager,
-                'host': api_host,
-                'port': api_port,
-                'debug': api_config.get("debug_api", False)
-            }
-            
-            # Create and start the API service as an async task (not subprocess)
-            api_task = self._start_api_service_task(api_service_config)
-            
-            if not api_task:
-                logger.error("Failed to start API service task")
+            # --- REST API Server ---
+            try:
+                from feagi.api.rest.app import create_rest_app
+                import uvicorn
+                import threading
+                
+                # Create FastAPI application using create_rest_app
+                app = create_rest_app()
+                
+                # Start uvicorn in a background thread
+                def run_uvicorn():
+                    uvicorn.run(
+                        app,
+                        host=api_host,
+                        port=api_port,
+                        log_level="info"
+                    )
+                
+                # Start the REST server in a thread
+                rest_thread = threading.Thread(target=run_uvicorn, daemon=True)
+                rest_thread.start()
+                
+                # Store the thread reference for shutdown
+                self._processes['rest_api'] = rest_thread
+                logger.info(f"REST API server started on {api_host}:{api_port}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize REST API: {e}")
+                logger.debug(traceback.format_exc())
                 return False
                 
-            # Store task information instead of process information
-            self._processes["api_server"] = {
-                "task": api_task,
-                "priority": PRIORITY_BACKGROUND,
-                "start_time": time.time(),
-                "config": api_config,
-                "type": "async_task"  # Mark as task, not process
-            }
-            
-            logger.info(f"API service started as async task on {api_host}:{api_port}")
-            
-            # Future: Add other background services here as direct tasks
-            # - Stem Cell Manager Task
-            # - Sleep Manager Task
-            # - Monitoring Task
-            
-            logger.info("✓ Background processes initialized successfully", emoji1="✓ ")
+            # --- WebSocket Server (Optional) ---
+            try:
+                websocket_enabled = config.get('websocket', {}).get('enabled', False)
+                if websocket_enabled:
+                    from feagi.api.websocket.server import WebSocketServer
+                    
+                    ws_port = config.get('websocket', {}).get('port', 8080)
+                    ws_host = config.get('websocket', {}).get('host', '127.0.0.1')
+                    
+                    ws_server = WebSocketServer(host=ws_host, port=ws_port)
+                    
+                    if ws_server.start():
+                        self._processes['websocket'] = ws_server
+                        logger.info(f"WebSocket server started on {ws_host}:{ws_port}")
+                    else:
+                        logger.warning("Failed to start WebSocket server - continuing without it")
+                        
+            except Exception as e:
+                logger.warning(f"WebSocket server initialization failed: {e}")
+                # Non-critical - continue without WebSocket
+                
+            # --- Health Check Service ---
+            try:
+                health_enabled = config.get('resources', {}).get('enable_health_check', True)
+                if health_enabled:
+                    from feagi.core.health_monitor import HealthMonitor
+                    
+                    health_monitor = HealthMonitor()
+                    if health_monitor.start():
+                        self._processes['health_monitor'] = health_monitor
+                        logger.info("Health monitor started")
+                    else:
+                        logger.warning("Failed to start health monitor - continuing without it")
+                        
+            except Exception as e:
+                logger.warning(f"Health monitor initialization failed: {e}")
+                # Non-critical - continue without health monitoring
+                
+            logger.info("Background processes initialization completed")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to initialize background processes: {e}")
+            logger.error(f"Critical error during background processes initialization: {e}")
+            logger.debug(traceback.format_exc())
             return False
     
     def _start_api_service_task(self, config: Dict[str, Any]) -> Optional[Any]:
@@ -439,27 +541,28 @@ class ProcessManager:
         RUST/RTOS COMPATIBLE: Monitors both async tasks and legacy processes.
         In Rust, this would be integrated with the async runtime's task monitoring.
         """
-        for name, service_info in self._processes.items():
-            service_type = service_info.get("type", "process")  # Default to legacy process
-            
-            if service_type == "async_task":
-                # RUST/RTOS COMPATIBLE: Monitor async task health
-                task = service_info.get("task")
-                if task and hasattr(task, 'is_alive'):
-                    if not task.is_alive():
-                        logger.error(f"Async task {name} has stopped unexpectedly")
-                        # TODO: Implement task restart logic if needed
-                        # In Rust: respawn the task with tokio::spawn
+        for name, service in self._processes.items():
+            try:
+                # Determine service type based on the actual object type/attributes
+                if hasattr(service, 'is_running') and callable(service.is_running):
+                    # Service with is_running() method (like ZmqServer)
+                    if not service.is_running():
+                        logger.error(f"Service {name} is not running")
+                elif hasattr(service, 'is_alive') and callable(service.is_alive):
+                    # Thread-like objects
+                    if not service.is_alive():
+                        logger.error(f"Thread {name} has stopped unexpectedly")
+                elif hasattr(service, 'poll') and callable(service.poll):
+                    # Legacy subprocess
+                    if service.poll() is not None:
+                        exit_code = service.poll()
+                        logger.error(f"Process {name} exited with code {exit_code}")
                 else:
-                    logger.warning(f"Task {name} doesn't support health checking")
-            else:
-                # Legacy subprocess monitoring (will be removed in full Rust migration)
-                process = service_info.get("process")
-                if process and process.poll() is not None:
-                    # Process has exited
-                    exit_code = process.poll()
-                    logger.error(f"Process {name} exited with code {exit_code}")
-                    # TODO: Implement restart logic if needed
+                    # Service type we can't monitor - just log debug info
+                    logger.debug(f"Service {name} doesn't support health checking (type: {type(service).__name__})")
+                    
+            except Exception as e:
+                logger.warning(f"Error checking service {name}: {e}")
     
     def get_core_api(self):
         """Get the Core API instance."""
@@ -483,42 +586,42 @@ class ProcessManager:
             # Stop running flag to signal all services to stop
             self._running = False
             
-            # Shutdown tasks and processes based on their type
-            for name, service_info in self._processes.items():
-                service_type = service_info.get("type", "process")  # Default to legacy process
-                
-                if service_type == "async_task":
-                    # RUST/RTOS COMPATIBLE: Clean task shutdown
-                    print(f"Stopping async task: {name}...", file=sys.stderr, flush=True)
-                    task = service_info.get("task")
-                    if task and hasattr(task, 'is_alive') and task.is_alive():
-                        try:
-                            # In Rust: task.cancel().await or similar
-                            # For now, just signal the thread to stop gracefully
-                            # The actual service should check self._running flag
-                            task.join(timeout=2)
-                        except Exception as e:
-                            print(f"Error stopping task {name}: {e}", file=sys.stderr, flush=True)
-                else:
-                    # Legacy subprocess handling (will be removed in full Rust migration)
-                    print(f"Terminating subprocess: {name}...", file=sys.stderr, flush=True)
-                    process = service_info.get("process")
-                    if process and process.poll() is None:
-                        try:
-                            process.terminate()
-                            process.wait(timeout=2)
-                        except:
-                            if process.poll() is None:
-                                process.kill()
-                        
-            # Next, shut down the ZMQ server
-            if self._zmq_server:
-                print("Terminating ZMQ server...", file=sys.stderr, flush=True)
+            # Shutdown each service properly based on its type
+            for name, service in self._processes.items():
                 try:
-                    self._zmq_server.shutdown()
+                    print(f"Stopping service: {name}...", file=sys.stderr, flush=True)
+                    
+                    # Handle different service types
+                    if name == 'zmq_server' and hasattr(service, 'shutdown'):
+                        # ZMQ server has a shutdown method
+                        service.shutdown()
+                    elif name == 'rest_api' and hasattr(service, 'stop'):
+                        # REST API server has a stop method
+                        service.stop()
+                    elif name == 'websocket' and hasattr(service, 'stop'):
+                        # WebSocket server has a stop method  
+                        service.stop()
+                    elif name == 'health_monitor' and hasattr(service, 'stop'):
+                        # Health monitor has a stop method
+                        service.stop()
+                    elif name == 'resource_manager' and hasattr(service, 'cleanup'):
+                        # Resource manager has a cleanup method
+                        service.cleanup()
+                    elif hasattr(service, 'terminate') and hasattr(service, 'poll'):
+                        # Legacy subprocess handling
+                        if service.poll() is None:
+                            service.terminate()
+                            service.wait(timeout=2)
+                    elif hasattr(service, 'is_alive') and hasattr(service, 'join'):
+                        # Thread-like objects
+                        if service.is_alive():
+                            service.join(timeout=2)
+                    else:
+                        print(f"Service {name} doesn't have a known shutdown method", file=sys.stderr, flush=True)
+                        
                 except Exception as e:
-                    print(f"Error shutting down ZMQ server: {e}", file=sys.stderr, flush=True)
-            
+                    print(f"Error stopping service {name}: {e}", file=sys.stderr, flush=True)
+                        
             # Stop FQSampler if running
             if hasattr(self, '_fq_sampler') and self._fq_sampler:
                 print("Stopping FQSampler...", file=sys.stderr, flush=True)
