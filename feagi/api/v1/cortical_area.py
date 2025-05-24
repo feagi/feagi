@@ -323,12 +323,87 @@ class CorticalAreaAPI:
         except Exception as e:
             raise ValueError(f"Error getting 2D cortical locations: {str(e)}")
     
-    @cortical_area_endpoint('GET', '/cortical_area/geometry', response_model=CorticalGeometryResponse)
-    def get_cortical_area_geometry(self) -> CorticalGeometryResponse:
-        """Get cortical area geometry information."""
+    @cortical_area_endpoint('GET', '/cortical_area/geometry', response_model=Dict[str, Any])
+    def get_cortical_area_geometry(self) -> Dict[str, Any]:
+        """Get cortical area geometry information in Godot-compatible format.
+        
+        Returns a dictionary keyed by cortical_id, where each value contains the complete
+        cortical area data including geometry, properties, coordinates, and parameters.
+        This format is expected by Godot's genome loading system.
+        """
         try:
-            geometry = self.core_api_service.get_cortical_area_geometry()
-            return CorticalGeometryResponse(geometry=geometry)
+            # Get all cortical area IDs
+            cortical_ids = self.core_api_service.get_cortical_area_id_list()
+            
+            # Build the geometry dictionary that Godot expects
+            geometry_data = {}
+            
+            for cortical_id in cortical_ids:
+                # Get detailed cortical area data
+                area_data = self.core_api_service.get_cortical_area(cortical_id)
+                
+                if area_data:
+                    # Extract parameters and build the complete legacy format that Godot expects
+                    parameters = area_data.get("parameters", {})
+                    coordinates = area_data.get("coordinates", {})
+                    dimensions = area_data.get("dimensions", {})
+                    
+                    # Build the complete cortical area data in the format Godot expects
+                    geometry_data[cortical_id] = {
+                        "cortical_id": area_data.get("id", cortical_id),
+                        "cortical_name": area_data.get("name", cortical_id),
+                        "parent_region_id": parameters.get("parent_region_id", "root"),
+                        "parent_region_title": parameters.get("parent_region_title", "Genome's root brain region"),
+                        "cortical_group": area_data.get("type", "CUSTOM"),
+                        "cortical_sub_group": parameters.get("subgroup", ""),
+                        "cortical_neuron_per_vox_count": parameters.get("neurons_per_voxel", 1),
+                        "visualization": parameters.get("gd_vis", True),
+                        "cortical_synaptic_attractivity": parameters.get("synatt", 100),
+                        "coordinates_3d": [
+                            coordinates.get("x", 0),
+                            coordinates.get("y", 0), 
+                            coordinates.get("z", 0)
+                        ],
+                        "coordinates_2d": [
+                            parameters.get("2dcorx", 0),
+                            parameters.get("2dcory", 0)
+                        ],
+                        "cortical_dimensions": [
+                            dimensions.get("width", 1),
+                            dimensions.get("height", 1),
+                            dimensions.get("depth", 1)
+                        ],
+                        "cortical_destinations": parameters.get("mapping", {}),
+                        "neuron_post_synaptic_potential": parameters.get("pstcr", 500),
+                        "neuron_post_synaptic_potential_max": parameters.get("pstcrm", 35),
+                        "neuron_fire_threshold": parameters.get("fire_t", 1),
+                        "neuron_fire_threshold_increment": [
+                            parameters.get("ftincx", 0),
+                            parameters.get("ftincy", 0),
+                            parameters.get("ftincz", 0)
+                        ],
+                        "neuron_firing_threshold_limit": parameters.get("fthlim", 0),
+                        "neuron_refractory_period": parameters.get("refrac", 0),
+                        "neuron_leak_coefficient": parameters.get("leak_c", 10),
+                        "neuron_leak_variability": parameters.get("leak_v", 0),
+                        "neuron_consecutive_fire_count": parameters.get("c_fr_c", 3),
+                        "neuron_snooze_period": parameters.get("snooze", 0),
+                        "neuron_degeneracy_coefficient": parameters.get("de_gen", 0),
+                        "neuron_psp_uniform_distribution": parameters.get("pspuni", False),
+                        "neuron_mp_charge_accumulation": parameters.get("mp_acc", True),
+                        "neuron_mp_driven_psp": parameters.get("mp_psp", False),
+                        "neuron_longterm_mem_threshold": parameters.get("mem__t", 100),
+                        "neuron_lifespan_growth_rate": parameters.get("mem_gr", 1),
+                        "neuron_init_lifespan": parameters.get("mem_ls", 9),
+                        "temporal_depth": parameters.get("temporal_depth", 1),
+                        "neuron_excitability": parameters.get("excite", 100),
+                        "transforming": parameters.get("transforming", False),
+                        # Additional fields that might be needed by Godot
+                        "dev_count": parameters.get("dev_count", 1),
+                        "cortical_dimensions_per_device": parameters.get("cortical_dimensions_per_device", dimensions)
+                    }
+            
+            return geometry_data
         except Exception as e:
             raise ValueError(f"Error getting cortical area geometry: {str(e)}")
     
