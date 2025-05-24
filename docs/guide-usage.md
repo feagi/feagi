@@ -69,6 +69,15 @@ python -m feagi.main [OPTIONS]
 | `--burst-rate RATE` | Neural burst processing rate | 60 |
 | `--log-level LEVEL` | Logging level (DEBUG/INFO/WARNING/ERROR) | INFO |
 
+#### Debug Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--debug-api` | Enable detailed API request/response logging | Disabled |
+| `--debug-npu` | Enable fire queue debugging - shows neuron firing data every burst | Disabled |
+
+For comprehensive debugging information, see the [FEAGI Debugging Guide](guide-how-to-debug.md).
+
 ### Usage Examples
 
 ```bash
@@ -89,6 +98,15 @@ python -m feagi.main --host 0.0.0.0 --api-port 8001
 
 # Custom burst rate for high-frequency simulation
 python -m feagi.main --burst-rate 120
+
+# Debug NPU with detailed fire queue output
+python -m feagi.main --debug-npu
+
+# Debug both API and NPU for comprehensive debugging
+python -m feagi.main --debug-api --debug-npu
+
+# Test mode with NPU debugging for validation
+python -m feagi.main --test --debug-npu --test-duration 30
 ```
 
 ## Architecture Components

@@ -235,6 +235,8 @@ logging.getLogger('feagi.npu.special_area_handler').setLevel(logging.DEBUG)
 
 ### Troubleshooting
 
+For comprehensive debugging information, see the [FEAGI Debugging Guide](../../docs/guide-how-to-debug.md).
+
 **Power Areas Not Detected**:
 - Check naming patterns (must end with "_pwr" or be "___pwr")
 - Verify `__power_injection: true` property
@@ -244,6 +246,17 @@ logging.getLogger('feagi.npu.special_area_handler').setLevel(logging.DEBUG)
 - Reduce power area size or batch injection size
 - Use probabilistic injection (`injection_probability < 1.0`)
 - Monitor burst frequency and injection statistics
+
+**NPU Debug Mode**:
+Launch FEAGI with `--debug-npu` to see detailed fire queue contents every burst:
+```bash
+python3 -m feagi.main --debug-npu
+```
+This displays:
+- Total firing neurons per burst
+- Per-cortical area breakdown with neuron IDs  
+- Power injection statistics
+- Recent firing activity trends
 
 ### Performance Considerations
 

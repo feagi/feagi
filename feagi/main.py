@@ -110,6 +110,7 @@ def main():
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     parser.add_argument("--log-level", type=str, choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], help="Set log level")
     parser.add_argument("--debug-api", action="store_true", help="Enable detailed API request/response logging")
+    parser.add_argument("--debug-npu", action="store_true", help="Enable fire queue debugging - shows neuron firing data every burst")
     
     args = parser.parse_args()
     
@@ -156,6 +157,11 @@ def main():
             # Set environment variable for API debug logging middleware
             os.environ['FEAGI_DEBUG_API'] = '1'
             logger.info("🐛 API debug logging enabled via --debug-api flag")
+        
+        if args.debug_npu:
+            # Set environment variable for NPU fire queue debugging
+            os.environ['FEAGI_DEBUG_NPU'] = '1'
+            logger.info("🔥 NPU fire queue debugging enabled via --debug-npu flag")
         
         # Load configuration with CLI overrides
         logger.info("Loading FEAGI configuration...")

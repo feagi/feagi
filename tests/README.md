@@ -113,6 +113,30 @@ pytest --cov=feagi tests/unit/
 pytest --cov=feagi --cov-report=html tests/
 ```
 
+## Debugging During Testing
+
+FEAGI provides specialized debugging flags that can be helpful during test development and troubleshooting. For comprehensive debugging information, see the [FEAGI Debugging Guide](../docs/guide-how-to-debug.md).
+
+### Quick Debug Commands for Testing
+
+```bash
+# NPU debugging during tests
+FEAGI_DEBUG_NPU=1 python -m pytest tests/npu/ -v -s
+
+# API debugging during tests  
+FEAGI_DEBUG_API=1 python -m pytest tests/api/ -v -s
+
+# Combined debugging
+FEAGI_DEBUG_API=1 FEAGI_DEBUG_NPU=1 python -m pytest -v -s
+
+# Test mode with debugging
+python -m feagi.main --test --debug-npu --test-duration 30
+```
+
+The debug flags provide valuable information during test development:
+- `--debug-npu`: Shows real-time neuron firing data and fire queue contents
+- `--debug-api`: Shows HTTP request/response details and API middleware operations
+
 ## Using Test Markers
 
 We use pytest markers to categorize tests:

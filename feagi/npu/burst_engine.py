@@ -1,6 +1,7 @@
 import time
 import signal
 import threading
+import os  # Add for environment variable checking
 from typing import Dict, List, Optional, Set, Any, Union
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 from feagi.utils.logger import setup_logger
@@ -163,6 +164,10 @@ class BurstEngine:
         if self.fcl_injection_service and self.power_injection_timing == 'post_burst':
             self.fcl_injection_service.inject_post_burst(self.burst_count)
         
+        # 5. Debug fire queue output if --debug-npu flag is enabled
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            self._debug_fire_queue_output()
+        
         return fired_neurons
 
     def _process_burst_with_power_injection(self, current_timestep: int) -> List[int]:
@@ -195,6 +200,10 @@ class BurstEngine:
             injected_post = self.fcl_injection_service.inject_post_burst(current_timestep)
             if injected_post > 0:
                 logger.debug(f"Post-burst injection: {injected_post} neurons")
+        
+        # 5. Debug fire queue output if --debug-npu flag is enabled
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            self._debug_fire_queue_output()
         
         return fired_neurons
 
@@ -295,6 +304,10 @@ class BurstEngine:
         
         # Increment burst count for testing
         self.burst_count += 1
+        
+        # Debug fire queue output if --debug-npu flag is enabled
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            self._debug_fire_queue_output()
         
         return fired_neurons
 
@@ -453,6 +466,71 @@ class BurstEngine:
         self.state_manager.set_burst_engine_state(ServiceState.READY)
         logger.info("Burst engine stopped", emoji1="🛑 ")
         return True
+
+    def _debug_fire_queue_output(self) -> None:
+        """
+        Debug fire queue output for NPU debugging.
+        
+        When --debug-npu flag is enabled, this method displays detailed information
+        about the current fire queue contents including:
+        - Global FCL summary
+        - Per-cortical area breakdown
+        - Neuron firing statistics
+        """
+        try:
+            print(f"\n🔥 ===== NPU DEBUG - BURST {self.burst_count} =====")
+            
+            # Get global FCL
+            global_fcl = self.fcl_manager.get_global_fcl()
+            total_firing = len(global_fcl)
+            
+            print(f"📊 Global Fire Summary:")
+            print(f"   Total firing neurons: {total_firing}")
+            print(f"   Burst frequency: {1.0/self.burst_interval:.1f}Hz target")
+            
+            if total_firing > 0:
+                # Get firing neurons by cortical area
+                fcl_by_cortical = self.fcl_manager.get_fcl_by_cortical()
+                
+                print(f"🧠 Per-Area Breakdown ({len(fcl_by_cortical)} active areas):")
+                
+                # Sort areas by number of firing neurons for consistent output
+                sorted_areas = sorted(fcl_by_cortical.items(), key=lambda x: len(x[1]), reverse=True)
+                
+                for cortical_id, area_fcl in sorted_areas:
+                    area_count = len(area_fcl)
+                    percentage = (area_count / total_firing) * 100 if total_firing > 0 else 0
+                    
+                    # Display first few neurons for small lists, summarize for large ones
+                    if area_count <= 10:
+                        neuron_list = sorted(list(area_fcl))
+                        print(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_list}")
+                    else:
+                        neuron_sample = sorted(list(area_fcl))[:5]
+                        print(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_sample}... (+{area_count-5} more)")
+                
+                # Show power area injection info if available
+                if self.fcl_injection_service:
+                    stats = self.get_power_injection_statistics()
+                    if 'injection' in stats and stats['injection'].get('total_injections', 0) > 0:
+                        power_neurons = stats['special_areas'].get('total_power_neurons', 0)
+                        print(f"⚡ Power Injection: {power_neurons} neurons from {stats['special_areas'].get('power_areas_count', 0)} power areas")
+            else:
+                print("   No neurons firing this burst")
+                
+            # Show recent firing statistics if available
+            if hasattr(self.fcl_manager, 'get_firing_statistics'):
+                firing_stats = self.fcl_manager.get_firing_statistics()
+                if firing_stats:
+                    print(f"📈 Recent Activity:")
+                    print(f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst")
+                    print(f"   Peak firing: {firing_stats.get('peak_firing', 0)} neurons")
+            
+            print(f"🔥 ========================================\n")
+            
+        except Exception as e:
+            print(f"🔥 NPU DEBUG ERROR: Failed to display fire queue - {e}")
+            logger.error(f"NPU debug output error: {e}")  
 
 # --- FCLSampler Implementation ---
 
