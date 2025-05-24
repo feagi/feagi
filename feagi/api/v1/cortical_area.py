@@ -463,8 +463,12 @@ class CorticalAreaAPI:
             for cortical_id in request.cortical_ids:
                 # Get individual cortical area data
                 area_data = self.core_api_service.get_cortical_area(cortical_id)
+                
                 if area_data:
-                    # Use the same logic as get_cortical_area_properties to format the response
+                    # Extract the base data from the API response
+                    area_id = area_data.get("id", cortical_id)
+                    area_name = area_data.get("name", cortical_id)
+                    
                     parameters = area_data.get("parameters", {})
                     coordinates_3d = [
                         area_data.get("coordinates", {}).get("x", 0),
@@ -479,8 +483,8 @@ class CorticalAreaAPI:
                     
                     # Build legacy format response (same as single cortical area properties)
                     cortical_properties = {
-                        "cortical_id": area_data.get("id", cortical_id),
-                        "cortical_name": area_data.get("name", cortical_id),
+                        "cortical_id": area_id,  # Use the correct ID from the API response
+                        "cortical_name": area_name,  # Use the correct name from the API response
                         "parent_region_id": parameters.get("parent_region_id", "root"),
                         "parent_region_title": parameters.get("parent_region_title", "Genome's root brain region"),
                         "cortical_group": area_data.get("type", "CUSTOM"),
