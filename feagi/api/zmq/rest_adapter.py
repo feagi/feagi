@@ -70,34 +70,37 @@ class ZMQRestAPIAdapter:
             "DELETE:/v1/system/beacon/unsubscribe": self._delegate_to_v1_api,
             "GET:/v1/system/version": self._delegate_to_v1_api,
             
-            # ===== Genome endpoints - Existing implementations =====
-            "GET:/v1/genome/blueprint": self._handle_get_genome_blueprint,
-            "GET:/v1/genome": self._handle_get_genome,
-            "GET:/v1/genome/file_name": self._handle_get_genome_file_name,
-            "GET:/v1/genome/defaults/files": self._handle_get_genome_defaults,
-            "GET:/v1/genome/download": self._handle_download_genome,
-            "GET:/v1/genome/genome_number": self._handle_get_genome_number,
-            "GET:/v1/genome/cortical_template": self._handle_get_cortical_template,
-            "GET:/v1/genome/circuits": self._handle_get_circuits,
-            "GET:/v1/genome/amalgamation_history": self._handle_get_amalgamation_history,
-            "GET:/v1/genome/download_region": self._handle_download_genome_region,
-            "POST:/v1/genome/upload/barebones": self._handle_upload_barebones_genome,
-            "POST:/v1/genome/upload/essential": self._handle_upload_essential_genome,
-            "POST:/v1/genome/upload/file": self._handle_upload_genome_file,
-            "POST:/v1/genome/upload/string": self._handle_upload_genome_string,
-            "POST:/v1/genome/reset": self._handle_reset_genome,
+            # ===== Genome endpoints - Delegated to v1 API =====
+            "GET:/v1/genome/blueprint": self._delegate_to_v1_api,
+            "GET:/v1/genome": self._delegate_to_v1_api,
+            "GET:/v1/genome/file_name": self._delegate_to_v1_api,
+            "GET:/v1/genome/defaults/files": self._delegate_to_v1_api,
+            "GET:/v1/genome/download": self._delegate_to_v1_api,
+            "GET:/v1/genome/genome_number": self._delegate_to_v1_api,
+            "GET:/v1/genome/cortical_template": self._delegate_to_v1_api,
+            "GET:/v1/genome/circuits": self._delegate_to_v1_api,
+            "GET:/v1/genome/amalgamation_history": self._delegate_to_v1_api,
+            "GET:/v1/genome/download_region": self._delegate_to_v1_api,
+            "POST:/v1/genome/upload/barebones": self._delegate_to_v1_api,
+            "POST:/v1/genome/upload/essential": self._delegate_to_v1_api,
+            "POST:/v1/genome/upload/file": self._delegate_to_v1_api,
+            "POST:/v1/genome/upload/string": self._delegate_to_v1_api,
+            "POST:/v1/genome/reset": self._delegate_to_v1_api,
             
-            # ===== Connectome endpoints - Existing implementations =====
-            "GET:/v1/connectome/cortical_areas": self._handle_get_cortical_areas,
+            # ===== Connectome endpoints - Delegated to v1 API =====
+            "GET:/v1/connectome/cortical_areas": self._delegate_to_v1_api,
+            "GET:/v1/connectome/cortical_areas/list/summary": self._delegate_to_v1_api,
+            "GET:/v1/connectome/cortical_areas/list/detailed": self._delegate_to_v1_api,
+            "GET:/v1/connectome/cortical_areas/list/transforming": self._delegate_to_v1_api,
             
-            # ===== Cortical Area endpoints =====
-            "GET:/v1/cortical_area/cortical_area_id_list": self._handle_get_cortical_area_id_list,
-            "POST:/v1/cortical_area/{cortical_id}/cortical_area_properties": self._handle_get_cortical_area_properties,
-            "POST:/v1/cortical_area/multi_cortical_area_properties": self._handle_get_multi_cortical_area_properties,
-            "POST:/v1/cortical_area/multi/cortical_area_properties": self._handle_get_multi_cortical_area_properties,
+            # ===== Cortical Area endpoints - Delegated to v1 API =====
+            "GET:/v1/cortical_area/cortical_area_id_list": self._delegate_to_v1_api,
+            "POST:/v1/cortical_area/{cortical_id}/cortical_area_properties": self._delegate_to_v1_api,
+            "POST:/v1/cortical_area/multi_cortical_area_properties": self._delegate_to_v1_api,
+            "POST:/v1/cortical_area/multi/cortical_area_properties": self._delegate_to_v1_api,
             
-            # ===== Status endpoint =====
-            "GET:/v1/status": self._handle_status,
+            # ===== Status endpoint - Delegated to v1 API =====
+            "GET:/v1/status": self._delegate_to_v1_api,
         }
     
     async def process_message(self, message_data: bytes) -> bytes:
@@ -398,216 +401,17 @@ class ZMQRestAPIAdapter:
             "timestamp": int(time.time() * 1000)
         }
     
-    # Handler implementations
-    
-    async def _handle_health_check(self, params, query, body, headers):
-        """Handler for GET /v1/system/health_check"""
-        return await self.core_api_service.get_system_health()
-    
-    async def _handle_get_configuration(self, params, query, body, headers):
-        """Handler for GET /v1/system/configuration"""
-        return self.core_api_service.get_configuration()
-    
-    async def _handle_update_configuration(self, params, query, body, headers):
-        """Handler for PUT /v1/system/configuration"""
-        success = self.core_api_service.update_configuration(body)
-        if success:
-            return {"status": "success", "message": "Configuration updated successfully"}
-        else:
-            raise ValueError("Failed to update configuration")
-    
-    async def _handle_get_versions(self, params, query, body, headers):
-        """Handler for GET /v1/system/versions"""
-        return self.core_api_service.get_versions()
-    
-    async def _handle_get_cortical_area_types(self, params, query, body, headers):
-        """Handler for GET /v1/system/cortical_area_types"""
-        return self.core_api_service.get_cortical_area_types()
-    
-    async def _handle_get_genome_blueprint(self, params, query, body, headers):
-        """Handler for GET /v1/genome/blueprint"""
-        genome = self.core_api_service.get_genome()
-        return genome.get('cortical_areas', {})
-    
-    async def _handle_get_genome(self, params, query, body, headers):
-        """Handler for GET /v1/genome"""
-        return self.core_api_service.get_genome()
-    
-    async def _handle_get_cortical_areas(self, params, query, body, headers):
-        """Handler for GET /v1/connectome/cortical_areas"""
-        return self.core_api_service.get_cortical_areas()
-    
-    async def _handle_status(self, params, query, body, headers):
-        """Handler for GET /v1/status"""
-        return await self.core_api_service.get_system_health()
-    
-    # Additional genome endpoint handlers
-    
-    async def _handle_get_genome_file_name(self, params, query, body, headers):
-        """Handler for GET /v1/genome/file_name"""
-        return self.core_api_service.get_genome_file_name()
-    
-    async def _handle_get_genome_defaults(self, params, query, body, headers):
-        """Handler for GET /v1/genome/defaults/files"""
-        return {"genome": self.core_api_service.get_default_genomes()}
-    
-    async def _handle_download_genome(self, params, query, body, headers):
-        """Handler for GET /v1/genome/download"""
-        # This typically returns a file, but for ZMQ we'll return the genome data
-        genome = self.core_api_service.get_genome()
-        if not genome:
-            raise ValueError("No genome loaded")
-        return genome
-    
-    async def _handle_get_genome_number(self, params, query, body, headers):
-        """Handler for GET /v1/genome/genome_number"""
-        return self.core_api_service.get_genome_counter()
-    
-    async def _handle_get_cortical_template(self, params, query, body, headers):
-        """Handler for GET /v1/genome/cortical_template"""
-        # Return cortical area template
-        template = self.core_api_service.get_cortical_template()
-        return template
-    
-    async def _handle_get_circuits(self, params, query, body, headers):
-        """Handler for GET /v1/genome/circuits"""
-        # Return available circuits/genome library
-        circuits = self.core_api_service.get_circuit_library()
-        return circuits
-    
-    async def _handle_get_amalgamation_history(self, params, query, body, headers):
-        """Handler for GET /v1/genome/amalgamation_history"""
-        history = self.core_api_service.get_amalgamation_history()
-        return history
-    
-    async def _handle_download_genome_region(self, params, query, body, headers):
-        """Handler for GET /v1/genome/download_region"""
-        region_id = query.get('region_id')
-        if not region_id:
-            raise ValueError("Missing required query parameter: region_id")
-        
-        genome = self.core_api_service.get_genome_from_region(region_id)
-        if not genome:
-            raise ValueError(f"Region {region_id} not found")
-        return genome
-    
-    async def _handle_upload_barebones_genome(self, params, query, body, headers):
-        """Handler for POST /v1/genome/upload/barebones"""
-        result = self.core_api_service.load_essential_genome()
-        return result
-    
-    async def _handle_upload_essential_genome(self, params, query, body, headers):
-        """Handler for POST /v1/genome/upload/essential"""
-        result = self.core_api_service.load_essential_genome()
-        return result
-    
-    async def _handle_upload_genome_file(self, params, query, body, headers):
-        """Handler for POST /v1/genome/upload/file"""
-        # For ZMQ, expect genome data in body instead of file upload
-        if not body or 'genome_data' not in body:
-            raise ValueError("Missing genome_data in request body")
-        
-        genome_data = body['genome_data']
-        filename = body.get('filename', 'uploaded_genome.json')
-        
-        result = self.core_api_service.load_genome(genome_data, filename)
-        return result
-    
-    async def _handle_upload_genome_string(self, params, query, body, headers):
-        """Handler for POST /v1/genome/upload/string"""
-        if not body:
-            raise ValueError("Missing genome data in request body")
-        
-        result = self.core_api_service.load_genome(body)
-        return {"loaded": result, "genome_counter": self.core_api_service.get_genome_counter()}
-    
-    async def _handle_reset_genome(self, params, query, body, headers):
-        """Handler for POST /v1/genome/reset"""
-        success = self.core_api_service.reset_genome()
-        if success:
-            return {"message": "Genome reset successfully"}
-        else:
-            raise ValueError("Failed to reset genome")
-
-    async def _handle_get_cortical_area_id_list(self, params, query, body, headers):
-        """Handler for GET /v1/cortical_area/cortical_area_id_list"""
-        return self.core_api_service.get_cortical_area_id_list()
-
-    async def _handle_get_cortical_area_properties(self, params, query, body, headers):
-        """Handler for POST /v1/cortical_area/{cortical_id}/cortical_area_properties"""
-        cortical_id = params.get('cortical_id')
-        if not cortical_id:
-            raise ValueError("Missing required path parameter: cortical_id")
-        
-        area_data = self.core_api_service.get_cortical_area(cortical_id)
-        if not area_data:
-            raise ValueError(f"Cortical area '{cortical_id}' not found")
-        
-        # Transform to Godot bridge expected format
-        return {
-            "cortical_id": area_data.get("id", cortical_id),
-            "cortical_name": area_data.get("name", cortical_id),
-            "cortical_group": area_data.get("type", "CUSTOM"),
-            "cortical_dimensions": [
-                area_data.get("dimensions", {}).get("width", 10),
-                area_data.get("dimensions", {}).get("height", 10),
-                area_data.get("dimensions", {}).get("depth", 1)
-            ],
-            "coordinates_3d": [
-                area_data.get("coordinates", {}).get("x", 0),
-                area_data.get("coordinates", {}).get("y", 0),
-                area_data.get("coordinates", {}).get("z", 0)
-            ],
-            "neuron_count": area_data.get("neuron_count", 0),
-            "parameters": area_data.get("parameters", {})
-        }
-
-    async def _handle_get_multi_cortical_area_properties(self, params, query, body, headers):
-        """Handler for POST /v1/cortical_area/multi_cortical_area_properties"""
-        # Log what we're actually receiving to understand the bridge's request format
-        logger.debug(f"Multi cortical area properties request - body: {body}, params: {params}, query: {query}")
-        
-        # Try different possible parameter names/formats the bridge might be using
-        cortical_id_list = None
-        
-        if 'cortical_id_list' in body:
-            cortical_id_list = body['cortical_id_list']
-        elif 'cortical_ids' in body:
-            cortical_id_list = body['cortical_ids']
-        elif 'cortical_id' in body:
-            # Single ID, convert to list
-            cortical_id_list = [body['cortical_id']]
-        elif isinstance(body, list):
-            # Body is already a list of IDs
-            cortical_id_list = body
-        else:
-            # If no recognized format, get all cortical areas
-            logger.debug(f"No cortical_id_list found in request body: {body}. Getting all cortical areas.")
-            cortical_id_list = self.core_api_service.get_cortical_area_id_list()
-        
-        # Get properties for the specified cortical areas
-        results = []
-        for cortical_id in cortical_id_list:
-            area_data = self.core_api_service.get_cortical_area(cortical_id)
-            if area_data:
-                # Transform to Godot bridge expected format
-                transformed_data = {
-                    "cortical_id": area_data.get("id", cortical_id),
-                    "cortical_name": area_data.get("name", cortical_id),
-                    "cortical_group": area_data.get("type", "CUSTOM"),
-                    "cortical_dimensions": [
-                        area_data.get("dimensions", {}).get("width", 10),
-                        area_data.get("dimensions", {}).get("height", 10),
-                        area_data.get("dimensions", {}).get("depth", 1)
-                    ],
-                    "coordinates_3d": [
-                        area_data.get("coordinates", {}).get("x", 0),
-                        area_data.get("coordinates", {}).get("y", 0),
-                        area_data.get("coordinates", {}).get("z", 0)
-                    ],
-                    "neuron_count": area_data.get("neuron_count", 0),
-                    "parameters": area_data.get("parameters", {})
-                }
-                results.append(transformed_data)
-        
-        return results 
+    # ===== Architecture Notes =====
+    # 
+    # All endpoint handlers have been removed and delegated to the unified v1 API
+    # to maintain the single source of truth principle and ensure identical behavior
+    # between HTTP and ZMQ transports.
+    #
+    # The _delegate_to_v1_api method ensures that:
+    # 1. All endpoints use the exact same logic across transports
+    # 2. Response formats are identical between HTTP and ZMQ
+    # 3. No endpoint duplication exists anywhere in the codebase
+    # 4. All transport protocols remain in perfect sync
+    #
+    # This architecture prevents the architectural violations that occurred with
+    # custom handlers providing different responses for the same endpoints. 

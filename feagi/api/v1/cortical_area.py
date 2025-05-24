@@ -59,8 +59,74 @@ class CorticalAreaAPI:
     def get_cortical_area_properties(self, request: CorticalIdRequest) -> CorticalAreaPropertiesResponse:
         """Get properties of a cortical area."""
         try:
-            properties = self.core_api_service.get_cortical_area_properties(request.cortical_id)
-            return CorticalAreaPropertiesResponse(properties=properties)
+            area_data = self.core_api_service.get_cortical_area(request.cortical_id)
+            if not area_data:
+                raise KeyError("Cortical area not found")
+            
+            # Transform modern FEAGI format to expected legacy format
+            parameters = area_data.get("parameters", {})
+            
+            # Extract coordinates
+            coordinates = area_data.get("coordinates", {})
+            coordinates_3d = [
+                coordinates.get("x", 0),
+                coordinates.get("y", 0), 
+                coordinates.get("z", 0)
+            ]
+            
+            # Extract dimensions
+            dimensions = area_data.get("dimensions", {})
+            cortical_dimensions = [
+                dimensions.get("width", 1),
+                dimensions.get("height", 1),
+                dimensions.get("depth", 1)
+            ]
+            
+            # Build legacy format response
+            legacy_properties = {
+                "cortical_id": area_data.get("id", request.cortical_id),
+                "cortical_name": area_data.get("name", request.cortical_id),
+                "parent_region_id": parameters.get("parent_region_id", "root"),
+                "parent_region_title": parameters.get("parent_region_title", "Genome's root brain region"),
+                "cortical_group": area_data.get("type", "CUSTOM"),
+                "cortical_sub_group": parameters.get("subgroup", ""),
+                "cortical_neuron_per_vox_count": parameters.get("neurons_per_voxel", 1),
+                "cortical_visibility": parameters.get("gd_vis", True),
+                "cortical_synaptic_attractivity": parameters.get("synatt", 100),
+                "coordinates_3d": coordinates_3d,
+                "coordinates_2d": [
+                    parameters.get("2dcorx", 0),
+                    parameters.get("2dcory", 0)
+                ],
+                "cortical_dimensions": cortical_dimensions,
+                "cortical_destinations": parameters.get("mapping", {}),
+                "neuron_post_synaptic_potential": parameters.get("pstcr", 500),
+                "neuron_post_synaptic_potential_max": parameters.get("pstcrm", 35),
+                "neuron_fire_threshold": parameters.get("fire_t", 1),
+                "neuron_fire_threshold_increment": [
+                    parameters.get("ftincx", 0),
+                    parameters.get("ftincy", 0),
+                    parameters.get("ftincz", 0)
+                ],
+                "neuron_firing_threshold_limit": parameters.get("fthlim", 0),
+                "neuron_refractory_period": parameters.get("refrac", 0),
+                "neuron_leak_coefficient": parameters.get("leak_c", 10),
+                "neuron_leak_variability": parameters.get("leak_v", 0),
+                "neuron_consecutive_fire_count": parameters.get("c_fr_c", 3),
+                "neuron_snooze_period": parameters.get("snooze", 0),
+                "neuron_degeneracy_coefficient": parameters.get("de_gen", 0),
+                "neuron_psp_uniform_distribution": parameters.get("pspuni", False),
+                "neuron_mp_charge_accumulation": parameters.get("mp_acc", True),
+                "neuron_mp_driven_psp": parameters.get("mp_psp", False),
+                "neuron_longterm_mem_threshold": parameters.get("mem__t", 100),
+                "neuron_lifespan_growth_rate": parameters.get("mem_gr", 1),
+                "neuron_init_lifespan": parameters.get("mem_ls", 9),
+                "temporal_depth": parameters.get("temporal_depth", 1),
+                "neuron_excitability": parameters.get("excite", 100),
+                "transforming": parameters.get("transforming", False)
+            }
+            
+            return CorticalAreaPropertiesResponse(properties=legacy_properties)
         except ValueError:
             raise ValueError("Invalid cortical area ID length")
         except KeyError:
