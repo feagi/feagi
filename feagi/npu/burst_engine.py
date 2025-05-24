@@ -147,6 +147,13 @@ class BurstEngine:
         if self.cortical_areas:
             self._initialize_special_area_services()
         
+        # Initialize frequency measurement system
+        self._burst_timing_buffer = []  # Circular buffer for burst durations
+        self._processing_timing_buffer = []  # Circular buffer for pure processing durations
+        self._timing_buffer_size = 100  # Keep last 100 burst measurements
+        self._last_frequency_update = 0.0
+        self._frequency_measurement_enabled = False  # Only enable when requested via API
+        
         # Mark as initialized
         self._initialized = True
         print(f"🔥 BURST ENGINE: Instance {self._instance_id} initialization complete")
@@ -370,11 +377,14 @@ class BurstEngine:
             
         try:
             while self._running:
-                start = time.perf_counter()
+                cycle_start = time.perf_counter()
                 
                 # Debug logging if --debug-npu is enabled
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
                     print(f"🔥 BURST ENGINE: Starting burst {self.burst_count + 1} in main loop")
+                
+                # Measure pure processing time
+                processing_start = time.perf_counter()
                 
                 # Choose processing method based on power injection availability
                 if self.fcl_injection_service:
@@ -388,18 +398,18 @@ class BurstEngine:
                         print(f"🔥 BURST ENGINE: Using STANDARD processing (no injection service)")
                     fired_neurons = self._process_burst()
                 
-                # 2. Measure actual frequency
-                end = time.perf_counter()
-                elapsed = end - start
-                actual_freq = 1.0 / elapsed if elapsed > 0 else 0
-                self.state_manager.set_burst_frequency(actual_freq)
+                # End of pure processing time measurement
+                processing_end = time.perf_counter()
+                processing_elapsed = processing_end - processing_start
                 
-                # Debug timing information
-                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"🔥 BURST ENGINE: Burst {self.burst_count + 1} completed in {elapsed*1000:.2f}ms, frequency: {actual_freq:.1f}Hz")
+                # Calculate potential frequency (pure processing speed without delays)
+                potential_freq = 1.0 / processing_elapsed if processing_elapsed > 0 else 0
                 
-                # 3. Load shedding if needed
-                if actual_freq < self.desired_frequency:
+                # Record pure processing timing data if frequency measurement is enabled
+                self._record_processing_timing(processing_elapsed)
+                
+                # 2. Load shedding if needed (based on potential frequency vs target)
+                if potential_freq < self.desired_frequency:
                     for cortical_id in self.shed_areas:
                         # Clear FCL for this area for the current burst
                         if hasattr(self.fcl_manager, 'area_fcl_history'):
@@ -409,13 +419,32 @@ class BurstEngine:
                             if cortical_id in self.fcl_manager.cortical_fcl_history:
                                 self.fcl_manager.cortical_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
                 
-                # 4. Increment burst count
+                # 3. Calculate full cycle time and actual frequency
+                cycle_end = time.perf_counter()
+                cycle_elapsed = cycle_end - cycle_start
+                
+                # 4. Sleep for the remainder of the interval to maintain target frequency
+                if cycle_elapsed < self.burst_interval:
+                    time.sleep(self.burst_interval - cycle_elapsed)
+                
+                # 5. Calculate actual frequency (including delays)
+                final_cycle_time = time.perf_counter() - cycle_start
+                actual_freq = 1.0 / final_cycle_time if final_cycle_time > 0 else 0
+                
+                # Update state manager with actual frequency (maintains compatibility)
+                self.state_manager.set_burst_frequency(actual_freq)
+                
+                # Record full cycle timing data if frequency measurement is enabled
+                self._record_burst_timing(final_cycle_time)
+                
+                # Debug timing information
+                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                    print(f"🔥 BURST ENGINE: Burst {self.burst_count + 1} - Processing: {processing_elapsed*1000:.2f}ms, "
+                          f"Full cycle: {final_cycle_time*1000:.2f}ms, Potential: {potential_freq:.1f}Hz, Actual: {actual_freq:.1f}Hz")
+                
+                # Increment burst count
                 self.burst_count += 1
                 
-                # 5. Sleep for the remainder of the interval
-                if elapsed < self.burst_interval:
-                    time.sleep(self.burst_interval - elapsed)
-                    
         except Exception as e:
             # Handle crashes in the main loop by resetting _running flag
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
@@ -447,7 +476,10 @@ class BurstEngine:
         Returns:
             The list of fired neurons from this burst cycle
         """
-        start = time.perf_counter()
+        cycle_start = time.perf_counter()
+        
+        # Measure pure processing time
+        processing_start = time.perf_counter()
         
         # Choose processing method based on power injection availability
         if self.fcl_injection_service:
@@ -457,14 +489,27 @@ class BurstEngine:
             # Standard processing
             fired_neurons = self._process_burst()
         
-        # Measure actual frequency
-        end = time.perf_counter()
-        elapsed = end - start
-        actual_freq = 1.0 / elapsed if elapsed > 0 else 0
+        # End of pure processing time measurement
+        processing_end = time.perf_counter()
+        processing_elapsed = processing_end - processing_start
+        
+        # Calculate potential frequency (pure processing speed)
+        potential_freq = 1.0 / processing_elapsed if processing_elapsed > 0 else 0
+        
+        # Record pure processing timing data if frequency measurement is enabled
+        self._record_processing_timing(processing_elapsed)
+        
+        # Calculate full cycle time and actual frequency
+        cycle_end = time.perf_counter()
+        cycle_elapsed = cycle_end - cycle_start
+        actual_freq = 1.0 / cycle_elapsed if cycle_elapsed > 0 else 0
         self.state_manager.set_burst_frequency(actual_freq)
         
-        # Load shedding if needed
-        if actual_freq < self.desired_frequency:
+        # Record full cycle timing data if frequency measurement is enabled
+        self._record_burst_timing(cycle_elapsed)
+        
+        # Load shedding if needed (based on potential frequency)
+        if potential_freq < self.desired_frequency:
             for cortical_id in self.shed_areas:
                 # Clear FCL for this area for the current burst
                 if hasattr(self.fcl_manager, 'area_fcl_history'):
@@ -601,10 +646,13 @@ class BurstEngine:
         # Main loop with exception handling
         try:
             while self._running:
-                start_time = time.perf_counter()
+                cycle_start_time = time.perf_counter()
                 
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
                     print(f"🔥 BURST ENGINE: run_with_fire_queue() - main loop iteration, burst {self.burst_count}")
+                
+                # Measure pure processing time
+                processing_start_time = time.perf_counter()
                 
                 # 1. Pre-burst power injection - use timestep 0 for current
                 if self.fcl_injection_service:
@@ -634,30 +682,44 @@ class BurstEngine:
                         logger.debug(f"During-burst injection: {injected_during} neurons")
                     if injected_post > 0:
                         logger.debug(f"Post-burst injection: {injected_post} neurons")
-                    
-                # Calculate time taken for this burst
-                end_time = time.perf_counter()
-                elapsed = end_time - start_time
-                self.last_burst_time = elapsed
                 
-                # Calculate actual frequency
-                actual_freq = 1.0 / elapsed if elapsed > 0 else 0
+                # End of pure processing time measurement
+                processing_end_time = time.perf_counter()
+                processing_elapsed = processing_end_time - processing_start_time
+                
+                # Calculate potential frequency (pure processing speed without delays)
+                potential_freq = 1.0 / processing_elapsed if processing_elapsed > 0 else 0
+                
+                # Record pure processing timing data if frequency measurement is enabled
+                self._record_processing_timing(processing_elapsed)
+                    
+                # Calculate time taken for this burst cycle so far
+                cycle_elapsed = time.perf_counter() - cycle_start_time
+                self.last_burst_time = cycle_elapsed
+                
+                # Sleep if needed to maintain target frequency
+                if self.desired_frequency > 0 and cycle_elapsed < self.burst_interval:
+                    time.sleep(self.burst_interval - cycle_elapsed)
+                
+                # Calculate actual frequency (including delays)
+                final_cycle_time = time.perf_counter() - cycle_start_time
+                actual_freq = 1.0 / final_cycle_time if final_cycle_time > 0 else 0
                 self.state_manager.set_burst_frequency(actual_freq)
+                
+                # Record timing data if frequency measurement is enabled
+                self._record_burst_timing(final_cycle_time)
                 
                 # Log performance every 100 bursts
                 if self.burst_count % 100 == 0:
                     logger.info(f"Processed {self.burst_count} bursts. "
                                f"Target: {self.desired_frequency:.1f}Hz, "
-                               f"Actual: {actual_freq:.1f}Hz",
+                               f"Actual: {actual_freq:.1f}Hz, "
+                               f"Potential: {potential_freq:.1f}Hz",
                                emoji1="⚡ ")
                 
                 # Increment burst count
                 self.burst_count += 1
                 
-                # Sleep if needed to maintain target frequency
-                if self.desired_frequency > 0 and elapsed < self.burst_interval:
-                    time.sleep(self.burst_interval - elapsed)
-                    
         except Exception as e:
             # Handle crashes in the fire queue main loop
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
@@ -741,6 +803,166 @@ class BurstEngine:
         except Exception as e:
             print(f"🔥 NPU DEBUG ERROR: Failed to display fire queue - {e}")
             logger.error(f"NPU debug output error: {e}")  
+
+    def measure_actual_frequency(self, duration_seconds: float = 5.0, sample_count: int = 100) -> dict:
+        """
+        Measure both actual and potential burst frequencies over a specified period.
+        
+        This is an expensive operation that should only be called on-demand for monitoring
+        or debugging purposes. It collects detailed timing data during burst processing.
+        
+        Args:
+            duration_seconds: How long to collect timing data (default 5 seconds)
+            sample_count: Number of burst samples to collect (default 100)
+            
+        Returns:
+            Dictionary with measurement results including both actual and potential frequencies
+        """
+        import time
+        import statistics
+        
+        if not self._running:
+            raise RuntimeError("Cannot measure frequency - burst engine is not running")
+        
+        # Only log detailed frequency measurement start when debugging NPU
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            logger.info(f"Starting frequency measurement for {duration_seconds}s", emoji1="🔬")
+        
+        # Enable frequency measurement mode
+        old_measurement_enabled = getattr(self, '_frequency_measurement_enabled', False)
+        self._frequency_measurement_enabled = True
+        
+        # Clear any existing timing buffers
+        self._burst_timing_buffer.clear()
+        self._processing_timing_buffer.clear()
+        
+        measurement_start = time.perf_counter()
+        measurement_end = measurement_start + duration_seconds
+        burst_count_start = self.burst_count
+        
+        try:
+            # Wait for measurements to be collected
+            # The timing data will be collected automatically in the main burst loop
+            while (time.perf_counter() < measurement_end and 
+                   len(self._burst_timing_buffer) < sample_count):
+                time.sleep(0.01)  # Small sleep to avoid busy waiting
+                
+                # Safety check - ensure burst engine is still running
+                if not self._running:
+                    raise RuntimeError("Burst engine stopped during measurement")
+            
+            measurement_actual_duration = time.perf_counter() - measurement_start
+            burst_count_end = self.burst_count
+            total_bursts_measured = burst_count_end - burst_count_start
+            
+            # Calculate frequency metrics from collected timing data
+            if not self._burst_timing_buffer or not self._processing_timing_buffer:
+                raise RuntimeError("No timing data collected during measurement period")
+            
+            # Full cycle timing statistics (includes delays) - for actual frequency
+            full_cycle_data_ms = [t * 1000 for t in self._burst_timing_buffer]
+            min_cycle_time_ms = min(full_cycle_data_ms)
+            max_cycle_time_ms = max(full_cycle_data_ms)
+            avg_cycle_time_ms = statistics.mean(full_cycle_data_ms)
+            cycle_std_dev_ms = statistics.stdev(full_cycle_data_ms) if len(full_cycle_data_ms) > 1 else 0.0
+            
+            # Processing timing statistics (pure processing) - for potential frequency
+            processing_data_ms = [t * 1000 for t in self._processing_timing_buffer]
+            min_processing_time_ms = min(processing_data_ms)
+            max_processing_time_ms = max(processing_data_ms)
+            avg_processing_time_ms = statistics.mean(processing_data_ms)
+            processing_std_dev_ms = statistics.stdev(processing_data_ms) if len(processing_data_ms) > 1 else 0.0
+            
+            # Frequency calculations
+            avg_cycle_time_seconds = avg_cycle_time_ms / 1000.0
+            avg_processing_time_seconds = avg_processing_time_ms / 1000.0
+            
+            actual_frequency_hz = 1.0 / avg_cycle_time_seconds if avg_cycle_time_seconds > 0 else 0.0
+            potential_frequency_hz = 1.0 / avg_processing_time_seconds if avg_processing_time_seconds > 0 else 0.0
+            
+            # Alternative frequency calculation based on total time
+            cycles_per_second = total_bursts_measured / measurement_actual_duration if measurement_actual_duration > 0 else 0.0
+            
+            measurement_result = {
+                "actual_frequency_hz": actual_frequency_hz,
+                "potential_frequency_hz": potential_frequency_hz,
+                "alternative_frequency_hz": cycles_per_second,  # Alternative calculation method
+                "target_frequency_hz": self.desired_frequency,
+                "measurement_duration_s": measurement_actual_duration,
+                "sample_count": len(self._burst_timing_buffer),
+                "total_bursts_measured": total_bursts_measured,
+                
+                # Full cycle timing stats (actual frequency)
+                "min_cycle_time_ms": min_cycle_time_ms,
+                "max_cycle_time_ms": max_cycle_time_ms,
+                "avg_cycle_time_ms": avg_cycle_time_ms,
+                "cycle_std_dev_ms": cycle_std_dev_ms,
+                
+                # Processing timing stats (potential frequency)
+                "min_processing_time_ms": min_processing_time_ms,
+                "max_processing_time_ms": max_processing_time_ms,
+                "avg_processing_time_ms": avg_processing_time_ms,
+                "processing_std_dev_ms": processing_std_dev_ms,
+                
+                # Performance analysis
+                "actual_performance_ratio": actual_frequency_hz / self.desired_frequency if self.desired_frequency > 0 else 0.0,
+                "potential_performance_ratio": potential_frequency_hz / self.desired_frequency if self.desired_frequency > 0 else 0.0,
+                "efficiency_ratio": actual_frequency_hz / potential_frequency_hz if potential_frequency_hz > 0 else 0.0,
+                "headroom_hz": potential_frequency_hz - self.desired_frequency,
+                
+                # Debug data
+                "cycle_timing_data_ms": full_cycle_data_ms[-20:],  # Include last 20 samples for debugging
+                "processing_timing_data_ms": processing_data_ms[-20:]  # Include last 20 samples for debugging
+            }
+            
+            # Only log detailed completion when debugging NPU
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                logger.info(f"Frequency measurement complete - Actual: {actual_frequency_hz:.1f}Hz, Potential: {potential_frequency_hz:.1f}Hz (target: {self.desired_frequency:.1f}Hz)", emoji1="📊")
+            
+            return measurement_result
+            
+        finally:
+            # Restore previous measurement state
+            self._frequency_measurement_enabled = old_measurement_enabled
+            
+            # Clear timing buffers to free memory
+            if not self._frequency_measurement_enabled:
+                self._burst_timing_buffer.clear()
+                self._processing_timing_buffer.clear()
+
+    def _record_burst_timing(self, burst_duration_seconds: float) -> None:
+        """
+        Record burst timing data if frequency measurement is enabled.
+        
+        Args:
+            burst_duration_seconds: Duration of the burst in seconds
+        """
+        if not getattr(self, '_frequency_measurement_enabled', False):
+            return
+            
+        # Add to circular buffer
+        self._burst_timing_buffer.append(burst_duration_seconds)
+        
+        # Maintain buffer size
+        if len(self._burst_timing_buffer) > self._timing_buffer_size:
+            self._burst_timing_buffer.pop(0)  # Remove oldest entry
+
+    def _record_processing_timing(self, processing_duration_seconds: float) -> None:
+        """
+        Record processing timing data if frequency measurement is enabled.
+        
+        Args:
+            processing_duration_seconds: Duration of the processing in seconds
+        """
+        if not getattr(self, '_frequency_measurement_enabled', False):
+            return
+            
+        # Add to circular buffer
+        self._processing_timing_buffer.append(processing_duration_seconds)
+        
+        # Maintain buffer size
+        if len(self._processing_timing_buffer) > self._timing_buffer_size:
+            self._processing_timing_buffer.pop(0)  # Remove oldest entry
 
 # --- FCLSampler Implementation ---
 

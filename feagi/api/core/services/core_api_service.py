@@ -1472,4 +1472,42 @@ class CoreAPIService:
             return self._feagi_instance
         except Exception as e:
             self.logger.error(f"Error getting FEAGI instance: {str(e)}")
-            return None 
+            return None
+
+    # ===== Frequency Measurement Methods =====
+    
+    def trigger_frequency_measurement(self, duration_seconds: float = 5.0, sample_count: int = 100) -> dict:
+        """
+        Trigger an on-demand burst frequency measurement.
+        
+        This is an expensive operation that should only be called when needed for monitoring.
+        
+        Args:
+            duration_seconds: How long to measure (default 5.0 seconds)
+            sample_count: Number of burst samples to collect (default 100)
+            
+        Returns:
+            Dictionary with measurement results
+        """
+        return self.state_manager.trigger_frequency_measurement(duration_seconds, sample_count)
+    
+    def get_frequency_measurement_history(self, limit: Optional[int] = None) -> dict:
+        """
+        Get the history of frequency measurements.
+        
+        Args:
+            limit: Maximum number of recent measurements to return
+            
+        Returns:
+            Dictionary with measurement history
+        """
+        return self.state_manager.get_frequency_measurement_history(limit)
+    
+    def get_frequency_status_summary(self) -> dict:
+        """
+        Get current frequency status and latest measurement.
+        
+        Returns:
+            Dictionary with frequency status and latest measurement
+        """
+        return self.state_manager.get_frequency_status_summary() 

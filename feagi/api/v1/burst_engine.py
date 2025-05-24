@@ -289,6 +289,89 @@ class BurstEngineAPI:
             logger.error(f"Error resuming burst engine: {e}")
             raise ValueError(f"Failed to resume burst engine: {str(e)}")
 
+    # ===== Frequency Measurement =====
+    
+    @burst_engine_endpoint('POST', '/measure_frequency', response_model=Dict[str, Any])
+    async def trigger_frequency_measurement(self, 
+                                          duration_seconds: float = 5.0, 
+                                          sample_count: int = 100) -> Dict[str, Any]:
+        """
+        Trigger an on-demand burst frequency measurement.
+        
+        This is an expensive operation that measures actual burst engine performance
+        over a specified period. Use sparingly for monitoring/debugging purposes.
+        
+        Args:
+            duration_seconds: How long to measure (default 5.0 seconds)
+            sample_count: Number of burst samples to collect (default 100)
+            
+        Returns:
+            Dictionary with measurement results and performance statistics
+        """
+        try:
+            # Validate parameters
+            if duration_seconds <= 0 or duration_seconds > 60:
+                raise ValueError("Duration must be between 0 and 60 seconds")
+            if sample_count <= 0 or sample_count > 1000:
+                raise ValueError("Sample count must be between 1 and 1000")
+            
+            # Trigger measurement via state manager
+            result = self.core_api_service.trigger_frequency_measurement(
+                duration_seconds=duration_seconds,
+                sample_count=sample_count
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error triggering frequency measurement: {e}")
+            raise ValueError(f"Failed to trigger frequency measurement: {str(e)}")
+    
+    @burst_engine_endpoint('GET', '/frequency_history', response_model=Dict[str, Any])
+    async def get_frequency_measurement_history(self, limit: int = 10) -> Dict[str, Any]:
+        """
+        Get the history of frequency measurements.
+        
+        Args:
+            limit: Maximum number of recent measurements to return (default 10, max 100)
+            
+        Returns:
+            Dictionary with measurement history and summary statistics
+        """
+        try:
+            # Validate limit
+            if limit <= 0 or limit > 100:
+                raise ValueError("Limit must be between 1 and 100")
+            
+            history = self.core_api_service.get_frequency_measurement_history(limit=limit)
+            summary = self.core_api_service.get_frequency_status_summary()
+            
+            return {
+                "history": history,
+                "summary": summary,
+                "count": len(history)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting frequency measurement history: {e}")
+            raise ValueError(f"Failed to get frequency measurement history: {str(e)}")
+    
+    @burst_engine_endpoint('GET', '/frequency_status', response_model=Dict[str, Any])
+    async def get_frequency_status(self) -> Dict[str, Any]:
+        """
+        Get current frequency status and latest measurement.
+        
+        Returns:
+            Dictionary with frequency status, target frequency, and latest measurement
+        """
+        try:
+            summary = self.core_api_service.get_frequency_status_summary()
+            return summary
+            
+        except Exception as e:
+            logger.error(f"Error getting frequency status: {e}")
+            raise ValueError(f"Failed to get frequency status: {str(e)}")
+
 
 # ===== Factory Function =====
 
