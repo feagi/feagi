@@ -539,8 +539,28 @@ class ZMQRestAPIAdapter:
         if not cortical_id:
             raise ValueError("Missing required path parameter: cortical_id")
         
-        properties = self.core_api_service.get_cortical_area(cortical_id)
-        return properties
+        area_data = self.core_api_service.get_cortical_area(cortical_id)
+        if not area_data:
+            raise ValueError(f"Cortical area '{cortical_id}' not found")
+        
+        # Transform to Godot bridge expected format
+        return {
+            "cortical_id": area_data.get("id", cortical_id),
+            "cortical_name": area_data.get("name", cortical_id),
+            "cortical_group": area_data.get("type", "CUSTOM"),
+            "cortical_dimensions": [
+                area_data.get("dimensions", {}).get("width", 10),
+                area_data.get("dimensions", {}).get("height", 10),
+                area_data.get("dimensions", {}).get("depth", 1)
+            ],
+            "coordinates_3d": [
+                area_data.get("coordinates", {}).get("x", 0),
+                area_data.get("coordinates", {}).get("y", 0),
+                area_data.get("coordinates", {}).get("z", 0)
+            ],
+            "neuron_count": area_data.get("neuron_count", 0),
+            "parameters": area_data.get("parameters", {})
+        }
 
     async def _handle_get_multi_cortical_area_properties(self, params, query, body, headers):
         """Handler for POST /v1/cortical_area/multi_cortical_area_properties"""
@@ -561,15 +581,33 @@ class ZMQRestAPIAdapter:
             # Body is already a list of IDs
             cortical_id_list = body
         else:
-            # If no recognized format, return all cortical areas
-            logger.warning(f"No cortical_id_list found in request body: {body}. Returning all cortical areas.")
-            return self.core_api_service.get_cortical_areas()
+            # If no recognized format, get all cortical areas
+            logger.debug(f"No cortical_id_list found in request body: {body}. Getting all cortical areas.")
+            cortical_id_list = self.core_api_service.get_cortical_area_id_list()
         
         # Get properties for the specified cortical areas
         results = []
         for cortical_id in cortical_id_list:
             area_data = self.core_api_service.get_cortical_area(cortical_id)
             if area_data:
-                results.append(area_data)
+                # Transform to Godot bridge expected format
+                transformed_data = {
+                    "cortical_id": area_data.get("id", cortical_id),
+                    "cortical_name": area_data.get("name", cortical_id),
+                    "cortical_group": area_data.get("type", "CUSTOM"),
+                    "cortical_dimensions": [
+                        area_data.get("dimensions", {}).get("width", 10),
+                        area_data.get("dimensions", {}).get("height", 10),
+                        area_data.get("dimensions", {}).get("depth", 1)
+                    ],
+                    "coordinates_3d": [
+                        area_data.get("coordinates", {}).get("x", 0),
+                        area_data.get("coordinates", {}).get("y", 0),
+                        area_data.get("coordinates", {}).get("z", 0)
+                    ],
+                    "neuron_count": area_data.get("neuron_count", 0),
+                    "parameters": area_data.get("parameters", {})
+                }
+                results.append(transformed_data)
         
         return results 
