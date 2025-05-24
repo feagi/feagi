@@ -459,8 +459,85 @@ class CorticalAreaAPI:
     def get_multiple_cortical_properties(self, request: CorticalIdListRequest) -> Dict[str, Any]:
         """Get properties for multiple cortical areas."""
         try:
-            properties = self.core_api_service.get_multiple_cortical_properties(request.cortical_ids)
-            return properties
+            results = []
+            for cortical_id in request.cortical_ids:
+                # Get individual cortical area data
+                area_data = self.core_api_service.get_cortical_area(cortical_id)
+                if area_data:
+                    # Use the same logic as get_cortical_area_properties to format the response
+                    parameters = area_data.get("parameters", {})
+                    coordinates_3d = [
+                        area_data.get("coordinates", {}).get("x", 0),
+                        area_data.get("coordinates", {}).get("y", 0),
+                        area_data.get("coordinates", {}).get("z", 0)
+                    ]
+                    cortical_dimensions = [
+                        area_data.get("dimensions", {}).get("width", 1),
+                        area_data.get("dimensions", {}).get("height", 1),
+                        area_data.get("dimensions", {}).get("depth", 1)
+                    ]
+                    
+                    # Build legacy format response (same as single cortical area properties)
+                    cortical_properties = {
+                        "cortical_id": area_data.get("id", cortical_id),
+                        "cortical_name": area_data.get("name", cortical_id),
+                        "parent_region_id": parameters.get("parent_region_id", "root"),
+                        "parent_region_title": parameters.get("parent_region_title", "Genome's root brain region"),
+                        "cortical_group": area_data.get("type", "CUSTOM"),
+                        "cortical_sub_group": parameters.get("subgroup", ""),
+                        "cortical_neuron_per_vox_count": parameters.get("neurons_per_voxel", 1),
+                        "visualization": parameters.get("gd_vis", True),
+                        "cortical_synaptic_attractivity": parameters.get("synatt", 100),
+                        "coordinates_3d": coordinates_3d,
+                        "coordinates_2d": [
+                            parameters.get("2dcorx", 0),
+                            parameters.get("2dcory", 0)
+                        ],
+                        "cortical_dimensions": cortical_dimensions,
+                        "cortical_destinations": parameters.get("mapping", {}),
+                        "neuron_post_synaptic_potential": parameters.get("pstcr", 500),
+                        "neuron_post_synaptic_potential_max": parameters.get("pstcrm", 35),
+                        "neuron_fire_threshold": parameters.get("fire_t", 1),
+                        "neuron_fire_threshold_increment": [
+                            parameters.get("ftincx", 0),
+                            parameters.get("ftincy", 0),
+                            parameters.get("ftincz", 0)
+                        ],
+                        "neuron_firing_threshold_limit": parameters.get("fthlim", 0),
+                        "neuron_refractory_period": parameters.get("refrac", 0),
+                        "neuron_leak_coefficient": parameters.get("leak_c", 10),
+                        "neuron_leak_variability": parameters.get("leak_v", 0),
+                        "neuron_consecutive_fire_count": parameters.get("c_fr_c", 3),
+                        "neuron_snooze_period": parameters.get("snooze", 0),
+                        "neuron_degeneracy_coefficient": parameters.get("de_gen", 0),
+                        "neuron_psp_uniform_distribution": parameters.get("pspuni", False),
+                        "neuron_mp_charge_accumulation": parameters.get("mp_acc", True),
+                        "neuron_mp_driven_psp": parameters.get("mp_psp", False),
+                        "neuron_longterm_mem_threshold": parameters.get("mem__t", 100),
+                        "neuron_lifespan_growth_rate": parameters.get("mem_gr", 1),
+                        "neuron_init_lifespan": parameters.get("mem_ls", 9),
+                        "temporal_depth": parameters.get("temporal_depth", 1),
+                        "neuron_excitability": parameters.get("excite", 100),
+                        "transforming": parameters.get("transforming", False)
+                    }
+                    
+                    # Handle IPU/OPU specific properties if needed
+                    area_type = area_data.get("type", "CUSTOM")
+                    if area_type in ["IPU", "OPU"]:
+                        dev_count = parameters.get("dev_count", 1)
+                        cortical_properties["dev_count"] = dev_count
+                        cortical_properties["cortical_dimensions_per_device"] = [
+                            cortical_dimensions[0] // dev_count,
+                            cortical_dimensions[1],
+                            cortical_dimensions[2]
+                        ]
+                    
+                    results.append(cortical_properties)
+                else:
+                    # Handle case where cortical area is not found - skip silently or add error
+                    pass
+            
+            return results
         except Exception as e:
             raise ValueError(f"Error getting multiple cortical properties: {str(e)}")
     

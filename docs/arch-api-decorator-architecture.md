@@ -335,6 +335,151 @@ app.include_router(get_new_module_router(), prefix="/v1/new_module")
 
 **Total: 130+ endpoints** across 18 modules
 
+## 🛡️ Architectural Compliance & Violation Prevention
+
+### 🚨 **Critical Warning: Architectural Violations**
+
+This section was created after discovering serious architectural violations where different transport protocols (HTTP vs ZMQ) were returning different responses for the same endpoints. This is **STRICTLY FORBIDDEN** and violates the Single Source of Truth principle.
+
+### **Core Compliance Rules**
+
+#### 1. **Single Source of Truth (SSOT) Enforcement**
+```
+✅ CORRECT: One v1 API endpoint → Multiple transport adapters
+❌ FORBIDDEN: Multiple implementations of the same endpoint
+```
+
+All API endpoints MUST have exactly ONE implementation in the v1 API modules. Transport adapters provide PURE DELEGATION only.
+
+#### 2. **Pure Delegation Pattern**
+
+**✅ Correct Transport Adapter:**
+```python
+async def _handle_get_cortical_area_id_list(self, params, query, body, headers):
+    """Handler that delegates to v1 API"""
+    return self.cortical_area_api.get_cortical_area_id_list()
+```
+
+**❌ Forbidden Custom Implementation:**
+```python
+async def _handle_get_cortical_area_id_list(self, params, query, body, headers):
+    """VIOLATION: Custom implementation"""
+    return self.core_api_service.get_cortical_areas()  # ⚠️ WRONG!
+```
+
+#### 3. **Response Format Consistency**
+
+ALL transports MUST return identical responses for identical requests:
+- v1 API defines response format
+- All transports use same v1 API method
+- **Result**: Perfect consistency across transports
+
+### **Violation Prevention Protocols**
+
+#### **Pre-Implementation Checklist**
+
+1. **Does this endpoint already exist in v1 API?**
+   - If YES: Use existing endpoint, never duplicate
+   - If NO: Add to appropriate v1 API module
+
+2. **Are you implementing in a transport adapter?**
+   - ❌ STOP: Move implementation to v1 API
+   - ✅ OK: Only if purely delegating to v1 API
+
+3. **Are response formats identical across all transports?**
+   - Test with both HTTP (Swagger) and ZMQ clients
+   - Responses must be byte-for-byte identical
+
+#### **Code Review Requirements**
+
+ALL pull requests MUST pass these checks:
+
+1. **No duplicate endpoint implementations**
+   ```bash
+   # Search for duplicate route definitions
+   grep -r "cortical_area_id_list" feagi_core/feagi/api/
+   # Should only appear in v1 API and transport delegation
+   ```
+
+2. **No custom business logic in transport adapters**
+   ```python
+   # ❌ REJECT: Any handler with custom logic
+   def _handle_xyz(self):
+       return self.core_api_service.some_method()  # VIOLATION
+   
+   # ✅ APPROVE: Pure delegation
+   def _handle_xyz(self):
+       return self.xyz_api.some_method()  # CORRECT
+   ```
+
+3. **Response format testing**
+   ```bash
+   # Test same endpoint on different transports
+   curl http://localhost:8000/v1/system/health_check    # HTTP
+   zmq_client.py GET /v1/system/health_check           # ZMQ
+   # Responses must be identical
+   ```
+
+#### **Immediate Actions on Violation Detection**
+
+1. **STOP all development**
+2. **Identify all violated endpoints**
+3. **Remove custom implementations**
+4. **Ensure v1 API has required endpoints**
+5. **Update transport adapters to pure delegation**
+6. **Test consistency across all transports**
+
+### **Common Pitfalls & Solutions**
+
+#### **Pydantic Schema Field Name Mismatches**
+
+**Issue**: Transport adapters creating Pydantic request objects with incorrect field names.
+
+**Example Error**:
+```
+1 validation error for CorticalIdListRequest
+cortical_ids
+  Field required [type=missing, input_value={'cortical_id_list': ['...']}, input_type=dict]
+```
+
+**Root Cause**: Request body contains `cortical_id_list` but schema expects `cortical_ids`.
+
+**❌ Incorrect**:
+```python
+# Wrong field name used
+request = CorticalIdListRequest(cortical_id_list=cortical_id_list)  # FAILS
+```
+
+**✅ Correct**:
+```python
+# Use exact schema field name
+request = CorticalIdListRequest(cortical_ids=cortical_id_list)  # WORKS
+```
+
+**Prevention**: Always verify Pydantic schema field names in `/feagi_core/feagi/api/v1/schemas.py` before creating request objects.
+
+### **Architecture Compliance KPIs**
+
+Success metrics for architectural compliance:
+
+- ✅ **100% endpoint consistency** across all transports
+- ✅ **Zero custom implementations** in transport adapters  
+- ✅ **Single point of truth** for each endpoint
+- ✅ **Automatic transport registration** for new endpoints
+
+### **Legacy Migration Strategy**
+
+#### **Identify Legacy Violations**
+- Custom handlers in transport adapters
+- Direct core service calls in transport adapters
+- Response format inconsistencies
+
+#### **Migration Steps**
+1. Move business logic to appropriate v1 API module
+2. Update transport adapters to pure delegation
+3. Remove legacy implementations
+4. Test endpoint consistency
+
 ## 🔮 Future Enhancements
 
 ### Planned Transport Support

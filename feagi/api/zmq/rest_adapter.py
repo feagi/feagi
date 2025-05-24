@@ -1,6 +1,21 @@
 """
 ZMQ REST API Adapter
 
+⚠️  ARCHITECTURAL ALERT - SINGLE SOURCE OF TRUTH VIOLATIONS PREVENTED ⚠️
+
+This module was COMPLETELY REFACTORED on 2025-05-24 after discovering critical
+architectural violations where different transport protocols (HTTP vs ZMQ) were
+returning different responses for the same endpoints.
+
+🚨 BEFORE MODIFYING THIS FILE:
+1. Read /docs/arch-api-decorator-architecture.md
+2. ALL endpoints MUST delegate to v1 API modules
+3. NO custom business logic implementations allowed
+4. Response formats MUST be identical across all transports
+
+❌ FORBIDDEN: Custom endpoint handlers with business logic
+✅ REQUIRED: Pure delegation to feagi.api.v1.* modules
+
 This module implements an adapter that allows REST API requests to be sent over ZMQ,
 using the same format and structure as the HTTP-based REST API.
 
