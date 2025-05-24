@@ -2038,8 +2038,8 @@ class ConnectomeManager:
         self.active_neurons.clear()
         
         # Get neurons that fired in the previous timestep from FCL
-        prev_timestep = max(0, self.current_timestep - 1)
-        prev_active_indices = self.fcl_manager.get_fcl(prev_timestep)
+        # Use -1 offset to get previous timestep (FCL manager uses relative offsets from current)
+        prev_active_indices = self.fcl_manager.get_fcl(-1)
         
         # Process all neurons
         for neuron_id, neuron in self.neurons.items():

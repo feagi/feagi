@@ -74,6 +74,25 @@ class BurstEngine:
                 logger.info(f"🔥 BURST ENGINE: Returning existing singleton instance {cls._instance_id}")
             return cls._instance
     
+    @property
+    def _running(self):
+        """Get the running state with debug tracking."""
+        return getattr(self, '_running_state', False)
+    
+    @_running.setter
+    def _running(self, value):
+        """Set the running state with debug tracking."""
+        import traceback
+        old_value = getattr(self, '_running_state', False)
+        self._running_state = value
+        
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1' and old_value != value:
+            print(f"🔥 BURST ENGINE: Instance {self._instance_id} _running changed: {old_value} → {value}")
+            print(f"🔥 BURST ENGINE: Stack trace:")
+            for line in traceback.format_stack()[-3:-1]:  # Show last 2 stack frames
+                print(f"    {line.strip()}")
+            print()
+
     def __init__(self, connectome_manager: Any, fcl_manager: Optional[Any] = None, config: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize the Burst Engine.
@@ -96,7 +115,7 @@ class BurstEngine:
         self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
         self.config = config or {}
         self.genome_loaded = False
-        self._running = False
+        self._running = False  # This will now trigger the setter with debug logging
         self.burst_count = 0
         self.last_burst_time = 0.0
         
@@ -201,19 +220,44 @@ class BurstEngine:
         Returns:
             List of neuron IDs that fired in this burst
         """
+        # Debug logging if --debug-npu is enabled
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE _process_burst called! Instance {self._instance_id}, Burst count: {self.burst_count}")
+            
+            # Check injection service availability
+            if self.fcl_injection_service:
+                print(f"🔥 BURST ENGINE: Injection service AVAILABLE")
+            else:
+                print(f"🔥 BURST ENGINE: NO INJECTION SERVICE!")
+        
         # 1. Pre-burst power injection
         if self.fcl_injection_service and self.power_injection_timing == 'pre_burst':
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: Calling pre-burst injection")
             self.fcl_injection_service.inject_pre_burst(self.burst_count)
         
         # 2. Update membrane potentials and get fired neurons
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            # FCL manager uses sliding window with current timestep always 0
+            current_timestep = 0  # Fixed: always use 0 for current timestep
+            print(f"🔥 BURST ENGINE: About to call update_membrane_potentials with timestep {current_timestep}")
+        
         fired_neurons = self.connectome_manager.update_membrane_potentials()
+        
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            fired_count = len(fired_neurons) if fired_neurons else 0
+            print(f"🔥 BURST ENGINE: Got {fired_count} firing neurons")
         
         # 3. During-burst injection (for modulators)
         if self.fcl_injection_service and self.power_injection_timing == 'during_burst':
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: Calling during-burst injection")
             self.fcl_injection_service.inject_during_burst(self.burst_count)
         
         # 4. Post-burst injection  
         if self.fcl_injection_service and self.power_injection_timing == 'post_burst':
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: Calling post-burst injection")
             self.fcl_injection_service.inject_post_burst(self.burst_count)
         
         # 5. Debug fire queue output if --debug-npu flag is enabled
@@ -227,31 +271,60 @@ class BurstEngine:
         Enhanced burst processing with power area injection.
         
         Args:
-            current_timestep: Current simulation timestep
+            current_timestep: Current simulation timestep (should be 0 for current)
             
         Returns:
             List of neuron IDs that fired in this burst
         """
+        # Debug logging if --debug-npu is enabled
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}")
+            
+            # Check injection service availability
+            if self.fcl_injection_service:
+                print(f"🔥 BURST ENGINE: Enhanced injection service AVAILABLE")
+            else:
+                print(f"🔥 BURST ENGINE: NO ENHANCED INJECTION SERVICE!")
+        
         # 1. Pre-burst power injection (inject power area neurons)
         if self.fcl_injection_service:
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: Calling enhanced pre-burst injection")
             injected_pre = self.fcl_injection_service.inject_pre_burst(current_timestep)
             if injected_pre > 0:
                 logger.debug(f"Pre-burst injection: {injected_pre} neurons")
+                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                    print(f"🔥 BURST ENGINE: Pre-burst injected {injected_pre} neurons")
         
         # 2. Standard burst processing (membrane potential updates, regular firing)
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: About to call enhanced update_membrane_potentials with timestep {current_timestep}")
+        
         fired_neurons = self.connectome_manager.update_membrane_potentials()
+        
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            fired_count = len(fired_neurons) if fired_neurons else 0
+            print(f"🔥 BURST ENGINE: Enhanced processing got {fired_count} firing neurons")
         
         # 3. During-burst injection (for modulator areas)
         if self.fcl_injection_service:
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: Calling enhanced during-burst injection")
             injected_during = self.fcl_injection_service.inject_during_burst(current_timestep)
             if injected_during > 0:
                 logger.debug(f"During-burst injection: {injected_during} neurons")
+                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                    print(f"🔥 BURST ENGINE: During-burst injected {injected_during} neurons")
         
         # 4. Post-burst injection (for cleanup or special processing)
         if self.fcl_injection_service:
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: Calling enhanced post-burst injection")
             injected_post = self.fcl_injection_service.inject_post_burst(current_timestep)
             if injected_post > 0:
                 logger.debug(f"Post-burst injection: {injected_post} neurons")
+                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                    print(f"🔥 BURST ENGINE: Post-burst injected {injected_post} neurons")
         
         # 5. Debug fire queue output if --debug-npu flag is enabled
         if os.environ.get('FEAGI_DEBUG_NPU') == '1':
@@ -266,8 +339,24 @@ class BurstEngine:
         This function begins the burst execution loop, processing neuron firings
         based on the target burst frequency.
         """
+        import traceback
+        
+        # Debug logging for run method entry
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: run() method called for instance {self._instance_id}")
+            print(f"🔥 BURST ENGINE: Current _running state: {self._running}")
+            print(f"🔥 BURST ENGINE: Stack trace:")
+            for line in traceback.format_stack()[-5:-1]:  # Show last 4 stack frames
+                print(f"    {line.strip()}")
+            print()
+        
         self._running = True
         self.state_manager.set_burst_engine_state(ServiceState.READY)
+        
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: Set _running=True, entering main loop")
+            print(f"🔥 BURST ENGINE: Target frequency: {self.desired_frequency}Hz, interval: {self.burst_interval}s")
+        
         def handle_signal(signum: int, frame: Any) -> None:
             logger.info(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
             self.stop()
@@ -275,41 +364,72 @@ class BurstEngine:
         if threading.current_thread() is threading.main_thread():
             signal.signal(signal.SIGINT, handle_signal)
             signal.signal(signal.SIGTERM, handle_signal)
-        while self._running:
-            start = time.perf_counter()
             
-            # Choose processing method based on power injection availability
-            if self.fcl_injection_service:
-                # Enhanced processing with power injection
-                fired_neurons = self._process_burst_with_power_injection(self.burst_count)
-            else:
-                # Standard processing
-                fired_neurons = self._process_burst()
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: About to enter main while loop")
             
-            # 2. Measure actual frequency
-            end = time.perf_counter()
-            elapsed = end - start
-            actual_freq = 1.0 / elapsed if elapsed > 0 else 0
-            self.state_manager.set_burst_frequency(actual_freq)
-            
-            # 3. Load shedding if needed
-            if actual_freq < self.desired_frequency:
-                for cortical_id in self.shed_areas:
-                    # Clear FCL for this area for the current burst
-                    if hasattr(self.fcl_manager, 'area_fcl_history'):
-                        if cortical_id in self.fcl_manager.area_fcl_history:
-                            self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
-                    elif hasattr(self.fcl_manager, 'cortical_fcl_history'):
-                        if cortical_id in self.fcl_manager.cortical_fcl_history:
-                            self.fcl_manager.cortical_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
-            
-            # 4. Increment burst count
-            self.burst_count += 1
-            
-            # 5. Sleep for the remainder of the interval
-            if elapsed < self.burst_interval:
-                time.sleep(self.burst_interval - elapsed)
+        try:
+            while self._running:
+                start = time.perf_counter()
                 
+                # Debug logging if --debug-npu is enabled
+                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                    print(f"🔥 BURST ENGINE: Starting burst {self.burst_count + 1} in main loop")
+                
+                # Choose processing method based on power injection availability
+                if self.fcl_injection_service:
+                    # Enhanced processing with power injection - always use timestep 0 for current
+                    if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                        print(f"🔥 BURST ENGINE: Using ENHANCED processing with power injection")
+                    fired_neurons = self._process_burst_with_power_injection(0)  # Fixed: use 0 for current timestep
+                else:
+                    # Standard processing
+                    if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                        print(f"🔥 BURST ENGINE: Using STANDARD processing (no injection service)")
+                    fired_neurons = self._process_burst()
+                
+                # 2. Measure actual frequency
+                end = time.perf_counter()
+                elapsed = end - start
+                actual_freq = 1.0 / elapsed if elapsed > 0 else 0
+                self.state_manager.set_burst_frequency(actual_freq)
+                
+                # Debug timing information
+                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                    print(f"🔥 BURST ENGINE: Burst {self.burst_count + 1} completed in {elapsed*1000:.2f}ms, frequency: {actual_freq:.1f}Hz")
+                
+                # 3. Load shedding if needed
+                if actual_freq < self.desired_frequency:
+                    for cortical_id in self.shed_areas:
+                        # Clear FCL for this area for the current burst
+                        if hasattr(self.fcl_manager, 'area_fcl_history'):
+                            if cortical_id in self.fcl_manager.area_fcl_history:
+                                self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
+                        elif hasattr(self.fcl_manager, 'cortical_fcl_history'):
+                            if cortical_id in self.fcl_manager.cortical_fcl_history:
+                                self.fcl_manager.cortical_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
+                
+                # 4. Increment burst count
+                self.burst_count += 1
+                
+                # 5. Sleep for the remainder of the interval
+                if elapsed < self.burst_interval:
+                    time.sleep(self.burst_interval - elapsed)
+                    
+        except Exception as e:
+            # Handle crashes in the main loop by resetting _running flag
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: EXCEPTION in main loop: {e}")
+                print(f"🔥 BURST ENGINE: Stack trace:")
+                traceback.print_exc()
+            
+            logger.error(f"BurstEngine main loop crashed: {e}")
+            self._running = False  # Reset the running flag
+            self.state_manager.set_burst_engine_state(ServiceState.ERROR)
+            return
+                
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: Main loop exited normally, _running={self._running}")
         logger.info("BurstEngine stopped.")
         self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
 
@@ -443,7 +563,18 @@ class BurstEngine:
         Returns:
             True if completed successfully, False otherwise
         """
+        import traceback
+        
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: run_with_fire_queue() called for instance {self._instance_id}")
+            print(f"🔥 BURST ENGINE: Stack trace:")
+            for line in traceback.format_stack()[-5:-1]:  # Show last 4 stack frames
+                print(f"    {line.strip()}")
+            print()
+        
         if self.state_manager.get_burst_engine_state() != ServiceState.READY:
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: run_with_fire_queue() - engine not ready, returning False")
             logger.warning("Burst engine is not ready, cannot start burst execution")
             return False
             
@@ -451,8 +582,14 @@ class BurstEngine:
         self.state_manager.set_burst_engine_state(ServiceState.READY)
         logger.info("Burst engine starting with fire queue process", emoji1="🚀 ")
         
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: run_with_fire_queue() - about to set _running = True")
+        
         # Set running flag
         self._running = True
+        
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: run_with_fire_queue() - _running set to True, entering main loop")
         
         # Try to use optimized structures if available
         try:
@@ -461,64 +598,82 @@ class BurstEngine:
         except ImportError:
             optimized_available = False
         
-        # Main loop
-        while self._running:
-            start_time = time.perf_counter()
-            
-            # 1. Pre-burst power injection
-            if self.fcl_injection_service:
-                injected_pre = self.fcl_injection_service.inject_pre_burst(self.burst_count)
-                if injected_pre > 0:
-                    logger.debug(f"Pre-burst injection: {injected_pre} neurons")
-            
-            # 2. Process bursts using fire queue
-            if optimized_available:
-                # Get the core from connectome manager
-                core = self.connectome_manager.get_optimized_core()
-                if core:
-                    # Use optimized implementation
-                    step_simulation_with_fire_queue(core, mpf, puf, max_consecutive_fires)
+        # Main loop with exception handling
+        try:
+            while self._running:
+                start_time = time.perf_counter()
+                
+                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                    print(f"🔥 BURST ENGINE: run_with_fire_queue() - main loop iteration, burst {self.burst_count}")
+                
+                # 1. Pre-burst power injection - use timestep 0 for current
+                if self.fcl_injection_service:
+                    injected_pre = self.fcl_injection_service.inject_pre_burst(0)  # Fixed: use 0 for current timestep
+                    if injected_pre > 0:
+                        logger.debug(f"Pre-burst injection: {injected_pre} neurons")
+                
+                # 2. Process bursts using fire queue
+                if optimized_available:
+                    # Get the core from connectome manager
+                    core = self.connectome_manager.get_optimized_core()
+                    if core:
+                        # Use optimized implementation
+                        step_simulation_with_fire_queue(core, mpf, puf, max_consecutive_fires)
+                    else:
+                        # Fall back to standard process
+                        self._process_burst()
                 else:
                     # Fall back to standard process
                     self._process_burst()
-            else:
-                # Fall back to standard process
-                self._process_burst()
-            
-            # 3. During/post-burst injection
-            if self.fcl_injection_service:
-                injected_during = self.fcl_injection_service.inject_during_burst(self.burst_count)
-                injected_post = self.fcl_injection_service.inject_post_burst(self.burst_count)
-                if injected_during > 0:
-                    logger.debug(f"During-burst injection: {injected_during} neurons")
-                if injected_post > 0:
-                    logger.debug(f"Post-burst injection: {injected_post} neurons")
                 
-            # Calculate time taken for this burst
-            end_time = time.perf_counter()
-            elapsed = end_time - start_time
-            self.last_burst_time = elapsed
-            
-            # Calculate actual frequency
-            actual_freq = 1.0 / elapsed if elapsed > 0 else 0
-            self.state_manager.set_burst_frequency(actual_freq)
-            
-            # Log performance every 100 bursts
-            if self.burst_count % 100 == 0:
-                logger.info(f"Processed {self.burst_count} bursts. "
-                           f"Target: {self.desired_frequency:.1f}Hz, "
-                           f"Actual: {actual_freq:.1f}Hz",
-                           emoji1="⚡ ")
-            
-            # Increment burst count
-            self.burst_count += 1
-            
-            # Sleep if needed to maintain target frequency
-            if self.desired_frequency > 0 and elapsed < self.burst_interval:
-                time.sleep(self.burst_interval - elapsed)
+                # 3. During/post-burst injection - use timestep 0 for current
+                if self.fcl_injection_service:
+                    injected_during = self.fcl_injection_service.inject_during_burst(0)  # Fixed: use 0 for current timestep
+                    injected_post = self.fcl_injection_service.inject_post_burst(0)  # Fixed: use 0 for current timestep
+                    if injected_during > 0:
+                        logger.debug(f"During-burst injection: {injected_during} neurons")
+                    if injected_post > 0:
+                        logger.debug(f"Post-burst injection: {injected_post} neurons")
+                    
+                # Calculate time taken for this burst
+                end_time = time.perf_counter()
+                elapsed = end_time - start_time
+                self.last_burst_time = elapsed
                 
+                # Calculate actual frequency
+                actual_freq = 1.0 / elapsed if elapsed > 0 else 0
+                self.state_manager.set_burst_frequency(actual_freq)
+                
+                # Log performance every 100 bursts
+                if self.burst_count % 100 == 0:
+                    logger.info(f"Processed {self.burst_count} bursts. "
+                               f"Target: {self.desired_frequency:.1f}Hz, "
+                               f"Actual: {actual_freq:.1f}Hz",
+                               emoji1="⚡ ")
+                
+                # Increment burst count
+                self.burst_count += 1
+                
+                # Sleep if needed to maintain target frequency
+                if self.desired_frequency > 0 and elapsed < self.burst_interval:
+                    time.sleep(self.burst_interval - elapsed)
+                    
+        except Exception as e:
+            # Handle crashes in the fire queue main loop
+            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+                print(f"🔥 BURST ENGINE: EXCEPTION in run_with_fire_queue main loop: {e}")
+                print(f"🔥 BURST ENGINE: Stack trace:")
+                traceback.print_exc()
+            
+            logger.error(f"BurstEngine fire queue main loop crashed: {e}")
+            self._running = False  # Reset the running flag
+            self.state_manager.set_burst_engine_state(ServiceState.ERROR)
+            return False
+        
         # Update state when stopped
         self.state_manager.set_burst_engine_state(ServiceState.READY)
+        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
+            print(f"🔥 BURST ENGINE: run_with_fire_queue() - exiting normally, loop finished")
         logger.info("Burst engine stopped", emoji1="🛑 ")
         return True
 

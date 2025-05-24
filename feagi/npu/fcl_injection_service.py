@@ -235,16 +235,17 @@ class FCLInjectionService:
             # Determine which neurons to inject (could be subset based on targeting)
             neurons_to_inject = batch.neuron_ids
             
-            # Use the appropriate injection method based on FCL manager capabilities
-            if hasattr(self.fcl_manager, 'add_to_current_fcl'):
-                # Direct injection into current FCL
-                self.fcl_manager.add_to_current_fcl(neurons_to_inject)
-            elif hasattr(self.fcl_manager, 'update_fcl'):
-                # Update FCL with neuron mapping
-                # Extract cortical_id (remove batch suffix if present)
-                cortical_id = batch.cortical_id.split('_batch_')[0]
+            # Extract cortical_id (remove batch suffix if present)
+            cortical_id = batch.cortical_id.split('_batch_')[0]
+            
+            # Use update_fcl() to ensure neurons are tracked by cortical area for proper debug output
+            if hasattr(self.fcl_manager, 'update_fcl'):
+                # Update FCL with neuron mapping to ensure cortical-specific tracking
                 neurons_by_cortical = {cortical_id: neurons_to_inject}
                 self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
+            elif hasattr(self.fcl_manager, 'add_to_current_fcl'):
+                # Fallback: Direct injection into current FCL (only updates global FCL)
+                self.fcl_manager.add_to_current_fcl(neurons_to_inject)
             else:
                 logger.warning("FCL manager does not support neuron injection")
                 return 0
