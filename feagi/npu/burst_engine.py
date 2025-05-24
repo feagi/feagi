@@ -4,6 +4,11 @@ import threading
 from typing import Dict, List, Optional, Set, Any, Union
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 from feagi.utils.logger import setup_logger
+
+# New imports for power area injection
+from feagi.npu.special_area_handler import SpecialAreaHandler
+from feagi.npu.fcl_injection_service import FCLInjectionService
+
 logger = setup_logger()
 
 
@@ -19,6 +24,7 @@ Key features:
 - RTOS-Friendly: Designed for real-time operating systems with predictable timing  
 - State-Driven: Uses explicit state transitions with consistent logging
 - Dependency Injected: No global state, all dependencies passed explicitly
+- Power Area Support: Handles special cortical areas like "___pwr" with automatic injection
 
 Usage:
     # Create and initialize
@@ -42,6 +48,7 @@ class BurstEngine:
     - Main loop is a single, clear sequence of steps
     - Supports graceful shutdown
     - New: Initializes in standby mode without requiring a genome
+    - New: Supports special area handling including power area injection
     """
     def __init__(self, connectome_manager: Any, fcl_manager: Optional[Any] = None, config: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -60,6 +67,14 @@ class BurstEngine:
         self.burst_count = 0
         self.last_burst_time = 0.0
         
+        # Initialize special area handler and injection service
+        self.special_area_handler: Optional[SpecialAreaHandler] = None
+        self.fcl_injection_service: Optional[FCLInjectionService] = None
+        
+        # Power area injection configuration
+        self.enable_power_injection = self.config.get('enable_power_injection', True)
+        self.power_injection_timing = self.config.get('power_injection_timing', 'pre_burst')
+        
         # Initialize in a valid but inactive state
         # Will become fully operational when a genome is loaded
         logger.info("Burst Engine initialized in standby mode", emoji1="⚡️")
@@ -75,6 +90,53 @@ class BurstEngine:
         # Use cortical_areas instead of _areas - fix the attribute name
         self.cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
         self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
+        
+        # Initialize special area handling if a genome is already loaded
+        if self.cortical_areas:
+            self._initialize_special_area_services()
+
+    def _initialize_special_area_services(self) -> None:
+        """
+        Initialize special area handler and injection services.
+        
+        This is called when a genome is loaded or when the burst engine is created
+        with an already-loaded connectome.
+        """
+        if not self.enable_power_injection:
+            logger.info("Power injection disabled by configuration", emoji1="⚡")
+            return
+        
+        try:
+            # Initialize special area handler
+            self.special_area_handler = SpecialAreaHandler(
+                connectome_manager=self.connectome_manager,
+                config=self.config.get('special_area_config', {})
+            )
+            
+            # Detect special areas
+            self.special_area_handler.detect_special_areas()
+            
+            # Initialize FCL injection service if power areas detected
+            power_areas = self.special_area_handler.get_power_areas()
+            if power_areas:
+                self.fcl_injection_service = FCLInjectionService(
+                    fcl_manager=self.fcl_manager,
+                    special_area_handler=self.special_area_handler,
+                    config=self.config.get('fcl_injection_config', {})
+                )
+                
+                logger.info(f"Initialized power injection for {len(power_areas)} power areas", emoji1="💉")
+                
+                # Log power area preview
+                preview = self.fcl_injection_service.get_power_injection_preview()
+                logger.debug(f"Power injection preview: {preview}")
+            else:
+                logger.info("No power areas detected, injection service not initialized", emoji1="⚡")
+                
+        except Exception as e:
+            logger.error(f"Error initializing special area services: {e}")
+            self.special_area_handler = None
+            self.fcl_injection_service = None
 
     def _process_burst(self) -> List[int]:
         """
@@ -86,11 +148,53 @@ class BurstEngine:
         Returns:
             List of neuron IDs that fired in this burst
         """
-        # Update membrane potentials and get fired neurons
+        # 1. Pre-burst power injection
+        if self.fcl_injection_service and self.power_injection_timing == 'pre_burst':
+            self.fcl_injection_service.inject_pre_burst(self.burst_count)
+        
+        # 2. Update membrane potentials and get fired neurons
         fired_neurons = self.connectome_manager.update_membrane_potentials()
         
-        # Any additional processing can be added here
-        # For example, you might want to track fired neurons in specific areas
+        # 3. During-burst injection (for modulators)
+        if self.fcl_injection_service and self.power_injection_timing == 'during_burst':
+            self.fcl_injection_service.inject_during_burst(self.burst_count)
+        
+        # 4. Post-burst injection  
+        if self.fcl_injection_service and self.power_injection_timing == 'post_burst':
+            self.fcl_injection_service.inject_post_burst(self.burst_count)
+        
+        return fired_neurons
+
+    def _process_burst_with_power_injection(self, current_timestep: int) -> List[int]:
+        """
+        Enhanced burst processing with power area injection.
+        
+        Args:
+            current_timestep: Current simulation timestep
+            
+        Returns:
+            List of neuron IDs that fired in this burst
+        """
+        # 1. Pre-burst power injection (inject power area neurons)
+        if self.fcl_injection_service:
+            injected_pre = self.fcl_injection_service.inject_pre_burst(current_timestep)
+            if injected_pre > 0:
+                logger.debug(f"Pre-burst injection: {injected_pre} neurons")
+        
+        # 2. Standard burst processing (membrane potential updates, regular firing)
+        fired_neurons = self.connectome_manager.update_membrane_potentials()
+        
+        # 3. During-burst injection (for modulator areas)
+        if self.fcl_injection_service:
+            injected_during = self.fcl_injection_service.inject_during_burst(current_timestep)
+            if injected_during > 0:
+                logger.debug(f"During-burst injection: {injected_during} neurons")
+        
+        # 4. Post-burst injection (for cleanup or special processing)
+        if self.fcl_injection_service:
+            injected_post = self.fcl_injection_service.inject_post_burst(current_timestep)
+            if injected_post > 0:
+                logger.debug(f"Post-burst injection: {injected_post} neurons")
         
         return fired_neurons
 
@@ -112,21 +216,39 @@ class BurstEngine:
             signal.signal(signal.SIGTERM, handle_signal)
         while self._running:
             start = time.perf_counter()
-            # 1. Process neuron firing (update membrane potentials and FCL)
-            fired_neurons = self.connectome_manager.update_membrane_potentials()
+            
+            # Choose processing method based on power injection availability
+            if self.fcl_injection_service:
+                # Enhanced processing with power injection
+                fired_neurons = self._process_burst_with_power_injection(self.burst_count)
+            else:
+                # Standard processing
+                fired_neurons = self._process_burst()
+            
             # 2. Measure actual frequency
             end = time.perf_counter()
             elapsed = end - start
             actual_freq = 1.0 / elapsed if elapsed > 0 else 0
             self.state_manager.set_burst_frequency(actual_freq)
+            
             # 3. Load shedding if needed
             if actual_freq < self.desired_frequency:
                 for cortical_id in self.shed_areas:
                     # Clear FCL for this area for the current burst
-                    self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
-            # 4. Sleep for the remainder of the interval
+                    if hasattr(self.fcl_manager, 'area_fcl_history'):
+                        if cortical_id in self.fcl_manager.area_fcl_history:
+                            self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
+                    elif hasattr(self.fcl_manager, 'cortical_fcl_history'):
+                        if cortical_id in self.fcl_manager.cortical_fcl_history:
+                            self.fcl_manager.cortical_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
+            
+            # 4. Increment burst count
+            self.burst_count += 1
+            
+            # 5. Sleep for the remainder of the interval
             if elapsed < self.burst_interval:
                 time.sleep(self.burst_interval - elapsed)
+                
         logger.info("BurstEngine stopped.")
         self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
 
@@ -146,8 +268,13 @@ class BurstEngine:
         """
         start = time.perf_counter()
         
-        # Process neuron firing
-        fired_neurons = self.connectome_manager.update_membrane_potentials()
+        # Choose processing method based on power injection availability
+        if self.fcl_injection_service:
+            # Enhanced processing with power injection
+            fired_neurons = self._process_burst_with_power_injection(self.burst_count)
+        else:
+            # Standard processing
+            fired_neurons = self._process_burst()
         
         # Measure actual frequency
         end = time.perf_counter()
@@ -159,7 +286,15 @@ class BurstEngine:
         if actual_freq < self.desired_frequency:
             for cortical_id in self.shed_areas:
                 # Clear FCL for this area for the current burst
-                self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
+                if hasattr(self.fcl_manager, 'area_fcl_history'):
+                    if cortical_id in self.fcl_manager.area_fcl_history:
+                        self.fcl_manager.area_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
+                elif hasattr(self.fcl_manager, 'cortical_fcl_history'):
+                    if cortical_id in self.fcl_manager.cortical_fcl_history:
+                        self.fcl_manager.cortical_fcl_history[cortical_id][self.fcl_manager.current_window_index].clear()
+        
+        # Increment burst count for testing
+        self.burst_count += 1
         
         return fired_neurons
 
@@ -170,14 +305,67 @@ class BurstEngine:
         if hasattr(self.connectome_manager, 'cortical_areas') and self.connectome_manager.cortical_areas:
             self.cortical_areas = list(self.connectome_manager.cortical_areas.values())
             self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
+            
+            # Initialize special area services now that genome is loaded
+            self._initialize_special_area_services()
+            
         logger.info("Burst Engine updated with genome information", emoji1="⚡ ")
+
+    def refresh_special_areas(self) -> None:
+        """
+        Refresh special area detection and injection batches.
+        
+        This should be called when cortical areas are added, removed, or modified.
+        """
+        if self.special_area_handler:
+            self.special_area_handler.refresh_all_caches()
+            
+        if self.fcl_injection_service:
+            self.fcl_injection_service.refresh_injection_batches()
+            
+        logger.info("Refreshed special area services", emoji1="🔄")
+
+    def get_power_injection_statistics(self) -> Dict[str, Any]:
+        """
+        Get statistics about power area injection.
+        
+        Returns:
+            Dictionary with injection and special area statistics
+        """
+        stats = {}
+        
+        if self.special_area_handler:
+            stats['special_areas'] = self.special_area_handler.get_statistics()
+        
+        if self.fcl_injection_service:
+            stats['injection'] = self.fcl_injection_service.get_statistics()
+            
+        stats['power_injection_enabled'] = self.enable_power_injection
+        stats['power_injection_timing'] = self.power_injection_timing
+        
+        return stats
+
+    def set_power_injection_enabled(self, cortical_id: str, enabled: bool) -> bool:
+        """
+        Enable or disable power injection for a specific cortical area.
+        
+        Args:
+            cortical_id: The cortical area ID
+            enabled: Whether to enable or disable injection
+            
+        Returns:
+            True if the setting was applied, False if area not found
+        """
+        if self.fcl_injection_service:
+            return self.fcl_injection_service.set_injection_enabled(cortical_id, enabled)
+        return False
 
     def run_with_fire_queue(self, mpf: bool = True, puf: bool = False, max_consecutive_fires: int = 10) -> bool:
         """
-        Run the burst engine using the fire queue process.
+        Run the burst engine using the fire queue process with power injection support.
         
         This method uses the enhanced fire queue process with PSP calculation as 
-        described in the architecture documentation.
+        described in the architecture documentation. Now includes power area injection.
         
         Args:
             mpf: Membrane Potential Driven PSP Flag
@@ -209,7 +397,13 @@ class BurstEngine:
         while self._running:
             start_time = time.perf_counter()
             
-            # Process bursts using fire queue
+            # 1. Pre-burst power injection
+            if self.fcl_injection_service:
+                injected_pre = self.fcl_injection_service.inject_pre_burst(self.burst_count)
+                if injected_pre > 0:
+                    logger.debug(f"Pre-burst injection: {injected_pre} neurons")
+            
+            # 2. Process bursts using fire queue
             if optimized_available:
                 # Get the core from connectome manager
                 core = self.connectome_manager.get_optimized_core()
@@ -222,6 +416,15 @@ class BurstEngine:
             else:
                 # Fall back to standard process
                 self._process_burst()
+            
+            # 3. During/post-burst injection
+            if self.fcl_injection_service:
+                injected_during = self.fcl_injection_service.inject_during_burst(self.burst_count)
+                injected_post = self.fcl_injection_service.inject_post_burst(self.burst_count)
+                if injected_during > 0:
+                    logger.debug(f"During-burst injection: {injected_during} neurons")
+                if injected_post > 0:
+                    logger.debug(f"Post-burst injection: {injected_post} neurons")
                 
             # Calculate time taken for this burst
             end_time = time.perf_counter()
