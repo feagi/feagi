@@ -8,8 +8,20 @@ class BrainService(BaseService):
     """
     Brain service handles brain simulation operations including
     burst engine control, monitoring, and analysis.
+    
+    CRITICAL: This service NEVER creates its own BurstEngine instance.
+    It always uses the singleton instance from the BurstEngine class.
     """
     
+    def _get_burst_engine(self):
+        """Get the singleton burst engine instance. Never creates a new one."""
+        try:
+            from feagi.npu.burst_engine import BurstEngine
+            return BurstEngine.get_instance()
+        except Exception as e:
+            self.logger.error(f"Error getting burst engine singleton: {str(e)}")
+            return None
+
     def get_burst_engine_status(self) -> Dict[str, Any]:
         """Get current burst engine status."""
         try:

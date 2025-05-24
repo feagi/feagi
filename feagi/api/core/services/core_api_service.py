@@ -57,12 +57,14 @@ class CoreAPIService:
         
         # Initialize all domain services with the SAME state manager instance
         self._system_service = SystemService(connectome_manager, self.state_manager)
-        self._genome_service = GenomeService(connectome_manager, self.state_manager)
         self._cortical_area_service = CorticalAreaService(connectome_manager, self.state_manager)
         self._connectome_service = ConnectomeService(connectome_manager, self.state_manager)
         self._brain_service = BrainService(connectome_manager, self.state_manager)
         self._agents_service = AgentsService(connectome_manager, self.state_manager)
         self._network_service = NetworkService(connectome_manager, self.state_manager)
+        
+        # CRITICAL: Pass brain service to genome service to ensure singleton BurstEngine usage
+        self._genome_service = GenomeService(connectome_manager, self.state_manager, self._brain_service)
         
         # Validate state manager consistency across services
         self._validate_service_state_consistency()
@@ -556,15 +558,25 @@ class CoreAPIService:
     # =================================================================
     
     def get_burst_engine(self):
-        """Get the burst engine instance."""
+        """Get the burst engine instance - always returns the singleton instance."""
         # Import here to avoid circular imports
         try:
             from feagi.npu.burst_engine import BurstEngine
-            if not hasattr(self, '_burst_engine_instance'):
-                self._burst_engine_instance = BurstEngine(
-                    connectome_manager=self._connectome_manager
-                )
-            return self._burst_engine_instance
+            
+            # Always use the singleton instance - never create a new one
+            singleton_instance = BurstEngine.get_instance()
+            
+            if singleton_instance is None:
+                # Create singleton instance only if none exists
+                print(f"🔥 CORE API: Creating singleton BurstEngine instance")
+                self.logger.info("🔥 CORE API: Creating singleton BurstEngine instance")
+                singleton_instance = BurstEngine(connectome_manager=self._connectome_manager)
+            else:
+                print(f"🔥 CORE API: Using existing singleton BurstEngine instance")
+                self.logger.info("🔥 CORE API: Using existing singleton BurstEngine instance")
+            
+            return singleton_instance
+            
         except Exception as e:
             self.logger.error(f"Error getting burst engine: {str(e)}")
             return None

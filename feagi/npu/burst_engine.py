@@ -1,6 +1,7 @@
 import time
 import signal
 import threading
+import random
 import os  # Add for environment variable checking
 from typing import Dict, List, Optional, Set, Any, Union
 from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -26,9 +27,10 @@ Key features:
 - State-Driven: Uses explicit state transitions with consistent logging
 - Dependency Injected: No global state, all dependencies passed explicitly
 - Power Area Support: Handles special cortical areas like "___pwr" with automatic injection
+- Singleton Pattern: Only one instance can exist at any time
 
 Usage:
-    # Create and initialize
+    # Create and initialize (will return existing instance if one exists)
     engine = BurstEngine(connectome_manager)
     
     # Start the engine
@@ -50,7 +52,28 @@ class BurstEngine:
     - Supports graceful shutdown
     - New: Initializes in standby mode without requiring a genome
     - New: Supports special area handling including power area injection
+    - Singleton: Only one instance can exist at any time
     """
+    
+    _instance = None
+    _instance_id = None
+    _lock = threading.Lock()
+    
+    def __new__(cls, connectome_manager: Any, fcl_manager: Optional[Any] = None, config: Optional[Dict[str, Any]] = None):
+        """
+        Singleton pattern implementation to ensure only one BurstEngine instance exists.
+        """
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(BurstEngine, cls).__new__(cls)
+                cls._instance_id = random.randint(1000, 9999)
+                print(f"🔥 BURST ENGINE: Creating NEW singleton instance {cls._instance_id}")
+                logger.info(f"🔥 BURST ENGINE: Created new singleton instance {cls._instance_id}")
+            else:
+                print(f"🔥 BURST ENGINE: Returning EXISTING singleton instance {cls._instance_id}")
+                logger.info(f"🔥 BURST ENGINE: Returning existing singleton instance {cls._instance_id}")
+            return cls._instance
+    
     def __init__(self, connectome_manager: Any, fcl_manager: Optional[Any] = None, config: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize the Burst Engine.
@@ -60,6 +83,15 @@ class BurstEngine:
             fcl_manager: FCL manager (optional)
             config: Configuration parameters (optional)
         """
+        # Prevent re-initialization if already initialized
+        if hasattr(self, '_initialized') and self._initialized:
+            print(f"🔥 BURST ENGINE: Instance {self._instance_id} already initialized, skipping")
+            logger.info(f"🔥 BURST ENGINE: Instance {self._instance_id} already initialized, skipping")
+            return
+            
+        print(f"🔥 BURST ENGINE: Initializing singleton instance {self._instance_id}")
+        logger.info(f"🔥 BURST ENGINE: Initializing singleton instance {self._instance_id}")
+        
         self.connectome_manager = connectome_manager
         self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
         self.config = config or {}
@@ -95,6 +127,26 @@ class BurstEngine:
         # Initialize special area handling if a genome is already loaded
         if self.cortical_areas:
             self._initialize_special_area_services()
+        
+        # Mark as initialized
+        self._initialized = True
+        print(f"🔥 BURST ENGINE: Instance {self._instance_id} initialization complete")
+        logger.info(f"🔥 BURST ENGINE: Instance {self._instance_id} initialization complete")
+    
+    @classmethod
+    def get_instance(cls) -> Optional['BurstEngine']:
+        """Get the current singleton instance if it exists."""
+        return cls._instance
+    
+    @classmethod
+    def reset_singleton(cls):
+        """Reset the singleton instance. USE WITH EXTREME CAUTION - for testing only."""
+        with cls._lock:
+            if cls._instance is not None:
+                print(f"🔥 BURST ENGINE: RESETTING singleton instance {cls._instance_id}")
+                logger.warning(f"🔥 BURST ENGINE: RESETTING singleton instance {cls._instance_id}")
+                cls._instance = None
+                cls._instance_id = None
 
     def _initialize_special_area_services(self) -> None:
         """
@@ -313,13 +365,16 @@ class BurstEngine:
 
     def update_with_genome(self) -> None:
         """Called when a genome is loaded to update burst engine state"""
+        print(f"🔥 BURST ENGINE: Instance {self._instance_id} updating with genome")
+        
         self.genome_loaded = True
         # Update cortical areas list and shed areas set
         if hasattr(self.connectome_manager, 'cortical_areas') and self.connectome_manager.cortical_areas:
             self.cortical_areas = list(self.connectome_manager.cortical_areas.values())
             self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
             
-            # Initialize special area services now that genome is loaded
+            # CRITICAL: Re-initialize special area services with new genome
+            print(f"🔥 BURST ENGINE: Instance {self._instance_id} re-initializing special area services for new genome")
             self._initialize_special_area_services()
             
         logger.info("Burst Engine updated with genome information", emoji1="⚡ ")

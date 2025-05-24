@@ -13,12 +13,19 @@ class GenomeService(BaseService):
     and genome-related operations.
     """
     
-    def __init__(self, connectome_manager, state_manager=None):
+    def __init__(self, connectome_manager, state_manager=None, brain_service=None):
         """Initialize genome service."""
         super().__init__(connectome_manager, state_manager)
         self._current_genome = None
         self._genome_filename = None
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
+        self._brain_service = brain_service  # Reference to existing brain service
+        
+        print(f"🔥 GENOME SERVICE: Initialized with brain_service: {brain_service is not None}")
+        if brain_service:
+            self.logger.info("🔥 GENOME SERVICE: Using provided brain service instance")
+        else:
+            self.logger.info("🔥 GENOME SERVICE: No brain service provided, will create when needed")
 
     def load_essential_genome(self) -> Dict[str, Any]:
         """Load the essential genome from the default templates."""
@@ -149,9 +156,14 @@ class GenomeService(BaseService):
                     # Check current burst engine state
                     current_state = self.state_manager.get_burst_engine_state()
                     if current_state not in [ServiceState.READY, ServiceState.ON_HOLD]:
-                        # Need to start the burst engine
-                        brain_service = BrainService(self._connectome_manager, self.state_manager)
-                        burst_start_success = brain_service.start_burst_engine()
+                        # Need to start the burst engine using existing brain service
+                        if self._brain_service:
+                            print(f"🔥 GENOME SERVICE: Using existing brain service to start burst engine")
+                            burst_start_success = self._brain_service.start_burst_engine()
+                        else:
+                            print(f"🔥 GENOME SERVICE: Creating temporary brain service to start burst engine")
+                            brain_service = BrainService(self._connectome_manager, self.state_manager)
+                            burst_start_success = brain_service.start_burst_engine()
                         
                         if not burst_start_success:
                             self.logger.error("CRITICAL: Failed to start burst engine - aborting genome load")
@@ -316,9 +328,15 @@ class GenomeService(BaseService):
                             
                             # Properly start the burst engine through the brain service
                             try:
-                                from feagi.api.core.services.brain.brain_service import BrainService
-                                brain_service = BrainService(self._connectome_manager, self.state_manager)
-                                success = brain_service.start_burst_engine()
+                                if self._brain_service:
+                                    print(f"🔥 GENOME SERVICE: Using existing brain service for auto-start")
+                                    success = self._brain_service.start_burst_engine()
+                                else:
+                                    print(f"🔥 GENOME SERVICE: Creating temporary brain service for auto-start")
+                                    from feagi.api.core.services.brain.brain_service import BrainService
+                                    brain_service = BrainService(self._connectome_manager, self.state_manager)
+                                    success = brain_service.start_burst_engine()
+                                    
                                 if success:
                                     self.logger.info("Burst engine started automatically")
                                 else:
