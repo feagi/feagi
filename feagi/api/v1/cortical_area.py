@@ -139,14 +139,18 @@ class CorticalAreaAPI:
         """Update properties of a cortical area."""
         try:
             # Extract cortical_id and remove it from properties
-            cortical_id = properties.pop("cortical_id", None)
+            cortical_id = properties.get("cortical_id", None)
             if not cortical_id:
                 raise ValueError("cortical_id is required")
+            
+            # Create a copy and remove cortical_id from the properties to update
+            properties_to_update = properties.copy()
+            properties_to_update.pop("cortical_id", None)
             
             # Use the CoreAPIService to update the properties
             success = self.core_api_service.update_cortical_area_properties(
                 cortical_id=cortical_id,
-                properties=properties
+                properties=properties_to_update
             )
             
             if not success:

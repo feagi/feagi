@@ -7,11 +7,12 @@ It scans the endpoint registry and creates FastAPI routers without any duplicati
 The v1 API modules remain the single source of truth for all endpoint definitions.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from fastapi.responses import JSONResponse
 from typing import Dict, Any, Callable
 import inspect
 import asyncio
+import json
 
 from feagi.api.rest.dependencies import get_core_api_service
 from feagi.api.core.services.core_api_service import CoreAPIService
@@ -198,49 +199,50 @@ class UniversalFastAPIWrapper:
                 return fastapi_handler_with_request
         
         elif needs_request_data and not request_model:
-            # Handler expects parameters but no Pydantic model (e.g., path params)
+            # Handler expects parameters but no Pydantic model (e.g., Dict[str, Any])
             if is_async:
                 async def fastapi_handler_with_params(
                     request: Request,
                     api_instance = Depends(_get_api_instance)
                 ):
                     try:
-                        # Extract parameters from request
-                        # This is a simplified version - you might need more sophisticated parameter extraction
-                        body = await request.json() if request.headers.get('content-type') == 'application/json' else {}
-                        query_params = dict(request.query_params)
-                        
-                        # Call handler with extracted data
-                        if len(params) == 2:  # self + one param
-                            param_name = params[1]
-                            value = body.get(param_name) or query_params.get(param_name)
-                            return await original_handler(api_instance, value)
+                        # Parse JSON body manually for better compatibility
+                        if request.headers.get('content-type') == 'application/json':
+                            body = await request.json()
                         else:
-                            return await original_handler(api_instance, body)
+                            body = {}
+                        
+                        # Call sync handler (FastAPI will handle the sync call)
+                        return original_handler(api_instance, body)
                     except ValueError as e:
                         raise HTTPException(status_code=400, detail=str(e))
                     except Exception as e:
                         logger.error(f"Error in {original_handler.__name__}: {e}")
                         raise HTTPException(status_code=500, detail="Internal server error")
-                        
+
                 return fastapi_handler_with_params
             else:
-                def fastapi_handler_with_params(
+                async def fastapi_handler_with_params(
                     request: Request,
                     api_instance = Depends(_get_api_instance)
                 ):
                     try:
-                        # For sync handlers, we can't await request.json()
-                        # This is a limitation - might need to restructure
-                        return original_handler(api_instance, {})
+                        # Parse JSON body manually for better compatibility
+                        if request.headers.get('content-type') == 'application/json':
+                            body = await request.json()
+                        else:
+                            body = {}
+                        
+                        # Call sync handler (FastAPI will handle the sync call)
+                        return original_handler(api_instance, body)
                     except ValueError as e:
                         raise HTTPException(status_code=400, detail=str(e))
                     except Exception as e:
                         logger.error(f"Error in {original_handler.__name__}: {e}")
                         raise HTTPException(status_code=500, detail="Internal server error")
-                        
+
                 return fastapi_handler_with_params
-        
+
         else:
             # Handler doesn't need request data (e.g., GET endpoints)
             if is_async:

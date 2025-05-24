@@ -265,6 +265,15 @@ class CoreAPIService:
         """Update an existing cortical area."""
         return self._cortical_area_service.update_area(cortical_id, name, coordinates, dimensions, area_type, parameters)
     
+    def update_cortical_area_properties(self, cortical_id: str, properties: Dict[str, Any]) -> bool:
+        """Update properties of an existing cortical area (wrapper for API compatibility)."""
+        try:
+            result = self._cortical_area_service.update_area(cortical_id, parameters=properties)
+            return result is not None
+        except Exception as e:
+            self.logger.error(f"Error updating cortical area properties for {cortical_id}: {str(e)}")
+            return False
+    
     def delete_cortical_area(self, cortical_id: str) -> bool:
         """Delete a cortical area."""
         return self._cortical_area_service.delete_area(cortical_id)
