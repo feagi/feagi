@@ -72,14 +72,6 @@ log_file = "feagi.log"
 max_log_size = "10MB"
 backup_count = 5
 
-[database]
-# Database connections (optional)
-mongodb_enabled = false
-mongodb_host = "localhost"     # Can be overridden with $MONGODB_HOST
-mongodb_port = 27017           # Can be overridden with $MONGODB_PORT
-influxdb_enabled = false
-influxdb_url = ""              # Can be overridden with $INFLUXDB_URL
-
 [visualization]
 # Visualization settings
 enabled = true

@@ -89,7 +89,12 @@ class ZMQRestAPIAdapter:
             
             # ===== Connectome endpoints - Existing implementations =====
             "GET:/v1/connectome/cortical_areas": self._handle_get_cortical_areas,
-            "GET:/v1/connectome/cortical_area/{cortical_id}": self._handle_get_cortical_area,
+            
+            # ===== Cortical Area endpoints =====
+            "GET:/v1/cortical_area/cortical_area_id_list": self._handle_get_cortical_area_id_list,
+            "POST:/v1/cortical_area/{cortical_id}/cortical_area_properties": self._handle_get_cortical_area_properties,
+            "POST:/v1/cortical_area/multi_cortical_area_properties": self._handle_get_multi_cortical_area_properties,
+            "POST:/v1/cortical_area/multi/cortical_area_properties": self._handle_get_multi_cortical_area_properties,
             
             # ===== Status endpoint =====
             "GET:/v1/status": self._handle_status,
@@ -246,7 +251,7 @@ class ZMQRestAPIAdapter:
                 
             # Check if this segment might be a parameter value (simple heuristic)
             # A parameter value is often numeric or a UUID, but could be any string that's not a common API path
-            if segment.isdigit() or (len(segment) > 1 and not segment.startswith('v') and segment not in ['api', 'system', 'genome', 'connectome', 'cortical', 'area', 'areas', 'status', 'configuration', 'health_check', 'versions', 'cortical_area_types', 'blueprint']):
+            if segment.isdigit() or (len(segment) > 1 and not segment.startswith('v') and segment not in ['api', 'system', 'genome', 'connectome', 'cortical', 'area', 'areas', 'status', 'configuration', 'health_check', 'versions', 'cortical_area_types', 'cortical_area_id_list', 'cortical_area_properties', 'multi_cortical_area_properties', 'multi', 'blueprint']):
                 # Try to find parameter name based on position in path
                 param_name = None
                 
@@ -432,18 +437,6 @@ class ZMQRestAPIAdapter:
         """Handler for GET /v1/connectome/cortical_areas"""
         return self.core_api_service.get_cortical_areas()
     
-    async def _handle_get_cortical_area(self, params, query, body, headers):
-        """Handler for GET /v1/connectome/cortical_area/{cortical_id}"""
-        cortical_id = params.get('cortical_id')
-        if not cortical_id:
-            raise ValueError("Missing required parameter: cortical_id")
-        
-        area = self.core_api_service.get_cortical_area(cortical_id)
-        if not area:
-            raise ValueError(f"Cortical area not found: {cortical_id}")
-        
-        return area
-    
     async def _handle_status(self, params, query, body, headers):
         """Handler for GET /v1/status"""
         return await self.core_api_service.get_system_health()
@@ -534,4 +527,49 @@ class ZMQRestAPIAdapter:
         if success:
             return {"message": "Genome reset successfully"}
         else:
-            raise ValueError("Failed to reset genome") 
+            raise ValueError("Failed to reset genome")
+
+    async def _handle_get_cortical_area_id_list(self, params, query, body, headers):
+        """Handler for GET /v1/cortical_area/cortical_area_id_list"""
+        return self.core_api_service.get_cortical_area_id_list()
+
+    async def _handle_get_cortical_area_properties(self, params, query, body, headers):
+        """Handler for POST /v1/cortical_area/{cortical_id}/cortical_area_properties"""
+        cortical_id = params.get('cortical_id')
+        if not cortical_id:
+            raise ValueError("Missing required path parameter: cortical_id")
+        
+        properties = self.core_api_service.get_cortical_area(cortical_id)
+        return properties
+
+    async def _handle_get_multi_cortical_area_properties(self, params, query, body, headers):
+        """Handler for POST /v1/cortical_area/multi_cortical_area_properties"""
+        # Log what we're actually receiving to understand the bridge's request format
+        logger.debug(f"Multi cortical area properties request - body: {body}, params: {params}, query: {query}")
+        
+        # Try different possible parameter names/formats the bridge might be using
+        cortical_id_list = None
+        
+        if 'cortical_id_list' in body:
+            cortical_id_list = body['cortical_id_list']
+        elif 'cortical_ids' in body:
+            cortical_id_list = body['cortical_ids']
+        elif 'cortical_id' in body:
+            # Single ID, convert to list
+            cortical_id_list = [body['cortical_id']]
+        elif isinstance(body, list):
+            # Body is already a list of IDs
+            cortical_id_list = body
+        else:
+            # If no recognized format, return all cortical areas
+            logger.warning(f"No cortical_id_list found in request body: {body}. Returning all cortical areas.")
+            return self.core_api_service.get_cortical_areas()
+        
+        # Get properties for the specified cortical areas
+        results = []
+        for cortical_id in cortical_id_list:
+            area_data = self.core_api_service.get_cortical_area(cortical_id)
+            if area_data:
+                results.append(area_data)
+        
+        return results 
