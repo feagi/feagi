@@ -87,7 +87,7 @@ class ZMQRestAdapter:
             
             # ===== Cortical Area Endpoints (using v1 API) =====
             "GET:/v1/cortical_area/cortical_area_id_list": self._handle_get_cortical_area_id_list,
-            "POST:/v1/cortical_area/{cortical_id}/cortical_area_properties": self._handle_get_cortical_area_properties,
+            "POST:/v1/cortical_area/cortical_area_properties": self._handle_get_cortical_area_properties_body,
             "POST:/v1/cortical_area/multi_cortical_area_properties": self._handle_get_multi_cortical_area_properties,
             "POST:/v1/cortical_area/multi/cortical_area_properties": self._handle_get_multi_cortical_area_properties,
             
@@ -353,11 +353,11 @@ class ZMQRestAdapter:
         """Handler for GET /v1/cortical_area/cortical_area_id_list"""
         return self.cortical_area_api.get_cortical_area_id_list_legacy()
     
-    async def _handle_get_cortical_area_properties(self, params, query, body, headers):
-        """Handler for POST /v1/cortical_area/{cortical_id}/cortical_area_properties"""
-        cortical_id = params.get('cortical_id')
+    async def _handle_get_cortical_area_properties_body(self, params, query, body, headers):
+        """Handler for POST /v1/cortical_area/cortical_area_properties"""
+        cortical_id = body.get('cortical_id') if body else None
         if not cortical_id:
-            raise ValueError("Missing required path parameter: cortical_id")
+            raise ValueError("Missing required parameter: cortical_id")
         
         request = CorticalIdRequest(cortical_id=cortical_id)
         return self.cortical_area_api.get_cortical_area_properties(request)

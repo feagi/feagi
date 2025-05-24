@@ -110,7 +110,7 @@ class ZMQRestAPIAdapter:
             
             # ===== Cortical Area endpoints - Delegated to v1 API =====
             "GET:/v1/cortical_area/cortical_area_id_list": self._delegate_to_v1_api,
-            "POST:/v1/cortical_area/{cortical_id}/cortical_area_properties": self._delegate_to_v1_api,
+            "POST:/v1/cortical_area/cortical_area_properties": self._delegate_to_v1_api,
             "POST:/v1/cortical_area/multi_cortical_area_properties": self._delegate_to_v1_api,
             "POST:/v1/cortical_area/multi/cortical_area_properties": self._delegate_to_v1_api,
             

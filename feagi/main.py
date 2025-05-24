@@ -152,6 +152,10 @@ def main():
             cli_overrides['debug'] = True
         if args.log_level is not None:
             cli_overrides['log_level'] = args.log_level
+        if args.debug_api:
+            # Set environment variable for API debug logging middleware
+            os.environ['FEAGI_DEBUG_API'] = '1'
+            logger.info("🐛 API debug logging enabled via --debug-api flag")
         
         # Load configuration with CLI overrides
         logger.info("Loading FEAGI configuration...")

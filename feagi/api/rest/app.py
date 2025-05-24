@@ -169,6 +169,7 @@ async def log_requests(request: Request, call_next):
     When enabled, provides detailed request/response information for debugging.
     
     Credit: Phil Girard (original middleware)
+    Enhanced to capture request body and response details for comprehensive debugging.
     """
     # Check if debug API logging is enabled
     debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
@@ -177,33 +178,64 @@ async def log_requests(request: Request, call_next):
         # If debug is not enabled, just pass through without logging
         return await call_next(request)
     
+    # Show debug enabled message on first request (if not already shown)
+    if not hasattr(log_requests, '_debug_shown'):
+        logger.info("🐛 API Debug logging is ENABLED - detailed request/response logging active")
+        log_requests._debug_shown = True
+    
     # Generate unique request ID for tracking
     idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     
     # Log request start with detailed information
-    logger.info(f"rid={idem} start request method={request.method} path={request.url.path}", emoji1="🌐")
-    logger.debug(f"rid={idem} url={str(request.url)}")
-    logger.debug(f"rid={idem} headers={dict(request.headers)}")
-    logger.debug(f"rid={idem} query_params={dict(request.query_params)}")
+    logger.info(f"rid={idem} ✅ start request method={request.method} path={request.url.path}")
+    logger.info(f"rid={idem} 🌐 url={str(request.url)}")
+    logger.info(f"rid={idem} 📋 headers={dict(request.headers)}")
+    logger.info(f"rid={idem} 🔍 query_params={dict(request.query_params)}")
     
     # Log path parameters if available
     if hasattr(request, 'path_params') and request.path_params:
-        logger.debug(f"rid={idem} path_params={dict(request.path_params)}")
+        logger.info(f"rid={idem} 🛤️  path_params={dict(request.path_params)}")
     
-    # Note: We avoid reading request.body() here to prevent stream consumption issues
-    # Request body logging would require more complex caching mechanisms
+    # Capture request body for debugging
+    request_body = None
+    try:
+        body_bytes = await request.body()
+        if body_bytes:
+            request_body = body_bytes.decode('utf-8')
+            logger.info(f"rid={idem} 📝 request_body={request_body}")
+        else:
+            logger.info(f"rid={idem} 📝 request_body=<empty>")
+    except Exception as e:
+        logger.warning(f"rid={idem} ⚠️ failed to read request body: {e}")
+    
+    # Store original body for downstream handlers (since we consumed the stream)
+    async def receive():
+        return {"type": "http.request", "body": body_bytes if 'body_bytes' in locals() else b""}
+    
+    # Patch the request's receive method
+    if 'body_bytes' in locals():
+        request._receive = receive
     
     start_time = time.time()
     response = await call_next(request)
     process_time = (time.time() - start_time) * 1000
     formatted_process_time = '{0:.2f}'.format(process_time)
     
-    # Log response information
-    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}", emoji1="✅")
-    logger.debug(f"rid={idem} response_headers={dict(response.headers)}")
+    # Log response details
+    logger.info(f"rid={idem} ✅ completed method={request.method} path={request.url.path} status={response.status_code} duration={formatted_process_time}ms")
     
-    # Note: Response body logging is also complex due to streaming responses
-    # For debugging purposes, the status code and headers are usually sufficient
+    # Try to capture response body if it's JSON
+    try:
+        if hasattr(response, 'body') and response.body:
+            response_body = response.body.decode('utf-8')
+            # Truncate very long responses to avoid log spam
+            if len(response_body) > 1000:
+                response_body = response_body[:1000] + "... (truncated)"
+            logger.info(f"rid={idem} 📤 response_body={response_body}")
+        else:
+            logger.info(f"rid={idem} 📤 response_body=<empty or not accessible>")
+    except Exception as e:
+        logger.info(f"rid={idem} 📤 response_body=<could not read: {e}>")
     
     return response
 

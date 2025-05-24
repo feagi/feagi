@@ -252,6 +252,14 @@ class CorticalIdListRequest(BaseModel):
     cortical_ids: List[str]
 
 
+class CorticalPropertiesUpdateRequest(BaseModel):
+    """Request model for updating cortical area properties."""
+    cortical_id: str
+    
+    class Config:
+        extra = "allow"  # Allow additional fields for dynamic properties
+
+
 class CoordinateUpdateRequest(BaseModel):
     """Request model for coordinate updates."""
     coordinates: dict
