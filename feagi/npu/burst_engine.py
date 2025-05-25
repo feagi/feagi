@@ -167,7 +167,7 @@ class BurstEngine:
         
         # Support both parameter names for backward compatibility
         self.desired_frequency = self.config.get('desired_frequency_hz', 
-                                              self.config.get('target_frequency', 10.0))
+                                              self.config.get('target_frequency', 1.0))
         self.target_frequency = self.desired_frequency  # For backward compatibility
         self.burst_interval = 1.0 / self.desired_frequency
         
@@ -398,9 +398,12 @@ class BurstEngine:
         """
         import traceback
         
+        # ALWAYS log key run method events for debugging
+        logger.info(f"🔥 BURST ENGINE: run() method called for instance {self._instance_id}")
+        logger.info(f"🔥 BURST ENGINE: Target frequency: {self.desired_frequency}Hz, interval: {self.burst_interval}s")
+        
         # Debug logging for run method entry
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: run() method called for instance {self._instance_id}")
             logger.debug(f"🔥 BURST ENGINE: Current _running state: {self._running}")
             logger.debug(f"🔥 BURST ENGINE: Stack trace:")
             for line in traceback.format_stack()[-5:-1]:  # Show last 4 stack frames
@@ -409,27 +412,21 @@ class BurstEngine:
         
         self._running = True
         self.state_manager.set_burst_engine_state(ServiceState.READY)
-        
-        if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: Set _running=True, entering main loop")
-            logger.debug(f"🔥 BURST ENGINE: Target frequency: {self.desired_frequency}Hz, interval: {self.burst_interval}s")
+        logger.info(f"🔥 BURST ENGINE: Set _running=True, about to enter main loop")
         
         # RTOS-COMPATIBLE: Removed signal handling - not available in RTOS
         # In RTOS environment, use task control and events instead of signal handlers
-        # def handle_signal(signum: int, frame: Any) -> None:
-        #     logger.info(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
-        #     self.stop()
-        # # Register signal handlers for graceful shutdown only in main thread
-        # if threading.current_thread() is threading.main_thread():
-        #     signal.signal(signal.SIGINT, handle_signal)
-        #     signal.signal(signal.SIGTERM, handle_signal)
-            
-        if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: About to enter main while loop")
             
         try:
+            logger.info(f"🔥 BURST ENGINE: Entering main while loop")
+            loop_count = 0
             while self._running:
+                loop_count += 1
                 cycle_start = time.perf_counter()
+                
+                # Log first few loops and every 10th loop for debugging
+                if loop_count <= 3 or loop_count % 10 == 0:
+                    logger.info(f"🔥 BURST ENGINE: Starting burst {self.burst_count + 1} (loop {loop_count})")
                 
                 # Debug logging if --debug-npu is enabled
                 if self.debug_npu:
@@ -493,8 +490,11 @@ class BurstEngine:
                 # Record full cycle timing data if frequency measurement is enabled
                 self._record_burst_timing(final_cycle_time)
                 
-                # Debug timing information
-                if self.debug_npu:
+                # Debug timing information - log first few and every 10th
+                if loop_count <= 3 or loop_count % 10 == 0:
+                    logger.info(f"🔥 BURST ENGINE: Burst {self.burst_count + 1} - Processing: {processing_elapsed*1000:.2f}ms, "
+                                  f"Full cycle: {final_cycle_time*1000:.2f}ms, Target: {self.desired_frequency:.1f}Hz, Actual: {actual_freq:.1f}Hz")
+                elif self.debug_npu:
                     logger.debug(f"🔥 BURST ENGINE: Burst {self.burst_count + 1} - Processing: {processing_elapsed*1000:.2f}ms, "
                                   f"Full cycle: {final_cycle_time*1000:.2f}ms, Potential: {potential_freq:.1f}Hz, Actual: {actual_freq:.1f}Hz")
                 
@@ -503,18 +503,16 @@ class BurstEngine:
                 
         except Exception as e:
             # Handle crashes in the main loop by resetting _running flag
-            if self.debug_npu:
-                logger.error(f"🔥 BURST ENGINE: EXCEPTION in main loop: {e}")
-                logger.error(f"🔥 BURST ENGINE: Stack trace:")
-                traceback.print_exc()
+            logger.error(f"🔥 BURST ENGINE: EXCEPTION in main loop: {e}")
+            logger.error(f"🔥 BURST ENGINE: Exception traceback:")
+            logger.error(traceback.format_exc())
             
             logger.error(f"BurstEngine main loop crashed: {e}")
             self._running = False  # Reset the running flag
             self.state_manager.set_burst_engine_state(ServiceState.ERROR)
             return
                 
-        if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: Main loop exited normally, _running={self._running}")
+        logger.info(f"🔥 BURST ENGINE: Main loop exited normally, _running={self._running}")
         logger.info("BurstEngine stopped.")
         self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
 
@@ -1407,7 +1405,7 @@ class FQSampler:
         
         # Motor sampling tracking (every burst for OPU areas)
         self._last_motor_sample_time: float = 0.0
-        self._motor_sample_interval = 0.1  # Default 10Hz for motor, will be updated based on burst frequency
+        self._motor_sample_interval = 1.0  # Default 1Hz for motor, will be updated based on burst frequency
         
         # Error handling
         self._max_retries = 3
@@ -1443,7 +1441,7 @@ class FQSampler:
             try:
                 burst_engine = BurstEngine.get_instance()
                 if burst_engine and hasattr(burst_engine, '_configuration'):
-                    burst_freq = burst_engine._configuration.get('burst_frequency', 10)
+                    burst_freq = burst_engine._configuration.get('burst_frequency', 1)
                     self._motor_sample_interval = 1.0 / burst_freq
                     logger.info(f"Motor sampling set to burst frequency from BurstEngine: {burst_freq}Hz")
                     return
@@ -1451,7 +1449,7 @@ class FQSampler:
                 pass
                 
             # Default fallback
-            logger.info("Using default motor sampling rate: 10Hz")
+            logger.info("Using default motor sampling rate: 1Hz")
             
         except Exception as e:
             logger.warning(f"Error updating motor sample rate: {e}")

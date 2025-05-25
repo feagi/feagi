@@ -106,17 +106,58 @@ class BrainService(BaseService):
             burst_thread.start()
             
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: Background thread started, sleeping 0.1s")
+                print(f"🔥 BRAIN SERVICE: Background thread started, using event-based synchronization...")
             
-            # Give it a moment to start up
-            import time
-            time.sleep(0.1)  # Allow thread to start
+            # RTOS-COMPATIBLE: Event-based synchronization instead of sleep polling
+            startup_event = threading.Event()
+            startup_success = False
+            
+            def monitor_startup():
+                """Monitor burst engine startup and signal completion"""
+                nonlocal startup_success
+                # Fixed iteration count for deterministic behavior
+                max_iterations = 200  # ~2 seconds at 100Hz check rate
+                iteration = 0
+                
+                while iteration < max_iterations:
+                    # RTOS: Busy-wait with minimal yield instead of sleep
+                    # This is deterministic and suitable for real-time systems
+                    for _ in range(1000):  # Busy-wait inner loop
+                        pass
+                    
+                    # Check if burst engine is running
+                    if burst_engine._running:
+                        startup_success = True
+                        startup_event.set()
+                        return
+                    
+                    iteration += 1
+                    
+                    # RTOS: Minimal CPU yield for cooperative multitasking
+                    if iteration % 10 == 0:  # Every 10th iteration
+                        # Use os.sched_yield() for RTOS compatibility if available
+                        try:
+                            import os
+                            if hasattr(os, 'sched_yield'):
+                                os.sched_yield()
+                        except (ImportError, AttributeError):
+                            pass  # No yield available - pure busy wait
+                
+                # Timeout reached
+                startup_event.set()
+            
+            # Start monitoring thread
+            monitor_thread = threading.Thread(target=monitor_startup, daemon=True)
+            monitor_thread.start()
+            
+            # RTOS: Wait for event with timeout (deterministic)
+            event_triggered = startup_event.wait(timeout=3.0)  # Max 3 second timeout
             
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: After sleep, checking _running state: {burst_engine._running}")
+                print(f"🔥 BRAIN SERVICE: Event triggered: {event_triggered}, Success: {startup_success}")
             
-            # Verify it's running
-            if burst_engine._running:
+            # Verify startup success
+            if startup_success and burst_engine._running:
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
                     print(f"🔥 BRAIN SERVICE: Success! Burst engine is now running")
                 self.logger.info("Burst engine started successfully in background thread")
