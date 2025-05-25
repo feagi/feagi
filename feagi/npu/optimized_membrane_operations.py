@@ -16,8 +16,16 @@ import warnings
 from ..utils.simd_detection import get_simd_detector, get_backend_selector
 from ..utils.simd_profiler import profile_simd_operation
 
-# Suppress NumPy warnings for performance-critical code
-warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+# Suppress NumPy warnings for performance-critical code (compatible with all NumPy versions)
+try:
+    warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+except AttributeError:
+    # VisibleDeprecationWarning doesn't exist in newer NumPy versions
+    pass
+
+# Also suppress other common NumPy warnings that might affect performance
+warnings.filterwarnings('ignore', category=FutureWarning, module='numpy')
+warnings.filterwarnings('ignore', category=RuntimeWarning, module='numpy')
 
 class SIMDMembraneProcessor:
     """
