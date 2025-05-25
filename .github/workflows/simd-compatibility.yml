@@ -2,7 +2,7 @@ name: SIMD Compatibility Testing
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, staging ]
     paths:
       - 'feagi/npu/**'
       - 'feagi/utils/**'
@@ -10,7 +10,7 @@ on:
       - 'tests/performance/**'
       - '.github/workflows/simd-compatibility.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, staging ]
     paths:
       - 'feagi/npu/**'
       - 'feagi/utils/**'
