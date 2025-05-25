@@ -19,6 +19,9 @@ import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
 
+# Set up logger early so it's available for imports
+logger = setup_logger()
+
 # Core dependencies
 from feagi.core.state_manager import FeagiStateManager, GenomeState
 from feagi.bdu.connectome_manager import ConnectomeManager
@@ -26,7 +29,15 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 # Import all stream handlers
 from .streams.sensory import SensoryStream
 from .streams.motor import MotorStream  
-from .streams.visualization import VisualizationStream
+# Conditional import for testing different visualization streams
+try:
+    # Try to use simplified visualization stream for better performance
+    from .streams.simple_visualization import SimpleVisualizationStream as VisualizationStream
+    logger.info("Using SimpleVisualizationStream for better performance")
+except ImportError:
+    # Fallback to complex visualization stream
+    from .streams.visualization import VisualizationStream
+    logger.info("Using standard VisualizationStream")
 from .streams.control import ControlStream
 from .streams.rest import RestStream
 
@@ -40,8 +51,6 @@ from .connection_manager import ConnectionManager
 
 # Import the unified CoreAPIService
 from ..core.services.core_api_service import CoreAPIService
-
-logger = setup_logger()
 
 # Force importing the actual ZMQ module first to avoid circular imports
 try:
@@ -383,7 +392,7 @@ class ZmqServer:
             from .streams.motor import MotorStream
             from .streams.control import ControlStream
             from .streams.rest import RestStream
-            from .streams.visualization import VisualizationStream
+            # VisualizationStream imported conditionally at module level
             
             # Initialize only enabled streams based on port configuration
             self._req_rep = RequestReplyManager(
@@ -457,15 +466,25 @@ class ZmqServer:
                 logger.debug("ZMQ server reference passed to REST stream")
             
             if self.vis_port is not None:
-                self._visualization = VisualizationStream(
-                    core_api=self.core_api,
-                    host=self.host,
-                    port=self.vis_port,
-                    fq_sampler=self._fq_sampler,
-                    fq_sampler_queue=self._fq_sampler_queue,
-                    context=self._context,
-                    stream_config=self.stream_config.get('visualization', {})
-                )
+                # Check if using simplified visualization stream
+                if 'Simple' in VisualizationStream.__name__:
+                    self._visualization = VisualizationStream(
+                        host=self.host,
+                        port=self.vis_port,
+                        fq_sampler_queue=self._fq_sampler_queue,
+                        context=self._context
+                    )
+                else:
+                    # Standard visualization stream
+                    self._visualization = VisualizationStream(
+                        core_api=self.core_api,
+                        host=self.host,
+                        port=self.vis_port,
+                        fq_sampler=self._fq_sampler,
+                        fq_sampler_queue=self._fq_sampler_queue,
+                        context=self._context,
+                        stream_config=self.stream_config.get('visualization', {})
+                    )
                 logger.info(f"Visualization stream enabled on port {self.vis_port}")
             else:
                 logger.info("Visualization stream disabled")

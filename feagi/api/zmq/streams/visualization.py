@@ -213,23 +213,37 @@ class VisualizationStream:
         if not self.running:
             return
             
-        logger.info("Stopping Visualization Stream server")
+        logger.info("🛑 Stopping Visualization Stream server")
         self.running = False
         self._stop_event.set()
         
-        # RTOS: Wait for all worker threads to complete
-        for thread in self.worker_threads:
-            if thread.is_alive():
-                thread.join(timeout=1.0)
+        # Wait for all worker threads to complete with more aggressive timeout handling
+        threads_to_stop = self.worker_threads.copy()
+        logger.debug(f"Stopping {len(threads_to_stop)} worker threads")
         
+        for i, thread in enumerate(threads_to_stop):
+            if thread.is_alive():
+                logger.debug(f"Waiting for thread {i+1}/{len(threads_to_stop)}: {thread.name}")
+                thread.join(timeout=2.0)
+                
+                if thread.is_alive():
+                    logger.warning(f"Thread {thread.name} did not stop within timeout")
+                else:
+                    logger.debug(f"Thread {thread.name} stopped successfully")
+        
+        # Clear the thread list
         self.worker_threads.clear()
         
-        # Close the socket
+        # Close the socket with immediate termination
         if self.socket:
-            self.socket.close()
-            self.socket = None
+            try:
+                self.socket.close()
+                self.socket = None
+                logger.debug("Visualization socket closed")
+            except Exception as e:
+                logger.warning(f"Error closing visualization socket: {e}")
             
-        logger.info("Visualization Stream server stopped")
+        logger.info("✅ Visualization Stream server stopped")
 
     def _fq_data_worker(self) -> None:
         """
@@ -248,89 +262,50 @@ class VisualizationStream:
         max_consecutive_errors = 10
         
         # RTOS: Fixed timing interval for deterministic behavior
-        check_interval = 0.01  # 10ms check interval
-            
+        check_interval = 0.01
+        
         while self.running and not self._stop_event.is_set():
             try:
-                # Debug: Log we're in the loop
-                if consecutive_errors == 0:  # Only log when no recent errors
-                    logger.debug("🔄 DEBUG: FQ processing loop iteration")
+                # Quick exit check for shutdown
+                if self._stop_event.is_set():
+                    logger.debug("FQ data worker received stop signal")
+                    break
                 
-                # RTOS: Non-blocking queue access with timeout
-                fq_data = None
+                # RTOS: Get FQ data from queue without blocking indefinitely
                 try:
-                    if hasattr(self.fq_sampler_queue, 'get'):
-                        fq_data = self.fq_sampler_queue.get(block=False)
-                        logger.info(f"🔍 DEBUG: Got FQ data from queue: {type(fq_data)}")
-                    elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
-                        fq_data = self.fq_sampler_queue._queue.pop(0)
-                        logger.info(f"🔍 DEBUG: Got FQ data from _queue: {type(fq_data)}")
-                    else:
-                        # No data available - RTOS: busy-wait instead of sleep
-                        self._deterministic_wait(check_interval)
-                        continue
+                    # Use get with timeout for non-blocking operation
+                    fq_data = self.fq_sampler_queue.get(timeout=check_interval)
+                    
+                    if fq_data:
+                        # Process the FQ data
+                        self._process_fq_data_item(fq_data)
+                        consecutive_errors = 0  # Reset error counter on success
+                        
+                        # Mark task as done
+                        self.fq_sampler_queue.task_done()
+                        
                 except Empty:
-                    logger.debug(f"📭 DEBUG: No data in queue")
-                    self._deterministic_wait(check_interval)
-                    continue 
-                except Exception as e:
-                    logger.debug(f"📭 DEBUG: Queue access error: {e}")
-                    self._deterministic_wait(check_interval)
-                    continue
-                
-                if fq_data is None:
-                    self._deterministic_wait(check_interval)
+                    # No data available, continue to next iteration
+                    # This is normal and expected - don't count as error
                     continue
                     
-                logger.info(f"🎯 DEBUG: Processing FQ data type: {type(fq_data)}")
-                
-                # Reset consecutive error counter on successful data retrieval
-                consecutive_errors = 0
-                    
-                # Handle different data types
-                if isinstance(fq_data, bytes):
-                    # Already encoded binary data
-                    logger.info(f"💾 DEBUG: Binary data ({len(fq_data)} bytes)")
-                    if self.get_connected_client_count() > 0:
-                        self._send_binary_data(fq_data)
-                
-                elif isinstance(fq_data, dict) and 'target' in fq_data:
-                    # Handle new tagged format from enhanced FQ sampler
-                    logger.info(f"🏷️ DEBUG: Tagged data with target: {fq_data.get('target')}")
-                    self._process_tagged_fq_data(fq_data)
-                
-                elif isinstance(fq_data, tuple) and len(fq_data) == 2:
-                    # Handle (cortical_id, fire_queue_data) tuple format (legacy visualization)
-                    cortical_id, fire_data = fq_data
-                    logger.info(f"📦 DEBUG: Tuple data for {cortical_id}: {len(fire_data.get('neuron_ids', [])) if fire_data else 0} neurons")
-                    self._process_fq_tuple(fq_data)
-                
-                elif isinstance(fq_data, dict):
-                    # Handle fire queue dict directly (legacy format)
-                    logger.info(f"📚 DEBUG: Dict data: {len(fq_data.get('neuron_ids', [])) if fq_data else 0} neurons")
-                    self._process_fq_dict(fq_data)
-                
-                elif isinstance(fq_data, str) and fq_data == "STOP":
-                    logger.info("Received STOP signal")
-                    break 
-                
-                else:
-                    logger.warning(f"❌ DEBUG: Unsupported FQ data type: {type(fq_data)}")
-                
-            except Exception as e: 
+            except Exception as e:
                 consecutive_errors += 1
-                logger.error(f"💥 DEBUG: Error in FQ data processing (#{consecutive_errors}): {e}")
-                logger.error(f"💥 DEBUG: Exception type: {type(e)}")
-                import traceback
-                logger.error(f"💥 DEBUG: Traceback: {traceback.format_exc()}")
+                logger.error(f"Error processing FQ data: {e}")
                 
                 if consecutive_errors >= max_consecutive_errors:
-                    logger.error(f"💥 DEBUG: Too many consecutive errors ({consecutive_errors}), stopping FQ processing")
+                    logger.error(f"Too many consecutive errors ({consecutive_errors}), stopping FQ worker")
                     break
                     
-                self._deterministic_wait(0.1)  # 100ms error recovery delay
+                # Small delay before retrying to avoid tight error loops
+                self._deterministic_wait(0.1)
                 
-        logger.info("🛑 DEBUG: FQ data processing thread ended")
+            # Quick check for shutdown between iterations
+            if self._stop_event.is_set():
+                logger.debug("FQ data worker stopping due to stop event")
+                break
+        
+        logger.info("🛑 FQ data worker thread stopped gracefully")
 
     def _deterministic_wait(self, interval: float) -> None:
         """
@@ -350,6 +325,11 @@ class VisualizationStream:
         
         while self.running and not self._stop_event.is_set():
             try:
+                # Quick exit check for shutdown
+                if self._stop_event.is_set():
+                    logger.debug("Client cleanup worker received stop signal")
+                    break
+                
                 current_time = time.time()
                 
                 with self._client_lock:  # RTOS: Thread-safe client access
@@ -364,8 +344,15 @@ class VisualizationStream:
             except Exception as e:
                 logger.error(f"Error cleaning up clients: {e}")
                 
-            # RTOS: Deterministic wait instead of time.sleep()
-            self._deterministic_wait(cleanup_interval)
+            # RTOS: Use deterministic wait with frequent stop event checks
+            start_time = time.time()
+            while (time.time() - start_time) < cleanup_interval:
+                if self._stop_event.is_set():
+                    logger.debug("Client cleanup worker stopping due to stop event")
+                    return
+                time.sleep(0.5)  # Check stop event every 500ms
+        
+        logger.info("🛑 Client cleanup worker stopped gracefully")
 
     def _subscriber_monitor_worker(self) -> None:
         """
@@ -376,6 +363,11 @@ class VisualizationStream:
         
         while self.running and not self._stop_event.is_set():
             try:
+                # Quick exit check for shutdown
+                if self._stop_event.is_set():
+                    logger.debug("Subscriber monitor received stop signal")
+                    break
+                
                 # Check current subscriber count
                 current_count = self._get_subscriber_count()
                 
@@ -390,14 +382,64 @@ class VisualizationStream:
                     if should_enable != self._fq_sampler_enabled:
                         self._control_fq_sampler(should_enable)
                 
-                # RTOS: Deterministic wait instead of time.sleep()
-                self._deterministic_wait(self.subscriber_check_interval)
+                # Use smaller intervals to check for shutdown more frequently
+                wait_time = min(self.subscriber_check_interval, 1.0)  # Max 1 second intervals
+                
+                # RTOS: Use deterministic wait with stop event check
+                start_time = time.time()
+                while (time.time() - start_time) < wait_time:
+                    if self._stop_event.is_set():
+                        logger.debug("Subscriber monitor stopping due to stop event")
+                        return
+                    time.sleep(0.1)  # Check stop event every 100ms
                 
             except Exception as e:
                 logger.error(f"Error in subscriber monitoring: {e}")
-                self._deterministic_wait(self.subscriber_check_interval)
+                # Use shorter wait on error to be more responsive to shutdown
+                self._deterministic_wait(min(self.subscriber_check_interval, 1.0))
         
-        logger.info("Subscriber monitoring stopped")
+        logger.info("🛑 Subscriber monitoring stopped gracefully")
+
+    def _process_fq_data_item(self, fq_data):
+        """Process a single FQ data item."""
+        try:
+            logger.debug(f"🎯 Processing FQ data type: {type(fq_data)}")
+            
+            # Handle different data types
+            if isinstance(fq_data, bytes):
+                # Already encoded binary data
+                logger.debug(f"💾 Binary data ({len(fq_data)} bytes)")
+                if self.get_connected_client_count() > 0:
+                    self._send_binary_data(fq_data)
+            
+            elif isinstance(fq_data, dict) and 'target' in fq_data:
+                # Handle new tagged format from enhanced FQ sampler
+                logger.debug(f"🏷️ Tagged data with target: {fq_data.get('target')}")
+                self._process_tagged_fq_data(fq_data)
+            
+            elif isinstance(fq_data, tuple) and len(fq_data) == 2:
+                # Handle (cortical_id, fire_queue_data) tuple format (legacy visualization)
+                cortical_id, fire_data = fq_data
+                logger.debug(f"📦 Tuple data for {cortical_id}: {len(fire_data.get('neuron_ids', [])) if fire_data else 0} neurons")
+                self._process_fq_tuple(fq_data)
+            
+            elif isinstance(fq_data, dict):
+                # Handle fire queue dict directly (legacy format)
+                logger.debug(f"📚 Dict data: {len(fq_data.get('neuron_ids', [])) if fq_data else 0} neurons")
+                self._process_fq_dict(fq_data)
+            
+            elif isinstance(fq_data, str) and fq_data == "STOP":
+                logger.info("Received STOP signal")
+                return False  # Signal to stop processing
+            
+            else:
+                logger.warning(f"❌ Unsupported FQ data type: {type(fq_data)}")
+                
+        except Exception as e:
+            logger.error(f"Error processing FQ data item: {e}")
+            raise
+        
+        return True  # Continue processing
 
     def _process_tagged_fq_data(self, fq_data):
         """Process tagged data from enhanced FQ sampler."""

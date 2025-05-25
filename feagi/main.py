@@ -111,6 +111,8 @@ def main():
     parser.add_argument("--log-level", type=str, choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], help="Set log level")
     parser.add_argument("--debug-api", action="store_true", help="Enable detailed API request/response logging")
     parser.add_argument("--debug-npu", action="store_true", help="Enable fire queue debugging - shows neuron firing data every burst")
+    parser.add_argument("--debug-zmq-outbound", action="store_true", help="Log all outbound ZMQ traffic with decoded data")
+    parser.add_argument("--debug-zmq-inbound", action="store_true", help="Log all inbound ZMQ traffic with decoded data")
     
     args = parser.parse_args()
     
@@ -162,6 +164,16 @@ def main():
             # Set environment variable for NPU fire queue debugging
             os.environ['FEAGI_DEBUG_NPU'] = '1'
             logger.info("🔥 NPU fire queue debugging enabled via --debug-npu flag")
+        
+        if args.debug_zmq_outbound:
+            # Set environment variable for ZMQ outbound traffic debugging
+            os.environ['FEAGI_DEBUG_ZMQ_OUTBOUND'] = '1'
+            logger.info("📤 ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag")
+        
+        if args.debug_zmq_inbound:
+            # Set environment variable for ZMQ inbound traffic debugging
+            os.environ['FEAGI_DEBUG_ZMQ_INBOUND'] = '1'
+            logger.info("📥 ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag")
         
         # Load configuration with CLI overrides
         logger.info("Loading FEAGI configuration...")

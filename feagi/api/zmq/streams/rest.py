@@ -29,6 +29,7 @@ import zmq
 import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
+from feagi.utils.zmq_debug import log_zmq_inbound, log_rep_message
 from ...core.services.core_api_service import CoreAPIService
 from ..rest_adapter import ZMQRestAPIAdapter
 
@@ -94,13 +95,17 @@ class RestStream:
         # REST API adapter for handling REST format messages
         self.rest_adapter = ZMQRestAPIAdapter(core_api)
         
+        # ZMQ server reference for visualization endpoints
+        self.zmq_server = None
+        
         logger.info(f"REST stream initialized for {host}:{port}")
         
     def set_zmq_server(self, zmq_server):
-        """Set the ZMQ server reference for the REST adapter."""
-        if hasattr(self.rest_adapter, 'set_zmq_server'):
+        """Set the ZMQ server reference for visualization endpoints."""
+        self.zmq_server = zmq_server
+        if self.rest_adapter:
             self.rest_adapter.set_zmq_server(zmq_server)
-            logger.debug("ZMQ server reference passed to REST adapter")
+            logger.debug("✅ ZMQ server reference passed to REST adapter for visualization endpoints")
         
     async def start(self):
         """Start the REST stream."""
@@ -218,6 +223,15 @@ class RestStream:
                     # Receive message with timeout
                     message_parts = await worker_socket.recv_multipart()
                     
+                    # Debug logging for inbound ZMQ traffic
+                    endpoint = f"tcp://{self.host}:{self.port}"
+                    log_zmq_inbound(
+                        endpoint=endpoint,
+                        frames=message_parts,
+                        context=f"REST request #{self.stats['requests_processed'] + 1}",
+                        message_type="REST_API_request"
+                    )
+                    
                     # Message format: [client_id, empty, message]
                     if len(message_parts) < 3:
                         logger.warning(f"Invalid REST message format: {len(message_parts)} parts")
@@ -295,6 +309,13 @@ class RestStream:
                             b'',
                             response_data
                         ])
+                        
+                        # Debug logging for outbound response
+                        log_rep_message(
+                            endpoint=endpoint,
+                            data=response_data,
+                            context=f"REST response for {method} {route}"
+                        )
                         
                         self.stats['requests_success'] += 1
                         logger.debug(f"✅ REST request completed: {method} {route}")
