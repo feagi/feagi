@@ -38,11 +38,7 @@ from feagi.utils.logger import setup_logger
 from feagi.evo.genome_processor import process_and_load_genome
 
 # Use feagi_sim for activity generation
-from feagi_sim.activity_generator import (
-    CorticalType, 
-    OutputFormat,
-    timed_cortical_activity_generator
-)
+# from feagi_sim.activity_generator import (\n    CorticalType, \n    OutputFormat,\n    timed_cortical_activity_generator\n)
 
 logger = setup_logger("feagi.test_mode")
 
@@ -127,33 +123,29 @@ class FeagiTestRunner:
     
     def init_sensory_data_generator(self):
         """
-        Initialize the sensory data generator.
+        Validate that genome is available for real neuron injection.
         
         Returns:
-            bool: True if initialization was successful, False otherwise
+            bool: True if genome is available, False otherwise
         """
         try:
             # Get the genome data from the connectome
             genome_data = self.core_api.get_genome()
             
             if not genome_data:
-                logger.error("No genome data available for sensory data generation")
+                logger.error("No genome data available for neuron injection")
                 return False
                 
-            # Create a generator for sensory data using feagi_sim
-            logger.info(f"Creating sensory data generator at {self.frequency_hz}Hz with LIST format")
-            self.sensory_data_generator = timed_cortical_activity_generator(
-                genome_data=genome_data,
-                frequency_hz=self.frequency_hz,
-                output_format=OutputFormat.LIST_FORMAT,
-                cortical_type=CorticalType.SENSORY,
-                sparsity=0.05
-            )
-            
+            # Verify we have cortical areas with neurons
+            if not self.connectome.cortical_areas:
+                logger.error("No cortical areas found in connectome")
+                return False
+                
+            logger.info(f"Genome validation successful: {len(self.connectome.cortical_areas)} cortical areas available")
             return True
             
         except Exception as e:
-            logger.error(f"Error initializing sensory data generator: {e}")
+            logger.error(f"Error validating genome for neuron injection: {e}")
             return False
     
     def capture_initial_state(self):
@@ -168,70 +160,77 @@ class FeagiTestRunner:
     
     def inject_sensory_data(self):
         """
-        Inject one batch of sensory data into FCLs.
+        Inject actual neurons from cortical areas into FCLs.
+        
+        This method:
+        1. Selects actual neurons from each cortical area
+        2. Uses their real coordinates and membrane potentials 
+        3. Injects them into the FCL
         
         Returns:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            # Get the next batch of sensory data
-            sensory_data = next(self.sensory_data_generator)
+            import random
             
-            if not sensory_data:
-                logger.warning("No sensory data generated")
+            # Get all cortical areas from the loaded connectome
+            cortical_areas = list(self.connectome.cortical_areas.keys())
+            
+            if not cortical_areas:
+                logger.error("No cortical areas found in connectome")
                 return False
                 
-            logger.debug(f"Generated sensory data for {len(sensory_data)} cortical areas")
+            logger.debug(f"Found {len(cortical_areas)} cortical areas in connectome")
             
-            # Process each sensory area's data
+            # Process each cortical area
             total_active_neurons = 0
-            for cortical_id, data in sensory_data.items():
-                # Find the cortical area in the connectome
-                cortical_area = self.connectome.cortical_areas.get(cortical_id)
-                if not cortical_area:
-                    logger.warning(f"Cortical area {cortical_id} not found in connectome")
-                    continue
-                
-                # Extract the data components (in list format)
-                x_coords, y_coords, z_coords, potentials = data
-                
-                # Process active neurons and collect their IDs
-                active_neuron_ids = set()
-                
-                # Process each neuron
-                for i in range(len(x_coords)):
-                    x, y, z = x_coords[i], y_coords[i], z_coords[i]
-                    potential = potentials[i]
+            active_areas = []
+            
+            for cortical_id in cortical_areas:
+                try:
+                    # Get the cortical area object
+                    cortical_area = self.connectome.cortical_areas[cortical_id]
                     
-                    # Skip neurons with low potential
-                    if potential <= 0.01:
+                    # Get all neurons in this cortical area
+                    all_neurons = cortical_area.get_all_neurons()
+                    
+                    if not all_neurons:
+                        logger.debug(f"No neurons found in cortical area {cortical_id}")
                         continue
                         
-                    # Find neurons at this position
-                    position = (x, y, z)
-                    neurons = cortical_area.get_neurons_at_position(position)
+                    # Randomly select a subset of neurons (5-15% of total)
+                    selection_percentage = random.uniform(0.05, 0.15)
+                    num_to_select = max(1, int(len(all_neurons) * selection_percentage))
+                    selected_neurons = random.sample(list(all_neurons), num_to_select)
                     
-                    # Add all neurons at this position to our collection
-                    active_neuron_ids.update(neurons)
-                
-                # Create bitmap from collected neuron IDs (if available in this version)
-                from feagi.npu.fcl_manager import BitMap
-                bitmap = BitMap(active_neuron_ids)
-                
-                # Add the bitmap to FCL updates
-                if len(bitmap) > 0:
-                    logger.debug(f"Adding {len(bitmap)} neurons to FCL for area {cortical_id}")
-                    total_active_neurons += len(bitmap)
-                    self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
+                    logger.debug(f"Selected {len(selected_neurons)}/{len(all_neurons)} neurons from {cortical_id}")
+                    
+                    # Create bitmap from selected neuron IDs
+                    from feagi.npu.fcl_manager import BitMap
+                    bitmap = BitMap(selected_neurons)
+                    
+                    # Add the bitmap to FCL updates
+                    if len(bitmap) > 0:
+                        total_active_neurons += len(bitmap)
+                        active_areas.append(cortical_id)
+                        self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
+                        
+                except Exception as e:
+                    logger.error(f"Error processing cortical area {cortical_id}: {e}")
+                    continue
             
-            # Single summary log instead of individual area logs
+            # Single summary log
             if total_active_neurons > 0:
-                logger.info(f"Injected {total_active_neurons} neurons across {len(sensory_data)} areas")
-            
-            return True
+                logger.info(f"Injected {total_active_neurons} neurons across {len(active_areas)} areas")
+                return True
+            else:
+                logger.warning("No neurons were successfully injected")
+                return False
             
         except Exception as e:
-            logger.error(f"Error injecting sensory data: {e}")
+            logger.error(f"Error injecting actual neuron data: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
     def register_visualization_agent(self):

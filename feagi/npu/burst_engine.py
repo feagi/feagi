@@ -1859,33 +1859,82 @@ class FQSampler:
         """Get 3D coordinates for neurons in a specific cortical area."""
         coordinates = []
         
+        # Add detailed debugging for coordinate issues
+        logger.info(f"🔍 COORDINATE DEBUG: Getting coordinates for {len(neuron_ids)} neurons in area {cortical_id}")
+        logger.info(f"   🔢 Neuron IDs being processed: {neuron_ids[:10]}{'...' if len(neuron_ids) > 10 else ''}")
+        
         try:
             if self.connectome_manager:
                 area = self.connectome_manager.cortical_areas.get(cortical_id)
                 if area:
+                    logger.info(f"   ✅ Found area '{area.name}' with {area.neuron_count} total neurons")
+                    
+                    # Check how many neurons in the area have positions
+                    total_neurons_with_positions = len(area._position_map) if hasattr(area, '_position_map') else 0
+                    logger.info(f"   📍 Area has {total_neurons_with_positions} neurons with stored positions")
+                    
+                    # Show sample of neurons with positions for debugging
+                    if hasattr(area, '_position_map') and area._position_map:
+                        sample_stored_neurons = list(area._position_map.keys())[:5]
+                        logger.info(f"   📝 Sample neurons with positions: {sample_stored_neurons}")
+                    
+                    found_positions = 0
+                    fallback_positions = 0
+                    default_positions = 0
+                    
                     for neuron_id in neuron_ids:
                         try:
-                            # Try to get actual neuron position
-                            if hasattr(area, 'get_neuron_by_id'):
-                                neuron = area.get_neuron_by_id(neuron_id)
-                                if neuron and hasattr(neuron, 'position'):
-                                    coordinates.append(neuron.position)
-                                    continue
+                            # Try to get actual neuron position from area
+                            position = area.get_neuron_position(neuron_id)
+                            if position is not None:
+                                coordinates.append(position)
+                                found_positions += 1
+                                continue
                             
-                            # Fallback: estimate position from area dimensions
-                            dimensions = area.properties.get('dimensions', {'x': 10, 'y': 10, 'z': 1})
-                            x = neuron_id % dimensions['x']
-                            y = (neuron_id // dimensions['x']) % dimensions['y']
-                            z = (neuron_id // (dimensions['x'] * dimensions['y'])) % dimensions['z']
+                            # Log which neurons don't have stored positions
+                            logger.debug(f"   ❌ Neuron {neuron_id} not found in area position map")
+                            
+                            # If neuron not in this area's position map, try fallback calculation
+                            # Use area dimensions (tuple format: width, height, depth)
+                            width, height, depth = area.dimensions
+                            
+                            # Calculate position within area based on neuron_id
+                            x = neuron_id % width
+                            y = (neuron_id // width) % height
+                            z = (neuron_id // (width * height)) % depth
                             coordinates.append((x, y, z))
+                            fallback_positions += 1
                             
-                        except Exception:
+                        except Exception as e:
+                            logger.debug(f"Error getting position for neuron {neuron_id} in {cortical_id}: {e}")
                             # Default coordinates
                             coordinates.append((0, 0, 0))
+                            default_positions += 1
+                    
+                    # Log summary of coordinate lookup results
+                    logger.info(f"   📊 Coordinate lookup results for {cortical_id}:")
+                    logger.info(f"      ✅ Found stored positions: {found_positions}")
+                    logger.info(f"      🔄 Fallback calculations: {fallback_positions}")
+                    logger.info(f"      ⚠️  Default (0,0,0) coords: {default_positions}")
+                    
+                    if found_positions == 0 and len(neuron_ids) > 0:
+                        logger.warning(f"   🚨 CRITICAL: NO stored positions found for ANY neurons in {cortical_id}!")
+                        logger.warning(f"      This indicates neurons in FCL were not properly created during embryogenesis")
+                        logger.warning(f"      or there's a mismatch between FCL neuron IDs and stored neuron IDs")
+                        
+                        # Check if these neurons exist at all in the connectome
+                        if hasattr(self.connectome_manager, 'neurons'):
+                            existing_neurons = [nid for nid in neuron_ids if nid in self.connectome_manager.neurons]
+                            logger.warning(f"      🔍 {len(existing_neurons)}/{len(neuron_ids)} neurons exist in global connectome")
+                            if existing_neurons:
+                                logger.warning(f"         Sample existing: {existing_neurons[:5]}")
+                            
                 else:
+                    logger.warning(f"No area found for cortical_id {cortical_id}, using default coordinates")
                     # No area found, use default coordinates
                     coordinates = [(0, 0, 0) for _ in neuron_ids]
             else:
+                logger.warning("No connectome manager, estimating coordinates")
                 # No connectome manager, estimate coordinates
                 coordinates = [(nid % 100, (nid // 100) % 100, nid // 10000) for nid in neuron_ids]
                 
@@ -1906,9 +1955,10 @@ class FQSampler:
                     found = False
                     for cortical_id, area in self.connectome_manager.cortical_areas.items():
                         try:
-                            if hasattr(area, 'contains_neuron') and area.contains_neuron(neuron_id):
-                                coord = self._get_neuron_coordinates(cortical_id, [neuron_id])
-                                coordinates.append(coord[0] if coord else (0, 0, 0))
+                            # Check if this neuron is in this area by checking the position map
+                            position = area.get_neuron_position(neuron_id)
+                            if position is not None:
+                                coordinates.append(position)
                                 found = True
                                 break
                         except Exception:

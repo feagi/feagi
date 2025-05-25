@@ -15,11 +15,12 @@ import time
 import threading
 from typing import Dict, Any, Optional
 from queue import Queue, Empty
-import zmq
-import json
+import zmq  # Import standard synchronous ZMQ (not zmq.asyncio)
 
 from feagi.utils.logger import setup_logger
-from feagi.utils.zmq_debug import log_zmq_multipart_outbound
+
+# DO NOT import zmq.asyncio or any async ZMQ functionality
+# from feagi.utils.zmq_debug import log_zmq_multipart_outbound  # Causes async issues
 
 logger = setup_logger(__name__)
 
@@ -47,8 +48,8 @@ class SimpleVisualizationStream:
         self.host = host
         self.port = port
         self.running = False
-        # Create a NEW sync context instead of using shared instance
-        self.context = zmq.Context() if context is None else context
+        # ALWAYS create a NEW sync context - NEVER use shared contexts that might be async
+        self.context = zmq.Context()
         self.fq_sampler_queue = fq_sampler_queue
         
         # Simple socket setup
@@ -68,8 +69,11 @@ class SimpleVisualizationStream:
 
     def _setup_socket(self) -> None:
         """Set up the ZMQ PUB socket with optimal settings."""
-        # Create a sync PUB socket explicitly
+        # Create a PURELY SYNCHRONOUS PUB socket 
         self.socket = self.context.socket(zmq.PUB)
+        
+        # Ensure this is synchronous by checking the socket type
+        logger.info(f"🔧 Created ZMQ socket type: {type(self.socket)}")
         
         # Optimize for real-time streaming but ALLOW queuing when no subscribers
         self.socket.setsockopt(zmq.SNDHWM, 1000)   # Higher send buffer to prevent drops
@@ -181,14 +185,14 @@ class SimpleVisualizationStream:
     def _publish_data(self, data: bytes) -> None:
         """
         Publish data on the 'activity' topic.
-        Simple, no barriers, no complex checks.
+        Use the most basic synchronous ZMQ operations.
         """
         try:
-            # Send the data with topic using SYNCHRONOUS operations
-            self.socket.send_multipart([
-                b"activity",
-                data
-            ], zmq.NOBLOCK)  # Use zmq.NOBLOCK as positional argument, not flags=
+            # Use the most basic synchronous send operations
+            # Send topic first
+            self.socket.send(b"activity", zmq.SNDMORE)
+            # Send data
+            self.socket.send(data)
             
             # Update simple statistics
             self.stats['data_sent'] += 1
@@ -202,8 +206,6 @@ class SimpleVisualizationStream:
             if self.stats['data_sent'] <= 5:
                 logger.info(f"🚀 Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
             
-        except zmq.Again:
-            logger.warning(f"⚠️ ZMQ send buffer full - message dropped")
         except Exception as e:
             logger.error(f"Error publishing data: {e}")
             import traceback
@@ -214,24 +216,25 @@ class SimpleVisualizationStream:
         try:
             cortical_id, fire_data = fq_data
             
-            # DEBUG: Show the raw input data structure
-            logger.info(f"🔍 RAW INPUT DATA for {cortical_id}:")
-            logger.info(f"   fire_data type: {type(fire_data)}")
-            logger.info(f"   fire_data keys: {list(fire_data.keys()) if isinstance(fire_data, dict) else 'Not a dict'}")
-            logger.info(f"   fire_data: {fire_data}")
+            # LOG RAW DATA FOR DEBUGGING
+            logger.info(f"🔬 RAW FIRE_DATA for {cortical_id}:")
+            logger.info(f"   📋 Keys: {list(fire_data.keys()) if fire_data else 'None'}")
+            if fire_data:
+                for key, value in fire_data.items():
+                    if isinstance(value, list):
+                        logger.info(f"   🔑 {key}: {len(value)} items - FULL DATA: {value}")
+                    else:
+                        logger.info(f"   🔑 {key}: {value}")
             
             if fire_data and 'neuron_ids' in fire_data:
-                neuron_count = len(fire_data.get('neuron_ids', []))
+                neuron_ids = fire_data.get('neuron_ids', [])
+                neuron_count = len(neuron_ids)
                 
-                logger.info(f"📊 NEURON DATA for {cortical_id}:")
-                logger.info(f"   neuron_ids: {fire_data.get('neuron_ids', [])}")
-                logger.info(f"   neuron_count: {neuron_count}")
-                
-                # Handle coordinates based on actual structure
+                # Handle coordinates - NO FALLBACKS, fail if missing
                 coordinates = fire_data.get('coordinates', [])
-                logger.info(f"📍 COORDINATES DATA for {cortical_id}:")
-                logger.info(f"   coordinates type: {type(coordinates)}")
-                logger.info(f"   coordinates: {coordinates}")
+                x_coords = []
+                y_coords = []
+                z_coords = []
                 
                 if isinstance(coordinates, list) and len(coordinates) > 0:
                     # If coordinates is a list of [x, y, z] triplets
@@ -239,61 +242,82 @@ class SimpleVisualizationStream:
                         x_coords = [coord[0] for coord in coordinates]
                         y_coords = [coord[1] for coord in coordinates]  
                         z_coords = [coord[2] for coord in coordinates]
-                        logger.info(f"   📊 Parsed as list of triplets")
+                        logger.info(f"✅ Using provided coordinates (triplet format)")
                     else:
                         # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
                         coords_per_neuron = 3
                         x_coords = coordinates[0::coords_per_neuron]
                         y_coords = coordinates[1::coords_per_neuron]
                         z_coords = coordinates[2::coords_per_neuron]
-                        logger.info(f"   📊 Parsed as flat list")
+                        logger.info(f"✅ Using provided coordinates (flat format)")
                 elif isinstance(coordinates, dict):
                     # If coordinates is a dict with x, y, z keys
                     x_coords = coordinates.get('x', [])
                     y_coords = coordinates.get('y', [])
                     z_coords = coordinates.get('z', [])
-                    logger.info(f"   📊 Parsed as dict with x,y,z keys")
+                    logger.info(f"✅ Using provided coordinates (dict format)")
                 else:
-                    # Fallback: empty coordinates
-                    x_coords = y_coords = z_coords = []
-                    logger.info(f"   📊 No valid coordinates found - using empty")
+                    # NO FALLBACK - FAIL if coordinates are missing
+                    logger.error(f"❌ MISSING COORDINATES for {cortical_id} - fire_data has no valid coordinates!")
+                    logger.error(f"❌ Coordinates field: {coordinates}")
+                    return
                 
-                # Show the parsed coordinates
-                logger.info(f"📍 PARSED COORDINATES for {cortical_id}:")
-                logger.info(f"   x_coords: {x_coords}")
-                logger.info(f"   y_coords: {y_coords}")
-                logger.info(f"   z_coords: {z_coords}")
-                
-                # Show membrane potentials
+                # Handle membrane potentials - NO FALLBACKS, fail if missing
                 membrane_potentials = fire_data.get('membrane_potentials', [])
-                logger.info(f"⚡ MEMBRANE POTENTIALS for {cortical_id}:")
-                logger.info(f"   membrane_potentials type: {type(membrane_potentials)}")
-                logger.info(f"   membrane_potentials: {membrane_potentials}")
                 
-                # Create the expected visualization format
-                viz_data = {
-                    cortical_id: [
-                        x_coords,  # x_coords
-                        y_coords,  # y_coords  
-                        z_coords,  # z_coords
-                        membrane_potentials  # membrane_potentials
-                    ]
-                }
+                if not membrane_potentials:
+                    logger.error(f"❌ MISSING MEMBRANE POTENTIALS for {cortical_id} - fire_data has no membrane_potentials field!")
+                    return
                 
-                # Show the final visualization data structure
-                logger.info(f"📤 FINAL VISUALIZATION DATA for {cortical_id}:")
-                logger.info(f"   Structure: {json.dumps(viz_data, indent=2)}")
+                if len(membrane_potentials) != neuron_count:
+                    logger.error(f"❌ MEMBRANE POTENTIAL COUNT MISMATCH for {cortical_id}:")
+                    logger.error(f"   🧠 Neuron count: {neuron_count}")
+                    logger.error(f"   ⚡ Membrane potential count: {len(membrane_potentials)}")
+                    return
                 
-                # Serialize to JSON bytes
-                serialized_data = json.dumps(viz_data).encode('utf-8')
+                # Validate coordinate arrays
+                if len(x_coords) != neuron_count or len(y_coords) != neuron_count or len(z_coords) != neuron_count:
+                    logger.error(f"❌ COORDINATE COUNT MISMATCH for {cortical_id}:")
+                    logger.error(f"   🧠 Neuron count: {neuron_count}")
+                    logger.error(f"   📍 X coords: {len(x_coords)}")
+                    logger.error(f"   📍 Y coords: {len(y_coords)}")
+                    logger.error(f"   📍 Z coords: {len(z_coords)}")
+                    return
                 
-                logger.info(f"📦 SERIALIZED DATA for {cortical_id}:")
-                logger.info(f"   Serialized length: {len(serialized_data)} bytes")
-                logger.info(f"   Serialized data: {serialized_data.decode('utf-8')}")
+                # LOG FINAL DATA BEFORE ENCODING - SHOW ALL DATA
+                logger.info(f"🎯 VALIDATED DATA for {cortical_id} ({neuron_count} neurons):")
+                logger.info(f"   🔢 ALL Neuron IDs: {neuron_ids}")
+                logger.info(f"   📍 ALL X coords: {x_coords}")
+                logger.info(f"   📍 ALL Y coords: {y_coords}")
+                logger.info(f"   📍 ALL Z coords: {z_coords}")
+                logger.info(f"   ⚡ ALL Potentials: {membrane_potentials}")
                 
-                # Publish the data
-                self._publish_data(serialized_data)
-                logger.info(f"✅ Published {cortical_id}: {neuron_count} neurons, {len(serialized_data)} bytes")
+                # Create cortical IDs list (same cortical ID for all neurons)
+                cortical_ids = [cortical_id] * neuron_count
+                
+                # Encode using feagi_bytes binary format
+                try:
+                    from feagi_bytes import ByteStructureEncoder
+                    encoder = ByteStructureEncoder()
+                    
+                    binary_data = encoder.encode_neuron_flat(
+                        cortical_ids=cortical_ids,
+                        x_coords=x_coords,
+                        y_coords=y_coords,
+                        z_coords=z_coords,
+                        potentials=membrane_potentials
+                    )
+                    
+                    # Publish the binary data
+                    self._publish_data(binary_data)
+                    logger.info(f"✅ Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (BINARY)")
+                    
+                except ImportError:
+                    logger.error("❌ feagi_bytes library not available - cannot encode binary data")
+                except Exception as e:
+                    logger.error(f"❌ Error encoding binary data: {e}")
+            else:
+                logger.error(f"❌ INVALID FIRE_DATA for {cortical_id} - missing neuron_ids or fire_data is None")
                 
         except Exception as e:
             logger.error(f"❌ Error processing {fq_data[0] if len(fq_data) > 0 else 'unknown'}: {e}")
