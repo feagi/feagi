@@ -12,7 +12,7 @@ class MockFCLManager:
         self.cortical_fcl_history = {1: [set() for _ in range(3)]}  # Added for updated naming
         self.current_window_index = 0
         self.counter = 0
-        self._last_sample_time_per_area = {}  # Add for FCLSampler testing
+        self._last_sample_time_per_area = {}  # Add for FQSampler testing
         
     def get_global_fcl(self, offset=0):
         # Return a unique value each call for testing

@@ -143,6 +143,9 @@ class BurstEngine:
         self.special_area_handler: Optional[SpecialAreaHandler] = None
         self.fcl_injection_service: Optional[FCLInjectionService] = None
         
+        # FQ Sampler registry for debugging motor and visualization streams
+        self._fq_samplers: List[Any] = []  # List of registered FQ samplers
+        
         # Power area injection configuration
         self.enable_power_injection = self.config.get('enable_power_injection', True)
         self.power_injection_timing = self.config.get('power_injection_timing', 'pre_burst')
@@ -785,6 +788,8 @@ class BurstEngine:
         - Global FCL summary
         - Per-cortical area breakdown
         - Neuron firing statistics
+        - FQ Sampler status and data (for motor/visualization debugging)
+        - FCL Sampler status and data (legacy)
         """
         try:
             logger.info(f"\n🔥 ===== NPU DEBUG - BURST {self.burst_count} =====")
@@ -835,11 +840,122 @@ class BurstEngine:
                     logger.info(f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst")
                     logger.info(f"   Peak firing: {firing_stats.get('peak_firing', 0)} neurons")
             
+            # === NEW: FQ SAMPLER DEBUG INFORMATION ===
+            logger.info(f"🎯 Sampler Debug Information:")
+            
+            # FQ Samplers (for motor and visualization)
+            if self._fq_samplers:
+                logger.info(f"   📺 FQ Samplers Active: {len(self._fq_samplers)}")
+                for i, fq_sampler in enumerate(self._fq_samplers):
+                    try:
+                        sampler_name = f"FQSampler-{i+1}"
+                        running_status = "RUNNING" if getattr(fq_sampler, 'running', False) else "STOPPED"
+                        sample_freq = getattr(fq_sampler, 'sample_frequency', 0)
+                        
+                        # Get subscriber status
+                        viz_subs = getattr(fq_sampler, '_has_visualization_subscribers', False)
+                        motor_subs = getattr(fq_sampler, '_has_motor_subscribers', False)
+                        
+                        logger.info(f"      {sampler_name}: {running_status} @ {sample_freq:.1f}Hz")
+                        logger.info(f"         📺 Viz subscribers: {'YES' if viz_subs else 'NO'}")
+                        logger.info(f"         🚗 Motor subscribers: {'YES' if motor_subs else 'NO'}")
+                        
+                        # Try to get sample data for current burst
+                        if hasattr(fq_sampler, '_get_global_fire_queue_data'):
+                            sample_data = fq_sampler._get_global_fire_queue_data()
+                            if sample_data and sample_data.get('neuron_ids'):
+                                sample_count = len(sample_data['neuron_ids'])
+                                logger.info(f"         📊 Sample data: {sample_count} neurons")
+                                
+                                # Show membrane potential range if available
+                                if sample_data.get('membrane_potentials'):
+                                    potentials = sample_data['membrane_potentials']
+                                    min_pot = min(potentials)
+                                    max_pot = max(potentials)
+                                    avg_pot = sum(potentials) / len(potentials)
+                                    logger.info(f"         🧠 Membrane potentials: {min_pot:.2f} - {max_pot:.2f} (avg: {avg_pot:.2f})")
+                                    
+                                # Show coordinate range if available
+                                if sample_data.get('coordinates'):
+                                    coords = sample_data['coordinates']
+                                    if coords:
+                                        x_coords = [c[0] for c in coords]
+                                        y_coords = [c[1] for c in coords]
+                                        z_coords = [c[2] for c in coords]
+                                        logger.info(f"         📍 Coordinate ranges: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
+                            else:
+                                logger.info(f"         📊 Sample data: No neurons firing")
+                        
+                        # Check queue status
+                        if hasattr(fq_sampler, 'output_queue'):
+                            try:
+                                queue_size = fq_sampler.output_queue.qsize()
+                                logger.info(f"         📤 Output queue: {queue_size} items")
+                            except:
+                                logger.info(f"         📤 Output queue: Status unknown")
+                                
+                    except Exception as sampler_error:
+                        logger.info(f"      FQSampler-{i+1}: ERROR - {sampler_error}")
+            else:
+                logger.info(f"   📺 FQ Samplers: NONE REGISTERED")
+            
+            # === MOTOR/VISUALIZATION STREAM DEBUGGING ===
+            if self._fq_samplers:
+                logger.info(f"🚗 Motor & Visualization Stream Debug:")
+                
+                # Check if any samplers are active for motor output
+                motor_active_count = 0
+                viz_active_count = 0
+                
+                for sampler in self._fq_samplers:
+                    if getattr(sampler, '_has_motor_subscribers', False):
+                        motor_active_count += 1
+                    if getattr(sampler, '_has_visualization_subscribers', False):
+                        viz_active_count += 1
+                
+                logger.info(f"   🚗 Motor stream: {motor_active_count} active samplers")
+                logger.info(f"   📺 Visualization stream: {viz_active_count} active samplers")
+                
+                if motor_active_count == 0 and viz_active_count == 0:
+                    logger.info(f"   ⚠️  WARNING: No active subscribers - streams may be inactive!")
+                
+                # Sample recent data from each active FQ sampler
+                for i, fq_sampler in enumerate(self._fq_samplers):
+                    if getattr(fq_sampler, 'running', False) and (
+                        getattr(fq_sampler, '_has_visualization_subscribers', False) or 
+                        getattr(fq_sampler, '_has_motor_subscribers', False)
+                    ):
+                        logger.info(f"   📊 FQSampler-{i+1} Recent Sample:")
+                        
+                        # Try to get per-area samples for key areas
+                        if hasattr(fq_sampler, 'connectome_manager') and fq_sampler.connectome_manager:
+                            try:
+                                # Sample a few key areas (motor and sensory)
+                                sample_areas = ['motor_', 'vision', 'sensor', 'output', 'input']  # Common prefixes
+                                sampled_any = False
+                                
+                                for area_id in list(fcl_by_cortical.keys())[:5]:  # Sample first 5 active areas
+                                    area_sample = fq_sampler._get_area_fire_queue_data(area_id)
+                                    if area_sample and area_sample.get('neuron_ids'):
+                                        neuron_count = len(area_sample['neuron_ids'])
+                                        logger.info(f"      {area_id}: {neuron_count} active neurons")
+                                        sampled_any = True
+                                
+                                if not sampled_any:
+                                    logger.info(f"      No area samples available")
+                                    
+                            except Exception as sample_error:
+                                logger.info(f"      Sample error: {sample_error}")
+            
             logger.info(f"🔥 ========================================\n")
             
         except Exception as e:
             logger.error(f"🔥 NPU DEBUG ERROR: Failed to display fire queue - {e}")
             logger.error(f"NPU debug output error: {e}")
+            # Include stack trace for debugging
+            import traceback
+            logger.error(f"🔥 NPU DEBUG ERROR stack trace:")
+            logger.error(traceback.format_exc())
 
     def measure_actual_frequency(self, duration_seconds: float = 5.0, sample_count: int = 100) -> dict:
         """
@@ -1006,298 +1122,29 @@ class BurstEngine:
         if len(self._processing_timing_buffer) > self._timing_buffer_size:
             self._processing_timing_buffer.pop(0)  # Remove oldest entry
 
-# --- FCLSampler Implementation ---
-
-class FCLSampler:
-    """
-    FCLSampler: Samples the latest FCL at a configurable frequency and forwards it to consumers (e.g., visualization, motor output).
-    - Now supports per-area sample rates using the 'fcl_sample_rate' property in each cortical area's properties dict.
-    - RTOS/Rust-friendly: runs as a periodic task/thread, no dynamic allocation in the main loop
-    - Supports graceful shutdown
-    - Only samples when there are consumers (visualization clients or motor outputs)
-    - Uses best-effort delivery - silently drops samples when output queue is full to prioritize real-time performance
-    """
-    def __init__(self, fcl_manager: Any, sample_frequency_hz: float, output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
+    def register_fq_sampler(self, fq_sampler: Any) -> None:
         """
-        Initialize the FCL Sampler.
+        Register an FQ sampler for debugging and monitoring.
         
         Args:
-            fcl_manager: FCL manager instance to sample from
-            sample_frequency_hz: Sampling frequency in Hz
-            output_queue: Queue to put sampled FCL data into
-            connectome_manager: Optional connectome manager to get cortical area properties
+            fq_sampler: FQSampler instance to register
         """
-        self.fcl_manager = fcl_manager
-        self.sample_frequency = sample_frequency_hz  # Global default
-        self.sample_interval = 1.0 / sample_frequency_hz
-        self.output_queue = output_queue
-        self.connectome_manager = connectome_manager  # Needed for per-area properties
-        
-        self.running = False
-        self._last_sample_time_per_area = {}  # cortical_id -> last sample time
-        self._max_retries = 2  # Maximum number of retries for transient errors
-        self._retry_delay = 0.01  # Delay between retries in seconds
-        
-        # Visualization clients tracking
-        self._has_visualization_subscribers = False
-        self._has_motor_subscribers = False
-        
-    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
+        if fq_sampler not in self._fq_samplers:
+            self._fq_samplers.append(fq_sampler)
+            if self.debug_npu:
+                logger.info(f"🔥 NPU DEBUG: Registered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+
+    def unregister_fq_sampler(self, fq_sampler: Any) -> None:
         """
-        Set whether there are visualization subscribers.
+        Unregister an FQ sampler.
         
         Args:
-            has_subscribers: True if there are visualization subscribers, False otherwise
+            fq_sampler: FQSampler instance to unregister
         """
-        if has_subscribers != self._has_visualization_subscribers:
-            logger.info(f"FCLSampler visualization subscribers changed: {has_subscribers}")
-            self._has_visualization_subscribers = has_subscribers
-            
-            # Check if test visualization mode is enabled
-            test_viz_mode = False
-            try:
-                from feagi.core.state_manager import FeagiStateManager
-                state_manager = FeagiStateManager.instance()
-                test_viz_mode = state_manager.get_test_visualization_mode()
-                if test_viz_mode and has_subscribers:
-                    logger.debug("TEST VISUALIZATION MODE IS ACTIVE - Will log raw neuron data")
-            except Exception as e:
-                pass
-
-    def run(self) -> None:
-        """
-        Run the FCL sampler main loop.
-        
-        This method continuously samples FCLs according to the configured
-        sample rate and outputs them to the queue using a best-effort approach.
-        When the output queue is full, new samples are silently dropped to maintain
-        real-time performance.
-        """
-        self.running = True
-        while self.running:
-            start = time.perf_counter()
-            now = start
-            
-            # For test visualization mode - collect all data in one dictionary
-            combined_neuron_data = {}
-            in_test_viz_mode = False
-            try:
-                from feagi.core.state_manager import FeagiStateManager
-                state_manager = FeagiStateManager.instance()
-                in_test_viz_mode = state_manager.get_test_visualization_mode()
-            except Exception:
-                pass
-            
-            # Skip sampling if no subscribers
-            if not self._has_visualization_subscribers and not self._has_motor_subscribers:
-                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
-                target_time = start + self.sample_interval
-                while time.perf_counter() < target_time:
-                    pass  # Busy-wait for sample interval
-                continue
-                
-            # If connectome_manager is provided, support per-area sample rates
-            if self.connectome_manager is not None:
-                for area in self.connectome_manager.cortical_areas.values():
-                    cortical_id = area.id
-                    # Get per-area sample rate if set, else use global
-                    rate = area.properties.get('fcl_sample_rate', self.sample_frequency)
-                    interval = 1.0 / rate if rate > 0 else self.sample_interval
-                    last_time = self._last_sample_time_per_area.get(cortical_id, 0)
-                    if now - last_time >= interval:
-                        # Sample this area's FCL with retry mechanism
-                        retry_count = 0
-                        while retry_count < self._max_retries:
-                            try:
-                                area_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
-                                # Put (cortical_id, area_fcl) in the output queue (non-blocking, drop if full)
-                                try:
-                                    self.output_queue.put_nowait((cortical_id, area_fcl))
-                                    
-                                    # Check if in test visualization mode and log the raw data
-                                    try:
-                                        from feagi.core.state_manager import FeagiStateManager
-                                        state_manager = FeagiStateManager.instance()
-                                        if state_manager.get_test_visualization_mode():
-                                            # Format the data for logging
-                                            if area_fcl:
-                                                # Convert the bitmap to a list format
-                                                neuron_ids = list(area_fcl)
-                                                x_values = []
-                                                y_values = []
-                                                z_values = []
-                                                potentials = []
-                                                
-                                                # Get the area object to access neuron positions
-                                                area_obj = self.connectome_manager.cortical_areas.get(cortical_id)
-                                                if area_obj:
-                                                    for neuron_id in neuron_ids:
-                                                        # Try to get neuron position
-                                                        try:
-                                                            # If get_neuron_by_id exists, use it
-                                                            if hasattr(area_obj, 'get_neuron_by_id'):
-                                                                neuron = area_obj.get_neuron_by_id(neuron_id)
-                                                                if neuron and hasattr(neuron, 'position'):
-                                                                    x, y, z = neuron.position
-                                                                else:
-                                                                    # Estimate position from ID
-                                                                    dimensions = area_obj.properties.get('dimensions', {'x': 10, 'y': 10, 'z': 1})
-                                                                    x = neuron_id % dimensions['x']
-                                                                    y = (neuron_id // dimensions['x']) % dimensions['y']
-                                                                    z = (neuron_id // (dimensions['x'] * dimensions['y'])) % dimensions['z']
-                                                            else:
-                                                                # Estimate position from ID
-                                                                dimensions = area_obj.properties.get('dimensions', {'x': 10, 'y': 10, 'z': 1})
-                                                                x = neuron_id % dimensions['x']
-                                                                y = (neuron_id // dimensions['x']) % dimensions['y']
-                                                                z = (neuron_id // (dimensions['x'] * dimensions['y'])) % dimensions['z']
-                                                        except Exception as e:
-                                                            # Fallback to default coordinates
-                                                            x, y, z = 0, 0, 0
-                                                        
-                                                        # Add coordinates and default potential for this neuron
-                                                        x_values.append(x)
-                                                        y_values.append(y)
-                                                        z_values.append(z)
-                                                        potentials.append(1.0)  # Default potential for firing neurons
-                                                
-                                                # Format cortical ID (6 characters) and add to combined data
-                                                cort_id_6 = cortical_id[:6].ljust(6)
-                                                combined_neuron_data[cort_id_6] = [x_values, y_values, z_values, potentials]
-                                    except Exception as e:
-                                        # Don't let errors in test mode logging affect normal operation
-                                        logger.debug(f"Error in test visualization logging: {e}")
-                                        import traceback
-                                        logger.debug(traceback.format_exc())
-                                    
-                                    break  # Success, exit retry loop
-                                except Exception as e:
-                                    # Queue is full - silently drop instead of logging warnings
-                                    # This implements a conflating behavior where we prioritize new data
-                                    break  # Skip retries when queue is full
-                            except Exception as e:
-                                # Log error but continue with other areas
-                                if retry_count == self._max_retries - 1:  # Only log on last retry
-                                    logger.error(f"FCLSampler error (area {cortical_id}): {e}")
-                                # Wait before retrying
-                                # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
-                                delay_start = time.perf_counter()
-                                while time.perf_counter() - delay_start < self._retry_delay:
-                                    pass  # Busy-wait for retry delay
-                            retry_count += 1
-                        
-                        # Update last sample time even if sampling failed
-                        self._last_sample_time_per_area[cortical_id] = now
-            else:
-                # Global sampling (legacy behavior)
-                retry_count = 0
-                while retry_count < self._max_retries:
-                    try:
-                        fcl_snapshot = self.fcl_manager.get_global_fcl()
-                        try:
-                            self.output_queue.put_nowait(fcl_snapshot)
-                            
-                            # Check if in test visualization mode
-                            try:
-                                from feagi.core.state_manager import FeagiStateManager
-                                state_manager = FeagiStateManager.instance()
-                                if state_manager.get_test_visualization_mode():
-                                    # If it's a dictionary, add it to the combined data
-                                    if isinstance(fcl_snapshot, dict):
-                                        # Add each area's data to the combined dictionary
-                                        for cortical_id, fcl_data in fcl_snapshot.items():
-                                            cort_id_6 = cortical_id[:6].ljust(6)
-                                            # Process FCL data based on its structure
-                                            # (This is an example - actual format may vary)
-                                            x_values, y_values, z_values, potentials = [], [], [], []
-                                            if isinstance(fcl_data, set):
-                                                # It's just a set of neuron IDs
-                                                for neuron_id in fcl_data:
-                                                    # Simplified coordinates based on neuron ID
-                                                    x_values.append(neuron_id % 10)
-                                                    y_values.append((neuron_id // 10) % 10)
-                                                    z_values.append(0)
-                                                    potentials.append(1.0)
-                                            combined_neuron_data[cort_id_6] = [x_values, y_values, z_values, potentials]
-                                    # For debugging, still log a summary of the snapshot
-                                    logger.debug(f"\n=== GLOBAL FCL SNAPSHOT: {type(fcl_snapshot)} ===")
-                                    if isinstance(fcl_snapshot, dict):
-                                        logger.debug(f"Contains data for {len(fcl_snapshot)} areas")
-                                    elif isinstance(fcl_snapshot, bytes):
-                                        # If it's bytes, print first 50 bytes as hex
-                                        hex_dump = ' '.join([f'{b:02x}' for b in fcl_snapshot[:50]])
-                                        logger.debug(f"First 50 bytes: {hex_dump}")
-                                    logger.debug("================================\n")
-                            except Exception as e:
-                                # Don't let test mode logging failures affect normal operation
-                                logger.debug(f"Error in global test visualization logging: {e}")
-                            
-                            break  # Success, exit retry loop
-                        except Exception as e:
-                            # Log error but continue
-                            if retry_count == self._max_retries - 1:  # Only log on last retry
-                                logger.error(f"FCLSampler error: {e}")
-                            # Wait before retrying
-                            # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
-                            delay_start = time.perf_counter()
-                            while time.perf_counter() - delay_start < self._retry_delay:
-                                pass  # Busy-wait for retry delay
-                            retry_count += 1
-                    except Exception as e:
-                        # Log error but continue
-                        if retry_count == self._max_retries - 1:  # Only log on last retry
-                            logger.error(f"FCLSampler error: {e}")
-                        # Wait before retrying
-                        # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
-                        delay_start = time.perf_counter()
-                        while time.perf_counter() - delay_start < self._retry_delay:
-                            pass  # Busy-wait for retry delay
-                        retry_count += 1
-                    
-            # Sleep for the remainder of the global sample interval
-            elapsed = time.perf_counter() - start
-            
-            # Print combined neuron data if in test visualization mode
-            if in_test_viz_mode and combined_neuron_data:
-                # Log the combined data
-                import json
-                combined_data_str = json.dumps(combined_neuron_data, separators=(',', ':'))
-                logger.debug(f"COMBINED NEURON DATA ({len(combined_neuron_data)} areas):")
-                logger.debug(combined_data_str)
-                
-                # Also print to stdout directly for maximum visibility
-                logger.debug(f"\n=== COMBINED NEURON DATA FOR {len(combined_neuron_data)} AREAS ===")
-                logger.debug(combined_data_str)
-                logger.debug("===========================================================\n")
-            
-            if elapsed < self.sample_interval:
-                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
-                target_end_time = start + self.sample_interval
-                while time.perf_counter() < target_end_time:
-                    pass  # Busy-wait for remainder of sample interval
-        logger.info("FCLSampler stopped.")
-
-    def stop(self) -> None:
-        """Stop the FCL sampler."""
-        self.running = False
-        
-    def update_area_sample_rate(self, cortical_id, rate):
-        """Set the sampling rate for a specific cortical area."""
-        # Store the last sample time to avoid immediate sampling
-        if cortical_id not in self._last_sample_time_per_area:
-            self._last_sample_time_per_area[cortical_id] = time.perf_counter()
-        # Rate will be picked up from cortical area properties
-        
-    def set_motor_subscribers(self, has_subscribers: bool) -> None:
-        """
-        Update whether there are motor subscribers.
-        
-        Args:
-            has_subscribers: Whether there are motor subscribers
-        """
-        if has_subscribers != self._has_motor_subscribers:
-            logger.info(f"FCLSampler motor subscribers changed: {has_subscribers}")
-            self._has_motor_subscribers = has_subscribers 
+        if fq_sampler in self._fq_samplers:
+            self._fq_samplers.remove(fq_sampler)
+            if self.debug_npu:
+                logger.info(f"🔥 NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
 
 class FQSampler:
     """
@@ -1336,6 +1183,14 @@ class FQSampler:
         # Error handling
         self._max_retries = 3
         self._retry_delay = 0.001
+        
+        # Auto-register with burst engine if fire_queue_provider is a BurstEngine
+        if hasattr(fire_queue_provider, 'register_fq_sampler'):
+            try:
+                fire_queue_provider.register_fq_sampler(self)
+                logger.info(f"FQSampler auto-registered with BurstEngine for debugging")
+            except Exception as e:
+                logger.warning(f"Failed to auto-register FQSampler with BurstEngine: {e}")
         
         logger.info(f"FQSampler initialized with {sample_frequency_hz}Hz sampling")
 
@@ -1639,6 +1494,14 @@ class FQSampler:
     def stop(self) -> None:
         """Stop the FQ sampler."""
         self.running = False
+        
+        # Auto-unregister from burst engine if it was registered
+        if hasattr(self.fire_queue_provider, 'unregister_fq_sampler'):
+            try:
+                self.fire_queue_provider.unregister_fq_sampler(self)
+                logger.info(f"🔥 NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-unregister FQSampler from BurstEngine: {e}")
         
     def update_area_sample_rate(self, cortical_id: str, rate: float) -> None:
         """Set the sampling rate for a specific cortical area."""

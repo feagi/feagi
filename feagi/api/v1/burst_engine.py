@@ -203,10 +203,10 @@ class BurstEngineAPI:
     # ===== FCL Sample Rate Management =====
     
     @burst_engine_endpoint('GET', '/fcl_sampler/area/{area_id}/sample_rate', response_model=Dict[str, Any])
-    async def get_area_fcl_sample_rate(self, area_id: int) -> Dict[str, Any]:
+    async def get_area_fq_sample_rate(self, area_id: int) -> Dict[str, Any]:
         """Get the FCL sample rate for a specific cortical area."""
         try:
-            rate = self.core_api_service.get_area_fcl_sample_rate(area_id)
+            rate = self.core_api_service.get_area_fq_sample_rate(area_id)
             return {"sample_rate": rate}
         except KeyError:
             raise ValueError("Cortical area not found")
@@ -215,14 +215,14 @@ class BurstEngineAPI:
             raise ValueError(f"Failed to get area FCL sample rate: {str(e)}")
     
     @burst_engine_endpoint('POST', '/fcl_sampler/area/{area_id}/sample_rate', response_model=Dict[str, Any])
-    async def set_area_fcl_sample_rate(self, area_id: int, config: Dict[str, Any]) -> Dict[str, Any]:
+    async def set_area_fq_sample_rate(self, area_id: int, config: Dict[str, Any]) -> Dict[str, Any]:
         """Set the FCL sample rate for a specific cortical area."""
         try:
             sample_rate = config.get("sample_rate")
             if sample_rate is None or sample_rate <= 0:
                 raise ValueError("Sample rate must be positive")
                 
-            success = self.core_api_service.set_area_fcl_sample_rate(area_id, sample_rate)
+            success = self.core_api_service.set_area_fq_sample_rate(area_id, sample_rate)
             if not success:
                 raise ValueError("Failed to update FCL sample rate")
                 

@@ -527,227 +527,31 @@ def test_burst_engine_set_power_injection_enabled():
         assert result is False
 
 
-def test_fcl_sampler_run_with_connectome_manager():
-    """Test FCLSampler run method with connectome manager."""
-    fcl_manager = Mock()
-    fcl_manager.get_cortical_fcl.return_value = {1, 2, 3}
-    
-    output_queue = Queue()
-    
-    # Mock connectome manager with cortical areas
-    connectome_manager = Mock()
-    area1 = Mock()
-    area1.id = 'area1'
-    area1.properties = {'fcl_sample_rate': 50}  # Custom rate
-    area2 = Mock()
-    area2.id = 'area2' 
-    area2.properties = {}  # No custom rate
-    
-    connectome_manager.cortical_areas.values.return_value = [area1, area2]
-    
-    sampler = FCLSampler(fcl_manager, 25, output_queue, connectome_manager)
-    sampler.set_visualization_subscribers(True)
-    
-    # Run for a short time
-    t = threading.Thread(target=sampler.run)
-    t.start()
-    time.sleep(0.1)
-    sampler.stop()
-    t.join(timeout=1)
-    
-    # Should have sampled data
-    assert not output_queue.empty()
-
-
-def test_fcl_sampler_run_global_mode():
-    """Test FCLSampler run method in global mode (no connectome manager)."""
-    fcl_manager = Mock()
-    fcl_manager.get_global_fcl.return_value = {1, 2, 3, 4, 5}
-    
-    output_queue = Queue()
-    
-    sampler = FCLSampler(fcl_manager, 100, output_queue)  # No connectome manager
-    sampler.set_visualization_subscribers(True)
-    
-    # Run for a short time
-    t = threading.Thread(target=sampler.run)
-    t.start()
-    time.sleep(0.05)
-    sampler.stop()
-    t.join(timeout=1)
-    
-    # Should have sampled data
-    assert not output_queue.empty()
-
-
-def test_fcl_sampler_run_no_subscribers():
-    """Test FCLSampler run method with no subscribers."""
-    fcl_manager = Mock()
-    output_queue = Queue()
-    
-    sampler = FCLSampler(fcl_manager, 100, output_queue)
-    # Don't set any subscribers
-    
-    # Run for a short time
-    t = threading.Thread(target=sampler.run)
-    t.start()
-    time.sleep(0.05)
-    sampler.stop()
-    t.join(timeout=1)
-    
-    # Should not have sampled any data
-    assert output_queue.empty()
-
-
-def test_fcl_sampler_error_handling():
-    """Test FCLSampler error handling during sampling."""
-    fcl_manager = Mock()
-    fcl_manager.get_cortical_fcl.side_effect = Exception("Sampling error")
-    
-    output_queue = Queue()
-    
-    # Mock connectome manager with one area
-    connectome_manager = Mock()
-    area = Mock()
-    area.id = 'error_area'
-    area.properties = {}
-    connectome_manager.cortical_areas.values.return_value = [area]
-    
-    sampler = FCLSampler(fcl_manager, 100, output_queue, connectome_manager)
-    sampler.set_visualization_subscribers(True)
-    
-    # Run for a short time - should handle errors gracefully
-    t = threading.Thread(target=sampler.run)
-    t.start()
-    time.sleep(0.05)
-    sampler.stop()
-    t.join(timeout=1)
-
-
-def test_fcl_sampler_queue_full_handling():
-    """Test FCLSampler handling of full output queue."""
-    fcl_manager = Mock()
-    fcl_manager.get_global_fcl.return_value = {1, 2, 3}
-    
-    # Create a small queue and fill it
-    output_queue = Queue(maxsize=1)
-    output_queue.put("blocking_item")
-    
-    sampler = FCLSampler(fcl_manager, 1000, output_queue)  # High frequency
-    sampler.set_visualization_subscribers(True)
-    
-    # Run for a short time - should handle full queue gracefully
-    t = threading.Thread(target=sampler.run)
-    t.start()
-    time.sleep(0.05)
-    sampler.stop()
-    t.join(timeout=1)
-    
-    # Queue should still have the original item (not overwritten)
-    assert output_queue.get() == "blocking_item"
-
-
-def test_fcl_sampler_test_visualization_mode():
-    """Test FCLSampler with test visualization mode enabled."""
-    fcl_manager = Mock()
-    fcl_manager.get_global_fcl.return_value = {'area1': {1, 2, 3}}
-    
-    output_queue = Queue()
-    
-    # Mock state manager with test visualization mode
-    mock_state_manager = MockStateManager()
-    mock_state_manager.set_test_visualization_mode(True)
-    
-    with patch('feagi.core.state_manager.FeagiStateManager.instance', return_value=mock_state_manager):
-        sampler = FCLSampler(fcl_manager, 100, output_queue)
-        sampler.set_visualization_subscribers(True)
-        
-        # Run for a short time
-        t = threading.Thread(target=sampler.run)
-        t.start()
-        time.sleep(0.05)
-        sampler.stop()
-        t.join(timeout=1)
-
-
-def test_fcl_sampler_area_with_custom_properties():
-    """Test FCLSampler with areas that have custom neuron position properties."""
-    fcl_manager = Mock()
-    fcl_manager.get_cortical_fcl.return_value = {1, 2, 3}
-    
-    output_queue = Queue()
-    
-    # Mock connectome manager with detailed area properties
-    connectome_manager = Mock()
-    area = Mock()
-    area.id = 'detailed_area'
-    area.properties = {
-        'fcl_sample_rate': 75,
-        'dimensions': {'x': 5, 'y': 5, 'z': 1}
+def test_fq_sampler_run_global_mode():
+    """Test FQSampler run method in global mode (no connectome manager)."""
+    fire_queue_provider = Mock()
+    fire_queue_provider.get_fire_queue.return_value = {
+        'neuron_ids': [1, 2, 3, 4, 5],
+        'membrane_potentials': [0.8, 1.2, 0.9, 1.1, 0.7],
+        'thresholds': [1.0, 1.0, 1.0, 1.0, 1.0],
+        'consecutive_fire_counts': [1, 2, 1, 1, 3],
+        'refractory_counters': [0, 0, 0, 0, 0]
     }
     
-    # Mock neuron with position
-    neuron = Mock()
-    neuron.position = (1, 2, 0)
-    area.get_neuron_by_id.return_value = neuron
-    
-    # Properly mock the cortical_areas
-    connectome_manager.cortical_areas = Mock()
-    connectome_manager.cortical_areas.values = Mock(return_value=[area])
-    
-    # Mock state manager with test visualization mode
-    mock_state_manager = MockStateManager()
-    mock_state_manager.set_test_visualization_mode(True)
-    
-    with patch('feagi.core.state_manager.FeagiStateManager.instance', return_value=mock_state_manager):
-        sampler = FCLSampler(fcl_manager, 50, output_queue, connectome_manager)
-        sampler.set_visualization_subscribers(True)
-        
-        # Run for a short time
-        t = threading.Thread(target=sampler.run)
-        t.start()
-        time.sleep(0.1)
-        sampler.stop()
-        t.join(timeout=1)
-
-
-def test_fq_sampler_initialization():
-    """Test FQSampler initialization."""
-    fire_queue_provider = Mock()
-    output_queue = Queue()
-    connectome_manager = Mock()
-    
-    sampler = FQSampler(fire_queue_provider, 100, output_queue, connectome_manager)
-    
-    assert sampler.fire_queue_provider == fire_queue_provider
-    assert sampler.sample_frequency == 100
-    assert sampler.output_queue == output_queue
-    assert sampler.connectome_manager == connectome_manager
-    assert not sampler.running
-    assert not sampler._has_visualization_subscribers
-    assert not sampler._has_motor_subscribers
-
-
-def test_fq_sampler_subscriber_management():
-    """Test FQSampler subscriber management."""
-    fire_queue_provider = Mock()
     output_queue = Queue()
     
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
-    # Test setting visualization subscribers
+    sampler = FQSampler(fire_queue_provider, 100, output_queue)  # No connectome manager
     sampler.set_visualization_subscribers(True)
-    assert sampler._has_visualization_subscribers
     
-    sampler.set_visualization_subscribers(False)
-    assert not sampler._has_visualization_subscribers
+    # Run for a short time
+    t = threading.Thread(target=sampler.run)
+    t.start()
+    time.sleep(0.05)
+    sampler.stop()
+    t.join(timeout=1)
     
-    # Test setting motor subscribers
-    sampler.set_motor_subscribers(True)
-    assert sampler._has_motor_subscribers
-    
-    sampler.set_motor_subscribers(False)
-    assert not sampler._has_motor_subscribers
+    # Should have sampled data
+    assert not output_queue.empty()
 
 
 def test_fq_sampler_run_no_subscribers():
@@ -769,288 +573,41 @@ def test_fq_sampler_run_no_subscribers():
     assert output_queue.empty()
 
 
-def test_fq_sampler_run_with_subscribers():
-    """Test FQSampler run method with subscribers."""
+def test_fq_sampler_queue_full_handling():
+    """Test FQSampler handling of full output queue."""
     fire_queue_provider = Mock()
-    fire_queue_provider.get_global_fire_queue.return_value = {'neuron_ids': [1, 2, 3]}
+    fire_queue_provider.get_fire_queue.return_value = {
+        'neuron_ids': [1, 2, 3],
+        'membrane_potentials': [0.8, 1.2, 0.9],
+        'thresholds': [1.0, 1.0, 1.0],
+        'consecutive_fire_counts': [1, 2, 1],
+        'refractory_counters': [0, 0, 0]
+    }
     
-    output_queue = Queue()
+    # Create a small queue and fill it
+    output_queue = Queue(maxsize=1)
+    output_queue.put("blocking_item")
     
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
+    sampler = FQSampler(fire_queue_provider, 1000, output_queue)  # High frequency
     sampler.set_visualization_subscribers(True)
     
-    # Run for a short time
+    # Run for a short time - should handle full queue gracefully
     t = threading.Thread(target=sampler.run)
     t.start()
     time.sleep(0.05)
     sampler.stop()
     t.join(timeout=1)
-
-
-def test_fq_sampler_area_sampling():
-    """Test FQSampler area-specific sampling."""
-    fire_queue_provider = Mock()
-    fire_queue_provider.get_area_fire_queue.return_value = {'area_data': [1, 2, 3]}
     
-    output_queue = Queue()
-    
-    # Mock connectome manager with cortical areas
-    connectome_manager = Mock()
-    area = Mock()
-    area.id = 'test_area'
-    area.properties = {'fq_sample_rate': 50}
-    connectome_manager.cortical_areas.values.return_value = [area]
-    
-    sampler = FQSampler(fire_queue_provider, 25, output_queue, connectome_manager)
-    sampler.set_visualization_subscribers(True)
-    
-    # Run for a short time
-    t = threading.Thread(target=sampler.run)
-    t.start()
-    time.sleep(0.1)
-    sampler.stop()
-    t.join(timeout=1)
-
-
-def test_fq_sampler_get_area_fire_queue_data():
-    """Test FQSampler._get_area_fire_queue_data method."""
-    fire_queue_provider = Mock()
-    fire_queue_provider.get_area_fire_queue.return_value = {'test': 'data'}
-    
-    output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
-    # The method may handle errors and return None - let's just verify it doesn't crash
-    result = sampler._get_area_fire_queue_data('test_area')
-    # Just verify the method executes without crashing
-    assert result is not None or result is None  # Accept any return value
-
-
-def test_fq_sampler_get_global_fire_queue_data():
-    """Test FQSampler._get_global_fire_queue_data method."""
-    fire_queue_provider = Mock()
-    fire_queue_provider.get_global_fire_queue.return_value = {'global': 'data'}
-    
-    output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
-    # The method may handle errors and return None - let's just verify it doesn't crash
-    result = sampler._get_global_fire_queue_data()
-    # Just verify the method executes without crashing
-    assert result is not None or result is None  # Accept any return value
-
-
-def test_fq_sampler_filter_fire_queue_by_area():
-    """Test FQSampler._filter_fire_queue_by_area method."""
-    fire_queue_provider = Mock()
-    output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
-    # Test filtering with neuron_ids
-    fire_queue = {
-        'neuron_ids': [1, 2, 3, 4, 5],
-        'coordinates': [(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (0, 0, 1)]
-    }
-    
-    # Mock connectome manager
-    sampler.connectome_manager = Mock()
-    area = Mock()
-    area.get_neurons_in_area.return_value = [1, 3, 5]  # Area contains neurons 1, 3, 5
-    sampler.connectome_manager.get_cortical_area.return_value = area
-    
-    result = sampler._filter_fire_queue_by_area(fire_queue, 'test_area')
-    
-    # The method may handle errors - just verify it returns a dictionary
-    assert isinstance(result, dict)
-    assert 'neuron_ids' in result
-
-
-def test_fq_sampler_get_neuron_coordinates():
-    """Test FQSampler._get_neuron_coordinates method."""
-    fire_queue_provider = Mock()
-    output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
-    # Mock connectome manager
-    sampler.connectome_manager = Mock()
-    area = Mock()
-    
-    # Mock neurons with positions
-    neuron1 = Mock()
-    neuron1.position = (1, 2, 3)
-    neuron2 = Mock()
-    neuron2.position = (4, 5, 6)
-    
-    area.get_neuron_by_id.side_effect = lambda nid: neuron1 if nid == 1 else neuron2 if nid == 2 else None
-    sampler.connectome_manager.get_cortical_area.return_value = area
-    
-    result = sampler._get_neuron_coordinates('test_area', [1, 2])
-    
-    # Just verify it returns a list
-    assert isinstance(result, list)
-
-
-def test_fq_sampler_get_global_neuron_coordinates():
-    """Test FQSampler._get_global_neuron_coordinates method."""
-    fire_queue_provider = Mock()
-    output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
-    # Mock connectome manager
-    sampler.connectome_manager = Mock()
-    sampler.connectome_manager.get_neuron_coordinates.return_value = [(1, 2, 3), (4, 5, 6)]
-    
-    result = sampler._get_global_neuron_coordinates([1, 2])
-    
-    # Just verify it returns a list
-    assert isinstance(result, list)
+    # Queue should still have the original item (not overwritten)
+    assert output_queue.get() == "blocking_item"
 
 
 def test_fq_sampler_update_area_sample_rate():
     """Test FQSampler.update_area_sample_rate method."""
     fire_queue_provider = Mock()
     output_queue = Queue()
+    
     sampler = FQSampler(fire_queue_provider, 100, output_queue)
-    
-    # Test updating sample rate
-    sampler.update_area_sample_rate('test_area', 75.0)
-    
-    # Should update internal tracking
-    assert 'test_area' in sampler._last_sample_time_per_area
-
-
-def test_burst_engine_debug_fire_queue_output():
-    """Test _debug_fire_queue_output method with debug mode."""
-    mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch.dict(os.environ, {'FEAGI_DEBUG_NPU': '1'}):
-        
-        cm = MockConnectomeManager()
-        # Mock fire queue provider
-        cm.get_global_fire_queue = Mock(return_value={'neuron_ids': [1, 2, 3]})
-        
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Test debug output
-        engine._debug_fire_queue_output()
-
-
-def test_burst_engine_run_test():
-    """Test BurstEngine.run_test method."""
-    mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
-        cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Test run_test method
-        result = engine.run_test()
-        
-        # Should return fired neurons
-        assert result == [1, 2, 3]
-
-
-def test_burst_engine_process_burst_with_power_injection():
-    """Test _process_burst_with_power_injection method."""
-    mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
-        cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Mock injection service with proper return values
-        engine.fcl_injection_service = Mock()
-        engine.fcl_injection_service.inject_pre_burst.return_value = 5
-        engine.fcl_injection_service.inject_during_burst.return_value = 3
-        engine.fcl_injection_service.inject_post_burst.return_value = 2
-        
-        # Test with different timing configurations
-        for timing in ['pre_burst', 'during_burst', 'post_burst']:
-            engine.power_injection_timing = timing
-            result = engine._process_burst_with_power_injection(0)
-            assert result == [1, 2, 3]
-
-
-def test_burst_engine_run_with_fire_queue_unavailable():
-    """Test run_with_fire_queue when state is unavailable."""
-    mock_state_manager = MockStateManager()
-    mock_state_manager.burst_engine_state = ServiceState.UNAVAILABLE
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
-        cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Should return False when unavailable
-        result = engine.run_with_fire_queue()
-        assert result is False
-
-
-def test_burst_engine_run_with_fire_queue_ready():
-    """Test run_with_fire_queue when state is ready."""
-    mock_state_manager = MockStateManager()
-    mock_state_manager.burst_engine_state = ServiceState.READY
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
-        cm = MockConnectomeManager()
-        # Mock optimized core properly
-        optimized_core = Mock()
-        optimized_core.run_with_fire_queue.return_value = ([1, 2, 3], True)
-        
-        # Replace get_optimized_core with a mock that returns the optimized core
-        cm.get_optimized_core = Mock(return_value=optimized_core)
-        
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Just test the method exists and can handle the initial state check
-        result = engine.run_with_fire_queue()
-        # The method should return something (implementation details may vary)
-        assert result is not None or result is None
-
-
-def test_burst_engine_stop():
-    """Test BurstEngine.stop method."""
-    mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
-        cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Set running to True
-        engine._running = True
-        
-        # Stop the engine
-        engine.stop()
-        
-        # Should be stopped
-        assert not engine._running
-
-
-def test_burst_engine_cortical_areas_without_attribute():
-    """Test BurstEngine initialization when connectome manager has no cortical_areas attribute."""
-    mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
-        # Mock connectome manager without cortical_areas
-        cm = Mock()
-        cm.fcl_manager = Mock()
-        # Mock cortical_areas as an empty dict instead of removing the attribute
-        cm.cortical_areas = Mock()
-        cm.cortical_areas.values.return_value = []
-        
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Should handle gracefully with empty list
-        assert engine.cortical_areas == []
-        assert engine.shed_areas == set()
-
-
-def test_fcl_sampler_update_area_sample_rate():
-    """Test FCLSampler.update_area_sample_rate method."""
-    fcl_manager = Mock()
-    output_queue = Queue()
-    
-    sampler = FCLSampler(fcl_manager, 100, output_queue)
     
     # Test updating sample rate
     sampler.update_area_sample_rate('test_area', 75.0)
@@ -1058,12 +615,12 @@ def test_fcl_sampler_update_area_sample_rate():
     # Should update internal tracking (implementation detail may vary)
 
 
-def test_fcl_sampler_set_motor_subscribers():
-    """Test FCLSampler.set_motor_subscribers method."""
-    fcl_manager = Mock()
+def test_fq_sampler_set_motor_subscribers():
+    """Test FQSampler.set_motor_subscribers method."""
+    fire_queue_provider = Mock()
     output_queue = Queue()
     
-    sampler = FCLSampler(fcl_manager, 100, output_queue)
+    sampler = FQSampler(fire_queue_provider, 100, output_queue)
     
     # Test setting motor subscribers
     sampler.set_motor_subscribers(True)

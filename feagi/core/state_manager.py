@@ -117,9 +117,9 @@ class FeagiStateStruct(ctypes.Structure):
         ("burst_engine_state", ctypes.c_uint8),
         ("burst_frequency", ctypes.c_float),            # Target/assigned frequency from genome/user
         ("simulation_state", ctypes.c_uint8),
-        ("fcl_sampler_state", ctypes.c_uint8),
-        ("fcl_sampler_frequency", ctypes.c_float),
-        ("fcl_sampler_consumer", ctypes.c_uint8),
+        ("fq_sampler_state", ctypes.c_uint8),
+        ("fq_sampler_frequency", ctypes.c_float),
+        ("fq_sampler_consumer", ctypes.c_uint8),
         ("state_version", ctypes.c_uint64),
         ("genome_counter", ctypes.c_uint32),
         ("brain_readiness", ctypes.c_uint8),  # 0 = False, 1 = True
@@ -406,37 +406,37 @@ class FeagiStateManager:
         self.state_ptr.contents.state_version += 1
         _log_state_change("🧪", f"Simulation state changed: {old.name} → {state.name}")
         
-    # ===== FCLSampler State =====
-    def get_fcl_sampler_state(self) -> ServiceState:
-        """Get the current FCL sampler state."""
-        raw_value = self.state_ptr.contents.fcl_sampler_state
+    # ===== FQSampler State =====
+    def get_fq_sampler_state(self) -> ServiceState:
+        """Get the current FQ sampler state."""
+        raw_value = self.state_ptr.contents.fq_sampler_state
         return ServiceState(_SERVICE_STATE_VALUES.get(raw_value, "UNAVAILABLE"))
     
-    def set_fcl_sampler_state(self, state: ServiceState) -> None:
-        """Set the FCL sampler state."""
+    def set_fq_sampler_state(self, state: ServiceState) -> None:
+        """Set the FQ sampler state."""
         self._verify_enum(state, ServiceState)
-        old_state = self.get_fcl_sampler_state()
-        self.state_ptr.contents.fcl_sampler_state = int(state)
+        old_state = self.get_fq_sampler_state()
+        self.state_ptr.contents.fq_sampler_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"FCLSampler state changed: {old_state.name} → {state.name}", emoji1="🎯")
-        self._notify_state_change("FCL Sampler", old_state, state)
+        logger.info(f"FQSampler state changed: {old_state.name} → {state.name}", emoji1="🎯")
+        self._notify_state_change("FQ Sampler", old_state, state)
 
-    # ===== FCLSampler Frequency =====
-    def get_fcl_sampler_frequency(self) -> float:
-        """Get current FCLSampler frequency in Hz"""
-        return self.state_ptr.contents.fcl_sampler_frequency
-    def set_fcl_sampler_frequency(self, frequency: float) -> None:
-        """Set FCLSampler frequency in Hz"""
-        self.state_ptr.contents.fcl_sampler_frequency = frequency
+    # ===== FQSampler Frequency =====
+    def get_fq_sampler_frequency(self) -> float:
+        """Get current FQSampler frequency in Hz"""
+        return self.state_ptr.contents.fq_sampler_frequency
+    def set_fq_sampler_frequency(self, frequency: float) -> None:
+        """Set FQSampler frequency in Hz"""
+        self.state_ptr.contents.fq_sampler_frequency = frequency
         self.state_ptr.contents.state_version += 1
 
-    # ===== FCLSampler Consumer =====
-    def get_fcl_sampler_consumer(self) -> int:
-        """Get current FCLSampler consumer code (1=Visualization, 2=Motor, 3=Both, etc.)"""
-        return self.state_ptr.contents.fcl_sampler_consumer
-    def set_fcl_sampler_consumer(self, consumer: int) -> None:
-        """Set FCLSampler consumer code (1=Visualization, 2=Motor, 3=Both, etc.)"""
-        self.state_ptr.contents.fcl_sampler_consumer = consumer
+    # ===== FQSampler Consumer =====
+    def get_fq_sampler_consumer(self) -> int:
+        """Get current FQSampler consumer code (1=Visualization, 2=Motor, 3=Both, etc.)"""
+        return self.state_ptr.contents.fq_sampler_consumer
+    def set_fq_sampler_consumer(self, consumer: int) -> None:
+        """Set FQSampler consumer code (1=Visualization, 2=Motor, 3=Both, etc.)"""
+        self.state_ptr.contents.fq_sampler_consumer = consumer
         self.state_ptr.contents.state_version += 1
 
     # ===== State Version =====

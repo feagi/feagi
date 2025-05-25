@@ -20,7 +20,7 @@ import zmq
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import FEAGI components
-from feagi.npu.burst_engine import BurstEngine, FCLSampler
+from feagi.npu.burst_engine import BurstEngine, FQSampler
 from feagi.npu.fcl_manager import FCLManager, BitMap
 from feagi.api.zmq.streams.visualization import VisualizationStream
 from feagi.api.core.service import CoreApiService
@@ -109,7 +109,7 @@ class MockCorticalArea:
     def __init__(self, area_id):
         self.id = area_id
         self.properties = {
-            'fcl_sample_rate': 10.0  # Sample rate in Hz
+            'fq_sample_rate': 10.0  # Sample rate in Hz
         }
 
 # Mock core API service for testing
@@ -143,7 +143,7 @@ async def run_test():
     )
     
     # Create the FCL sampler
-    fcl_sampler = FCLSampler(
+    fcl_sampler = FQSampler(
         fcl_manager=connectome_manager.fcl_manager,
         sample_frequency_hz=10.0,
         output_queue=fcl_queue,

@@ -448,40 +448,47 @@ def test_error_handling(mock_connectome_manager, mock_state_manager):
         assert mock_connectome_manager.update_membrane_potentials.called
 
 
-def test_fcl_sampler_initialization():
-    """Test FCLSampler initialization."""
-    from feagi.npu.burst_engine import FCLSampler
+def test_fq_sampler_initialization():
+    """Test FQSampler initialization."""
+    from feagi.npu.burst_engine import FQSampler
     from queue import Queue
     
-    fcl_manager = MagicMock()
+    # Mock fire queue provider
+    fire_queue_provider = MagicMock()
     output_queue = Queue()
     
     # Basic initialization
-    sampler = FCLSampler(
-        fcl_manager=fcl_manager,
+    sampler = FQSampler(
+        fire_queue_provider=fire_queue_provider,
         sample_frequency_hz=20,
         output_queue=output_queue
     )
     
-    assert sampler.fcl_manager == fcl_manager
+    assert sampler.fire_queue_provider == fire_queue_provider
     assert sampler.sample_frequency == 20
     assert sampler.output_queue == output_queue
     assert not sampler.running
     
 
-def test_fcl_sampler_run_and_stop():
-    """Test running and stopping the FCL sampler."""
-    from feagi.npu.burst_engine import FCLSampler
+def test_fq_sampler_run_and_stop():
+    """Test running and stopping the FQ sampler."""
+    from feagi.npu.burst_engine import FQSampler
     from queue import Queue
     
-    fcl_manager = MagicMock()
-    # Mock the get_global_fcl method instead
-    fcl_manager.get_global_fcl = MagicMock(return_value=MagicMock())
+    fire_queue_provider = MagicMock()
+    # Mock the get_fire_queue method instead
+    fire_queue_provider.get_fire_queue = MagicMock(return_value={
+        'neuron_ids': [1, 2, 3],
+        'membrane_potentials': [0.8, 1.2, 0.9],
+        'thresholds': [1.0, 1.0, 1.0],
+        'consecutive_fire_counts': [1, 2, 1],
+        'refractory_counters': [0, 0, 0]
+    })
     
     output_queue = Queue()
     
-    sampler = FCLSampler(
-        fcl_manager=fcl_manager,
+    sampler = FQSampler(
+        fire_queue_provider=fire_queue_provider,
         sample_frequency_hz=100,  # High frequency for faster testing
         output_queue=output_queue
     )
@@ -504,8 +511,8 @@ def test_fcl_sampler_run_and_stop():
     # Check that it stopped
     assert not sampler.running
     
-    # It should have called get_global_fcl at least once
-    assert fcl_manager.get_global_fcl.called
+    # It should have called get_fire_queue at least once
+    assert fire_queue_provider.get_fire_queue.called
 
 
 def test_process_burst_method(mock_connectome_manager, mock_state_manager):

@@ -33,13 +33,27 @@ The Neural Processing Unit (NPU) is the computational core of FEAGI, responsible
 │                  │     │                              │
 └──────┬───────────┘     └──────────────────────────────┘
        │
-       ├────────────────┐
-       │                │
-       ▼                ▼
-┌─────────────┐  ┌─────────────────┐  ┌────────────────┐
-│ FCL Sampler │  │ GPU FCL Adapter │  │ Visualization  │
-│             │  │                 │  │ Interface      │
-└─────────────┘  └─────────────────┘  └────────────────┘
+       ▼
+┌──────────────────┐
+│   Fire Queue     │
+│                  │
+└──────┬───────────┘
+       │
+       ├────────────────┬─────────────────┬─────────────────┐
+       │                │                 │                 │
+       ▼                ▼                 ▼                 ▼
+┌─────────────┐  ┌─────────────────┐  ┌────────────┐  ┌──────────────┐
+│ FQ Sampler  │  │ GPU FCL Adapter │  │CPU/GPU     │  │ Neuron Firing│
+│             │  │                 │  │Operations  │  │ Operations   │
+└─────┬───────┘  └─────────────────┘  └────────────┘  └──────────────┘
+      │
+      ├──────────────────┐
+      │                  │
+      ▼                  ▼
+┌────────────────┐  ┌──────────────┐
+│ Visualization  │  │ Motor Stream │
+│ Stream         │  │              │
+└────────────────┘  └──────────────┘
 ```
 
 ## Key Components
@@ -111,12 +125,13 @@ The FCL Manager maintains the Fire Candidate List, which tracks neurons that hav
 - **Vectorized Operations**: Where possible, uses NumPy/SIMD for parallel computation
 - **Sparse Representation**: Only stores and processes active neurons
 
-### 3. FCL Sampler
+### 3. FQ Sampler
 
-The FCL Sampler provides configurable sampling of the FCL for visualization and analysis:
+The FQ Sampler provides configurable sampling of the fire queue for visualization and analysis:
 
 - **Global Sampling Rate**: Default sampling frequency for all areas
-- **Per-Area Rates**: Area-specific sampling rates via the `fcl_sample_rate` property
+- **Per-Area Rates**: Area-specific sampling rates via the `fq_sample_rate` property
+- **Rich Data Output**: Includes membrane potentials, thresholds, and coordinates
 - **Non-blocking Output**: Queue-based output for downstream consumers
 - **Runtime Configuration**: Supports dynamic updating of sampling parameters
 

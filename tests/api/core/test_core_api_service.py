@@ -166,7 +166,7 @@ class TestCoreAPIService:
             'get_membrane_potentials', 'update_membrane_potentials',
             
             # FCL Sampler methods
-            'get_fcl_sampler_config', 'update_fcl_sampler_config', 'get_area_fcl_sample_rate', 'set_area_fcl_sample_rate',
+            'get_fcl_sampler_config', 'update_fcl_sampler_config', 'get_area_fq_sample_rate', 'set_area_fq_sample_rate',
             
             # Burst engine methods
             'get_burst_counter', 'update_burst_engine_config',

@@ -2,7 +2,7 @@
 Comprehensive test coverage for burst_engine.py to achieve >90% coverage.
 
 This module focuses on testing previously uncovered code paths in the BurstEngine,
-FCLSampler, and FQSampler classes.
+FQSampler, and FQSampler classes.
 """
 
 import time
@@ -12,7 +12,7 @@ import signal
 import sys
 from unittest.mock import Mock, patch, MagicMock, call
 from queue import Queue, Empty
-from feagi.npu.burst_engine import BurstEngine, FCLSampler, FQSampler, ServiceState
+from feagi.npu.burst_engine import BurstEngine, FQSampler, FQSampler, ServiceState
 from feagi.core.state_manager import SimulationState
 
 
@@ -171,7 +171,7 @@ def test_burst_engine_fire_queue_modes():
 
 
 def test_fcl_sampler_full_queue_handling():
-    """Test FCLSampler behavior with full output queue."""
+    """Test FQSampler behavior with full output queue."""
     fcl_manager = Mock()
     fcl_manager.get_global_fcl.return_value = set([1, 2, 3])
     
@@ -179,7 +179,7 @@ def test_fcl_sampler_full_queue_handling():
     output_queue = Queue(maxsize=1)
     output_queue.put("full")
     
-    sampler = FCLSampler(fcl_manager, 50, output_queue)
+    sampler = FQSampler(fcl_manager, 50, output_queue)
     sampler.set_visualization_subscribers(True)
     
     # Run for a brief moment with full queue - should handle gracefully

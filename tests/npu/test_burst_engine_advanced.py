@@ -1,7 +1,7 @@
 """
-Advanced tests for the FCLSampler class in burst_engine.py.
+Advanced tests for the FQSampler class in burst_engine.py.
 
-This module contains comprehensive tests for the FCLSampler class to ensure
+This module contains comprehensive tests for the FQSampler class to ensure
 high test coverage of its functionality, focusing on areas not covered
 in the existing test_burst_engine_complete.py file.
 """
@@ -12,47 +12,61 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from queue import Queue, Full
 
-from feagi.npu.burst_engine import FCLSampler
+from feagi.npu.burst_engine import FQSampler
 
 
 class MockConnectomeManager:
-    """Mock connectome manager for testing FCLSampler with per-area sampling."""
+    """Mock connectome manager for testing FQSampler with per-area sampling."""
     
     def __init__(self):
         self._areas = {
-            100: Mock(id=100, properties={"fcl_sample_rate": 50}),   # Higher sample rate
-            200: Mock(id=200, properties={"fcl_sample_rate": 10}),   # Lower sample rate
+            100: Mock(id=100, properties={"fq_sample_rate": 50}),   # Higher sample rate
+            200: Mock(id=200, properties={"fq_sample_rate": 10}),   # Lower sample rate
             300: Mock(id=300, properties={}),                        # No specified rate (uses default)
-            400: Mock(id=400, properties={"fcl_sample_rate": 0})     # Zero rate (should skip)
+            400: Mock(id=400, properties={"fq_sample_rate": 0})     # Zero rate (should skip)
         }
 
 
-class MockFCLManager:
-    """Mock FCL manager for testing FCLSampler."""
+class MockFireQueueProvider:
+    """Mock fire queue provider for testing FQSampler."""
     
     def __init__(self, should_raise_exception=False):
-        self.get_cortical_fcl_calls = []
+        self.get_fire_queue_calls = []
+        self.get_area_fire_queue_calls = []
         self.should_raise_exception = should_raise_exception
-        self.global_fcl = set([1, 2, 3])
+        self.global_fire_queue = {
+            'neuron_ids': [1, 2, 3],
+            'membrane_potentials': [0.8, 1.2, 0.9],
+            'thresholds': [1.0, 1.0, 1.0],
+            'consecutive_fire_counts': [1, 2, 1],
+            'refractory_counters': [0, 0, 0]
+        }
     
-    def get_cortical_fcl(self, area_id):
-        """Get FCL for a specific area."""
-        self.get_cortical_fcl_calls.append(area_id)
+    def get_area_fire_queue(self, area_id):
+        """Get fire queue for a specific area."""
+        self.get_area_fire_queue_calls.append(area_id)
         if self.should_raise_exception:
             raise Exception(f"Test exception for area {area_id}")
-        return set([area_id * 10, area_id * 10 + 1])
+        return {
+            'neuron_ids': [area_id * 10, area_id * 10 + 1],
+            'membrane_potentials': [0.8, 1.2],
+            'thresholds': [1.0, 1.0],
+            'consecutive_fire_counts': [1, 2],
+            'refractory_counters': [0, 0]
+        }
     
-    def get_global_fcl(self):
-        """Get the global FCL."""
+    def get_fire_queue(self):
+        """Get the global fire queue."""
+        self.get_fire_queue_calls.append(time.time())
         if self.should_raise_exception:
             raise Exception("Test exception")
-        return self.global_fcl
+        return self.global_fire_queue
 
 
 @pytest.fixture
-def mock_fcl_manager():
-    """Create a mock FCL manager for testing."""
-    return MockFCLManager()
+def mock_fire_queue_provider():
+    """Create a mock fire queue provider for testing."""
+    return MockFireQueueProvider()
 
 
 @pytest.fixture
@@ -61,20 +75,20 @@ def mock_connectome_manager():
     return MockConnectomeManager()
 
 
-def test_fcl_sampler_init_with_connectome():
-    """Test FCLSampler initialization with connectome manager."""
-    fcl_manager = MockFCLManager()
+def test_fq_sampler_init_with_connectome():
+    """Test FQSampler initialization with connectome manager."""
+    fire_queue_provider = MockFireQueueProvider()
     connectome_manager = MockConnectomeManager()
     output_queue = Queue()
     
-    sampler = FCLSampler(
-        fcl_manager=fcl_manager,
+    sampler = FQSampler(
+        fire_queue_provider=fire_queue_provider,
         sample_frequency_hz=20,
         output_queue=output_queue,
         connectome_manager=connectome_manager
     )
     
-    assert sampler.fcl_manager == fcl_manager
+    assert sampler.fire_queue_provider == fire_queue_provider
     assert sampler.connectome_manager == connectome_manager
     assert sampler.sample_frequency == 20
     assert sampler.output_queue == output_queue
@@ -83,7 +97,7 @@ def test_fcl_sampler_init_with_connectome():
 
 
 def test_fcl_sampler_area_sampling():
-    """Test FCLSampler with per-area sampling rates."""
+    """Test FQSampler with per-area sampling rates."""
     fcl_manager = MockFCLManager()
     connectome_manager = MockConnectomeManager()
     output_queue = Queue()
@@ -96,7 +110,7 @@ def test_fcl_sampler_area_sampling():
         # Mock time.perf_counter to return incremental values
         mock_time.side_effect = [0.0, 0.1, 0.2, 0.3, 0.4]
         
-        sampler = FCLSampler(
+        sampler = FQSampler(
             fcl_manager=fcl_manager,
             sample_frequency_hz=20,
             output_queue=output_queue,
@@ -136,24 +150,24 @@ def test_fcl_sampler_update_area_sample_rate():
     connectome_manager = MockConnectomeManager()
     output_queue = Queue()
     
-    sampler = FCLSampler(
+    sampler = FQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue,
         connectome_manager=connectome_manager
     )
     
-    # FCLSampler.update_area_sample_rate() only updates internal tracking,
+    # FQSampler.update_area_sample_rate() only updates internal tracking,
     # it doesn't actually set the area property. The area property needs to be set separately.
     
     # Set the area property directly (this is how rates are configured)
-    connectome_manager._areas[100].properties["fcl_sample_rate"] = 75
+    connectome_manager._areas[100].properties["fq_sample_rate"] = 75
     
     # Update internal tracking for area 100
     sampler.update_area_sample_rate(100, 75)
     
     # Check that rate was set in the connectome manager
-    assert connectome_manager._areas[100].properties["fcl_sample_rate"] == 75
+    assert connectome_manager._areas[100].properties["fq_sample_rate"] == 75
     
     # Check that internal tracking was updated
     assert 100 in sampler._last_sample_time_per_area
@@ -163,10 +177,10 @@ def test_fcl_sampler_update_area_sample_rate():
     sampler.update_area_sample_rate(999, 30)
     
     # Test with area 200 - set property and update tracking
-    connectome_manager._areas[200].properties["fcl_sample_rate"] = -5
+    connectome_manager._areas[200].properties["fq_sample_rate"] = -5
     sampler.update_area_sample_rate(200, -5)
     # In the actual implementation, this doesn't check for negative rates
-    assert connectome_manager._areas[200].properties["fcl_sample_rate"] == -5
+    assert connectome_manager._areas[200].properties["fq_sample_rate"] == -5
 
 
 def test_fcl_sampler_queue_full():
@@ -176,7 +190,7 @@ def test_fcl_sampler_queue_full():
     output_queue = Queue(maxsize=1)
     output_queue.put("fill_queue")  # Fill the queue
     
-    sampler = FCLSampler(
+    sampler = FQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue
@@ -209,7 +223,7 @@ def test_fcl_sampler_global_exception_handling():
     fcl_manager = MockFCLManager(should_raise_exception=True)
     output_queue = Queue()
     
-    sampler = FCLSampler(
+    sampler = FQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue
@@ -222,7 +236,7 @@ def test_fcl_sampler_global_exception_handling():
             fcl_snapshot = fcl_manager.get_global_fcl()  # This will raise an exception
             output_queue.put_nowait(fcl_snapshot)
         except Exception as e:
-            mock_logger.error(f"FCLSampler error: {e}")
+            mock_logger.error(f"FQSampler error: {e}")
         
         # Should have logged the error
         mock_logger.error.assert_called_once()
@@ -236,7 +250,7 @@ def test_fcl_sampler_area_exception_handling():
     connectome_manager = MockConnectomeManager()
     output_queue = Queue()
     
-    sampler = FCLSampler(
+    sampler = FQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue,
@@ -256,12 +270,12 @@ def test_fcl_sampler_area_exception_handling():
                 area_fcl = sampler.fcl_manager.get_cortical_fcl(area_id)
                 output_queue.put_nowait((area_id, area_fcl))
             except Exception as e:
-                mock_logger.error(f"FCLSampler error (area {area_id}): {e}")
+                mock_logger.error(f"FQSampler error (area {area_id}): {e}")
         
         # Should have logged the errors
         assert mock_logger.error.call_count == 2
-        calls = [call("FCLSampler error (area 100): Test exception for area 100"),
-                 call("FCLSampler error (area 200): Test exception for area 200")]
+        calls = [call("FQSampler error (area 100): Test exception for area 100"),
+                 call("FQSampler error (area 200): Test exception for area 200")]
         mock_logger.error.assert_has_calls(calls, any_order=True)
 
 
@@ -273,7 +287,7 @@ def test_fcl_sampler_run_with_stop_flag():
     with patch('feagi.npu.burst_engine.time.sleep') as mock_sleep, \
          patch('feagi.npu.burst_engine.time.perf_counter', return_value=0.0):
         
-        sampler = FCLSampler(
+        sampler = FQSampler(
             fcl_manager=fcl_manager,
             sample_frequency_hz=20,
             output_queue=output_queue
@@ -314,7 +328,7 @@ def test_fcl_sampler_fallback_to_global():
     fcl_manager = MockFCLManager()
     output_queue = Queue()
     
-    sampler = FCLSampler(
+    sampler = FQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue,

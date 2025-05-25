@@ -103,10 +103,11 @@ area_activity = fcl_manager.get_area_fcl(area_id)
 fcl_manager.add_to_current_fcl([neuron_id1, neuron_id2, neuron_id3])
 ```
 
-### FCL Sampler
+### FQ Sampler
 
-The FCL Sampler extracts burst data at configurable rates for visualization and motor output:
+The FQ Sampler extracts burst data at configurable rates for visualization and motor output:
 
+- **Rich Data**: Provides neuron IDs, membrane potentials, thresholds, coordinates, and firing counts
 - **Per-Area Sampling**: Different sampling rates for different cortical areas
 - **Best-Effort Delivery**: Drops samples when consumers can't keep up to maintain real-time performance
 - **Subscriber-Aware**: Only samples when there are active visualization or motor consumers
@@ -114,10 +115,10 @@ The FCL Sampler extracts burst data at configurable rates for visualization and 
 
 ```python
 # Create sampler with 30Hz default rate
-sampler = FCLSampler(fcl_manager, sample_frequency_hz=30, output_queue=viz_queue, connectome_manager=connectome_manager)
+sampler = FQSampler(fire_queue_provider, sample_frequency_hz=30, output_queue=viz_queue, connectome_manager=connectome_manager)
 
 # Set per-area sample rates
-area.properties['fcl_sample_rate'] = 60  # Sample this area at 60Hz
+area.properties['fq_sample_rate'] = 60  # Sample this area at 60Hz
 
 # Control sampling based on subscribers
 sampler.set_visualization_subscribers(True)

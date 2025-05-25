@@ -871,39 +871,39 @@ class CoreAPIService:
     # ADDITIONAL MISSING METHODS
     # =================================================================
     
-    def get_fcl_sampler_config(self) -> Dict[str, Any]:
-        """Get FCL sampler configuration."""
+    def get_fq_sampler_config(self) -> Dict[str, Any]:
+        """Get FQ sampler configuration."""
         try:
             if self.state_manager:
                 return {
-                    "frequency": getattr(self.state_manager, 'fcl_sampler_frequency', 20.0),
-                    "consumer": getattr(self.state_manager, 'fcl_sampler_consumer', 1)
+                    "frequency": getattr(self.state_manager, 'fq_sampler_frequency', 20.0),
+                    "consumer": getattr(self.state_manager, 'fq_sampler_consumer', 1)
                 }
             return {"frequency": 20.0, "consumer": 1}
         except Exception as e:
-            self.logger.error(f"Error getting FCL sampler config: {str(e)}")
+            self.logger.error(f"Error getting FQ sampler config: {str(e)}")
             return {}
     
-    def update_fcl_sampler_config(self, frequency: float, consumer: str) -> bool:
-        """Update FCL sampler configuration."""
+    def update_fq_sampler_config(self, frequency: float, consumer: str) -> bool:
+        """Update FQ sampler configuration."""
         try:
             if self.state_manager:
-                self.state_manager.set_fcl_sampler_frequency(frequency)
+                self.state_manager.set_fq_sampler_frequency(frequency)
                 consumer_map = {"visualization": 1, "motor": 2, "both": 3}
-                self.state_manager.set_fcl_sampler_consumer(consumer_map.get(consumer, 1))
+                self.state_manager.set_fq_sampler_consumer(consumer_map.get(consumer, 1))
             return True
         except Exception as e:
-            self.logger.error(f"Error updating FCL sampler config: {str(e)}")
+            self.logger.error(f"Error updating FQ sampler config: {str(e)}")
             return False
     
-    def get_area_fcl_sample_rate(self, area_id: int) -> float:
-        """Get FCL sample rate for an area."""
+    def get_area_fq_sample_rate(self, area_id: int) -> float:
+        """Get FQ sample rate for an area."""
         try:
-            # This should get real sample rate from the FCL manager
-            raise NotImplementedError("Getting area FCL sample rate is not yet implemented")
+            # This should get real sample rate from the fire queue manager
+            raise NotImplementedError("Getting area FQ sample rate is not yet implemented")
         except Exception as e:
-            self.logger.error(f"Error getting area FCL sample rate: {str(e)}")
-            raise ValueError(f"Failed to get area FCL sample rate: {str(e)}")
+            self.logger.error(f"Error getting area FQ sample rate: {str(e)}")
+            raise ValueError(f"Failed to get area FQ sample rate: {str(e)}")
     
     def get_burst_counter(self) -> int:
         """Get current burst counter."""

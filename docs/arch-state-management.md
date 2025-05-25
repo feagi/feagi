@@ -97,7 +97,7 @@ State transitions are logged with distinct emoji prefixes for visibility:
 | Connectome | Neuron and synapse data | 🧠 |
 | API Service | REST API availability | 🌐 |
 | ZMQ Service | Messaging system | 📡 |
-| FCL Sampler | Fire Candidate List sampling | 🔥 |
+| FQ Sampler | Fire Candidate List sampling | 🔥 |
 | Genome | Current genome status | 🧬 |
 | Brain Readiness | Overall system readiness | 🟢 |
 | Synchronization | System sync processes | 🔄 |
