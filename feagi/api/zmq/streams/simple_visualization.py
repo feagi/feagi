@@ -16,6 +16,7 @@ import threading
 from typing import Dict, Any, Optional
 from queue import Queue, Empty
 import zmq
+import json
 
 from feagi.utils.logger import setup_logger
 from feagi.utils.zmq_debug import log_zmq_multipart_outbound
@@ -124,16 +125,31 @@ class SimpleVisualizationStream:
         Just pulls data from queue and publishes it - no complex logic.
         """
         logger.info("🎬 Simple visualization data worker started")
+        logger.info(f"🔧 DEBUG: Worker thread running: {self.running}")
+        logger.info(f"🔧 DEBUG: FQ sampler queue: {self.fq_sampler_queue}")
+        logger.info(f"🔧 DEBUG: Queue type: {type(self.fq_sampler_queue)}")
         
+        loop_count = 0
         while self.running and not self._stop_event.is_set():
+            loop_count += 1
+            if loop_count % 100 == 0:  # Log every 100 loops
+                logger.info(f"🔄 DEBUG: Worker loop #{loop_count}, queue: {self.fq_sampler_queue}")
+                
             try:
                 # Try to get data from queue (non-blocking)
                 fq_data = None
                 try:
                     if hasattr(self.fq_sampler_queue, 'get'):
+                        logger.debug(f"🔧 DEBUG: Trying queue.get() method...")
                         fq_data = self.fq_sampler_queue.get(timeout=0.1)
+                        logger.info(f"✅ DEBUG: Got data from queue: {type(fq_data)}")
                     elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
+                        logger.debug(f"🔧 DEBUG: Trying _queue.pop() method...")
                         fq_data = self.fq_sampler_queue._queue.pop(0)
+                        logger.info(f"✅ DEBUG: Got data from _queue: {type(fq_data)}")
+                    else:
+                        if loop_count % 1000 == 0:  # Log occasionally
+                            logger.debug(f"🔧 DEBUG: No queue access method available or queue empty")
                 except Empty:
                     continue
                 except Exception as e:
@@ -144,13 +160,17 @@ class SimpleVisualizationStream:
                 if fq_data is None:
                     continue
                 
+                logger.info(f"📦 DEBUG: Processing data: {type(fq_data)}")
+                
                 # Process and send data based on type
                 if isinstance(fq_data, bytes):
                     # Already serialized data
+                    logger.info(f"📤 DEBUG: Publishing bytes data: {len(fq_data)} bytes")
                     self._publish_data(fq_data)
                     
                 elif isinstance(fq_data, dict) and 'target' in fq_data:
                     # Tagged format from enhanced FQ sampler
+                    logger.info(f"📤 DEBUG: Processing tagged dict data")
                     if fq_data.get('target') == 'visualization':
                         data = fq_data.get('data')
                         if isinstance(data, bytes):
@@ -158,10 +178,12 @@ class SimpleVisualizationStream:
                         
                 elif isinstance(fq_data, tuple) and len(fq_data) == 2:
                     # Legacy (cortical_id, fire_data) tuple format
+                    logger.info(f"📤 DEBUG: Processing tuple data: {fq_data[0]}")
                     self._process_tuple_data(fq_data)
                     
                 elif isinstance(fq_data, dict):
                     # Legacy fire queue dict format
+                    logger.info(f"📤 DEBUG: Processing dict data")
                     self._process_dict_data(fq_data)
                     
                 else:
@@ -169,6 +191,8 @@ class SimpleVisualizationStream:
                 
             except Exception as e:
                 logger.error(f"Error in data worker: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 time.sleep(0.1)  # Brief pause on error
                 
         logger.info("🛑 Simple visualization data worker stopped")
@@ -210,14 +234,59 @@ class SimpleVisualizationStream:
         try:
             cortical_id, fire_data = fq_data
             if fire_data and 'neuron_ids' in fire_data:
-                # Convert to simple binary format (this would need proper serialization)
-                # For now, just log that we received it
                 neuron_count = len(fire_data.get('neuron_ids', []))
-                logger.debug(f"Received tuple data for {cortical_id}: {neuron_count} neurons")
-                # TODO: Implement proper binary serialization
+                logger.debug(f"📦 Processing tuple data for {cortical_id}: {neuron_count} neurons")
+                
+                # Log the actual fire_data structure to understand it
+                logger.debug(f"🔍 DEBUG: fire_data keys: {list(fire_data.keys()) if isinstance(fire_data, dict) else 'not a dict'}")
+                if 'coordinates' in fire_data:
+                    logger.debug(f"🔍 DEBUG: coordinates type: {type(fire_data['coordinates'])}")
+                    logger.debug(f"🔍 DEBUG: coordinates sample: {str(fire_data['coordinates'])[:200]}")
+                
+                # Handle coordinates based on actual structure
+                coordinates = fire_data.get('coordinates', [])
+                if isinstance(coordinates, list) and len(coordinates) > 0:
+                    # If coordinates is a list of [x, y, z] triplets
+                    if isinstance(coordinates[0], (list, tuple)) and len(coordinates[0]) >= 3:
+                        x_coords = [coord[0] for coord in coordinates]
+                        y_coords = [coord[1] for coord in coordinates]  
+                        z_coords = [coord[2] for coord in coordinates]
+                    else:
+                        # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
+                        coords_per_neuron = 3
+                        x_coords = coordinates[0::coords_per_neuron]
+                        y_coords = coordinates[1::coords_per_neuron]
+                        z_coords = coordinates[2::coords_per_neuron]
+                elif isinstance(coordinates, dict):
+                    # If coordinates is a dict with x, y, z keys
+                    x_coords = coordinates.get('x', [])
+                    y_coords = coordinates.get('y', [])
+                    z_coords = coordinates.get('z', [])
+                else:
+                    # Fallback: empty coordinates
+                    x_coords = y_coords = z_coords = []
+                
+                # Create the expected visualization format
+                viz_data = {
+                    cortical_id: [
+                        x_coords,  # x_coords
+                        y_coords,  # y_coords  
+                        z_coords,  # z_coords
+                        fire_data.get('membrane_potentials', [])  # membrane_potentials
+                    ]
+                }
+                
+                # Serialize to JSON bytes
+                serialized_data = json.dumps(viz_data).encode('utf-8')
+                
+                # Publish the data
+                self._publish_data(serialized_data)
+                logger.debug(f"✅ Published visualization data for {cortical_id}: {len(serialized_data)} bytes")
                 
         except Exception as e:
             logger.error(f"Error processing tuple data: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
     def _process_dict_data(self, fire_data) -> None:
         """Process legacy dict format data."""
@@ -252,8 +321,43 @@ class SimpleVisualizationStream:
         logger.debug(f"Simple mode: ignoring client unregistration for {client_id}")
         
     def heartbeat_visualization_client(self, client_id: str) -> None:
-        """Compatibility method - does nothing in simple mode."""
-        pass  # Silent ignore for heartbeats
+        """Handle visualization client heartbeat and enable FQ sampler if needed."""
+        logger.info(f"🔧 DEBUG: SimpleVisualization heartbeat from client: {client_id}")
+        
+        # Get the process manager to enable FQ sampler
+        try:
+            from feagi.process_manager import get_process_manager
+            process_manager = get_process_manager()
+            
+            if process_manager:
+                logger.info(f"🔧 DEBUG: Got process manager, looking for FQ sampler...")
+                
+                # Get the FQ sampler from the process manager
+                if hasattr(process_manager, '_fq_sampler') and process_manager._fq_sampler:
+                    fq_sampler = process_manager._fq_sampler
+                    logger.info(f"🔧 DEBUG: Found FQ sampler: {type(fq_sampler)}")
+                    
+                    # Enable visualization subscribers
+                    if hasattr(fq_sampler, 'set_visualization_subscribers'):
+                        logger.info(f"🔧 DEBUG: Enabling visualization subscribers for {client_id}")
+                        fq_sampler.set_visualization_subscribers(True)
+                        logger.info(f"✅ FQ sampler visualization subscribers enabled for client: {client_id}")
+                    else:
+                        logger.warning(f"⚠️ FQ sampler doesn't have set_visualization_subscribers method")
+                        logger.info(f"FQ sampler methods: {[m for m in dir(fq_sampler) if not m.startswith('_')]}")
+                else:
+                    logger.warning(f"⚠️ Process manager has no _fq_sampler or it's None")
+            else:
+                logger.warning(f"⚠️ No process manager available for FQ sampler control")
+                
+        except Exception as e:
+            logger.error(f"❌ Error enabling FQ sampler for {client_id}: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            
+        # Could also track heartbeats here if needed for SimpleVisualizationStream
+        # For now, just log that we received it
+        logger.debug(f"💗 Heartbeat received from visualization client: {client_id}")
         
     def send_visualization_data(self, data) -> None:
         """Compatibility method for external data sending."""

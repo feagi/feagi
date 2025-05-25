@@ -289,6 +289,7 @@ class ZMQRestAPIAdapter:
             # Get the ZMQ server from the module registry
             zmq_server = getattr(self, '_zmq_server', None)
             logger.info(f"🔧 DEBUG: ZMQ server reference: {zmq_server is not None}")
+            logger.info(f"🔧 DEBUG: ZMQ server type: {type(zmq_server)}")
             
             if not zmq_server:
                 logger.warning("ZMQ server reference not available - heartbeat acknowledged anyway")
@@ -299,11 +300,24 @@ class ZMQRestAPIAdapter:
             # Get visualization stream from ZMQ server
             viz_stream = zmq_server.get_visualization_stream()
             logger.info(f"🔧 DEBUG: Visualization stream: {viz_stream is not None}")
+            logger.info(f"🔧 DEBUG: Visualization stream type: {type(viz_stream)}")
+            logger.info(f"🔧 DEBUG: Visualization stream class name: {viz_stream.__class__.__name__ if viz_stream else 'None'}")
+            logger.info(f"🔧 DEBUG: Visualization stream module: {viz_stream.__class__.__module__ if viz_stream else 'None'}")
             
             if viz_stream:
+                # Check if it has the expected method
+                has_heartbeat_method = hasattr(viz_stream, 'heartbeat_visualization_client')
+                logger.info(f"🔧 DEBUG: Has heartbeat_visualization_client method: {has_heartbeat_method}")
+                
+                if has_heartbeat_method:
+                    method_obj = getattr(viz_stream, 'heartbeat_visualization_client')
+                    logger.info(f"🔧 DEBUG: Method object type: {type(method_obj)}")
+                    logger.info(f"🔧 DEBUG: Method is callable: {callable(method_obj)}")
+                    
                 logger.info(f"🔧 DEBUG: Calling heartbeat_visualization_client for {client_id}")
                 # RTOS: VisualizationStream is now synchronous, no await needed
-                viz_stream.heartbeat_visualization_client(client_id)
+                result = viz_stream.heartbeat_visualization_client(client_id)
+                logger.info(f"🔧 DEBUG: Method returned: {result}")
                 logger.info(f"🔧 DEBUG: Heartbeat call completed for {client_id}")
                 
                 return {
@@ -315,6 +329,9 @@ class ZMQRestAPIAdapter:
                 
         except Exception as e:
             logger.error(f"❌ Error processing visualization heartbeat: {str(e)}")
+            logger.error(f"❌ Exception type: {type(e)}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             raise ValueError(f"Heartbeat failed: {str(e)}")
     
     async def _handle_visualization_status(self, params, query, body, headers) -> Any:

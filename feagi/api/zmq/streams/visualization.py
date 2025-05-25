@@ -824,35 +824,44 @@ class VisualizationStream:
 
     def heartbeat_visualization_client(self, client_id: str) -> None:
         """Update heartbeat for a visualization client and enable FQ sampler if this is a new client."""
-        logger.info(f"🔧 DEBUG: Heartbeat received for visualization client: {client_id}")
-        
-        with self._client_lock:  # RTOS: Thread-safe access
-            # Check if this is a new client (no previous heartbeat recorded)
-            is_new_client = client_id not in self.client_last_heartbeat
-            self.client_last_heartbeat[client_id] = time.time()
+        try:
+            logger.info(f"🔧 DEBUG: heartbeat_visualization_client called with client_id: {client_id}")
+            logger.info(f"🔧 DEBUG: Method execution starting...")
             
-            logger.info(f"🔧 DEBUG: Is new client: {is_new_client}, Total clients: {len(self.client_last_heartbeat)}")
-            
-            # If this is a new client, log it and update FQ sampler
-            if is_new_client:
-                logger.info(f"📺 New visualization client connected via heartbeat: {client_id}")
+            with self._client_lock:  # RTOS: Thread-safe access
+                # Check if this is a new client (no previous heartbeat recorded)
+                is_new_client = client_id not in self.client_last_heartbeat
+                self.client_last_heartbeat[client_id] = time.time()
                 
-                # Force a subscriber count update and FQ sampler notification
-                current_count = self._get_subscriber_count()
-                logger.info(f"🔧 DEBUG: Current subscriber count: {current_count}, Last count: {self._last_subscriber_count}")
+                logger.info(f"🔧 DEBUG: Is new client: {is_new_client}, Total clients: {len(self.client_last_heartbeat)}")
                 
-                if current_count != self._last_subscriber_count:
-                    self._last_subscriber_count = current_count
-                    should_enable = current_count > 0
+                # If this is a new client, log it and update FQ sampler
+                if is_new_client:
+                    logger.info(f"📺 New visualization client connected via heartbeat: {client_id}")
                     
-                    logger.info(f"🔧 DEBUG: Should enable FQ sampler: {should_enable}, Currently enabled: {self._fq_sampler_enabled}")
+                    # Force a subscriber count update and FQ sampler notification
+                    current_count = self._get_subscriber_count()
+                    logger.info(f"🔧 DEBUG: Current subscriber count: {current_count}, Last count: {self._last_subscriber_count}")
                     
-                    if should_enable != self._fq_sampler_enabled:
-                        logger.info(f"🔧 DEBUG: Calling _control_fq_sampler({should_enable})")
-                        self._control_fq_sampler(should_enable)
-                        logger.info(f"🔧 DEBUG: _control_fq_sampler call completed")
-            else:
-                logger.info(f"🔧 DEBUG: Existing client heartbeat updated: {client_id}")
+                    if current_count != self._last_subscriber_count:
+                        self._last_subscriber_count = current_count
+                        should_enable = current_count > 0
+                        
+                        logger.info(f"🔧 DEBUG: Should enable FQ sampler: {should_enable}, Currently enabled: {self._fq_sampler_enabled}")
+                        
+                        if should_enable != self._fq_sampler_enabled:
+                            logger.info(f"🔧 DEBUG: Calling _control_fq_sampler({should_enable})")
+                            self._control_fq_sampler(should_enable)
+                            logger.info(f"🔧 DEBUG: _control_fq_sampler call completed")
+                else:
+                    logger.info(f"🔧 DEBUG: Existing client heartbeat updated: {client_id}")
+                    
+            logger.info(f"🔧 DEBUG: heartbeat_visualization_client completed successfully for {client_id}")
+                    
+        except Exception as e:
+            logger.error(f"💥 EXCEPTION in heartbeat_visualization_client: {e}")
+            import traceback
+            logger.error(f"💥 TRACEBACK: {traceback.format_exc()}")
 
     def _control_fq_sampler(self, enable: bool) -> None:
         """Enable or disable the FQ sampler based on subscriber presence."""
@@ -863,8 +872,8 @@ class VisualizationStream:
                 logger.info(f"🔧 DEBUG: No FQ sampler reference, trying to get from process manager")
                 # Try to get FQ sampler from process manager
                 try:
-                    from feagi.process_manager import ProcessManager
-                    process_manager = ProcessManager.get_instance()
+                    from feagi.process_manager import get_process_manager
+                    process_manager = get_process_manager()
                     logger.info(f"🔧 DEBUG: Process manager instance: {process_manager is not None}")
                     
                     if process_manager and hasattr(process_manager, '_fq_sampler'):
