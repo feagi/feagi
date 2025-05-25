@@ -1,10 +1,10 @@
 # ZeroMQ Architecture in FEAGI
 
-*Last Updated: January 15, 2025*
+*Last Updated: May 24, 2025*
 
 ## Overview
 
-This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, implementing a **multi-stream architecture** where each stream has a specific purpose and protocol. This design eliminates protocol confusion, improves performance, and provides clear separation of concerns.
+This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, implementing a **multi-stream architecture** where each stream has a specific purpose and protocol. This design eliminates protocol confusion, improves performance, and provides clear separation of concerns. A key innovation is the **differentiated FQ sampler** that provides optimized data streams for different consumer types.
 
 ## Architecture Principles
 
@@ -14,6 +14,7 @@ This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, im
 4. **Connection Management**: Centralized connection tracking and lifecycle management
 5. **Binary Efficiency**: Optimized binary protocols for high-throughput data exchange
 6. **Versioning**: Protocol versioning for backward compatibility
+7. **Differentiated Data Delivery**: Optimized sampling behavior for different subscriber types
 
 ## Multi-Stream Architecture Overview
 
@@ -23,15 +24,23 @@ FEAGI implements **Option 4: Separate Dedicated Streams** for optimal performanc
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           FEAGI ZMQ Server                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
-│  │ REQ/REP     │ │ Control     │ │ REST        │ │ Visualization│           │
-│  │ Stream      │ │ Stream      │ │ Stream      │ │ Stream       │           │
-│  │ Port 5555   │ │ Port 5561   │ │ Port 5563   │ │ Port 5562    │           │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘           │
-│  │               │               │               │                          │
-│  │ Legacy ZMQ    │ Legacy        │ REST API      │ Neural Data              │
-│  │ Commands      │ Control       │ Operations    │ Broadcasting             │
-│  └───────────────┴───────────────┴───────────────┴──────────────────────────┤
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
+│  │ REQ/REP     │ │ Control     │ │ REST        │ │Visualization│ │ Motor   │ │
+│  │ Stream      │ │ Stream      │ │ Stream      │ │ Stream      │ │Stream  │ │
+│  │ Port 5555   │ │ Port 5561   │ │ Port 5563   │ │ Port 5562   │ │Port 5564│ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
+│  │               │               │               │             │           │ │
+│  │ Legacy ZMQ    │ Legacy        │ REST API      │ All Neural  │ OPU Only  │ │
+│  │ Commands      │ Control       │ Operations    │ Activity    │ Motor     │ │
+│  └───────────────┴───────────────┴───────────────┴─────────────┴───────────┘ │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                      Enhanced FQ Sampler                                     │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────────────┐  │
+│  │   Visualization Path        │   │         Motor Path                  │  │
+│  │ • All Cortical Areas        │   │ • OPU Areas Only                   │  │
+│  │ • Configured Sample Rates   │   │ • Burst Frequency                  │  │
+│  │ • Rich Data Format          │   │ • Optimized for Real-time          │  │
+│  └─────────────────────────────┘   └─────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                           FEAGI Core Engine                                    │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -186,17 +195,232 @@ response = socket.recv_string()
 }
 ```
 
-### **Visualization Stream (Port 5562)**
+### **Visualization Stream (Port 5562) - Enhanced with Differentiated Sampling**
 
-**Purpose**: Real-time neural activity data broadcasting.
+**Purpose**: Real-time neural activity data broadcasting with comprehensive brain state information.
 
 **Characteristics**:
 - **Socket Type**: PUB (Publisher)
 - **Pattern**: Publish-subscribe (one-to-many)
 - **Protocol**: Binary `feagi_bytes` format (FVP - FEAGI Visualization Protocol)
 - **Use Cases**: Brain visualization, monitoring dashboards, data analysis
+- **Differentiated Behavior**: Samples ALL cortical areas at configurable rates
 
-**Data Format**: Binary `feagi_bytes` with structure ID headers
+**Enhanced Features:**
+- **Automatic Subscriber Detection**: Monitors client connections and automatically enables/disables FQ sampler
+- **Per-Area Sampling Rates**: Configurable sampling frequency per cortical area via `fq_sample_rate` property
+- **Rich Data Format**: Includes membrane potentials, thresholds, coordinates, and firing history
+- **Efficient Routing**: Only processes visualization-targeted data from FQ sampler
+
+**Data Format**: Binary `feagi_bytes` with enhanced structure:
+```python
+# Visualization data includes:
+{
+    'cortical_ids': ['area1', 'area2', ...],      # Cortical area identifiers
+    'x_coords': [x1, x2, ...],                   # Neuron X coordinates
+    'y_coords': [y1, y2, ...],                   # Neuron Y coordinates  
+    'z_coords': [z1, z2, ...],                   # Neuron Z coordinates
+    'potentials': [pot1, pot2, ...],             # Membrane potentials
+    'thresholds': [thr1, thr2, ...],             # Firing thresholds
+    'fire_counts': [fc1, fc2, ...],              # Consecutive fire counts
+    'refractory': [ref1, ref2, ...]              # Refractory counters
+}
+```
+
+**Configuration Examples**:
+```python
+# Per-area sampling configuration
+area.properties['fq_sample_rate'] = 30.0  # 30Hz for this specific area
+area.properties['fq_sample_rate'] = 0.0   # Disable sampling for this area
+
+# Global visualization sampler configuration
+sampler = FQSampler(
+    fire_queue_provider=fire_queue_provider,
+    sample_frequency_hz=20.0,  # Default 20Hz for areas without specific rates
+    output_queue=viz_queue,
+    connectome_manager=connectome_manager
+)
+
+# Client subscription with heartbeat
+import zmq
+context = zmq.Context()
+socket = context.socket(zmq.SUB)
+socket.connect("tcp://localhost:5562")
+socket.setsockopt(zmq.SUBSCRIBE, b"activity")  # Subscribe to neural activity
+
+# Register client for subscriber detection
+control_socket = context.socket(zmq.DEALER)
+control_socket.connect("tcp://localhost:5561")
+heartbeat_message = {
+    "message_type": "heartbeat",
+    "agent_id": "visualization_client_001",
+    "timestamp": time.time() * 1000
+}
+control_socket.send_json(heartbeat_message)
+```
+
+### **Motor Stream (Port 5564) - New Differentiated Real-Time Motor Control**
+
+**Purpose**: High-performance real-time motor control data broadcasting with minimal latency.
+
+**Characteristics**:
+- **Socket Type**: PUB (Publisher)
+- **Pattern**: Publish-subscribe optimized for real-time control
+- **Protocol**: Binary `feagi_bytes` format optimized for motor control (FSMP - FEAGI Sensorimotor Protocol)
+- **Use Cases**: Robotic control, real-time motor output, actuator commands
+- **Differentiated Behavior**: Samples ONLY OPU (Output Processing Unit) areas at burst frequency
+
+**Enhanced Features:**
+- **Real-Time Optimization**: Samples at burst frequency (~100Hz) for minimal control latency
+- **OPU Area Detection**: Automatically detects motor-relevant cortical areas using multiple criteria
+- **Efficient Data Format**: Streamlined data format optimized for motor control applications
+- **Fast Timeout Detection**: Faster heartbeat timeouts for real-time control requirements
+
+**OPU Area Detection Logic**:
+```python
+# Multiple detection methods for OPU areas:
+is_opu = (
+    area_type == 'OPU' or               # Explicit type
+    area_type == 'OUTPUT' or            # Output type
+    area_type == 'MOTOR' or             # Motor type
+    'OPU' in area_type or               # Contains OPU
+    'OUTPUT' in area_type or            # Contains OUTPUT
+    'MOTOR' in area_type or             # Contains MOTOR
+    area.id.startswith('opu_') or       # Name prefix
+    area.id.startswith('motor_') or     # Motor prefix
+    area.id.startswith('output_')       # Output prefix
+)
+```
+
+**Motor Data Format**: Optimized binary format for real-time control:
+```python
+# Motor data includes (streamlined for performance):
+{
+    'cortical_ids': ['motor_left', 'motor_right', ...], # Only OPU areas
+    'x_coords': [x1, x2, ...],                         # Motor neuron coordinates
+    'y_coords': [y1, y2, ...],                         # Motor neuron coordinates
+    'z_coords': [z1, z2, ...],                         # Motor neuron coordinates
+    'potentials': [pot1, pot2, ...]                    # Motor activation levels
+}
+```
+
+**Client Configuration Examples**:
+```python
+# Motor control client setup
+import zmq
+context = zmq.Context()
+socket = context.socket(zmq.SUB)
+socket.connect("tcp://localhost:5564")
+socket.setsockopt(zmq.SUBSCRIBE, b"motor")  # Subscribe to motor commands
+
+# Register as motor client for subscriber detection
+control_socket = context.socket(zmq.DEALER)
+control_socket.connect("tcp://localhost:5561")
+heartbeat_message = {
+    "message_type": "heartbeat",
+    "agent_id": "motor_controller_robot_01",
+    "timestamp": time.time() * 1000
+}
+control_socket.send_json(heartbeat_message)
+
+# Example OPU area configuration in genome
+motor_cortex = {
+    "id": "motor_cortex",
+    "properties": {
+        "cortical_type": "OPU",  # Automatically detected for motor sampling
+        # No fq_sample_rate needed - uses burst frequency automatically
+    }
+}
+```
+
+## Enhanced FQ Sampler Architecture
+
+### Differentiated Sampling Behavior
+
+The Enhanced FQ Sampler implements **dual-path sampling** optimized for different use cases:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Fire Queue Provider                                 │
+└─────────────────────────┬───────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      Enhanced FQ Sampler                                     │
+│                                                                             │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────────────┐  │
+│  │   Visualization Path        │   │         Motor Path                  │  │
+│  │                             │   │                                     │  │
+│  │ • ALL Cortical Areas        │   │ • OPU Areas ONLY                   │  │
+│  │ • Per-Area Sample Rates     │   │ • Burst Frequency (~100Hz)         │  │
+│  │ • Rich Data (8 fields)      │   │ • Streamlined Data (4 fields)      │  │
+│  │ • Tuple Format Output       │   │ • Tagged Dict Format               │  │
+│  │ • Heartbeat Detection       │   │ • Fast Timeout Detection           │  │
+│  └─────────────┬───────────────┘   └─────────────┬───────────────────────┘  │
+└────────────────┼─────────────────────────────────┼─────────────────────────┘
+                 │                                 │
+                 ▼                                 ▼
+┌────────────────────────────────┐    ┌────────────────────────────────┐
+│      Visualization Stream      │    │        Motor Stream            │
+│      (Port 5562)               │    │        (Port 5564)             │
+│                                │    │                                │
+│ • PUB Socket                   │    │ • PUB Socket                   │
+│ • feagi_bytes Encoding         │    │ • feagi_bytes Encoding         │
+│ • All Neural Activity          │    │ • Motor Commands Only          │
+│ • Research/Monitoring          │    │ • Real-Time Control            │
+│ • 20-60Hz Configurable         │    │ • 100Hz+ Burst-Synchronized    │
+└────────────────────────────────┘    └────────────────────────────────┘
+```
+
+### Automatic Subscriber Management
+
+**Visualization Stream Subscriber Management**:
+```python
+class VisualizationStream:
+    async def _monitor_subscribers(self):
+        """Monitor visualization subscribers and control FQ sampler."""
+        while self.running:
+            current_count = self._get_subscriber_count()
+            if current_count != self._last_subscriber_count:
+                should_enable = current_count > 0
+                if should_enable != self._fq_sampler_enabled:
+                    await self._control_fq_sampler(should_enable)
+            await asyncio.sleep(self.subscriber_check_interval)
+    
+    async def _control_fq_sampler(self, enable: bool):
+        """Enable/disable FQ sampler for visualization."""
+        if self.fq_sampler:
+            if enable:
+                logger.info("🔔 Enabling FQ sampler - visualization clients connected")
+                self.fq_sampler.set_visualization_subscribers(True)
+            else:
+                logger.info("🔕 Disabling FQ sampler - no visualization clients")
+                self.fq_sampler.set_visualization_subscribers(False)
+```
+
+**Motor Stream Subscriber Management**:
+```python
+class MotorStream:
+    async def _monitor_subscribers(self):
+        """Monitor motor subscribers and control FQ sampler."""
+        while self.running:
+            current_count = self.get_connected_client_count()
+            if current_count != self._last_subscriber_count:
+                should_enable = current_count > 0
+                if should_enable != self._fq_sampler_enabled:
+                    await self._control_fq_sampler(should_enable)
+            await asyncio.sleep(self.subscriber_check_interval)  # Faster for real-time
+    
+    async def _control_fq_sampler(self, enable: bool):
+        """Enable/disable FQ sampler for motor control."""
+        if self.fq_sampler:
+            if enable:
+                logger.info("🔔 Enabling FQ sampler for motor - motor clients connected")
+                self.fq_sampler.set_motor_subscribers(True)
+            else:
+                logger.info("🔕 Disabling FQ sampler for motor - no motor clients")
+                self.fq_sampler.set_motor_subscribers(False)
+```
 
 ## Protocol Separation Rules
 
@@ -320,12 +544,13 @@ class ControlStreamHandler:
 
 ### Stream Performance
 
-| Stream | Latency | Throughput | Use Case |
-|--------|---------|------------|----------|
-| REST (5563) | ~2-3ms | High | API operations |
-| Control (5561) | ~1-2ms | Medium | Agent management |
-| Visualization (5562) | ~0.5ms | Very High | Real-time data |
-| REQ/REP (5555) | ~3-5ms | Low | Legacy commands |
+| Stream | Latency | Throughput | Use Case | FQ Sampler Behavior |
+|--------|---------|------------|----------|-------------------|
+| REST (5563) | ~2-3ms | High | API operations | Not applicable |
+| Control (5561) | ~1-2ms | Medium | Agent management | Not applicable |
+| Visualization (5562) | ~20-50ms | Very High | Real-time visualization | All areas, configurable rates |
+| Motor (5564) | ~5-10ms | High | Real-time motor control | OPU areas only, burst frequency |
+| REQ/REP (5555) | ~3-5ms | Low | Legacy commands | Not applicable |
 
 ### Performance Benefits
 
@@ -333,6 +558,24 @@ class ControlStreamHandler:
 2. **Protocol-Specific Optimizations**: Each stream optimized for its use case
 3. **Independent Scaling**: Scale different streams based on load patterns
 4. **Reduced Contention**: No competing message types on same endpoint
+5. **Differentiated Data Delivery**: Optimized sampling reduces unnecessary processing
+6. **Automatic Resource Management**: FQ sampler only runs when subscribers are present
+
+### Enhanced FQ Sampler Performance
+
+**Visualization Path Performance:**
+- **Sampling Scope**: All cortical areas (comprehensive brain state)
+- **Default Rate**: 20Hz configurable per area (1-60Hz typical range)
+- **Data Richness**: 8 data fields per neuron (coordinates, potentials, thresholds, etc.)
+- **Latency Target**: 20-50ms (optimized for completeness over speed)
+- **Use Cases**: Research analysis, brain monitoring, development visualization
+
+**Motor Path Performance:**
+- **Sampling Scope**: OPU areas only (typically 1-10% of total areas)
+- **Sampling Rate**: Burst frequency (~100Hz for real-time control)
+- **Data Efficiency**: 4 data fields per neuron (coordinates and activation levels)
+- **Latency Target**: 5-10ms (optimized for speed over completeness)
+- **Use Cases**: Robotic control, real-time actuation, motor feedback loops
 
 ## Configuration
 
@@ -343,7 +586,8 @@ python -m feagi.main \
   --zmq-req-port 5555 \
   --zmq-control-port 5561 \
   --zmq-rest-port 5563 \
-  --zmq-vis-port 5562
+  --zmq-vis-port 5562 \
+  --zmq-motor-port 5564
 ```
 
 ### Environment Variables
@@ -353,6 +597,7 @@ export FEAGI_ZMQ_REQ_PORT=5555
 export FEAGI_ZMQ_CONTROL_PORT=5561  
 export FEAGI_ZMQ_REST_PORT=5563
 export FEAGI_ZMQ_VIS_PORT=5562
+export FEAGI_ZMQ_MOTOR_PORT=5564
 ```
 
 ### Configuration File
@@ -364,8 +609,58 @@ export FEAGI_ZMQ_VIS_PORT=5562
     "req_port": 5555,
     "control_port": 5561,
     "rest_port": 5563,
-    "vis_port": 5562
+    "vis_port": 5562,
+    "motor_port": 5564
+  },
+  "fq_sampler": {
+    "visualization": {
+      "default_sample_rate": 20.0,
+      "auto_enable_on_subscribers": true,
+      "subscriber_check_interval": 1.0,
+      "include_membrane_potentials": true,
+      "include_coordinates": true,
+      "include_firing_history": true
+    },
+    "motor": {
+      "sample_at_burst_frequency": true,
+      "auto_detect_opu_areas": true,
+      "subscriber_check_interval": 0.5,
+      "motor_timeout_seconds": 10.0,
+      "optimize_for_latency": true
+    }
   }
+}
+```
+
+### Per-Area FQ Sampler Configuration
+
+```python
+# Configure different sampling rates for different cortical areas
+cortical_areas = {
+    "visual_cortex": {
+        "properties": {
+            "fq_sample_rate": 30.0,  # High rate for visual analysis
+            "cortical_type": "sensory"
+        }
+    },
+    "motor_cortex": {
+        "properties": {
+            "cortical_type": "OPU",  # Automatically uses burst frequency for motor
+            # No fq_sample_rate needed - controlled by motor stream
+        }
+    },
+    "memory_hippocampus": {
+        "properties": {
+            "fq_sample_rate": 5.0,   # Low rate for memory areas
+            "cortical_type": "associative"
+        }
+    },
+    "background_noise": {
+        "properties": {
+            "fq_sample_rate": 0.0,   # Disable sampling for noise areas
+            "cortical_type": "utility"
+        }
+    }
 }
 ```
 
@@ -399,13 +694,14 @@ export FEAGI_ZMQ_VIS_PORT=5562
 
 ```bash
 # Test all streams are listening
-ss -tuln | grep -E "5555|5561|5562|5563"
+ss -tuln | grep -E "5555|5561|5562|5563|5564"
 
 # Expected output:
 tcp LISTEN 127.0.0.1:5555   # REQ/REP
 tcp LISTEN 127.0.0.1:5561   # Control
 tcp LISTEN 127.0.0.1:5562   # Visualization  
 tcp LISTEN 127.0.0.1:5563   # REST
+tcp LISTEN 127.0.0.1:5564   # Motor
 ```
 
 ### Protocol Validation Testing
@@ -421,6 +717,144 @@ sock.send_multipart([b'', json.dumps({
     'route': '/v1/system/health_check'
 }).encode()])
 response = json.loads(sock.recv_multipart()[1])
+```
+
+### Enhanced FQ Sampler Testing
+
+**Test Visualization Stream FQ Sampler**:
+```python
+import zmq
+import time
+
+# Test visualization stream with automatic FQ sampler activation
+ctx = zmq.Context()
+
+# Subscribe to visualization data
+viz_socket = ctx.socket(zmq.SUB)
+viz_socket.connect('tcp://localhost:5562')
+viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
+
+# Register as visualization client to trigger FQ sampler
+control_socket = ctx.socket(zmq.DEALER)
+control_socket.connect('tcp://localhost:5561')
+
+# Send registration heartbeat
+heartbeat = {
+    "message_type": "heartbeat",
+    "agent_id": "test_visualization_client",
+    "timestamp": time.time() * 1000
+}
+control_socket.send_json(heartbeat)
+
+# Should see FQ sampler activation in FEAGI logs:
+# "🔔 Enabling FQ sampler - visualization clients connected"
+
+# Receive visualization data (should include all cortical areas)
+try:
+    topic, data = viz_socket.recv_multipart(zmq.NOBLOCK)
+    print(f"Received visualization data: {len(data)} bytes")
+except zmq.Again:
+    print("No visualization data available")
+```
+
+**Test Motor Stream FQ Sampler**:
+```python
+import zmq
+import time
+
+# Test motor stream with automatic FQ sampler activation
+ctx = zmq.Context()
+
+# Subscribe to motor data
+motor_socket = ctx.socket(zmq.SUB)
+motor_socket.connect('tcp://localhost:5564')
+motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
+
+# Register as motor client to trigger FQ sampler
+control_socket = ctx.socket(zmq.DEALER)
+control_socket.connect('tcp://localhost:5561')
+
+# Send registration heartbeat
+heartbeat = {
+    "message_type": "heartbeat",
+    "agent_id": "test_motor_controller",
+    "timestamp": time.time() * 1000
+}
+control_socket.send_json(heartbeat)
+
+# Should see FQ sampler activation in FEAGI logs:
+# "🔔 Enabling FQ sampler for motor - motor clients connected"
+
+# Receive motor data (should include only OPU areas)
+try:
+    topic, data = motor_socket.recv_multipart(zmq.NOBLOCK)
+    print(f"Received motor data: {len(data)} bytes")
+except zmq.Again:
+    print("No motor data available")
+```
+
+**Test Differentiated Behavior**:
+```python
+# Test that visualization and motor streams receive different data
+# This test verifies the differentiated FQ sampler behavior
+
+import zmq
+import time
+from feagi_bytes import ByteStructureDecoder
+
+ctx = zmq.Context()
+
+# Set up both streams
+viz_socket = ctx.socket(zmq.SUB)
+viz_socket.connect('tcp://localhost:5562')
+viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
+
+motor_socket = ctx.socket(zmq.SUB)
+motor_socket.connect('tcp://localhost:5564')
+motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
+
+# Register for both streams
+control_socket = ctx.socket(zmq.DEALER)
+control_socket.connect('tcp://localhost:5561')
+
+# Register visualization client
+viz_heartbeat = {
+    "message_type": "heartbeat",
+    "agent_id": "test_viz_differentiation",
+    "timestamp": time.time() * 1000
+}
+control_socket.send_json(viz_heartbeat)
+
+# Register motor client  
+motor_heartbeat = {
+    "message_type": "heartbeat",
+    "agent_id": "test_motor_differentiation",
+    "timestamp": time.time() * 1000
+}
+control_socket.send_json(motor_heartbeat)
+
+# Collect data from both streams
+decoder = ByteStructureDecoder()
+
+try:
+    # Get visualization data
+    viz_topic, viz_data = viz_socket.recv_multipart(zmq.NOBLOCK)
+    viz_decoded = decoder.decode_neuron_flat(viz_data)
+    viz_areas = set(viz_decoded['cortical_ids'])
+    print(f"Visualization stream areas: {len(viz_areas)} areas")
+    
+    # Get motor data
+    motor_topic, motor_data = motor_socket.recv_multipart(zmq.NOBLOCK)
+    motor_decoded = decoder.decode_neuron_flat(motor_data)
+    motor_areas = set(motor_decoded['cortical_ids'])
+    print(f"Motor stream areas: {len(motor_areas)} areas")
+    
+    # Verify differentiated behavior
+    print(f"Motor areas are subset of viz areas: {motor_areas.issubset(viz_areas)}")
+    print(f"All motor areas contain 'motor', 'opu', or 'output': {all(any(keyword in area.lower() for keyword in ['motor', 'opu', 'output']) for area in motor_areas)}")
+    
+except zmq.Again:
+    print("No data available for testing")
 ```
 
 ## Migration Guide

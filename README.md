@@ -18,6 +18,18 @@ FEAGI uses binary protocols for efficient communication:
 1. **FCP (FEAGI Control Protocol)**: For agent registration, heartbeats, and control
 2. **FSMP (FEAGI Sensorimotor Protocol)**: For exchanging sensory and motor data
 3. **FVP (FEAGI Visualization Protocol)**: For exchanging brain visualization data
+4. **Enhanced FQ Sampler**: Differentiated sampling for visualization vs. motor streams
+
+### Differentiated Data Streams
+
+FEAGI implements **dual-path FQ sampling** for optimized data delivery:
+
+- **Visualization Stream (Port 5562)**: Comprehensive brain state monitoring with all cortical areas at configurable rates
+- **Motor Stream (Port 5564)**: Real-time motor control with OPU (Output Processing Unit) areas only at burst frequency
+
+This architecture ensures optimal performance for different use cases:
+- Research and analysis tools receive comprehensive neural data via visualization stream
+- Robotic controllers receive optimized, low-latency motor data via motor stream
 
 ## Documentation
 

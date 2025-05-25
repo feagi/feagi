@@ -105,24 +105,87 @@ fcl_manager.add_to_current_fcl([neuron_id1, neuron_id2, neuron_id3])
 
 ### FQ Sampler
 
-The FQ Sampler extracts burst data at configurable rates for visualization and motor output:
+The FQ Sampler extracts burst data with **differentiated behavior** based on subscriber types for optimal performance:
 
-- **Rich Data**: Provides neuron IDs, membrane potentials, thresholds, coordinates, and firing counts
-- **Per-Area Sampling**: Different sampling rates for different cortical areas
-- **Best-Effort Delivery**: Drops samples when consumers can't keep up to maintain real-time performance
+#### Differentiated Sampling Behavior
+
+**Visualization Subscribers:**
+- **Scope**: Samples ALL cortical areas for comprehensive brain state monitoring
+- **Frequency**: Respects per-area `fq_sample_rate` properties (defaults to global rate)
+- **Data Format**: Rich format with coordinates, membrane potentials, thresholds, and firing history
+- **Use Case**: Real-time brain visualization, research analysis, monitoring dashboards
+
+**Motor Subscribers:**
+- **Scope**: Samples ONLY OPU (Output Processing Unit) cortical areas
+- **Frequency**: Samples at burst frequency (every burst) for minimal control latency
+- **Data Format**: Streamlined format optimized for real-time motor control
+- **Use Case**: Robotic control, real-time motor output, actuator commands
+
+#### Automatic Subscriber Detection
+
 - **Subscriber-Aware**: Only samples when there are active visualization or motor consumers
-- **RTOS-Compatible**: Deterministic, bounded execution suitable for real-time systems
+- **Connection Monitoring**: Tracks subscriber heartbeats and automatically enables/disables sampling
+- **Resource Conservation**: No unnecessary sampling when no consumers are connected
+- **Type-Specific Control**: Separate enable/disable for visualization vs. motor subscribers
+
+#### Enhanced Configuration
 
 ```python
-# Create sampler with 30Hz default rate
-sampler = FQSampler(fire_queue_provider, sample_frequency_hz=30, output_queue=viz_queue, connectome_manager=connectome_manager)
+# Create enhanced sampler with differentiated behavior
+sampler = FQSampler(
+    fire_queue_provider=fire_queue_provider, 
+    sample_frequency_hz=30,  # Default for visualization
+    output_queue=viz_queue, 
+    connectome_manager=connectome_manager
+)
 
-# Set per-area sample rates
-area.properties['fq_sample_rate'] = 60  # Sample this area at 60Hz
+# Automatic subscriber control (handled by stream managers)
+sampler.set_visualization_subscribers(True)  # Enable visualization sampling
+sampler.set_motor_subscribers(True)          # Enable motor sampling
 
-# Control sampling based on subscribers
-sampler.set_visualization_subscribers(True)
-sampler.set_motor_subscribers(False)
+# Per-area sampling rates (visualization only)
+area.properties['fq_sample_rate'] = 60  # Sample this area at 60Hz for visualization
+area.properties['fq_sample_rate'] = 0   # Disable sampling for this area
+
+# OPU area configuration (motor sampling)
+motor_area = {
+    "id": "motor_cortex",
+    "properties": {
+        "cortical_type": "OPU",  # Automatically detected for motor sampling
+        # Uses burst frequency automatically - no fq_sample_rate needed
+    }
+}
+```
+
+#### Stream Integration
+
+**Visualization Stream (Port 5562):**
+- Processes visualization-targeted data from FQ sampler
+- Automatic subscriber detection via heartbeat monitoring
+- Rich data format with all neural activity information
+
+**Motor Stream (Port 5564):**
+- Processes motor-targeted data from FQ sampler  
+- Fast subscriber detection with shorter timeouts
+- Optimized data format for real-time motor control
+
+```python
+# Visualization client example
+viz_socket = zmq_context.socket(zmq.SUB)
+viz_socket.connect("tcp://localhost:5562")
+viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
+
+# Motor client example
+motor_socket = zmq_context.socket(zmq.SUB) 
+motor_socket.connect("tcp://localhost:5564")
+motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
+
+# Both clients should send heartbeats for subscriber detection
+heartbeat = {
+    "message_type": "heartbeat",
+    "agent_id": "client_001",
+    "timestamp": time.time() * 1000
+}
 ```
 
 ## Power Area Implementation

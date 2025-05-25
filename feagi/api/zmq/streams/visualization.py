@@ -194,9 +194,9 @@ class VisualizationStream:
         logger.info("Visualization Stream server stopped")
 
     async def _process_fq_data(self) -> None:
-        """Process FQ data from the sampler queue."""
+        """Process data from FQ sampler queue."""
         if not self.fq_sampler_queue:
-            logger.debug("No FQ sampler queue available")
+            logger.warning("No FQ sampler queue available for data processing")
             return
             
         logger.debug("Starting FQ data processing")
@@ -227,12 +227,16 @@ class VisualizationStream:
                     if self.get_connected_client_count() > 0:
                         await self._send_binary_data(fq_data)
                 
+                elif isinstance(fq_data, dict) and 'target' in fq_data:
+                    # Handle new tagged format from enhanced FQ sampler
+                    await self._process_tagged_fq_data(fq_data)
+                
                 elif isinstance(fq_data, tuple) and len(fq_data) == 2:
-                    # Handle (cortical_id, fire_queue_data) tuple format
+                    # Handle (cortical_id, fire_queue_data) tuple format (legacy visualization)
                     await self._process_fq_tuple(fq_data)
                 
                 elif isinstance(fq_data, dict):
-                    # Handle fire queue dict directly
+                    # Handle fire queue dict directly (legacy format)
                     await self._process_fq_dict(fq_data)
                 
                 elif isinstance(fq_data, str) and fq_data == "STOP":
@@ -247,6 +251,34 @@ class VisualizationStream:
             except Exception as e: 
                 logger.error(f"Error in FQ data processing: {e}")
                 await asyncio.sleep(0.1) 
+
+    async def _process_tagged_fq_data(self, fq_data):
+        """Process tagged data from enhanced FQ sampler."""
+        try:
+            target = fq_data.get('target', 'visualization')
+            
+            # Only process visualization-targeted data in visualization stream
+            if target != 'visualization':
+                logger.debug(f"Skipping non-visualization data (target: {target})")
+                return
+                
+            # Extract the actual fire queue data
+            if 'cortical_id' in fq_data and 'fire_queue_data' in fq_data:
+                # Area-specific data
+                cortical_id = fq_data['cortical_id']
+                fire_queue_data = fq_data['fire_queue_data']
+                await self._process_fq_tuple((cortical_id, fire_queue_data))
+                
+            elif 'fire_queue_data' in fq_data:
+                # Global data
+                fire_queue_data = fq_data['fire_queue_data']
+                await self._process_fq_dict(fire_queue_data)
+                
+            else:
+                logger.warning(f"Invalid tagged FQ data format: {fq_data.keys()}")
+                
+        except Exception as e:
+            logger.error(f"Error processing tagged FQ data: {e}")
 
     async def _process_fq_tuple(self, fq_data):
         """Process a 2-element FQ tuple and convert to visualization data."""

@@ -424,7 +424,10 @@ class ZmqServer:
                     core_api=self.core_api,
                     host=self.host,
                     port=self.motor_port,
-                    context=self._context
+                    context=self._context,
+                    fq_sampler=self._fq_sampler,
+                    fq_sampler_queue=self._fq_sampler_queue,
+                    stream_config=self.stream_config.get('motor', {})
                 )
                 logger.info(f"Motor stream enabled on port {self.motor_port}")
             else:

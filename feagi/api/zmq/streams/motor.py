@@ -6,6 +6,7 @@ It provides:
 - One-directional flow from FEAGI to agents
 - Efficient binary serialization for high-performance data exchange
 - Genome-dependent state management (standby when no genome loaded)
+- Automatic FQ sampler control for motor subscribers
 
 Performance Optimization:
 - Socket is configured for real-time operation with minimal latency
@@ -13,6 +14,11 @@ Performance Optimization:
 - ZMQ_CONFLATE ensures only the latest message is kept, preventing stale data processing
 - High water marks (HWM) are set to minimal values to prevent buffer buildup
 - Non-blocking operations ensure system responsiveness
+
+Motor Stream Specific Behavior:
+- When motor clients connect, FQ sampler samples OPU cortical areas every burst
+- Automatic subscriber detection and FQ sampler activation/deactivation
+- Motor data is time-critical and sampled at burst frequency for immediate response
 
 This approach ensures that motor data, which is time-sensitive, is handled
 with priority and never queued if it cannot be processed immediately, preventing
@@ -47,6 +53,11 @@ class MotorStream:
     The stream automatically adjusts to the genome availability state:
     - When no genome is loaded, it operates in standby mode
     - When a genome is loaded, it transitions to active mode
+    
+    Motor Subscriber Management:
+    - Automatically detects motor stream subscribers via heartbeat tracking
+    - Controls FQ sampler to sample OPU cortical areas at burst frequency
+    - Provides efficient motor data delivery for real-time control applications
     """
     
     def __init__(
@@ -54,7 +65,10 @@ class MotorStream:
         core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5564,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
+        fq_sampler: Optional[Any] = None,
+        fq_sampler_queue: Optional[Any] = None,
+        stream_config: Optional[Dict[str, Any]] = None
     ):
         """
         Initialize the Motor Stream.
@@ -64,6 +78,9 @@ class MotorStream:
             host: Host address to bind to
             port: Port for sending motor data
             context: Optional existing ZMQ context to use
+            fq_sampler: Optional FQ sampler instance for motor data sampling
+            fq_sampler_queue: Optional queue for receiving motor data from FQ sampler
+            stream_config: Optional stream configuration
         """
         self.core_api = core_api
         self.host = host
@@ -79,6 +96,20 @@ class MotorStream:
         
         # Rate limiter for throttling high-frequency data
         self.rate_limiter = RateLimiter()
+        
+        # Motor subscriber management
+        self.fq_sampler = fq_sampler
+        self.fq_sampler_queue = fq_sampler_queue
+        self.client_last_heartbeat: Dict[str, float] = {}
+        self.client_heartbeat_timeout = 30.0  # 30 seconds timeout
+        self.subscriber_check_interval = 2.0  # Check every 2 seconds
+        self._last_subscriber_count = 0
+        self._fq_sampler_enabled = False
+        self._subscriber_count = 0
+        
+        # Motor stream processing task
+        self._motor_data_task: Optional[asyncio.Task] = None
+        self._subscriber_monitor_task: Optional[asyncio.Task] = None
         
         # Register for genome state change notifications
         if hasattr(core_api, 'register_genome_change_listener'):
@@ -157,6 +188,14 @@ class MotorStream:
             
         logger.info(f"Starting Motor Stream server on {self.host}:{self.port}")
         self.running = True
+        
+        # Start motor data processing if FQ sampler queue is available
+        if self.fq_sampler_queue:
+            self._motor_data_task = asyncio.create_task(self._process_motor_data())
+            
+        # Start subscriber monitoring
+        self._subscriber_monitor_task = asyncio.create_task(self._monitor_subscribers())
+        
         logger.info("Motor Stream server started")
 
     async def stop(self) -> None:
@@ -167,12 +206,267 @@ class MotorStream:
         logger.info("Stopping Motor Stream server")
         self.running = False
         
+        # Stop tasks
+        if self._motor_data_task:
+            self._motor_data_task.cancel()
+            try:
+                await self._motor_data_task
+            except asyncio.CancelledError:
+                pass
+            self._motor_data_task = None
+            
+        if self._subscriber_monitor_task:
+            self._subscriber_monitor_task.cancel()
+            try:
+                await self._subscriber_monitor_task
+            except asyncio.CancelledError:
+                pass
+            self._subscriber_monitor_task = None
+        
+        # Disable FQ sampler if it was enabled
+        if self._fq_sampler_enabled:
+            await self._control_fq_sampler(False)
+        
         # Close the socket
         if self.socket:
             self.socket.close()
             self.socket = None
             
         logger.info("Motor Stream server stopped")
+
+    async def _process_motor_data(self) -> None:
+        """Process motor data from FQ sampler queue."""
+        if not self.fq_sampler_queue:
+            logger.warning("No FQ sampler queue available for motor data processing")
+            return
+            
+        logger.debug("Starting motor data processing")
+            
+        while self.running:
+            try:
+                # Get data from queue (non-blocking)
+                motor_data = None
+                try:
+                    if hasattr(self.fq_sampler_queue, 'get'):
+                        motor_data = self.fq_sampler_queue.get(block=False)
+                    elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
+                        motor_data = self.fq_sampler_queue._queue.pop(0)
+                    else:
+                        await asyncio.sleep(0.01)
+                        continue
+                except Exception:
+                    await asyncio.sleep(0.01)
+                    continue 
+                
+                if motor_data is None:
+                    await asyncio.sleep(0.01)
+                    continue
+                    
+                # Handle different data types for motor processing
+                if isinstance(motor_data, bytes):
+                    # Already encoded binary data
+                    if self.get_connected_client_count() > 0:
+                        await self._send_motor_binary_data(motor_data)
+                
+                elif isinstance(motor_data, dict) and 'target' in motor_data:
+                    # Handle new tagged format from enhanced FQ sampler
+                    await self._process_tagged_motor_data(motor_data)
+                
+                elif isinstance(motor_data, tuple) and len(motor_data) == 2:
+                    # Handle (cortical_id, fire_queue_data) tuple format
+                    await self._process_motor_tuple(motor_data)
+                
+                elif isinstance(motor_data, dict):
+                    # Handle fire queue dict directly
+                    await self._process_motor_dict(motor_data)
+                
+                elif isinstance(motor_data, str) and motor_data == "STOP":
+                    logger.info("Received STOP signal")
+                    break 
+                
+                else:
+                    logger.debug(f"Unsupported motor data type: {type(motor_data)}")
+                
+            except asyncio.CancelledError:
+                break 
+            except Exception as e: 
+                logger.error(f"Error in motor data processing: {e}")
+                await asyncio.sleep(0.1) 
+
+    async def _process_tagged_motor_data(self, motor_data):
+        """Process tagged data from enhanced FQ sampler for motor streams."""
+        try:
+            target = motor_data.get('target', 'motor')
+            
+            # Only process motor-targeted data in motor stream
+            if target != 'motor':
+                logger.debug(f"Skipping non-motor data (target: {target})")
+                return
+                
+            # Extract the actual fire queue data
+            if 'cortical_id' in motor_data and 'fire_queue_data' in motor_data:
+                # Area-specific data (OPU areas)
+                cortical_id = motor_data['cortical_id']
+                fire_queue_data = motor_data['fire_queue_data']
+                await self._process_motor_tuple((cortical_id, fire_queue_data))
+                
+            elif 'fire_queue_data' in motor_data:
+                # Global data (filtered for motor)
+                fire_queue_data = motor_data['fire_queue_data']
+                await self._process_motor_dict(fire_queue_data)
+                
+            else:
+                logger.warning(f"Invalid tagged motor data format: {motor_data.keys()}")
+                
+        except Exception as e:
+            logger.error(f"Error processing tagged motor data: {e}")
+
+    async def _process_motor_tuple(self, motor_data):
+        """Process a 2-element motor tuple and convert to motor data."""
+        try:
+            cortical_id, fire_queue_data = motor_data
+            
+            if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
+                return
+                
+            # Check if we have connected clients
+            client_count = self.get_connected_client_count()
+            
+            if client_count == 0:
+                logger.debug(f"No motor clients connected, skipping data for {cortical_id}")
+                return
+                
+            # Extract data from fire queue
+            neuron_ids = fire_queue_data['neuron_ids']
+            membrane_potentials = fire_queue_data.get('membrane_potentials', [])
+            coordinates = fire_queue_data.get('coordinates', [])
+            
+            # Use membrane potentials if available, otherwise default to 1.0
+            if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
+                potentials = membrane_potentials
+            else:
+                potentials = [1.0] * len(neuron_ids)
+            
+            # Create motor data structure
+            motor_data_dict = {
+                'cortical_id': cortical_id,
+                'neuron_ids': neuron_ids,
+                'potentials': potentials,
+                'coordinates': coordinates,
+                'timestamp': time.time()
+            }
+                        
+            # Encode using feagi_bytes for motor data
+            try:
+                from feagi_bytes import ByteStructureEncoder
+                encoder = ByteStructureEncoder()
+                            
+                # For motor data, we might want a different encoding format
+                # For now, use similar structure but on motor channel
+                cortical_ids = [cortical_id] * len(neuron_ids)
+                
+                if coordinates and len(coordinates) == len(neuron_ids):
+                    x_values = [coord[0] for coord in coordinates]
+                    y_values = [coord[1] for coord in coordinates]
+                    z_values = [coord[2] for coord in coordinates]
+                else:
+                    # Fallback to ID-based coordinates
+                    x_values = [(nid % 100) if nid > 0 else 1 for nid in neuron_ids]
+                    y_values = [((nid // 100) % 100) if nid > 0 else 1 for nid in neuron_ids]
+                    z_values = [(nid // 10000) if nid > 0 else 0 for nid in neuron_ids]
+                
+                binary_data = encoder.encode_neuron_flat(
+                    cortical_ids=cortical_ids,
+                    x_coords=x_values,
+                    y_coords=y_values,
+                    z_coords=z_values,
+                    potentials=potentials
+                )
+                
+                await self._send_motor_binary_data(binary_data, channel=cortical_id)
+                
+            except Exception as e:
+                logger.error(f"Error encoding motor data: {e}")
+                        
+        except Exception as e:
+            logger.error(f"Error processing motor tuple: {e}")
+
+    async def _process_motor_dict(self, fire_queue_data):
+        """Process a fire queue dictionary directly for motor data."""
+        try:
+            if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
+                return
+                
+            # Check if we have connected clients
+            client_count = self.get_connected_client_count()
+            
+            if client_count == 0:
+                logger.debug("No motor clients connected, skipping dict data")
+                return
+                
+            # Extract data from fire queue
+            neuron_ids = fire_queue_data['neuron_ids']
+            membrane_potentials = fire_queue_data.get('membrane_potentials', [])
+            coordinates = fire_queue_data.get('coordinates', [])
+            
+            # Use membrane potentials if available, otherwise default to 1.0
+            if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
+                potentials = membrane_potentials
+            else:
+                potentials = [1.0] * len(neuron_ids)
+            
+            # Use default cortical ID for motor
+            cortical_ids = ['motor'] * len(neuron_ids)
+            
+            # Encode using feagi_bytes
+            try:
+                from feagi_bytes import ByteStructureEncoder
+                encoder = ByteStructureEncoder()
+                
+                if coordinates and len(coordinates) == len(neuron_ids):
+                    x_values = [coord[0] for coord in coordinates]
+                    y_values = [coord[1] for coord in coordinates]
+                    z_values = [coord[2] for coord in coordinates]
+                else:
+                    # Fallback to ID-based coordinates
+                    x_values = [nid % 100 for nid in neuron_ids]
+                    y_values = [(nid // 100) % 100 for nid in neuron_ids]
+                    z_values = [nid // 10000 for nid in neuron_ids]
+                            
+                binary_data = encoder.encode_neuron_flat(
+                    cortical_ids=cortical_ids,
+                    x_coords=x_values,
+                    y_coords=y_values,
+                    z_coords=z_values,
+                    potentials=potentials
+                )
+                
+                await self._send_motor_binary_data(binary_data, channel="motor")
+                
+            except Exception as e:
+                logger.error(f"Error encoding motor data: {e}")
+                
+        except Exception as e:
+            logger.error(f"Error processing motor dict: {e}")
+
+    async def _send_motor_binary_data(self, binary_data: bytes, channel: str = "motor"):
+        """Send binary motor data to motor clients."""
+        try:
+            # Skip if in standby mode
+            if not self._active_mode:
+                logger.debug("Motor stream in STANDBY mode, skipping data send")
+                return
+                
+            # Send data on specified motor channel
+            await self.socket.send_multipart([
+                channel.encode('utf-8'),
+                binary_data
+            ])
+            
+            logger.debug(f"Sent {len(binary_data)} bytes of motor data on channel {channel}")
+            
+        except Exception as e:
+            logger.error(f"Error sending motor binary data: {e}")
 
     async def send_motor_data(self, channel_id: str, data: bytes) -> None:
         """
@@ -225,4 +519,118 @@ class MotorStream:
             logger.debug(f"Broadcast system message: {message}")
             
         except Exception as e:
-            logger.error(f"Error broadcasting system message: {e}") 
+            logger.error(f"Error broadcasting system message: {e}")
+
+    def get_connected_client_count(self) -> int:
+        """Get the current number of connected motor clients."""
+        try:
+            now = time.time()
+            active_clients = 0
+            
+            for client_id, last_heartbeat in self.client_last_heartbeat.items():
+                if now - last_heartbeat < self.client_heartbeat_timeout:
+                    active_clients += 1
+            
+            return active_clients
+        except Exception as e:
+            logger.warning(f"Error getting motor client count: {e}")
+            return 0
+
+    async def record_client_heartbeat(self, client_id: str) -> None:
+        """Record a heartbeat from a motor client."""
+        current_time = time.time()
+        self.client_last_heartbeat[client_id] = current_time
+
+    async def _monitor_subscribers(self) -> None:
+        """Monitor ZMQ motor subscribers and automatically enable/disable FQ sampler."""
+        logger.info("Starting motor subscriber monitoring for automatic FQ sampler control")
+        
+        while self.running:
+            try:
+                # Check current subscriber count
+                current_count = self.get_connected_client_count()
+                
+                # Update subscriber count
+                if current_count != self._last_subscriber_count:
+                    logger.info(f"Motor subscriber count changed: {self._last_subscriber_count} -> {current_count}")
+                    self._last_subscriber_count = current_count
+                    
+                    # Auto-enable/disable FQ sampler based on subscriber count
+                    should_enable = current_count > 0
+                    
+                    if should_enable != self._fq_sampler_enabled:
+                        await self._control_fq_sampler(should_enable)
+                
+                # Wait for next check
+                await asyncio.sleep(self.subscriber_check_interval)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in motor subscriber monitoring: {e}")
+                await asyncio.sleep(self.subscriber_check_interval)
+        
+        logger.info("Motor subscriber monitoring stopped")
+
+    async def register_motor_client(self, client_id: str) -> None:
+        """Register a motor client and update heartbeat."""
+        current_time = time.time()
+        self.client_last_heartbeat[client_id] = current_time
+        logger.info(f"🚗 Motor client registered: {client_id}")
+        
+        # Force a subscriber count update
+        current_count = self.get_connected_client_count()
+        if current_count != self._last_subscriber_count:
+            self._last_subscriber_count = current_count
+            should_enable = current_count > 0
+            if should_enable != self._fq_sampler_enabled:
+                await self._control_fq_sampler(should_enable)
+
+    async def unregister_motor_client(self, client_id: str) -> None:
+        """Unregister a motor client."""
+        if client_id in self.client_last_heartbeat:
+            del self.client_last_heartbeat[client_id]
+            logger.info(f"🚗 Motor client unregistered: {client_id}")
+            
+            # Force a subscriber count update
+            current_count = self.get_connected_client_count()
+            if current_count != self._last_subscriber_count:
+                self._last_subscriber_count = current_count
+                should_enable = current_count > 0
+                if should_enable != self._fq_sampler_enabled:
+                    await self._control_fq_sampler(should_enable)
+
+    async def heartbeat_motor_client(self, client_id: str) -> None:
+        """Update heartbeat for a motor client."""
+        self.client_last_heartbeat[client_id] = time.time()
+        # Don't log every heartbeat to avoid spam, just update the timestamp
+
+    async def _control_fq_sampler(self, enable: bool) -> None:
+        """Enable or disable the FQ sampler based on motor subscriber presence."""
+        try:
+            if not self.fq_sampler:
+                # Try to get FQ sampler from process manager
+                try:
+                    from feagi.process_manager import get_process_manager
+                    process_manager = get_process_manager()
+                    if process_manager and hasattr(process_manager, '_fq_sampler'):
+                        self.fq_sampler = process_manager._fq_sampler
+                        logger.info("Found FQ sampler from process manager")
+                except Exception:
+                    pass
+            
+            if self.fq_sampler and hasattr(self.fq_sampler, 'set_motor_subscribers'):
+                if enable:
+                    logger.info("🔔 Enabling FQ sampler for motor - motor clients connected")
+                    self.fq_sampler.set_motor_subscribers(True)
+                    self._fq_sampler_enabled = True
+                else:
+                    logger.info("🔕 Disabling FQ sampler for motor - no motor clients")
+                    self.fq_sampler.set_motor_subscribers(False)
+                    self._fq_sampler_enabled = False
+            else:
+                if enable:
+                    logger.warning("FQ sampler not available or doesn't support set_motor_subscribers")
+                
+        except Exception as e:
+            logger.error(f"Error controlling FQ sampler for motor: {e}") 

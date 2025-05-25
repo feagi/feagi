@@ -1371,23 +1371,25 @@ class BurstEngine:
 
 class FQSampler:
     """
-    Fire Queue Sampler for visualization.
+    Fire Queue Sampler for FEAGI NPU.
     
-    Samples neuron firing data directly from the fire queue, providing richer
-    information including membrane potentials, thresholds, and coordinates.
-    This replaces FCLSampler which only provided neuron IDs.
+    This class implements differentiated sampling behavior based on subscriber types:
+    - Visualization subscribers: Sample all cortical areas at configured rate
+    - Motor subscribers: Sample only OPU cortical areas at burst frequency
+    
+    The sampler is RTOS-compatible and optimized for real-time performance.
     """
     
     def __init__(self, fire_queue_provider: Any, sample_frequency_hz: float, 
                  output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
         """
-        Initialize FQ sampler.
+        Initialize the FQ sampler.
         
         Args:
-            fire_queue_provider: Object that provides access to fire queue data
-            sample_frequency_hz: Sampling rate in Hz
-            output_queue: Queue to put sampled data into
-            connectome_manager: Optional connectome manager for area-specific sampling
+            fire_queue_provider: Object providing fire queue data
+            sample_frequency_hz: Base sampling frequency for visualization
+            output_queue: Queue for output data
+            connectome_manager: Optional connectome manager for area info
         """
         self.fire_queue_provider = fire_queue_provider
         self.sample_frequency = sample_frequency_hz
@@ -1396,26 +1398,63 @@ class FQSampler:
         self.connectome_manager = connectome_manager
         self.running = False
         
-        # Per-area sampling support
-        self._last_sample_time_per_area = {}
-        
         # Subscriber tracking
         self._has_visualization_subscribers = False
         self._has_motor_subscribers = False
         
+        # Per-area sample timing for visualization (respects configured rates)
+        self._last_sample_time_per_area: Dict[str, float] = {}
+        
+        # Motor sampling tracking (every burst for OPU areas)
+        self._last_motor_sample_time: float = 0.0
+        self._motor_sample_interval = 0.01  # Default 100Hz for motor, will be updated based on burst frequency
+        
         # Error handling
         self._max_retries = 3
-        self._retry_delay = 0.001
+        self._retry_delay = 0.001  # 1ms
         
-        # Auto-register with burst engine if fire_queue_provider is a BurstEngine
-        if hasattr(fire_queue_provider, 'register_fq_sampler'):
-            try:
-                fire_queue_provider.register_fq_sampler(self)
-                logger.info(f"FQSampler auto-registered with BurstEngine for debugging")
-            except Exception as e:
+        # Get burst frequency from provider if available (for motor sampling)
+        self._update_motor_sample_rate()
+        
+        # Auto-register with BurstEngine if available
+        try:
+            burst_engine = BurstEngine.get_instance()
+            if burst_engine:
+                burst_engine.register_fq_sampler(self)
+                logger.info("FQSampler auto-registered with BurstEngine")
+        except Exception as e:
+            if "No BurstEngine instance exists" not in str(e):
                 logger.warning(f"Failed to auto-register FQSampler with BurstEngine: {e}")
         
         logger.info(f"FQSampler initialized with {sample_frequency_hz}Hz sampling")
+
+    def _update_motor_sample_rate(self):
+        """Update motor sampling rate based on burst frequency."""
+        try:
+            # Try to get burst frequency from fire queue provider
+            if hasattr(self.fire_queue_provider, 'get_burst_frequency'):
+                burst_freq = self.fire_queue_provider.get_burst_frequency()
+                if burst_freq and burst_freq > 0:
+                    self._motor_sample_interval = 1.0 / burst_freq
+                    logger.info(f"Motor sampling set to burst frequency: {burst_freq}Hz")
+                    return
+            
+            # Try to get from BurstEngine
+            try:
+                burst_engine = BurstEngine.get_instance()
+                if burst_engine and hasattr(burst_engine, '_configuration'):
+                    burst_freq = burst_engine._configuration.get('burst_frequency', 100)
+                    self._motor_sample_interval = 1.0 / burst_freq
+                    logger.info(f"Motor sampling set to burst frequency from BurstEngine: {burst_freq}Hz")
+                    return
+            except Exception:
+                pass
+                
+            # Default fallback
+            logger.info("Using default motor sampling rate: 100Hz")
+            
+        except Exception as e:
+            logger.warning(f"Error updating motor sample rate: {e}")
 
     def set_visualization_subscribers(self, has_subscribers: bool) -> None:
         """
@@ -1438,9 +1477,12 @@ class FQSampler:
         if has_subscribers != self._has_motor_subscribers:
             logger.info(f"FQSampler motor subscribers changed: {has_subscribers}")
             self._has_motor_subscribers = has_subscribers
+            # Update motor sample rate when motor subscribers change
+            if has_subscribers:
+                self._update_motor_sample_rate()
 
     def run(self) -> None:
-        """Main sampling loop."""
+        """Main sampling loop with differentiated behavior for visualization and motor."""
         logger.info("FQSampler started")
         self.running = True
         
@@ -1455,10 +1497,31 @@ class FQSampler:
                 while time.perf_counter() < target_time:
                     pass  # Busy-wait for sample interval
                 continue
+            
+            # Process visualization sampling (all areas at configured rates)
+            if self._has_visualization_subscribers:
+                self._process_visualization_sampling(now)
+            
+            # Process motor sampling (OPU areas at burst frequency)
+            if self._has_motor_subscribers:
+                self._process_motor_sampling(now)
+                    
+            # Sleep for the remainder of the sample interval
+            elapsed = time.perf_counter() - start
+            sleep_time = min(self.sample_interval, self._motor_sample_interval)
+            if elapsed < sleep_time:
+                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
+                target_end_time = start + sleep_time
+                while time.perf_counter() < target_end_time:
+                    pass  # Busy-wait for remainder of sample interval
                 
-            # Sample fire queue data
+        logger.info("FQSampler stopped.")
+
+    def _process_visualization_sampling(self, now: float) -> None:
+        """Process sampling for visualization subscribers (all areas at configured rates)."""
+        try:
             if self.connectome_manager is not None:
-                # Per-area sampling
+                # Per-area sampling for visualization
                 for area in self.connectome_manager.cortical_areas.values():
                     cortical_id = area.id
                     # Get per-area sample rate if set, else use global
@@ -1472,23 +1535,75 @@ class FQSampler:
                     last_time = self._last_sample_time_per_area.get(cortical_id, 0)
                     
                     if now - last_time >= interval:
-                        self._sample_area_fire_queue(cortical_id)
+                        self._sample_area_fire_queue(cortical_id, target='visualization')
                         self._last_sample_time_per_area[cortical_id] = now
             else:
-                # Global sampling
-                self._sample_global_fire_queue()
-                    
-            # Sleep for the remainder of the sample interval
-            elapsed = time.perf_counter() - start
-            if elapsed < self.sample_interval:
-                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
-                target_end_time = start + self.sample_interval
-                while time.perf_counter() < target_end_time:
-                    pass  # Busy-wait for remainder of sample interval
+                # Global sampling for visualization
+                self._sample_global_fire_queue(target='visualization')
                 
-        logger.info("FQSampler stopped.")
+        except Exception as e:
+            logger.error(f"Error in visualization sampling: {e}")
 
-    def _sample_area_fire_queue(self, cortical_id: str) -> None:
+    def _process_motor_sampling(self, now: float) -> None:
+        """Process sampling for motor subscribers (OPU areas at burst frequency)."""
+        try:
+            # Check if it's time for motor sampling
+            if now - self._last_motor_sample_time < self._motor_sample_interval:
+                return
+                
+            self._last_motor_sample_time = now
+            
+            if self.connectome_manager is not None:
+                # Sample only OPU (Output Processing Unit) areas for motor
+                opu_areas = self._get_opu_cortical_areas()
+                
+                for cortical_id in opu_areas:
+                    self._sample_area_fire_queue(cortical_id, target='motor')
+            else:
+                # Global sampling for motor (will be filtered by motor stream)
+                self._sample_global_fire_queue(target='motor')
+                
+        except Exception as e:
+            logger.error(f"Error in motor sampling: {e}")
+
+    def _get_opu_cortical_areas(self) -> List[str]:
+        """Get list of OPU (Output Processing Unit) cortical area IDs."""
+        opu_areas = []
+        
+        try:
+            if not self.connectome_manager:
+                return opu_areas
+                
+            for area in self.connectome_manager.cortical_areas.values():
+                # Check if area is of type OPU
+                area_type = area.properties.get('cortical_type', '').upper()
+                
+                # Multiple ways to identify OPU areas
+                is_opu = (
+                    area_type == 'OPU' or
+                    area_type == 'OUTPUT' or
+                    area_type == 'MOTOR' or
+                    'OPU' in area_type or
+                    'OUTPUT' in area_type or
+                    'MOTOR' in area_type or
+                    area.id.startswith('opu_') or
+                    area.id.startswith('motor_') or
+                    area.id.startswith('output_')
+                )
+                
+                if is_opu:
+                    opu_areas.append(area.id)
+                    logger.debug(f"Found OPU area for motor sampling: {area.id} (type: {area_type})")
+                    
+        except Exception as e:
+            logger.error(f"Error identifying OPU areas: {e}")
+            
+        if not opu_areas:
+            logger.warning("No OPU areas found for motor sampling. Motor subscribers may not receive data.")
+            
+        return opu_areas
+
+    def _sample_area_fire_queue(self, cortical_id: str, target: str = 'visualization') -> None:
         """Sample fire queue data for a specific cortical area."""
         retry_count = 0
         while retry_count < self._max_retries:
@@ -1498,7 +1613,21 @@ class FQSampler:
                 
                 if area_fire_data:
                     try:
-                        self.output_queue.put((cortical_id, area_fire_data))
+                        # Tag the data with target type for proper routing
+                        data_package = {
+                            'cortical_id': cortical_id,
+                            'fire_queue_data': area_fire_data,
+                            'target': target,
+                            'timestamp': time.time()
+                        }
+                        
+                        # For backward compatibility, also support tuple format
+                        if target == 'visualization':
+                            self.output_queue.put((cortical_id, area_fire_data))
+                        else:
+                            # For motor, use tagged format
+                            self.output_queue.put(data_package)
+                            
                         break  # Success
                     except Exception as e:
                         logger.error(f"Error putting area data in queue: {e}")
@@ -1507,7 +1636,7 @@ class FQSampler:
                     
             except Exception as e:
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"FQSampler error (area {cortical_id}): {e}")
+                    logger.error(f"FQSampler error (area {cortical_id}, target {target}): {e}")
                 # Wait before retrying
                 # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
                 delay_start = time.perf_counter()
@@ -1515,7 +1644,7 @@ class FQSampler:
                     pass  # Busy-wait for retry delay
                 retry_count += 1
 
-    def _sample_global_fire_queue(self) -> None:
+    def _sample_global_fire_queue(self, target: str = 'visualization') -> None:
         """Sample global fire queue data."""
         retry_count = 0
         while retry_count < self._max_retries:
@@ -1525,18 +1654,29 @@ class FQSampler:
                 
                 if fire_data:
                     try:
-                        self.output_queue.put_nowait(fire_data)
+                        # Tag the data with target type for proper routing
+                        if target == 'motor':
+                            data_package = {
+                                'fire_queue_data': fire_data,
+                                'target': target,
+                                'timestamp': time.time()
+                            }
+                            self.output_queue.put_nowait(data_package)
+                        else:
+                            # For visualization, use existing format
+                            self.output_queue.put_nowait(fire_data)
+                            
                         break  # Success
                     except Exception as e:
                         # Queue full - drop data
-                        logger.warning(f"FQSampler queue full, dropping global data: {e}")
+                        logger.warning(f"FQSampler queue full, dropping global data (target: {target}): {e}")
                         break
                 else:
                     break
                     
             except Exception as e:
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"FQSampler error: {e}")
+                    logger.error(f"FQSampler error (global, target {target}): {e}")
                 # Wait before retrying
                 # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
                 delay_start = time.perf_counter()

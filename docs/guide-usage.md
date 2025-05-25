@@ -29,7 +29,8 @@ This starts the unified FEAGI system with:
 - **FastAPI REST Server**: Port 8001 (direct dependency injection)
 - **ZMQ Control Stream**: Port 5561 (legacy agent management)
 - **ZMQ REST Stream**: Port 5563 (modern REST-over-ZMQ)
-- **ZMQ Visualization Stream**: Port 5562 (neural data broadcasting)
+- **ZMQ Visualization Stream**: Port 5562 (neural data broadcasting - all areas)
+- **ZMQ Motor Stream**: Port 5564 (real-time motor control - OPU areas only)
 - **ZMQ REQ/REP Stream**: Port 5555 (legacy commands)
 
 ### Command-Line Options
@@ -60,6 +61,7 @@ python -m feagi.main [OPTIONS]
 | `--zmq-control-port PORT` | Control stream port | 5561 |
 | `--zmq-rest-port PORT` | REST stream port | 5563 |
 | `--zmq-vis-port PORT` | Visualization stream port | 5562 |
+| `--zmq-motor-port PORT` | Motor stream port | 5564 |
 | `--zmq-req-port PORT` | REQ/REP stream port | 5555 |
 
 #### System Configuration
@@ -197,24 +199,45 @@ control_message = {
 ```
 
 ### Visualization Stream (Port 5562)
-Real-time neural activity data (publish-subscribe):
+Real-time neural activity data (publish-subscribe) - **All cortical areas**:
 
 ```python
 import zmq
 from feagi_bytes import ByteStructureDecoder
 
-# Subscribe to neural data
+# Subscribe to neural data (comprehensive brain state)
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
-socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all
+socket.setsockopt(zmq.SUBSCRIBE, b"activity")  # Subscribe to neural activity
 socket.connect("tcp://localhost:5562")
 
-# Decode neural activity
+# Decode comprehensive neural activity
 decoder = ByteStructureDecoder()
 while True:
-    data = socket.recv()
+    topic, data = socket.recv_multipart()
     neural_activity = decoder.decode_neuron_flat(data)
-    # Process neural data...
+    # Process all neural data for visualization...
+```
+
+### Motor Stream (Port 5564)
+Real-time motor control data (publish-subscribe) - **OPU areas only**:
+
+```python
+import zmq
+from feagi_bytes import ByteStructureDecoder
+
+# Subscribe to motor control data (OPU areas only)
+context = zmq.Context()
+socket = context.socket(zmq.SUB)
+socket.setsockopt(zmq.SUBSCRIBE, b"motor")  # Subscribe to motor commands
+socket.connect("tcp://localhost:5564")
+
+# Decode motor control data (optimized for real-time control)
+decoder = ByteStructureDecoder()
+while True:
+    topic, data = socket.recv_multipart()
+    motor_data = decoder.decode_neuron_flat(data)
+    # Process motor control data for robotic actuation...
 ```
 
 ## API Access
@@ -257,6 +280,7 @@ cortical_areas = response.json()
     "control_port": 5561,
     "rest_port": 5563,
     "vis_port": 5562,
+    "motor_port": 5564,
     "req_port": 5555
   },
   "genome": {
@@ -283,6 +307,7 @@ export FEAGI_ZMQ_HOST="127.0.0.1"
 export FEAGI_ZMQ_CONTROL_PORT="5561"
 export FEAGI_ZMQ_REST_PORT="5563"
 export FEAGI_ZMQ_VIS_PORT="5562"
+export FEAGI_ZMQ_MOTOR_PORT="5564"
 ```
 
 ## Development Usage
