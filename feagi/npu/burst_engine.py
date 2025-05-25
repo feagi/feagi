@@ -12,6 +12,15 @@ from feagi.utils.logger import setup_logger
 from feagi.npu.special_area_handler import SpecialAreaHandler
 from feagi.npu.fcl_injection_service import FCLInjectionService
 
+# SIMD and performance imports
+try:
+    from ..utils.simd_detection import get_simd_detector, get_backend_selector, get_simd_config
+    from ..utils.simd_profiler import get_profiler, profile_simd_operation
+    from .optimized_membrane_operations import SIMDMembraneProcessor
+    SIMD_AVAILABLE = True
+except ImportError:
+    SIMD_AVAILABLE = False
+
 logger = setup_logger()
 
 # RTOS-COMPATIBLE: Use deterministic pseudo-random for instance IDs
@@ -176,6 +185,25 @@ class BurstEngine:
         self._timing_buffer_size = 100  # Keep last 100 burst measurements
         self._last_frequency_update = 0.0
         self._frequency_measurement_enabled = False  # Only enable when requested via API
+        
+        # Initialize SIMD support
+        self._init_simd_support()
+        
+        # Core processing components
+        self.scheduler = None
+        self.fire_queue_provider = None
+        
+        # Performance monitoring
+        self.total_neurons_processed = 0
+        self.last_performance_report = time.time()
+        
+        # SIMD-optimized membrane processor
+        if SIMD_AVAILABLE:
+            self.membrane_processor = None  # Initialized when capacity is known
+        
+        # Runtime configuration
+        self.use_simd_profiling = self.config.get('simd_profiling', False)
+        self.performance_monitoring = self.config.get('performance_monitoring', True)
         
         # Mark as initialized
         self._initialized = True
@@ -1145,6 +1173,201 @@ class BurstEngine:
             self._fq_samplers.remove(fq_sampler)
             if self.debug_npu:
                 logger.info(f"🔥 NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+
+    def _init_simd_support(self):
+        """Initialize SIMD detection and configuration."""
+        if SIMD_AVAILABLE:
+            try:
+                self.simd_detector = get_simd_detector()
+                self.backend_selector = get_backend_selector()
+                self.simd_config = get_simd_config()
+                self.simd_profiler = get_profiler()
+                
+                # Log SIMD capabilities
+                caps = self.simd_detector.capabilities
+                self.logger.info(f"🧮 SIMD Backend: {self.simd_config['recommended_backend']}")
+                self.logger.info(f"🎯 Vector Width: {caps.vector_width}, Cache Line: {caps.cache_line_size}B")
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize SIMD support: {e}")
+                self.simd_detector = None
+                self.backend_selector = None
+                self.simd_config = {}
+        else:
+            self.simd_detector = None
+            self.backend_selector = None
+            self.simd_config = {}
+
+    def initialize_membrane_processor(self, capacity: int):
+        """Initialize SIMD-optimized membrane processor with given capacity."""
+        if SIMD_AVAILABLE and self.membrane_processor is None:
+            try:
+                self.membrane_processor = SIMDMembraneProcessor(
+                    capacity=capacity,
+                    use_profiling=self.use_simd_profiling
+                )
+                self.logger.info(f"🧠 SIMD membrane processor initialized for {capacity} neurons")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize SIMD membrane processor: {e}")
+                self.membrane_processor = None
+
+    def burst(self, burst_size: Optional[int] = None, use_gpu: bool = False) -> Dict[str, Any]:
+        """
+        Execute a neural processing burst with SIMD optimization.
+        
+        Args:
+            burst_size: Number of neurons to process (None for auto-sizing)
+            use_gpu: Whether to use GPU acceleration
+            
+        Returns:
+            Burst execution results and performance metrics
+        """
+        
+        burst_start = time.perf_counter()
+        burst_results = {
+            "neurons_processed": 0,
+            "neurons_fired": 0,
+            "processing_time": 0.0,
+            "simd_efficiency": 0.0,
+            "backend_used": "unknown"
+        }
+        
+        try:
+            # SIMD profiling session
+            if SIMD_AVAILABLE and self.use_simd_profiling:
+                with self.simd_profiler.profile_session(f"burst_{self.burst_count}"):
+                    burst_results = self._execute_burst_impl(burst_size, use_gpu, burst_start)
+            else:
+                burst_results = self._execute_burst_impl(burst_size, use_gpu, burst_start)
+                
+        except Exception as e:
+            self.logger.error(f"Burst execution failed: {e}", exc_info=True)
+            burst_results["error"] = str(e)
+        
+        # Update performance statistics
+        self.burst_count += 1
+        self.total_neurons_processed += burst_results.get("neurons_processed", 0)
+        
+        # Periodic performance reporting
+        if self.performance_monitoring and time.time() - self.last_performance_report > 10.0:
+            self._report_performance()
+            self.last_performance_report = time.time()
+        
+        return burst_results
+    
+    def _execute_burst_impl(self, burst_size: Optional[int], use_gpu: bool, burst_start: float) -> Dict[str, Any]:
+        """Core burst execution implementation with SIMD optimization."""
+        
+        results = {
+            "neurons_processed": 0,
+            "neurons_fired": 0,
+            "processing_time": 0.0,
+            "simd_efficiency": 0.0,
+            "backend_used": "scalar"
+        }
+        
+        # Determine optimal burst size
+        if burst_size is None:
+            if SIMD_AVAILABLE and self.backend_selector:
+                burst_size = self.backend_selector.get_chunk_size(10000)  # Default processing size
+            else:
+                burst_size = 1000  # Conservative default
+        
+        # Initialize membrane processor if needed
+        if SIMD_AVAILABLE and self.membrane_processor is None:
+            self.initialize_membrane_processor(burst_size * 2)  # Some headroom
+        
+        # Get fire candidates with SIMD optimization
+        if SIMD_AVAILABLE and self.use_simd_profiling:
+            with profile_simd_operation("fire_candidate_detection", burst_size):
+                fire_candidates = self._get_fire_candidates_simd()
+        else:
+            fire_candidates = self._get_fire_candidates_simd() if SIMD_AVAILABLE else []
+        
+        # Process membrane potential updates with SIMD
+        if fire_candidates and SIMD_AVAILABLE and self.membrane_processor:
+            with profile_simd_operation("membrane_processing", len(fire_candidates)):
+                fired_neurons = self._process_membrane_updates_simd(fire_candidates)
+        else:
+            fired_neurons = fire_candidates  # Fallback
+        
+        # Update results
+        results["neurons_processed"] = burst_size
+        results["neurons_fired"] = len(fired_neurons)
+        results["processing_time"] = time.perf_counter() - burst_start
+        
+        if SIMD_AVAILABLE:
+            results["backend_used"] = self.simd_config.get("recommended_backend", "scalar")
+            
+            # Get SIMD efficiency from profiler
+            if self.use_simd_profiling and hasattr(self.simd_profiler, 'current_session'):
+                session = self.simd_profiler.current_session
+                if session and session.operations:
+                    avg_efficiency = np.mean([
+                        op.simd_efficiency for op in session.operations.values()
+                    ])
+                    results["simd_efficiency"] = avg_efficiency
+        
+        return results
+    
+    def _get_fire_candidates_simd(self) -> List[int]:
+        """Get fire candidates using SIMD-optimized detection."""
+        
+        # This would integrate with the actual connectome/GNA
+        # For now, return empty list as placeholder
+        if hasattr(self, 'gna') and hasattr(self.gna, 'simd_optimized_find_fire_candidates'):
+            return self.gna.simd_optimized_find_fire_candidates(self.burst_count)
+        
+        return []
+    
+    def _process_membrane_updates_simd(self, candidates: List[int]) -> List[int]:
+        """Process membrane potential updates using SIMD optimization."""
+        
+        if not candidates or not self.membrane_processor:
+            return candidates
+        
+        try:
+            # Convert to arrays for SIMD processing
+            candidate_indices = np.array(candidates, dtype=np.int32)
+            input_currents = np.ones(len(candidates), dtype=np.float32)  # Placeholder currents
+            
+            # Use SIMD-optimized membrane update
+            fired_neurons = self.membrane_processor.vectorized_membrane_update(
+                candidate_indices, input_currents
+            )
+            
+            return fired_neurons.tolist()
+            
+        except Exception as e:
+            self.logger.warning(f"SIMD membrane processing failed, using fallback: {e}")
+            return candidates
+    
+    def _report_performance(self):
+        """Report SIMD performance statistics."""
+        
+        if not SIMD_AVAILABLE:
+            return
+        
+        try:
+            # Get performance stats
+            if self.membrane_processor:
+                stats = self.membrane_processor.get_performance_stats()
+                self.logger.info(
+                    f"🚀 SIMD Performance: {stats['avg_neurons_per_update']:.0f} neurons/update, "
+                    f"backend: {stats['simd_backend']}, vector_width: {stats['vector_width']}"
+                )
+            
+            # Get profiler report if available
+            if self.use_simd_profiling and hasattr(self.simd_profiler, 'sessions'):
+                if self.simd_profiler.sessions:
+                    report = self.simd_profiler.get_performance_report()
+                    top_ops = report.get("top_operations", [])
+                    if top_ops:
+                        self.logger.info(f"🔥 Top SIMD operation: {top_ops[0]['name']} "
+                                       f"({top_ops[0]['simd_efficiency']:.2f} efficiency)")
+                        
+        except Exception as e:
+            self.logger.debug(f"Performance reporting failed: {e}")
 
 class FQSampler:
     """
