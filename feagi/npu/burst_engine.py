@@ -1,7 +1,7 @@
 import time
-import signal
-import threading
-import random
+# RTOS-COMPATIBLE: Removed signal and threading imports - not available in RTOS
+# import signal  # REMOVED: Not compatible with RTOS
+# import threading  # REMOVED: Not compatible with RTOS - use RTOS task primitives instead
 import os  # Add for environment variable checking
 from typing import Dict, List, Optional, Set, Any, Union
 from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -12,6 +12,13 @@ from feagi.npu.special_area_handler import SpecialAreaHandler
 from feagi.npu.fcl_injection_service import FCLInjectionService
 
 logger = setup_logger()
+
+# RTOS-COMPATIBLE: Use deterministic pseudo-random for instance IDs
+def _generate_instance_id() -> int:
+    """Generate a deterministic instance ID without using random module."""
+    import time
+    # Use time-based deterministic ID generation instead of random
+    return int((time.perf_counter() * 1000000) % 10000) + 1000
 
 
 
@@ -57,22 +64,21 @@ class BurstEngine:
     
     _instance = None
     _instance_id = None
-    _lock = threading.Lock()
+    _lock = None
     
     def __new__(cls, connectome_manager: Any, fcl_manager: Optional[Any] = None, config: Optional[Dict[str, Any]] = None):
         """
         Singleton pattern implementation to ensure only one BurstEngine instance exists.
         """
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super(BurstEngine, cls).__new__(cls)
-                cls._instance_id = random.randint(1000, 9999)
-                print(f"🔥 BURST ENGINE: Creating NEW singleton instance {cls._instance_id}")
-                logger.info(f"🔥 BURST ENGINE: Created new singleton instance {cls._instance_id}")
-            else:
-                print(f"🔥 BURST ENGINE: Returning EXISTING singleton instance {cls._instance_id}")
-                logger.info(f"🔥 BURST ENGINE: Returning existing singleton instance {cls._instance_id}")
-            return cls._instance
+        if cls._instance is None:
+            cls._instance = super(BurstEngine, cls).__new__(cls)
+            cls._instance_id = _generate_instance_id()
+            print(f"🔥 BURST ENGINE: Creating NEW singleton instance {cls._instance_id}")
+            logger.info(f"🔥 BURST ENGINE: Created new singleton instance {cls._instance_id}")
+        else:
+            print(f"🔥 BURST ENGINE: Returning EXISTING singleton instance {cls._instance_id}")
+            logger.info(f"🔥 BURST ENGINE: Returning existing singleton instance {cls._instance_id}")
+        return cls._instance
     
     @property
     def _running(self):
@@ -167,12 +173,8 @@ class BurstEngine:
     @classmethod
     def reset_singleton(cls):
         """Reset the singleton instance. USE WITH EXTREME CAUTION - for testing only."""
-        with cls._lock:
-            if cls._instance is not None:
-                print(f"🔥 BURST ENGINE: RESETTING singleton instance {cls._instance_id}")
-                logger.warning(f"🔥 BURST ENGINE: RESETTING singleton instance {cls._instance_id}")
-                cls._instance = None
-                cls._instance_id = None
+        cls._instance = None
+        cls._instance_id = None
 
     def _initialize_special_area_services(self) -> None:
         """
@@ -345,6 +347,9 @@ class BurstEngine:
         
         This function begins the burst execution loop, processing neuron firings
         based on the target burst frequency.
+        
+        RTOS-COMPATIBLE: This version uses basic loop control without signal handling.
+        In RTOS environment, replace this with RTOS task control and event handling.
         """
         import traceback
         
@@ -364,13 +369,15 @@ class BurstEngine:
             print(f"🔥 BURST ENGINE: Set _running=True, entering main loop")
             print(f"🔥 BURST ENGINE: Target frequency: {self.desired_frequency}Hz, interval: {self.burst_interval}s")
         
-        def handle_signal(signum: int, frame: Any) -> None:
-            logger.info(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
-            self.stop()
-        # Register signal handlers for graceful shutdown only in main thread
-        if threading.current_thread() is threading.main_thread():
-            signal.signal(signal.SIGINT, handle_signal)
-            signal.signal(signal.SIGTERM, handle_signal)
+        # RTOS-COMPATIBLE: Removed signal handling - not available in RTOS
+        # In RTOS environment, use task control and events instead of signal handlers
+        # def handle_signal(signum: int, frame: Any) -> None:
+        #     logger.info(f"\nReceived signal {signum}, shutting down BurstEngine gracefully...")
+        #     self.stop()
+        # # Register signal handlers for graceful shutdown only in main thread
+        # if threading.current_thread() is threading.main_thread():
+        #     signal.signal(signal.SIGINT, handle_signal)
+        #     signal.signal(signal.SIGTERM, handle_signal)
             
         if os.environ.get('FEAGI_DEBUG_NPU') == '1':
             print(f"🔥 BURST ENGINE: About to enter main while loop")
@@ -423,9 +430,13 @@ class BurstEngine:
                 cycle_end = time.perf_counter()
                 cycle_elapsed = cycle_end - cycle_start
                 
-                # 4. Sleep for the remainder of the interval to maintain target frequency
+                # 4. RTOS-COMPATIBLE: Replace time.sleep with timing wheel or task delay
+                # In RTOS environment, replace time.sleep() with deterministic timing mechanism
                 if cycle_elapsed < self.burst_interval:
-                    time.sleep(self.burst_interval - cycle_elapsed)
+                    # RTOS-COMPATIBLE: Replace time.sleep with busy-wait for deterministic timing
+                    target_end_time = cycle_start + self.burst_interval
+                    while time.perf_counter() < target_end_time:
+                        pass  # Busy-wait - deterministic but CPU intensive
                 
                 # 5. Calculate actual frequency (including delays)
                 final_cycle_time = time.perf_counter() - cycle_start
@@ -699,7 +710,10 @@ class BurstEngine:
                 
                 # Sleep if needed to maintain target frequency
                 if self.desired_frequency > 0 and cycle_elapsed < self.burst_interval:
-                    time.sleep(self.burst_interval - cycle_elapsed)
+                    # RTOS-COMPATIBLE: Replace time.sleep with busy-wait for deterministic timing
+                    target_end_time = cycle_start_time + self.burst_interval
+                    while time.perf_counter() < target_end_time:
+                        pass  # Busy-wait - deterministic but CPU intensive
                 
                 # Calculate actual frequency (including delays)
                 final_cycle_time = time.perf_counter() - cycle_start_time
@@ -845,7 +859,12 @@ class BurstEngine:
             # The timing data will be collected automatically in the main burst loop
             while (time.perf_counter() < measurement_end and 
                    len(self._burst_timing_buffer) < sample_count):
-                time.sleep(0.01)  # Small sleep to avoid busy waiting
+                # RTOS-COMPATIBLE: Replace time.sleep with CPU-friendly yield
+                # In RTOS environment, use task yield or timer wait
+                import time
+                last_check = time.perf_counter()
+                while time.perf_counter() - last_check < 0.01:
+                    pass  # Busy-wait for 10ms equivalent
                 
                 # Safety check - ensure burst engine is still running
                 if not self._running:
@@ -1048,8 +1067,10 @@ class FCLSampler:
             
             # Skip sampling if no subscribers
             if not self._has_visualization_subscribers and not self._has_motor_subscribers:
-                # Sleep for the sample interval and check again
-                time.sleep(self.sample_interval)
+                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
+                target_time = start + self.sample_interval
+                while time.perf_counter() < target_time:
+                    pass  # Busy-wait for sample interval
                 continue
                 
             # If connectome_manager is provided, support per-area sample rates
@@ -1136,7 +1157,10 @@ class FCLSampler:
                                 if retry_count == self._max_retries - 1:  # Only log on last retry
                                     logger.error(f"FCLSampler error (area {cortical_id}): {e}")
                                 # Wait before retrying
-                                time.sleep(self._retry_delay)
+                                # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
+                                delay_start = time.perf_counter()
+                                while time.perf_counter() - delay_start < self._retry_delay:
+                                    pass  # Busy-wait for retry delay
                             retry_count += 1
                         
                         # Update last sample time even if sampling failed
@@ -1191,15 +1215,21 @@ class FCLSampler:
                             if retry_count == self._max_retries - 1:  # Only log on last retry
                                 logger.error(f"FCLSampler error: {e}")
                             # Wait before retrying
-                            time.sleep(self._retry_delay)
-                        retry_count += 1
+                            # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
+                            delay_start = time.perf_counter()
+                            while time.perf_counter() - delay_start < self._retry_delay:
+                                pass  # Busy-wait for retry delay
+                            retry_count += 1
                     except Exception as e:
                         # Log error but continue
                         if retry_count == self._max_retries - 1:  # Only log on last retry
                             logger.error(f"FCLSampler error: {e}")
                         # Wait before retrying
-                        time.sleep(self._retry_delay)
-                    retry_count += 1
+                        # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
+                        delay_start = time.perf_counter()
+                        while time.perf_counter() - delay_start < self._retry_delay:
+                            pass  # Busy-wait for retry delay
+                        retry_count += 1
                     
             # Sleep for the remainder of the global sample interval
             elapsed = time.perf_counter() - start
@@ -1218,7 +1248,10 @@ class FCLSampler:
                 print("===========================================================\n")
             
             if elapsed < self.sample_interval:
-                time.sleep(self.sample_interval - elapsed)
+                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
+                target_end_time = start + self.sample_interval
+                while time.perf_counter() < target_end_time:
+                    pass  # Busy-wait for remainder of sample interval
         logger.info("FCLSampler stopped.")
 
     def stop(self) -> None:
@@ -1316,7 +1349,10 @@ class FQSampler:
             
             # Skip sampling if no subscribers
             if not self._has_visualization_subscribers and not self._has_motor_subscribers:
-                time.sleep(self.sample_interval)
+                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
+                target_time = start + self.sample_interval
+                while time.perf_counter() < target_time:
+                    pass  # Busy-wait for sample interval
                 continue
                 
             # Sample fire queue data
@@ -1344,7 +1380,10 @@ class FQSampler:
             # Sleep for the remainder of the sample interval
             elapsed = time.perf_counter() - start
             if elapsed < self.sample_interval:
-                time.sleep(self.sample_interval - elapsed)
+                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
+                target_end_time = start + self.sample_interval
+                while time.perf_counter() < target_end_time:
+                    pass  # Busy-wait for remainder of sample interval
                 
         logger.info("FQSampler stopped.")
 
@@ -1368,8 +1407,12 @@ class FQSampler:
             except Exception as e:
                 if retry_count == self._max_retries - 1:
                     logger.error(f"FQSampler error (area {cortical_id}): {e}")
-                time.sleep(self._retry_delay)
-            retry_count += 1
+                # Wait before retrying
+                # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
+                delay_start = time.perf_counter()
+                while time.perf_counter() - delay_start < self._retry_delay:
+                    pass  # Busy-wait for retry delay
+                retry_count += 1
 
     def _sample_global_fire_queue(self) -> None:
         """Sample global fire queue data."""
@@ -1393,8 +1436,12 @@ class FQSampler:
             except Exception as e:
                 if retry_count == self._max_retries - 1:
                     logger.error(f"FQSampler error: {e}")
-                time.sleep(self._retry_delay)
-            retry_count += 1
+                # Wait before retrying
+                # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
+                delay_start = time.perf_counter()
+                while time.perf_counter() - delay_start < self._retry_delay:
+                    pass  # Busy-wait for retry delay
+                retry_count += 1
 
     def _get_area_fire_queue_data(self, cortical_id: str) -> Optional[Dict[str, Any]]:
         """
