@@ -852,7 +852,7 @@ class ConnectomeManager:
         # Initialize neuron map for this area
         self.cortical_neuron_map[area.id] = set()
         
-        logger.info(f"Added cortical area '{name}' with ID {area.id} and dimensions {dimensions}")
+        logger.debug(f"Added cortical area '{name}' with ID {area.id} and dimensions {dimensions}")
         return area.id
     
     def get_cortical_area(self, cortical_id: str) -> CorticalArea:

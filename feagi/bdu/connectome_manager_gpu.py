@@ -1073,7 +1073,7 @@ class ConnectomeManagerGPU:
         # Initialize area neuron mask
         self.area_neuron_masks[area.id] = np.zeros(self.max_neurons, dtype=np.bool_)
         
-        logger.info(f"Added cortical area '{name}' with ID {area.id}")
+        logger.debug(f"Added cortical area '{name}' with ID {area.id}")
         return area.id
         
     def get_cortical_area(self, area_id: str) -> CorticalArea:

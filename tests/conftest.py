@@ -16,6 +16,18 @@ import asyncio
 # Configure logging for tests
 logging.basicConfig(level=logging.WARNING)
 
+# Suppress verbose logs from specific modules during testing
+# The embryogenesis module generates too many "No mappings found" messages
+verbose_loggers = [
+    'feagi.bdu.embryogenesis.neuroembryogenesis',
+    'feagi.bdu.embryogenesis',
+    'feagi.bdu',
+]
+
+for logger_name in verbose_loggers:
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.ERROR)  # Only show errors, suppress INFO/WARNING
+
 # Mock modules that are causing import issues
 MOCK_MODULES = ['wgpu', 'wgpu._coreutils']
 for mod_name in MOCK_MODULES:

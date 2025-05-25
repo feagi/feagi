@@ -196,40 +196,61 @@ class NeuroEmbryogenesis:
                  config: Optional[FeagiConfig] = None,
                  progress_callback: Optional[Callable[[DevelopmentStage, float, str], None]] = None):
         """
-        Initialize the neuroembryogenesis process.
+        Initialize the NeuroEmbryogenesis system.
         
         Args:
-            connectome_manager: The ConnectomeManager to use for brain construction
-            config: Configuration for FEAGI, if not provided a default will be used
-            progress_callback: Optional callback to report development progress
+            connectome_manager: The connectome manager to use for brain development
+            config: Optional configuration object
+            progress_callback: Optional callback for progress reporting
         """
         self.connectome_manager = connectome_manager
-        self.config = config or FeagiConfig()
+        self.config = config
         self.progress_callback = progress_callback
         
-        # Development state
-        self.stage = DevelopmentStage.INITIALIZATION
+        # Configuration for logging verbosity
+        self.verbose_logging = True
+        self.suppress_no_mappings_logs = False
+        
+        # Check for embryogenesis-specific configuration
+        if config and hasattr(config, 'embryogenesis'):
+            embryo_config = config.embryogenesis
+            self.verbose_logging = embryo_config.get('verbose_logging', True)
+            self.suppress_no_mappings_logs = embryo_config.get('suppress_no_mappings_logs', False)
+        elif config and hasattr(config, 'get'):
+            # Alternative configuration access pattern
+            self.verbose_logging = config.get('embryogenesis_verbose_logging', True)
+            self.suppress_no_mappings_logs = config.get('embryogenesis_suppress_no_mappings_logs', False)
+        
+        # Check environment variables for runtime control
+        if os.environ.get('FEAGI_EMBRYOGENESIS_QUIET', '').lower() in ('true', '1', 'yes'):
+            self.suppress_no_mappings_logs = True
+        if os.environ.get('FEAGI_EMBRYOGENESIS_VERBOSE', '').lower() in ('false', '0', 'no'):
+            self.verbose_logging = False
+            
+        self.genome = None
+        self.cortical_areas = {}
+        self.error = None
+        
+        # Development statistics
         self.development_stats = {
+            "total_neurons": 0,
+            "total_synapses": 0,
             "cortical_areas": 0,
-            "neurons": 0,
-            "synapses": 0,
             "start_time": None,
             "end_time": None,
             "duration": None
         }
         
+        # Cache for morphology registry
+        self._morphology_registry_cache = None
+        
+        # Development state
+        self.stage = DevelopmentStage.INITIALIZATION
+        
         # Tracking data
-        self.genome = None
-        self.cortical_areas = {}  # cortical_idx -> CorticalArea
         self.cortical_id_map = {}  # cortical_idx -> cortical_id (6-char genome ID)
         self.reverse_cortical_id_map = {}  # cortical_id -> cortical_idx
         self.voxel_neuron_map = {}  # Maps (area_id, position) to list of neuron IDs
-        
-        # Error state
-        self.error = None
-        
-        # Cache for morphology registry to avoid regenerating it
-        self._morphology_registry_cache = None
         
         # Add temporary method to ConnectomeManager to provide morphology information
         # Add this once at initialization instead of each time in _perform_synaptogenesis
@@ -243,7 +264,14 @@ class NeuroEmbryogenesis:
         
     def _report_progress(self, stage: DevelopmentStage, percentage: float, message: str) -> None:
         """Report progress for the given development stage."""
-        logger.info(f"[{stage.value}] {percentage:.1f}% - {message}")
+        # Check if we should suppress this specific message
+        should_suppress = (
+            self.suppress_no_mappings_logs and 
+            "No mappings found" in message
+        )
+        
+        if self.verbose_logging and not should_suppress:
+            logger.info(f"[{stage.value}] {percentage:.1f}% - {message}")
         
         if self.progress_callback:
             self.progress_callback(stage, percentage, message)
@@ -313,8 +341,6 @@ class NeuroEmbryogenesis:
         """
         # In FEAGI 2.1, blueprint entries follow the pattern:
         # _____10c-<cortical_id>-<gene_type>-<property>-<value_type>
-
-        print(">>>>> cortical_id", cortical_id)
 
         properties = {}
         blueprint = self.genome["blueprint"]
@@ -513,13 +539,9 @@ class NeuroEmbryogenesis:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
                 
-                # Report progress
+                # Report progress - Log detailed per-area progress at DEBUG level to reduce noise
                 progress = ((i + 1) / total_areas) * 100
-                self._report_progress(
-                    DevelopmentStage.CORTICOGENESIS, 
-                    progress, 
-                    f"Created cortical area {i+1}/{total_areas}: {name}"
-                )
+                logger.debug(f"[{DevelopmentStage.CORTICOGENESIS.value}] {progress:.1f}% - Created cortical area {i+1}/{total_areas}: {name}")
             
             self.development_stats["cortical_areas"] = len(self.cortical_areas)
             
@@ -629,15 +651,11 @@ class NeuroEmbryogenesis:
                             
                             voxel_num += 1
                             
-                            # Report progress periodically
+                            # Report progress periodically - Log detailed voxel progress at DEBUG level to reduce noise
                             if voxel_num % report_interval == 0 or voxel_num == voxel_count:
                                 voxel_progress = (voxel_num / voxel_count) * 100
                                 area_progress = ((i + voxel_progress/100) / total_areas) * 100
-                                self._report_progress(
-                                    DevelopmentStage.NEUROGENESIS,
-                                    area_progress,
-                                    f"Area {i+1}/{total_areas} ({area.name}): {voxel_progress:.1f}% complete"
-                                )
+                                logger.debug(f"[{DevelopmentStage.NEUROGENESIS.value}] {area_progress:.1f}% - Area {i+1}/{total_areas} ({area.name}): {voxel_progress:.1f}% complete")
                 
                 # Process any remaining neurons in the batch
                 if neuron_specs:
@@ -646,9 +664,9 @@ class NeuroEmbryogenesis:
                     area_neuron_count += len(neuron_ids)
                 
                 total_neurons += area_neuron_count
-                logger.info(f"Created {area_neuron_count} neurons in area {area.name}")
+                logger.debug(f"Created {area_neuron_count} neurons in area {area.name}")
             
-            self.development_stats["neurons"] = total_neurons
+            self.development_stats["total_neurons"] = total_neurons
             self._report_progress(
                 DevelopmentStage.NEUROGENESIS,
                 100,
@@ -818,11 +836,8 @@ class NeuroEmbryogenesis:
                 
                 # Get mappings for this area
                 if src_cortical_id not in mapping_data:
-                    self._report_progress(
-                        DevelopmentStage.SYNAPTOGENESIS, 
-                        100 * i / total_areas, 
-                        f"No mappings found for area {i+1}/{total_areas} ({src_area.name})"
-                    )
+                    # Log at DEBUG level instead of INFO to reduce noise during normal operation
+                    logger.debug(f"[{DevelopmentStage.SYNAPTOGENESIS.value}] {100 * i / total_areas:.1f}% - No mappings found for area {i+1}/{total_areas} ({src_area.name})")
                     continue
                 
                 mappings = mapping_data[src_cortical_id]
@@ -877,6 +892,7 @@ class NeuroEmbryogenesis:
                             total_synapses += 1
             
             self._report_progress(DevelopmentStage.SYNAPTOGENESIS, 100, f"Created {total_synapses} synaptic connections")
+            self.development_stats["total_synapses"] = total_synapses
             return True
             
         except Exception as e:
@@ -1014,8 +1030,8 @@ class NeuroEmbryogenesis:
             100,
             f"Brain development completed in {self.development_stats['duration']}. "
             f"Created {self.development_stats['cortical_areas']} cortical areas, "
-            f"{self.development_stats['neurons']} neurons, and "
-            f"{self.development_stats['synapses']} synapses."
+            f"{self.development_stats['total_neurons']} neurons, and "
+            f"{self.development_stats['total_synapses']} synapses."
         )
         
         return True
