@@ -570,7 +570,13 @@ class CoreAPIService:
                 # Create singleton instance only if none exists
                 print(f"🔥 CORE API: Creating singleton BurstEngine instance")
                 self.logger.info("🔥 CORE API: Creating singleton BurstEngine instance")
-                singleton_instance = BurstEngine(connectome_manager=self._connectome_manager)
+                
+                # Check for debug NPU flag and pass through config
+                import os
+                debug_npu = os.getenv('FEAGI_DEBUG_NPU', '').lower() in ('1', 'true', 'yes')
+                engine_config = {'debug_npu': debug_npu}
+                
+                singleton_instance = BurstEngine(connectome_manager=self._connectome_manager, config=engine_config)
             else:
                 print(f"🔥 CORE API: Using existing singleton BurstEngine instance")
                 self.logger.info("🔥 CORE API: Using existing singleton BurstEngine instance")

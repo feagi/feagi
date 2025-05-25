@@ -127,8 +127,12 @@ class BurstEngine:
         self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
         self.config = config or {}
         
-        # WGPU-COMPATIBLE: Replace environment variable with config parameter
+        # WGPU-COMPATIBLE: Check debug_npu from config only (no environment variables)
         self.debug_npu = self.config.get('debug_npu', False)
+        
+        # Log debug NPU status when enabled
+        if self.debug_npu:
+            logger.info("🔥 NPU debug mode enabled - will show detailed fire queue contents during bursts")
         
         self.genome_loaded = False
         self._running = False  # This will now trigger the setter with debug logging
@@ -783,21 +787,21 @@ class BurstEngine:
         - Neuron firing statistics
         """
         try:
-            logger.debug(f"\n🔥 ===== NPU DEBUG - BURST {self.burst_count} =====")
+            logger.info(f"\n🔥 ===== NPU DEBUG - BURST {self.burst_count} =====")
             
             # Get global FCL
             global_fcl = self.fcl_manager.get_global_fcl()
             total_firing = len(global_fcl)
             
-            logger.debug(f"📊 Global Fire Summary:")
-            logger.debug(f"   Total firing neurons: {total_firing}")
-            logger.debug(f"   Burst frequency: {1.0/self.burst_interval:.1f}Hz target")
+            logger.info(f"📊 Global Fire Summary:")
+            logger.info(f"   Total firing neurons: {total_firing}")
+            logger.info(f"   Burst frequency: {1.0/self.burst_interval:.1f}Hz target")
             
             if total_firing > 0:
                 # Get firing neurons by cortical area
                 fcl_by_cortical = self.fcl_manager.get_fcl_by_cortical()
                 
-                logger.debug(f"🧠 Per-Area Breakdown ({len(fcl_by_cortical)} active areas):")
+                logger.info(f"🧠 Per-Area Breakdown ({len(fcl_by_cortical)} active areas):")
                 
                 # Sort areas by number of firing neurons for consistent output
                 sorted_areas = sorted(fcl_by_cortical.items(), key=lambda x: len(x[1]), reverse=True)
@@ -809,33 +813,33 @@ class BurstEngine:
                     # Display first few neurons for small lists, summarize for large ones
                     if area_count <= 10:
                         neuron_list = sorted(list(area_fcl))
-                        logger.debug(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_list}")
+                        logger.info(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_list}")
                     else:
                         neuron_sample = sorted(list(area_fcl))[:5]
-                        logger.debug(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_sample}... (+{area_count-5} more)")
+                        logger.info(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_sample}... (+{area_count-5} more)")
                 
                 # Show power area injection info if available
                 if self.fcl_injection_service:
                     stats = self.get_power_injection_statistics()
                     if 'injection' in stats and stats['injection'].get('total_injections', 0) > 0:
                         power_neurons = stats['special_areas'].get('total_power_neurons', 0)
-                        logger.debug(f"⚡ Power Injection: {power_neurons} neurons from {stats['special_areas'].get('power_areas_count', 0)} power areas")
+                        logger.info(f"⚡ Power Injection: {power_neurons} neurons from {stats['special_areas'].get('power_areas_count', 0)} power areas")
             else:
-                logger.debug("   No neurons firing this burst")
+                logger.info("   No neurons firing this burst")
                 
             # Show recent firing statistics if available
             if hasattr(self.fcl_manager, 'get_firing_statistics'):
                 firing_stats = self.fcl_manager.get_firing_statistics()
                 if firing_stats:
-                    logger.debug(f"📈 Recent Activity:")
-                    logger.debug(f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst")
-                    logger.debug(f"   Peak firing: {firing_stats.get('peak_firing', 0)} neurons")
+                    logger.info(f"📈 Recent Activity:")
+                    logger.info(f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst")
+                    logger.info(f"   Peak firing: {firing_stats.get('peak_firing', 0)} neurons")
             
-            logger.debug(f"🔥 ========================================\n")
+            logger.info(f"🔥 ========================================\n")
             
         except Exception as e:
             logger.error(f"🔥 NPU DEBUG ERROR: Failed to display fire queue - {e}")
-            logger.error(f"NPU debug output error: {e}")  
+            logger.error(f"NPU debug output error: {e}")
 
     def measure_actual_frequency(self, duration_seconds: float = 5.0, sample_count: int = 100) -> dict:
         """
