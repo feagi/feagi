@@ -225,7 +225,8 @@ class ZMQRestAPIAdapter:
             # Get visualization stream from ZMQ server
             viz_stream = zmq_server.get_visualization_stream()
             if viz_stream:
-                await viz_stream.register_visualization_client(client_id)
+                # RTOS: VisualizationStream is now synchronous, no await needed
+                viz_stream.register_visualization_client(client_id)
                 logger.info(f"✅ Visualization client registered: {client_id}")
                 
                 return {
@@ -261,7 +262,8 @@ class ZMQRestAPIAdapter:
             # Get visualization stream from ZMQ server
             viz_stream = zmq_server.get_visualization_stream()
             if viz_stream:
-                await viz_stream.unregister_visualization_client(client_id)
+                # RTOS: VisualizationStream is now synchronous, no await needed
+                viz_stream.unregister_visualization_client(client_id)
                 logger.info(f"✅ Visualization client unregistered: {client_id}")
                 
                 return {
@@ -295,7 +297,8 @@ class ZMQRestAPIAdapter:
             # Get visualization stream from ZMQ server
             viz_stream = zmq_server.get_visualization_stream()
             if viz_stream:
-                await viz_stream.heartbeat_visualization_client(client_id)
+                # RTOS: VisualizationStream is now synchronous, no await needed
+                viz_stream.heartbeat_visualization_client(client_id)
                 
                 return {
                     "message": f"Heartbeat received from client {client_id}"

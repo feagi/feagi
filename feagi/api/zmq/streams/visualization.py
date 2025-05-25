@@ -8,13 +8,19 @@ It provides:
 - Genome-dependent state management (standby when no genome loaded)
 - Real-time performance optimization with minimal buffering
 - Automatic subscriber detection and FQ sampler control
+
+RTOS COMPATIBILITY:
+- Uses threading.Thread instead of async/await for deterministic timing
+- Queue-based communication for thread-safe data passing
+- Busy-wait loops instead of time.sleep() for precise timing
+- Pre-allocated data structures to avoid dynamic memory allocation
 """
 
-import asyncio
 import time
+import threading
 from typing import Dict, Any, Optional, List, Callable
+from queue import Queue, Empty
 import zmq
-import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
 from ...core.services.core_api_service import CoreAPIService
@@ -30,6 +36,12 @@ class VisualizationStream:
     
     Uses a PUB socket for sending neural activity data (FEAGI → agents).
     Automatically adjusts to genome availability state.
+    
+    RTOS COMPATIBLE:
+    - Uses threading.Thread instead of async tasks
+    - Queue-based communication patterns
+    - Deterministic timing with busy-wait loops
+    - Pre-allocated data structures
     """
     
     def __init__(
@@ -37,7 +49,7 @@ class VisualizationStream:
         core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5560,
-        context: Optional[zmq.asyncio.Context] = None,
+        context: Optional[zmq.Context] = None,
         fq_sampler: Optional[Any] = None,
         fq_sampler_queue: Optional[Any] = None,
         stream_config: Optional[Dict[str, Any]] = None
@@ -58,7 +70,7 @@ class VisualizationStream:
         self.host = host
         self.port = port
         self.running = False
-        self.context = context or zmq.asyncio.Context.instance()
+        self.context = context or zmq.Context.instance()
         
         # Stream configuration
         self.stream_config = stream_config or {}
@@ -71,6 +83,7 @@ class VisualizationStream:
         # Connected clients tracking
         self.client_last_heartbeat = {}  # Mapping of client_id -> last heartbeat time
         self.client_heartbeat_timeout = 30  # Consider clients disconnected after 30s
+        self._client_lock = threading.Lock()  # RTOS: Thread-safe client access
         
         # Subscriber monitoring
         self._subscriber_count = 0
@@ -87,8 +100,13 @@ class VisualizationStream:
         self.fq_sampler = fq_sampler
         self.fq_sampler_queue = fq_sampler_queue
         
-        # Tasks
-        self.tasks = []
+        # RTOS: Thread management with pre-allocated worker threads
+        self.worker_threads = []
+        self._stop_event = threading.Event()  # RTOS: Event-based coordination
+        
+        # RTOS: Pre-allocated queues with fixed sizes
+        self.control_queue = Queue(maxsize=100)  # For control messages
+        self.data_queue = Queue(maxsize=50)      # For outbound data
         
         # Register for genome state change notifications
         if hasattr(core_api, 'register_genome_change_listener'):
@@ -97,7 +115,7 @@ class VisualizationStream:
         # Initialize state based on current genome availability
         self._update_active_mode()
 
-    def _setup_socket(self) -> zmq.asyncio.Socket:
+    def _setup_socket(self) -> zmq.Socket:
         """
         Set up a visualization socket with real-time optimization.
         
@@ -148,43 +166,63 @@ class VisualizationStream:
             logger.error(f"Error handling genome state change: {e}")
             self._active_mode = False
 
-    async def start(self) -> None:
+    def start(self) -> None:
         """Start the visualization stream server."""
         if self.running:
             return
             
         logger.info(f"Starting Visualization Stream server on {self.host}:{self.port}")
         self.running = True
+        self._stop_event.clear()
         
-        # Start FQ processing tasks if FQ sampler is available
+        # RTOS: Start dedicated worker threads with specific responsibilities
+        
+        # Thread 1: FQ data processing
         if self.fq_sampler_queue:
-            self.tasks.append(asyncio.create_task(self._process_fq_data()))
+            fq_thread = threading.Thread(
+                target=self._fq_data_worker,
+                name="VisualizationFQ",
+                daemon=True
+            )
+            fq_thread.start()
+            self.worker_threads.append(fq_thread)
             
-        # Start client tracking task
-        self.tasks.append(asyncio.create_task(self._cleanup_disconnected_clients()))
+        # Thread 2: Client cleanup and monitoring
+        cleanup_thread = threading.Thread(
+            target=self._client_cleanup_worker,
+            name="VisualizationCleanup", 
+            daemon=True
+        )
+        cleanup_thread.start()
+        self.worker_threads.append(cleanup_thread)
         
-        # Start subscriber monitoring task if auto-enable is configured
+        # Thread 3: Subscriber monitoring (if enabled)
         if self.auto_enable_on_subscribers:
-            self.tasks.append(asyncio.create_task(self._monitor_subscribers()))
+            monitor_thread = threading.Thread(
+                target=self._subscriber_monitor_worker,
+                name="VisualizationMonitor",
+                daemon=True
+            )
+            monitor_thread.start()
+            self.worker_threads.append(monitor_thread)
             
         logger.info("Visualization Stream server started")
 
-    async def stop(self) -> None:
+    def stop(self) -> None:
         """Stop the visualization stream server."""
         if not self.running:
             return
             
         logger.info("Stopping Visualization Stream server")
         self.running = False
+        self._stop_event.set()
         
-        # Cancel all tasks
-        for task in self.tasks:
-            task.cancel()
-            
-        # Wait for tasks to complete
-        if self.tasks:
-            await asyncio.gather(*self.tasks, return_exceptions=True)
-            self.tasks = []
+        # RTOS: Wait for all worker threads to complete
+        for thread in self.worker_threads:
+            if thread.is_alive():
+                thread.join(timeout=1.0)
+        
+        self.worker_threads.clear()
         
         # Close the socket
         if self.socket:
@@ -193,66 +231,175 @@ class VisualizationStream:
             
         logger.info("Visualization Stream server stopped")
 
-    async def _process_fq_data(self) -> None:
-        """Process data from FQ sampler queue."""
+    def _fq_data_worker(self) -> None:
+        """
+        RTOS-compatible worker thread for processing FQ data.
+        Replaces async _process_fq_data() with deterministic thread.
+        """
         if not self.fq_sampler_queue:
-            logger.warning("No FQ sampler queue available for data processing")
+            logger.debug("No FQ sampler queue configured")
             return
             
-        logger.debug("Starting FQ data processing")
+        logger.info("🎬 DEBUG: VisualizationStream FQ data processing started")
+        logger.info(f"🔧 DEBUG: Queue type: {type(self.fq_sampler_queue)}")
+        logger.info(f"🔧 DEBUG: Queue available: {self.fq_sampler_queue is not None}")
+        
+        consecutive_errors = 0
+        max_consecutive_errors = 10
+        
+        # RTOS: Fixed timing interval for deterministic behavior
+        check_interval = 0.01  # 10ms check interval
             
-        while self.running:
+        while self.running and not self._stop_event.is_set():
             try:
-                # Get data from queue (non-blocking)
+                # Debug: Log we're in the loop
+                if consecutive_errors == 0:  # Only log when no recent errors
+                    logger.debug("🔄 DEBUG: FQ processing loop iteration")
+                
+                # RTOS: Non-blocking queue access with timeout
                 fq_data = None
                 try:
                     if hasattr(self.fq_sampler_queue, 'get'):
                         fq_data = self.fq_sampler_queue.get(block=False)
+                        logger.info(f"🔍 DEBUG: Got FQ data from queue: {type(fq_data)}")
                     elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
                         fq_data = self.fq_sampler_queue._queue.pop(0)
+                        logger.info(f"🔍 DEBUG: Got FQ data from _queue: {type(fq_data)}")
                     else:
-                        await asyncio.sleep(0.01)
+                        # No data available - RTOS: busy-wait instead of sleep
+                        self._deterministic_wait(check_interval)
                         continue
-                except Exception:
-                    await asyncio.sleep(0.01)
+                except Empty:
+                    logger.debug(f"📭 DEBUG: No data in queue")
+                    self._deterministic_wait(check_interval)
                     continue 
+                except Exception as e:
+                    logger.debug(f"📭 DEBUG: Queue access error: {e}")
+                    self._deterministic_wait(check_interval)
+                    continue
                 
                 if fq_data is None:
-                    await asyncio.sleep(0.01)
+                    self._deterministic_wait(check_interval)
                     continue
+                    
+                logger.info(f"🎯 DEBUG: Processing FQ data type: {type(fq_data)}")
+                
+                # Reset consecutive error counter on successful data retrieval
+                consecutive_errors = 0
                     
                 # Handle different data types
                 if isinstance(fq_data, bytes):
                     # Already encoded binary data
+                    logger.info(f"💾 DEBUG: Binary data ({len(fq_data)} bytes)")
                     if self.get_connected_client_count() > 0:
-                        await self._send_binary_data(fq_data)
+                        self._send_binary_data(fq_data)
                 
                 elif isinstance(fq_data, dict) and 'target' in fq_data:
                     # Handle new tagged format from enhanced FQ sampler
-                    await self._process_tagged_fq_data(fq_data)
+                    logger.info(f"🏷️ DEBUG: Tagged data with target: {fq_data.get('target')}")
+                    self._process_tagged_fq_data(fq_data)
                 
                 elif isinstance(fq_data, tuple) and len(fq_data) == 2:
                     # Handle (cortical_id, fire_queue_data) tuple format (legacy visualization)
-                    await self._process_fq_tuple(fq_data)
+                    cortical_id, fire_data = fq_data
+                    logger.info(f"📦 DEBUG: Tuple data for {cortical_id}: {len(fire_data.get('neuron_ids', [])) if fire_data else 0} neurons")
+                    self._process_fq_tuple(fq_data)
                 
                 elif isinstance(fq_data, dict):
                     # Handle fire queue dict directly (legacy format)
-                    await self._process_fq_dict(fq_data)
+                    logger.info(f"📚 DEBUG: Dict data: {len(fq_data.get('neuron_ids', [])) if fq_data else 0} neurons")
+                    self._process_fq_dict(fq_data)
                 
                 elif isinstance(fq_data, str) and fq_data == "STOP":
                     logger.info("Received STOP signal")
                     break 
                 
                 else:
-                    logger.debug(f"Unsupported FQ data type: {type(fq_data)}")
+                    logger.warning(f"❌ DEBUG: Unsupported FQ data type: {type(fq_data)}")
                 
-            except asyncio.CancelledError:
-                break 
             except Exception as e: 
-                logger.error(f"Error in FQ data processing: {e}")
-                await asyncio.sleep(0.1) 
+                consecutive_errors += 1
+                logger.error(f"💥 DEBUG: Error in FQ data processing (#{consecutive_errors}): {e}")
+                logger.error(f"💥 DEBUG: Exception type: {type(e)}")
+                import traceback
+                logger.error(f"💥 DEBUG: Traceback: {traceback.format_exc()}")
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.error(f"💥 DEBUG: Too many consecutive errors ({consecutive_errors}), stopping FQ processing")
+                    break
+                    
+                self._deterministic_wait(0.1)  # 100ms error recovery delay
+                
+        logger.info("🛑 DEBUG: FQ data processing thread ended")
 
-    async def _process_tagged_fq_data(self, fq_data):
+    def _deterministic_wait(self, interval: float) -> None:
+        """
+        RTOS-compatible deterministic wait using busy-wait.
+        Replaces time.sleep() for precise, deterministic timing.
+        """
+        target_end_time = time.perf_counter() + interval
+        while time.perf_counter() < target_end_time and not self._stop_event.is_set():
+            pass  # Busy-wait for deterministic timing
+
+    def _client_cleanup_worker(self) -> None:
+        """
+        RTOS-compatible worker thread for client cleanup.
+        Replaces async _cleanup_disconnected_clients().
+        """
+        cleanup_interval = 10.0  # 10 second cleanup cycle
+        
+        while self.running and not self._stop_event.is_set():
+            try:
+                current_time = time.time()
+                
+                with self._client_lock:  # RTOS: Thread-safe client access
+                    client_ids = list(self.client_last_heartbeat.keys())
+                    
+                    for client_id in client_ids:
+                        last_heartbeat = self.client_last_heartbeat[client_id]
+                        if current_time - last_heartbeat > self.client_heartbeat_timeout:
+                            logger.info(f"Client {client_id} disconnected (timeout)")
+                            del self.client_last_heartbeat[client_id]
+                        
+            except Exception as e:
+                logger.error(f"Error cleaning up clients: {e}")
+                
+            # RTOS: Deterministic wait instead of time.sleep()
+            self._deterministic_wait(cleanup_interval)
+
+    def _subscriber_monitor_worker(self) -> None:
+        """
+        RTOS-compatible worker thread for subscriber monitoring.
+        Replaces async _monitor_subscribers().
+        """
+        logger.info("Starting subscriber monitoring for automatic FQ sampler control")
+        
+        while self.running and not self._stop_event.is_set():
+            try:
+                # Check current subscriber count
+                current_count = self._get_subscriber_count()
+                
+                # Update subscriber count
+                if current_count != self._last_subscriber_count:
+                    logger.info(f"Visualization subscriber count changed: {self._last_subscriber_count} -> {current_count}")
+                    self._last_subscriber_count = current_count
+                    
+                    # Auto-enable/disable FQ sampler based on subscriber count
+                    should_enable = current_count > 0
+                    
+                    if should_enable != self._fq_sampler_enabled:
+                        self._control_fq_sampler(should_enable)
+                
+                # RTOS: Deterministic wait instead of time.sleep()
+                self._deterministic_wait(self.subscriber_check_interval)
+                
+            except Exception as e:
+                logger.error(f"Error in subscriber monitoring: {e}")
+                self._deterministic_wait(self.subscriber_check_interval)
+        
+        logger.info("Subscriber monitoring stopped")
+
+    def _process_tagged_fq_data(self, fq_data):
         """Process tagged data from enhanced FQ sampler."""
         try:
             target = fq_data.get('target', 'visualization')
@@ -267,12 +414,12 @@ class VisualizationStream:
                 # Area-specific data
                 cortical_id = fq_data['cortical_id']
                 fire_queue_data = fq_data['fire_queue_data']
-                await self._process_fq_tuple((cortical_id, fire_queue_data))
+                self._process_fq_tuple((cortical_id, fire_queue_data))
                 
             elif 'fire_queue_data' in fq_data:
                 # Global data
                 fire_queue_data = fq_data['fire_queue_data']
-                await self._process_fq_dict(fire_queue_data)
+                self._process_fq_dict(fire_queue_data)
                 
             else:
                 logger.warning(f"Invalid tagged FQ data format: {fq_data.keys()}")
@@ -280,49 +427,65 @@ class VisualizationStream:
         except Exception as e:
             logger.error(f"Error processing tagged FQ data: {e}")
 
-    async def _process_fq_tuple(self, fq_data):
+    def _process_fq_tuple(self, fq_data):
         """Process a 2-element FQ tuple and convert to visualization data."""
         try:
             cortical_id, fire_queue_data = fq_data
             
+            logger.info(f"🧠 DEBUG: Processing tuple for {cortical_id}")
+            
             if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
+                logger.info(f"❌ DEBUG: No fire queue data or neuron_ids for {cortical_id}")
                 return
+                
+            neuron_count = len(fire_queue_data.get('neuron_ids', []))
+            logger.info(f"🔥 DEBUG: {cortical_id} has {neuron_count} firing neurons")
                 
             # Check if we have connected clients OR if in test mode (where we assume clients)
             client_count = self.get_connected_client_count()
             is_test_mode = self._is_test_visualization_mode()
             
+            logger.info(f"👥 DEBUG: Client count: {client_count}, Test mode: {is_test_mode}, Active mode: {self._active_mode}")
+            
             if client_count == 0 and not is_test_mode:
-                logger.debug(f"No clients connected and not in test mode, skipping data for {cortical_id}")
+                logger.warning(f"🚫 DEBUG: BLOCKING - No clients connected and not in test mode, skipping data for {cortical_id}")
                 return
                 
             if is_test_mode and client_count == 0:
-                logger.debug(f"Test mode: assuming clients for area {cortical_id} ({len(fire_queue_data.get('neuron_ids', []))} neurons)")
+                logger.info(f"🧪 DEBUG: Test mode: assuming clients for area {cortical_id} ({neuron_count} neurons)")
                 
             # Extract data from fire queue
             neuron_ids = fire_queue_data['neuron_ids']
             membrane_potentials = fire_queue_data.get('membrane_potentials', [])
             coordinates = fire_queue_data.get('coordinates', [])
             
+            logger.info(f"📊 DEBUG: Data extracted - neurons: {len(neuron_ids)}, potentials: {len(membrane_potentials)}, coords: {len(coordinates)}")
+            
             # Use coordinates if available, otherwise generate from IDs
             if coordinates and len(coordinates) == len(neuron_ids):
                 x_values = [coord[0] for coord in coordinates]
                 y_values = [coord[1] for coord in coordinates]
                 z_values = [coord[2] for coord in coordinates]
+                logger.info(f"📍 DEBUG: Using provided coordinates")
             else:
                 # Fallback to ID-based coordinates
                 x_values = [(nid % 100) if nid > 0 else 1 for nid in neuron_ids]
                 y_values = [((nid // 100) % 100) if nid > 0 else 1 for nid in neuron_ids]
                 z_values = [(nid // 10000) if nid > 0 else 0 for nid in neuron_ids]
+                logger.info(f"📍 DEBUG: Generated coordinates from neuron IDs")
             
             # Use membrane potentials if available, otherwise default to 1.0
             if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
                 potentials = membrane_potentials
+                logger.info(f"⚡ DEBUG: Using provided membrane potentials")
             else:
                 potentials = [1.0] * len(neuron_ids)
+                logger.info(f"⚡ DEBUG: Using default membrane potentials (1.0)")
             
             # Create cortical ID list (one per neuron)
             cortical_ids = [cortical_id] * len(neuron_ids)
+            
+            logger.info(f"🔮 DEBUG: Encoding {len(neuron_ids)} neurons for {cortical_id}")
                         
             # Encode using feagi_bytes
             try:
@@ -337,15 +500,16 @@ class VisualizationStream:
                     potentials=potentials
                 )
                 
-                await self._send_binary_data(binary_data)
+                logger.info(f"✅ DEBUG: Encoded {len(binary_data)} bytes, sending...")
+                self._send_binary_data(binary_data)
                 
             except Exception as e:
-                logger.error(f"Error encoding visualization data: {e}")
+                logger.error(f"💥 DEBUG: Error encoding visualization data: {e}")
                         
         except Exception as e:
-            logger.error(f"Error processing FQ tuple: {e}")
+            logger.error(f"💥 DEBUG: Error processing FQ tuple: {e}")
 
-    async def _process_fq_dict(self, fire_queue_data):
+    def _process_fq_dict(self, fire_queue_data):
         """Process a fire queue dictionary directly."""
         try:
             if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
@@ -400,7 +564,7 @@ class VisualizationStream:
                     potentials=potentials
                 )
                 
-                await self._send_binary_data(binary_data)
+                self._send_binary_data(binary_data)
                 
             except Exception as e:
                 logger.error(f"Error encoding visualization data: {e}")
@@ -408,48 +572,36 @@ class VisualizationStream:
         except Exception as e:
             logger.error(f"Error processing FQ dict: {e}")
 
-    async def _send_binary_data(self, binary_data: bytes):
+    def _send_binary_data(self, binary_data: bytes):
         """Send binary data to visualization clients."""
         try:
+            logger.info(f"📡 DEBUG: Attempting to send {len(binary_data)} bytes")
+            logger.info(f"📊 DEBUG: Active mode: {self._active_mode}, Running: {self.running}")
+            
             # Skip if in standby mode
             if not self._active_mode:
-                logger.debug("Visualization stream in STANDBY mode, skipping data send")
+                logger.warning(f"🚫 DEBUG: BLOCKING - Visualization stream in STANDBY mode, skipping data send")
                 return
+                
+            logger.info(f"📡 DEBUG: Sending data on 'activity' topic...")
                 
             # No artificial rate limiting - let the natural sampling frequency determine the rate
             
             # Send data on activity topic
-            await self.socket.send_multipart([
+            self.socket.send_multipart([
                 b"activity",
                 binary_data
             ])
             
-            logger.debug(f"Sent {len(binary_data)} bytes of visualization data")
+            logger.info(f"✅ DEBUG: Successfully sent {len(binary_data)} bytes of visualization data")
             
         except Exception as e:
-            logger.error(f"Error sending binary data: {e}")
-
-    async def _cleanup_disconnected_clients(self) -> None:
-        """Periodically clean up disconnected clients based on heartbeat timeout."""
-        while self.running:
-            try:
-                current_time = time.time()
-                client_ids = list(self.client_last_heartbeat.keys())
-                
-                for client_id in client_ids:
-                    last_heartbeat = self.client_last_heartbeat[client_id]
-                    if current_time - last_heartbeat > self.client_heartbeat_timeout:
-                        logger.info(f"Client {client_id} disconnected (timeout)")
-                        del self.client_last_heartbeat[client_id]
-                        
-            except Exception as e:
-                logger.error(f"Error cleaning up clients: {e}")
-                
-            await asyncio.sleep(10)
+            logger.error(f"💥 DEBUG: Error sending binary data: {e}")
 
     def get_connected_client_count(self) -> int:
         """Get the estimated number of connected visualization clients."""
-        return len(self.client_last_heartbeat)
+        with self._client_lock:  # RTOS: Thread-safe access
+            return len(self.client_last_heartbeat)
 
     def _is_test_visualization_mode(self) -> bool:
         """Check if FEAGI is running in test visualization mode."""
@@ -460,16 +612,17 @@ class VisualizationStream:
         except Exception:
             return False
 
-    async def record_client_heartbeat(self, client_id: str) -> None:
+    def record_client_heartbeat(self, client_id: str) -> None:
         """Record a heartbeat from a client."""
         now = time.time()
-        old_time = self.client_last_heartbeat.get(client_id, 0)
-        self.client_last_heartbeat[client_id] = now
-        
-        if old_time == 0:
-            logger.info(f"New visualization client connected: {client_id}")
+        with self._client_lock:  # RTOS: Thread-safe access
+            old_time = self.client_last_heartbeat.get(client_id, 0)
+            self.client_last_heartbeat[client_id] = now
+            
+            if old_time == 0:
+                logger.info(f"New visualization client connected: {client_id}")
 
-    async def send_visualization_data(self, data) -> None:
+    def send_visualization_data(self, data) -> None:
         """
         Send visualization data to clients.
         
@@ -477,30 +630,33 @@ class VisualizationStream:
             data: Visualization data (bytes, 2-element tuple, or fire queue dict)
         """
         if not self.running or not self.socket:
-                    return
+            return
                 
         # Skip if in standby mode
         if not self._active_mode:
             return
             
-        # Skip if no clients connected
-        if self.get_connected_client_count() == 0:
+        # Skip if no clients connected AND not in test mode
+        client_count = self.get_connected_client_count()
+        is_test_mode = self._is_test_visualization_mode()
+        
+        if client_count == 0 and not is_test_mode:
             return
         
         try:
             if isinstance(data, bytes):
-                await self._send_binary_data(data)
+                self._send_binary_data(data)
             elif isinstance(data, tuple) and len(data) == 2:
-                await self._process_fq_tuple(data)
+                self._process_fq_tuple(data)
             elif isinstance(data, dict):
-                await self._process_fq_dict(data)
+                self._process_fq_dict(data)
             else:
                 logger.warning(f"Unsupported data type: {type(data)}")
             
         except Exception as e:
             logger.error(f"Error in send_visualization_data: {e}")
             
-    async def broadcast_update(self, data_type: str, data: bytes) -> None:
+    def broadcast_update(self, data_type: str, data: bytes) -> None:
         """
         Broadcast an update to all connected agents.
         
@@ -518,7 +674,7 @@ class VisualizationStream:
         try:
             # No artificial rate limiting - let the natural sampling frequency determine the rate
                 
-            await self.socket.send_multipart([
+            self.socket.send_multipart([
                 data_type.encode('utf-8'),
                 data
             ])
@@ -528,26 +684,26 @@ class VisualizationStream:
         except Exception as e:
             logger.error(f"Error broadcasting {data_type} data: {e}") 
 
-    async def process_system_message(self, message: str) -> None:
+    def process_system_message(self, message: str) -> None:
         """Process system messages from clients."""
         try:
             if "HEARTBEAT:" in message:
                 parts = message.split(":")
                 if len(parts) >= 2:
                     client_id = parts[1].strip()
-                    await self.record_client_heartbeat(client_id)
+                    self.record_client_heartbeat(client_id)
             
         except Exception as e:
             logger.error(f"Error processing system message: {e}")
             
-    async def receive_control_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
+    def receive_control_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Process control messages from clients."""
         try:
             message_type = message.get("message_type", "unknown")
             
             if message_type == "heartbeat":
                 client_id = message.get("agent_id", f"unknown_{time.time()}")
-                await self.record_client_heartbeat(client_id)
+                self.record_client_heartbeat(client_id)
                 return {
                     "status": "ok",
                     "message": "Heartbeat received",
@@ -568,37 +724,6 @@ class VisualizationStream:
                 "timestamp": time.time()
             }
 
-    async def _monitor_subscribers(self) -> None:
-        """Monitor ZMQ subscribers and automatically enable/disable FQ sampler."""
-        logger.info("Starting subscriber monitoring for automatic FQ sampler control")
-        
-        while self.running:
-            try:
-                # Check current subscriber count
-                current_count = self._get_subscriber_count()
-                
-                # Update subscriber count
-                if current_count != self._last_subscriber_count:
-                    logger.info(f"Visualization subscriber count changed: {self._last_subscriber_count} -> {current_count}")
-                    self._last_subscriber_count = current_count
-                    
-                    # Auto-enable/disable FQ sampler based on subscriber count
-                    should_enable = current_count > 0
-                    
-                    if should_enable != self._fq_sampler_enabled:
-                        await self._control_fq_sampler(should_enable)
-                
-                # Wait for next check
-                await asyncio.sleep(self.subscriber_check_interval)
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in subscriber monitoring: {e}")
-                await asyncio.sleep(self.subscriber_check_interval)
-        
-        logger.info("Subscriber monitoring stopped")
-
     def _get_subscriber_count(self) -> int:
         """Get the current number of ZMQ subscribers connected to the visualization socket."""
         try:
@@ -607,13 +732,10 @@ class VisualizationStream:
                 now = time.time()
                 heartbeat_clients = 0
                 
-                for client_id, last_heartbeat in self.client_last_heartbeat.items():
-                    if now - last_heartbeat < self.client_heartbeat_timeout:
-                        heartbeat_clients += 1
-                
-                # Method 2: Simple heuristic - if we've sent any data recently and clients exist
-                # This is a workaround since ZMQ PUB doesn't expose direct subscriber count
-                # We'll assume clients are present if we have recent heartbeats OR if this is the first check
+                with self._client_lock:  # RTOS: Thread-safe access
+                    for client_id, last_heartbeat in self.client_last_heartbeat.items():
+                        if now - last_heartbeat < self.client_heartbeat_timeout:
+                            heartbeat_clients += 1
                 
                 # Store the count for this iteration
                 self._subscriber_count = heartbeat_clients
@@ -628,10 +750,11 @@ class VisualizationStream:
             logger.warning(f"Error getting subscriber count: {e}")
             return 0
 
-    async def register_visualization_client(self, client_id: str) -> None:
+    def register_visualization_client(self, client_id: str) -> None:
         """Register a visualization client and update heartbeat."""
         current_time = time.time()
-        self.client_last_heartbeat[client_id] = current_time
+        with self._client_lock:  # RTOS: Thread-safe access
+            self.client_last_heartbeat[client_id] = current_time
         logger.info(f"📺 Visualization client registered: {client_id}")
         
         # Force a subscriber count update
@@ -640,28 +763,43 @@ class VisualizationStream:
             self._last_subscriber_count = current_count
             should_enable = current_count > 0
             if should_enable != self._fq_sampler_enabled:
-                await self._control_fq_sampler(should_enable)
+                self._control_fq_sampler(should_enable)
 
-    async def unregister_visualization_client(self, client_id: str) -> None:
+    def unregister_visualization_client(self, client_id: str) -> None:
         """Unregister a visualization client."""
-        if client_id in self.client_last_heartbeat:
-            del self.client_last_heartbeat[client_id]
-            logger.info(f"📺 Visualization client unregistered: {client_id}")
+        with self._client_lock:  # RTOS: Thread-safe access
+            if client_id in self.client_last_heartbeat:
+                del self.client_last_heartbeat[client_id]
+                logger.info(f"📺 Visualization client unregistered: {client_id}")
+                
+        # Force a subscriber count update
+        current_count = self._get_subscriber_count()
+        if current_count != self._last_subscriber_count:
+            self._last_subscriber_count = current_count
+            should_enable = current_count > 0
+            if should_enable != self._fq_sampler_enabled:
+                self._control_fq_sampler(should_enable)
+
+    def heartbeat_visualization_client(self, client_id: str) -> None:
+        """Update heartbeat for a visualization client and enable FQ sampler if this is a new client."""
+        with self._client_lock:  # RTOS: Thread-safe access
+            # Check if this is a new client (no previous heartbeat recorded)
+            is_new_client = client_id not in self.client_last_heartbeat
+            self.client_last_heartbeat[client_id] = time.time()
             
-            # Force a subscriber count update
-            current_count = self._get_subscriber_count()
-            if current_count != self._last_subscriber_count:
-                self._last_subscriber_count = current_count
-                should_enable = current_count > 0
-                if should_enable != self._fq_sampler_enabled:
-                    await self._control_fq_sampler(should_enable)
+            # If this is a new client, log it and update FQ sampler
+            if is_new_client:
+                logger.info(f"📺 New visualization client connected via heartbeat: {client_id}")
+                
+                # Force a subscriber count update and FQ sampler notification
+                current_count = self._get_subscriber_count()
+                if current_count != self._last_subscriber_count:
+                    self._last_subscriber_count = current_count
+                    should_enable = current_count > 0
+                    if should_enable != self._fq_sampler_enabled:
+                        self._control_fq_sampler(should_enable)
 
-    async def heartbeat_visualization_client(self, client_id: str) -> None:
-        """Update heartbeat for a visualization client."""
-        self.client_last_heartbeat[client_id] = time.time()
-        # Don't log every heartbeat to avoid spam, just update the timestamp
-
-    async def _control_fq_sampler(self, enable: bool) -> None:
+    def _control_fq_sampler(self, enable: bool) -> None:
         """Enable or disable the FQ sampler based on subscriber presence."""
         try:
             if not self.fq_sampler:

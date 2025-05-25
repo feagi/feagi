@@ -167,7 +167,7 @@ class BurstEngine:
         
         # Support both parameter names for backward compatibility
         self.desired_frequency = self.config.get('desired_frequency_hz', 
-                                              self.config.get('target_frequency', 100.0))
+                                              self.config.get('target_frequency', 10.0))
         self.target_frequency = self.desired_frequency  # For backward compatibility
         self.burst_interval = 1.0 / self.desired_frequency
         
@@ -1407,7 +1407,7 @@ class FQSampler:
         
         # Motor sampling tracking (every burst for OPU areas)
         self._last_motor_sample_time: float = 0.0
-        self._motor_sample_interval = 0.01  # Default 100Hz for motor, will be updated based on burst frequency
+        self._motor_sample_interval = 0.1  # Default 10Hz for motor, will be updated based on burst frequency
         
         # Error handling
         self._max_retries = 3
@@ -1443,7 +1443,7 @@ class FQSampler:
             try:
                 burst_engine = BurstEngine.get_instance()
                 if burst_engine and hasattr(burst_engine, '_configuration'):
-                    burst_freq = burst_engine._configuration.get('burst_frequency', 100)
+                    burst_freq = burst_engine._configuration.get('burst_frequency', 10)
                     self._motor_sample_interval = 1.0 / burst_freq
                     logger.info(f"Motor sampling set to burst frequency from BurstEngine: {burst_freq}Hz")
                     return
@@ -1451,7 +1451,7 @@ class FQSampler:
                 pass
                 
             # Default fallback
-            logger.info("Using default motor sampling rate: 100Hz")
+            logger.info("Using default motor sampling rate: 10Hz")
             
         except Exception as e:
             logger.warning(f"Error updating motor sample rate: {e}")
@@ -1522,8 +1522,13 @@ class FQSampler:
         try:
             if self.connectome_manager is not None:
                 # Per-area sampling for visualization
+                areas_processed = 0
+                areas_with_data = 0
+                
                 for area in self.connectome_manager.cortical_areas.values():
                     cortical_id = area.id
+                    areas_processed += 1
+                    
                     # Get per-area sample rate if set, else use global
                     rate = area.properties.get('fq_sample_rate', self.sample_frequency)
                     
@@ -1535,14 +1540,38 @@ class FQSampler:
                     last_time = self._last_sample_time_per_area.get(cortical_id, 0)
                     
                     if now - last_time >= interval:
+                        # Debug: Log what we're trying to sample
+                        logger.debug(f"🔬 FQ Sampler: Attempting to sample area {cortical_id} (type: {area.area_type})")
+                        
+                        # Try to get area fire queue data first for debugging
+                        test_data = self._get_area_fire_queue_data(cortical_id)
+                        if test_data and test_data.get('neuron_ids'):
+                            neuron_count = len(test_data['neuron_ids'])
+                            logger.debug(f"🎯 FQ Sampler: Area {cortical_id} has {neuron_count} firing neurons")
+                            areas_with_data += 1
+                        else:
+                            logger.debug(f"❌ FQ Sampler: Area {cortical_id} has no fire queue data")
+                           
                         self._sample_area_fire_queue(cortical_id, target='visualization')
                         self._last_sample_time_per_area[cortical_id] = now
+                        
+                # Log summary every 100 samples
+                if hasattr(self, '_debug_sample_count'):
+                    self._debug_sample_count += 1
+                else:
+                    self._debug_sample_count = 1
+                    
+                if self._debug_sample_count % 100 == 0:
+                    logger.info(f"🔬 FQ Sampler Debug: Processed {areas_processed} areas, {areas_with_data} had data")
             else:
                 # Global sampling for visualization
+                logger.debug("🌍 FQ Sampler: Using global sampling (no connectome manager)")
                 self._sample_global_fire_queue(target='visualization')
                 
         except Exception as e:
             logger.error(f"Error in visualization sampling: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _process_motor_sampling(self, now: float) -> None:
         """Process sampling for motor subscribers (OPU areas at burst frequency)."""
@@ -1604,14 +1633,36 @@ class FQSampler:
         return opu_areas
 
     def _sample_area_fire_queue(self, cortical_id: str, target: str = 'visualization') -> None:
-        """Sample fire queue data for a specific cortical area."""
+        """Sample fire queue data for a specific cortical area with enhanced debugging."""
         retry_count = 0
+        
+        # Debug: Log sampling attempt
+        logger.info(f"🔬 DEBUG: Starting area sampling for {cortical_id} (target: {target})")
+        
         while retry_count < self._max_retries:
             try:
                 # Get fire queue data for this area
+                logger.info(f"🔍 DEBUG: Attempting to get fire queue data for {cortical_id}")
                 area_fire_data = self._get_area_fire_queue_data(cortical_id)
                 
                 if area_fire_data:
+                    # Debug: Log successful data collection
+                    neuron_count = len(area_fire_data.get('neuron_ids', []))
+                    logger.info(f"✅ DEBUG: Got fire queue data for {cortical_id}: {neuron_count} neurons")
+                    logger.info(f"📊 DEBUG: Data keys: {list(area_fire_data.keys())}")
+                    
+                    # Debug: Check queue status before put operation
+                    logger.info(f"🔍 DEBUG: About to queue data for {cortical_id}")
+                    logger.info(f"📤 DEBUG: Queue type: {type(self.output_queue)}")
+                    logger.info(f"📤 DEBUG: Queue available: {self.output_queue is not None}")
+                    
+                    # Try to get current queue size
+                    try:
+                        current_size = self.output_queue.qsize()
+                        logger.info(f"📤 DEBUG: Queue size before put: {current_size}")
+                    except Exception as queue_size_error:
+                        logger.warning(f"⚠️ DEBUG: Cannot get queue size: {queue_size_error}")
+                    
                     try:
                         # Tag the data with target type for proper routing
                         data_package = {
@@ -1621,22 +1672,77 @@ class FQSampler:
                             'timestamp': time.time()
                         }
                         
+                        # Debug: Log data package details
+                        logger.info(f"📦 DEBUG: Data package created for {cortical_id}")
+                        logger.info(f"📦 DEBUG: Package keys: {list(data_package.keys())}")
+                        logger.info(f"📦 DEBUG: Package size estimate: {len(str(data_package))} characters")
+                        
                         # For backward compatibility, also support tuple format
                         if target == 'visualization':
+                            logger.info(f"🎯 DEBUG: Using tuple format for visualization: {cortical_id}")
+                            logger.info(f"🎯 DEBUG: About to call output_queue.put(({cortical_id}, area_fire_data))")
+                            
+                            # THE CRITICAL PUT OPERATION - with detailed logging
                             self.output_queue.put((cortical_id, area_fire_data))
+                            
+                            logger.info(f"✅ DEBUG: Successfully put tuple data in queue for {cortical_id}")
+                            
                         else:
                             # For motor, use tagged format
+                            logger.info(f"🚗 DEBUG: Using tagged format for motor: {cortical_id}")
+                            logger.info(f"🚗 DEBUG: About to call output_queue.put(data_package)")
+                            
+                            # THE CRITICAL PUT OPERATION - with detailed logging
                             self.output_queue.put(data_package)
                             
+                            logger.info(f"✅ DEBUG: Successfully put tagged data in queue for {cortical_id}")
+                        
+                        # Debug: Check queue size after put operation
+                        try:
+                            new_size = self.output_queue.qsize()
+                            logger.info(f"📤 DEBUG: Queue size after put: {new_size}")
+                            if new_size > current_size:
+                                logger.info(f"🎉 DEBUG: Queue size increased! {current_size} → {new_size}")
+                            else:
+                                logger.error(f"❌ DEBUG: Queue size did not increase! Still {new_size}")
+                        except Exception as queue_size_error:
+                            logger.warning(f"⚠️ DEBUG: Cannot get queue size after put: {queue_size_error}")
+                            
                         break  # Success
-                    except Exception as e:
-                        logger.error(f"Error putting area data in queue: {e}")
+                        
+                    except Exception as put_error:
+                        logger.error(f"❌ DEBUG: CRITICAL ERROR putting {cortical_id} data in queue: {put_error}")
+                        logger.error(f"❌ DEBUG: Error type: {type(put_error)}")
+                        import traceback
+                        logger.error(f"❌ DEBUG: Full traceback:")
+                        for line in traceback.format_exc().split('\n'):
+                            if line.strip():
+                                logger.error(f"    {line}")
+                        
+                        # Try alternative queue operations for debugging
+                        try:
+                            logger.info(f"🔬 DEBUG: Testing queue with simple string...")
+                            self.output_queue.put(f"test_string_{cortical_id}")
+                            logger.info(f"✅ DEBUG: Simple string put succeeded")
+                            
+                            # Try to get it back
+                            test_item = self.output_queue.get_nowait()
+                            logger.info(f"✅ DEBUG: Retrieved test item: {test_item}")
+                            
+                        except Exception as test_error:
+                            logger.error(f"❌ DEBUG: Even simple queue test failed: {test_error}")
+                        
+                        break  # Don't retry on queue errors
+                        
                 else:
+                    logger.info(f"📭 DEBUG: No fire queue data for {cortical_id}")
                     break
                     
-            except Exception as e:
+            except Exception as general_error:
+                logger.error(f"❌ DEBUG: General error in area sampling for {cortical_id}: {general_error}")
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"FQSampler error (area {cortical_id}, target {target}): {e}")
+                    logger.error(f"❌ DEBUG: Max retries reached for {cortical_id}")
+                    
                 # Wait before retrying
                 # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
                 delay_start = time.perf_counter()
@@ -1645,14 +1751,31 @@ class FQSampler:
                 retry_count += 1
 
     def _sample_global_fire_queue(self, target: str = 'visualization') -> None:
-        """Sample global fire queue data."""
+        """Sample global fire queue data with enhanced debugging."""
         retry_count = 0
+        
+        logger.info(f"🌍 DEBUG: Starting global sampling (target: {target})")
+        
         while retry_count < self._max_retries:
             try:
                 # Get global fire queue data
+                logger.info(f"🔍 DEBUG: Getting global fire queue data")
                 fire_data = self._get_global_fire_queue_data()
                 
                 if fire_data:
+                    neuron_count = len(fire_data.get('neuron_ids', []))
+                    logger.info(f"✅ DEBUG: Got global fire queue data: {neuron_count} neurons")
+                    
+                    # Debug: Check queue status before put operation
+                    logger.info(f"📤 DEBUG: About to queue global data")
+                    logger.info(f"📤 DEBUG: Queue type: {type(self.output_queue)}")
+                    
+                    try:
+                        current_size = self.output_queue.qsize()
+                        logger.info(f"📤 DEBUG: Queue size before global put: {current_size}")
+                    except Exception as queue_size_error:
+                        logger.warning(f"⚠️ DEBUG: Cannot get queue size: {queue_size_error}")
+                    
                     try:
                         # Tag the data with target type for proper routing
                         if target == 'motor':
@@ -1661,27 +1784,51 @@ class FQSampler:
                                 'target': target,
                                 'timestamp': time.time()
                             }
+                            logger.info(f"🚗 DEBUG: About to put global motor data package")
                             self.output_queue.put_nowait(data_package)
+                            logger.info(f"✅ DEBUG: Successfully put global motor data")
                         else:
                             # For visualization, use existing format
+                            logger.info(f"🎯 DEBUG: About to put global visualization data")
                             self.output_queue.put_nowait(fire_data)
+                            logger.info(f"✅ DEBUG: Successfully put global visualization data")
+                            
+                        # Check queue size after put
+                        try:
+                            new_size = self.output_queue.qsize()
+                            logger.info(f"📤 DEBUG: Queue size after global put: {new_size}")
+                            if new_size > current_size:
+                                logger.info(f"🎉 DEBUG: Global queue size increased! {current_size} → {new_size}")
+                            else:
+                                logger.error(f"❌ DEBUG: Global queue size did not increase! Still {new_size}")
+                        except Exception:
+                            pass
                             
                         break  # Success
-                    except Exception as e:
-                        # Queue full - drop data
-                        logger.warning(f"FQSampler queue full, dropping global data (target: {target}): {e}")
+                        
+                    except Exception as put_error:
+                        logger.error(f"❌ DEBUG: CRITICAL ERROR putting global data in queue: {put_error}")
+                        logger.error(f"❌ DEBUG: Error type: {type(put_error)}")
+                        import traceback
+                        logger.error(f"❌ DEBUG: Full traceback:")
+                        for line in traceback.format_exc().split('\n'):
+                            if line.strip():
+                                logger.error(f"    {line}")
                         break
+                        
                 else:
+                    logger.info(f"📭 DEBUG: No global fire queue data")
                     break
                     
-            except Exception as e:
+            except Exception as general_error:
+                logger.error(f"❌ DEBUG: General error in global sampling: {general_error}")
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"FQSampler error (global, target {target}): {e}")
+                    logger.error(f"❌ DEBUG: Max retries reached for global sampling")
+                    
                 # Wait before retrying
-                # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
                 delay_start = time.perf_counter()
                 while time.perf_counter() - delay_start < self._retry_delay:
-                    pass  # Busy-wait for retry delay
+                    pass
                 retry_count += 1
 
     def _get_area_fire_queue_data(self, cortical_id: str) -> Optional[Dict[str, Any]]:
@@ -1699,27 +1846,56 @@ class FQSampler:
             }
         """
         try:
+            logger.debug(f"🔍 Getting fire queue data for area: {cortical_id}")
+            
             # Get fire queue from provider
             if hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
+                logger.debug(f"🔍 Using provider.get_area_fire_queue for {cortical_id}")
                 fire_queue = self.fire_queue_provider.get_area_fire_queue(cortical_id)
+                logger.debug(f"🔍 Provider returned: {fire_queue is not None} for {cortical_id}")
+                
+                if fire_queue:
+                    neuron_ids = fire_queue.get('neuron_ids', [])
+                    logger.debug(f"🔍 Fire queue has {len(neuron_ids)} neuron_ids for {cortical_id}")
+               
             elif hasattr(self.fire_queue_provider, 'get_fire_queue'):
+                logger.debug(f"🔍 Using global fire queue and filtering for {cortical_id}")
                 # Filter global fire queue for this area
                 global_fire_queue = self.fire_queue_provider.get_fire_queue()
+                logger.debug(f"🔍 Global fire queue: {global_fire_queue is not None}")
+                
+                if global_fire_queue:
+                    global_neuron_count = len(global_fire_queue.get('neuron_ids', []))
+                    logger.debug(f"🔍 Global fire queue has {global_neuron_count} neurons total")
+                    
                 fire_queue = self._filter_fire_queue_by_area(global_fire_queue, cortical_id)
+                
+                if fire_queue:
+                    filtered_neuron_count = len(fire_queue.get('neuron_ids', []))
+                    logger.debug(f"🔍 Filtered fire queue has {filtered_neuron_count} neurons for {cortical_id}")
             else:
+                logger.warning(f"🔍 Fire queue provider has no suitable methods for {cortical_id}")
                 return None
                 
-            if not fire_queue or not fire_queue.get('neuron_ids'):
+            if not fire_queue:
+                logger.debug(f"❌ No fire queue returned for {cortical_id}")
+                return None
+                
+            if not fire_queue.get('neuron_ids'):
+                logger.debug(f"❌ Fire queue has no neuron_ids for {cortical_id}")
                 return None
                 
             # Add coordinate information
             coordinates = self._get_neuron_coordinates(cortical_id, fire_queue['neuron_ids'])
             fire_queue['coordinates'] = coordinates
             
+            logger.debug(f"✅ Returning fire queue data for {cortical_id} with {len(fire_queue['neuron_ids'])} neurons")
             return fire_queue
             
         except Exception as e:
             logger.error(f"Error getting area fire queue data for {cortical_id}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _get_global_fire_queue_data(self) -> Optional[Dict[str, Any]]:

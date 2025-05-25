@@ -484,8 +484,9 @@ class ZmqServer:
             
             await self._rest.start()
             
+            # RTOS: VisualizationStream is now synchronous
             if self._visualization:
-                await self._visualization.start()
+                self._visualization.start()  # No await - synchronous method
             
             # Create sockets only for enabled streams
             if self._control:
@@ -607,8 +608,9 @@ class ZmqServer:
             if self._rest:
                 stop_tasks.append(self._rest.stop())
         
+            # RTOS: VisualizationStream is now synchronous, call stop() directly
             if self._visualization:
-                stop_tasks.append(self._visualization.stop())
+                self._visualization.stop()  # Direct call - synchronous method
             
             # Wait for all services
             if stop_tasks:
