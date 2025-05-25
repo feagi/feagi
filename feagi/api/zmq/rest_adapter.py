@@ -284,21 +284,27 @@ class ZMQRestAPIAdapter:
             if not client_id:
                 raise ValueError("Client ID is required")
             
-            logger.debug(f"💗 Heartbeat from visualization client: {client_id}")
+            logger.info(f"💗 Heartbeat from visualization client: {client_id}")
             
             # Get the ZMQ server from the module registry
             zmq_server = getattr(self, '_zmq_server', None)
+            logger.info(f"🔧 DEBUG: ZMQ server reference: {zmq_server is not None}")
+            
             if not zmq_server:
-                logger.debug("ZMQ server reference not available - heartbeat acknowledged anyway")
+                logger.warning("ZMQ server reference not available - heartbeat acknowledged anyway")
                 return {
                     "message": f"Heartbeat received from client {client_id}"
                 }
             
             # Get visualization stream from ZMQ server
             viz_stream = zmq_server.get_visualization_stream()
+            logger.info(f"🔧 DEBUG: Visualization stream: {viz_stream is not None}")
+            
             if viz_stream:
+                logger.info(f"🔧 DEBUG: Calling heartbeat_visualization_client for {client_id}")
                 # RTOS: VisualizationStream is now synchronous, no await needed
                 viz_stream.heartbeat_visualization_client(client_id)
+                logger.info(f"🔧 DEBUG: Heartbeat call completed for {client_id}")
                 
                 return {
                     "message": f"Heartbeat received from client {client_id}"

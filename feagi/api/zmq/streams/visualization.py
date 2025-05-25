@@ -824,10 +824,14 @@ class VisualizationStream:
 
     def heartbeat_visualization_client(self, client_id: str) -> None:
         """Update heartbeat for a visualization client and enable FQ sampler if this is a new client."""
+        logger.info(f"🔧 DEBUG: Heartbeat received for visualization client: {client_id}")
+        
         with self._client_lock:  # RTOS: Thread-safe access
             # Check if this is a new client (no previous heartbeat recorded)
             is_new_client = client_id not in self.client_last_heartbeat
             self.client_last_heartbeat[client_id] = time.time()
+            
+            logger.info(f"🔧 DEBUG: Is new client: {is_new_client}, Total clients: {len(self.client_last_heartbeat)}")
             
             # If this is a new client, log it and update FQ sampler
             if is_new_client:
@@ -835,38 +839,64 @@ class VisualizationStream:
                 
                 # Force a subscriber count update and FQ sampler notification
                 current_count = self._get_subscriber_count()
+                logger.info(f"🔧 DEBUG: Current subscriber count: {current_count}, Last count: {self._last_subscriber_count}")
+                
                 if current_count != self._last_subscriber_count:
                     self._last_subscriber_count = current_count
                     should_enable = current_count > 0
+                    
+                    logger.info(f"🔧 DEBUG: Should enable FQ sampler: {should_enable}, Currently enabled: {self._fq_sampler_enabled}")
+                    
                     if should_enable != self._fq_sampler_enabled:
+                        logger.info(f"🔧 DEBUG: Calling _control_fq_sampler({should_enable})")
                         self._control_fq_sampler(should_enable)
+                        logger.info(f"🔧 DEBUG: _control_fq_sampler call completed")
+            else:
+                logger.info(f"🔧 DEBUG: Existing client heartbeat updated: {client_id}")
 
     def _control_fq_sampler(self, enable: bool) -> None:
         """Enable or disable the FQ sampler based on subscriber presence."""
+        logger.info(f"🔧 DEBUG: _control_fq_sampler called with enable={enable}")
+        
         try:
             if not self.fq_sampler:
+                logger.info(f"🔧 DEBUG: No FQ sampler reference, trying to get from process manager")
                 # Try to get FQ sampler from process manager
                 try:
-                    from feagi.process_manager import get_process_manager
-                    process_manager = get_process_manager()
+                    from feagi.process_manager import ProcessManager
+                    process_manager = ProcessManager.get_instance()
+                    logger.info(f"🔧 DEBUG: Process manager instance: {process_manager is not None}")
+                    
                     if process_manager and hasattr(process_manager, '_fq_sampler'):
                         self.fq_sampler = process_manager._fq_sampler
-                        logger.info("Found FQ sampler from process manager")
-                except Exception:
-                    pass
+                        logger.info(f"✅ Found FQ sampler from process manager: {self.fq_sampler is not None}")
+                    else:
+                        logger.warning(f"❌ Process manager has no _fq_sampler attribute")
+                        
+                except Exception as e:
+                    logger.warning(f"Could not get FQ sampler from process manager: {e}")
+            else:
+                logger.info(f"🔧 DEBUG: Using existing FQ sampler reference")
+            
+            logger.info(f"🔧 DEBUG: FQ sampler available: {self.fq_sampler is not None}")
+            logger.info(f"🔧 DEBUG: FQ sampler has set_visualization_subscribers: {hasattr(self.fq_sampler, 'set_visualization_subscribers') if self.fq_sampler else False}")
             
             if self.fq_sampler and hasattr(self.fq_sampler, 'set_visualization_subscribers'):
                 if enable:
                     logger.info("🔔 Enabling FQ sampler - visualization clients connected")
                     self.fq_sampler.set_visualization_subscribers(True)
                     self._fq_sampler_enabled = True
+                    logger.info("✅ FQ sampler enabled successfully")
                 else:
                     logger.info("🔕 Disabling FQ sampler - no visualization clients")
                     self.fq_sampler.set_visualization_subscribers(False)
                     self._fq_sampler_enabled = False
+                    logger.info("✅ FQ sampler disabled successfully")
             else:
                 if enable:
-                    logger.warning("FQ sampler not available or doesn't support set_visualization_subscribers")
+                    logger.warning("❌ FQ sampler not available or doesn't support set_visualization_subscribers")
                 
         except Exception as e:
-            logger.error(f"Error controlling FQ sampler: {e}") 
+            logger.error(f"❌ Error controlling FQ sampler: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}") 
