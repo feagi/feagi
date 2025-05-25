@@ -47,7 +47,8 @@ class SimpleVisualizationStream:
         self.host = host
         self.port = port
         self.running = False
-        self.context = context or zmq.Context.instance()
+        # Create a NEW sync context instead of using shared instance
+        self.context = zmq.Context() if context is None else context
         self.fq_sampler_queue = fq_sampler_queue
         
         # Simple socket setup
@@ -67,16 +68,18 @@ class SimpleVisualizationStream:
 
     def _setup_socket(self) -> None:
         """Set up the ZMQ PUB socket with optimal settings."""
+        # Create a sync PUB socket explicitly
         self.socket = self.context.socket(zmq.PUB)
         
-        # Optimize for real-time streaming
-        self.socket.setsockopt(zmq.SNDHWM, 100)    # Reasonable send buffer
-        self.socket.setsockopt(zmq.LINGER, 0)      # Don't wait on close
-        self.socket.setsockopt(zmq.IMMEDIATE, 1)   # Don't queue if no subscribers
+        # Optimize for real-time streaming but ALLOW queuing when no subscribers
+        self.socket.setsockopt(zmq.SNDHWM, 1000)   # Higher send buffer to prevent drops
+        self.socket.setsockopt(zmq.LINGER, 1000)   # Wait briefly on close to send pending messages
+        # REMOVED: self.socket.setsockopt(zmq.IMMEDIATE, 1) - This drops messages when no subscribers!
         
         bind_addr = f"tcp://{self.host}:{self.port}"
         self.socket.bind(bind_addr)
         logger.info(f"📡 Simple visualization stream bound to {bind_addr}")
+        logger.info(f"🔧 Socket will queue messages even when no subscribers are connected")
 
     def start(self) -> None:
         """Start the visualization stream."""
@@ -125,31 +128,16 @@ class SimpleVisualizationStream:
         Just pulls data from queue and publishes it - no complex logic.
         """
         logger.info("🎬 Simple visualization data worker started")
-        logger.info(f"🔧 DEBUG: Worker thread running: {self.running}")
-        logger.info(f"🔧 DEBUG: FQ sampler queue: {self.fq_sampler_queue}")
-        logger.info(f"🔧 DEBUG: Queue type: {type(self.fq_sampler_queue)}")
         
-        loop_count = 0
         while self.running and not self._stop_event.is_set():
-            loop_count += 1
-            if loop_count % 100 == 0:  # Log every 100 loops
-                logger.info(f"🔄 DEBUG: Worker loop #{loop_count}, queue: {self.fq_sampler_queue}")
-                
             try:
                 # Try to get data from queue (non-blocking)
                 fq_data = None
                 try:
                     if hasattr(self.fq_sampler_queue, 'get'):
-                        logger.debug(f"🔧 DEBUG: Trying queue.get() method...")
                         fq_data = self.fq_sampler_queue.get(timeout=0.1)
-                        logger.info(f"✅ DEBUG: Got data from queue: {type(fq_data)}")
                     elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
-                        logger.debug(f"🔧 DEBUG: Trying _queue.pop() method...")
                         fq_data = self.fq_sampler_queue._queue.pop(0)
-                        logger.info(f"✅ DEBUG: Got data from _queue: {type(fq_data)}")
-                    else:
-                        if loop_count % 1000 == 0:  # Log occasionally
-                            logger.debug(f"🔧 DEBUG: No queue access method available or queue empty")
                 except Empty:
                     continue
                 except Exception as e:
@@ -160,17 +148,13 @@ class SimpleVisualizationStream:
                 if fq_data is None:
                     continue
                 
-                logger.info(f"📦 DEBUG: Processing data: {type(fq_data)}")
-                
                 # Process and send data based on type
                 if isinstance(fq_data, bytes):
                     # Already serialized data
-                    logger.info(f"📤 DEBUG: Publishing bytes data: {len(fq_data)} bytes")
                     self._publish_data(fq_data)
                     
                 elif isinstance(fq_data, dict) and 'target' in fq_data:
                     # Tagged format from enhanced FQ sampler
-                    logger.info(f"📤 DEBUG: Processing tagged dict data")
                     if fq_data.get('target') == 'visualization':
                         data = fq_data.get('data')
                         if isinstance(data, bytes):
@@ -178,12 +162,11 @@ class SimpleVisualizationStream:
                         
                 elif isinstance(fq_data, tuple) and len(fq_data) == 2:
                     # Legacy (cortical_id, fire_data) tuple format
-                    logger.info(f"📤 DEBUG: Processing tuple data: {fq_data[0]}")
+                    logger.info(f"📤 Processing neural data for: {fq_data[0]}")
                     self._process_tuple_data(fq_data)
                     
                 elif isinstance(fq_data, dict):
                     # Legacy fire queue dict format
-                    logger.info(f"📤 DEBUG: Processing dict data")
                     self._process_dict_data(fq_data)
                     
                 else:
@@ -191,8 +174,6 @@ class SimpleVisualizationStream:
                 
             except Exception as e:
                 logger.error(f"Error in data worker: {e}")
-                import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
                 time.sleep(0.1)  # Brief pause on error
                 
         logger.info("🛑 Simple visualization data worker stopped")
@@ -203,68 +184,91 @@ class SimpleVisualizationStream:
         Simple, no barriers, no complex checks.
         """
         try:
-            # Just send the data - let ZMQ handle subscribers
+            # Send the data with topic using SYNCHRONOUS operations
             self.socket.send_multipart([
                 b"activity",
                 data
-            ])
+            ], zmq.NOBLOCK)  # Use zmq.NOBLOCK as positional argument, not flags=
             
             # Update simple statistics
             self.stats['data_sent'] += 1
             self.stats['bytes_sent'] += len(data)
             
-            # Occasional debug logging
-            if self.stats['data_sent'] % 100 == 0:
-                logger.debug(f"📊 Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total")
-                
-            # ZMQ debugging - log outbound visualization data
-            endpoint = f"tcp://{self.host}:{self.port}"
-            log_zmq_multipart_outbound(
-                endpoint=endpoint,
-                multipart_data=[b"activity", data],
-                context=f"Simple visualization stream message #{self.stats['data_sent']}",
-                message_type="visualization_activity"
-            )
+            # More frequent debug logging to verify publishing
+            if self.stats['data_sent'] % 10 == 0:  # Every 10 messages instead of 100
+                logger.info(f"📊 Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total")
             
+            # Log first few messages to confirm publishing is working
+            if self.stats['data_sent'] <= 5:
+                logger.info(f"🚀 Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
+            
+        except zmq.Again:
+            logger.warning(f"⚠️ ZMQ send buffer full - message dropped")
         except Exception as e:
             logger.error(f"Error publishing data: {e}")
+            import traceback
+            logger.error(f"Publishing traceback: {traceback.format_exc()}")
 
     def _process_tuple_data(self, fq_data) -> None:
         """Process legacy tuple format data."""
         try:
             cortical_id, fire_data = fq_data
+            
+            # DEBUG: Show the raw input data structure
+            logger.info(f"🔍 RAW INPUT DATA for {cortical_id}:")
+            logger.info(f"   fire_data type: {type(fire_data)}")
+            logger.info(f"   fire_data keys: {list(fire_data.keys()) if isinstance(fire_data, dict) else 'Not a dict'}")
+            logger.info(f"   fire_data: {fire_data}")
+            
             if fire_data and 'neuron_ids' in fire_data:
                 neuron_count = len(fire_data.get('neuron_ids', []))
-                logger.debug(f"📦 Processing tuple data for {cortical_id}: {neuron_count} neurons")
                 
-                # Log the actual fire_data structure to understand it
-                logger.debug(f"🔍 DEBUG: fire_data keys: {list(fire_data.keys()) if isinstance(fire_data, dict) else 'not a dict'}")
-                if 'coordinates' in fire_data:
-                    logger.debug(f"🔍 DEBUG: coordinates type: {type(fire_data['coordinates'])}")
-                    logger.debug(f"🔍 DEBUG: coordinates sample: {str(fire_data['coordinates'])[:200]}")
+                logger.info(f"📊 NEURON DATA for {cortical_id}:")
+                logger.info(f"   neuron_ids: {fire_data.get('neuron_ids', [])}")
+                logger.info(f"   neuron_count: {neuron_count}")
                 
                 # Handle coordinates based on actual structure
                 coordinates = fire_data.get('coordinates', [])
+                logger.info(f"📍 COORDINATES DATA for {cortical_id}:")
+                logger.info(f"   coordinates type: {type(coordinates)}")
+                logger.info(f"   coordinates: {coordinates}")
+                
                 if isinstance(coordinates, list) and len(coordinates) > 0:
                     # If coordinates is a list of [x, y, z] triplets
                     if isinstance(coordinates[0], (list, tuple)) and len(coordinates[0]) >= 3:
                         x_coords = [coord[0] for coord in coordinates]
                         y_coords = [coord[1] for coord in coordinates]  
                         z_coords = [coord[2] for coord in coordinates]
+                        logger.info(f"   📊 Parsed as list of triplets")
                     else:
                         # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
                         coords_per_neuron = 3
                         x_coords = coordinates[0::coords_per_neuron]
                         y_coords = coordinates[1::coords_per_neuron]
                         z_coords = coordinates[2::coords_per_neuron]
+                        logger.info(f"   📊 Parsed as flat list")
                 elif isinstance(coordinates, dict):
                     # If coordinates is a dict with x, y, z keys
                     x_coords = coordinates.get('x', [])
                     y_coords = coordinates.get('y', [])
                     z_coords = coordinates.get('z', [])
+                    logger.info(f"   📊 Parsed as dict with x,y,z keys")
                 else:
                     # Fallback: empty coordinates
                     x_coords = y_coords = z_coords = []
+                    logger.info(f"   📊 No valid coordinates found - using empty")
+                
+                # Show the parsed coordinates
+                logger.info(f"📍 PARSED COORDINATES for {cortical_id}:")
+                logger.info(f"   x_coords: {x_coords}")
+                logger.info(f"   y_coords: {y_coords}")
+                logger.info(f"   z_coords: {z_coords}")
+                
+                # Show membrane potentials
+                membrane_potentials = fire_data.get('membrane_potentials', [])
+                logger.info(f"⚡ MEMBRANE POTENTIALS for {cortical_id}:")
+                logger.info(f"   membrane_potentials type: {type(membrane_potentials)}")
+                logger.info(f"   membrane_potentials: {membrane_potentials}")
                 
                 # Create the expected visualization format
                 viz_data = {
@@ -272,21 +276,29 @@ class SimpleVisualizationStream:
                         x_coords,  # x_coords
                         y_coords,  # y_coords  
                         z_coords,  # z_coords
-                        fire_data.get('membrane_potentials', [])  # membrane_potentials
+                        membrane_potentials  # membrane_potentials
                     ]
                 }
+                
+                # Show the final visualization data structure
+                logger.info(f"📤 FINAL VISUALIZATION DATA for {cortical_id}:")
+                logger.info(f"   Structure: {json.dumps(viz_data, indent=2)}")
                 
                 # Serialize to JSON bytes
                 serialized_data = json.dumps(viz_data).encode('utf-8')
                 
+                logger.info(f"📦 SERIALIZED DATA for {cortical_id}:")
+                logger.info(f"   Serialized length: {len(serialized_data)} bytes")
+                logger.info(f"   Serialized data: {serialized_data.decode('utf-8')}")
+                
                 # Publish the data
                 self._publish_data(serialized_data)
-                logger.debug(f"✅ Published visualization data for {cortical_id}: {len(serialized_data)} bytes")
+                logger.info(f"✅ Published {cortical_id}: {neuron_count} neurons, {len(serialized_data)} bytes")
                 
         except Exception as e:
-            logger.error(f"Error processing tuple data: {e}")
+            logger.error(f"❌ Error processing {fq_data[0] if len(fq_data) > 0 else 'unknown'}: {e}")
             import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
 
     def _process_dict_data(self, fire_data) -> None:
         """Process legacy dict format data."""

@@ -1631,148 +1631,69 @@ class FQSampler:
         return opu_areas
 
     def _sample_area_fire_queue(self, cortical_id: str, target: str = 'visualization') -> None:
-        """Sample fire queue data for a specific cortical area with enhanced debugging."""
+        """Sample fire queue data for a specific cortical area."""
         retry_count = 0
-        
-        # Debug: Log sampling attempt
-        logger.info(f"🔬 DEBUG: Starting area sampling for {cortical_id} (target: {target})")
         
         while retry_count < self._max_retries:
             try:
                 # Get fire queue data for this area
-                logger.info(f"🔍 DEBUG: Attempting to get fire queue data for {cortical_id}")
                 area_fire_data = self._get_area_fire_queue_data(cortical_id)
                 
                 if area_fire_data:
-                    # Debug: Log successful data collection
+                    # Only log when we actually have data to process
                     neuron_count = len(area_fire_data.get('neuron_ids', []))
-                    logger.info(f"✅ DEBUG: Got fire queue data for {cortical_id}: {neuron_count} neurons")
-                    logger.info(f"📊 DEBUG: Data keys: {list(area_fire_data.keys())}")
-                    
-                    # Debug: Check queue status before put operation
-                    logger.info(f"🔍 DEBUG: About to queue data for {cortical_id}")
-                    logger.info(f"📤 DEBUG: Queue type: {type(self.output_queue)}")
-                    logger.info(f"📤 DEBUG: Queue available: {self.output_queue is not None}")
-                    
-                    # Try to get current queue size
-                    try:
-                        current_size = self.output_queue.qsize()
-                        logger.info(f"📤 DEBUG: Queue size before put: {current_size}")
-                    except Exception as queue_size_error:
-                        logger.warning(f"⚠️ DEBUG: Cannot get queue size: {queue_size_error}")
                     
                     try:
-                        # Tag the data with target type for proper routing
-                        data_package = {
-                            'cortical_id': cortical_id,
-                            'fire_queue_data': area_fire_data,
-                            'target': target,
-                            'timestamp': time.time()
-                        }
-                        
-                        # Debug: Log data package details
-                        logger.info(f"📦 DEBUG: Data package created for {cortical_id}")
-                        logger.info(f"📦 DEBUG: Package keys: {list(data_package.keys())}")
-                        logger.info(f"📦 DEBUG: Package size estimate: {len(str(data_package))} characters")
-                        
                         # For backward compatibility, also support tuple format
                         if target == 'visualization':
-                            logger.info(f"🎯 DEBUG: Using tuple format for visualization: {cortical_id}")
-                            logger.info(f"🎯 DEBUG: About to call output_queue.put(({cortical_id}, area_fire_data))")
-                            
-                            # THE CRITICAL PUT OPERATION - with detailed logging
+                            # THE CRITICAL PUT OPERATION
                             self.output_queue.put((cortical_id, area_fire_data))
-                            
-                            logger.info(f"✅ DEBUG: Successfully put tuple data in queue for {cortical_id}")
-                            
+                            logger.debug(f"📤 Queued {cortical_id}: {neuron_count} neurons for visualization")
                         else:
                             # For motor, use tagged format
-                            logger.info(f"🚗 DEBUG: Using tagged format for motor: {cortical_id}")
-                            logger.info(f"🚗 DEBUG: About to call output_queue.put(data_package)")
-                            
-                            # THE CRITICAL PUT OPERATION - with detailed logging
+                            data_package = {
+                                'cortical_id': cortical_id,
+                                'fire_queue_data': area_fire_data,
+                                'target': target,
+                                'timestamp': time.time()
+                            }
                             self.output_queue.put(data_package)
-                            
-                            logger.info(f"✅ DEBUG: Successfully put tagged data in queue for {cortical_id}")
-                        
-                        # Debug: Check queue size after put operation
-                        try:
-                            new_size = self.output_queue.qsize()
-                            logger.info(f"📤 DEBUG: Queue size after put: {new_size}")
-                            if new_size > current_size:
-                                logger.info(f"🎉 DEBUG: Queue size increased! {current_size} → {new_size}")
-                            else:
-                                logger.error(f"❌ DEBUG: Queue size did not increase! Still {new_size}")
-                        except Exception as queue_size_error:
-                            logger.warning(f"⚠️ DEBUG: Cannot get queue size after put: {queue_size_error}")
+                            logger.debug(f"📤 Queued {cortical_id}: {neuron_count} neurons for {target}")
                             
                         break  # Success
                         
                     except Exception as put_error:
-                        logger.error(f"❌ DEBUG: CRITICAL ERROR putting {cortical_id} data in queue: {put_error}")
-                        logger.error(f"❌ DEBUG: Error type: {type(put_error)}")
-                        import traceback
-                        logger.error(f"❌ DEBUG: Full traceback:")
-                        for line in traceback.format_exc().split('\n'):
-                            if line.strip():
-                                logger.error(f"    {line}")
-                        
-                        # Try alternative queue operations for debugging
-                        try:
-                            logger.info(f"🔬 DEBUG: Testing queue with simple string...")
-                            self.output_queue.put(f"test_string_{cortical_id}")
-                            logger.info(f"✅ DEBUG: Simple string put succeeded")
-                            
-                            # Try to get it back
-                            test_item = self.output_queue.get_nowait()
-                            logger.info(f"✅ DEBUG: Retrieved test item: {test_item}")
-                            
-                        except Exception as test_error:
-                            logger.error(f"❌ DEBUG: Even simple queue test failed: {test_error}")
-                        
+                        logger.error(f"❌ Error queuing {cortical_id} data: {put_error}")
                         break  # Don't retry on queue errors
                         
                 else:
-                    logger.info(f"📭 DEBUG: No fire queue data for {cortical_id}")
+                    # Only log occasionally for areas with no data to avoid spam
+                    if retry_count == 0:  # Only log on first attempt
+                        logger.debug(f"📭 No data for {cortical_id}")
                     break
                     
             except Exception as general_error:
-                logger.error(f"❌ DEBUG: General error in area sampling for {cortical_id}: {general_error}")
+                logger.error(f"❌ Error sampling {cortical_id}: {general_error}")
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"❌ DEBUG: Max retries reached for {cortical_id}")
+                    logger.error(f"❌ Max retries reached for {cortical_id}")
                     
                 # Wait before retrying
-                # RTOS-COMPATIBLE: Replace time.sleep with deterministic delay
                 delay_start = time.perf_counter()
                 while time.perf_counter() - delay_start < self._retry_delay:
                     pass  # Busy-wait for retry delay
                 retry_count += 1
 
     def _sample_global_fire_queue(self, target: str = 'visualization') -> None:
-        """Sample global fire queue data with enhanced debugging."""
+        """Sample global fire queue data."""
         retry_count = 0
-        
-        logger.info(f"🌍 DEBUG: Starting global sampling (target: {target})")
         
         while retry_count < self._max_retries:
             try:
                 # Get global fire queue data
-                logger.info(f"🔍 DEBUG: Getting global fire queue data")
                 fire_data = self._get_global_fire_queue_data()
                 
                 if fire_data:
                     neuron_count = len(fire_data.get('neuron_ids', []))
-                    logger.info(f"✅ DEBUG: Got global fire queue data: {neuron_count} neurons")
-                    
-                    # Debug: Check queue status before put operation
-                    logger.info(f"📤 DEBUG: About to queue global data")
-                    logger.info(f"📤 DEBUG: Queue type: {type(self.output_queue)}")
-                    
-                    try:
-                        current_size = self.output_queue.qsize()
-                        logger.info(f"📤 DEBUG: Queue size before global put: {current_size}")
-                    except Exception as queue_size_error:
-                        logger.warning(f"⚠️ DEBUG: Cannot get queue size: {queue_size_error}")
                     
                     try:
                         # Tag the data with target type for proper routing
@@ -1782,46 +1703,27 @@ class FQSampler:
                                 'target': target,
                                 'timestamp': time.time()
                             }
-                            logger.info(f"🚗 DEBUG: About to put global motor data package")
                             self.output_queue.put_nowait(data_package)
-                            logger.info(f"✅ DEBUG: Successfully put global motor data")
+                            logger.debug(f"📤 Queued global motor data: {neuron_count} neurons")
                         else:
                             # For visualization, use existing format
-                            logger.info(f"🎯 DEBUG: About to put global visualization data")
                             self.output_queue.put_nowait(fire_data)
-                            logger.info(f"✅ DEBUG: Successfully put global visualization data")
-                            
-                        # Check queue size after put
-                        try:
-                            new_size = self.output_queue.qsize()
-                            logger.info(f"📤 DEBUG: Queue size after global put: {new_size}")
-                            if new_size > current_size:
-                                logger.info(f"🎉 DEBUG: Global queue size increased! {current_size} → {new_size}")
-                            else:
-                                logger.error(f"❌ DEBUG: Global queue size did not increase! Still {new_size}")
-                        except Exception:
-                            pass
+                            logger.debug(f"📤 Queued global visualization data: {neuron_count} neurons")
                             
                         break  # Success
                         
                     except Exception as put_error:
-                        logger.error(f"❌ DEBUG: CRITICAL ERROR putting global data in queue: {put_error}")
-                        logger.error(f"❌ DEBUG: Error type: {type(put_error)}")
-                        import traceback
-                        logger.error(f"❌ DEBUG: Full traceback:")
-                        for line in traceback.format_exc().split('\n'):
-                            if line.strip():
-                                logger.error(f"    {line}")
+                        logger.error(f"❌ Error queuing global data: {put_error}")
                         break
                         
                 else:
-                    logger.info(f"📭 DEBUG: No global fire queue data")
+                    logger.debug(f"📭 No global fire queue data")
                     break
                     
             except Exception as general_error:
-                logger.error(f"❌ DEBUG: General error in global sampling: {general_error}")
+                logger.error(f"❌ Error in global sampling: {general_error}")
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"❌ DEBUG: Max retries reached for global sampling")
+                    logger.error(f"❌ Max retries reached for global sampling")
                     
                 # Wait before retrying
                 delay_start = time.perf_counter()
