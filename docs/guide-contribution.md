@@ -192,4 +192,4 @@ For significant architectural changes, please create an ADR:
 
 ## License
 
-By contributing to FEAGI, you agree that your contributions will be licensed under the project's MIT License. 
+By contributing to FEAGI, you agree that your contributions will be licensed under the project's Apache 2.0 License. 

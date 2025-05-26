@@ -245,7 +245,7 @@ class VisualizationStream:
                 logger.warning(f"Error closing socket: {e}")
             finally:
                 self.socket = None
-        
+
         # Wait for worker threads with improved timeout handling
         total_threads = len(self.worker_threads)
         if total_threads > 0:
@@ -254,21 +254,21 @@ class VisualizationStream:
             # Use shorter timeout per thread and global maximum
             MAX_TOTAL_WAIT = 3.0  # Maximum 3 seconds total wait
             PER_THREAD_TIMEOUT = min(1.0, MAX_TOTAL_WAIT / max(total_threads, 1))
-            
+
             import time
             start_time = time.time()
-            
+
             for i, thread in enumerate(self.worker_threads, 1):
                 # Check global timeout
                 elapsed = time.time() - start_time
                 if elapsed >= MAX_TOTAL_WAIT:
                     logger.warning(f"Global timeout reached, abandoning remaining {total_threads - i + 1} threads")
                     break
-                
+
                 if thread.is_alive():
                     remaining_timeout = min(PER_THREAD_TIMEOUT, MAX_TOTAL_WAIT - elapsed)
                     logger.debug(f"Waiting for thread {i}/{total_threads}: {thread.name} (timeout: {remaining_timeout:.1f}s)")
-                    
+
                     thread.join(timeout=remaining_timeout)
                     
                     if thread.is_alive():
@@ -277,7 +277,7 @@ class VisualizationStream:
                         logger.debug(f"Thread {thread.name} stopped gracefully")
                 else:
                     logger.debug(f"Thread {i}/{total_threads}: {thread.name} already stopped")
-        
+
         # Clear worker thread list regardless of join status
         self.worker_threads.clear()
             
@@ -510,13 +510,13 @@ class VisualizationStream:
                 # Create cortical IDs list (same cortical ID for all neurons)
                 cortical_ids = [cortical_id] * neuron_count
                 
-                # Encode using feagi_bytes binary format
+                # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES) FOR DPR COMPATIBILITY
                 try:
                     from feagi_bytes import ByteStructureEncoder
                     encoder = ByteStructureEncoder()
-                    
-                    # Use Type 11 (NEURON_CATEGORIES) format for DPR compatibility
-                    # Group neurons by cortical area
+
+                    # Convert to Type 11 (NEURON_CATEGORIES) format for DPR compatibility
+                    # Instead of using encode_neuron_flat (Type 10), use encode_neuron_categories (Type 11)
                     cortical_data = {
                         cortical_id: {
                             'x': x_coords,
@@ -527,7 +527,7 @@ class VisualizationStream:
                     }
                     
                     binary_data = encoder.encode_neuron_categories(cortical_data)
-                    
+
                     # Publish the binary data
                     self._publish_data(binary_data)
                     logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
