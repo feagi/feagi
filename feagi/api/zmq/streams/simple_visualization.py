@@ -1,5 +1,11 @@
 """
-Simplified ZMQ Visualization Stream for FEAGI
+Simplified ZMQ Visualization Stream for FEAGI - BACKUP VERSION
+
+THIS IS NOW A BACKUP VERSION - The system has been switched back to use the 
+full-featured visualization.py implementation.
+
+This file is kept as a backup in case we need to quickly switch back to the simplified version.
+The active implementation is in visualization.py
 
 Pure PUB/SUB pattern - no registration, no heartbeats, no complex state management.
 Just publishes neural activity data when available, letting subscribers connect/disconnect freely.

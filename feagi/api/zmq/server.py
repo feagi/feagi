@@ -29,7 +29,7 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 # Import all stream handlers
 from .streams.sensory import SensoryStream
 from .streams.motor import MotorStream  
-from .streams.visualization import VisualizationStream
+from .streams.simple_visualization import SimpleVisualizationStream as VisualizationStream
 from .streams.control import ControlStream
 from .streams.rest import RestStream
 
@@ -458,15 +458,12 @@ class ZmqServer:
                 logger.debug("ZMQ server reference passed to REST stream")
             
             if self.vis_port is not None:
-                # Use full-featured visualization stream
+                # Use simplified visualization stream (BACKUP VERSION)
                 self._visualization = VisualizationStream(
-                    core_api=self.core_api,
                     host=self.host,
                     port=self.vis_port,
-                    fq_sampler=self._fq_sampler,
-                    fq_sampler_queue=self._fq_sampler_queue,
-                    context=self._context,
-                    stream_config=self.stream_config.get('visualization', {})
+                    context=None,  # SimpleVisualizationStream creates its own sync context
+                    fq_sampler_queue=self._fq_sampler_queue
                 )
                 logger.info(f"Visualization stream enabled on port {self.vis_port}")
             else:
