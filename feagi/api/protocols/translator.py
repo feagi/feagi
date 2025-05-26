@@ -349,56 +349,27 @@ class ByteStructureTranslator:
             client_id: Optional client ID for version negotiation
             
         Returns:
-            Encoded neuron data using the appropriate format
+            Encoded neuron data using Type 11 (NEURON_CATEGORIES) format for DPR compatibility
         """
-        # Determine format based on number of cortical areas
-        if len(cortical_data) > 1:
-            # Use categorized format for multiple cortical areas
-            structure_id = ByteStructureID.NEURON_CATEGORIES
-            
-            # Get appropriate version based on client capabilities
-            version = self.get_supported_version(
-                client_id if client_id else "", 
-                structure_id
-            )
-            
-            return self.encoder.encode_neuron_categories(
-                cortical_data=cortical_data,
-                version=version
-            )
+        # ALWAYS use NEURON_CATEGORIES format (Type 11) for DPR compatibility
+        # This ensures Direct Point Rendering gets the right format regardless of cortical area count
+        structure_id = ByteStructureID.NEURON_CATEGORIES
         
-        # Use flat format for a single cortical area
-        elif len(cortical_data) == 1:
-            cortical_id, data = list(cortical_data.items())[0]
-            
-            # Extract data
-            x_coords = data['x']
-            y_coords = data['y']
-            z_coords = data['z']
-            potentials = data['potentials']
-            
-            # Create a list of cortical IDs (same ID for all neurons)
-            neuron_count = len(x_coords)
-            cortical_ids = [cortical_id] * neuron_count
-            
-            # Get appropriate version based on client capabilities
-            structure_id = ByteStructureID.NEURON_FLAT
-            version = self.get_supported_version(
-                client_id if client_id else "", 
-                structure_id
-            )
-            
-            return self.encoder.encode_neuron_flat(
-                cortical_ids=cortical_ids,
-                x_coords=x_coords,
-                y_coords=y_coords,
-                z_coords=z_coords,
-                potentials=potentials,
-                version=version
-            )
-        else:
-            # Empty data
+        # Get appropriate version based on client capabilities
+        version = self.get_supported_version(
+            client_id if client_id else "", 
+            structure_id
+        )
+        
+        # If empty data, return empty message
+        if not cortical_data:
             return self.encoder.encode_json({"message_type": "neuron_data", "data": {}})
+        
+        # Use categorized format for all cases (DPR requirement)
+        return self.encoder.encode_neuron_categories(
+            cortical_data=cortical_data,
+            version=version
+        )
     
     def decode_message(self, message_data: bytes) -> Dict[str, Any]:
         """
