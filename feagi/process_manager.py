@@ -46,6 +46,7 @@ from feagi.npu.burst_engine import FQSampler
 from feagi.core.state_manager import FeagiStateManager
 from queue import Queue
 import traceback
+import multiprocessing
 
 # Import TOML configuration system
 from feagi.config.toml_loader import (
@@ -386,6 +387,52 @@ class ProcessManager:
                 # Non-critical - continue without resource manager
                 logger.warning("Continuing without Resource Manager")
                 
+            # --- Health Check Service ---
+            try:
+                health_enabled = config.get('resources', {}).get('enable_health_check', True)
+                if health_enabled:
+                    from feagi.core.health_monitor import HealthMonitor
+                    
+                    health_monitor = HealthMonitor()
+                    if health_monitor.start():
+                        self._processes['health_monitor'] = health_monitor
+                        logger.info("Health monitor started")
+                    else:
+                        logger.warning("Failed to start health monitor - continuing without it")
+                        
+            except Exception as e:
+                logger.warning(f"Health monitor initialization failed: {e}")
+                # Non-critical - continue without health monitoring
+            
+            # --- System Resource Monitor (Profile Mode) ---
+            try:
+                # Check if profiling mode is enabled via --profile flag
+                profile_enabled = config.get('system', {}).get('profile', False)
+                
+                if profile_enabled:
+                    from feagi.utils.system_monitor import start_system_monitoring
+                    
+                    # Configure monitoring based on profile settings
+                    monitoring_interval = config.get('profile', {}).get('resource_monitor_interval', 5.0)
+                    enable_gpu = config.get('profile', {}).get('monitor_gpu', True)
+                    enable_logging = config.get('profile', {}).get('monitor_logging', True)
+                    
+                    system_monitor = start_system_monitoring(
+                        monitoring_interval=monitoring_interval,
+                        enable_gpu_monitoring=enable_gpu,
+                        enable_detailed_logging=enable_logging
+                    )
+                    
+                    if system_monitor:
+                        self._processes['system_monitor'] = system_monitor
+                        logger.info(f"📊 System resource monitor started (profile mode) - interval: {monitoring_interval}s")
+                    else:
+                        logger.warning("Failed to start system resource monitor")
+                        
+            except Exception as e:
+                logger.warning(f"System resource monitor initialization failed: {e}")
+                # Non-critical - continue without resource monitoring
+                
             logger.info("Important processes initialization completed")
             return True
             
@@ -682,6 +729,9 @@ class ProcessManager:
                             elif name == 'health_monitor' and hasattr(service, 'stop'):
                                 # Health monitor has a stop method
                                 service.stop()
+                            elif name == 'system_monitor' and hasattr(service, 'stop'):
+                                # System resource monitor has a stop method
+                                service.stop()
                             elif name == 'resource_manager' and hasattr(service, 'cleanup'):
                                 # Resource manager has a cleanup method
                                 service.cleanup()
@@ -750,5 +800,139 @@ def get_process_manager() -> ProcessManager:
     if _process_manager is None:
         _process_manager = ProcessManager()
     return _process_manager
+
+def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
+    """
+    Start all FEAGI processes based on configuration.
+    
+    Args:
+        startup_config: Configuration for process startup
+        config: Main FEAGI configuration
+        
+    Returns:
+        bool: True if all processes started successfully
+    """
+    try:
+        # Check if profiling is enabled
+        profile_enabled = config.get('system', {}).get('profile', False)
+        
+        if profile_enabled:
+            # Import and start detailed profiling
+            from feagi.utils.resource_profiler import start_profiling, profile_component
+            start_profiling()
+            logger.info("🔍 Detailed resource profiling enabled")
+            
+            # Profile initial state
+            profile_component("startup_baseline")
+
+        # ... existing code ...
+        
+        # Start Health Monitor (Important processes)
+        if startup_config.get('health_monitor', {}).get('enabled', True):
+            logger.info("Starting Health Monitor...")
+            
+            if profile_enabled:
+                profile_component("pre_health_monitor")
+            
+            # Health monitor startup code here...
+            
+            if profile_enabled:
+                profile_component("post_health_monitor")
+
+        # Start Resource Manager
+        if startup_config.get('resource_manager', {}).get('enabled', True):
+            logger.info("Starting Resource Manager...")
+            
+            if profile_enabled:
+                profile_component("pre_resource_manager")
+            
+            # Resource manager startup code here...
+            
+            if profile_enabled:
+                profile_component("post_resource_manager")
+
+        # Start REST API server (Critical processes)
+        if startup_config.get('rest_api', {}).get('enabled', True):
+            logger.info("Starting REST API server...")
+            
+            if profile_enabled:
+                profile_component("pre_rest_api")
+            
+            # Start REST API
+            rest_host = config.get('api', {}).get('rest_host', '0.0.0.0')
+            rest_port = config.get('api', {}).get('rest_port', 8080)
+            
+            rest_process = multiprocessing.Process(
+                target=_start_rest_api_server,
+                args=(rest_host, rest_port),
+                name="FEAGI-REST-API"
+            )
+            rest_process.start()
+            _active_processes.append(rest_process)
+            logger.info(f"REST API server started on {rest_host}:{rest_port}")
+            
+            if profile_enabled:
+                profile_component("post_rest_api")
+
+        # Start ZMQ server (Critical processes)
+        if startup_config.get('zmq_server', {}).get('enabled', True):
+            logger.info("Starting ZMQ server...")
+            
+            if profile_enabled:
+                profile_component("pre_zmq_server")
+            
+            # ZMQ server startup code here...
+            
+            if profile_enabled:
+                profile_component("post_zmq_server")
+
+        # Start Burst Engine (Important processes)
+        if startup_config.get('burst_engine', {}).get('enabled', True):
+            logger.info("Starting Burst Engine...")
+            
+            if profile_enabled:
+                profile_component("pre_burst_engine")
+            
+            # Burst engine startup code here...
+            
+            if profile_enabled:
+                profile_component("post_burst_engine")
+
+        # Start FQ Sampler
+        if startup_config.get('fq_sampler', {}).get('enabled', True):
+            logger.info("Starting FQ Sampler...")
+            
+            if profile_enabled:
+                profile_component("pre_fq_sampler")
+            
+            # FQ sampler startup code here...
+            
+            if profile_enabled:
+                profile_component("post_fq_sampler")
+
+        # Start system resource monitor if profile enabled
+        if profile_enabled:
+            logger.info("📊 System resource profiling enabled via --profile flag")
+            from feagi.utils.system_monitor import SystemMonitor
+            
+            monitor = SystemMonitor()
+            monitor_thread = threading.Thread(
+                target=monitor.start_monitoring,
+                args=(5.0,),  # 5 second interval
+                daemon=True,
+                name="SystemMonitor"
+            )
+            monitor_thread.start()
+            logger.info("📊 System resource monitor started (profile mode) - interval: 5.0s")
+            
+            # Final profiling snapshot
+            profile_component("all_processes_started")
+
+        logger.info("✅ All processes started successfully")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ Error starting processes: {e}")
+        return False
 
 # Removed the global process_manager instantiation that was here 

@@ -26,5 +26,8 @@ pytest-mock>=3.6.1
 dataclasses-json>=0.5.7
 memory-profiler>=0.60.0
 
+# System monitoring dependencies (optional - only needed with --profile flag)
+# GPUtil>=1.4.0  # Optional: Install only if GPU monitoring is needed
+
 # Optional dependencies
 torch>=2.0.0; platform_system == "Darwin" and platform_machine == "arm64"

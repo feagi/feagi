@@ -130,6 +130,9 @@ def main():
     parser.add_argument("--debug-zmq-outbound", action="store_true", help="Log all outbound ZMQ traffic with decoded data")
     parser.add_argument("--debug-zmq-inbound", action="store_true", help="Log all inbound ZMQ traffic with decoded data")
     
+    # Performance profiling arguments
+    parser.add_argument("--profile", action="store_true", help="Enable system resource monitoring (CPU, memory, GPU usage)")
+    
     args = parser.parse_args()
     
     try:
@@ -190,6 +193,10 @@ def main():
             # Set environment variable for ZMQ inbound traffic debugging
             os.environ['FEAGI_DEBUG_ZMQ_INBOUND'] = '1'
             logger.info("📥 ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag")
+        
+        if args.profile:
+            cli_overrides['profile'] = True
+            logger.info("📊 System resource profiling enabled via --profile flag")
         
         # Load configuration with CLI overrides
         logger.info("Loading FEAGI configuration...")
