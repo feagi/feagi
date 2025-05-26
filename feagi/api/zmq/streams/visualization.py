@@ -357,106 +357,46 @@ class VisualizationStream:
     def _publish_data(self, data: bytes) -> None:
         """
         Publish data on the 'activity' topic.
-        Use the most basic synchronous ZMQ operations with comprehensive debugging.
+        Use synchronous ZMQ operations with error handling.
         """
         try:
-            # 🔧 COMPREHENSIVE SOCKET STATE DEBUGGING
-            logger.info(f"🔧 DEBUG: ===== SOCKET STATE BEFORE PUBLISH =====")
-            logger.info(f"🔧 DEBUG: Socket exists: {self.socket is not None}")
-            
-            if self.socket:
-                logger.info(f"🔧 DEBUG: Socket type: {type(self.socket)}")
-                logger.info(f"🔧 DEBUG: Socket closed: {self.socket.closed}")
-                logger.info(f"🔧 DEBUG: Socket hwm: {self.socket.getsockopt(zmq.SNDHWM)}")
-                logger.info(f"🔧 DEBUG: Socket linger: {self.socket.getsockopt(zmq.LINGER)}")
-                logger.info(f"🔧 DEBUG: Socket identity: {self.socket.getsockopt(zmq.IDENTITY)}")
-                
-                try:
-                    events = self.socket.getsockopt(zmq.EVENTS)
-                    logger.info(f"🔧 DEBUG: Socket events: {events} (POLLIN={zmq.POLLIN}, POLLOUT={zmq.POLLOUT})")
-                    logger.info(f"🔧 DEBUG: Socket can send: {(events & zmq.POLLOUT) != 0}")
-                except Exception as e:
-                    logger.error(f"🔧 DEBUG: Error checking socket events: {e}")
-                
-                try:
-                    last_endpoint = self.socket.getsockopt(zmq.LAST_ENDPOINT)
-                    logger.info(f"🔧 DEBUG: Last endpoint: {last_endpoint}")
-                except Exception as e:
-                    logger.error(f"🔧 DEBUG: Error getting last endpoint: {e}")
-                    
-            logger.info(f"🔧 DEBUG: Context exists: {self.context is not None}")
-            if self.context:
-                logger.info(f"🔧 DEBUG: Context closed: {self.context.closed}")
-            
-            logger.info(f"🔧 DEBUG: Data size: {len(data)} bytes")
-            logger.info(f"🔧 DEBUG: Data preview: {data[:100] if len(data) > 100 else data}")
-            
-            # Use the most basic synchronous send operations
-            logger.info(f"🔧 DEBUG: Sending topic frame...")
+            # Use basic synchronous send operations
             self.socket.send(b"activity", zmq.SNDMORE)
-            logger.info(f"🔧 DEBUG: Topic frame sent successfully")
-            
-            logger.info(f"🔧 DEBUG: Sending data frame...")
             self.socket.send(data)
-            logger.info(f"🔧 DEBUG: Data frame sent successfully")
             
-            # Update simple statistics
+            # Update statistics
             self.stats['data_sent'] += 1
             self.stats['bytes_sent'] += len(data)
             
-            # More frequent debug logging to verify publishing
-            if self.stats['data_sent'] % 10 == 0:  # Every 10 messages instead of 100
-                logger.info(f"📊 Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total")
+            # Periodic status logging (every 100 messages)
+            if self.stats['data_sent'] % 100 == 0:
+                logger.debug(f"Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total")
             
             # Log first few messages to confirm publishing is working
-            if self.stats['data_sent'] <= 5:
-                logger.info(f"🚀 Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
-            
-            logger.info(f"🔧 DEBUG: ===== SOCKET STATE AFTER PUBLISH =====")
-            if self.socket:
-                logger.info(f"🔧 DEBUG: Socket still exists: True")
-                logger.info(f"🔧 DEBUG: Socket still open: {not self.socket.closed}")
-            else:
-                logger.info(f"🔧 DEBUG: Socket is None after publish!")
+            if self.stats['data_sent'] <= 3:
+                logger.info(f"Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
             
         except Exception as e:
-            logger.error(f"❌ SOCKET ERROR: Failed to publish data: {e}")
-            logger.error(f"❌ ERROR TYPE: {type(e)}")
+            logger.error(f"Failed to publish data: {e}")
             
-            # Enhanced socket error diagnostics
-            if self.socket:
-                try:
-                    logger.error(f"❌ Socket state after error: closed={self.socket.closed}")
-                    logger.error(f"❌ Socket type after error: {type(self.socket)}")
-                except Exception as diag_error:
-                    logger.error(f"❌ Cannot diagnose socket: {diag_error}")
-            else:
-                logger.error(f"❌ Socket is None when error occurred")
-                
-            if self.context:
-                try:
-                    logger.error(f"❌ Context state after error: closed={self.context.closed}")
-                except Exception as diag_error:
-                    logger.error(f"❌ Cannot diagnose context: {diag_error}")
-            else:
-                logger.error(f"❌ Context is None when error occurred")
-                
-            import traceback
-            logger.error(f"❌ Publishing traceback: {traceback.format_exc()}")
-            
-            # Try to recreate socket if it's corrupted
+            # Handle ZMQ state corruption specifically
             if "Operation cannot be accomplished in current state" in str(e):
-                logger.error(f"❌ DETECTED ZMQ STATE CORRUPTION - attempting socket recreation")
+                logger.warning("ZMQ socket corrupted, attempting recreation...")
                 try:
                     self._recreate_socket()
-                    logger.info(f"✅ Socket recreated successfully - retrying publish")
                     # Retry once
                     self.socket.send(b"activity", zmq.SNDMORE)
                     self.socket.send(data)
-                    logger.info(f"✅ Retry publish successful")
+                    logger.info("Socket recreated and retry successful")
                 except Exception as retry_error:
-                    logger.error(f"❌ Retry publish failed: {retry_error}")
-                    
+                    logger.error(f"Socket recreation failed: {retry_error}")
+            else:
+                # Log error details for non-corruption errors
+                logger.error(f"Publishing error type: {type(e).__name__}")
+                if logger.isEnabledFor(10):  # DEBUG level
+                    import traceback
+                    logger.debug(f"Publishing traceback: {traceback.format_exc()}")
+
     def _recreate_socket(self):
         """Recreate the ZMQ socket when it gets corrupted."""
         logger.warning(f"🔧 Recreating corrupted ZMQ socket...")
@@ -672,50 +612,40 @@ class VisualizationStream:
 
     def _control_fq_sampler(self, enable: bool) -> None:
         """Enable or disable the FQ sampler based on subscriber presence (crucial feature from full version)."""
-        logger.info(f"🔧 DEBUG: _control_fq_sampler called with enable={enable}")
-        
         try:
             if not self.fq_sampler:
-                logger.info(f"🔧 DEBUG: No FQ sampler reference, trying to get from process manager")
                 # Try to get FQ sampler from process manager
                 try:
                     from feagi.process_manager import get_process_manager
                     process_manager = get_process_manager()
-                    logger.info(f"🔧 DEBUG: Process manager instance: {process_manager is not None}")
                     
                     if process_manager and hasattr(process_manager, '_fq_sampler'):
                         self.fq_sampler = process_manager._fq_sampler
-                        logger.info(f"✅ Found FQ sampler from process manager: {self.fq_sampler is not None}")
+                        logger.debug(f"Found FQ sampler from process manager")
                     else:
-                        logger.warning(f"❌ Process manager has no _fq_sampler attribute")
+                        logger.debug("Process manager has no _fq_sampler attribute")
                         
                 except Exception as e:
-                    logger.warning(f"Could not get FQ sampler from process manager: {e}")
-            else:
-                logger.info(f"🔧 DEBUG: Using existing FQ sampler reference")
-            
-            logger.info(f"🔧 DEBUG: FQ sampler available: {self.fq_sampler is not None}")
-            logger.info(f"🔧 DEBUG: FQ sampler has set_visualization_subscribers: {hasattr(self.fq_sampler, 'set_visualization_subscribers') if self.fq_sampler else False}")
+                    logger.debug(f"Could not get FQ sampler from process manager: {e}")
             
             if self.fq_sampler and hasattr(self.fq_sampler, 'set_visualization_subscribers'):
                 if enable:
                     logger.info("🔔 Enabling FQ sampler - visualization clients connected")
                     self.fq_sampler.set_visualization_subscribers(True)
                     self._fq_sampler_enabled = True
-                    logger.info("✅ FQ sampler enabled successfully")
                 else:
                     logger.info("🔕 Disabling FQ sampler - no visualization clients")
                     self.fq_sampler.set_visualization_subscribers(False)
                     self._fq_sampler_enabled = False
-                    logger.info("✅ FQ sampler disabled successfully")
             else:
                 if enable:
-                    logger.warning("❌ FQ sampler not available or doesn't support set_visualization_subscribers")
+                    logger.warning("FQ sampler not available or doesn't support set_visualization_subscribers")
                 
         except Exception as e:
-            logger.error(f"❌ Error controlling FQ sampler: {e}")
-            import traceback
-            logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            logger.error(f"Error controlling FQ sampler: {e}")
+            if logger.isEnabledFor(10):  # DEBUG level  
+                import traceback
+                logger.debug(f"FQ sampler control traceback: {traceback.format_exc()}")
 
     def send_visualization_data(self, data) -> None:
         """Compatibility method for external data sending."""
