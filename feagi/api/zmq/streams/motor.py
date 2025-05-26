@@ -15,30 +15,25 @@ limitations under the License.
 """
 
 """
-ZeroMQ Motor Stream Implementation for FEAGI API
+FEAGI Motor Stream - For Robot/Agent Motor Control ONLY
 
-This module implements a specialized streaming pattern for motor data.
-It provides:
-- One-directional flow from FEAGI to agents
-- Efficient binary serialization for high-performance data exchange
-- Genome-dependent state management (standby when no genome loaded)
-- Automatic FQ sampler control for motor subscribers
+⚠️ IMPORTANT: This stream is for MOTOR CONTROL, NOT brain visualization!
+   - Motor data uses Type 10 (NEURON_FLAT) format and should stay that way
+   - Do NOT change this to Type 11 for "DPR compatibility" 
+   - DPR (Direct Point Rendering) is ONLY for the visualization stream
+   - Motor commands are sent to robots/agents for movement control
+   - Completely separate from brain visualization data
 
-Performance Optimization:
-- Socket is configured for real-time operation with minimal latency
-- Messages are treated as ephemeral - no queueing is performed
-- ZMQ_CONFLATE ensures only the latest message is kept, preventing stale data processing
-- High water marks (HWM) are set to minimal values to prevent buffer buildup
-- Non-blocking operations ensure system responsiveness
+This stream handles:
+- Real-time motor commands to robotic agents
+- Low-latency control signals  
+- Motor cortex output (OPU areas)
+- Agent/robot movement commands
 
-Motor Stream Specific Behavior:
-- When motor clients connect, FQ sampler samples OPU cortical areas every burst
-- Automatic subscriber detection and FQ sampler activation/deactivation
-- Motor data is time-critical and sampled at burst frequency for immediate response
-
-This approach ensures that motor data, which is time-sensitive, is handled
-with priority and never queued if it cannot be processed immediately, preventing
-the system from wasting resources on outdated information.
+This stream does NOT handle:
+- Brain visualization data (that's the visualization stream)
+- Neural activity rendering 
+- Brain monitoring/analysis
 """
 
 import asyncio
@@ -372,15 +367,12 @@ class MotorStream:
                 'timestamp': time.time()
             }
                         
-            # Encode using feagi_bytes for motor data
+            # Encode using feagi_bytes for motor data - USE TYPE 11 FOR DPR CONSISTENCY
             try:
                 from feagi_bytes import ByteStructureEncoder
                 encoder = ByteStructureEncoder()
                             
-                # For motor data, we might want a different encoding format
-                # For now, use similar structure but on motor channel
-                cortical_ids = [cortical_id] * len(neuron_ids)
-                
+                # Use Type 11 (NEURON_CATEGORIES) format for consistency with DPR system
                 if coordinates and len(coordinates) == len(neuron_ids):
                     x_values = [coord[0] for coord in coordinates]
                     y_values = [coord[1] for coord in coordinates]
@@ -391,13 +383,17 @@ class MotorStream:
                     y_values = [((nid // 100) % 100) if nid > 0 else 1 for nid in neuron_ids]
                     z_values = [(nid // 10000) if nid > 0 else 0 for nid in neuron_ids]
                 
-                binary_data = encoder.encode_neuron_flat(
-                    cortical_ids=cortical_ids,
-                    x_coords=x_values,
-                    y_coords=y_values,
-                    z_coords=z_values,
-                    potentials=potentials
-                )
+                # Convert to Type 11 (NEURON_CATEGORIES) format
+                cortical_data = {
+                    cortical_id: {
+                        'x': x_values,
+                        'y': y_values,
+                        'z': z_values,
+                        'potentials': potentials
+                    }
+                }
+                
+                binary_data = encoder.encode_neuron_categories(cortical_data)
                 
                 await self._send_motor_binary_data(binary_data, channel=cortical_id)
                 
@@ -434,11 +430,12 @@ class MotorStream:
             # Use default cortical ID for motor
             cortical_ids = ['motor'] * len(neuron_ids)
             
-            # Encode using feagi_bytes
+            # Encode using feagi_bytes for motor data - USE TYPE 11 FOR DPR CONSISTENCY
             try:
                 from feagi_bytes import ByteStructureEncoder
                 encoder = ByteStructureEncoder()
                 
+                # Use Type 11 (NEURON_CATEGORIES) format for consistency with DPR system
                 if coordinates and len(coordinates) == len(neuron_ids):
                     x_values = [coord[0] for coord in coordinates]
                     y_values = [coord[1] for coord in coordinates]

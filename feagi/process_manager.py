@@ -654,38 +654,58 @@ class ProcessManager:
             # Stop running flag to signal all services to stop
             self._running = False
             
-            # Shutdown each service properly based on its type
+            # Import required modules for timeout handling
+            import threading
+            import time
+            
+            # Define timeout for graceful shutdown attempts
+            GRACEFUL_SHUTDOWN_TIMEOUT = 8.0  # 8 seconds for graceful shutdown
+            
+            # Shutdown each service properly based on its type with timeouts
             for name, service in self._processes.items():
                 try:
                     print(f"Stopping service: {name}...", file=sys.stderr, flush=True)
                     
-                    # Handle different service types
-                    if name == 'zmq_server' and hasattr(service, 'shutdown'):
-                        # ZMQ server has a shutdown method
-                        service.shutdown()
-                    elif name == 'rest_api' and hasattr(service, 'stop'):
-                        # REST API server has a stop method
-                        service.stop()
-                    elif name == 'websocket' and hasattr(service, 'stop'):
-                        # WebSocket server has a stop method  
-                        service.stop()
-                    elif name == 'health_monitor' and hasattr(service, 'stop'):
-                        # Health monitor has a stop method
-                        service.stop()
-                    elif name == 'resource_manager' and hasattr(service, 'cleanup'):
-                        # Resource manager has a cleanup method
-                        service.cleanup()
-                    elif hasattr(service, 'terminate') and hasattr(service, 'poll'):
-                        # Legacy subprocess handling
-                        if service.poll() is None:
-                            service.terminate()
-                            service.wait(timeout=2)
-                    elif hasattr(service, 'is_alive') and hasattr(service, 'join'):
-                        # Thread-like objects
-                        if service.is_alive():
-                            service.join(timeout=2)
-                    else:
-                        print(f"Service {name} doesn't have a known shutdown method", file=sys.stderr, flush=True)
+                    # Create a shutdown function that can be run with timeout
+                    def shutdown_service():
+                        try:
+                            # Handle different service types
+                            if name == 'zmq_server' and hasattr(service, 'shutdown'):
+                                # ZMQ server has a shutdown method
+                                service.shutdown()
+                            elif name == 'rest_api' and hasattr(service, 'stop'):
+                                # REST API server has a stop method
+                                service.stop()
+                            elif name == 'websocket' and hasattr(service, 'stop'):
+                                # WebSocket server has a stop method  
+                                service.stop()
+                            elif name == 'health_monitor' and hasattr(service, 'stop'):
+                                # Health monitor has a stop method
+                                service.stop()
+                            elif name == 'resource_manager' and hasattr(service, 'cleanup'):
+                                # Resource manager has a cleanup method
+                                service.cleanup()
+                            elif hasattr(service, 'terminate') and hasattr(service, 'poll'):
+                                # Legacy subprocess handling
+                                if service.poll() is None:
+                                    service.terminate()
+                                    service.wait(timeout=2)
+                            elif hasattr(service, 'is_alive') and hasattr(service, 'join'):
+                                # Thread-like objects
+                                if service.is_alive():
+                                    service.join(timeout=2)
+                            else:
+                                print(f"Service {name} doesn't have a known shutdown method", file=sys.stderr, flush=True)
+                        except Exception as e:
+                            print(f"Error in shutdown_service for {name}: {e}", file=sys.stderr, flush=True)
+                    
+                    # Run shutdown with timeout using a separate thread
+                    shutdown_thread = threading.Thread(target=shutdown_service, daemon=True)
+                    shutdown_thread.start()
+                    shutdown_thread.join(timeout=GRACEFUL_SHUTDOWN_TIMEOUT)
+                    
+                    if shutdown_thread.is_alive():
+                        print(f"⚠️  Service {name} didn't stop within {GRACEFUL_SHUTDOWN_TIMEOUT}s - continuing anyway", file=sys.stderr, flush=True)
                         
                 except Exception as e:
                     print(f"Error stopping service {name}: {e}", file=sys.stderr, flush=True)

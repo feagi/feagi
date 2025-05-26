@@ -252,6 +252,7 @@ class ZmqServer:
         
         # State tracking
         self._running = False
+        self._shutdown_in_progress = False  # Prevent concurrent shutdowns
         
         # Store components (some may be None if disabled)
         self._req_rep = None
@@ -321,6 +322,8 @@ class ZmqServer:
         
         # Cleanup task
         self.cleanup_task = None
+        
+        logger.info(f"ZMQ Server initialized on {host}:{req_rep_port}")
     
     def start(self) -> bool:
         """
@@ -553,38 +556,56 @@ class ZmqServer:
     
     def shutdown(self):
         """
-        Shutdown the ZMQ server.
+        Shutdown the ZMQ server with improved handling for multiple attempts.
         
         This method is thread-safe and can be called from any thread.
         """
+        # Prevent concurrent shutdowns
+        if self._shutdown_in_progress:
+            print("Shutdown already in progress, ignoring signal", file=sys.stderr, flush=True)
+            return
+            
         if not self._running:
             print("ZMQ server is not running", file=sys.stderr, flush=True)
             return
         
-        # @cursor:critical-path - Signal-safe shutdown should minimize logging
-        print("Shutting down ZMQ server", file=sys.stderr, flush=True)
+        # Set shutdown flag atomically
+        self._shutdown_in_progress = True
         
-        # Signal the monitor loop to stop
-        self._shutdown_event.set()
+        # @cursor:critical-path - Signal-safe shutdown should minimize logging
+        print("Shutting down FEAGI servers...", file=sys.stderr, flush=True)
         
         try:
+            # Signal the monitor loop to stop
+            self._shutdown_event.set()
+            
             # Create a new event loop for shutdown if we're not in the server thread
             if threading.current_thread() != self._thread:
                 # We're in a different thread, create a new event loop
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    # Run the shutdown in this new loop
-                    loop.run_until_complete(self._stop_services())
+                    # Run the shutdown in this new loop with timeout
+                    loop.run_until_complete(
+                        asyncio.wait_for(self._stop_services(), timeout=15.0)
+                    )
+                except asyncio.TimeoutError:
+                    print("⚠️  Shutdown timed out after 15 seconds - forcing exit", file=sys.stderr, flush=True)
                 finally:
-                    loop.close()
+                    try:
+                        loop.close()
+                    except Exception:
+                        pass  # Ignore loop closing errors
             else:
                 # We're in the server thread, use its loop
-                asyncio.ensure_future(self._stop_services())
+                if self._loop and self._loop.is_running():
+                    asyncio.ensure_future(self._stop_services())
             
-            # Wait for the server thread to finish
+            # Wait for the server thread to finish with timeout
             if self._thread and self._thread.is_alive():
-                self._thread.join(timeout=5.0)
+                self._thread.join(timeout=8.0)
+                if self._thread.is_alive():
+                    print("⚠️  Server thread didn't stop within timeout", file=sys.stderr, flush=True)
             
             # Final cleanup
             self._running = False
@@ -592,54 +613,90 @@ class ZmqServer:
             
         except Exception as e:
             print(f"Error during ZMQ server shutdown: {e}", file=sys.stderr, flush=True)
+        finally:
+            # Always reset shutdown flag
+            self._shutdown_in_progress = False
     
     async def _stop_services(self):
         """
-        Stop all ZMQ services asynchronously.
+        Stop all ZMQ services gracefully with improved timeout handling.
         """
-        # @cursor:critical-path - Signal-safe shutdown should minimize logging
-        print("Stopping ZMQ services", file=sys.stderr, flush=True)
-        
         try:
-            # Stop all services
+            print("Stopping ZMQ services...", file=sys.stderr, flush=True)
+            
+            # Stop services in parallel where possible
             stop_tasks = []
             
             if self._req_rep:
                 stop_tasks.append(self._req_rep.stop())
-        
             if self._pub_sub:
                 stop_tasks.append(self._pub_sub.stop())
-        
             if self._push_pull:
                 stop_tasks.append(self._push_pull.stop())
-        
             if self._sensory:
                 stop_tasks.append(self._sensory.stop())
-        
             if self._motor:
                 stop_tasks.append(self._motor.stop())
-        
             if self._control:
                 stop_tasks.append(self._control.stop())
-        
             if self._rest:
                 stop_tasks.append(self._rest.stop())
-        
-            # RTOS: VisualizationStream is now synchronous, call stop() directly
+
+            # Handle visualization stream separately with timeout
             if self._visualization:
-                self._visualization.stop()  # Direct call - synchronous method
+                import asyncio
+                import threading
+                
+                def stop_visualization_with_timeout():
+                    """Stop visualization in a separate thread with timeout."""
+                    try:
+                        logger.debug("Stopping visualization stream with timeout...")
+                        self._visualization.stop()  # This is the potentially blocking call
+                        logger.debug("Visualization stream stopped successfully")
+                    except Exception as e:
+                        logger.error(f"Error stopping visualization stream: {e}")
+                
+                # Run visualization stop in thread pool with timeout
+                try:
+                    await asyncio.wait_for(
+                        asyncio.get_event_loop().run_in_executor(
+                            None, stop_visualization_with_timeout
+                        ),
+                        timeout=5.0  # 5 second timeout for visualization shutdown
+                    )
+                except asyncio.TimeoutError:
+                    logger.error("⚠️  Visualization stream shutdown timed out after 5 seconds - forcing cleanup")
+                    # Force cleanup by setting visualization to None
+                    self._visualization = None
+                except Exception as e:
+                    logger.error(f"Error during visualization shutdown: {e}")
+                    self._visualization = None
             
-            # Wait for all services
+            # Wait for all other services with timeout
             if stop_tasks:
-                await asyncio.gather(*stop_tasks, return_exceptions=True)
-            
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*stop_tasks, return_exceptions=True),
+                        timeout=10.0  # 10 second timeout for other services
+                    )
+                except asyncio.TimeoutError:
+                    logger.error("⚠️  Some services didn't stop within timeout - forcing cleanup")
+
             print("All ZMQ services stopped", file=sys.stderr, flush=True)
             
-            # Close sockets
-            for socket in [self.control_socket, self.sensory_socket, 
-                          self.motor_socket, self.vis_socket]:
+            # Close sockets with error handling
+            for socket_name, socket in [
+                ("control", self.control_socket),
+                ("sensory", self.sensory_socket), 
+                ("motor", self.motor_socket),
+                ("visualization", self.vis_socket)
+            ]:
                 if socket:
-                    socket.close(linger=0)
+                    try:
+                        socket.close(linger=0)
+                        logger.debug(f"Closed {socket_name} socket")
+                    except Exception as e:
+                        logger.warning(f"Error closing {socket_name} socket: {e}")
                 
             self.control_socket = None
             self.sensory_socket = None
@@ -648,6 +705,9 @@ class ZmqServer:
             
         except Exception as e:
             print(f"Error stopping ZMQ services: {e}", file=sys.stderr, flush=True)
+            logger.error(f"Critical error in service shutdown: {e}")
+            # Force cleanup even if there were errors
+            self._visualization = None
     
     def _cleanup(self):
         """

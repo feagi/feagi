@@ -764,7 +764,7 @@ cortical_areas = {
             "fq_sample_rate": 0.0,   # Disable sampling for noise areas
             "cortical_type": "utility"
         }
-    }
+  }
 }
 ```
 
