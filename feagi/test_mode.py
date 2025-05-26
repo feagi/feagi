@@ -25,6 +25,23 @@ Key Testing Features:
 2. Generating and injecting synthetic sensory data into FCL
 3. Monitoring neural activity across cortical areas
 4. Reporting test results
+5. Predictable neuron activation from JSON file
+
+Predictable Neuron Activation:
+If a file named 'test_mode_activations.json' exists in the same folder as this module,
+it will be loaded and used for predictable neuron injection instead of random selection.
+
+JSON Format:
+{
+  "cortical_id": [[x,y,z], [x,y,z], [x,y,z]],
+  "cortical_id": [[x,y,z], [x,y,z], [x,y,z]],
+  ...
+}
+
+When this file is present and contains valid data:
+- ONLY the specified neurons at the given coordinates will be activated
+- NO random neuron selection will occur
+- The test becomes fully deterministic and repeatable
 
 Visualization Testing Mode:
 When the --test-visualization flag is enabled, test_mode will:
@@ -103,11 +120,100 @@ class FeagiTestRunner:
         self.initial_fcls = {}
         self.areas_with_activity = set()
         
+        # Predictable neuron activation support
+        self.test_activations_data = None
+        self.use_predictable_activations = False
+        
         # Visualization test variables
         self.visualization_agent_id = "test_viz_agent"
         self.is_visualization_agent_registered = False
         self.heartbeat_thread = None
         self.send_heartbeats = False
+        
+        # Try to load test activations JSON file
+        self.load_test_activations_json()
+    
+    def load_test_activations_json(self):
+        """
+        Load predictable neuron activations from test_mode_activations.json.
+        
+        If the file exists in the same folder as this module, it will be loaded
+        and used for predictable neuron injection instead of random selection.
+        
+        Returns:
+            bool: True if JSON file was loaded successfully, False otherwise
+        """
+        try:
+            # Get the directory where this module is located
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+            json_path = os.path.join(module_dir, "test_mode_activations.json")
+            
+            if not os.path.exists(json_path):
+                logger.info("No test_mode_activations.json found - using random neuron injection")
+                self.use_predictable_activations = False
+                return False
+            
+            logger.info(f"Loading predictable neuron activations from: {json_path}")
+            
+            with open(json_path, 'r') as f:
+                self.test_activations_data = json.load(f)
+            
+            # Validate the JSON structure
+            if not isinstance(self.test_activations_data, dict):
+                logger.error("Invalid JSON format: root should be a dictionary")
+                self.use_predictable_activations = False
+                return False
+            
+            # Validate each cortical area entry
+            total_neurons = 0
+            valid_areas = 0
+            
+            for cortical_id, coordinates in self.test_activations_data.items():
+                if not isinstance(coordinates, list):
+                    logger.warning(f"Invalid coordinates for {cortical_id}: should be a list")
+                    continue
+                
+                valid_coords = 0
+                for coord in coordinates:
+                    if isinstance(coord, list) and len(coord) == 3:
+                        # Validate that coordinates are numbers
+                        try:
+                            x, y, z = coord
+                            if all(isinstance(c, (int, float)) for c in [x, y, z]):
+                                valid_coords += 1
+                            else:
+                                logger.warning(f"Invalid coordinate in {cortical_id}: {coord} - coordinates must be numbers")
+                        except (ValueError, TypeError):
+                            logger.warning(f"Invalid coordinate in {cortical_id}: {coord}")
+                    else:
+                        logger.warning(f"Invalid coordinate format in {cortical_id}: {coord} - should be [x,y,z]")
+                
+                if valid_coords > 0:
+                    valid_areas += 1
+                    total_neurons += valid_coords
+                    logger.debug(f"Loaded {valid_coords} valid coordinates for cortical area {cortical_id}")
+                else:
+                    logger.warning(f"No valid coordinates found for cortical area {cortical_id}")
+            
+            if valid_areas > 0:
+                self.use_predictable_activations = True
+                logger.info(f"✅ Predictable neuron injection enabled:")
+                logger.info(f"   📊 {valid_areas} cortical areas with {total_neurons} total neurons to activate")
+                logger.info(f"   🎯 Will inject ONLY these neurons (no random selection)")
+                return True
+            else:
+                logger.error("No valid cortical areas found in JSON - falling back to random injection")
+                self.use_predictable_activations = False
+                return False
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in test_mode_activations.json: {e}")
+            self.use_predictable_activations = False
+            return False
+        except Exception as e:
+            logger.error(f"Error loading test_mode_activations.json: {e}")
+            self.use_predictable_activations = False
+            return False
     
     def load_genome(self):
         """
@@ -179,9 +285,110 @@ class FeagiTestRunner:
         Inject actual neurons from cortical areas into FCLs.
         
         This method:
-        1. Selects actual neurons from each cortical area
-        2. Uses their real coordinates and membrane potentials 
-        3. Injects them into the FCL
+        1. If predictable activations are enabled, uses coordinates from JSON file
+        2. Otherwise, selects actual neurons from each cortical area randomly
+        3. Uses their real coordinates and membrane potentials 
+        4. Injects them into the FCL
+        
+        Returns:
+            bool: True if data was injected successfully, False otherwise
+        """
+        try:
+            # Check if we should use predictable activations from JSON
+            if self.use_predictable_activations and self.test_activations_data:
+                return self._inject_predictable_activations()
+            else:
+                return self._inject_random_activations()
+            
+        except Exception as e:
+            logger.error(f"Error injecting sensory data: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+    
+    def _inject_predictable_activations(self):
+        """
+        Inject predictable neuron activations from the JSON file.
+        
+        Returns:
+            bool: True if data was injected successfully, False otherwise
+        """
+        try:
+            total_active_neurons = 0
+            active_areas = []
+            
+            logger.debug(f"Injecting predictable activations for {len(self.test_activations_data)} cortical areas")
+            
+            for cortical_id, coordinates_list in self.test_activations_data.items():
+                try:
+                    # Check if this cortical area exists in the connectome
+                    if cortical_id not in self.connectome.cortical_areas:
+                        logger.warning(f"Cortical area {cortical_id} from JSON not found in connectome - skipping")
+                        continue
+                    
+                    cortical_area = self.connectome.cortical_areas[cortical_id]
+                    
+                    # Convert coordinates to neuron IDs
+                    selected_neurons = []
+                    
+                    for coord in coordinates_list:
+                        if isinstance(coord, list) and len(coord) == 3:
+                            try:
+                                x, y, z = int(coord[0]), int(coord[1]), int(coord[2])
+                                
+                                # Find neurons at this coordinate using the correct API
+                                neurons_at_position = cortical_area.get_neurons_at_position((x, y, z))
+                                if neurons_at_position:
+                                    selected_neurons.extend(neurons_at_position)
+                                    logger.debug(f"Found {len(neurons_at_position)} neurons at ({x},{y},{z}) in {cortical_id}")
+                                else:
+                                    logger.debug(f"No neurons found at coordinate ({x},{y},{z}) in {cortical_id}")
+                                    
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"Invalid coordinate {coord} in {cortical_id}: {e}")
+                                continue
+                        else:
+                            logger.warning(f"Invalid coordinate format {coord} in {cortical_id}")
+                            continue
+                    
+                    if selected_neurons:
+                        # Remove duplicates while preserving order
+                        selected_neurons = list(dict.fromkeys(selected_neurons))
+                        
+                        # Create bitmap from selected neuron IDs
+                        from feagi.npu.fcl_manager import BitMap
+                        bitmap = BitMap(selected_neurons)
+                        
+                        # Add the bitmap to FCL updates
+                        if len(bitmap) > 0:
+                            total_active_neurons += len(bitmap)
+                            active_areas.append(cortical_id)
+                            self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
+                            logger.debug(f"Injected {len(bitmap)} predictable neurons in {cortical_id}")
+                    else:
+                        logger.warning(f"No valid neurons found for coordinates in {cortical_id}")
+                        
+                except Exception as e:
+                    logger.error(f"Error processing predictable activations for {cortical_id}: {e}")
+                    continue
+            
+            # Summary log
+            if total_active_neurons > 0:
+                logger.info(f"🎯 Injected {total_active_neurons} PREDICTABLE neurons across {len(active_areas)} areas")
+                return True
+            else:
+                logger.warning("No predictable neurons were successfully injected")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error injecting predictable activations: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+    
+    def _inject_random_activations(self):
+        """
+        Inject random neuron activations (original behavior).
         
         Returns:
             bool: True if data was injected successfully, False otherwise
@@ -237,14 +444,14 @@ class FeagiTestRunner:
             
             # Single summary log
             if total_active_neurons > 0:
-                logger.info(f"Injected {total_active_neurons} neurons across {len(active_areas)} areas")
+                logger.info(f"🎲 Injected {total_active_neurons} RANDOM neurons across {len(active_areas)} areas")
                 return True
             else:
-                logger.warning("No neurons were successfully injected")
+                logger.warning("No random neurons were successfully injected")
                 return False
-            
+                
         except Exception as e:
-            logger.error(f"Error injecting actual neuron data: {e}")
+            logger.error(f"Error injecting random activations: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return False
@@ -327,132 +534,13 @@ class FeagiTestRunner:
                     self.core_api.register_agent_heartbeat(self.visualization_agent_id)
                     logger.debug(f"Sent heartbeat for test visualization agent: {self.visualization_agent_id}")
                     
-                    # Also send a test activity message every 3rd heartbeat (15 seconds)
-                    if hasattr(self, '_heartbeat_counter'):
-                        self._heartbeat_counter += 1
-                    else:
-                        self._heartbeat_counter = 1
-                        
-                    if self._heartbeat_counter % 3 == 0:
-                        self.send_test_activity_data()
+                    # Note: Test mode should NOT send visualization data directly
+                    # All visualization data should come naturally from FCL -> FQ sampler -> visualization stream
                         
             except Exception as e:
                 logger.error(f"Error sending test visualization agent heartbeat: {e}")
                 
         logger.info("Heartbeat thread stopped")
-        
-    def send_test_activity_data(self):
-        """Send test activity data directly to the visualization stream."""
-        try:
-            logger.info("Sending TEST ACTIVITY DATA to visualization stream")
-            print("\n==================================================")
-            print("SENDING TEST ACTIVITY DATA TO VISUALIZATION STREAM")
-            print("==================================================\n")
-            
-            # Find the visualization stream if available
-            viz_stream = None
-            
-            # Try different paths to find it
-            if hasattr(self.core_api, 'visualization_stream'):
-                viz_stream = self.core_api.visualization_stream
-                logger.info("Found visualization stream in core_api.visualization_stream")
-            
-            if not viz_stream:
-                # Check if we can access it through process manager
-                try:
-                    from feagi.process_manager import get_process_manager
-                    pm = get_process_manager()
-                    if pm and hasattr(pm, '_visualization_stream'):
-                        viz_stream = pm._visualization_stream
-                        logger.info("Found visualization stream in process_manager._visualization_stream")
-                except Exception as e:
-                    logger.error(f"Error finding visualization stream through process manager: {e}")
-            
-            if not viz_stream:
-                logger.error("Could not find visualization stream, cannot send test activity data")
-                return
-                
-            # Create a simple test activity data structure using feagi_bytes
-            try:
-                from feagi_bytes import ByteStructureEncoder
-                
-                # Create the encoder
-                encoder = ByteStructureEncoder()
-                
-                # Create simple test data - a 3x3x3 grid of neurons with random activity
-                cortical_ids = []
-                x_coords = []
-                y_coords = []
-                z_coords = []
-                potentials = []
-                
-                # Fill with test data
-                import random
-                for x in range(3):
-                    for y in range(3):
-                        for z in range(3):
-                            cortical_ids.append("TEST_A")  # Test cortical area
-                            x_coords.append(x)
-                            y_coords.append(y)
-                            z_coords.append(z)
-                            # Random potential between 0 and 1
-                            potentials.append(random.random())
-                
-                # Add a few more areas for testing
-                for i in range(10):
-                    cortical_ids.append("TEST_B")
-                    x_coords.append(random.randint(0, 5))
-                    y_coords.append(random.randint(0, 5))
-                    z_coords.append(random.randint(0, 5))
-                    potentials.append(random.random())
-                
-                # Encode the neuron data
-                if hasattr(encoder, 'encode_neuron_flat'):
-                    bytes_data = encoder.encode_neuron_flat(
-                        cortical_ids=cortical_ids,
-                        x_coords=x_coords,
-                        y_coords=y_coords,
-                        z_coords=z_coords,
-                        potentials=potentials
-                    )
-                    
-                    # Log the bytes data 
-                    hex_dump = ' '.join([f'{b:02x}' for b in bytes_data[:50]])
-                    logger.info(f"Encoded test activity data ({len(bytes_data)} bytes): {hex_dump}")
-                    
-                    # Schedule the data to be sent asynchronously
-                    if hasattr(viz_stream, 'send_visualization_data'):
-                        # Need to run in event loop for async functions
-                        import asyncio
-                        
-                        # Create a task to send the data
-                        async def send_data():
-                            await viz_stream.send_visualization_data(bytes_data)
-                            logger.info("Test activity data sent to visualization stream")
-                            
-                        # Run the task in the current event loop or create a new one
-                        try:
-                            loop = asyncio.get_event_loop()
-                            if loop.is_running():
-                                loop.create_task(send_data())
-                            else:
-                                asyncio.run(send_data())
-                        except Exception as e:
-                            logger.error(f"Error sending data in event loop: {e}")
-                    else:
-                        logger.error("Visualization stream does not have send_visualization_data method")
-                else:
-                    logger.error("ByteStructureEncoder does not have encode_neuron_flat method")
-                
-            except Exception as e:
-                logger.error(f"Error creating test activity data: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-                
-        except Exception as e:
-            logger.error(f"Error in send_test_activity_data: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
     
     def hook_fq_sampler(self):
         """
