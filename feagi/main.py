@@ -241,6 +241,19 @@ def main():
             return
         signal_handler._shutdown_in_progress = True
         
+        import threading
+        import time
+        
+        def force_exit():
+            """Force exit after timeout if graceful shutdown hangs."""
+            time.sleep(15.0)  # Wait 15 seconds for graceful shutdown
+            print("⚠️  Force exiting FEAGI after timeout - some services may not have shut down cleanly", file=sys.stderr, flush=True)
+            os._exit(1)  # Force exit without cleanup
+        
+        # Start force exit timer in daemon thread
+        force_exit_thread = threading.Thread(target=force_exit, daemon=True)
+        force_exit_thread.start()
+        
         try:
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
