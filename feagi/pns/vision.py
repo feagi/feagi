@@ -16,8 +16,8 @@
 
 
 from feagi.core.state_manager import FeagiStateManager
-from feagi.bdu.mapping_utils import build_power_connections
-from feagi.bdu.synaptogenesis_rules import neighbor_finder
+from feagi.bdu.connectivity.mapping_utils import build_power_connections
+from feagi.bdu.connectivity.synaptogenesis_rules import neighbor_finder
 
 central_vision_cortical_area = "iv00_C"
 peripheral_vision_cortical_areas = ["iv00TR", "iv00TL", "iv00TM", "iv00MR", "iv00ML", "iv00BR", "iv00BL", "iv00BM"]

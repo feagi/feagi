@@ -18,6 +18,19 @@ class SuccessResponse(BaseModel):
     message: Optional[str] = Field(None, description="Success message")
 
 
+# Add the missing Network schema for the network router
+class Network(BaseModel):
+    """Network configuration model."""
+    zmq_host: Optional[str] = Field(None, description="ZMQ server host")
+    zmq_req_port: Optional[int] = Field(None, description="ZMQ REQ/REP port")
+    zmq_pub_port: Optional[int] = Field(None, description="ZMQ PUB/SUB port")
+    zmq_push_port: Optional[int] = Field(None, description="ZMQ PUSH/PULL port")
+    zmq_sensorimotor_port: Optional[int] = Field(None, description="ZMQ sensorimotor port")
+    zmq_vis_base_port: Optional[int] = Field(None, description="ZMQ visualization base port")
+    api_host: Optional[str] = Field(None, description="API server host")
+    api_port: Optional[int] = Field(None, description="API server port")
+
+
 class BurstEngineConfig(BaseModel):
     """Burst engine configuration model."""
     burst_duration: float = Field(10.0, description="Duration of a burst in milliseconds")
@@ -305,3 +318,13 @@ class VisionSettings(BaseModel):
     shadows: Optional[float]
     pixel_change_limit: Optional[float]
     horizontal_flip: Optional[bool] = None
+
+
+class BurstEngineStats(BaseModel):
+    """Burst engine statistics model."""
+    average_burst_time: float = Field(0.0, description="Average time to process a burst in milliseconds")
+    max_burst_time: float = Field(0.0, description="Maximum time to process a burst in milliseconds")
+    min_burst_time: float = Field(0.0, description="Minimum time to process a burst in milliseconds")
+    total_bursts: int = Field(0, description="Total number of bursts processed")
+    average_active_neurons: int = Field(0, description="Average number of active neurons per burst")
+    memory_usage: float = Field(0.0, description="Memory usage in MB")

@@ -2,22 +2,90 @@
 import logging
 import os
 import sys
-from typing import Optional
 import unicodedata
+from typing import Optional
 
 
 # -----------------------------------------------------------------------------
 # Width-aware string utilities
 # -----------------------------------------------------------------------------
 
+def debug_emoji_width(emoji):
+    """
+    Debug function to print information about an emoji's Unicode properties.
+    """
+    print(f"Emoji: {emoji}")
+    print(f"Code point: U+{ord(emoji):04X}")
+    print(f"Name: {unicodedata.name(emoji, 'Unknown')}")
+    print(f"Category: {unicodedata.category(emoji)}")
+    print(f"East Asian Width: {unicodedata.east_asian_width(emoji)}")
+    
+    # Calculate width using our criteria
+    code_point = ord(emoji)
+    is_emoji_char = (
+        emoji in ('✓', '✔', '✅', '☑', '☒', '☐', '☑️', '❌', '⚠️', '⚡', '🔄', '🔍', '➡️', '⬅️', '⬆️', '⬇️')
+        or (0x1F300 <= code_point <= 0x1F5FF)
+        or (0x1F600 <= code_point <= 0x1F64F)
+        or (0x1F680 <= code_point <= 0x1F6FF)
+        or (0x1F900 <= code_point <= 0x1F9FF)
+        or (0x2700 <= code_point <= 0x27BF)
+        or (0x2600 <= code_point <= 0x26FF)
+        or (0x2300 <= code_point <= 0x23FF and unicodedata.category(emoji).startswith('S'))
+    )
+    
+    if is_emoji_char:
+        width = 2
+    elif unicodedata.east_asian_width(emoji) in ('F', 'W'):
+        width = 2
+    else:
+        width = 1
+    
+    print(f"Display width (our function): {width}")
+    print(f"Combining: {unicodedata.combining(emoji)}")
+    print("---")
+
+# Force all emojis to be treated as exactly 2 columns wide
+EMOJI_WIDTH = 2
+
+def is_emoji(char):
+    """
+    Determine if a character is likely an emoji.
+    """
+    code_point = ord(char)
+    
+    # Check common emoji Unicode ranges
+    return (
+        # Specific symbols we want to treat as emojis
+        char in ('✓', '✔', '✅', '☑', '☒', '☐', '☑️', '❌', '⚠️', '⚡', '🔄', '🔍', '➡️', '⬅️', '⬆️', '⬇️')
+        # Emoji & Pictographs
+        or (0x1F300 <= code_point <= 0x1F5FF)
+        # Emoticons
+        or (0x1F600 <= code_point <= 0x1F64F)
+        # Transport & Map Symbols
+        or (0x1F680 <= code_point <= 0x1F6FF)
+        # Supplemental Symbols and Pictographs
+        or (0x1F900 <= code_point <= 0x1F9FF)
+        # Dingbats
+        or (0x2700 <= code_point <= 0x27BF)
+        # Miscellaneous Symbols
+        or (0x2600 <= code_point <= 0x26FF)
+        # Miscellaneous Technical
+        or (0x2300 <= code_point <= 0x23FF and unicodedata.category(char).startswith('S'))
+    )
+
 def display_width(text: str) -> int:
     """
-    Compute the visual width of a string, treating wide and fullwidth Unicode
-    characters (e.g., CJK, emojis) as 2 columns, and others as 1.
+    Compute the visual width of a string, treating all emoji-like characters consistently.
+    
+    This function ensures all emojis are treated as having the same width (2) for consistent alignment,
+    regardless of how they might be classified by Unicode.
     """
     width = 0
     for char in text:
-        if unicodedata.east_asian_width(char) in ('F', 'W'):
+        if is_emoji(char):
+            width += EMOJI_WIDTH
+        # Handle CJK and other wide characters
+        elif unicodedata.east_asian_width(char) in ('F', 'W'):
             width += 2
         else:
             width += 1
@@ -26,9 +94,32 @@ def display_width(text: str) -> int:
 def pad_display(text: str, width: int) -> str:
     """
     Pads a string with spaces to match a desired display width.
+    
+    This function ensures consistent padding for all text, including emoji characters,
+    to maintain proper alignment in logs.
     """
-    pad_len = max(0, width - display_width(text))
+    # Calculate the actual display width
+    actual_width = display_width(text)
+    
+    # Add padding to reach the desired width
+    pad_len = max(0, width - actual_width)
+    
+    # Return the padded string
     return text + ' ' * pad_len
+
+# -----------------------------------------------------------------------------
+# Custom LoggerAdapter
+# -----------------------------------------------------------------------------
+
+class EmojiAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        emoji1 = kwargs.pop("emoji1", '')
+        emoji2 = kwargs.pop("emoji2", '')
+        extra = kwargs.setdefault("extra", {})
+        extra["emoji1"] = emoji1
+        extra["emoji2"] = emoji2
+        extra["label"] = self.extra.get("label", "")
+        return msg, kwargs
 
 # -----------------------------------------------------------------------------
 # Logger setup with emoji-aligned formatting
@@ -40,38 +131,84 @@ def setup_logger(
     log_file: Optional[str] = None,
     console: bool = True,
     tag: Optional[str] = None,
-) -> logging.Logger:
+) -> EmojiAdapter:
     LEVEL_MAP = {
-        "DEBUG": "DEBUG",
-        "INFO": "INFO",
-        "WARNING": "WARNING",
-        "ERROR": "ERROR",
+        "DEBUG":    "DEBUG   ",
+        "INFO":     "INFO    ",
+        "WARNING":  "WARNING ",
+        "ERROR":    "ERROR   ",
         "CRITICAL": "CRITICAL"
     }
 
     class AlignedFormatter(logging.Formatter):
+        # Define emoji padding based on emoji type
+        EMOJI_PADDING = {
+            # Checkmarks and X marks
+            '✓': '   ',   # 3 spaces after checkmark
+            '✔': '   ',   # 3 spaces after checkmark
+            '✅': '   ',   # 3 spaces after green checkmark
+            '☑': '   ',   # 3 spaces after checkbox
+            '❌': '   ',   # 3 spaces after red X
+            '❎': '   ',   # 3 spaces after green X
+            '⛔': '   ',   # 3 spaces after no entry
+            '⚠️': '   ',   # 3 spaces after warning
+            
+            # Common FEAGI emojis
+            '🧬': '  ',    # 2 spaces after DNA
+            '🧠': '  ',    # 2 spaces after brain
+            '⚡': '   ',   # 3 spaces after lightning
+            '💥': '  ',    # 2 spaces after explosion
+            '🔄': '  ',    # 2 spaces after refresh
+            '⚙️': '  ',    # 2 spaces after gear
+            '🔍': '  ',    # 2 spaces after magnifying glass
+            '📊': '  ',    # 2 spaces after chart
+            '🚀': '  ',    # 2 spaces after rocket
+            '🛑': '  ',    # 2 spaces after stop sign
+            '📝': '  ',    # 2 spaces after memo
+            '🔧': '  ',    # 2 spaces after wrench
+            '📡': '  ',    # 2 spaces after satellite
+            '🌐': '  ',    # 2 spaces after globe
+            
+            # Status indicators
+            'Er': '  ',    # 2 spaces after Error prefix
+            'Br': '  ',    # 2 spaces after Brain prefix
+            '[C': '  ',    # 2 spaces after Corticogenesis prefix
+            '[N': '  ',    # 2 spaces after Neurogenesis prefix
+            '[F': '  ',    # 2 spaces after Failed prefix
+        }
+        
+        # Default padding if emoji not in the map
+        DEFAULT_PADDING = '  '  # 2 spaces
+        
         def format(self, record):
+            # Get emojis from record
             emoji1 = getattr(record, 'emoji1', '')
             emoji2 = getattr(record, 'emoji2', '')
-            emoji_block = pad_display(f"{emoji1}{emoji2}", 4)
-
-            level = pad_display(LEVEL_MAP.get(record.levelname, record.levelname), 8)
+            
+            # Combine emojis
+            emoji = f"{emoji1}{emoji2}"
+            
+            # Get specific padding for this emoji or use default
+            padding = self.EMOJI_PADDING.get(emoji, self.DEFAULT_PADDING)
+            
+            # Create emoji block with custom padding
+            emoji_block = f"{emoji}{padding}"
+            
+            # If no emoji, use 4 spaces
+            if not emoji:
+                emoji_block = "    "
+                
+            # Format the log level with fixed width
+            level_str = LEVEL_MAP.get(record.levelname, record.levelname)
+            level = f"{level_str:<8}"  # Left-align with fixed 8 chars
+            
+            # Format timestamp and message
             timestamp = self.formatTime(record, self.datefmt)
-            logger_name = record.name
             tag_str = f"[{record.__dict__.get('label', '')}] " if record.__dict__.get('label') else ""
             message = record.getMessage()
 
+            # Build the final log line with fixed column widths
             return f"{emoji_block}{level}  {timestamp} {tag_str}{message}"
-
-    class EmojiAdapter(logging.LoggerAdapter):
-        def process(self, msg, kwargs):
-            emoji1 = kwargs.pop("emoji1", '')
-            emoji2 = kwargs.pop("emoji2", '')
-            extra = kwargs.setdefault("extra", {})
-            extra["emoji1"] = emoji1
-            extra["emoji2"] = emoji2
-            extra["label"] = self.extra.get("label", "")
-            return msg, kwargs
 
     logger = logging.getLogger(name)
     logger.setLevel(level)

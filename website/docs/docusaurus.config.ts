@@ -5,23 +5,21 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'My Site',
-  tagline: 'Dinosaurs are cool',
+  title: 'FEAGI',
+  tagline: 'Flexible & Extensible Artificial General Intelligence',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://your-docusaurus-site.example.com',
+  url: 'https://feagi.org',
   // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/',
 
   // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'docusaurus', // Usually your repo name.
+  organizationName: 'feagi',
+  projectName: 'feagi',
 
-  onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  onBrokenLinks: 'log', // Changed from warn to log to allow development
+  onBrokenMarkdownLinks: 'log',
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -31,31 +29,118 @@ const config: Config = {
     locales: ['en'],
   },
 
+  plugins: [
+    // System documentation - main /docs folder
+    ['@docusaurus/plugin-content-docs', {
+      id: 'system',
+      path: '../../docs',
+      routeBasePath: 'system',
+      sidebarPath: './sidebars/systemSidebar.ts',
+      exclude: [
+        'plan-documentation-restructuring-progress.md',
+        '**/archive/**',
+      ],
+    }],
+
+    // API module documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'api',
+      path: '../../feagi/api',
+      routeBasePath: 'modules/api',
+      sidebarPath: './sidebars/apiSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+      exclude: [
+        'protocols/byte_structures/*.md',
+        'protocols/byte_structures/README.md',
+        'protocols/byte_structures/008 - Single Raw Image.md',
+        'protocols/byte_structures/009 - Multi bytestruct holder.md',
+        'protocols/byte_structures/011 - Neuron Potential Data (Categories, XYZ).md',
+        'protocols/README.md',
+      ],
+    }],
+
+    // BDU module documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'bdu',
+      path: '../../feagi/bdu',
+      routeBasePath: 'modules/bdu',
+      sidebarPath: './sidebars/bduSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+      exclude: [
+        'embryogenesis/arch-neuroembryogenesis.md',
+        'arch-bdu.md',
+      ],
+    }],
+
+    // NPU module documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'npu',
+      path: '../../feagi/npu',
+      routeBasePath: 'modules/npu',
+      sidebarPath: './sidebars/npuSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+      exclude: [
+        'fcl_example.md',
+        'burst_engine.md',
+      ],
+    }],
+
+    // Core module documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'core',
+      path: '../../feagi/core',
+      routeBasePath: 'modules/core',
+      sidebarPath: './sidebars/coreSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+    }],
+
+    // Evolution module documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'evo',
+      path: '../../feagi/evo',
+      routeBasePath: 'modules/evo',
+      sidebarPath: './sidebars/evoSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+      exclude: [
+        'README.md',
+      ],
+    }],
+
+    // PNS module documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'pns',
+      path: '../../feagi/pns',
+      routeBasePath: 'modules/pns',
+      sidebarPath: './sidebars/pnsSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+    }],
+
+    // FEAGI Bytes documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'feagi-bytes',
+      path: '../../feagi_bytes',
+      routeBasePath: 'modules/feagi-bytes',
+      sidebarPath: './sidebars/feagiByteSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+    }],
+
+    // FEAGI Connector documentation
+    ['@docusaurus/plugin-content-docs', {
+      id: 'feagi-connector',
+      path: '../../feagi_connector',
+      routeBasePath: 'modules/feagi-connector',
+      sidebarPath: './sidebars/feagiConnectorSidebar.ts',
+      include: ['**/*.md', '**/*.mdx'],
+    }],
+  ],
+
   presets: [
     [
       'classic',
       {
         docs: {
-          sidebarPath: './sidebars.ts',
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
-        },
-        blog: {
-          showReadingTime: true,
-          feedOptions: {
-            type: ['rss', 'atom'],
-            xslt: true,
-          },
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
-          // Useful options to enforce blogging best practices
-          onInlineTags: 'warn',
-          onInlineAuthors: 'warn',
-          onUntruncatedBlogPosts: 'warn',
+          sidebarPath: './sidebars/userGuideSidebar.ts',
+          routeBasePath: '/',
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -66,23 +151,64 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'img/feagi-social-card.jpg',
     navbar: {
-      title: 'My Site',
+      title: 'FEAGI',
       logo: {
-        alt: 'My Site Logo',
+        alt: 'FEAGI Logo',
         src: 'img/logo.svg',
       },
       items: [
         {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
+          to: '/',
           position: 'left',
-          label: 'Tutorial',
+          label: 'User Guides',
         },
-        {to: '/blog', label: 'Blog', position: 'left'},
         {
-          href: 'https://github.com/facebook/docusaurus',
+          to: '/system/arch-system-overview',
+          position: 'left',
+          label: 'System Documentation',
+        },
+        {
+          position: 'left',
+          label: 'Module Documentation',
+          items: [
+            {
+              label: 'API',
+              to: '/modules/api',
+            },
+            {
+              label: 'BDU',
+              to: '/modules/bdu',
+            },
+            {
+              label: 'NPU',
+              to: '/modules/npu',
+            },
+            {
+              label: 'Core',
+              to: '/modules/core',
+            },
+            {
+              label: 'Evolution',
+              to: '/modules/evo',
+            },
+            {
+              label: 'PNS',
+              to: '/modules/pns',
+            },
+            {
+              label: 'FEAGI Bytes',
+              to: '/modules/feagi-bytes',
+            },
+            {
+              label: 'FEAGI Connector',
+              to: '/modules/feagi-connector',
+            },
+          ],
+        },
+        {
+          href: 'https://github.com/feagi/feagi',
           label: 'GitHub',
           position: 'right',
         },
@@ -92,11 +218,19 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Documentation',
           items: [
             {
-              label: 'Tutorial',
-              to: '/docs/intro',
+              label: 'User Guides',
+              to: '/',
+            },
+            {
+              label: 'System Documentation',
+              to: '/system/arch-system-overview',
+            },
+            {
+              label: 'API Documentation',
+              to: '/modules/api',
             },
           ],
         },
@@ -104,16 +238,12 @@ const config: Config = {
           title: 'Community',
           items: [
             {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-            },
-            {
               label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
+              href: 'https://discord.gg/feagi',
             },
             {
-              label: 'X',
-              href: 'https://x.com/docusaurus',
+              label: 'Twitter',
+              href: 'https://twitter.com/feagi',
             },
           ],
         },
@@ -121,17 +251,13 @@ const config: Config = {
           title: 'More',
           items: [
             {
-              label: 'Blog',
-              to: '/blog',
-            },
-            {
               label: 'GitHub',
-              href: 'https://github.com/facebook/docusaurus',
+              href: 'https://github.com/feagi/feagi',
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} FEAGI Project. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

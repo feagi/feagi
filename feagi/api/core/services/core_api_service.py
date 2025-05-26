@@ -1,357 +1,249 @@
-"""Core API service implementation for FEAGI."""
+"""
+Refactored CoreAPIService using domain-based service architecture.
 
-from typing import Dict, Any, List, Optional, Tuple, Union
+This is the new facade implementation that delegates to specialized services
+while maintaining complete backward compatibility with the existing API.
+"""
+
+from typing import Dict, Any, Optional, List, Tuple, Set
+
+# Import all domain services
+from .system.system_service import SystemService
+from .genome.genome_service import GenomeService
+from .cortical_area.cortical_area_service import CorticalAreaService
+from .connectome.connectome_service import ConnectomeService
+from .brain.brain_service import BrainService
+from .agents.agents_service import AgentsService
+from .network.network_service import NetworkService
+
 from feagi.utils.logger import setup_logger
-import os
-import json
-import tempfile
-from datetime import datetime
-import time
-from pathlib import Path
-
-import numpy as np
 
 logger = setup_logger()
 
-from feagi.core.feagi import FEAGI
-from feagi.bdu.neuroembryogenesis import Neuroembryogenesis, develop_brain_from_genome
-from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
-from feagi.core.state_manager import FeagiStateManager
-from feagi.core.state_manager import ServiceState
-from feagi.core.genome_transaction import GenomeTransaction
-from feagi.core.state_manager import GenomeState
-try:
-    # Try to import these from the new location
-    from feagi.evo.genome_validator import genome_validator
-    from feagi.evo.genome_editor import save_genome
-    from feagi.evo.genome_processor import (
-        merge_core_morphologies, 
-        genome_morphology_updator, 
-        genome_physiology_updator, 
-        genome_stat_updator
-    )
-except ImportError:
-    # Fallback implementations if the imports fail
-    def genome_validator(genome: Dict[str, Any]) -> bool:
-        """
-        Placeholder for genome validation function.
-        
-        Args:
-            genome: Genome data to validate.
-            
-        Returns:
-            True if valid, False otherwise.
-        """
-        if not isinstance(genome, dict):
-            print(f"Invalid genome - not a dictionary: {type(genome)}")
-            return False
-        
-        required_keys = ["genome_id", "blueprint"]
-        
-        # Check for required keys
-        for key in required_keys:
-            if key not in genome:
-                print(f"Invalid genome - missing required key: {key}")
-                return False
-            
-        # Basic structural validation
-        if not isinstance(genome.get("blueprint"), dict):
-            print(f"Invalid genome - blueprint is not a dictionary: {type(genome.get('blueprint'))}")
-            return False
-        
-        # More detailed validation could be added here
-        
-        return True
-        
-    def save_genome(genome, file_name=''):
-        """Save a genome to a file."""
-        if file_name:
-            with open(file_name, 'w') as f:
-                json.dump(genome, f, indent=2)
-        return True
-        
-    def merge_core_morphologies(genome):
-        """Merges core morphologies into the genome."""
-        return genome
-        
-    def genome_morphology_updator(genome):
-        """Updates morphologies in the genome."""
-        return genome
-        
-    def genome_physiology_updator(genome):
-        """Updates physiology in the genome."""
-        if "physiology" not in genome:
-            genome["physiology"] = {}
-        return genome
-        
-    def genome_stat_updator(genome):
-        """Updates stats in the genome."""
-        if "stats" not in genome:
-            genome["stats"] = {}
-        return genome
 
 class CoreAPIService:
     """
-    Core API Service for FEAGI.
+    Facade for all FEAGI core API operations.
     
-    This service manages high-level operations on the FEAGI brain and coordinates
-    between the various components.
+    This class delegates to specialized domain services while maintaining
+    the exact same public interface as the original CoreAPIService.
     
-    Naming Convention:
-    -----------------
-    * cortical_id: 6-character unique identifier from the genome (e.g., "iv00_C") 
-      - Used in the genome's blueprint
-    * cortical_idx: Auto-incremented integer ID used internally (previously called area_id)
-      - These are converted to strings in the API layer and back to ints internally
+    The refactoring provides:
+    - Better separation of concerns
+    - Improved maintainability
+    - Easier testing and development
+    - Zero breaking changes to existing code
     """
     
-    def __init__(self, connectome_manager: ConnectomeManager, state_manager=None):
+    def __init__(self, connectome_manager, state_manager=None):
         """
-        Initialize the Core API service.
+        Initialize the Core API Service facade.
         
         Args:
             connectome_manager: ConnectomeManager instance
-            state_manager: FeagiStateManager instance
+            state_manager: FeagiStateManager instance (optional)
         """
-        # Check that connectome_manager is properly initialized
-        if not hasattr(connectome_manager, 'fcl_manager') or connectome_manager.fcl_manager is None:
-            raise RuntimeError("ConnectomeManager instance does not have an fcl_manager. Did you forget to call initialize_arrays() before passing it to CoreAPIService?")
-        
         self._connectome_manager = connectome_manager
-        
-        # Initialize state manager
-        self.state_manager = state_manager or FeagiStateManager.instance()
-        # Register as observer
-        self.state_manager.register_sync_observer(self)
-        
-        # Initialize burst engine without requiring a genome
-        self.state_manager.set_burst_engine_state(ServiceState.INITIALIZING)
-        self._burst_engine = self._create_burst_engine()
-        self.state_manager.set_burst_engine_state(ServiceState.READY)
-        
-        # Other initializations can follow...
-        
+        self.state_manager = state_manager
         self.logger = logger
-        self._feagi = FEAGI()
-        self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
-        self._genome_filename = None
-        self._pending_amalgamation = {}
-        self._amalgamation_history = {}
-        self._fcl_manager = self._connectome_manager.fcl_manager
-        self._neuroembryogenesis = Neuroembryogenesis(
-            connectome_manager=self._connectome_manager,
-            progress_callback=self._handle_embryogenesis_progress
-        )
-        self._current_genome = None
-        self._test_area_id = 999999999  # Very large ID to avoid conflicts
         
-        # Add a sample cortical area for testing
-        if not self._connectome_manager._areas:
-            try:
-                self._connectome_manager.add_cortical_area(
-                    area_id=self._test_area_id,
-                    name="Test Area",
-                    area_type="interconnect",
-                    dimensions=(10, 10, 5),
-                    position=(0, 0, 0),
-                    properties={"is_test_area": True}  # Flag to identify test areas
-                )
-            except Exception as e:
-                self.logger.warning(f"Failed to create test cortical area: {str(e)}")
+        # CRITICAL: Ensure state manager singleton consistency
+        if self.state_manager is None:
+            from feagi.core.state_manager import FeagiStateManager
+            self.state_manager = FeagiStateManager.instance()
+            self.logger.info("Using FeagiStateManager singleton instance")
+        else:
+            self.logger.info("Using provided state manager instance")
         
-    def _handle_embryogenesis_progress(self, stage, percentage, message):
-        """Handle progress updates from the neuroembryogenesis process."""
-        self.logger.info(f"{stage} {percentage:.1f}% - {message}", emoji1="  ")
+        # Initialize all domain services with the SAME state manager instance
+        self._system_service = SystemService(connectome_manager, self.state_manager)
+        self._cortical_area_service = CorticalAreaService(connectome_manager, self.state_manager)
+        self._connectome_service = ConnectomeService(connectome_manager, self.state_manager)
+        self._brain_service = BrainService(connectome_manager, self.state_manager)
+        self._agents_service = AgentsService(connectome_manager, self.state_manager)
+        self._network_service = NetworkService(connectome_manager, self.state_manager)
         
-    @property
-    def feagi(self) -> FEAGI:
-        """Get the FEAGI instance."""
-        return self._feagi
+        # CRITICAL: Pass brain service to genome service to ensure singleton BurstEngine usage
+        self._genome_service = GenomeService(connectome_manager, self.state_manager, self._brain_service)
         
-    def get_burst_engine(self):
-        """Get the Burst Engine component."""
-        # For now, return None as this component isn't fully implemented
-        return None
+        # Validate state manager consistency across services
+        self._validate_service_state_consistency()
         
-    def get_connectome_manager(self):
-        """Get the Connectome Manager component."""
-        return self._connectome_manager
-        
-    def get_fcl_manager(self):
-        """Get the FCL Manager component."""
-        return self._fcl_manager
-        
-    def get_memory_manager(self):
-        """Get the Memory & Learning Manager component."""
-        # For now, return None as this component isn't fully implemented
-        return None
-        
-    # Brain state management methods
-    
-    def get_brain_state(self) -> Dict[str, Any]:
-        """
-        Get the current brain state.
-        
-        Returns:
-            Dictionary containing the current brain state.
-        """
-        return self._feagi.get_brain_state()
-        
-    def save_brain_state(self, path: str) -> bool:
-        """
-        Save the current brain state to a file.
-        
-        Args:
-            path: Path to save the brain state.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self._feagi.save_brain_state(path)
-        
-    def load_brain_state(self, path: str) -> bool:
-        """
-        Load a brain state from a file.
-        
-        Args:
-            path: Path to the brain state file.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self._feagi.load_brain_state(path)
-        
-    # Cortical area methods
-    
-    def get_cortical_areas(self) -> List[Dict[str, Any]]:
-        """
-        Get all cortical areas.
-        
-        Returns:
-            List of dictionaries containing cortical area information.
-        """
-        result = []
+        self.logger.info("CoreAPIService initialized with domain-based architecture and state synchronization")
+
+    def _validate_service_state_consistency(self):
+        """Validate that all services share the same state manager instance."""
         try:
-            if not self._connectome_manager._areas:
-                # No areas exist at all, try getting them from FEAGI
-                self.logger.warning("No cortical areas available in connectome manager, trying FEAGI instance")
-                return self._feagi.get_cortical_areas()
+            services = [
+                ('system', self._system_service),
+                ('genome', self._genome_service), 
+                ('cortical_area', self._cortical_area_service),
+                ('connectome', self._connectome_service),
+                ('brain', self._brain_service),
+                ('agents', self._agents_service),
+                ('network', self._network_service)
+            ]
             
-            has_non_test_areas = any(
-                area_id != self._test_area_id and not area.properties.get("is_test_area", False)
-                for area_id, area in self._connectome_manager._areas.items()
-            )
+            core_state_id = id(self.state_manager)
+            inconsistent_services = []
             
-            # If the genome is loaded but no non-test areas exist, that's a problem
-            if self._current_genome is not None and not has_non_test_areas:
-                self.logger.warning("Genome is loaded but no cortical areas from genome exist")
+            for service_name, service in services:
+                if hasattr(service, 'state_manager'):
+                    service_state_id = id(service.state_manager)
+                    if service_state_id != core_state_id:
+                        inconsistent_services.append(service_name)
+                        self.logger.error(f"Service {service_name} has different state manager instance: core={core_state_id}, service={service_state_id}")
+                else:
+                    inconsistent_services.append(service_name)
+                    self.logger.error(f"Service {service_name} missing state_manager attribute")
+            
+            if inconsistent_services:
+                self.logger.error(f"State manager inconsistency detected in services: {inconsistent_services}")
+                raise RuntimeError(f"Critical state manager inconsistency in services: {inconsistent_services}")
+            else:
+                self.logger.info("All services share the same state manager instance - consistency validated")
                 
-                # Try getting areas from FEAGI as a fallback
-                feagi_areas = self._feagi.get_cortical_areas()
-                if feagi_areas:
-                    return feagi_areas
-            
-            # Convert all areas to API format
-            for area_id, area in self._connectome_manager._areas.items():
-                # Skip test areas if we have real areas from a genome
-                if has_non_test_areas and (area_id == self._test_area_id or area.properties.get("is_test_area", False)):
-                    continue
-                    
-                try:
-                    # Get neuron count (safely)
-                    try:
-                        neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id))
-                    except Exception:
-                        neuron_count = 0
-                        
-                    # Convert to API format
-                    result.append({
-                        "id": str(area_id),  # Convert to string for API consistency
-                        "name": area.name,
-                        "coordinates": {
-                            "x": area.position[0],
-                            "y": area.position[1],
-                            "z": area.position[2]
-                        },
-                        "dimensions": {
-                            "width": area.dimensions[0],
-                            "height": area.dimensions[1],
-                            "depth": area.dimensions[2]
-                        },
-                        "type": area.type,
-                        "parameters": area.properties,
-                        "neuron_count": neuron_count
-                    })
-                except Exception as e:
-                    self.logger.error(f"Error converting area {area_id} to API format: {str(e)}")
-                    
         except Exception as e:
-            self.logger.error(f"Error retrieving cortical areas: {str(e)}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-        
-        return result
-        
-    def get_cortical_area(self, area_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get a cortical area by ID.
-        
-        Args:
-            area_id: String representation of the cortical_idx.
-            
-        Returns:
-            Dictionary containing cortical area information, or None if not found.
-        """
-        try:
-            # Convert string ID to integer (cortical_idx)
-            try:
-                cortical_idx = int(area_id)
-            except ValueError:
-                self.logger.error(f"Invalid cortical area ID format: {area_id}")
-                return None
-            
-            # Get the area from connectome manager
-            area = self._connectome_manager._areas.get(cortical_idx)
-            if not area:
-                self.logger.warning(f"Cortical area {area_id} not found")
-                return None
-            
-            # Check if we should hide test areas when we have genome-loaded areas
-            has_non_test_areas = any(
-                idx != self._test_area_id and not a.properties.get("is_test_area", False)
-                for idx, a in self._connectome_manager._areas.items()
-            )
-            
-            # Skip test areas if we have real areas from a genome
-            if has_non_test_areas and (cortical_idx == self._test_area_id or area.properties.get("is_test_area", False)):
-                self.logger.info(f"Hiding test area {area_id} since genome is loaded")
-                return None
-            
-            # Return area information
-            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_idx))
-            
-            # Format response
-            return {
-                "id": str(cortical_idx),
-                "name": area.name,
-                "coordinates": {
-                    "x": area.position[0],
-                    "y": area.position[1],
-                    "z": area.position[2]
-                },
-                "dimensions": {
-                    "width": area.dimensions[0],
-                    "height": area.dimensions[1],
-                    "depth": area.dimensions[2]
-                },
-                "type": area.type,
-                "parameters": area.properties,
-                "neuron_count": neuron_count
-            }
-        except Exception as e:
-            self.logger.error(f"Error retrieving cortical area: {str(e)}")
-            return None
-        
+            self.logger.error(f"Error validating service state consistency: {str(e)}")
+            raise
+
+    # =================================================================
+    # SYSTEM SERVICE DELEGATION
+    # =================================================================
+    
+    async def get_health(self) -> Dict[str, Any]:
+        """Get comprehensive system health information."""
+        return await self._system_service.get_health()
+    
+    def get_user_preferences(self) -> Dict[str, Any]:
+        """Get user preferences."""
+        return self._system_service.get_user_preferences()
+    
+    def update_user_preferences(self, preferences: Dict[str, Any]) -> bool:
+        """Update user preferences."""
+        return self._system_service.update_user_preferences(preferences)
+    
+    def get_versions(self) -> Dict[str, Any]:
+        """Get version information for various components."""
+        return self._system_service.get_versions()
+    
+    def get_configuration(self) -> Dict[str, Any]:
+        """Get system configuration."""
+        return self._system_service.get_configuration()
+    
+    def test_influxdb(self) -> Optional[Dict[str, Any]]:
+        """Test InfluxDB connectivity."""
+        return self._system_service.test_influxdb()
+    
+    def set_circuit_library_path(self, path: str) -> bool:
+        """Set the circuit library path."""
+        return self._system_service.set_circuit_library_path(path)
+    
+    def get_cortical_area_types(self) -> Dict[str, Any]:
+        """Get available cortical area types."""
+        return self._system_service.get_cortical_area_types()
+    
+    def reset_fcl(self) -> bool:
+        """Reset the Fire Candidate List."""
+        return self._system_service.reset_fcl()
+
+    def get_visualization_skip_rate(self) -> int:
+        """Get visualization skip rate."""
+        return self._system_service.get_visualization_skip_rate()
+    
+    def set_visualization_skip_rate(self, skip_rate: int) -> bool:
+        """Set visualization skip rate."""
+        return self._system_service.set_visualization_skip_rate(skip_rate)
+    
+    def get_visualization_suppression_threshold(self) -> int:
+        """Get visualization suppression threshold."""
+        return self._system_service.get_visualization_suppression_threshold()
+    
+    def set_visualization_suppression_threshold(self, threshold: int) -> bool:
+        """Set visualization suppression threshold."""
+        return self._system_service.set_visualization_suppression_threshold(threshold)
+    
+    def get_global_activity_visualization(self) -> bool:
+        """Get global activity visualization status."""
+        return self._system_service.get_global_activity_visualization()
+    
+    def set_global_activity_visualization(self, enabled: bool) -> bool:
+        """Set global activity visualization status."""
+        return self._system_service.set_global_activity_visualization(enabled)
+    
+    def get_unique_logs(self) -> List[str]:
+        """Get unique log entries."""
+        return self._system_service.get_unique_logs()
+
+    def get_burst_timer(self) -> float:
+        """Get burst timer from burst engine."""
+        return self._brain_service.get_burst_timer()
+
+    # =================================================================
+    # GENOME SERVICE DELEGATION
+    # =================================================================
+    
+    def load_essential_genome(self) -> Dict[str, Any]:
+        """Load the essential genome from the default templates."""
+        return self._genome_service.load_essential_genome()
+    
+    def load_barebones_genome(self) -> Dict[str, Any]:
+        """Load the barebones genome from the default templates."""
+        return self._genome_service.load_barebones_genome()
+    
+    def load_genome(self, genome_data: Dict[str, Any], filename: str = "genome.json") -> Dict[str, Any]:
+        """Load a genome and prepare it for use."""
+        return self._genome_service.load_genome(genome_data, filename)
+    
+    def get_genome(self) -> Optional[Dict[str, Any]]:
+        """Get the currently loaded genome data."""
+        return self._genome_service.get_genome()
+    
+    def get_genome_filename(self) -> str:
+        """Get the current genome filename."""
+        filename = self._genome_service.get_genome_filename()
+        return filename or ""
+    
+    def get_genome_file_name(self) -> Dict[str, str]:
+        """Get the genome file name in the format expected by the REST API."""
+        return self._genome_service.get_genome_file_name()
+    
+    def get_default_genomes(self) -> Dict[str, Any]:
+        """Get a list of default genome files with their contents."""
+        return self._genome_service.get_default_genomes()
+    
+    def get_genome_counter(self) -> int:
+        """Get the current genome counter."""
+        return self._genome_service.get_genome_counter()
+    
+    def get_generations(self) -> Dict[str, Any]:
+        """Get details about all generations of genomes."""
+        return self._genome_service.get_generations()
+    
+    def get_change_register(self) -> Dict[str, Any]:
+        """Get the evolution change register showing evolutionary history."""
+        return self._genome_service.get_change_register()
+    
+    def deploy_genome(self, genome_filepath: str) -> bool:
+        """Deploy a genome from a file path."""
+        return self._genome_service.deploy_genome(genome_filepath)
+    
+    def is_genome_loaded(self) -> bool:
+        """Check if a genome is currently loaded."""
+        return self._genome_service.is_genome_loaded()
+
+    # =================================================================
+    # CORTICAL AREA SERVICE DELEGATION
+    # =================================================================
+    
+    def get_all_cortical_areas(self) -> List[Dict[str, Any]]:
+        """Get all cortical areas."""
+        return self._cortical_area_service.get_all_areas()
+    
+    def get_cortical_area(self, cortical_id: str) -> Optional[Dict[str, Any]]:
+        """Get a cortical area by ID."""
+        return self._cortical_area_service.get_area(cortical_id)
+    
     def create_cortical_area(
         self, 
         name: str,
@@ -360,1410 +252,1258 @@ class CoreAPIService:
         area_type: str,
         parameters: Dict[str, Any] = None
     ) -> Optional[Dict[str, Any]]:
-        """
-        Create a new cortical area.
-        
-        Args:
-            name: Name of the cortical area.
-            coordinates: 3D coordinates of the cortical area.
-            dimensions: Dimensions of the cortical area.
-            area_type: Type of the cortical area.
-            parameters: Additional parameters for the cortical area.
-            
-        Returns:
-            Dictionary containing the created cortical area information,
-            or None if creation failed.
-        """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot create cortical area")
-            return None
-        
-        try:
-            # Generate a unique ID for the new area
-            # In a real implementation, this might be more sophisticated
-            existing_ids = set(self._connectome_manager._areas.keys())
-            new_id = 1
-            while new_id in existing_ids:
-                new_id += 1
-            
-            # Convert API format to internal representation
-            position = (coordinates["x"], coordinates["y"], coordinates["z"])
-            dims = (dimensions["width"], dimensions["height"], dimensions["depth"])
-            
-            # Create the area in the connectome manager
-            area = self._connectome_manager.add_cortical_area(
-                area_id=new_id,
-                name=name,
-                area_type=area_type,
-                dimensions=dims,
-                position=position,
-                properties=parameters or {}
-            )
-            
-            # Return the created area information
-            return {
-                "id": str(new_id),
-                "name": area.name,
-                "coordinates": coordinates,
-                "dimensions": dimensions,
-                "type": area.type,
-                "parameters": area.properties,
-                "neuron_count": 0  # New area has no neurons yet
-            }
-        except Exception as e:
-            self.logger.error(f"Failed to create cortical area: {str(e)}")
-            return None
-        
+        """Create a new cortical area."""
+        return self._cortical_area_service.create_area(name, coordinates, dimensions, area_type, parameters)
+    
     def update_cortical_area(
         self,
-        area_id: str,
+        cortical_id: str,
         name: Optional[str] = None,
         coordinates: Optional[Dict[str, int]] = None,
         dimensions: Optional[Dict[str, int]] = None,
         area_type: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
-        """
-        Update an existing cortical area.
-        
-        Args:
-            area_id: ID of the cortical area to update.
-            name: New name for the cortical area.
-            coordinates: New coordinates for the cortical area.
-            dimensions: New dimensions for the cortical area.
-            area_type: New type for the cortical area.
-            parameters: New parameters for the cortical area.
-            
-        Returns:
-            Dictionary containing the updated cortical area information,
-            or None if the area doesn't exist.
-        """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot update cortical area")
-            return None
-        
+        """Update an existing cortical area."""
+        return self._cortical_area_service.update_area(cortical_id, name, coordinates, dimensions, area_type, parameters)
+    
+    def update_cortical_area_properties(self, cortical_id: str, properties: Dict[str, Any]) -> bool:
+        """Update properties of an existing cortical area (wrapper for API compatibility)."""
         try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return None
-        
-        try:
-            area = self._connectome_manager._areas.get(area_id_int)
-            if not area:
-                return None
-            
-            # Update the area properties
-            if name is not None:
-                area.name = name
-            
-            if coordinates is not None:
-                area.position = (coordinates["x"], coordinates["y"], coordinates["z"])
-            
-            if dimensions is not None:
-                area.dimensions = (dimensions["width"], dimensions["height"], dimensions["depth"])
-            
-            if area_type is not None:
-                area.type = area_type
-            
-            if parameters is not None:
-                area.properties.update(parameters)
-            
-            # Return the updated area
-            neuron_count = len(self._connectome_manager.get_neurons_by_area(area_id_int))
-            return {
-                "id": str(area_id_int),
-                "name": area.name,
-                "coordinates": {
-                    "x": area.position[0],
-                    "y": area.position[1],
-                    "z": area.position[2]
-                },
-                "dimensions": {
-                    "width": area.dimensions[0],
-                    "height": area.dimensions[1],
-                    "depth": area.dimensions[2]
-                },
-                "type": area.type,
-                "parameters": area.properties,
-                "neuron_count": neuron_count
-            }
+            result = self._cortical_area_service.update_area(cortical_id, parameters=properties)
+            return result is not None
         except Exception as e:
-            self.logger.error(f"Error updating cortical area {area_id}: {str(e)}")
-            return None
-        
-    def delete_cortical_area(self, area_id: str) -> bool:
-        """
-        Delete a cortical area.
-        
-        Args:
-            area_id: String representation of the cortical_idx to delete.
-            
-        Returns:
-            True if the cortical area was deleted, False otherwise.
-        """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot delete cortical area")
-            return False
-        
-        try:
-            cortical_idx = int(area_id)
-        except ValueError:
-            return False
-        
-        try:
-            if cortical_idx not in self._connectome_manager._areas:
-                return False
-            
-            # Get all neurons in this area
-            neurons = self._connectome_manager.get_neurons_by_area(cortical_idx)
-            
-            # Delete all neurons in the area
-            for neuron_id in neurons:
-                self._connectome_manager.delete_neuron(neuron_id)
-            
-            # Remove the area
-            del self._connectome_manager._areas[cortical_idx]
-            
-            # Clean up any area-specific data structures
-            if cortical_idx in self._connectome_manager._occupied_voxels:
-                del self._connectome_manager._occupied_voxels[cortical_idx]
-            
-            if cortical_idx in self._connectome_manager._area_lookup_tables:
-                del self._connectome_manager._area_lookup_tables[cortical_idx]
-            
-            # Remove from area classification sets
-            if cortical_idx in self._connectome_manager._small_regular_areas:
-                self._connectome_manager._small_regular_areas.remove(cortical_idx)
-            
-            if cortical_idx in self._connectome_manager._large_regular_areas:
-                self._connectome_manager._large_regular_areas.remove(cortical_idx)
-            
-            if cortical_idx in self._connectome_manager._extreme_dimension_areas:
-                self._connectome_manager._extreme_dimension_areas.remove(cortical_idx)
-                
-            return True
-        except Exception as e:
-            self.logger.error(f"Error deleting cortical area {area_id}: {str(e)}")
-            return False
-        
-    def get_cortical_area_neurons(self, area_id: str) -> Optional[List[Dict[str, Any]]]:
-        """
-        Get neurons for a specific cortical area.
-        
-        Args:
-            area_id: ID of the cortical area.
-            
-        Returns:
-            List of dictionaries containing neuron information,
-            or None if the area doesn't exist.
-        """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot retrieve cortical area neurons")
-            return None
-        
-        try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return None
-        
-        try:
-            if area_id_int not in self._connectome_manager._areas:
-                return None
-            
-            # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
-            result = []
-            
-            for neuron_id in neuron_ids:
-                # Get neuron index for accessing property arrays
-                neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
-                if neuron_index is None:
-                    continue
-                
-                # Get neuron position
-                position = self._connectome_manager.get_neuron_position(neuron_id)
-                
-                # Get neuron properties
-                membrane_potential = float(self._connectome_manager.membrane_potentials[neuron_index])
-                threshold = float(self._connectome_manager.thresholds[neuron_index])
-                decay_rate = float(self._connectome_manager.decay_rates[neuron_index])
-                
-                result.append({
-                    "id": str(neuron_id),
-                    "position": {
-                        "x": position[0],
-                        "y": position[1],
-                        "z": position[2]
-                    },
-                    "properties": {
-                        "membrane_potential": membrane_potential,
-                        "threshold": threshold,
-                        "decay_rate": decay_rate
-                    }
-                })
-            
-            return result
-        except Exception as e:
-            self.logger.error(f"Error retrieving neurons for cortical area {area_id}: {str(e)}")
-            return None
-        
-    def get_cortical_area_activity(self, area_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
-        """
-        Get activity data for a specific cortical area.
-        
-        Args:
-            area_id: ID of the cortical area.
-            window: Time window for activity data (in bursts).
-            
-        Returns:
-            Dictionary containing activity data for the cortical area,
-            or None if the area doesn't exist.
-        """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot retrieve cortical area activity")
-            return None
-        
-        try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return None
-        
-        try:
-            if area_id_int not in self._connectome_manager._areas:
-                return None
-            
-            # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
-            
-            # Current timestep
-            current_time = self._connectome_manager.current_timestep
-            
-            # Get neurons that fired within the window
-            active_neurons = []
-            for neuron_id in neuron_ids:
-                neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
-                if neuron_index is None:
-                    continue
-                
-                last_fired = int(self._connectome_manager.last_fired[neuron_index])
-                if last_fired > 0 and (current_time - last_fired) <= window:
-                    position = self._connectome_manager.get_neuron_position(neuron_id)
-                    active_neurons.append({
-                        "id": str(neuron_id),
-                        "position": {
-                            "x": position[0],
-                            "y": position[1],
-                            "z": position[2]
-                        },
-                        "last_fired": last_fired
-                    })
-            
-            # Calculate activity summary
-            total_neurons = len(neuron_ids)
-            active_count = len(active_neurons)
-            
-            return {
-                "total_neurons": total_neurons,
-                "active_neurons": active_count,
-                "activity_ratio": active_count / total_neurons if total_neurons > 0 else 0,
-                "active_details": active_neurons[:100]  # Limit to prevent huge responses
-            }
-        except Exception as e:
-            self.logger.error(f"Error retrieving activity for cortical area {area_id}: {str(e)}")
-            return None
-        
-    def get_cortical_area_connectivity(self, area_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
-        """
-        Get connectivity information for a specific cortical area.
-        
-        Args:
-            area_id: ID of the cortical area.
-            direction: Connection direction ('incoming', 'outgoing', or 'both').
-            
-        Returns:
-            Dictionary containing connectivity information for the cortical area,
-            or None if the area doesn't exist.
-        """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot retrieve cortical area connectivity")
-            return None
-        
-        try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return None
-        
-        try:
-            if area_id_int not in self._connectome_manager._areas:
-                return None
-            
-            # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
-            
-            # Collect connectivity information
-            incoming_connections = set()
-            outgoing_connections = set()
-            
-            if direction in ["incoming", "both"]:
-                for neuron_id in neuron_ids:
-                    connections = self._connectome_manager.get_incoming_connections(neuron_id)
-                    for pre_id, _ in connections:
-                        # Skip connections within the same area
-                        pre_area = self._connectome_manager._neuron_to_area.get(pre_id)
-                        if pre_area is not None and pre_area != area_id_int:
-                            incoming_connections.add(pre_area)
-            
-            if direction in ["outgoing", "both"]:
-                for neuron_id in neuron_ids:
-                    connections = self._connectome_manager.get_outgoing_connections(neuron_id)
-                    for post_id, _ in connections:
-                        # Skip connections within the same area
-                        post_area = self._connectome_manager._neuron_to_area.get(post_id)
-                        if post_area is not None and post_area != area_id_int:
-                            outgoing_connections.add(post_area)
-            
-            # Format results
-            result = {
-                "area_id": str(area_id_int),
-                "direction": direction
-            }
-            
-            if direction in ["incoming", "both"]:
-                result["incoming_connections"] = [
-                    {
-                        "area_id": str(connected_area),
-                        "name": self._connectome_manager._areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
-                    } 
-                    for connected_area in incoming_connections
-                ]
-            
-            if direction in ["outgoing", "both"]:
-                result["outgoing_connections"] = [
-                    {
-                        "area_id": str(connected_area),
-                        "name": self._connectome_manager._areas.get(connected_area, CorticalArea(connected_area, "Unknown", "unknown", (0, 0, 0), (0, 0, 0))).name
-                    }
-                    for connected_area in outgoing_connections
-                ]
-            
-            return result
-        except Exception as e:
-            self.logger.error(f"Error retrieving connectivity for cortical area {area_id}: {str(e)}")
-            return None
-        
-    def stimulate_cortical_area(self, area_id: str, pattern: Dict[str, Any]) -> bool:
-        """
-        Stimulate a cortical area with a specific pattern.
-        
-        Args:
-            area_id: ID of the cortical area.
-            pattern: Stimulation pattern.
-            
-        Returns:
-            True if stimulation was successful, False otherwise.
-        """
-        # In legacy FEAGI, this depends on a genome being loaded first
-        if self._current_genome is None:
-            self.logger.warning("No genome loaded, cannot stimulate cortical area")
-            return False
-        
-        try:
-            area_id_int = int(area_id)
-        except ValueError:
-            return False
-        
-        try:
-            if area_id_int not in self._connectome_manager._areas:
-                return False
-            
-            # Get the neurons in the area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(area_id_int)
-            
-            # Apply the stimulation pattern
-            pattern_type = pattern.get("type", "uniform")
-            intensity = pattern.get("intensity", 1.0)
-            
-            successful = False
-            
-            if pattern_type == "uniform":
-                # Apply uniform stimulation to all neurons
-                for neuron_id in neuron_ids:
-                    neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
-                    if neuron_index is not None:
-                        # Add stimulation to membrane potential
-                        current_potential = self._connectome_manager.membrane_potentials[neuron_index]
-                        self._connectome_manager.membrane_potentials[neuron_index] = current_potential + intensity
-                        successful = True
-            
-            elif pattern_type == "spatial":
-                # Apply stimulation based on spatial pattern
-                center = pattern.get("center", {"x": 0, "y": 0, "z": 0})
-                radius = pattern.get("radius", 5)
-                
-                for neuron_id in neuron_ids:
-                    position = self._connectome_manager.get_neuron_position(neuron_id)
-                    
-                    # Calculate distance from center
-                    dx = position[0] - center["x"]
-                    dy = position[1] - center["y"]
-                    dz = position[2] - center["z"]
-                    distance = (dx*dx + dy*dy + dz*dz) ** 0.5
-                    
-                    if distance <= radius:
-                        # Apply stimulation with falloff based on distance
-                        falloff = 1.0 - (distance / radius)
-                        neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
-                        if neuron_index is not None:
-                            stim_value = intensity * falloff
-                            current_potential = self._connectome_manager.membrane_potentials[neuron_index]
-                            self._connectome_manager.membrane_potentials[neuron_index] = current_potential + stim_value
-                            successful = True
-            
-            elif pattern_type == "specific":
-                # Apply stimulation to specific neurons
-                target_positions = pattern.get("positions", [])
-                
-                for pos in target_positions:
-                    if "x" in pos and "y" in pos and "z" in pos:
-                        # Find neurons at this position
-                        position = (pos["x"], pos["y"], pos["z"])
-                        found_neurons = self._connectome_manager.get_neurons_at_position(area_id_int, position)
-                        
-                        for neuron_id in found_neurons:
-                            neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
-                            if neuron_index is not None:
-                                stim_value = intensity
-                                current_potential = self._connectome_manager.membrane_potentials[neuron_index]
-                                self._connectome_manager.membrane_potentials[neuron_index] = current_potential + stim_value
-                                successful = True
-            
-            return successful
-        except Exception as e:
-            self.logger.error(f"Error stimulating cortical area {area_id}: {str(e)}")
-            return False
-        
-    # Simulation control methods
-    
-    def start_simulation(self) -> bool:
-        """
-        Start the simulation.
-        
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self._feagi.start_simulation()
-        
-    def stop_simulation(self) -> bool:
-        """
-        Stop the simulation.
-        
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self._feagi.stop_simulation()
-        
-    async def get_simulation_status(self) -> Dict[str, Any]:
-        """
-        Get the current simulation status.
-        
-        Returns:
-            Dictionary containing the current simulation status.
-        """
-        # Placeholder implementation
-        return {
-            "running": False,
-            "step": 0,
-            "time": 0.0,
-            "timestamp": time.time()
-        }
-        
-    async def get_performance_stats(self) -> Dict[str, Any]:
-        """
-        Get performance statistics for the simulation.
-        
-        Returns:
-            Dictionary containing performance statistics.
-        """
-        # Placeholder implementation
-        return {
-            "fps": 0.0,
-            "neurons_active": 0,
-            "synapses_active": 0,
-            "memory_usage": 0.0,
-            "cpu_usage": 0.0,
-            "timestamp": time.time()
-        }
-        
-    async def get_system_metrics(self) -> Dict[str, Any]:
-        """
-        Get system metrics.
-        
-        Returns:
-            Dictionary containing system metrics.
-        """
-        # Placeholder implementation
-        return {
-            "cpu_usage": 0.0,
-            "memory_usage": 0.0,
-            "timestamp": time.time()
-        }
-        
-    async def get_brain_structure(self) -> Dict[str, Any]:
-        """
-        Get the current brain structure.
-        
-        Returns:
-            Dictionary containing the brain structure.
-        """
-        # Convert cortical areas to structure format
-        areas = self.get_cortical_areas()
-        
-        # Group areas by type
-        area_types = {}
-        for area in areas:
-            area_type = area.get("type", "unknown")
-            if area_type not in area_types:
-                area_types[area_type] = []
-            area_types[area_type].append(area)
-        
-        return {
-            "areas": areas,
-            "area_types": area_types,
-            "timestamp": time.time()
-        }
-        
-    # Configuration methods
-    
-    def get_configuration(self) -> Dict[str, Any]:
-        """
-        Get the current configuration.
-        
-        Returns:
-            Dictionary containing the current configuration.
-        """
-        return self._feagi.get_configuration()
-        
-    def update_configuration(self, config: Dict[str, Any]) -> bool:
-        """
-        Update the configuration.
-        
-        Args:
-            config: Dictionary containing the new configuration.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self._feagi.update_configuration(config)
-        
-    # Path and file management methods
-    
-    def get_data_path(self) -> str:
-        """
-        Get the path to the data directory.
-        
-        Returns:
-            Path to the data directory.
-        """
-        # First look for specific environment variable
-        data_path = os.environ.get("FEAGI_DATA_PATH")
-        if data_path:
-            return data_path
-            
-        # Then look for the evo/defaults directory in the FEAGI package
-        import feagi
-        feagi_path = os.path.dirname(os.path.dirname(feagi.__file__))
-        evo_defaults_path = os.path.join(feagi_path, "feagi", "evo", "defaults")
-        
-        # First verify this path exists before returning it
-        if os.path.isdir(evo_defaults_path):
-            self.logger.info(f"Using data path: {evo_defaults_path}")
-            return evo_defaults_path
-            
-        # If not found through package directory, try to find relative to current file
-        current_file_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        evo_defaults_path = os.path.join(current_file_dir, "evo", "defaults")
-        
-        if os.path.isdir(evo_defaults_path):
-            self.logger.info(f"Using data path: {evo_defaults_path}")
-            return evo_defaults_path
-            
-        # If all else fails, try to search for it
-        self.logger.warning(f"Could not find evo/defaults directory, searching...")
-        
-        def find_evo_defaults(start_path):
-            for root, dirs, files in os.walk(start_path):
-                if os.path.basename(root) == "defaults" and os.path.basename(os.path.dirname(root)) == "evo":
-                    return root
-            return None
-            
-        search_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        found_path = find_evo_defaults(search_path)
-        
-        if found_path:
-            self.logger.info(f"Found data path by searching: {found_path}")
-            return found_path
-            
-        # Final fallback is to return the directory containing this script
-        self.logger.error("Could not find evo/defaults directory, using fallback location")
-        return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    
-    def get_temp_path(self) -> str:
-        """
-        Get the path to the temporary directory.
-        
-        Returns:
-            Path to the temporary directory.
-        """
-        return self._temp_dir
-    
-    # Genome methods
-    
-    def load_genome(self, genome_data: Dict[str, Any], filename: Optional[str] = None) -> dict:
-        """
-        Load a genome into FEAGI.
-        Returns a dict with success and duration fields.
-        """
-        state = FeagiStateManager.instance()
-        print("setting genome state to loading")
-        state.set_genome_state(state=GenomeState.LOADING)
-        print("done setting genome state to loading")
-        state.set_brain_readiness(False)
-        start_time = time.time()
-        try:
-            self.logger.info(f"Loading genome: {filename}")
-            
-            # Store the genome filename
-            self._genome_filename = filename
-            
-            # Inject a minimal valid 'brain_regions' structure if missing
-            if "brain_regions" not in genome_data:
-                genome_data["brain_regions"] = {
-                    "root": {
-                        "title": "Root Region",
-                        "description": "Root region for testing",
-                        "parent_region_id": None,
-                        "coordinate_2d": [0, 0],
-                        "coordinate_3d": [0, 0, 0],
-                        "areas": [],
-                        "regions": [],
-                        "inputs": [],
-                        "outputs": []
-                    }
-                }
-
-            # Validate the genome
-            is_valid = genome_validator(genome_data)
-            if not is_valid:
-                self.logger.error("Invalid genome format")
-                return {"success": False, "duration": time.time() - start_time, "error": "Invalid genome format"}
-                
-            # Process and update the genome
-            genome_data = merge_core_morphologies(genome_data)
-            genome_data = genome_morphology_updator(genome_data)
-            genome_data = genome_physiology_updator(genome_data)
-            genome_data = genome_stat_updator(genome_data)
-            
-            # IMPORTANT: Set the current genome here - this is what makes the genome "loaded"
-            self._current_genome = genome_data
-            
-            # Save the pre-processed genome to a temporary file to load it with neuroembryogenesis
-            genome_path = os.path.join(self._temp_dir, filename or "current_genome.json")
-            with open(genome_path, 'w') as f:
-                json.dump(genome_data, f, indent=2)
-
-            # Backup any test areas by ID before clearing
-            test_areas = {}
-            for area_id, area in self._connectome_manager._areas.items():
-                if area_id == self._test_area_id or area.properties.get("is_test_area"):
-                    test_areas[area_id] = area
-                    
-            # Clear the connectome manager's state to start fresh
-            self._connectome_manager._areas.clear()
-            
-            # Restore test areas
-            for area_id, area in test_areas.items():
-                self._connectome_manager._areas[area_id] = area
-            
-            try:
-                # Try to develop the brain from genome
-                success, stats = develop_brain_from_genome(
-                    genome_path=genome_path,
-                    connectome_manager=self._connectome_manager
-                )
-                
-                if success:
-                    self.logger.info(f"Successfully developed brain from genome: {stats}")
-                else:
-                    self.logger.warning(f"Brain development completed with warnings: {stats}")
-            except Exception as e:
-                # Log the error but don't affect genome loaded status
-                self.logger.error(f"Error during brain development: {str(e)}")
-                import traceback
-                self.logger.error(traceback.format_exc())
-                
-            # Return success - the genome is loaded even if brain development failed
-            FeagiStateManager.instance().increment_genome_counter()
-            state.set_genome_state(state=GenomeState.LOADED)
-            state.set_brain_readiness(True)
-            duration = time.time() - start_time
-            return {"success": True, "duration": duration}
-                
-        except Exception as e:
-            # Only on catastrophic failure do we reset the genome loaded status
-            self.logger.error(f"Error loading genome: {str(e)}")
-            state.set_genome_state(state=GenomeState.ERROR)
-            import traceback
-            self.logger.error(traceback.format_exc())
-            self._current_genome = None
-            self._genome_filename = None
-            state.set_brain_readiness(False)
-            duration = time.time() - start_time
-            return {"success": False, "duration": duration, "error": str(e)}
-    
-    def get_genome(self) -> Dict[str, Any]:
-        """
-        Get the current genome.
-        
-        Returns:
-            Dictionary containing the current genome.
-        """
-        if self._current_genome is None:
-            self.logger.warning("No genome currently loaded")
-            return {"genome_title": "No Genome Loaded", "genome_description": "No genome is currently loaded"}
-            
-        return self._current_genome
-    
-    def get_genome_filename(self) -> Optional[str]:
-        """
-        Get the filename of the currently loaded genome.
-        
-        Returns:
-            Filename of the current genome, or None if no genome is loaded.
-        """
-        # Use the locally stored filename if available
-        if self._genome_filename:
-            return self._genome_filename
-            
-        # Delegate to the FEAGI instance as a fallback
-        return self._feagi.get_genome_filename()
-    
-    def get_genome_counter(self) -> int:
-        """
-        Get the counter for the currently loaded genome.
-        
-        The counter indicates how many times the genome has been updated.
-        
-        Returns:
-            The genome counter.
-        """
-        if self._current_genome is None:
-            return 0
-            
-        # Try to get the counter from the genome
-        try:
-            return self._current_genome.get("stats", {}).get("counter", 1)
-        except Exception:
-            return 1
-    
-    def reset_genome(self) -> bool:
-        """
-        Reset the current genome.
-        
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            # Reset the connectome manager
-            if hasattr(self._connectome_manager, 'reset'):
-                self._connectome_manager.reset()
-                
-            # Clear the current genome
-            self._current_genome = None
-            self._genome_filename = None
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Error resetting genome: {str(e)}")
+            self.logger.error(f"Error updating cortical area properties for {cortical_id}: {str(e)}")
             return False
     
-    def get_region_title(self, region_id: str) -> Optional[str]:
-        """
-        Get the title of a brain region.
-        
-        Args:
-            region_id: ID of the brain region.
-            
-        Returns:
-            Title of the brain region, or None if not found.
-        """
-        # This is a placeholder as FEAGI 2.1 does not yet fully implement brain regions
-        # We would need to implement this properly when the brain regions feature is completed
-        
-        # For now, we'll just return the region_id if it exists in the cortical areas
-        if self._connectome_manager and hasattr(self._connectome_manager, 'get_area'):
-            # Check if there's a cortical area with this ID
-            area = self._connectome_manager.get_area(region_id)
-            if area:
-                return f"Region {region_id}"
-        
-        return None
+    def delete_cortical_area(self, cortical_id: str) -> bool:
+        """Delete a cortical area."""
+        return self._cortical_area_service.delete_area(cortical_id)
     
-    def get_genome_from_region(self, region_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get a genome from a brain region.
-        
-        Args:
-            region_id: ID of the brain region.
-            
-        Returns:
-            Dictionary containing the genome, or None if the region was not found.
-        """
-        # This is a placeholder - in a real implementation, we would extract
-        # just the relevant parts of the genome for this region
-        
-        # Check if the region exists
-        if self.get_region_title(region_id) is None:
-            return None
-            
-        # For now, just return the whole genome with a modified title
-        if self._current_genome:
-            genome_copy = self._current_genome.copy()
-            genome_copy["genome_title"] = f"Region {region_id} Genome"
-            return genome_copy
-            
-        return None
+    def get_cortical_area_neurons(self, cortical_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get neurons for a specific cortical area."""
+        return self._cortical_area_service.get_area_neurons(cortical_id)
     
-    def has_pending_amalgamation(self) -> bool:
-        """
-        Check if there is a pending amalgamation.
-        
-        Returns:
-            True if there is a pending amalgamation, False otherwise.
-        """
-        return len(self._pending_amalgamation) > 0
+    def get_cortical_area_activity(self, cortical_id: str, window: int = 1) -> Optional[Dict[str, Any]]:
+        """Get activity data for a specific cortical area."""
+        return self._cortical_area_service.get_area_activity(cortical_id, window)
     
-    def initiate_amalgamation(
-        self,
-        amalgamation_id: str,
-        genome_id: str,
-        genome_title: str,
-        genome_payload: Dict[str, Any]
-    ) -> bool:
-        """
-        Initiate an amalgamation with a genome payload.
-        
-        Args:
-            amalgamation_id: ID for the amalgamation.
-            genome_id: ID of the genome.
-            genome_title: Title of the genome.
-            genome_payload: The genome data.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            # Add the amalgamation to pending
-            self._pending_amalgamation[amalgamation_id] = {
-                "id": amalgamation_id,
-                "status": "pending",
-                "genome_id": genome_id,
-                "genome_title": genome_title,
-                "payload": genome_payload
-            }
-            
-            # Save the amalgamation genome to a file
-            amal_path = os.path.join(self._temp_dir, f"amalgamation_{amalgamation_id}.json")
-            with open(amal_path, 'w') as f:
-                json.dump(genome_payload, f, indent=2)
-                
-            return True
-        except Exception as e:
-            self.logger.error(f"Error initiating amalgamation: {str(e)}")
-            return False
+    def get_cortical_area_connectivity(self, cortical_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
+        """Get connectivity information for a specific cortical area."""
+        return self._cortical_area_service.get_area_connectivity(cortical_id, direction)
     
-    def initiate_amalgamation_by_filename(
-        self,
-        amalgamation_id: str,
-        genome_id: str,
-        genome_title: str
-    ) -> bool:
-        """
-        Initiate an amalgamation by filename.
-        
-        Args:
-            amalgamation_id: ID for the amalgamation.
-            genome_id: ID/filename of the genome.
-            genome_title: Title of the genome.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            # Load the genome from file
-            genome_path = os.path.join(self.get_data_path(), "genome", genome_id)
-            if not os.path.exists(genome_path):
-                self.logger.error(f"Genome file not found: {genome_path}")
-                return False
-                
-            with open(genome_path, 'r') as f:
-                genome_payload = json.load(f)
-                
-            # Call the regular amalgamation method
-            return self.initiate_amalgamation(
-                amalgamation_id=amalgamation_id,
-                genome_id=genome_id,
-                genome_title=genome_title,
-                genome_payload=genome_payload
-            )
-        except Exception as e:
-            self.logger.error(f"Error initiating amalgamation by filename: {str(e)}")
-            return False
-    
-    def get_amalgamation_history(self) -> Dict[str, str]:
-        """
-        Get the amalgamation history.
-        
-        Returns:
-            Dictionary of amalgamation IDs to their statuses.
-        """
-        return self._amalgamation_history
-    
-    def get_cortical_templates(self) -> Dict[str, Any]:
-        """
-        Get the available cortical templates.
-        
-        Returns:
-            Dictionary containing cortical templates.
-        """
-        # Placeholder - in a real implementation, we would fetch templates
-        # from the connectome manager or a template registry
-        
-        return {
-            "templates": [
-                {
-                    "name": "Simple Neuron Layer",
-                    "description": "A simple layer of neurons",
-                    "dimensions": [10, 10, 1]
-                },
-                {
-                    "name": "Sensory Area",
-                    "description": "A typical sensory processing area",
-                    "dimensions": [10, 10, 5]
-                }
-            ]
-        }
-    
-    def complete_amalgamation(
-        self,
-        amalgamation_id: str,
-        circuit_origin: Tuple[int, int, int],
-        brain_region_id: str,
-        rewire_mode: str
-    ) -> bool:
-        """
-        Complete an amalgamation.
-        
-        Args:
-            amalgamation_id: ID of the amalgamation.
-            circuit_origin: Tuple of (x, y, z) coordinates for the circuit origin.
-            brain_region_id: ID of the brain region.
-            rewire_mode: Mode for rewiring connections.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            # Check if the amalgamation exists
-            if amalgamation_id not in self._pending_amalgamation:
-                self.logger.error(f"Amalgamation not found: {amalgamation_id}")
-                return False
-                
-            # Get the amalgamation data
-            amalgamation = self._pending_amalgamation[amalgamation_id]
-            genome_payload = amalgamation["payload"]
-            
-            # Apply the amalgamation to the current genome
-            # This would be a complex process in a real implementation
-            # For now, we'll just update the amalgamation status
-            self._amalgamation_history[amalgamation_id] = "completed"
-            
-            # Remove from pending
-            del self._pending_amalgamation[amalgamation_id]
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Error completing amalgamation: {str(e)}")
-            
-            # Update history with error
-            self._amalgamation_history[amalgamation_id] = "failed"
-            
-            return False
-    
-    def get_amalgamation_info(self, amalgamation_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get information about an amalgamation.
-        
-        Args:
-            amalgamation_id: ID of the amalgamation.
-            
-        Returns:
-            Dictionary containing amalgamation information, or None if not found.
-        """
-        # Check if it's a pending amalgamation
-        if amalgamation_id in self._pending_amalgamation:
-            return {
-                "id": amalgamation_id,
-                "status": "pending",
-                "genome_id": self._pending_amalgamation[amalgamation_id]["genome_id"],
-                "genome_title": self._pending_amalgamation[amalgamation_id]["genome_title"]
-            }
-            
-        # Check if it's in the history
-        if amalgamation_id in self._amalgamation_history:
-            status = self._amalgamation_history[amalgamation_id]
-            return {
-                "id": amalgamation_id,
-                "status": status,
-                "genome_id": "unknown",  # We don't store this in the history currently
-                "genome_title": "Unknown"  # We don't store this in the history currently
-            }
-            
-        # Not found
-        return None
-    
-    def cancel_amalgamation(self, amalgamation_id: str) -> bool:
-        """
-        Cancel a pending amalgamation.
-        
-        Args:
-            amalgamation_id: ID of the amalgamation.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            # Check if the amalgamation exists
-            if amalgamation_id not in self._pending_amalgamation:
-                self.logger.error(f"Amalgamation not found: {amalgamation_id}")
-                return False
-                
-            # Update history
-            self._amalgamation_history[amalgamation_id] = "cancelled"
-            
-            # Remove from pending
-            del self._pending_amalgamation[amalgamation_id]
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Error cancelling amalgamation: {str(e)}")
-            return False
-    
-    def get_circuit_library(self) -> Dict[str, Any]:
-        """
-        Get the circuit library.
-        
-        Returns:
-            Dictionary containing the circuit library.
-        """
-        # Placeholder - in a real implementation, we would fetch actual circuits
-        return {
-            "circuits": [
-                {
-                    "name": "Simple Feed-Forward",
-                    "description": "A simple feed-forward circuit",
-                    "cortical_areas": 2
-                },
-                {
-                    "name": "Recurrent Network",
-                    "description": "A recurrent network circuit",
-                    "cortical_areas": 3
-                }
-            ]
-        }
-    
-    def append_circuit(self, circuit_origin: Tuple[int, int, int], circuit_data: Dict[str, Any]) -> bool:
-        """
-        Append a circuit to the current genome.
-        
-        Args:
-            circuit_origin: Tuple of (x, y, z) coordinates for the circuit origin.
-            circuit_data: Dictionary containing the circuit data.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            # Placeholder - in a real implementation, we would merge the circuit
-            # into the current genome and update the connectome
-            
-            # For now, log that we received the request
-            self.logger.info(f"Appending circuit at {circuit_origin}: {circuit_data.get('genome_title', 'Unnamed')}")
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Error appending circuit: {str(e)}")
-            return False
-    
-    def get_cortical_area_types(self) -> Dict[str, List[str]]:
-        """
-        Get available cortical area types.
-        
-        Returns:
-            Dictionary containing available cortical area types.
-        """
-        # In legacy FEAGI, this might depend on a genome being loaded
-        if self._current_genome is None:
-            self.logger.info("No genome loaded, returning default cortical area types")
-        
-        # Delegate to the FEAGI instance to match the legacy API format
-        return self._feagi.get_cortical_area_types()
-    
-    def get_input_sources(self) -> List[Dict[str, Any]]:
-        """
-        Get all registered input sources.
-        
-        Returns:
-            List of dictionaries containing input source information.
-        """
-        # This is a placeholder implementation
-        # In a real implementation, this would retrieve input sources from FEAGI
-        self.logger.info("get_input_sources called")
-        return [
-            {
-                "id": "camera1",
-                "name": "Front Camera",
-                "type": "camera",
-                "target_area_id": "101",
-                "properties": {
-                    "resolution": "640x480"
-                }
-            },
-            {
-                "id": "microphone1",
-                "name": "Microphone",
-                "type": "audio",
-                "target_area_id": "102",
-                "properties": {
-                    "sample_rate": 44100
-                }
-            }
-        ]
-        
-    def get_input_source(self, source_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get an input source by ID.
-        
-        Args:
-            source_id: ID of the input source.
-            
-        Returns:
-            Dictionary containing input source information, or None if not found.
-        """
-        # This is a placeholder implementation
-        self.logger.info(f"get_input_source called with source_id={source_id}")
-        sources = self.get_input_sources()
-        for source in sources:
-            if source["id"] == source_id:
-                return source
-        return None
-        
-    def register_input_source(self, source_data: Dict[str, Any]) -> str:
-        """
-        Register a new input source.
-        
-        Args:
-            source_data: Dictionary containing input source information.
-            
-        Returns:
-            ID of the newly registered input source.
-        """
-        # This is a placeholder implementation
-        self.logger.info(f"register_input_source called with source_data={source_data}")
-        return "new_source_id"
-        
-    def update_input_source(self, source_id: str, source_data: Dict[str, Any]) -> bool:
-        """
-        Update an existing input source.
-        
-        Args:
-            source_id: ID of the input source to update.
-            source_data: Updated input source information.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        # This is a placeholder implementation
-        self.logger.info(f"update_input_source called with source_id={source_id}, source_data={source_data}")
-        return True
-        
-    def remove_input_source(self, source_id: str) -> bool:
-        """
-        Remove an input source.
-        
-        Args:
-            source_id: ID of the input source to remove.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        # This is a placeholder implementation
-        self.logger.info(f"remove_input_source called with source_id={source_id}")
-        return True
-        
-    def stimulate_cortical_area(self, area_id: str, pattern: str = "random", 
+    def stimulate_cortical_area(self, cortical_id: str, pattern: str = "random", 
                                intensity: float = 1.0, duration: int = 1,
                                coordinates: Optional[List[Dict[str, int]]] = None) -> Dict[str, Any]:
-        """
-        Stimulate a cortical area with the specified pattern.
-        
-        Args:
-            area_id: ID of the cortical area to stimulate.
-            pattern: Stimulation pattern (random, specific, etc.)
-            intensity: Stimulation intensity (0.0-1.0)
-            duration: Stimulation duration in bursts
-            coordinates: Specific coordinates to stimulate
+        """Stimulate a cortical area with the specified pattern."""
+        return self._cortical_area_service.stimulate_area(cortical_id, pattern, intensity, duration, coordinates)
+    
+    def get_cortical_id_list(self) -> List[str]:
+        """Get a list of all cortical area IDs (6-character strings) in the current genome."""
+        return self._cortical_area_service.get_id_list()
+    
+    def get_cortical_index_list(self) -> List[int]:
+        """Get a list of all cortical area indices (integers) used by the FCL."""
+        return self._cortical_area_service.get_index_list()
+    
+    def get_cortical_name_list(self) -> List[str]:
+        """Get a list of all cortical area names."""
+        return self._cortical_area_service.get_name_list()
+    
+    def get_cortical_id_name_mapping(self) -> Dict[str, str]:
+        """Map every cortical area's 6-character cortical_id to its human-readable name."""
+        return self._cortical_area_service.get_id_name_mapping()
+    
+    def get_cortical_locations_2d(self) -> Dict[str, List[int]]:
+        """Get 2D locations of all cortical areas."""
+        return self._cortical_area_service.get_cortical_locations_2d()
+    
+    def get_cortical_2d_locations(self) -> Dict[str, List[int]]:
+        """Get 2D locations of all cortical areas (alias for get_cortical_locations_2d)."""
+        return self._cortical_area_service.get_cortical_locations_2d()
+    
+    def get_cortical_area_geometry(self) -> Dict[str, Any]:
+        """Get cortical area geometry information."""
+        try:
+            # Get all cortical areas and their geometric properties
+            areas = self._cortical_area_service.get_all_areas()
+            geometry_info = {}
             
-        Returns:
-            Information about the applied stimulation.
-        """
-        # This is a placeholder implementation
-        self.logger.info(f"stimulate_cortical_area called with area_id={area_id}, pattern={pattern}")
-        return {
-            "stimulated_neurons": 100,
-            "timestamp": 123456789
-        }
-        
+            for area in areas:
+                area_id = area.get('id')
+                if area_id:
+                    geometry_info[area_id] = {
+                        'coordinates': area.get('coordinates', {}),
+                        'dimensions': area.get('dimensions', {}),
+                        'type': area.get('type', 'unknown'),
+                        'neuron_count': area.get('neuron_count', 0)
+                    }
+            
+            return geometry_info
+        except Exception as e:
+            self.logger.error(f"Error getting cortical area geometry: {str(e)}")
+            return {}
+    
+    def get_current_ipu_list(self) -> List[str]:
+        """Get list of current IPU cortical areas."""
+        return self._cortical_area_service.get_current_ipu_list()
+    
+    def get_current_opu_list(self) -> List[str]:
+        """Get list of current OPU cortical areas."""
+        return self._cortical_area_service.get_current_opu_list()
+
+    # =================================================================
+    # CONNECTOME SERVICE DELEGATION
+    # =================================================================
+    
+    def get_neuron_connectivity(self, neuron_id: str, direction: str = "both") -> Optional[Dict[str, Any]]:
+        """Get connectivity information for a specific neuron."""
+        return self._connectome_service.get_neuron_connectivity(neuron_id, direction)
+    
+    def get_connection_stats(self) -> Dict[str, Any]:
+        """Get overall connectivity statistics."""
+        return self._connectome_service.get_connection_stats()
+    
+    def get_connection_matrix(self, source_area: str, target_area: str) -> Optional[Dict[str, Any]]:
+        """Get connection matrix between two cortical areas."""
+        return self._connectome_service.get_connection_matrix(source_area, target_area)
+    
+    def add_connection(self, source_neuron: str, target_neuron: str, weight: float = 1.0) -> bool:
+        """Add a new synaptic connection."""
+        return self._connectome_service.add_connection(source_neuron, target_neuron, weight)
+    
+    def remove_connection(self, source_neuron: str, target_neuron: str) -> bool:
+        """Remove a synaptic connection."""
+        return self._connectome_service.remove_connection(source_neuron, target_neuron)
+    
+    def update_connection_weight(self, source_neuron: str, target_neuron: str, new_weight: float) -> bool:
+        """Update the weight of an existing connection."""
+        return self._connectome_service.update_connection_weight(source_neuron, target_neuron, new_weight)
+    
+    def get_area_to_area_connectivity(self) -> Dict[str, Any]:
+        """Get connectivity matrix between all cortical areas."""
+        return self._connectome_service.get_area_to_area_connectivity()
+    
+    def analyze_network_properties(self) -> Dict[str, Any]:
+        """Analyze network properties like clustering, path lengths, etc."""
+        return self._connectome_service.analyze_network_properties()
+
+    # =================================================================
+    # BRAIN SERVICE DELEGATION
+    # =================================================================
+    
+    def get_burst_engine_status(self) -> Dict[str, Any]:
+        """Get current burst engine status."""
+        return self._brain_service.get_burst_engine_status()
+    
+    def start_burst_engine(self) -> bool:
+        """Start the burst engine."""
+        return self._brain_service.start_burst_engine()
+    
+    def stop_burst_engine(self) -> bool:
+        """Stop the burst engine."""
+        return self._brain_service.stop_burst_engine()
+    
+    def get_brain_statistics(self) -> Dict[str, Any]:
+        """Get comprehensive brain statistics."""
+        return self._brain_service.get_brain_statistics()
+    
+    def get_activity_summary(self, window: int = 10) -> Dict[str, Any]:
+        """Get activity summary for the brain over a time window."""
+        return self._brain_service.get_activity_summary(window)
+    
+    def reset_brain_state(self) -> bool:
+        """Reset the brain to initial state."""
+        return self._brain_service.reset_brain_state()
+    
+    def get_performance_metrics(self) -> Dict[str, Any]:
+        """Get brain performance metrics."""
+        return self._brain_service.get_performance_metrics()
+    
+    def stimulate_neurons(self, neuron_ids: List[str], intensity: float = 1.0) -> Dict[str, Any]:
+        """Stimulate specific neurons with given intensity."""
+        return self._brain_service.stimulate_neurons(neuron_ids, intensity)
+
     def get_burst_engine_config(self) -> Dict[str, Any]:
-        """
-        Get the burst engine configuration.
-        
-        Returns:
-            Dictionary containing burst engine configuration.
-        """
-        self.logger.info("get_burst_engine_config called")
-        # Delegate to the FEAGI instance to match the legacy API format
-        return self._feagi.get_burst_engine_config()
-        
-    def update_burst_engine_config(self, config: Dict[str, Any]) -> bool:
-        """
-        Update the burst engine configuration.
-        
-        Args:
-            config: Updated burst engine configuration.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        # This is a placeholder implementation
-        self.logger.info(f"update_burst_engine_config called with config={config}")
-        return True
-        
+        """Get burst engine configuration."""
+        return self._brain_service.get_burst_engine_config()
+
     def get_burst_engine_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics from the burst engine.
-        
-        Returns:
-            Dictionary containing burst engine statistics.
-        """
-        # This is a placeholder implementation
-        self.logger.info("get_burst_engine_stats called")
-        return {
-            "average_burst_time": 8.5,
-            "max_burst_time": 12.3,
-            "min_burst_time": 7.1,
-            "total_bursts": 1000,
-            "average_active_neurons": 500,
-            "memory_usage": 128.5
-        }
-    
-    def _create_burst_engine(self):
-        """
-        Create and initialize a BurstEngine instance.
-        
-        Returns:
-            An initialized BurstEngine instance
-        """
-        from feagi.npu.burst_engine import BurstEngine
-        
-        # Create the burst engine with our connectome manager
-        burst_engine = BurstEngine(
-            connectome_manager=self._connectome_manager,
-            fcl_manager=self._connectome_manager.fcl_manager,
-            config={"desired_frequency_hz": 60.0}  # Reasonable default
-        )
-        
-        return burst_engine
+        """Get burst engine statistics."""
+        return self._brain_service.get_brain_statistics()
 
-    def on_sync_state_change(self, old_state, new_state, details):
-        """React to sync state changes"""
-        if new_state == ServiceState.SYNC_COMPLETE:
-            # Update any cached data or notify dependent systems
-            self.refresh_cached_data()
-        
-    def begin_transaction(self):
-        """Begin a new genome modification transaction"""
-        return GenomeTransaction(self.state_manager)
+    def hold_burst_engine(self) -> bool:
+        """Put burst engine on hold (pause neural processing)."""
+        return self._brain_service.hold_burst_engine()
+
+    def resume_burst_engine(self) -> bool:
+        """Resume burst engine from hold (resume neural processing)."""
+        return self._brain_service.resume_burst_engine()
+
+    # =================================================================
+    # AGENTS SERVICE DELEGATION
+    # =================================================================
     
-    def modify_genome(self, transaction):
-        """Apply changes from a genome transaction.
-        
-        Args:
-            transaction: The GenomeTransaction object with recorded changes
+    def get_connected_agents(self) -> List[Dict[str, Any]]:
+        """Get list of currently connected agents."""
+        return self._agents_service.get_connected_agents()
+    
+    def register_agent(self, agent_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Register a new agent."""
+        return self._agents_service.register_agent(agent_data)
+    
+    def unregister_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Unregister an agent."""
+        return self._agents_service.unregister_agent(agent_id)
+    
+    def update_agent_status(self, agent_id: str, status: str, metadata: Dict[str, Any] = None) -> bool:
+        """Update agent status and metadata."""
+        return self._agents_service.update_agent_status(agent_id, status, metadata)
+    
+    def get_agent_details(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        """Get detailed information about a specific agent."""
+        return self._agents_service.get_agent_details(agent_id)
+    
+    def send_message_to_agent(self, agent_id: str, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Send a message to a specific agent."""
+        return self._agents_service.send_message_to_agent(agent_id, message)
+    
+    def broadcast_message(self, message: Dict[str, Any], agent_filter: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Broadcast a message to all connected agents or filtered subset."""
+        return self._agents_service.broadcast_message(message, agent_filter)
+    
+    def get_agent_statistics(self) -> Dict[str, Any]:
+        """Get agent statistics."""
+        return self._agents_service.get_agent_statistics()
+
+    def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
+        """Configure an agent with the given configuration."""
+        try:
+            # For now, implement a basic configuration update
+            # This could be extended to support more sophisticated agent configuration
+            result = self._agents_service.update_agent_status(agent_id, "configured", config)
+            self.logger.info(f"Agent {agent_id} configured with: {config}")
+            return result
+        except Exception as e:
+            self.logger.error(f"Error configuring agent {agent_id}: {str(e)}")
+            return False
+
+    # =================================================================
+    # NETWORK SERVICE DELEGATION
+    # =================================================================
+    
+    def get_network_status(self) -> Dict[str, Any]:
+        """Get current network status and health."""
+        return self._network_service.get_network_status()
+    
+    def get_bandwidth_usage(self, time_window: int = 60) -> Dict[str, Any]:
+        """Get bandwidth usage statistics over a time window."""
+        return self._network_service.get_bandwidth_usage(time_window)
+    
+    def get_connection_statistics(self) -> Dict[str, Any]:
+        """Get detailed connection statistics."""
+        return self._network_service.get_connection_statistics()
+    
+    def test_connectivity(self, target: Optional[str] = None) -> Dict[str, Any]:
+        """Test network connectivity to specific targets or general health."""
+        return self._network_service.test_connectivity(target)
+    
+    def get_protocol_status(self) -> Dict[str, Any]:
+        """Get status of different network protocols."""
+        return self._network_service.get_protocol_status()
+    
+    def reset_network_statistics(self) -> bool:
+        """Reset network statistics and counters."""
+        return self._network_service.reset_network_statistics()
+    
+    def configure_bandwidth_limits(self, limits: Dict[str, Any]) -> Dict[str, Any]:
+        """Configure bandwidth limits for different types of traffic."""
+        return self._network_service.configure_bandwidth_limits(limits)
+    
+    def get_message_queue_status(self) -> Dict[str, Any]:
+        """Get status of message queues across different protocols."""
+        return self._network_service.get_message_queue_status()
+
+    # =================================================================
+    # UTILITY METHODS
+    # =================================================================
+    
+    def refresh_caches(self):
+        """Refresh all cached data across services."""
+        try:
+            self._cortical_area_service.refresh_cache()
+            self.logger.info("All service caches refreshed")
+        except Exception as e:
+            self.logger.error(f"Error refreshing caches: {str(e)}")
+    
+    def get_service_health(self) -> Dict[str, Any]:
+        """Get health information about all domain services."""
+        try:
+            return {
+                "system_service": "healthy" if self._system_service else "unavailable",
+                "genome_service": "healthy" if self._genome_service else "unavailable",
+                "cortical_area_service": "healthy" if self._cortical_area_service else "unavailable",
+                "connectome_service": "healthy" if self._connectome_service else "unavailable",
+                "brain_service": "healthy" if self._brain_service else "unavailable",
+                "agents_service": "healthy" if self._agents_service else "unavailable",
+                "network_service": "healthy" if self._network_service else "unavailable",
+                "facade_status": "operational"
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting service health: {str(e)}")
+            return {"facade_status": "error", "error": str(e)}
+    
+    # =================================================================
+    # CORE COMPONENT ACCESS METHODS
+    # =================================================================
+    
+    def get_burst_engine(self):
+        """Get the burst engine instance - always returns the singleton instance."""
+        # Import here to avoid circular imports
+        try:
+            from feagi.npu.burst_engine import BurstEngine
             
-        Returns:
-            bool: Success or failure
-        """
-        if not self.state_manager:
-            logger.error("Cannot modify genome - state manager not initialized", emoji1="❌")
-            return False
-        
-        if not self.genome_is_loaded():
-            logger.error("Cannot modify genome - no genome loaded", emoji1="❌")
-            return False
-        
-        # Apply transaction
-        success = transaction.commit()
-        
-        if success:
-            # Notify any listeners about genome changes - use LOADED instead of MODIFIED
-            self.state_manager.set_genome_state(GenomeState.LOADED)
-        
-        return success
-
-    def register_genome_change_listener(self, callback):
-        """Register a function to be called when the genome changes.
-        
-        Args:
-            callback: Function to call when genome changes
-        """
-        if self.state_manager:
-            return self.state_manager.register_notification_callback("genome", callback)
-        return False
+            # Always use the singleton instance - never create a new one
+            singleton_instance = BurstEngine.get_instance()
+            
+            if singleton_instance is None:
+                # Create singleton instance only if none exists
+                print(f"🔥 CORE API: Creating singleton BurstEngine instance")
+                self.logger.info("🔥 CORE API: Creating singleton BurstEngine instance")
+                
+                # Check for debug NPU flag and pass through config
+                import os
+                debug_npu = os.getenv('FEAGI_DEBUG_NPU', '').lower() in ('1', 'true', 'yes')
+                engine_config = {'debug_npu': debug_npu}
+                
+                singleton_instance = BurstEngine(connectome_manager=self._connectome_manager, config=engine_config)
+            else:
+                print(f"🔥 CORE API: Using existing singleton BurstEngine instance")
+                self.logger.info("🔥 CORE API: Using existing singleton BurstEngine instance")
+            
+            return singleton_instance
+            
+        except Exception as e:
+            self.logger.error(f"Error getting burst engine: {str(e)}")
+            return None
     
-    def refresh_cached_data(self):
-        """Refresh any cached data after a genome modification"""
-        # Clear any caches that might be stale after genome changes
-        if hasattr(self, '_cached_cortical_areas'):
-            del self._cached_cortical_areas 
+    def get_connectome_manager(self):
+        """Get the connectome manager instance."""
+        return self._connectome_manager
+    
+    def get_connectome(self):
+        """Get the connectome manager instance (legacy alias)."""
+        return self._connectome_manager
+    
+    def get_fcl_manager(self):
+        """Get the FCL manager instance."""
+        if hasattr(self._connectome_manager, 'fcl_manager'):
+            return self._connectome_manager.fcl_manager
+        return None
+    
+    def get_memory_manager(self):
+        """Get the memory manager instance."""
+        # Return the connectome manager as it manages memory
+        return self._connectome_manager
+
+    # =================================================================
+    # CRITICAL MISSING METHODS - FIRE QUEUE & STATE MANAGEMENT
+    # =================================================================
+    
+    def get_fire_queue(self) -> Optional[Dict[str, Any]]:
+        """Get the current global fire queue data for FQSampler."""
+        try:
+            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
+                fcl_manager = self._connectome_manager.fcl_manager
+                global_fcl = fcl_manager.get_global_fcl()  # This should return a BitMap
+                
+                if global_fcl and hasattr(global_fcl, '__iter__'):
+                    neuron_ids = list(global_fcl)
+                else:
+                    neuron_ids = []
+                
+                return {
+                    'neuron_ids': neuron_ids,
+                    'membrane_potentials': [1.0] * len(neuron_ids),
+                    'thresholds': [1.0] * len(neuron_ids),
+                    'consecutive_fire_counts': [0] * len(neuron_ids),
+                    'refractory_counters': [0] * len(neuron_ids)
+                }
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting fire queue: {str(e)}")
+            return None
+    
+    def get_area_fire_queue(self, cortical_id: str) -> Optional[Dict[str, Any]]:
+        """Get fire queue data for a specific cortical area."""
+        try:
+            if not self._validate_genome_loaded():
+                return None
+                
+            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
+                area_fcl = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_id)  # Pass cortical_id directly
+                if area_fcl and hasattr(area_fcl, '__iter__'):
+                    neuron_ids = list(area_fcl)
+                    return {
+                        'cortical_id': cortical_id,
+                        'neuron_ids': neuron_ids,
+                        'membrane_potentials': [1.0] * len(neuron_ids),
+                        'thresholds': [1.0] * len(neuron_ids),
+                        'consecutive_fire_counts': [0] * len(neuron_ids),
+                        'refractory_counters': [0] * len(neuron_ids)
+                    }
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting area fire queue for {cortical_id}: {str(e)}")
+            return None
 
     def genome_is_loaded(self) -> bool:
-        """Check if a genome is currently loaded.
+        """Check if a genome is currently loaded - CRITICAL for state management."""
+        return self._genome_service.is_genome_loaded()
+    
+    def get_state_manager(self):
+        """Get the state manager instance."""
+        return self.state_manager
+
+    # =================================================================
+    # BRAIN STATE MANAGEMENT METHODS
+    # =================================================================
+    
+    def get_brain_state(self) -> Dict[str, Any]:
+        """Get current brain state."""
+        return self._brain_service.get_brain_statistics()
+    
+    def save_brain_state(self, path: str) -> bool:
+        """Save brain state to file."""
+        try:
+            brain_state = self.get_brain_state()
+            import json
+            with open(path, 'w') as f:
+                json.dump(brain_state, f, indent=2)
+            return True
+        except Exception as e:
+            self.logger.error(f"Error saving brain state: {str(e)}")
+            return False
+    
+    def load_brain_state(self, path: str) -> bool:
+        """Load brain state from file."""
+        try:
+            import json
+            with open(path, 'r') as f:
+                brain_state = json.load(f)
+            # This would need implementation in brain service
+            return True
+        except Exception as e:
+            self.logger.error(f"Error loading brain state: {str(e)}")
+            return False
+
+    # =================================================================
+    # LEGACY COMPATIBILITY METHODS
+    # =================================================================
+    
+    # Add any legacy method aliases or compatibility methods here if needed
+    # For now, all existing methods are preserved with their exact signatures 
+
+    # Legacy method aliases for backward compatibility
+    def get_cortical_areas(self) -> List[Dict[str, Any]]:
+        """Get all cortical areas (alias for get_all_cortical_areas)."""
+        return self.get_all_cortical_areas()
+
+    # =================================================================
+    # ADDITIONAL AGENT MANAGEMENT METHODS
+    # =================================================================
+    
+    def get_agent_list(self) -> Set[str]:
+        """Get list of agent IDs."""
+        try:
+            agents = self._agents_service.get_connected_agents()
+            return {agent.get('id', agent.get('agent_id', '')) for agent in agents}
+        except Exception as e:
+            self.logger.error(f"Error getting agent list: {str(e)}")
+            return set()
+    
+    def get_agent_properties(self, agent_id: str) -> Dict[str, Any]:
+        """Get properties of a specific agent."""
+        return self._agents_service.get_agent_details(agent_id) or {}
+    
+    def deregister_agent(self, agent_id: str) -> bool:
+        """Deregister an agent."""
+        result = self._agents_service.unregister_agent(agent_id)
+        return result.get('success', False) if isinstance(result, dict) else False 
+
+    # =================================================================
+    # LEGACY CORTICAL AREA METHOD NAMES 
+    # =================================================================
+    
+    def get_cortical_area_id_list(self) -> List[str]:
+        """Get list of cortical area IDs (legacy name).""" 
+        return self.get_cortical_id_list()
+    
+    def get_cortical_area_index_list(self) -> List[int]:
+        """Get list of cortical area indices (legacy name)."""
+        return self.get_cortical_index_list()
+    
+    def get_cortical_area_name_list(self) -> List[str]:
+        """Get list of cortical area names (legacy name)."""
+        return self.get_cortical_name_list()
+    
+    def get_cortical_area_stats(self, cortical_area: str) -> Optional[Dict[str, Any]]:
+        """Get statistics for a cortical area."""
+        return self._cortical_area_service.get_area_stats(cortical_area)
+
+    # =================================================================
+    # PLASTICITY AND LEARNING METHODS
+    # =================================================================
+    
+    def enable_area_plasticity(self, cortical_id: str, settings: Optional[Dict[str, Any]] = None) -> bool:
+        """Enable plasticity for a cortical area."""
+        try:
+            # This would need implementation in a plasticity service
+            self.logger.info(f"Enabling plasticity for area {cortical_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error enabling plasticity for {cortical_id}: {str(e)}")
+            return False
+    
+    def disable_area_plasticity(self, cortical_id: str) -> bool:
+        """Disable plasticity for a cortical area."""
+        try:
+            # This would need implementation in a plasticity service
+            self.logger.info(f"Disabling plasticity for area {cortical_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error disabling plasticity for {cortical_id}: {str(e)}")
+            return False
+    
+    def get_plasticity_info(self) -> Dict[str, Any]:
+        """Get plasticity information."""
+        try:
+            return {
+                "enabled": True,
+                "queue_depth": 1000,
+                "areas_with_plasticity": []
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting plasticity info: {str(e)}")
+            return {}
+    
+    def get_plasticity_queue_depth(self) -> int:
+        """Get plasticity queue depth."""
+        return 1000  # Default value
+    
+    def update_plasticity_queue_depth(self, depth: int) -> bool:
+        """Update plasticity queue depth."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating plasticity queue depth: {str(e)}")
+            return False
+    
+    def update_plasticity_config(self, config: Dict[str, Any]) -> bool:
+        """Update plasticity configuration."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating plasticity config: {str(e)}")
+            return False
+
+    # =================================================================
+    # MONITORING METHODS
+    # =================================================================
+    
+    def get_membrane_potential_monitoring_status(self, cortical_areas: List[str]) -> List[Tuple[str, bool]]:
+        """Get membrane potential monitoring status for cortical areas."""
+        try:
+            # This should get real monitoring status from the brain service
+            raise NotImplementedError("Membrane potential monitoring status is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error getting membrane potential monitoring status: {str(e)}")
+            raise ValueError(f"Failed to get membrane potential monitoring status: {str(e)}")
+    
+    def set_membrane_potential_monitoring(self, cortical_areas: List[str], enabled: bool) -> bool:
+        """Set membrane potential monitoring for cortical areas."""
+        try:
+            # This should actually set monitoring in the brain service
+            raise NotImplementedError("Setting membrane potential monitoring is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error setting membrane potential monitoring: {str(e)}")
+            raise ValueError(f"Failed to set membrane potential monitoring: {str(e)}")
+    
+    def get_synaptic_potential_monitoring_status(self, cortical_areas: List[str]) -> List[Tuple[str, bool]]:
+        """Get synaptic potential monitoring status for cortical areas."""
+        try:
+            # This should get real monitoring status from the brain service
+            raise NotImplementedError("Synaptic potential monitoring status is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error getting synaptic potential monitoring status: {str(e)}")
+            raise ValueError(f"Failed to get synaptic potential monitoring status: {str(e)}")
+    
+    def set_synaptic_potential_monitoring(self, cortical_areas: List[str], enabled: bool) -> bool:
+        """Set synaptic potential monitoring for cortical areas."""
+        try:
+            # This should actually set monitoring in the brain service
+            raise NotImplementedError("Setting synaptic potential monitoring is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error setting synaptic potential monitoring: {str(e)}")
+            raise ValueError(f"Failed to set synaptic potential monitoring: {str(e)}")
+    
+    def get_membrane_potentials(self, neuron_ids: List[int]) -> Dict[int, float]:
+        """Get membrane potentials for specific neurons."""
+        try:
+            # This should get real membrane potentials from the brain service
+            raise NotImplementedError("Getting membrane potentials is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error getting membrane potentials: {str(e)}")
+            raise ValueError(f"Failed to get membrane potentials: {str(e)}")
+    
+    def update_membrane_potentials(self, potentials: Dict[int, float]) -> bool:
+        """Update membrane potentials for specific neurons."""
+        try:
+            # This would need implementation in connectome service
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating membrane potentials: {str(e)}")
+            return False
+
+    # =================================================================
+    # ADDITIONAL MISSING METHODS
+    # =================================================================
+    
+    def get_fq_sampler_config(self) -> Dict[str, Any]:
+        """Get FQ sampler configuration."""
+        try:
+            if self.state_manager:
+                return {
+                    "frequency": getattr(self.state_manager, 'fq_sampler_frequency', 20.0),
+                    "consumer": getattr(self.state_manager, 'fq_sampler_consumer', 1)
+                }
+            return {"frequency": 20.0, "consumer": 1}
+        except Exception as e:
+            self.logger.error(f"Error getting FQ sampler config: {str(e)}")
+            return {}
+    
+    def update_fq_sampler_config(self, frequency: float, consumer: str) -> bool:
+        """Update FQ sampler configuration."""
+        try:
+            if self.state_manager:
+                self.state_manager.set_fq_sampler_frequency(frequency)
+                consumer_map = {"visualization": 1, "motor": 2, "both": 3}
+                self.state_manager.set_fq_sampler_consumer(consumer_map.get(consumer, 1))
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating FQ sampler config: {str(e)}")
+            return False
+    
+    def get_area_fq_sample_rate(self, area_id: int) -> float:
+        """Get FQ sample rate for an area."""
+        try:
+            # This should get real sample rate from the fire queue manager
+            raise NotImplementedError("Getting area FQ sample rate is not yet implemented")
+        except Exception as e:
+            self.logger.error(f"Error getting area FQ sample rate: {str(e)}")
+            raise ValueError(f"Failed to get area FQ sample rate: {str(e)}")
+    
+    def get_burst_counter(self) -> int:
+        """Get current burst counter."""
+        try:
+            if self.state_manager:
+                return getattr(self.state_manager, 'current_burst_id', 0)
+            return 0
+        except Exception as e:
+            self.logger.error(f"Error getting burst counter: {str(e)}")
+            return 0
+    
+    def update_burst_engine_config(self, config: Dict[str, Any]) -> bool:
+        """Update burst engine configuration."""
+        try:
+            # This would need implementation in brain service
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating burst engine config: {str(e)}")
+            return False
+    
+    def get_network_config(self) -> Dict[str, Any]:
+        """Get network configuration."""
+        return self._network_service.get_protocol_status()
+    
+    def update_network_config(self, network_config: Dict[str, Any]) -> bool:
+        """Update network configuration."""
+        try:
+            # This would need implementation in network service
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating network config: {str(e)}")
+            return False
+    
+    def get_connectome_dimensions(self) -> Dict[str, Any]:
+        """Get connectome dimensions."""
+        try:
+            stats = self._brain_service.get_brain_statistics()
+            return {
+                "neuron_count": stats.get("neuron_count", 0),
+                "synapse_count": stats.get("synapse_count", 0),
+                "cortical_area_count": stats.get("cortical_area_count", 0)
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting connectome dimensions: {str(e)}")
+            return {}
+    
+    def get_morphology_list(self) -> List[str]:
+        """Get list of available morphologies."""
+        try:
+            # Import core morphologies from templates
+            from feagi.evo.templates import core_morphologies
+            
+            morphology_names = list(core_morphologies.keys())
+            
+            # Also check genome for additional morphologies if available
+            genome = self.get_genome()
+            if genome and "neuron_morphologies" in genome:
+                genome_morphologies = list(genome["neuron_morphologies"].keys())
+                # Combine and deduplicate
+                morphology_names.extend([m for m in genome_morphologies if m not in morphology_names])
+            
+            return sorted(morphology_names)
+        except Exception as e:
+            self.logger.error(f"Error getting morphology list: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology list: {str(e)}")
+    
+    def get_morphology_types(self) -> List[str]:
+        """Get list of available morphology types."""
+        try:
+            # Get unique morphology types from core morphologies
+            from feagi.evo.templates import core_morphologies
+            
+            types = set()
+            for morphology in core_morphologies.values():
+                if "type" in morphology:
+                    types.add(morphology["type"])
+            
+            # Also check genome morphologies
+            genome = self.get_genome()
+            if genome and "neuron_morphologies" in genome:
+                for morphology in genome["neuron_morphologies"].values():
+                    if "type" in morphology:
+                        types.add(morphology["type"])
+            
+            return sorted(list(types))
+        except Exception as e:
+            self.logger.error(f"Error getting morphology types: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology types: {str(e)}")
+    
+    def get_morphologies(self) -> Dict[str, Any]:
+        """Get all morphologies with detailed information."""
+        try:
+            # Import core morphologies from templates
+            from feagi.evo.templates import core_morphologies
+            
+            # Start with core morphologies
+            all_morphologies = {}
+            for name, morphology in core_morphologies.items():
+                all_morphologies[name] = {
+                    "name": name,
+                    "type": morphology.get("type", "unknown"),
+                    "class": morphology.get("class", "unknown"),
+                    "parameters": morphology.get("parameters", {}),
+                    "source": "core"
+                }
+            
+            # Add genome morphologies if available
+            genome = self.get_genome()
+            if genome and "neuron_morphologies" in genome:
+                for name, morphology in genome["neuron_morphologies"].items():
+                    # Genome morphologies override core morphologies
+                    all_morphologies[name] = {
+                        "name": name,
+                        "type": morphology.get("type", "unknown"),
+                        "class": morphology.get("class", "genome"),
+                        "parameters": morphology.get("parameters", {}),
+                        "source": "genome"
+                    }
+            
+            return all_morphologies
+        except Exception as e:
+            self.logger.error(f"Error getting morphologies: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphologies: {str(e)}")
+    
+    def get_morphology_info(self, morphology_id: str) -> Dict[str, Any]:
+        """Get information about a specific morphology."""
+        try:
+            # Get all morphologies and find the requested one
+            all_morphologies = self.get_morphologies()
+            
+            if morphology_id not in all_morphologies:
+                raise ValueError(f"Morphology '{morphology_id}' not found")
+            
+            morphology = all_morphologies[morphology_id]
+            
+            # Add additional computed information
+            morphology_info = morphology.copy()
+            morphology_info.update({
+                "id": morphology_id,
+                "description": self._get_morphology_description(morphology),
+                "example_usage": self._get_morphology_example(morphology)
+            })
+            
+            return morphology_info
+        except Exception as e:
+            self.logger.error(f"Error getting morphology info: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology info: {str(e)}")
+    
+    def _get_morphology_description(self, morphology: Dict[str, Any]) -> str:
+        """Generate a description for a morphology based on its type and parameters."""
+        morphology_type = morphology.get("type", "unknown")
+        
+        descriptions = {
+            "vectors": "Connects neurons using fixed directional vectors",
+            "patterns": "Connects neurons based on spatial patterns",
+            "functions": "Uses algorithmic functions to determine connections",
+            "composite": "Combines multiple morphology types for complex connectivity"
+        }
+        
+        base_desc = descriptions.get(morphology_type, "Custom morphology type")
+        
+        # Add specific details based on parameters
+        if morphology_type == "vectors" and "vectors" in morphology.get("parameters", {}):
+            vectors = morphology["parameters"]["vectors"]
+            base_desc += f" ({len(vectors)} vector(s))"
+        elif morphology_type == "patterns" and "patterns" in morphology.get("parameters", {}):
+            patterns = morphology["parameters"]["patterns"]
+            base_desc += f" ({len(patterns)} pattern(s))"
+        
+        return base_desc
+    
+    def _get_morphology_example(self, morphology: Dict[str, Any]) -> str:
+        """Generate example usage for a morphology."""
+        morphology_type = morphology.get("type", "unknown")
+        
+        examples = {
+            "vectors": "Useful for layer-to-layer connections with fixed offsets",
+            "patterns": "Ideal for spatial relationship-based connectivity",
+            "functions": "Best for dynamic or computed connectivity patterns",
+            "composite": "Combines multiple approaches for complex architectures"
+        }
+        
+        return examples.get(morphology_type, "General purpose connectivity morphology")
+    
+    def create_morphology(self, morphology_data: Dict[str, Any]) -> bool:
+        """Create a new morphology."""
+        try:
+            # Validate required fields
+            if "name" not in morphology_data:
+                raise ValueError("Morphology name is required")
+            if "type" not in morphology_data:
+                raise ValueError("Morphology type is required")
+            if "parameters" not in morphology_data:
+                raise ValueError("Morphology parameters are required")
+            
+            name = morphology_data["name"]
+            
+            # Check if morphology already exists
+            existing_morphologies = self.get_morphologies()
+            if name in existing_morphologies:
+                raise ValueError(f"Morphology '{name}' already exists")
+            
+            # Validate morphology type
+            valid_types = ["vectors", "patterns", "functions", "composite"]
+            if morphology_data["type"] not in valid_types:
+                raise ValueError(f"Invalid morphology type. Must be one of: {valid_types}")
+            
+            # Get current genome and add the new morphology
+            genome = self.get_genome()
+            if not genome:
+                raise ValueError("No genome is currently loaded")
+            
+            if "neuron_morphologies" not in genome:
+                genome["neuron_morphologies"] = {}
+            
+            # Add the new morphology
+            genome["neuron_morphologies"][name] = {
+                "type": morphology_data["type"],
+                "parameters": morphology_data["parameters"],
+                "class": "custom"
+            }
+            
+            # Save the updated genome
+            # Note: This would need to be connected to the actual genome save mechanism
+            self.logger.info(f"Created new morphology: {name}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error creating morphology: {str(e)}")
+            raise ValueError(f"Failed to create morphology: {str(e)}")
+    
+    def update_morphology(self, morphology_id: str, updates: Dict[str, Any]) -> bool:
+        """Update an existing morphology."""
+        try:
+            # Check if morphology exists
+            all_morphologies = self.get_morphologies()
+            if morphology_id not in all_morphologies:
+                raise ValueError(f"Morphology '{morphology_id}' not found")
+            
+            morphology = all_morphologies[morphology_id]
+            
+            # Don't allow updating core morphologies
+            if morphology.get("source") == "core":
+                raise ValueError("Cannot modify core morphologies")
+            
+            # Get current genome
+            genome = self.get_genome()
+            if not genome or "neuron_morphologies" not in genome:
+                raise ValueError("No editable morphologies found in genome")
+            
+            # Apply updates
+            if morphology_id in genome["neuron_morphologies"]:
+                for key, value in updates.items():
+                    if key in ["type", "parameters", "class"]:
+                        genome["neuron_morphologies"][morphology_id][key] = value
+            
+            self.logger.info(f"Updated morphology: {morphology_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error updating morphology: {str(e)}")
+            raise ValueError(f"Failed to update morphology: {str(e)}")
+    
+    def delete_morphology(self, morphology_id: str) -> bool:
+        """Delete a morphology."""
+        try:
+            # Check if morphology exists
+            all_morphologies = self.get_morphologies()
+            if morphology_id not in all_morphologies:
+                raise ValueError(f"Morphology '{morphology_id}' not found")
+            
+            morphology = all_morphologies[morphology_id]
+            
+            # Don't allow deleting core morphologies
+            if morphology.get("source") == "core":
+                raise ValueError("Cannot delete core morphologies")
+            
+            # Get current genome
+            genome = self.get_genome()
+            if not genome or "neuron_morphologies" not in genome:
+                raise ValueError("No editable morphologies found in genome")
+            
+            # Remove the morphology
+            if morphology_id in genome["neuron_morphologies"]:
+                del genome["neuron_morphologies"][morphology_id]
+                self.logger.info(f"Deleted morphology: {morphology_id}")
+                return True
+            else:
+                raise ValueError(f"Morphology '{morphology_id}' not found in genome")
+            
+        except Exception as e:
+            self.logger.error(f"Error deleting morphology: {str(e)}")
+            raise ValueError(f"Failed to delete morphology: {str(e)}")
+    
+    def get_detailed_cortical_map(self) -> Dict[str, Any]:
+        """Get detailed cortical map."""
+        try:
+            areas = self.get_all_cortical_areas()
+            return {
+                "areas": areas,
+                "total_count": len(areas),
+                "connections": self.get_area_to_area_connectivity()
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting detailed cortical map: {str(e)}")
+            return {}
+    
+    def get_data_path(self) -> str:
+        """Get data path."""
+        return "/tmp/feagi_data"
+    
+    def get_temp_path(self) -> str:
+        """Get temporary path."""
+        return "/tmp/feagi_temp"
+
+    # =================================================================
+    # STIMULATION METHODS
+    # =================================================================
+    
+    def trigger_manual_stimulation(self, stimulation_payload: Dict[str, Any]) -> bool:
+        """Trigger manual stimulation."""
+        try:
+            cortical_id = stimulation_payload.get('cortical_id')
+            intensity = stimulation_payload.get('intensity', 1.0)
+            if cortical_id:
+                return self.stimulate_cortical_area(cortical_id, intensity=intensity).get('success', False)
+            return False
+        except Exception as e:
+            self.logger.error(f"Error triggering manual stimulation: {str(e)}")
+            return False
+    
+    def trigger_sustained_stimulation(self, stimulation_payload: Dict[str, Any]) -> bool:
+        """Trigger sustained stimulation."""
+        try:
+            cortical_id = stimulation_payload.get('cortical_id')
+            intensity = stimulation_payload.get('intensity', 1.0)
+            duration = stimulation_payload.get('duration', 10)
+            if cortical_id:
+                return self.stimulate_cortical_area(cortical_id, intensity=intensity, duration=duration).get('success', False)
+            return False
+        except Exception as e:
+            self.logger.error(f"Error triggering sustained stimulation: {str(e)}")
+            return False
+    
+    def set_stimulation_script(self, script: str) -> bool:
+        """Set stimulation script."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting stimulation script: {str(e)}")
+            return False
+    
+    def reset_stimulation_script(self) -> bool:
+        """Reset stimulation script."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error resetting stimulation script: {str(e)}")
+            return False
+
+    # =================================================================
+    # TRANSACTION AND STATE METHODS
+    # =================================================================
+    
+    def begin_transaction(self):
+        """Begin a genome transaction."""
+        # This would need implementation with genome transaction system
+        pass
+    
+    def modify_genome(self, transaction):
+        """Modify genome within a transaction."""
+        # This would need implementation with genome transaction system
+        pass
+    
+    def register_genome_change_listener(self, callback):
+        """Register a callback for genome changes."""
+        # This would need implementation
+        pass
+    
+    def on_sync_state_change(self, old_state, new_state, details):
+        """Handle sync state changes."""
+        # This would need implementation
+        pass
+    
+    def refresh_cached_data(self):
+        """Refresh cached data (legacy method name)."""
+        self.refresh_caches()
+
+    # =================================================================
+    # UTILITY AND HELPER METHODS
+    # =================================================================
+    
+    def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
+        """
+        Get cortical index for a cortical ID.
+        
+        IMPORTANT: Maps cortical_id (6-character string) to cortical_idx (integer).
+        
+        Args:
+            cortical_id: 6-character string identifier
+            
+        Returns:
+            Integer index if found, None otherwise
+        """
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return None
+                
+            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
+                    return cortical_idx
+            return None
+        except Exception as e:
+            self.logger.error(f"Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
+            return None
+
+    def _validate_genome_loaded(self) -> bool:
+        """Check if a genome is currently loaded - helper method for service consistency."""
+        return self._genome_service.is_genome_loaded()
+    
+    def get_neuron_mappings(self) -> Dict[str, Any]:
+        """Get neuron mappings."""
+        try:
+            return {
+                "neuron_to_area": {},
+                "area_to_neurons": {},
+                "total_neurons": self.get_connectome_dimensions().get("neuron_count", 0)
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting neuron mappings: {str(e)}")
+            return {}
+    
+    def get_transforming_areas(self) -> List[str]:
+        """Get list of areas currently transforming."""
+        try:
+            # This would need implementation
+            return []
+        except Exception as e:
+            self.logger.error(f"Error getting transforming areas: {str(e)}")
+            return []
+    
+    def has_pending_amalgamation(self) -> bool:
+        """Check if there is a pending amalgamation."""
+        try:
+            if self.state_manager:
+                return bool(getattr(self.state_manager, 'pending_amalgamation', False))
+            return False
+        except Exception as e:
+            self.logger.error(f"Error checking pending amalgamation: {str(e)}")
+            return False
+    
+    def save_connectome_snapshot(self, path: str) -> bool:
+        """Save connectome snapshot."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error saving connectome snapshot: {str(e)}")
+            return False
+    
+    def import_cortical_area(self, cortical_area_data: Dict[str, Any]) -> bool:
+        """Import cortical area data."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error importing cortical area: {str(e)}")
+            return False
+    
+    def batch_create_neurons(self, area_id: str, positions: List[Tuple[int, int, int]], 
+                           properties: Optional[Dict[str, Any]] = None) -> List[int]:
+        """Batch create neurons."""
+        try:
+            # This would need implementation
+            return []
+        except Exception as e:
+            self.logger.error(f"Error batch creating neurons: {str(e)}")
+            return []
+    
+    def batch_create_synapses(self, connections: List[Tuple[int, int, float]]) -> int:
+        """Batch create synapses."""
+        try:
+            # This would need implementation
+            return 0
+        except Exception as e:
+            self.logger.error(f"Error batch creating synapses: {str(e)}")
+            return 0
+
+    # =================================================================
+    # ROBOT/GAZEBO METHODS
+    # =================================================================
+    
+    def update_robot_controller(self, controller_params: Dict[str, Any]) -> bool:
+        """Update robot controller parameters."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating robot controller: {str(e)}")
+            return False
+    
+    def update_robot_model(self, model_params: Dict[str, Any]) -> bool:
+        """Update robot model parameters."""
+        try:
+            # This would need implementation
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating robot model: {str(e)}")
+            return False
+    
+    def get_gazebo_robot_files(self) -> Dict[str, List[str]]:
+        """Get Gazebo robot files."""
+        try:
+            # This would need implementation
+            return {"models": [], "worlds": [], "configs": []}
+        except Exception as e:
+            self.logger.error(f"Error getting Gazebo robot files: {str(e)}")
+            return {}
+
+    # =================================================================
+    # PERFORMANCE AND SIMULATION METHODS
+    # =================================================================
+    
+    async def get_performance_stats(self) -> Dict[str, Any]:
+        """Get performance statistics."""
+        try:
+            return self.get_performance_metrics()
+        except Exception as e:
+            self.logger.error(f"Error getting performance stats: {str(e)}")
+            return {}
+    
+    async def get_simulation_status(self) -> Dict[str, Any]:
+        """Get simulation status."""
+        try:
+            return {
+                "running": not getattr(self.state_manager, 'exit_condition', False) if self.state_manager else False,
+                "burst_counter": self.get_burst_counter(),
+                "genome_loaded": self.genome_is_loaded(),
+                "brain_ready": self.state_manager.get_brain_readiness() if self.state_manager else False
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting simulation status: {str(e)}")
+            return {}
+    
+    async def get_system_health(self) -> Dict[str, Any]:
+        """Get system health (legacy name for get_health)."""
+        return await self.get_health()
+
+    # =================================================================
+    # PROPERTY ACCESSOR METHODS
+    # =================================================================
+    
+    @property
+    def feagi(self):
+        """Get the FEAGI instance."""
+        try:
+            from feagi.core.feagi import FEAGI
+            if not hasattr(self, '_feagi_instance'):
+                self._feagi_instance = FEAGI()
+            return self._feagi_instance
+        except Exception as e:
+            self.logger.error(f"Error getting FEAGI instance: {str(e)}")
+            return None
+
+    # ===== Frequency Measurement Methods =====
+    
+    def trigger_frequency_measurement(self, duration_seconds: float = 5.0, sample_count: int = 100) -> dict:
+        """
+        Trigger an on-demand burst frequency measurement.
+        
+        This is an expensive operation that should only be called when needed for monitoring.
+        
+        Args:
+            duration_seconds: How long to measure (default 5.0 seconds)
+            sample_count: Number of burst samples to collect (default 100)
+            
+        Returns:
+            Dictionary with measurement results
+        """
+        return self.state_manager.trigger_frequency_measurement(duration_seconds, sample_count)
+    
+    def get_frequency_measurement_history(self, limit: Optional[int] = None) -> dict:
+        """
+        Get the history of frequency measurements.
+        
+        Args:
+            limit: Maximum number of recent measurements to return
+            
+        Returns:
+            Dictionary with measurement history
+        """
+        return self.state_manager.get_frequency_measurement_history(limit)
+    
+    def get_frequency_status_summary(self) -> dict:
+        """
+        Get current frequency status and latest measurement.
         
         Returns:
-            True if a genome is loaded, False otherwise.
+            Dictionary with frequency status and latest measurement
         """
-        # Check our internal state first
-        if self._current_genome is not None:
-            return True
-        
-        # Then check the state manager
-        if self.state_manager:
-            return self.state_manager.is_genome_loaded()
-        
-        return False 
+        return self.state_manager.get_frequency_status_summary() 

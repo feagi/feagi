@@ -1,787 +1,702 @@
 """
-ZeroMQ Visualization Stream Implementation for FEAGI API
+FEAGI Visualization Stream - Threading-Based Implementation
 
-This module implements the specialized streaming pattern for brain visualization data.
-It provides:
-- Efficient brain activity visualization streaming
-- Level-of-detail mechanisms for performance optimization
-- Client view control and filtering
+This is the primary visualization stream implementation for FEAGI, using a
+threading-based approach for optimal reliability and RTOS compatibility.
+
+This implementation includes all crucial features needed for visualization:
+- Core API integration for genome state management
+- Stream configuration support
+- Enhanced client tracking with heartbeat timeouts
+- Automatic FQ sampler control based on subscriber presence
+- Standby mode when genome not loaded
+- Full parameter compatibility with server expectations
+
+Design principles:
+- Threading-based (RTOS compatible) instead of async
+- Synchronous ZMQ context (no async/sync conflicts)
+- High performance: Minimal overhead, no artificial bottlenecks
+- High reliability: No complex async state dependencies 
+- Easy debugging: Simple data flow, clear logging
+
+This implementation replaces the previous async-based visualization stream
+that had context compatibility issues.
 """
 
-import asyncio
-from feagi.utils.logger import setup_logger
-logger = setup_logger(__name__)
 import time
-import uuid
-from typing import Dict, Any, List, Optional, Set, Tuple, Union
+import threading
+from typing import Dict, Any, Optional
+from queue import Queue, Empty
+import zmq  # Import standard synchronous ZMQ (not zmq.asyncio)
 
-import zmq
-import zmq.asyncio
-import numpy as np
+from feagi.utils.logger import setup_logger
 
-from ...core.service import CoreApiService
-from ..serialization import serialize_message, deserialize_message
-from ...utils.rate_limit import RateLimiter
+logger = setup_logger(__name__)
 
 
 class VisualizationStream:
     """
-    ZeroMQ Visualization Stream implementation.
+    FEAGI Visualization Stream - Threading-Based Implementation.
     
-    This specialized stream efficiently broadcasts neural activity and structural data
-    to visualization clients, with support for level-of-detail streaming.
+    This is the primary visualization stream for FEAGI, implementing all crucial features:
+    - Core API integration for genome state management
+    - Stream configuration support  
+    - Enhanced client tracking with heartbeat timeouts
+    - Automatic FQ sampler control based on subscriber presence
+    - Standby mode when genome not loaded
+    
+    Uses a reliable threading-based approach instead of async for RTOS compatibility
+    and to avoid async/sync context conflicts that plagued previous implementations.
     """
     
     def __init__(
         self, 
-        core_api: CoreApiService,
         host: str = "*", 
-        structure_port: int = 5560,
-        activity_port: int = 5561,
-        control_port: int = 5562,
-        context: Optional[zmq.asyncio.Context] = None
+        port: int = 5562,
+        context: Optional[zmq.Context] = None,
+        fq_sampler: Optional[Any] = None,
+        fq_sampler_queue: Optional[Any] = None,
+        stream_config: Optional[Dict[str, Any]] = None,
+        core_api: Optional[Any] = None  # Made optional and moved to end for compatibility
     ):
-        """
-        Initialize a new Visualization Stream.
-        
-        Args:
-            core_api: The CoreApiService instance to delegate calls to
-            host: Host address to bind to
-            structure_port: Port for structural data
-            activity_port: Port for activity data
-            control_port: Port for client control messages
-            context: Optional existing ZMQ context to use
-        """
+        """Initialize the primary FEAGI visualization stream."""
+        # Core API integration (crucial for genome state management) - optional for compatibility
         self.core_api = core_api
+        
+        # Basic connection settings
         self.host = host
-        self._structure_port = structure_port
-        self._activity_port = activity_port
-        self._control_port = control_port
+        self.port = port
         self.running = False
-        self.context = context or zmq.asyncio.Context.instance()
         
-        # Socket for structural data (changes infrequently)
-        self.structure_socket = self.context.socket(zmq.PUB)
-        self.structure_socket.bind(f"tcp://{host}:{structure_port}")
+        # ALWAYS create a NEW sync context - NEVER use shared contexts that might be async
+        self.context = zmq.Context()
         
-        # Socket for real-time activity data (high frequency)
-        self.activity_socket = self.context.socket(zmq.PUB)
-        self.activity_socket.bind(f"tcp://{host}:{activity_port}")
+        # FQ Sampler integration
+        self.fq_sampler = fq_sampler
+        self.fq_sampler_queue = fq_sampler_queue
         
-        # Socket for client requests (view changes, filters)
-        self.control_socket = self.context.socket(zmq.ROUTER)
-        self.control_socket.bind(f"tcp://{host}:{control_port}")
+        # Stream configuration
+        self.stream_config = stream_config or {}
+        self.auto_enable_on_subscribers = self.stream_config.get('auto_enable_on_subscribers', True)
+        self.subscriber_check_interval = self.stream_config.get('subscriber_check_interval', 1.0)
         
-        # Connected clients and their view settings
-        self.clients = {}
+        # Genome state management (crucial feature from full version)
+        self._active_mode = False  # True when genome is loaded and ready
         
-        # Previous state for delta encoding
-        self.previous_state = {}
+        # Enhanced client tracking (crucial feature from full version)
+        self.client_last_heartbeat = {}  # Mapping of client_id -> last heartbeat time
+        self.client_heartbeat_timeout = 30  # Consider clients disconnected after 30s
+        self._client_lock = threading.Lock()  # Thread-safe client access
         
-        # Rate limiter for different detail levels
-        self.rate_limiter = RateLimiter()
+        # Subscriber monitoring for automatic FQ sampler control
+        self._subscriber_count = 0
+        self._last_subscriber_count = 0
+        self._fq_sampler_enabled = False
         
-        # Periodic task references
-        self.periodic_tasks = {}
+        # Simple socket setup
+        self.socket = None
+        self._setup_socket()
+        
+        # Worker threads
+        self.worker_threads = []
+        self._stop_event = threading.Event()
+        
+        # Register for genome state change notifications
+        if hasattr(core_api, 'register_genome_change_listener'):
+            core_api.register_genome_change_listener(self._on_genome_state_change)
+        
+        # Initialize state based on current genome availability
+        self._update_active_mode()
+        
+        # Simple statistics
+        self.stats = {
+            'data_sent': 0,
+            'bytes_sent': 0,
+            'start_time': time.time()
+        }
 
-    @property
-    def structure_port(self) -> int:
-        """Get the port used for structural data."""
-        return self._structure_port
+    def _setup_socket(self) -> None:
+        """Set up the ZMQ PUB socket with optimal settings."""
+        # Create a synchronous PUB socket 
+        self.socket = self.context.socket(zmq.PUB)
         
-    @property
-    def activity_port(self) -> int:
-        """Get the port used for activity data."""
-        return self._activity_port
+        # Optimize for real-time streaming but allow queuing when no subscribers
+        self.socket.setsockopt(zmq.SNDHWM, 1000)   # Higher send buffer to prevent drops
+        self.socket.setsockopt(zmq.LINGER, 1000)   # Wait briefly on close to send pending messages
         
-    @property
-    def control_port(self) -> int:
-        """Get the port used for control messages."""
-        return self._control_port
+        bind_addr = f"tcp://{self.host}:{self.port}"
+        self.socket.bind(bind_addr)
+        logger.info(f"📡 Visualization stream bound to {bind_addr}")
 
-    async def start(self) -> None:
-        """Start the visualization stream server."""
-        logger.info(f"Starting Visualization Stream server")
+    def _update_active_mode(self):
+        """Update active mode based on genome availability (crucial feature from full version)."""
+        old_mode = self._active_mode
+        
+        try:
+            if self.core_api:
+                self._active_mode = self.core_api.genome_is_loaded()
+            else:
+                # If no core_api, assume active mode for backward compatibility
+                self._active_mode = True
+        except Exception as e:
+            logger.warning(f"Error checking genome state: {e}, defaulting to active mode")
+            self._active_mode = True
+        
+        if old_mode != self._active_mode:
+            if self._active_mode:
+                logger.info("VisualizationStream entering ACTIVE mode")
+            else:
+                logger.info("VisualizationStream entering STANDBY mode")
+
+    def _on_genome_state_change(self, old_state, new_state):
+        """Handle genome state changes (crucial feature from full version)."""
+        try:
+            from feagi.core.state_manager import GenomeState
+            if new_state == GenomeState.LOADED:
+                self._active_mode = True
+                if self.running:
+                    logger.info("VisualizationStream entering ACTIVE mode")
+            else:
+                self._active_mode = False 
+                if self.running:
+                    logger.info("VisualizationStream entering STANDBY mode")
+        except Exception as e:
+            logger.error(f"Error handling genome state change: {e}")
+            self._active_mode = False
+
+    def start(self) -> None:
+        """Start the enhanced visualization stream with multiple worker threads."""
+        if self.running:
+            return
+            
+        logger.info("🚀 Starting visualization stream")
         self.running = True
+        self._stop_event.clear()
         
-        # Store the current event loop for this method
-        self._event_loop = asyncio.get_event_loop()
+        # Start multiple worker threads for different responsibilities
         
-        # Start tasks in the current loop
-        self.periodic_tasks["control_handler"] = self._event_loop.create_task(
-            self._handle_control_messages()
+        # Thread 1: FQ data processing (main data processing)
+        if self.fq_sampler_queue:
+            fq_thread = threading.Thread(
+                target=self._data_worker,
+                name="VisualizationFQ",
+                daemon=True
+            )
+            fq_thread.start()
+            self.worker_threads.append(fq_thread)
+            logger.debug("FQ data processing thread started")
+        else:
+            logger.warning("No FQ sampler queue provided - no data will be processed")
+            
+        # Thread 2: Client cleanup and monitoring (crucial feature from full version)
+        cleanup_thread = threading.Thread(
+            target=self._client_cleanup_worker,
+            name="VisualizationCleanup", 
+            daemon=True
         )
+        cleanup_thread.start()
+        self.worker_threads.append(cleanup_thread)
+        logger.debug("Client cleanup thread started")
         
-        self.periodic_tasks["activity_stream"] = self._event_loop.create_task(
-            self._stream_activity()
-        )
-        
-        self.periodic_tasks["structure_updates"] = self._event_loop.create_task(
-            self._stream_structure_updates()
-        )
+        # Thread 3: Subscriber monitoring for automatic FQ sampler control (crucial feature)
+        if self.auto_enable_on_subscribers:
+            monitor_thread = threading.Thread(
+                target=self._subscriber_monitor_worker,
+                name="VisualizationMonitor",
+                daemon=True
+            )
+            monitor_thread.start()
+            self.worker_threads.append(monitor_thread)
+            logger.debug("Subscriber monitoring thread started")
+            
+        logger.info(f"✅ Visualization stream started with {len(self.worker_threads)} worker threads")
 
-    async def stop(self) -> None:
-        """Stop the visualization stream server."""
-        logger.info("Stopping Visualization Stream server")
+    def stop(self) -> None:
+        """Stop the visualization stream gracefully."""
+        if not self.running:
+            return
+            
+        logger.info("🛑 Stopping visualization stream...")
         self.running = False
+        self._stop_event.set()
         
-        # Cancel all periodic tasks
-        for task_name, task in self.periodic_tasks.items():
-            if not task.done():
-                task.cancel()
+        # Wait for worker threads with individual monitoring
+        total_threads = len(self.worker_threads)
+        if total_threads > 0:
+            logger.debug(f"Waiting for {total_threads} worker threads to stop...")
+            
+            for i, thread in enumerate(self.worker_threads, 1):
+                if thread.is_alive():
+                    logger.debug(f"Waiting for thread {i}/{total_threads}: {thread.name}")
+                    thread.join(timeout=5.0)
+                    
+                    if thread.is_alive():
+                        logger.warning(f"Thread {thread.name} didn't stop after 5 seconds")
+                    else:
+                        logger.debug(f"Thread {thread.name} stopped gracefully")
+        
+        # Close socket AFTER all threads have stopped
+        if self.socket:
+            logger.debug("Closing ZMQ socket...")
+            self.socket.close(linger=0)  # Don't wait for pending messages
+            self.socket = None
+        
+        # Clear worker thread list
+        self.worker_threads.clear()
+            
+        logger.info("✅ Visualization stream stopped")
+
+    def _data_worker(self) -> None:
+        """
+        Enhanced data processing worker with standby mode support.
+        Includes crucial features from full version while keeping threading approach.
+        """
+        logger.debug("Visualization data worker started")
+        
+        while self.running and not self._stop_event.is_set():
+            try:
+                # Quick exit check for shutdown
+                if self._stop_event.is_set():
+                    logger.debug("Data worker received stop signal")
+                    break
+                
+                # Skip processing if in standby mode (crucial feature from full version)
+                if not self._active_mode:
+                    # Update genome state and continue
+                    self._update_active_mode()
+                    if not self._active_mode:
+                        # Use wait() instead of sleep() for faster shutdown response
+                        if self._stop_event.wait(timeout=0.1):  # Brief pause in standby mode
+                            logger.debug("Data worker stopping during standby mode")
+                            break
+                        continue
+                
+                # Try to get data from queue (non-blocking with shorter timeout)
+                fq_data = None
                 try:
-                    await task
-                except asyncio.CancelledError:
-                    logger.debug(f"Cancelled periodic task: {task_name}")
-        
-        # Close all sockets
-        self.structure_socket.close()
-        self.activity_socket.close()
-        self.control_socket.close()
-
-    async def _handle_control_messages(self) -> None:
-        """Handle client control messages for view settings."""
-        while self.running:
-            try:
-                # Receive client message (client_id, empty delimiter, message)
-                multipart = await self.control_socket.recv_multipart()
+                    if hasattr(self.fq_sampler_queue, 'get'):
+                        # Reduced timeout from 0.1 to 0.05 for faster shutdown response
+                        fq_data = self.fq_sampler_queue.get(timeout=0.05)
+                    elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
+                        fq_data = self.fq_sampler_queue._queue.pop(0)
+                except Empty:
+                    # Check stop signal more frequently during empty queue periods
+                    if self._stop_event.is_set():
+                        logger.debug("Data worker stopping during empty queue")
+                        break
+                        continue
+                except Exception as e:
+                    logger.debug(f"Queue access error: {e}")
+                    # Use wait() instead of sleep() for faster shutdown response
+                    if self._stop_event.wait(timeout=0.01):  # Brief pause on error
+                        logger.debug("Data worker stopping after queue error")
+                        break
+                    continue 
                 
-                if len(multipart) < 3:
-                    logger.error(f"Received malformed control message: {multipart}")
+                if fq_data is None:
                     continue
+                    
+                # Additional stop check before processing data
+                if self._stop_event.is_set():
+                    logger.debug("Data worker stopping before data processing")
+                    break
                 
-                client_id = multipart[0].decode()
-                content_type = multipart[2].decode()
-                message = deserialize_message(multipart[3], content_type)
+                # Process and send data based on type (enhanced processing like full version)
+                if isinstance(fq_data, bytes):
+                    # Already serialized data
+                    self._publish_data(fq_data)
+                    
+                elif isinstance(fq_data, dict) and 'target' in fq_data:
+                    # Tagged format from enhanced FQ sampler (crucial feature from full version)
+                    if fq_data.get('target') == 'visualization':
+                        if 'cortical_id' in fq_data and 'fire_queue_data' in fq_data:
+                            # Area-specific data
+                            cortical_id = fq_data['cortical_id']
+                            fire_queue_data = fq_data['fire_queue_data']
+                            self._process_tuple_data((cortical_id, fire_queue_data))
+                        elif 'fire_queue_data' in fq_data:
+                            # Global data
+                            fire_queue_data = fq_data['fire_queue_data']
+                            self._process_dict_data(fire_queue_data)
+                        elif 'data' in fq_data:
+                            # Pre-encoded data
+                            data = fq_data.get('data')
+                            if isinstance(data, bytes):
+                                self._publish_data(data)
                 
-                logger.debug(f"Received control message from client {client_id}")
+                elif isinstance(fq_data, tuple) and len(fq_data) == 2:
+                    # Legacy (cortical_id, fire_data) tuple format
+                    logger.debug(f"Processing neural data for: {fq_data[0]}")
+                    self._process_tuple_data(fq_data)
                 
-                # Process message based on type
-                if message["type"] == "view_settings":
-                    await self._handle_view_settings(client_id, message["settings"])
-                elif message["type"] == "register":
-                    await self._handle_client_registration(client_id, message.get("settings", {}))
-                elif message["type"] == "unregister":
-                    await self._handle_client_unregistration(client_id)
+                elif isinstance(fq_data, dict):
+                    # Legacy fire queue dict format
+                    self._process_dict_data(fq_data)
+                
+                elif isinstance(fq_data, str) and fq_data == "STOP":
+                    logger.info("Received STOP signal")
+                    break 
+                
                 else:
-                    logger.warning(f"Unknown control message type: {message['type']}")
+                    logger.debug(f"Ignoring unsupported data type: {type(fq_data)}")
                 
-                # Acknowledge receipt
-                await self.control_socket.send_multipart([
-                    client_id.encode(),
-                    b"",
-                    b"application/json",
-                    serialize_message({"status": "ok"}, "application/json")
-                ])
-                
-            except asyncio.CancelledError:
-                logger.debug("Control message handler cancelled")
-                break
             except Exception as e:
-                logger.error(f"Error handling control message: {e}")
-                await asyncio.sleep(1)  # Avoid tight loop on errors
+                logger.error(f"Error in data worker: {e}")
+                # Use wait() instead of sleep() for faster shutdown response
+                if self._stop_event.wait(timeout=0.1):  # Brief pause on error
+                    logger.debug("Data worker stopping after error")
+                break 
+                
+        logger.debug("Visualization data worker stopped")
 
-    async def _handle_view_settings(self, client_id: str, settings: Dict) -> None:
+    def _publish_data(self, data: bytes) -> None:
         """
-        Update a client's view settings.
-        
-        Args:
-            client_id: Client identifier
-            settings: View settings dictionary
+        Publish data on the 'activity' topic.
+        Use synchronous ZMQ operations with error handling.
         """
-        if client_id not in self.clients:
-            logger.warning(f"Received view settings for unknown client: {client_id}")
-            self.clients[client_id] = settings
-        else:
-            # Update existing settings
-            self.clients[client_id].update(settings)
-        
-        logger.debug(f"Updated view settings for client {client_id}: {settings}")
-
-    async def _handle_client_registration(self, client_id: str, settings: Dict) -> None:
-        """
-        Register a new visualization client.
-        
-        Args:
-            client_id: Client identifier
-            settings: Initial view settings
-        """
-        self.clients[client_id] = settings
-        logger.info(f"Registered new visualization client: {client_id}")
-        
-        # Send current brain structure to new client
-        await self._send_brain_structure(client_id)
-
-    async def _handle_client_unregistration(self, client_id: str) -> None:
-        """
-        Unregister a visualization client.
-        
-        Args:
-            client_id: Client identifier
-        """
-        if client_id in self.clients:
-            del self.clients[client_id]
-            logger.info(f"Unregistered visualization client: {client_id}")
-        else:
-            logger.warning(f"Attempt to unregister unknown client: {client_id}")
-
-    async def _stream_activity(self) -> None:
-        """Periodically stream brain activity updates."""
-        update_interval = 0.05  # 50ms default (20 Hz)
-        
-        while self.running:
-            try:
-                if not self.clients:
-                    # No connected clients, sleep and check again
-                    await asyncio.sleep(0.5)
-                    continue
-                
-                # Get current brain activity
-                brain_state = await self.core_api.get_brain_activity()
-                
-                # Send activity to clients
-                await self._send_activity_update(brain_state)
-                
-                # Dynamic sleep based on client needs
-                min_interval = min(
-                    client.get("update_interval", update_interval) 
-                    for client in self.clients.values()
-                )
-                await asyncio.sleep(min_interval)
-                
-            except asyncio.CancelledError:
-                logger.debug("Activity stream task cancelled")
-                break
-            except Exception as e:
-                logger.error(f"Error streaming activity: {e}")
-                await asyncio.sleep(1)  # Avoid tight loop on errors
-
-    async def _stream_structure_updates(self) -> None:
-        """Periodically send brain structure updates."""
-        while self.running:
-            try:
-                # Get current brain structure
-                structure = await self.core_api.get_brain_structure()
-                
-                # Send to all clients
-                await self._send_brain_structure_to_all(structure)
-                
-                # Check for structural changes every 5 seconds
-                await asyncio.sleep(5.0)
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error streaming structure updates: {e}")
-                await asyncio.sleep(5.0)  # Avoid tight loop on errors
-
-    async def _send_activity_update(self, brain_state: Dict) -> None:
-        """
-        Send activity updates to clients with appropriate level of detail.
-        
-        Args:
-            brain_state: Current brain state with activity data
-        """
-        timestamp = int(time.time() * 1000)
-        
-        # Create base update with minimal data (low detail)
-        base_update = {
-            "timestamp": timestamp,
-            "summary": self._create_activity_summary(brain_state)
-        }
-        
-        # Send the base update to all clients
-        await self.activity_socket.send_multipart([
-            b"activity.base",
-            b"application/json",
-            serialize_message(base_update, "application/json")
-        ])
-        
-        # For each detail level, send additional data if there are clients at that level
-        for detail_level in range(1, 4):  # LOD levels 1-3
-            clients_at_level = [cid for cid, settings in self.clients.items() 
-                               if settings.get("detail_level", 1) >= detail_level]
+        try:
+            # Use basic synchronous send operations
+            self.socket.send(b"activity", zmq.SNDMORE)
+            self.socket.send(data)
             
-            if not clients_at_level:
-                continue
-                
-            # Create detail level specific data
-            detail_data = self._create_detail_level(brain_state, detail_level)
+            # Update statistics
+            self.stats['data_sent'] += 1
+            self.stats['bytes_sent'] += len(data)
             
-            await self.activity_socket.send_multipart([
-                f"activity.detail.{detail_level}".encode(),
-                b"application/octet-stream",  # Binary for efficiency
-                serialize_message(detail_data, "application/octet-stream")
-            ])
-        
-        # Send ROI-specific high detail data
-        for client_id, settings in self.clients.items():
-            roi = settings.get("roi")
-            if roi:
-                roi_data = self._extract_roi_data(brain_state, roi)
-                
-                await self.activity_socket.send_multipart([
-                    f"activity.roi.{client_id}".encode(),
-                    b"application/octet-stream",
-                    serialize_message(roi_data, "application/octet-stream")
-                ])
-
-    def _create_activity_summary(self, brain_state: Dict) -> Dict:
-        """
-        Create a summary of brain activity data.
-        
-        Args:
-            brain_state: Full brain state data
+            # Periodic status logging (every 100 messages)
+            if self.stats['data_sent'] % 100 == 0:
+                logger.debug(f"Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total")
             
-        Returns:
-            Dictionary with summarized activity data
-        """
-        summary = {}
-        
-        for area_id, area_data in brain_state.items():
-            # Count active neurons
-            if hasattr(area_data, "nonzero"):
-                # NumPy array
-                active_count = np.count_nonzero(area_data)
-                total_count = area_data.size
-            elif isinstance(area_data, dict) and "active_indices" in area_data:
-                # Sparse representation
-                active_count = len(area_data["active_indices"])
-                total_count = area_data.get("total_count", 0)
+            # Log first few messages to confirm publishing is working
+            if self.stats['data_sent'] <= 3:
+                logger.info(f"Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
+            
+        except Exception as e:
+            logger.error(f"Failed to publish data: {e}")
+            
+            # Handle ZMQ state corruption specifically
+            if "Operation cannot be accomplished in current state" in str(e):
+                logger.warning("ZMQ socket corrupted, attempting recreation...")
+                try:
+                    self._recreate_socket()
+                    # Retry once
+                    self.socket.send(b"activity", zmq.SNDMORE)
+                    self.socket.send(data)
+                    logger.info("Socket recreated and retry successful")
+                except Exception as retry_error:
+                    logger.error(f"Socket recreation failed: {retry_error}")
             else:
-                # Unknown format
-                active_count = 0
-                total_count = 0
-            
-            # Create area summary
-            summary[area_id] = {
-                "active_count": active_count,
-                "total_count": total_count,
-                "activity_ratio": active_count / max(1, total_count)
-            }
-        
-        return summary
+                # Log error details for non-corruption errors
+                logger.error(f"Publishing error type: {type(e).__name__}")
+                if logger.isEnabledFor(10):  # DEBUG level
+                    import traceback
+                    logger.debug(f"Publishing traceback: {traceback.format_exc()}")
 
-    def _create_detail_level(self, brain_state: Dict, detail_level: int) -> Dict:
-        """
-        Create a detail level specific view of brain activity.
+    def _recreate_socket(self):
+        """Recreate the ZMQ socket when it gets corrupted."""
+        logger.warning("Recreating corrupted ZMQ socket...")
         
-        Args:
-            brain_state: Full brain state data
-            detail_level: Detail level (1-3)
+        # Close old socket if it exists
+        if self.socket:
+            try:
+                self.socket.close(linger=0)
+                logger.debug("Old socket closed")
+            except Exception as e:
+                logger.error(f"Error closing old socket: {e}")
+        
+        # Recreate socket with same settings
+        try:
+            self.socket = self.context.socket(zmq.PUB)
+            self.socket.setsockopt(zmq.SNDHWM, 1000)   
+            self.socket.setsockopt(zmq.LINGER, 1000)   
             
-        Returns:
-            Dictionary with appropriate level of detail
-        """
-        result = {}
-        
-        # Tailor detail based on level
-        if detail_level == 1:
-            # Level 1: Region-level activity summaries
-            for area_id, area_data in brain_state.items():
-                # Simple downsampling
-                result[area_id] = self._downsample_area(area_data, factor=16)
+            bind_addr = f"tcp://{self.host}:{self.port}"
+            self.socket.bind(bind_addr)
+            logger.info(f"Socket recreated and bound to {bind_addr}")
+            
+        except Exception as e:
+            logger.error(f"Failed to recreate socket: {e}")
+            raise
+
+    def _process_tuple_data(self, fq_data) -> None:
+        """Process legacy tuple format data."""
+        try:
+            cortical_id, fire_data = fq_data
+            
+            if fire_data and 'neuron_ids' in fire_data:
+                neuron_ids = fire_data.get('neuron_ids', [])
+                neuron_count = len(neuron_ids)
                 
-        elif detail_level == 2:
-            # Level 2: Medium resolution data
-            for area_id, area_data in brain_state.items():
-                result[area_id] = self._downsample_area(area_data, factor=4)
+                # Handle coordinates
+                coordinates = fire_data.get('coordinates', [])
+                x_coords = []
+                y_coords = []
+                z_coords = []
                 
-        elif detail_level == 3:
-            # Level 3: High resolution data
-            for area_id, area_data in brain_state.items():
-                # No downsampling, but still use delta encoding if possible
-                result[area_id] = self._delta_encode_area(area_id, area_data)
-        
-        return result
-
-    def _downsample_area(self, area_data: Any, factor: int) -> Dict:
-        """
-        Downsample area data by a given factor.
-        
-        Args:
-            area_data: Original area data
-            factor: Downsampling factor
-            
-        Returns:
-            Downsampled data
-        """
-        # Implement downsampling based on data type
-        # This is a simple placeholder implementation
-        return {
-            "downsampled": True,
-            "factor": factor,
-            "data": "downsampled_data_placeholder"
-        }
-
-    def _delta_encode_area(self, area_id: str, current_data: Any) -> Dict:
-        """
-        Create delta-encoded data based on previous state.
-        
-        Args:
-            area_id: Area identifier
-            current_data: Current area data
-            
-        Returns:
-            Delta-encoded data or full data if no previous state exists
-        """
-        # Simple placeholder for delta encoding
-        return {
-            "delta_encoded": True,
-            "data": "delta_encoded_data_placeholder"
-        }
-
-    def _extract_roi_data(self, brain_state: Dict, roi: Dict) -> Dict:
-        """
-        Extract data for a specific region of interest.
-        
-        Args:
-            brain_state: Full brain state
-            roi: Region of interest specification
-            
-        Returns:
-            Data for the specified ROI
-        """
-        # Extract data for the specified ROI
-        # This is a simple placeholder implementation
-        return {
-            "roi": roi,
-            "data": "roi_specific_data_placeholder"
-        }
-
-    async def _send_brain_structure(self, client_id: str) -> None:
-        """
-        Send brain structure information to a specific client.
-        
-        Args:
-            client_id: Client identifier
-        """
-        structure = await self.core_api.get_brain_structure()
-        
-        # Send structure directly to specified client
-        await self.control_socket.send_multipart([
-            client_id.encode(),
-            b"",
-            b"application/json",
-            serialize_message({
-                "type": "structure_update",
-                "timestamp": int(time.time() * 1000),
-                "data": structure
-            }, "application/json")
-        ])
-
-    async def _send_brain_structure_to_all(self, structure: Dict) -> None:
-        """
-        Send brain structure information to all connected clients.
-        
-        Args:
-            structure: Brain structure data
-        """
-        # Publish the structure to all subscribers
-        await self.structure_socket.send_multipart([
-            b"structure",
-            b"application/json",
-            serialize_message({
-                "timestamp": int(time.time() * 1000),
-                "data": structure
-            }, "application/json")
-        ])
-
-
-class VisualizationClient:
-    """
-    ZeroMQ Visualization Client implementation.
-    
-    This client connects to a Visualization Stream server and receives
-    brain structure and activity data.
-    """
-    
-    def __init__(
-        self, 
-        host: str = "localhost", 
-        structure_port: int = 5560,
-        activity_port: int = 5561,
-        control_port: int = 5562,
-        detail_level: int = 1,
-        update_interval: float = 0.05,
-        context: Optional[zmq.asyncio.Context] = None
-    ):
-        """
-        Initialize a new Visualization Client.
-        
-        Args:
-            host: Visualization server host address
-            structure_port: Port for structural data
-            activity_port: Port for activity data
-            control_port: Port for control messages
-            detail_level: Initial detail level (1-3)
-            update_interval: Desired update interval in seconds
-            context: Optional existing ZMQ context to use
-        """
-        self.host = host
-        self.running = False
-        self.context = context or zmq.asyncio.Context.instance()
-        self.client_id = str(uuid.uuid4())
-        
-        # Socket for structural data
-        self.structure_socket = self.context.socket(zmq.SUB)
-        self.structure_socket.connect(f"tcp://{host}:{structure_port}")
-        self.structure_socket.setsockopt(zmq.SUBSCRIBE, b"structure")
-        
-        # Socket for activity data
-        self.activity_socket = self.context.socket(zmq.SUB)
-        self.activity_socket.connect(f"tcp://{host}:{activity_port}")
-        self.activity_socket.setsockopt(zmq.SUBSCRIBE, b"activity.base")
-        
-        # Socket for control messages
-        self.control_socket = self.context.socket(zmq.DEALER)
-        self.control_socket.setsockopt(zmq.IDENTITY, self.client_id.encode())
-        self.control_socket.connect(f"tcp://{host}:{control_port}")
-        
-        # Initial settings
-        self.settings = {
-            "detail_level": detail_level,
-            "update_interval": update_interval,
-            "roi": None
-        }
-        
-        # Callback registry
-        self.structure_callback = None
-        self.activity_callback = None
-        
-        # Set up subscriptions based on detail level
-        self._update_subscriptions()
-
-    def _update_subscriptions(self) -> None:
-        """Update activity subscriptions based on current detail level."""
-        detail_level = self.settings["detail_level"]
-        
-        # Subscribe to appropriate detail levels
-        for level in range(1, 4):  # Levels 1-3
-            if level <= detail_level:
-                self.activity_socket.setsockopt(zmq.SUBSCRIBE, 
-                                              f"activity.detail.{level}".encode())
+                if isinstance(coordinates, list) and len(coordinates) > 0:
+                    # If coordinates is a list of [x, y, z] triplets
+                    if isinstance(coordinates[0], (list, tuple)) and len(coordinates[0]) >= 3:
+                        x_coords = [coord[0] for coord in coordinates]
+                        y_coords = [coord[1] for coord in coordinates]  
+                        z_coords = [coord[2] for coord in coordinates]
+                    else:
+                        # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
+                        coords_per_neuron = 3
+                        x_coords = coordinates[0::coords_per_neuron]
+                        y_coords = coordinates[1::coords_per_neuron]
+                        z_coords = coordinates[2::coords_per_neuron]
+                elif isinstance(coordinates, dict):
+                    # If coordinates is a dict with x, y, z keys
+                    x_coords = coordinates.get('x', [])
+                    y_coords = coordinates.get('y', [])
+                    z_coords = coordinates.get('z', [])
+                else:
+                    logger.error(f"Missing coordinates for {cortical_id}")
+                    return
+                
+                # Handle membrane potentials
+                membrane_potentials = fire_data.get('membrane_potentials', [])
+                
+                if not membrane_potentials:
+                    logger.error(f"Missing membrane potentials for {cortical_id}")
+                    return
+                
+                if len(membrane_potentials) != neuron_count:
+                    logger.error(f"Membrane potential count mismatch for {cortical_id}: {len(membrane_potentials)} vs {neuron_count}")
+                    return
+                
+                # Validate coordinate arrays
+                if len(x_coords) != neuron_count or len(y_coords) != neuron_count or len(z_coords) != neuron_count:
+                    logger.error(f"Coordinate count mismatch for {cortical_id}: x={len(x_coords)}, y={len(y_coords)}, z={len(z_coords)}, neurons={neuron_count}")
+                    return
+                
+                # Create cortical IDs list (same cortical ID for all neurons)
+                cortical_ids = [cortical_id] * neuron_count
+                
+                # Encode using feagi_bytes binary format
+                try:
+                    from feagi_bytes import ByteStructureEncoder
+                    encoder = ByteStructureEncoder()
+                            
+                    binary_data = encoder.encode_neuron_flat(
+                        cortical_ids=cortical_ids,
+                        x_coords=x_coords,
+                        y_coords=y_coords,
+                        z_coords=z_coords,
+                        potentials=membrane_potentials
+                    )
+                    
+                    # Publish the binary data
+                    self._publish_data(binary_data)
+                    logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes")
+                    
+                except ImportError:
+                    logger.error("feagi_bytes library not available - cannot encode binary data")
+                except Exception as e:
+                    logger.error(f"Error encoding binary data: {e}")
             else:
-                self.activity_socket.setsockopt(zmq.UNSUBSCRIBE, 
-                                              f"activity.detail.{level}".encode())
-        
-        # Subscribe to ROI-specific messages if an ROI is set
-        if self.settings["roi"]:
-            self.activity_socket.setsockopt(zmq.SUBSCRIBE, 
-                                          f"activity.roi.{self.client_id}".encode())
-        else:
-            self.activity_socket.setsockopt(zmq.UNSUBSCRIBE, 
-                                          f"activity.roi.{self.client_id}".encode())
+                logger.error(f"Invalid fire_data for {cortical_id} - missing neuron_ids")
+                
+        except Exception as e:
+            logger.error(f"Error processing {fq_data[0] if len(fq_data) > 0 else 'unknown'}: {e}")
+            if logger.isEnabledFor(10):  # DEBUG level
+                import traceback
+                logger.debug(f"Processing traceback: {traceback.format_exc()}")
 
-    async def start(self) -> None:
-        """Start the visualization client."""
-        logger.info(f"Starting Visualization client to {self.host}")
-        self.running = True
-        
-        # Register with the server
-        await self._register()
-        
-        # Start receivers
-        asyncio.create_task(self._receive_structure_updates())
-        asyncio.create_task(self._receive_activity_updates())
-        asyncio.create_task(self._receive_control_responses())
+    def _process_dict_data(self, fire_data) -> None:
+        """Process legacy dict format data."""
+        try:
+            if fire_data and 'neuron_ids' in fire_data:
+                neuron_count = len(fire_data.get('neuron_ids', []))
+                logger.debug(f"Received dict data: {neuron_count} neurons")
+                # TODO: Implement proper binary serialization
+                
+        except Exception as e:
+            logger.error(f"Error processing dict data: {e}")
 
-    async def stop(self) -> None:
-        """Stop the visualization client."""
-        logger.info("Stopping Visualization client")
-        
-        # Unregister from the server
-        await self._unregister()
-        
-        self.running = False
-        self.structure_socket.close()
-        self.activity_socket.close()
-        self.control_socket.close()
+    def get_stats(self) -> Dict[str, Any]:
+        """Get simple statistics."""
+        runtime = time.time() - self.stats['start_time']
+        return {
+            'running': self.running,
+            'data_sent': self.stats['data_sent'],
+            'bytes_sent': self.stats['bytes_sent'],
+            'runtime_seconds': runtime,
+            'messages_per_second': self.stats['data_sent'] / max(runtime, 1)
+        }
 
-    async def _register(self) -> None:
-        """Register with the visualization server."""
-        await self.control_socket.send_multipart([
-            b"",
-            b"application/json",
-            serialize_message({
-                "type": "register",
-                "settings": self.settings
-            }, "application/json")
-        ])
-
-    async def _unregister(self) -> None:
-        """Unregister from the visualization server."""
-        await self.control_socket.send_multipart([
-            b"",
-            b"application/json",
-            serialize_message({
-                "type": "unregister"
-            }, "application/json")
-        ])
-
-    async def set_detail_level(self, level: int) -> None:
-        """
-        Set the visualization detail level.
+    # COMPATIBILITY METHODS (so existing code doesn't break)
+    
+    def register_visualization_client(self, client_id: str) -> None:
+        """Compatibility method - does nothing in simple mode."""
+        logger.debug(f"Simple mode: ignoring client registration for {client_id}")
         
-        Args:
-            level: Detail level (1-3)
-        """
-        if level < 1 or level > 3:
-            raise ValueError("Detail level must be between 1 and 3")
+    def unregister_visualization_client(self, client_id: str) -> None:
+        """Compatibility method - does nothing in simple mode."""
+        logger.debug(f"Simple mode: ignoring client unregistration for {client_id}")
+        
+    def heartbeat_visualization_client(self, client_id: str) -> None:
+        """Enhanced heartbeat method with proper client tracking."""
+        # Track client heartbeat with proper threading (crucial feature from full version)
+        current_time = time.time()
+        
+        with self._client_lock:  # Thread-safe access
+            # Check if this is a new client (no previous heartbeat recorded)
+            is_new_client = client_id not in self.client_last_heartbeat
             
-        self.settings["detail_level"] = level
-        self._update_subscriptions()
-        
-        # Notify the server
-        await self.control_socket.send_multipart([
-            b"",
-            b"application/json",
-            serialize_message({
-                "type": "view_settings",
-                "settings": {"detail_level": level}
-            }, "application/json")
-        ])
-
-    async def set_region_of_interest(self, roi: Optional[Dict]) -> None:
-        """
-        Set a region of interest for focused visualization.
-        
-        Args:
-            roi: Region specification or None to clear
-        """
-        self.settings["roi"] = roi
-        self._update_subscriptions()
-        
-        # Notify the server
-        await self.control_socket.send_multipart([
-            b"",
-            b"application/json",
-            serialize_message({
-                "type": "view_settings",
-                "settings": {"roi": roi}
-            }, "application/json")
-        ])
-
-    async def set_update_interval(self, interval: float) -> None:
-        """
-        Set the desired update interval.
-        
-        Args:
-            interval: Update interval in seconds
-        """
-        if interval <= 0:
-            raise ValueError("Update interval must be positive")
+            self.client_last_heartbeat[client_id] = current_time
+            total_clients = len(self.client_last_heartbeat)
             
-        self.settings["update_interval"] = interval
+            # If this is a new client, log it and update FQ sampler
+            if is_new_client:
+                logger.info(f"📺 New visualization client connected: {client_id}")
+                
+                # Force a subscriber count update and FQ sampler notification
+                current_count = total_clients
+                last_count = self._last_subscriber_count
+                
+                if current_count != last_count:
+                    self._last_subscriber_count = current_count
+                    should_enable = current_count > 0
+                    current_enabled = self._fq_sampler_enabled
+                    
+                    if should_enable != current_enabled:
+                        try:
+                            self._control_fq_sampler(should_enable)
+                            logger.debug(f"FQ sampler {'enabled' if should_enable else 'disabled'} for {total_clients} clients")
+                        except Exception as e:
+                            logger.error(f"Error controlling FQ sampler: {e}")
+            else:
+                # Just log debug info for existing clients
+                logger.debug(f"Heartbeat received from existing client: {client_id}")
         
-        # Notify the server
-        await self.control_socket.send_multipart([
-            b"",
-            b"application/json",
-            serialize_message({
-                "type": "view_settings",
-                "settings": {"update_interval": interval}
-            }, "application/json")
-        ])
+        logger.debug(f"Visualization heartbeat processed for {client_id} (total clients: {total_clients})")
 
-    def register_structure_callback(self, callback) -> None:
+    def get_connected_client_count(self) -> int:
+        """Get the number of connected visualization clients (crucial feature from full version)."""
+        with self._client_lock:  # Thread-safe access
+            return len(self.client_last_heartbeat)
+
+    def _control_fq_sampler(self, enable: bool) -> None:
+        """Enable or disable the FQ sampler based on subscriber presence (crucial feature from full version)."""
+        try:
+            if not self.fq_sampler:
+                # Try to get FQ sampler from process manager
+                try:
+                    from feagi.process_manager import get_process_manager
+                    process_manager = get_process_manager()
+                    
+                    if process_manager and hasattr(process_manager, '_fq_sampler'):
+                        self.fq_sampler = process_manager._fq_sampler
+                        logger.debug(f"Found FQ sampler from process manager")
+                    else:
+                        logger.debug("Process manager has no _fq_sampler attribute")
+                        
+                except Exception as e:
+                    logger.debug(f"Could not get FQ sampler from process manager: {e}")
+            
+            if self.fq_sampler and hasattr(self.fq_sampler, 'set_visualization_subscribers'):
+                if enable:
+                    logger.info("🔔 Enabling FQ sampler - visualization clients connected")
+                    self.fq_sampler.set_visualization_subscribers(True)
+                    self._fq_sampler_enabled = True
+                else:
+                    logger.info("🔕 Disabling FQ sampler - no visualization clients")
+                    self.fq_sampler.set_visualization_subscribers(False)
+                    self._fq_sampler_enabled = False
+            else:
+                if enable:
+                    logger.warning("FQ sampler not available or doesn't support set_visualization_subscribers")
+                
+        except Exception as e:
+            logger.error(f"Error controlling FQ sampler: {e}")
+            if logger.isEnabledFor(10):  # DEBUG level  
+                import traceback
+                logger.debug(f"FQ sampler control traceback: {traceback.format_exc()}")
+
+    def send_visualization_data(self, data) -> None:
+        """Compatibility method for external data sending."""
+        if isinstance(data, bytes):
+            self._publish_data(data)
+
+    def _client_cleanup_worker(self) -> None:
         """
-        Register a callback for brain structure updates.
+        Client cleanup worker thread (crucial feature from full version).
+        Manages client heartbeat timeouts and automatic cleanup.
+        """
+        cleanup_interval = 5.0  # Check every 5 seconds
         
-        Args:
-            callback: Function to call with structure data
-        """
-        self.structure_callback = callback
-
-    def register_activity_callback(self, callback) -> None:
-        """
-        Register a callback for brain activity updates.
-        
-        Args:
-            callback: Function to call with activity data
-        """
-        self.activity_callback = callback
-
-    async def _receive_structure_updates(self) -> None:
-        """Receive and process brain structure updates."""
-        while self.running:
+        while self.running and not self._stop_event.is_set():
             try:
-                multipart = await self.structure_socket.recv_multipart()
+                # Quick exit check for shutdown
+                if self._stop_event.is_set():
+                    logger.debug("Client cleanup worker received stop signal")
+                    break
                 
-                # Expecting [topic, content_type, data]
-                if len(multipart) < 3:
-                    logger.error(f"Received malformed structure message: {multipart}")
-                    continue
+                current_time = time.time()
                 
-                topic = multipart[0].decode()
-                content_type = multipart[1].decode()
-                data = deserialize_message(multipart[2], content_type)
-                
-                logger.debug(f"Received structure update")
-                
-                # Call the registered callback if any
-                if self.structure_callback:
-                    try:
-                        await self.structure_callback(data)
-                    except Exception as e:
-                        logger.error(f"Error in structure callback: {e}")
-            
-            except asyncio.CancelledError:
-                break
+                with self._client_lock:  # Thread-safe client access
+                    client_ids = list(self.client_last_heartbeat.keys())
+                    
+                    for client_id in client_ids:
+                        last_heartbeat = self.client_last_heartbeat[client_id]
+                        if current_time - last_heartbeat > self.client_heartbeat_timeout:
+                            logger.info(f"Client {client_id} disconnected (timeout)")
+                            del self.client_last_heartbeat[client_id]
+                        
             except Exception as e:
-                logger.error(f"Error receiving structure update: {e}")
-                await asyncio.sleep(1)
+                logger.error(f"Error cleaning up clients: {e}")
+                
+            # Use responsive wait with frequent stop event checks
+            for _ in range(int(cleanup_interval * 4)):  # Check every 250ms
+                if self._stop_event.wait(timeout=0.25):
+                    logger.debug("Client cleanup worker stopping due to stop event")
+                    return
+        
+        logger.debug("Client cleanup worker stopped")
 
-    async def _receive_activity_updates(self) -> None:
-        """Receive and process brain activity updates."""
-        while self.running:
+    def _subscriber_monitor_worker(self) -> None:
+        """
+        Subscriber monitoring worker thread (crucial feature from full version).
+        Automatically enables/disables FQ sampler based on subscriber presence.
+        """
+        logger.debug("Starting subscriber monitoring for automatic FQ sampler control")
+        
+        while self.running and not self._stop_event.is_set():
             try:
-                multipart = await self.activity_socket.recv_multipart()
+                # Quick exit check for shutdown
+                if self._stop_event.is_set():
+                    logger.debug("Subscriber monitor received stop signal")
+                    break
                 
-                # Expecting [topic, content_type, data]
-                if len(multipart) < 3:
-                    logger.error(f"Received malformed activity message: {multipart}")
-                    continue
+                # Check current subscriber count via client heartbeats
+                current_count = self.get_connected_client_count()
                 
-                topic = multipart[0].decode()
-                content_type = multipart[1].decode()
-                data = deserialize_message(multipart[2], content_type)
+                # Update subscriber count
+                if current_count != self._last_subscriber_count:
+                    logger.info(f"Visualization subscriber count changed: {self._last_subscriber_count} -> {current_count}")
+                    self._last_subscriber_count = current_count
+                    
+                    # Auto-enable/disable FQ sampler based on subscriber count
+                    should_enable = current_count > 0
+                    
+                    if should_enable != self._fq_sampler_enabled:
+                        self._control_fq_sampler(should_enable)
                 
-                logger.debug(f"Received activity update: {topic}")
+                # Use responsive wait with frequent stop event checks
+                wait_time = min(self.subscriber_check_interval, 1.0)  # Max 1 second intervals
                 
-                # Call the registered callback if any
-                if self.activity_callback:
-                    try:
-                        await self.activity_callback(topic, data)
-                    except Exception as e:
-                        logger.error(f"Error in activity callback: {e}")
-            
-            except asyncio.CancelledError:
-                break
+                # Check every 200ms for faster shutdown response
+                for _ in range(int(wait_time * 5)):  # Check every 200ms
+                    if self._stop_event.wait(timeout=0.2):
+                        logger.debug("Subscriber monitor stopping due to stop event")
+                        return
+                
             except Exception as e:
-                logger.error(f"Error receiving activity update: {e}")
-                await asyncio.sleep(1)
-
-    async def _receive_control_responses(self) -> None:
-        """Receive responses to control messages."""
-        while self.running:
-            try:
-                multipart = await self.control_socket.recv_multipart()
-                
-                # Expecting [empty, content_type, data]
-                if len(multipart) < 3:
-                    logger.error(f"Received malformed control response: {multipart}")
-                    continue
-                
-                content_type = multipart[1].decode()
-                data = deserialize_message(multipart[2], content_type)
-                
-                logger.debug(f"Received control response: {data}")
-                
-                # Process specific responses if needed
-            
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error receiving control response: {e}")
-                await asyncio.sleep(1) 
+                logger.error(f"Error in subscriber monitoring: {e}")
+                # Use responsive wait on error to be more responsive to shutdown
+                for _ in range(int(min(self.subscriber_check_interval, 1.0) * 5)):  # Check every 200ms
+                    if self._stop_event.wait(timeout=0.2):
+                        return
+        
+        logger.debug("Subscriber monitoring stopped") 

@@ -58,6 +58,5 @@ def main():
     except KeyboardInterrupt:
         print("\nTest run canceled by user.")
         sys.exit(130)  # 130 is the standard exit code for SIGINT
-
 if __name__ == "__main__":
     main() 

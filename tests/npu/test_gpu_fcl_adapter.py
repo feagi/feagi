@@ -186,17 +186,17 @@ class TestGPUAcceleratedFCL(unittest.TestCase):
         skip_if_mocked_backend(self.fcl)
         
         # Add some test data
-        neurons_by_area = {
+        neurons_by_cortical = {
             1: BitMap({1, 2, 3}),
             2: BitMap({10, 11, 12})
         }
-        self.fcl.update_fcl(0, neurons_by_area)
+        self.fcl.update_fcl(0, neurons_by_cortical)
         
-        neurons_by_area = {
+        neurons_by_cortical = {
             1: BitMap({2, 3, 4}),
             2: BitMap({11, 12, 13})
         }
-        self.fcl.update_fcl(1, neurons_by_area)
+        self.fcl.update_fcl(1, neurons_by_cortical)
         
     def test_get_fcl_delta(self):
         """Test computing FCL delta with GPU acceleration."""

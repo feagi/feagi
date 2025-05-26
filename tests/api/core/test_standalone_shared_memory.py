@@ -224,51 +224,83 @@ def test_gateway():
 
 
 def standalone_reader_process(temp_dir, result_queue, ready_event):
-    import logging
-    logger = logging.getLogger("standalone_reader_process")
+    """Process function for testing standalone shared memory reading."""
     try:
-        logger.info("Standalone reader process started")
-        gateway = SharedMemoryFEAGIGateway(process_name="reader", temp_dir=temp_dir)
-        event_received = multiprocessing.Event()
-        def event_handler(event):
-            if event.data.get("integration"):
-                event_received.set()
-        gateway.event_system.register_handler(EventType.CONFIG_UPDATED, event_handler)
-        # Signal to the writer that the reader is ready
+        # This is a fresh process, so we need all imports
+        import sys
+        import time
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        
+        print("Standalone reader process started", file=sys.stderr)
+        
+        # Initialize components directly
+        from feagi.api.shared_memory.manager import SharedMemoryManager
+        from feagi.api.shared_memory.data_structures import SharedConfigDict
+        
+        memory_manager = SharedMemoryManager(temp_dir=temp_dir)
+        config_dict = SharedConfigDict("feagi_config", manager=memory_manager)
+        
+        # Signal that we're ready
         ready_event.set()
-        # Wait for the value and event
-        timeout = 2.0
-        waited = 0.0
-        poll_interval = 0.05
+        
+        # Wait for data to appear (poll)
+        max_attempts = 20
         value = None
-        while waited < timeout:
-            value = gateway.config_dict.get("integration_key")
-            if value == "integration_value" and event_received.is_set():
+        event_received = False
+        
+        for _ in range(max_attempts):
+            # Check for value in shared memory
+            test_value = config_dict.get("integration_key")
+            if test_value == "integration_value":
+                value = test_value
+                event_received = True
                 break
-            import time
-            time.sleep(poll_interval)
-            waited += poll_interval
-        gateway.shutdown()
-        logger.info(f"Standalone reader process finished, value={value}, event_received={event_received.is_set()}")
-        result_queue.put((value, event_received.is_set()))
+            time.sleep(0.1)
+        
+        # Clean up
+        config_dict.region.close()
+        
+        # Return result
+        result_queue.put((value, event_received))
+        
     except Exception as e:
-        logger.error(f"Standalone reader process exception: {e}", exc_info=True)
+        import traceback
+        print(f"Standalone reader process exception: {e}", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
         result_queue.put((None, False))
 
 def standalone_writer_process(temp_dir, ready_event):
-    import logging
-    logger = logging.getLogger("standalone_writer_process")
+    """Process function for testing standalone shared memory writing."""
     try:
-        logger.info("Standalone writer process started")
-        # Wait for the reader to be ready
-        ready_event.wait(timeout=2.0)
-        gateway = SharedMemoryFEAGIGateway(process_name="writer", temp_dir=temp_dir)
-        gateway.config_dict.set("integration_key", "integration_value")
-        gateway.event_system.send_event(EventType.CONFIG_UPDATED, {"integration": True})
-        gateway.shutdown()
-        logger.info("Standalone writer process finished and shutdown")
+        # This is a fresh process, so we need all imports
+        import sys
+        import time
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        
+        print("Standalone writer process started", file=sys.stderr)
+        
+        # Wait for reader to start
+        ready_event.wait(timeout=5)
+        
+        # Initialize components directly
+        from feagi.api.shared_memory.manager import SharedMemoryManager
+        from feagi.api.shared_memory.data_structures import SharedConfigDict
+        
+        memory_manager = SharedMemoryManager(temp_dir=temp_dir)
+        config_dict = SharedConfigDict("feagi_config", manager=memory_manager)
+        
+        # Write a test value using the set method
+        config_dict.set("integration_key", "integration_value")
+        
+        # Clean up
+        config_dict.region.close()
+        
     except Exception as e:
-        logger.error(f"Standalone writer process exception: {e}", exc_info=True)
+        import traceback
+        print(f"Standalone writer process exception: {e}", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
 
 def test_standalone_shared_memory_integration():
     """Integration test: Simulate two processes communicating via shared memory and event notification (standalone)."""

@@ -6,6 +6,7 @@ Test script for testing API gateway integration with the FEAGI process manager.
 import os
 import sys
 import unittest
+import pytest
 from unittest.mock import patch, MagicMock
 
 from feagi.api import APIGateway, get_api_gateway
@@ -81,20 +82,29 @@ class TestGatewayProcessIntegration(unittest.TestCase):
         """Test that the gateway recognizes the local core environment variable."""
         # Set environment variable for local core
         os.environ["FEAGI_LOCAL_CORE"] = "1"
-        
+    
         # Reset the gateway singleton to force re-initialization
         APIGateway._instance = None
+    
+        # Create a mock for create_core_api with the expected parameter
+        mock_core_api = MagicMock()
         
-        # Patch the logger to verify the right message is logged
-        with patch("feagi.api.gateway.api_gateway.logger") as mock_logger:
+        # Patch both the logger and the create_core_api function
+        # Note: create_core_api is imported inside the _initialize_core_api method
+        # so we need to patch feagi.core.create_core_api
+        with patch("feagi.api.gateway.api_gateway.logger") as mock_logger, \
+             patch("feagi.core.create_core_api", return_value=mock_core_api):
+            
             # Create a new gateway instance
             gateway = get_api_gateway()
             
-            # Verify a message about local core API was logged
+            # Verify the correct message was logged
             mock_logger.info.assert_any_call("Creating local Core API instance")
             
-            # Verify we have a core_api property
-            self.assertIsNotNone(gateway.core_api)
+            # Verify the gateway initialized properly
+            self.assertIsNotNone(gateway)
+            self.assertIs(APIGateway._instance, gateway)
+            self.assertEqual(gateway.core_api, mock_core_api)
 
 
 if __name__ == "__main__":

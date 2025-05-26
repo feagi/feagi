@@ -5,15 +5,21 @@ This package contains specialized stream implementations for various
 data types used in FEAGI.
 """
 
-from .sensorimotor import SensorimotorStream, SensorimotorClient
-from .visualization import VisualizationStream, VisualizationClient
+from .sensory import SensoryStream
+from .motor import MotorStream
+from .visualization import VisualizationStream
+from .control import ControlStream
 
 __all__ = [
-    # Sensorimotor Stream
-    'SensorimotorStream',
-    'SensorimotorClient',
+    # Sensory Stream
+    'SensoryStream',
+    
+    # Motor Stream
+    'MotorStream',
     
     # Visualization Stream
     'VisualizationStream',
-    'VisualizationClient',
+    
+    # Control Stream
+    'ControlStream',
 ] 

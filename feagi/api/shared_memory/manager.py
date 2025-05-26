@@ -9,6 +9,7 @@ import os
 import mmap
 import multiprocessing as mp
 import threading
+import logging
 from feagi.utils.logger import setup_logger
 logger = setup_logger()
 import numpy as np

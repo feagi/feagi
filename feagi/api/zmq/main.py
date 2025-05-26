@@ -12,7 +12,8 @@ import os
 import signal
 import sys
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
+import logging
 from feagi.logging_config import setup_feagi_logging
 
 setup_feagi_logging()
@@ -32,6 +33,7 @@ def main():
     parser.add_argument("--pub-port", type=int, default=5556, help="PUB/SUB port")
     parser.add_argument("--push-port", type=int, default=5557, help="PUSH/PULL port")
     parser.add_argument("--sensorimotor-port", type=int, default=5558, help="Sensorimotor port")
+    parser.add_argument("--control-port", type=int, default=5559, help="Control protocol port")
     parser.add_argument("--vis-base-port", type=int, default=5560, help="Visualization base port")
     parser.add_argument("--mock", action="store_true", help="Use mock core API")
     args = parser.parse_args()
@@ -66,6 +68,7 @@ def main():
         pub_sub_port=args.pub_port,
         push_pull_port=args.push_port,
         sensorimotor_port=args.sensorimotor_port,
+        control_port=args.control_port,
         vis_base_port=args.vis_base_port
     )
     
@@ -83,6 +86,7 @@ def main():
     logger.info(f"    - PUB/SUB port: {args.pub_port}")
     logger.info(f"    - PUSH/PULL port: {args.push_port}")
     logger.info(f"    - Sensorimotor port: {args.sensorimotor_port}")
+    logger.info(f"    - Control port: {args.control_port}")
     logger.info(f"    - Visualization base port: {args.vis_base_port}")
     
     success = zmq_server.start()

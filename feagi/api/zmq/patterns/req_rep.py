@@ -6,6 +6,7 @@ It provides:
 - Request-Reply server for handling command requests
 - Request-Reply client for sending commands
 - Command routing and execution framework
+- REST API support for unified interface
 """
 
 import asyncio
@@ -16,11 +17,12 @@ import time
 import uuid
 import zmq
 import zmq.asyncio
-from typing import Dict, Any, List, Callable, Optional, Union
+from typing import Dict, Any, List, Callable, Optional, Union, Callable
 
-from ...core.service import CoreApiService
+from ...core.services.core_api_service import CoreAPIService
 from ..serialization import serialize_message, deserialize_message
 from ...utils.auth import validate_token
+from ..rest_adapter import ZMQRestAPIAdapter
 
 
 
@@ -33,7 +35,7 @@ class RequestReplyServer:
     
     def __init__(
         self, 
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5555,
         context: Optional[zmq.asyncio.Context] = None
@@ -42,7 +44,7 @@ class RequestReplyServer:
         Initialize a new Request-Reply server.
         
         Args:
-            core_api: The CoreApiService instance to delegate calls to
+            core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to (default "*" to bind to all interfaces)
             port: Port number to bind to
             context: Optional existing ZMQ context to use
@@ -86,7 +88,35 @@ class RequestReplyServer:
                 # Wait for request
                 request_data = await self.socket.recv_multipart()
                 
-                # Expecting [auth_token, content_type, request_data]
+                # Add compatibility layer for simple JSON messages (not multipart)
+                if len(request_data) == 1:
+                    # Simple message format - try to parse as JSON
+                    try:
+                        simple_request = json.loads(request_data[0].decode())
+                        logger.debug(f"Received simple format request: {simple_request}")
+                        
+                        # Convert simple format to expected format
+                        if "type" in simple_request and simple_request["type"] == "status_request":
+                            # Handle status_request specially
+                            result = await self._handle_get_status({"params": {}})
+                            await self._send_response(result)
+                            continue
+                        elif "command" in simple_request:
+                            # Already has command field, use as is
+                            command = simple_request["command"]
+                            if command in self.command_handlers:
+                                result = await self.command_handlers[command](simple_request)
+                                await self._send_response(result)
+                                continue
+                            else:
+                                await self._send_error(f"Unknown command: {command}")
+                                continue
+                    except json.JSONDecodeError:
+                        # Not JSON - continue with normal processing
+                        logger.debug("Received message is not JSON, continuing with standard processing")
+                        pass
+                
+                # Standard processing - expecting [auth_token, content_type, request_data]
                 if len(request_data) < 3:
                     logger.error(f"Invalid request format: {request_data}")
                     await self._send_error("Invalid request format")
@@ -296,7 +326,7 @@ class RequestReplyManager:
     
     def __init__(
         self, 
-        core_api: CoreApiService,
+        core_api: CoreAPIService,
         host: str = "*", 
         port: int = 5555,
         context: Optional[zmq.asyncio.Context] = None
@@ -305,7 +335,7 @@ class RequestReplyManager:
         Initialize a new RequestReply Manager.
         
         Args:
-            core_api: The CoreApiService instance to delegate calls to
+            core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to
             port: Port number to bind to
             context: Optional existing ZMQ context to use

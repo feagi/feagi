@@ -1,165 +1,152 @@
-# FEAGI
+# FEAGI - Framework for Evolutionary Artificial General Intelligence
 
-**F**ramework for **E**volutionary **A**rtificial **G**eneral **I**ntelligence
+FEAGI (Framework for Evolutionary Artificial General Intelligence) is a brain-inspired cognitive architecture and framework.
 
-## Overview
+## Architecture Overview
 
-FEAGI is a Python-based framework for developing and deploying artificial general intelligence models. It provides a flexible architecture that combines Python's ease of use with Rust's performance for computationally intensive operations.
+FEAGI is built with a modular architecture consisting of:
 
-## Features
+- **Core Cognitive System**: The main FEAGI brain system
+- **Protocol Layer**: Language-agnostic communication protocols
+- **API Layer**: REST, WebSocket and ZeroMQ interfaces
+- **Client Connectors**: Libraries for different languages to connect to FEAGI
 
-- **FastAPI Backend**: High-performance API server for model deployment and interaction
-- **ZMQ Messaging**: Efficient inter-component communication using ZeroMQ
-- **Hybrid Architecture**: Core functionality in Python with performance-critical components in Rust
-- **Extensible Design**: Easily add new model types, training methods, and inference strategies
-- **Comprehensive Testing**: Built with pytest to ensure reliability and stability
-- **Well-Documented**: Complete API documentation and usage examples
-- **Memory Profiling**: Built-in tools for tracking memory usage
-- **Benchmarking**: Performance measurement tools for identifying bottlenecks
+## Communication Protocols
 
-## Installation
+FEAGI uses binary protocols for efficient communication:
 
-```bash
-pip install feagi
-```
+1. **FCP (FEAGI Control Protocol)**: For agent registration, heartbeats, and control
+2. **FSMP (FEAGI Sensorimotor Protocol)**: For exchanging sensory and motor data
+3. **FVP (FEAGI Visualization Protocol)**: For exchanging brain visualization data
+4. **Enhanced FQ Sampler**: Differentiated sampling for visualization vs. motor streams
 
-## Running FEAGI
+### Differentiated Data Streams
 
-FEAGI provides multiple ways to run the system depending on your needs:
+FEAGI implements **dual-path FQ sampling** for optimized data delivery:
 
-### Unified Command (Recommended)
+- **Visualization Stream (Port 5562)**: Comprehensive brain state monitoring with all cortical areas at configurable rates
+- **Motor Stream (Port 5564)**: Real-time motor control with OPU (Output Processing Unit) areas only at burst frequency
 
-The simplest way to run FEAGI is with the unified command that starts both the API and ZMQ servers:
-
-```bash
-# Start both API and ZMQ servers with default settings
-feagi
-
-# Custom configuration
-feagi --api-port 8080 --zmq-pub-port 5566 --zmq-sub-port 5567
-
-# Skip dependency version checking
-feagi --skip-version-check
-```
-
-### Environment Variables
-
-You can configure FEAGI behavior using environment variables:
-
-```bash
-# Skip dependency version checking
-export FEAGI_SKIP_VERSION_CHECK=1
-feagi
-```
-
-### Component-Specific Commands
-
-You can also run specific components individually:
-
-```bash
-# Run only the API server
-feagi --api-only
-feagi-api
-
-# Run only the ZMQ server
-feagi --zmq-only
-feagi-zmq
-```
-
-### Advanced Configuration
-
-```bash
-# See all available options
-feagi --help
-feagi-api --help
-feagi-zmq --help
-
-# Run with custom host and port
-feagi --api-host 0.0.0.0 --api-port 8888
-
-# Run ZMQ with specific topics
-feagi --zmq-topics neural metrics heartbeat system
-```
-
-### Python Module Usage
-
-You can also run FEAGI as Python modules:
-
-```bash
-# Full system
-python -m feagi.main
-
-# Individual components
-python -m feagi.api.server
-python -m feagi.zmq.server
-```
-
-## Programming Interface
-
-```python
-from feagi import create_feagi
-
-# Initialize a new FEAGI instance
-feagi = create_feagi()
-
-# Access components
-resource_mgr = feagi["resource_mgr"]
-```
+This architecture ensures optimal performance for different use cases:
+- Research and analysis tools receive comprehensive neural data via visualization stream
+- Robotic controllers receive optimized, low-latency motor data via motor stream
 
 ## Documentation
 
-Comprehensive documentation is available at [docs/](./docs/).
+FEAGI documentation follows a structured approach:
+- **System-level documentation** is maintained in the `/docs` folder
+- **Module-specific documentation** is stored in each module's directory
 
-## Development
+All documentation follows our [Documentation Standards](docs/guide-documentation-standards.md) with consistent naming conventions:
+- `arch-*`: Architecture documents
+- `spec-*`: Technical specifications
+- `guide-*`: User and developer guides
+- `adr-*`: Architecture Decision Records
+- `plan-*`: Project planning documents
 
-### Setup Development Environment
+For more details, see the [Documentation Restructuring Plan](docs/plan-documentation-restructuring.md).
+
+### Documentation Website
+
+The documentation is organized using Docusaurus, which provides a centralized documentation website. To set up and run the documentation website:
+
+```bash
+# Set up the documentation system
+./tools/doc_helpers/setup_docs.sh
+
+# Run the documentation server
+./tools/doc_helpers/run_docusaurus.sh
+```
+
+The documentation website presents:
+- **User Guides** - For end users of FEAGI
+- **System Documentation** - Architectural and design documentation
+- **Module Documentation** - API, BDU, NPU, and other module-specific documentation
+
+Several utilities are available in `tools/doc_helpers/` to assist with documentation:
+- `fix_html_tables.py` - Identifies HTML formatting issues in tables
+- `fix_broken_links.py` - Detects and suggests fixes for broken links
+- `convert_html_tables.py` - Converts HTML tables to markdown format
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.9+
+- ZeroMQ
+
+### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/feagi.git
+git clone https://github.com/your-username/feagi.git
 cd feagi
 
-# Create a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install development dependencies
-pip install -e .
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### Dependency Management
-
-FEAGI includes tools to help manage dependencies:
+### Running FEAGI
 
 ```bash
-# Check if installed dependencies match requirements.txt
-python -m feagi.scripts.check_dependencies
-
-# Run with strict mode (exit with error if dependencies don't match)
-python -m feagi.scripts.check_dependencies --strict
-
-# Use a custom requirements file
-python -m feagi.scripts.check_dependencies --requirements path/to/requirements.txt
+./run_feagi.sh
 ```
 
-### Optional: Rust Integration
+## Connecting to FEAGI
 
-For performance-critical components, FEAGI can leverage Rust:
+FEAGI provides client connectors for various languages:
 
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+### Python
 
-# Install the project with Rust extensions
-pip install -e .
+```python
+from feagi_connector_old import FeagiClient
+
+async def main():
+    client = FeagiClient(host="localhost")
+    await client.connect()
+    
+    # Send sensory data
+    await client.send_sensory_data(channel_id=1, data=my_data)
+    
+    await client.disconnect()
 ```
 
-### Running Tests
+### Other Languages
 
-```bash
-pytest
+For other languages, use the Protocol Buffer definitions in `protocol/` to generate client libraries:
+
+#### JavaScript
+
+```javascript
+// Using generated protobuf code
+const feagi = require('./generated/feagi_protocol');
+
+// Create client and connect
+const client = new feagi.Client('localhost');
+client.connect();
+
+// Send sensory data
+client.sendSensoryData(1, myData);
+```
+
+#### Rust
+
+```rust
+// Using generated protobuf code
+use feagi_client::FeagiClient;
+
+async fn main() -> Result<(), Box<dyn Error>> {
+    let mut client = FeagiClient::new("localhost").await?;
+    client.connect().await?;
+    
+    // Send sensory data
+    client.send_sensory_data(1, &my_data).await?;
+    
+    client.disconnect().await?;
+    Ok(())
+}
 ```
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details. 
