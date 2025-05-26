@@ -498,18 +498,23 @@ class VisualizationStream:
                 try:
                     from feagi_bytes import ByteStructureEncoder
                     encoder = ByteStructureEncoder()
-                            
-                    binary_data = encoder.encode_neuron_flat(
-                        cortical_ids=cortical_ids,
-                        x_coords=x_coords,
-                        y_coords=y_coords,
-                        z_coords=z_coords,
-                        potentials=membrane_potentials
-                    )
+                    
+                    # Use Type 11 (NEURON_CATEGORIES) format for DPR compatibility
+                    # Group neurons by cortical area
+                    cortical_data = {
+                        cortical_id: {
+                            'x': x_coords,
+                            'y': y_coords,
+                            'z': z_coords,
+                            'potentials': membrane_potentials
+                        }
+                    }
+                    
+                    binary_data = encoder.encode_neuron_categories(cortical_data)
                     
                     # Publish the binary data
                     self._publish_data(binary_data)
-                    logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes")
+                    logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
                     
                 except ImportError:
                     logger.error("feagi_bytes library not available - cannot encode binary data")

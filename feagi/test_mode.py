@@ -518,132 +518,13 @@ class FeagiTestRunner:
                     self.core_api.register_agent_heartbeat(self.visualization_agent_id)
                     logger.debug(f"Sent heartbeat for test visualization agent: {self.visualization_agent_id}")
                     
-                    # Also send a test activity message every 3rd heartbeat (15 seconds)
-                    if hasattr(self, '_heartbeat_counter'):
-                        self._heartbeat_counter += 1
-                    else:
-                        self._heartbeat_counter = 1
-                        
-                    if self._heartbeat_counter % 3 == 0:
-                        self.send_test_activity_data()
+                    # Note: Test mode should NOT send visualization data directly
+                    # All visualization data should come naturally from FCL -> FQ sampler -> visualization stream
                         
             except Exception as e:
                 logger.error(f"Error sending test visualization agent heartbeat: {e}")
                 
         logger.info("Heartbeat thread stopped")
-        
-    def send_test_activity_data(self):
-        """Send test activity data directly to the visualization stream."""
-        try:
-            logger.info("Sending TEST ACTIVITY DATA to visualization stream")
-            print("\n==================================================")
-            print("SENDING TEST ACTIVITY DATA TO VISUALIZATION STREAM")
-            print("==================================================\n")
-            
-            # Find the visualization stream if available
-            viz_stream = None
-            
-            # Try different paths to find it
-            if hasattr(self.core_api, 'visualization_stream'):
-                viz_stream = self.core_api.visualization_stream
-                logger.info("Found visualization stream in core_api.visualization_stream")
-            
-            if not viz_stream:
-                # Check if we can access it through process manager
-                try:
-                    from feagi.process_manager import get_process_manager
-                    pm = get_process_manager()
-                    if pm and hasattr(pm, '_visualization_stream'):
-                        viz_stream = pm._visualization_stream
-                        logger.info("Found visualization stream in process_manager._visualization_stream")
-                except Exception as e:
-                    logger.error(f"Error finding visualization stream through process manager: {e}")
-            
-            if not viz_stream:
-                logger.error("Could not find visualization stream, cannot send test activity data")
-                return
-                
-            # Create a simple test activity data structure using feagi_bytes
-            try:
-                from feagi_bytes import ByteStructureEncoder
-                
-                # Create the encoder
-                encoder = ByteStructureEncoder()
-                
-                # Create simple test data - a 3x3x3 grid of neurons with random activity
-                cortical_ids = []
-                x_coords = []
-                y_coords = []
-                z_coords = []
-                potentials = []
-                
-                # Fill with test data
-                import random
-                for x in range(3):
-                    for y in range(3):
-                        for z in range(3):
-                            cortical_ids.append("TEST_A")  # Test cortical area
-                            x_coords.append(x)
-                            y_coords.append(y)
-                            z_coords.append(z)
-                            # Random potential between 0 and 1
-                            potentials.append(random.random())
-                
-                # Add a few more areas for testing
-                for i in range(10):
-                    cortical_ids.append("TEST_B")
-                    x_coords.append(random.randint(0, 5))
-                    y_coords.append(random.randint(0, 5))
-                    z_coords.append(random.randint(0, 5))
-                    potentials.append(random.random())
-                
-                # Encode the neuron data
-                if hasattr(encoder, 'encode_neuron_flat'):
-                    bytes_data = encoder.encode_neuron_flat(
-                        cortical_ids=cortical_ids,
-                        x_coords=x_coords,
-                        y_coords=y_coords,
-                        z_coords=z_coords,
-                        potentials=potentials
-                    )
-                    
-                    # Log the bytes data 
-                    hex_dump = ' '.join([f'{b:02x}' for b in bytes_data[:50]])
-                    logger.info(f"Encoded test activity data ({len(bytes_data)} bytes): {hex_dump}")
-                    
-                    # Schedule the data to be sent asynchronously
-                    if hasattr(viz_stream, 'send_visualization_data'):
-                        # Need to run in event loop for async functions
-                        import asyncio
-                        
-                        # Create a task to send the data
-                        async def send_data():
-                            await viz_stream.send_visualization_data(bytes_data)
-                            logger.info("Test activity data sent to visualization stream")
-                            
-                        # Run the task in the current event loop or create a new one
-                        try:
-                            loop = asyncio.get_event_loop()
-                            if loop.is_running():
-                                loop.create_task(send_data())
-                            else:
-                                asyncio.run(send_data())
-                        except Exception as e:
-                            logger.error(f"Error sending data in event loop: {e}")
-                    else:
-                        logger.error("Visualization stream does not have send_visualization_data method")
-                else:
-                    logger.error("ByteStructureEncoder does not have encode_neuron_flat method")
-                
-            except Exception as e:
-                logger.error(f"Error creating test activity data: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-                
-        except Exception as e:
-            logger.error(f"Error in send_test_activity_data: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
     
     def hook_fq_sampler(self):
         """
