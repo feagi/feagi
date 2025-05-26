@@ -15,10 +15,6 @@ from typing import Dict, Any, Optional, List, Set, Callable, Callable
 import uuid
 import traceback
 
-# Enable comprehensive ZMQ debugging for troubleshooting
-os.environ['FEAGI_DEBUG_ZMQ_OUTBOUND'] = '1'
-os.environ['FEAGI_DEBUG_ZMQ_INBOUND'] = '1'
-
 import zmq
 import zmq.asyncio
 

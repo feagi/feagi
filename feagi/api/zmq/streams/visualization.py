@@ -155,11 +155,11 @@ class VisualizationStream:
             if new_state == GenomeState.LOADED:
                 self._active_mode = True
                 if self.running:
-                    logger.info("SimpleVisualizationStream entering ACTIVE mode")
+                    logger.info("VisualizationStream entering ACTIVE mode")
             else:
                 self._active_mode = False 
                 if self.running:
-                    logger.info("SimpleVisualizationStream entering STANDBY mode")
+                    logger.info("VisualizationStream entering STANDBY mode")
         except Exception as e:
             logger.error(f"Error handling genome state change: {e}")
             self._active_mode = False
@@ -216,42 +216,42 @@ class VisualizationStream:
         if not self.running:
             return
             
-        logger.info("🛑 Stopping primary visualization stream...")
+        logger.info("🛑 Stopping visualization stream...")
         self.running = False
         self._stop_event.set()
         
-        # Wait for worker threads with longer timeout and individual monitoring
+        # Wait for worker threads with individual monitoring
         total_threads = len(self.worker_threads)
-        logger.info(f"⏳ Waiting for {total_threads} worker threads to stop...")
-        
-        for i, thread in enumerate(self.worker_threads, 1):
-            if thread.is_alive():
-                logger.info(f"⏳ Waiting for thread {i}/{total_threads}: {thread.name}")
-                thread.join(timeout=5.0)  # Increased from 2.0 to 5.0 seconds
-                
+        if total_threads > 0:
+            logger.debug(f"Waiting for {total_threads} worker threads to stop...")
+            
+            for i, thread in enumerate(self.worker_threads, 1):
                 if thread.is_alive():
-                    logger.warning(f"⚠️ Thread {thread.name} didn't stop after 5 seconds, forcing shutdown")
-                else:
-                    logger.info(f"✅ Thread {thread.name} stopped gracefully")
+                    logger.debug(f"Waiting for thread {i}/{total_threads}: {thread.name}")
+                    thread.join(timeout=5.0)
+                    
+                    if thread.is_alive():
+                        logger.warning(f"Thread {thread.name} didn't stop after 5 seconds")
+                    else:
+                        logger.debug(f"Thread {thread.name} stopped gracefully")
         
         # Close socket AFTER all threads have stopped
         if self.socket:
-            logger.info("🔌 Closing ZMQ socket...")
+            logger.debug("Closing ZMQ socket...")
             self.socket.close(linger=0)  # Don't wait for pending messages
             self.socket = None
-            logger.info("✅ ZMQ socket closed")
         
         # Clear worker thread list
         self.worker_threads.clear()
             
-        logger.info("✅ Primary visualization stream stopped completely")
+        logger.info("✅ Visualization stream stopped")
 
     def _data_worker(self) -> None:
         """
         Enhanced data processing worker with standby mode support.
         Includes crucial features from full version while keeping threading approach.
         """
-        logger.info("🎬 Primary visualization data worker started")
+        logger.debug("Visualization data worker started")
         
         while self.running and not self._stop_event.is_set():
             try:
@@ -284,18 +284,18 @@ class VisualizationStream:
                     if self._stop_event.is_set():
                         logger.debug("Data worker stopping during empty queue")
                         break
-                    continue
+                        continue
                 except Exception as e:
                     logger.debug(f"Queue access error: {e}")
                     # Use wait() instead of sleep() for faster shutdown response
                     if self._stop_event.wait(timeout=0.01):  # Brief pause on error
                         logger.debug("Data worker stopping after queue error")
                         break
-                    continue
+                    continue 
                 
                 if fq_data is None:
                     continue
-                
+                    
                 # Additional stop check before processing data
                 if self._stop_event.is_set():
                     logger.debug("Data worker stopping before data processing")
@@ -323,31 +323,31 @@ class VisualizationStream:
                             data = fq_data.get('data')
                             if isinstance(data, bytes):
                                 self._publish_data(data)
-                        
+                
                 elif isinstance(fq_data, tuple) and len(fq_data) == 2:
                     # Legacy (cortical_id, fire_data) tuple format
-                    logger.info(f"📤 Processing neural data for: {fq_data[0]}")
+                    logger.debug(f"Processing neural data for: {fq_data[0]}")
                     self._process_tuple_data(fq_data)
-                    
+                
                 elif isinstance(fq_data, dict):
                     # Legacy fire queue dict format
                     self._process_dict_data(fq_data)
-                    
+                
                 elif isinstance(fq_data, str) and fq_data == "STOP":
                     logger.info("Received STOP signal")
-                    break
-                    
+                    break 
+                
                 else:
                     logger.debug(f"Ignoring unsupported data type: {type(fq_data)}")
                 
             except Exception as e:
-                logger.error(f"Error in enhanced data worker: {e}")
+                logger.error(f"Error in data worker: {e}")
                 # Use wait() instead of sleep() for faster shutdown response
                 if self._stop_event.wait(timeout=0.1):  # Brief pause on error
                     logger.debug("Data worker stopping after error")
-                    break
+                break 
                 
-        logger.info("🛑 Primary visualization data worker stopped")
+        logger.debug("Visualization data worker stopped")
 
     def _publish_data(self, data: bytes) -> None:
         """
@@ -624,7 +624,7 @@ class VisualizationStream:
         Client cleanup worker thread (crucial feature from full version).
         Manages client heartbeat timeouts and automatic cleanup.
         """
-        cleanup_interval = 5.0  # Reduced from 10.0 to 5.0 seconds for faster shutdown
+        cleanup_interval = 5.0  # Check every 5 seconds
         
         while self.running and not self._stop_event.is_set():
             try:
@@ -653,14 +653,14 @@ class VisualizationStream:
                     logger.debug("Client cleanup worker stopping due to stop event")
                     return
         
-        logger.info("🛑 Client cleanup worker stopped gracefully")
+        logger.debug("Client cleanup worker stopped")
 
     def _subscriber_monitor_worker(self) -> None:
         """
         Subscriber monitoring worker thread (crucial feature from full version).
         Automatically enables/disables FQ sampler based on subscriber presence.
         """
-        logger.info("Starting subscriber monitoring for automatic FQ sampler control")
+        logger.debug("Starting subscriber monitoring for automatic FQ sampler control")
         
         while self.running and not self._stop_event.is_set():
             try:
@@ -699,4 +699,4 @@ class VisualizationStream:
                     if self._stop_event.wait(timeout=0.2):
                         return
         
-        logger.info("🛑 Subscriber monitoring stopped gracefully") 
+        logger.debug("Subscriber monitoring stopped") 
