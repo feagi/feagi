@@ -629,86 +629,41 @@ class VisualizationStream:
         logger.debug(f"Simple mode: ignoring client unregistration for {client_id}")
         
     def heartbeat_visualization_client(self, client_id: str) -> None:
-        """Enhanced heartbeat method with proper client tracking and comprehensive debugging."""
-        logger.info(f"🔧 DEBUG: ===== VISUALIZATION HEARTBEAT DEBUG START =====")
-        logger.info(f"🔧 DEBUG: Heartbeat request for client: {client_id}")
-        logger.info(f"🔧 DEBUG: Current running state: {self.running}")
-        logger.info(f"🔧 DEBUG: Current socket state: {self.socket is not None}")
-        
-        if self.socket:
-            logger.info(f"🔧 DEBUG: Socket type: {type(self.socket)}")
-            logger.info(f"🔧 DEBUG: Socket closed: {self.socket.closed}")
-            
-        logger.info(f"🔧 DEBUG: Context state: {self.context is not None}")
-        if self.context:
-            logger.info(f"🔧 DEBUG: Context closed: {self.context.closed}")
-        
-        logger.info(f"🔧 DEBUG: Current client lock available: {self._client_lock is not None}")
-        logger.info(f"🔧 DEBUG: FQ sampler available: {self.fq_sampler is not None}")
-        logger.info(f"🔧 DEBUG: Worker threads count: {len(self.worker_threads)}")
-        
+        """Enhanced heartbeat method with proper client tracking."""
         # Track client heartbeat with proper threading (crucial feature from full version)
         current_time = time.time()
-        logger.info(f"🔧 DEBUG: Current timestamp: {current_time}")
         
         with self._client_lock:  # Thread-safe access
-            logger.info(f"🔧 DEBUG: Acquired client lock successfully")
-            
             # Check if this is a new client (no previous heartbeat recorded)
             is_new_client = client_id not in self.client_last_heartbeat
-            old_heartbeat_time = self.client_last_heartbeat.get(client_id, "never")
-            
-            logger.info(f"🔧 DEBUG: Is new client: {is_new_client}")
-            logger.info(f"🔧 DEBUG: Previous heartbeat time: {old_heartbeat_time}")
             
             self.client_last_heartbeat[client_id] = current_time
-            
             total_clients = len(self.client_last_heartbeat)
-            logger.info(f"🔧 DEBUG: Updated heartbeat timestamp for {client_id}")
-            logger.info(f"🔧 DEBUG: Total clients now: {total_clients}")
-            logger.info(f"🔧 DEBUG: All clients: {list(self.client_last_heartbeat.keys())}")
             
             # If this is a new client, log it and update FQ sampler
             if is_new_client:
-                logger.info(f"📺 New visualization client connected via heartbeat: {client_id}")
+                logger.info(f"📺 New visualization client connected: {client_id}")
                 
                 # Force a subscriber count update and FQ sampler notification
-                current_count = total_clients  # We already know the count
+                current_count = total_clients
                 last_count = self._last_subscriber_count
-                
-                logger.info(f"🔧 DEBUG: Current subscriber count: {current_count}")
-                logger.info(f"🔧 DEBUG: Last subscriber count: {last_count}")
-                logger.info(f"🔧 DEBUG: Should trigger FQ sampler update: {current_count != last_count}")
                 
                 if current_count != last_count:
                     self._last_subscriber_count = current_count
                     should_enable = current_count > 0
                     current_enabled = self._fq_sampler_enabled
                     
-                    logger.info(f"🔧 DEBUG: Should enable FQ sampler: {should_enable}")
-                    logger.info(f"🔧 DEBUG: Currently enabled: {current_enabled}")
-                    logger.info(f"🔧 DEBUG: Will call _control_fq_sampler: {should_enable != current_enabled}")
-                    
                     if should_enable != current_enabled:
-                        logger.info(f"🔧 DEBUG: Calling _control_fq_sampler({should_enable})")
                         try:
                             self._control_fq_sampler(should_enable)
-                            logger.info(f"🔧 DEBUG: _control_fq_sampler call completed successfully")
+                            logger.debug(f"FQ sampler {'enabled' if should_enable else 'disabled'} for {total_clients} clients")
                         except Exception as e:
-                            logger.error(f"🔧 DEBUG: _control_fq_sampler call failed: {e}")
-                            import traceback
-                            logger.error(f"🔧 DEBUG: _control_fq_sampler traceback: {traceback.format_exc()}")
-                    else:
-                        logger.info(f"🔧 DEBUG: No FQ sampler change needed")
-                else:
-                    logger.info(f"🔧 DEBUG: No subscriber count change, skipping FQ sampler update")
+                            logger.error(f"Error controlling FQ sampler: {e}")
             else:
-                logger.info(f"🔧 DEBUG: Existing client heartbeat updated: {client_id}")
-                logger.info(f"🔧 DEBUG: Time since last heartbeat: {current_time - old_heartbeat_time:.2f}s")
+                # Just log debug info for existing clients
+                logger.debug(f"Heartbeat received from existing client: {client_id}")
         
-        logger.info(f"🔧 DEBUG: Released client lock successfully")
-        logger.info(f"🔧 DEBUG: ===== VISUALIZATION HEARTBEAT DEBUG END =====")
-        logger.info(f"🔧 DEBUG: Enhanced heartbeat completed successfully for {client_id}")
+        logger.debug(f"Visualization heartbeat processed for {client_id} (total clients: {total_clients})")
 
     def get_connected_client_count(self) -> int:
         """Get the number of connected visualization clients (crucial feature from full version)."""
