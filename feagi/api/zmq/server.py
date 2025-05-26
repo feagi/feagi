@@ -458,7 +458,7 @@ class ZmqServer:
                 logger.debug("ZMQ server reference passed to REST stream")
             
             if self.vis_port is not None:
-                # Use simplified visualization stream (BACKUP VERSION)
+                # Use simplified visualization stream (WORKING VERSION)
                 self._visualization = VisualizationStream(
                     host=self.host,
                     port=self.vis_port,

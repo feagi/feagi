@@ -133,6 +133,7 @@ class RestStream:
             
             self.running = True
             logger.info("✅ REST Stream started successfully")
+            logger.info(f"🔧 DEBUG: REST Stream ready to accept requests on tcp://{self.host}:{self.port}")
             
         except Exception as e:
             logger.error(f"❌ Failed to start REST stream: {e}")
@@ -223,6 +224,15 @@ class RestStream:
                     # Receive message with timeout
                     message_parts = await worker_socket.recv_multipart()
                     
+                    # 🔧 DETAILED REQUEST LOGGING FOR DEBUGGING
+                    logger.info(f"🔧 DEBUG: REST STREAM - Received ZMQ message with {len(message_parts)} parts")
+                    for i, part in enumerate(message_parts):
+                        try:
+                            decoded = part.decode('utf-8')
+                            logger.info(f"🔧 DEBUG: Part {i}: '{decoded}' ({len(part)} bytes)")
+                        except:
+                            logger.info(f"🔧 DEBUG: Part {i}: <binary data> ({len(part)} bytes)")
+                    
                     # Debug logging for inbound ZMQ traffic
                     endpoint = f"tcp://{self.host}:{self.port}"
                     log_zmq_inbound(
@@ -246,8 +256,10 @@ class RestStream:
                     # Try to decode as JSON
                     try:
                         message = json.loads(message_data.decode('utf-8'))
+                        logger.info(f"🔧 DEBUG: Parsed JSON message: {message}")
                     except json.JSONDecodeError as e:
-                        logger.error(f"Invalid JSON in REST message: {e}")
+                        logger.error(f"🔧 DEBUG: JSON DECODE ERROR: {e}")
+                        logger.error(f"🔧 DEBUG: Raw message data: {message_data}")
                         
                         # Send error response
                         error_response = {
@@ -272,7 +284,8 @@ class RestStream:
                     
                     # Validate REST format
                     if not self._is_valid_rest_message(message):
-                        logger.error(f"Invalid REST message format: {message}")
+                        logger.error(f"🔧 DEBUG: INVALID REST FORMAT: {message}")
+                        logger.error(f"🔧 DEBUG: Missing required fields - message keys: {list(message.keys()) if isinstance(message, dict) else 'not a dict'}")
                         
                         error_response = {
                             "status": 400,
@@ -298,10 +311,24 @@ class RestStream:
                     method = message.get('method', 'UNKNOWN')
                     route = message.get('route', 'unknown')
                     
-                    logger.debug(f"Processing REST API request: {method} {route}")
+                    logger.info(f"🔧 DEBUG: Processing REST API request: {method} {route}")
+                    logger.info(f"🔧 DEBUG: Full message content: {json.dumps(message, indent=2)}")
                     
                     try:
+                        start_time = time.time()
                         response_data = await self.rest_adapter.process_message(message_data)
+                        processing_time = time.time() - start_time
+                        
+                        logger.info(f"🔧 DEBUG: REST request processed in {processing_time:.3f}s")
+                        logger.info(f"🔧 DEBUG: Response size: {len(response_data)} bytes")
+                        
+                        # Try to decode and show response for debugging
+                        try:
+                            response_json = json.loads(response_data.decode('utf-8'))
+                            logger.info(f"🔧 DEBUG: Response status: {response_json.get('status', 'unknown')}")
+                            logger.info(f"🔧 DEBUG: Response body preview: {str(response_json.get('body', {}))[:200]}...")
+                        except:
+                            logger.info(f"🔧 DEBUG: Response (non-JSON): {response_data[:100]}...")
                         
                         # Send response
                         await worker_socket.send_multipart([
