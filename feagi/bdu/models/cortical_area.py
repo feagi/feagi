@@ -5,7 +5,28 @@ which are 3D regions containing populations of neurons.
 """
 
 from typing import Dict, Any, List, Tuple, Optional, Set
-import uuid
+import string
+import random
+
+
+def generate_cortical_id(prefix='C', seed='___'):
+    """Generate a 6-character cortical ID.
+    
+    Args:
+        prefix: Prefix character ('C' for custom, 'M' for memory)
+        seed: Optional 3-character seed to use
+        
+    Returns:
+        A 6-character cortical ID
+    """
+    seed = seed.replace('-', '_')
+    chars = string.ascii_uppercase + string.digits
+    
+    # Generate random characters for the part after the prefix
+    suffix = ''.join(random.choice(chars) for _ in range(2)) + seed[:3]
+    
+    # Ensure the total length is 6 characters
+    return (prefix + suffix)[:6]
 
 
 class CorticalArea:
@@ -17,7 +38,8 @@ class CorticalArea:
     
     def __init__(self, name: str, dimensions: Tuple[int, int, int], 
                  position: Tuple[int, int, int], area_type: str = "custom",
-                 properties: Optional[Dict[str, Any]] = None, area_id: Optional[str] = None):
+                 properties: Optional[Dict[str, Any]] = None, cortical_id: Optional[str] = None,
+                 cortical_idx: Optional[int] = None):
         """Initialize a new cortical area.
         
         Args:
@@ -26,14 +48,21 @@ class CorticalArea:
             position: 3D coordinates of the area's origin in the brain space
             area_type: Type of cortical area (e.g., "sensory", "motor", "custom")
             properties: Additional properties for the area (optional)
-            area_id: Unique identifier for this area (optional, generated if not provided)
+            cortical_id: 6-character unique identifier for this area (optional, generated if not provided)
+            cortical_idx: Integer index for this area (optional, assigned by ConnectomeManager)
         """
         self.name = name
         self.dimensions = dimensions
         self.position = position
         self.area_type = area_type
         self.properties = properties or {}
-        self.id = area_id or str(uuid.uuid4())
+        
+        # Generate cortical_id if not provided
+        prefix = 'M' if area_type == "memory" else 'C'
+        self.cortical_id = cortical_id or generate_cortical_id(prefix)
+        
+        # cortical_idx is assigned by ConnectomeManager
+        self.cortical_idx = cortical_idx
         
         # Track neuron indices within this area
         self._neuron_indices: Set[int] = set()
@@ -49,6 +78,9 @@ class CorticalArea:
         
         # For test compatibility
         self.neurons = self._neuron_indices
+        
+        # For backward compatibility
+        self.id = self.cortical_id
     
     @property
     def width(self) -> int:
@@ -299,7 +331,8 @@ class CorticalArea:
             position=data["position"],
             area_type=data.get("area_type", "custom"),
             properties=data.get("properties", {}),
-            area_id=data["id"]
+            cortical_id=data["id"],
+            cortical_idx=data.get("cortical_idx")
         )
         area.region_id = data.get("region_id")
         return area 

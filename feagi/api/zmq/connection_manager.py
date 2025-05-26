@@ -13,7 +13,7 @@ import time
 import logging
 from feagi.utils.logger import setup_logger
 logger = setup_logger(__name__)
-from typing import Dict, Optional, List, Set, Any, Tuple, TYPE_CHECKING
+from typing import Dict, Optional, List, Set, Any, Tuple, TYPE_CHECKING, Callable
 
 import zmq
 import zmq.asyncio
@@ -22,7 +22,7 @@ import zmq.asyncio
 if TYPE_CHECKING:
     from .server import ZMQServer
 
-from ..core.service import CoreApiService
+from ..core.services.core_api_service import CoreAPIService
 from feagi.core.state_manager import GenomeState
 from feagi.api.protocols import ProtocolID
 
@@ -32,7 +32,7 @@ class ConnectionManager:
     Connection manager for multiple ZMQ clients using ROUTER-DEALER pattern.
     
     This class handles:
-    - Creation of ROUTER sockets for different protocols
+    - Creation of sockets for different protocols
     - Client identity tracking (mapping ZMQ identities to agent IDs)
     - Message routing to specific clients
     - Connection state management
@@ -41,7 +41,8 @@ class ConnectionManager:
     def __init__(self, 
                  context: Optional[zmq.asyncio.Context] = None,
                  control_port: int = 5559,
-                 sensorimotor_port: int = 5558,
+                 sensory_port: int = 5558,
+                 motor_port: int = 5564,
                  visualization_port: int = 5560):
         """
         Initialize the connection manager.
@@ -49,35 +50,45 @@ class ConnectionManager:
         Args:
             context: ZMQ context (will create a new one if None)
             control_port: Port for control messages (FCP protocol)
-            sensorimotor_port: Port for sensorimotor data (FSMP protocol)
-            visualization_port: Base port for visualization data (FVP protocol)
+            sensory_port: Port for sensory data input (FSMP protocol)
+            motor_port: Port for motor data output (FSMP protocol)
+            visualization_port: Port for visualization data (FVP protocol)
         """
         self.context = context or zmq.asyncio.Context.instance()
         self.connections: Dict[str, Dict[str, Any]] = {}  # agent_id -> connection_info
         
-        # Create ROUTER sockets for each protocol
+        # Create control socket (ROUTER) for bidirectional control messages
         self.control_socket = self.context.socket(zmq.ROUTER)
         self.control_socket.setsockopt(zmq.ROUTER_MANDATORY, 1)  # Raise error if recipient not found
         self.control_socket.setsockopt(zmq.SNDHWM, 0)  # Unlimited send queue
         self.control_socket.bind(f"tcp://*:{control_port}")
-        logger.info(f"Control socket bound to port {control_port}")
+        logger.info(f"Control socket (ROUTER) bound to port {control_port}")
         
-        self.sensorimotor_socket = self.context.socket(zmq.ROUTER)
-        self.sensorimotor_socket.setsockopt(zmq.ROUTER_MANDATORY, 1)
-        self.sensorimotor_socket.setsockopt(zmq.SNDHWM, 0)
-        self.sensorimotor_socket.bind(f"tcp://*:{sensorimotor_port}")
-        logger.info(f"Sensorimotor socket bound to port {sensorimotor_port}")
+        # Create sensory socket (PULL) for receiving sensory data
+        self.sensory_socket = self.context.socket(zmq.PULL)
+        self.sensory_socket.setsockopt(zmq.RCVHWM, 1)  # Minimal receive queue
+        self.sensory_socket.bind(f"tcp://*:{sensory_port}")
+        logger.info(f"Sensory socket (PULL) bound to port {sensory_port}")
         
-        self.visualization_socket = self.context.socket(zmq.ROUTER)
-        self.visualization_socket.setsockopt(zmq.ROUTER_MANDATORY, 1)
-        self.visualization_socket.setsockopt(zmq.SNDHWM, 0)
+        # Create motor socket (PUB) for broadcasting motor commands
+        self.motor_socket = self.context.socket(zmq.PUB)
+        self.motor_socket.setsockopt(zmq.SNDHWM, 1)  # Minimal send queue
+        self.motor_socket.setsockopt(zmq.CONFLATE, 1)  # Only keep most recent message
+        self.motor_socket.bind(f"tcp://*:{motor_port}")
+        logger.info(f"Motor socket (PUB) bound to port {motor_port}")
+        
+        # Create visualization socket (PUB) for broadcasting visualization data
+        self.visualization_socket = self.context.socket(zmq.PUB)
+        self.visualization_socket.setsockopt(zmq.SNDHWM, 1)
+        self.visualization_socket.setsockopt(zmq.CONFLATE, 1)
         self.visualization_socket.bind(f"tcp://*:{visualization_port}")
-        logger.info(f"Visualization socket bound to port {visualization_port}")
+        logger.info(f"Visualization socket (PUB) bound to port {visualization_port}")
         
         # Store port information
         self.ports = {
             "control": control_port,
-            "sensorimotor": sensorimotor_port,
+            "sensory": sensory_port,
+            "motor": motor_port,
             "visualization": visualization_port
         }
     
@@ -165,7 +176,7 @@ class ConnectionManager:
         
         Args:
             agent_id: Agent identifier
-            protocol_type: Protocol type ("fcp", "fsmp", or "fvp")
+            protocol_type: Protocol type ("fcp", "fsmp_sensory", "fsmp_motor", or "fvp")
             message: Serialized message
             
         Returns:
@@ -180,11 +191,20 @@ class ConnectionManager:
         
         try:
             if protocol_type == "fcp":
+                # Control messages use ROUTER-DEALER pattern
                 await self.control_socket.send_multipart([zmq_id, b"", message])
-            elif protocol_type == "fsmp":
-                await self.sensorimotor_socket.send_multipart([zmq_id, b"", message])
+            elif protocol_type == "fsmp_sensory":
+                # Sensory data is received, not sent to clients
+                logger.warning("Cannot send sensory data to client (one-way from client to FEAGI)")
+                return False
+            elif protocol_type == "fsmp_motor":
+                # Motor data uses PUB-SUB pattern with channel as topic
+                channel_id = agent_id.encode()  # Use agent_id as topic
+                await self.motor_socket.send_multipart([channel_id, message])
             elif protocol_type == "fvp":
-                await self.visualization_socket.send_multipart([zmq_id, b"", message])
+                # Visualization data uses PUB-SUB pattern with topic
+                topic = b"activity"  # Default topic
+                await self.visualization_socket.send_multipart([topic, message])
             else:
                 logger.error(f"Unknown protocol type: {protocol_type}")
                 return False
@@ -237,21 +257,19 @@ class ConnectionManager:
         }
     
     def close(self) -> None:
-        """
-        Close all sockets and clean up resources.
-        """
-        logger.info("Closing connection manager")
+        """Close all sockets and clean up resources."""
+        logger.info("Closing ConnectionManager sockets")
+        for socket_name in ["control_socket", "sensory_socket", "motor_socket", "visualization_socket"]:
+            socket = getattr(self, socket_name, None)
+            if socket:
+                try:
+                    socket.close(linger=0)
+                except Exception as e:
+                    logger.error(f"Error closing {socket_name}: {e}")
         
-        # Close all sockets
-        for socket in [self.control_socket, self.sensorimotor_socket, self.visualization_socket]:
-            try:
-                socket.close()
-            except Exception as e:
-                logger.error(f"Error closing socket: {e}")
-        
-        # Clear connections
+        # Clear connection tracking
         self.connections.clear()
-        logger.info("Connection manager closed")
+        logger.info("ConnectionManager closed")
 
 
 class ZMQConnectionManager:
@@ -266,73 +284,78 @@ class ZMQConnectionManager:
     
     @classmethod
     def instance(cls, 
-                 core_api: Optional[CoreApiService] = None,
+                 core_api: Optional[CoreAPIService] = None,
                  host: str = "*"):
-        """Get singleton instance of ZMQConnectionManager."""
+        """Get the singleton instance."""
         if cls._instance is None:
-            cls._instance = cls(core_api, host)
+            cls._instance = ZMQConnectionManager(core_api, host)
         return cls._instance
-        
+    
     def __init__(self, 
-                 core_api: Optional[CoreApiService] = None,
+                 core_api: Optional[CoreAPIService] = None,
                  host: str = "*"):
         """
-        Initialize the ZMQ Connection Manager.
+        Initialize the connection manager.
         
         Args:
-            core_api: The CoreApiService instance
-            host: Host address for binding
+            core_api: Core API service
+            host: Host to bind to
         """
-        self.core_api = core_api
+        if ZMQConnectionManager._instance is not None:
+            raise RuntimeError("Use ZMQConnectionManager.instance() to get the singleton instance")
+            
         self.host = host
-        self.context = zmq.asyncio.Context.instance()
-        self._servers = {}
-        self._running_tasks = set()
-        self.running = False
+        self.core_api = core_api
         
-        # State tracking
-        self._active_mode = False  # True when genome is loaded
+        # Standard ports
+        self.control_port = 5559
+        self.sensory_port = 5558
+        self.motor_port = 5564
+        self.visualization_port = 5560
         
-        # Register for genome state change notifications if CoreAPI is provided
+        # Active mode flag
+        self._active_mode = False
+        
+        # ZMQ servers
+        self.servers = {}
+        
+        # Register for genome state change notifications
         if core_api and hasattr(core_api, 'register_genome_change_listener'):
             core_api.register_genome_change_listener(self._on_genome_state_change)
-        
-        # Initialize state based on current genome availability
-        if core_api:
-            self._update_active_mode()
+            
+        # Initialize active mode
+        self._update_active_mode()
         
     def create_server(self, server_type: str = "default", **kwargs) -> Any:
         """
-        Create a new ZMQ server.
+        Create a ZMQ server instance.
         
         Args:
             server_type: Type of server to create
-            **kwargs: Additional arguments for server
+            **kwargs: Additional arguments for server creation
             
         Returns:
-            The created server
+            Server instance
         """
-        if server_type in self._servers:
-            # Return existing server
-            return self._servers[server_type]
+        if server_type in self.servers:
+            logger.warning(f"Server of type {server_type} already exists, returning existing instance")
+            return self.servers[server_type]
             
-        # Pass state information to server
-        kwargs['core_api'] = self.core_api
-        kwargs['host'] = self.host
-        kwargs['context'] = self.context
+        # Import server implementation here to avoid circular imports
+        from .server import ZmqServer
         
-        # Import here to avoid circular imports
-        from .server import ZMQServer
+        # Create server with default ports if not specified
+        server = ZmqServer(
+            core_api=self.core_api,
+            host=kwargs.get("host", self.host),
+            control_port=kwargs.get("control_port", self.control_port),
+            sensory_port=kwargs.get("sensory_port", self.sensory_port),
+            motor_port=kwargs.get("motor_port", self.motor_port),
+            vis_port=kwargs.get("vis_port", self.visualization_port)
+        )
         
-        # Create the server
-        server = ZMQServer(**kwargs)
-        
-        # Store it
-        self._servers[server_type] = server
-        
-        # Inform server of current state
-        if hasattr(server, '_update_active_mode'):
-            server._update_active_mode()
+        # Store server
+        self.servers[server_type] = server
         
         return server
     
@@ -344,7 +367,7 @@ class ZMQConnectionManager:
         self._update_active_mode()
         
         # Start all servers
-        for server_id, server in self._servers.items():
+        for server_id, server in self.servers.items():
             logger.info(f"Starting ZMQ server: {server_id}")
             task = asyncio.create_task(server.start())
             self._running_tasks.add(task)
@@ -354,7 +377,7 @@ class ZMQConnectionManager:
         self.running = False
         
         # Stop all servers
-        for server_id, server in self._servers.items():
+        for server_id, server in self.servers.items():
             logger.info(f"Stopping ZMQ server: {server_id}")
             await server.stop()
             
@@ -384,7 +407,7 @@ class ZMQConnectionManager:
                 logger.info("ZMQConnectionManager: Entering STANDBY mode (no genome loaded)")
                 
             # Propagate state change to all servers
-            for server in self._servers.values():
+            for server in self.servers.values():
                 if hasattr(server, '_update_active_mode'):
                     server._update_active_mode()
     
@@ -408,6 +431,6 @@ class ZMQConnectionManager:
             logger.info("ZMQConnectionManager: Entering STANDBY mode (genome not loaded)")
             
         # Propagate state change to all servers
-        for server in self._servers.values():
+        for server in self.servers.values():
             if hasattr(server, '_update_active_mode'):
                 server._update_active_mode() 

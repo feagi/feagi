@@ -9,7 +9,7 @@ from feagi.bdu.models.cortical_area import CorticalArea
 def cortical_area():
     """Create a simple cortical area for testing."""
     return CorticalArea(
-        area_id="test_area",
+        cortical_id="test_area",
         name="Test Area",
         dimensions=(10, 10, 5),
         position=(0, 0, 0),
@@ -19,7 +19,7 @@ def cortical_area():
 def test_cortical_area_init():
     """Test cortical area initialization."""
     area = CorticalArea(
-        area_id="test_area",
+        cortical_id="test_area",
         name="Test Area",
         dimensions=(10, 10, 5),
         position=(0, 0, 0),

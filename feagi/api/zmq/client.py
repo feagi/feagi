@@ -7,7 +7,7 @@ import asyncio
 from feagi.utils.logger import setup_logger
 logger = setup_logger(__name__)
 import time
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional, Callable, Callable
 
 import zmq
 import zmq.asyncio

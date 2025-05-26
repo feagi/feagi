@@ -106,7 +106,15 @@ def mock_core_api_service(mock_connectome_manager):
 @pytest.fixture
 def test_app(mock_core_api_service, mock_connectome_manager):
     """Create a test FastAPI application with mocked dependencies."""
-    from feagi.api.rest.routers.v1 import root_router as v1_router
+    # Import the universal wrapper functions directly instead of old routers
+    from feagi.api.transport.universal_fastapi import (
+        get_system_router, get_genome_router, get_cortical_area_router,
+        get_connectome_router, get_burst_engine_router, get_neuroplasticity_router,
+        get_region_router, get_morphology_router, get_monitoring_router,
+        get_simulation_router, get_feagi_agent_router, get_insights_router,
+        get_training_router, get_cortical_mapping_router, get_network_router,
+        get_inputs_router, get_outputs_router, get_evolution_router
+    )
     
     # Create FastAPI app
     app = FastAPI(title="FEAGI API Test")
@@ -116,8 +124,25 @@ def test_app(mock_core_api_service, mock_connectome_manager):
         mock_get_connectome.return_value = mock_connectome_manager
         
         with patch('feagi.api.rest.dependencies._connectome_instance', mock_connectome_manager):
-            # Include routers
-            app.include_router(v1_router, prefix="/v1")
+            # Include all v1 routers using the universal wrapper
+            app.include_router(get_system_router(), prefix="/v1/system", tags=["SYSTEM"])
+            app.include_router(get_genome_router(), prefix="/v1/genome", tags=["GENOME"])
+            app.include_router(get_cortical_area_router(), prefix="/v1/cortical_area", tags=["CORTICAL AREAS"])
+            app.include_router(get_connectome_router(), prefix="/v1/connectome", tags=["CONNECTOME"])
+            app.include_router(get_burst_engine_router(), prefix="/v1/burst_engine", tags=["BURST ENGINE"])
+            app.include_router(get_neuroplasticity_router(), prefix="/v1/neuroplasticity", tags=["NEUROPLASTICITY"])
+            app.include_router(get_region_router(), prefix="/v1/region", tags=["BRAIN REGIONS"])
+            app.include_router(get_morphology_router(), prefix="/v1/morphology", tags=["NEURON MORPHOLOGIES"])
+            app.include_router(get_monitoring_router(), prefix="/v1/monitoring", tags=["MONITORING"])
+            app.include_router(get_simulation_router(), prefix="/v1/simulation", tags=["SIMULATION"])
+            app.include_router(get_feagi_agent_router(), prefix="/v1/agent", tags=["FEAGI AGENT"])
+            app.include_router(get_insights_router(), prefix="/v1/insight", tags=["INSIGHTS"])
+            app.include_router(get_training_router(), prefix="/v1/training", tags=["TRAINING"])
+            app.include_router(get_cortical_mapping_router(), prefix="/v1/cortical_mapping", tags=["CORTICAL MAPPINGS"])
+            app.include_router(get_network_router(), prefix="/v1/network", tags=["NETWORK"])
+            app.include_router(get_inputs_router(), prefix="/v1/input", tags=["INPUT MANAGEMENT"])
+            app.include_router(get_outputs_router(), prefix="/v1/output", tags=["OUTPUT MANAGEMENT"])
+            app.include_router(get_evolution_router(), prefix="/v1/evolution", tags=["EVOLUTIONARY"])
             
             # Create and return TestClient
             client = TestClient(app)

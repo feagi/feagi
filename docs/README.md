@@ -24,6 +24,9 @@ Documents follow a standardized naming convention with prefixes indicating their
 
 ### Architecture
 - [System Overview](arch-system-overview.md) - Core FEAGI architecture
+- [API Decorator Architecture](arch-api-decorator-architecture.md) - **CRITICAL** - Single source of truth API design and architectural compliance
+- [Burst Engine Lifecycle](arch-burst-engine-lifecycle.md) - **NEW** - Burst engine state management and workflow
+- [Godot Bridge Integration](arch-godot-bridge-integration.md) - **NEW** - Godot visualization bridge architecture and data flow
 - [GPU Architecture](arch-gpu.md) - GPU acceleration design
 - [IPC Architecture](arch-ipc.md) - Inter-process communication
 - [State Management](arch-state-management.md) - System state management

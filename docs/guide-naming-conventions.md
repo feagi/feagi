@@ -17,6 +17,8 @@ FEAGI uses two distinct types of identifiers for cortical areas:
 - **Usage**: Used in genome files and as the source of truth for cortical area identification
 - **Format**: Limited to 6 characters by design
 - **Persistence**: Remains consistent across runs and deployments, stored in genome files
+- **Domain**: Primary identifier used in the genome and BDU (Brain Development Unit) processes
+- **Operations**: Used for all operations where human-readable identifiers are needed or serialization is required
 
 ### 1.2 `cortical_idx`
 
@@ -26,8 +28,19 @@ FEAGI uses two distinct types of identifiers for cortical areas:
 - **Format**: Simple integers starting from 0 or 1
 - **Generation**: Auto-assigned during brain development based on order in the genome blueprint
 - **Volatility**: May change between runs or deployments
+- **Domain**: Used for high-performance operations like GPU processing and FCL (Firing Neuron List)
+- **Operations**: Used in all compute-intensive operations where performance is critical
 
-### 1.3 Mapping Between Identifiers
+### 1.3 Domain Separation
+
+Each identifier type has its specific domain of usage:
+
+- NeuronArray and other GPU-optimized structures should only use `cortical_idx` for maximum performance
+- ConnectomeManagerGPU and FCL manager are responsible for translating between `cortical_id` and `cortical_idx`
+- APIs and user-facing components should primarily use `cortical_id` for consistency and readability
+- Only high-performance computational components should directly use `cortical_idx`
+
+### 1.4 Mapping Between Identifiers
 
 The `Neuroembryogenesis` class maintains bidirectional mappings between these two identifier types:
 
@@ -39,7 +52,18 @@ cortical_id_map[cortical_idx] = cortical_id
 reverse_cortical_id_map[cortical_id] = cortical_idx
 ```
 
-### 1.4 Deprecated Terminology
+### 1.5 Implementation Details
+
+The naming convention is consistently applied throughout the codebase:
+
+- In `connectome_manager_gpu.py`, the property is called `cortical_idxs` in the NeuronArray class
+- In `optimized_structures.py`, the property is called `cortical_idxs` in the GlobalNeuronArray class
+- In `Connectome` class, the properties `source_cortical_idxs` and `target_cortical_idxs` store integer indices
+- All GPU-optimized structures consistently use the `_idxs` suffix for integer index arrays
+
+This consistent naming makes it clear when we're dealing with string identifiers (`cortical_id`) versus integer indices (`cortical_idx`).
+
+### 1.6 Deprecated Terminology
 
 ⚠️ **IMPORTANT**: The following terms are deprecated and should NOT be used in new code:
 

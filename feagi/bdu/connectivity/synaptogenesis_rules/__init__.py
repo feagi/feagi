@@ -336,153 +336,163 @@ def last_to_first(src_area_id, dst_area_id, src_neuron_id, connectome_manager=No
     # For testing purposes, just connect to the first destination neuron
     return [(dst_neurons[0], 1.0)]
 
-def neighbor_finder(src_area_id=None, dst_area_id=None, src_neuron_id=None, morphology=None, src_subregion=None, connectome_manager=None, memory_register=None):
-    """Find neighboring neurons based on morphology type and parameters.
+def neighbor_finder(src_cortical_id=None, dst_cortical_id=None, src_neuron_id=None, morphology=None, src_subregion=None, connectome_manager=None, memory_register=None):
+    """
+    Main entry point for finding target neurons based on a morphology.
     
     Args:
-        src_area_id: Source area ID
-        dst_area_id: Destination area ID
+        src_cortical_id: Source cortical ID (6-character identifier)
+        dst_cortical_id: Destination cortical ID (6-character identifier)
         src_neuron_id: Source neuron ID
-        morphology: Morphology configuration with type and parameters
-        src_subregion: Source subregion tuple ((x1,y1,z1), (x2,y2,z2))
+        morphology: Morphology parameters
+        src_subregion: Source subregion bounding box
         connectome_manager: ConnectomeManager instance
-        memory_register: Memory register for tracking connections
+        memory_register: Optional memory register for memory-based morphologies
         
     Returns:
-        List of (neuron_id, weight) tuples
+        List of (neuron_id, weight) tuples for target neurons
     """
-    # If required parameters are missing, return empty list
-    if not connectome_manager or not dst_area_id or not src_neuron_id or not morphology:
+    # Early return if required parameters missing
+    if not connectome_manager or not dst_cortical_id or not src_neuron_id or not morphology:
         return []
     
-    # Initialize memory_register if None
-    if memory_register is None:
-        memory_register = {}
+    # Get morphology type
+    morphology_type = morphology.get("type", "standard")
     
-    # Get the morphology type and handle accordingly
-    morphology_type = morphology.get("type", "")
+    # Convert potential old format where type is in "parameter.type" to new format
+    if "parameters" in morphology and "type" in morphology["parameters"]:
+        morphology_type = morphology["parameters"]["type"]
     
-    # Handle vector-based morphology
-    if morphology_type == RuleType.VECTORS.value:
+    # Return a list of target neurons based on the morphology type
+    if morphology_type == "vectors":
+        # Get the vectors from the morphology
         vectors = morphology.get("parameters", {}).get("vectors", [])
-        position = connectome_manager.get_neuron_position(src_neuron_id)
-        if not position:
-            return []
-            
-        # Find destination neurons using vectors
-        results = []
+        
+        # Default weight if not specified
+        default_weight = morphology.get("parameters", {}).get("weight", 1.0)
+        
+        target_neurons = []
+        
+        # Process each vector to find target neurons
         for vector in vectors:
-            # Calculate target position
-            target_x = position[0] + vector[0]
-            target_y = position[1] + vector[1]
-            target_z = position[2] + vector[2]
+            # Extract the weight for this vector
+            weight = vector.get("weight", default_weight)
             
-            # Find neurons at or near target position
-            for dst_neuron_id in connectome_manager.get_neurons_by_area(dst_area_id):
-                dst_pos = connectome_manager.get_neuron_position(dst_neuron_id)
-                if dst_pos and dst_pos[0] == target_x and dst_pos[1] == target_y and dst_pos[2] == target_z:
-                    results.append((dst_neuron_id, 1.0))
+            # Find target neurons for this vector
+            for dst_neuron_id in connectome_manager.get_neurons_by_area(dst_cortical_id):
+                # Get the source and destination positions
+                src_position = connectome_manager.get_neuron_position(src_neuron_id)
+                dst_position = connectome_manager.get_neuron_position(dst_neuron_id)
+                
+                # Check if this follows the vector pattern
+                if vector_matches(src_position, dst_position, vector):
+                    target_neurons.append((dst_neuron_id, weight))
         
-        return results
+        return target_neurons
+    
+    elif morphology_type == "patterns":
+        # Get a random sample of neurons from the destination area
+        dst_neurons = connectome_manager.get_neurons_by_area(dst_cortical_id)
         
-    # Handle pattern-based morphology
-    elif morphology_type == RuleType.PATTERNS.value:
-        patterns = morphology.get("parameters", {}).get("patterns", [])
-        position = connectome_manager.get_neuron_position(src_neuron_id)
-        if not position or not patterns:
+        # Handle empty destination area
+        if not dst_neurons:
             return []
             
-        # Get destination neurons
-        dst_neurons = connectome_manager.get_neurons_by_area(dst_area_id)
-        results = []
+        # Determine the number of patterns
+        patterns = morphology.get("parameters", {}).get("patterns", [])
+        if not patterns:
+            return []
+            
+        # Select a pattern randomly
+        pattern = random.choice(patterns)
         
-        # For each pattern, find matching neurons
-        for pattern in patterns:
-            if len(pattern) >= 2:  # Each pattern should have src and dst patterns
-                src_pattern, dst_pattern = pattern[0], pattern[1]
-                
-                # For each destination neuron, check if it matches the pattern
-                for dst_neuron_id in dst_neurons:
-                    dst_pos = connectome_manager.get_neuron_position(dst_neuron_id)
-                    if dst_pos:
-                        # Simple pattern matching (exact position match for testing)
-                        if position == dst_pos:
-                            results.append((dst_neuron_id, 1.0))
+        # Get the number of neurons to connect to
+        connection_percentage = pattern.get("percentage", 10) / 100
+        count = int(len(dst_neurons) * connection_percentage)
+        count = max(1, min(count, len(dst_neurons)))  # Ensure at least 1, at most all
         
-        return results
+        # Default weight if not specified
+        weight = pattern.get("weight", 1.0)
+        
+        # Select random neurons
+        selected_neurons = random.sample(dst_neurons, count)
+        
+        return [(neuron_id, weight) for neuron_id in selected_neurons]
     
-    # Handle function-based morphology
-    elif morphology_type == RuleType.FUNCTIONS.value or morphology_type == "function":
-        function_name = morphology.get("parameters", {}).get("function", "")
-        
-        # Handle different morphology functions
-        if function_name == "expander_x":
-            return syn_expander_x(
-                src_area_id=src_area_id, 
-                dst_area_id=dst_area_id, 
-                src_neuron_id=src_neuron_id, 
-                morphology=morphology,
-                src_subregion=src_subregion, 
-                connectome_manager=connectome_manager,
-                memory_register=memory_register
-            )
-        elif function_name == "reducer_x":
-            return syn_reducer_x(
-                src_area_id=src_area_id, 
-                dst_area_id=dst_area_id, 
-                src_neuron_id=src_neuron_id,
-                morphology=morphology,
-                src_subregion=src_subregion, 
-                connectome_manager=connectome_manager,
-                memory_register=memory_register
-            )
-        elif function_name == "randomizer":
-            return syn_randomizer(
-                src_area_id=src_area_id,
-                dst_area_id=dst_area_id,
-                src_neuron_id=src_neuron_id,
-                morphology=morphology,
-                connectome_manager=connectome_manager,
-                src_subregion=src_subregion,
-                memory_register=memory_register
-            )
-        elif function_name == "lateral_pairs_x":
-            return syn_lateral_pairs_x(
-                src_area_id=src_area_id, 
-                dst_area_id=dst_area_id, 
-                src_neuron_id=src_neuron_id,
-                morphology=morphology,
-                src_subregion=src_subregion, 
-                connectome_manager=connectome_manager,
-                memory_register=memory_register
-            )
-        elif function_name == "block_connection":
-            return syn_block_connection(
-                src_area_id=src_area_id, 
-                dst_area_id=dst_area_id, 
-                src_neuron_id=src_neuron_id,
-                morphology=morphology,
-                src_subregion=src_subregion, 
-                connectome_manager=connectome_manager,
-                memory_register=memory_register
-            )
-        elif function_name == "projector":
-            return syn_projector(
-                src_area_id=src_area_id, 
-                dst_area_id=dst_area_id, 
-                src_neuron_id=src_neuron_id,
-                morphology=morphology,
-                src_subregion=src_subregion, 
-                connectome_manager=connectome_manager,
-                memory_register=memory_register
-            )
-        elif function_name == "last_to_first":
-            return last_to_first(
-                src_area_id=src_area_id, 
-                dst_area_id=dst_area_id, 
-                src_neuron_id=src_neuron_id,
-                connectome_manager=connectome_manager
-            )
+    # If using a function-based morphology, dispatch to the appropriate function
+    if morphology_type == "expander_x":
+        return syn_expander_x(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register
+        )
+    elif morphology_type == "reducer_x":
+        return syn_reducer_x(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register
+        )
+    elif morphology_type == "randomizer":
+        return syn_randomizer(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            connectome_manager=connectome_manager,
+            src_subregion=src_subregion,
+            memory_register=memory_register
+        )
+    elif morphology_type == "lateral_pairs_x":
+        return syn_lateral_pairs_x(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register
+        )
+    elif morphology_type == "block_connection":
+        return syn_block_connection(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register
+        )
+    elif morphology_type == "projector":
+        return syn_projector(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register
+        )
+    elif morphology_type == "memory":
+        return syn_memory(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            memory_register=memory_register
+        )
+    elif morphology_type == "last_to_first":
+        return last_to_first(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            connectome_manager=connectome_manager
+        )
     
     # Default case - return empty list
     return []

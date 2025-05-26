@@ -25,7 +25,7 @@ These processes handle the core neural simulation and must maintain real-time pe
 ### Priority 2 (Important - Near Real-time)
 These processes handle important but less time-critical operations:
 
-1. **FCL Sampler**: Periodically extracts data from the FCL for visualization and motor output.
+1. **FQ Sampler**: Periodically extracts data from the FCL for visualization and motor output.
 2. **PNS Message Broker (ZMQ Server)**: Manages communication with peripherals and external systems.
 3. **Resource Manager**: Monitors and allocates system resources based on process demands.
 

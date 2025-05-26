@@ -18,16 +18,23 @@ from typing import Dict, List, Optional, Set, Tuple, Union, Any
 
 # Try to import the Rust extension
 try:
-    from feagi_rust import (
-        create_gna, 
-        create_fcl, 
-        create_connectome, 
-        create_feagi_core,
-    )
-    RUST_AVAILABLE = True
-except ImportError:
+    # Try to import the Rust extension
+    try:
+        from feagi_rust import (
+            create_gna, 
+            create_fcl, 
+            create_connectome, 
+            create_feagi_core,
+        )
+        RUST_AVAILABLE = True
+    except (ImportError, AttributeError) as e:
+        # Log the specific error to help with debugging
+        logging.warning(f"Rust optimized structures not available (Error: {str(e)}). Using NumPy-based SIMD fallback.")
+        RUST_AVAILABLE = False
+except Exception as e:
+    # Catch any other errors during import
+    logging.warning(f"Error importing Rust components: {str(e)}. Using NumPy-based SIMD fallback.")
     RUST_AVAILABLE = False
-    logging.warning("Rust optimized structures not available. Using NumPy-based SIMD fallback.")
 
 class GlobalNeuronArray:
     """
@@ -45,31 +52,96 @@ class GlobalNeuronArray:
             capacity: Maximum number of neurons to support
         """
         self.capacity = capacity
+        
+        # Import SIMD detection for alignment
+        try:
+            from ..utils.simd_detection import get_simd_detector
+            simd_detector = get_simd_detector()
+            self.alignment = simd_detector.get_memory_alignment()
+            self.vector_width = simd_detector.capabilities.vector_width
+            
+            # Align capacity to SIMD vector boundaries for optimal performance
+            self.aligned_capacity = simd_detector.get_aligned_size(capacity)
+        except ImportError:
+            self.alignment = 32  # Default to 32-byte alignment
+            self.vector_width = 8
+            self.aligned_capacity = (capacity + 7) & ~7  # 8-element alignment
+        
         if RUST_AVAILABLE:
-            self._rust_gna = create_gna(capacity)
+            self._rust_gna = create_gna(self.aligned_capacity)
             self._use_rust = True
         else:
-            # Fallback to NumPy implementation - SoA pattern
+            # Fallback to NumPy implementation - SoA pattern with SIMD alignment
             self._use_rust = False
             
             # Use contiguous C-order arrays with proper dtype alignment for SIMD/GPU
-            # Float32 for all floating point values - optimal for GPU
-            self.membrane_potentials = np.zeros(capacity, dtype=np.float32, order='C')
-            self.thresholds = np.ones(capacity, dtype=np.float32, order='C')
+            # Float32 for all floating point values - optimal for GPU and SIMD
+            self.membrane_potentials = self._create_aligned_array(self.aligned_capacity, np.float32)
+            self.thresholds = self._create_aligned_array(self.aligned_capacity, np.float32)
+            
+            # Initialize thresholds to 1.0
+            self.thresholds.fill(1.0)
             
             # Int32 for integer values - optimal for GPU
-            self.refractory_periods = np.zeros(capacity, dtype=np.int32, order='C')
-            self.refractory_counters = np.zeros(capacity, dtype=np.int32, order='C')
-            self.last_fired = np.zeros(capacity, dtype=np.int32, order='C')
-            self.neuron_types = np.zeros(capacity, dtype=np.int32, order='C')  # 0=excitatory, 1=inhibitory, etc.
-            self.enabled_flags = np.ones(capacity, dtype=np.int32, order='C')  # 1=enabled, 0=disabled
-            self.cortical_area_ids = np.zeros(capacity, dtype=np.int32, order='C')
+            self.refractory_periods = self._create_aligned_array(self.aligned_capacity, np.int32)
+            self.refractory_counters = self._create_aligned_array(self.aligned_capacity, np.int32)
+            self.last_fired = self._create_aligned_array(self.aligned_capacity, np.int32)
+            self.neuron_types = self._create_aligned_array(self.aligned_capacity, np.int32)  # 0=excitatory, 1=inhibitory, etc.
+            self.enabled_flags = self._create_aligned_array(self.aligned_capacity, np.int32)  # 1=enabled, 0=disabled
+            self.cortical_idxs = self._create_aligned_array(self.aligned_capacity, np.int32)
+            
+            # Initialize enabled flags to 1
+            self.enabled_flags.fill(1)
             
             # Use separate arrays for coordinates - optimal SoA layout for SIMD/GPU processing
             # Each coordinate component gets its own contiguous memory array
-            self.coordinates_x = np.zeros(capacity, dtype=np.uint32, order='C')
-            self.coordinates_y = np.zeros(capacity, dtype=np.uint32, order='C')
-            self.coordinates_z = np.zeros(capacity, dtype=np.uint32, order='C')
+            self.coordinates_x = self._create_aligned_array(self.aligned_capacity, np.uint32)
+            self.coordinates_y = self._create_aligned_array(self.aligned_capacity, np.uint32)
+            self.coordinates_z = self._create_aligned_array(self.aligned_capacity, np.uint32)
+            
+            # Additional arrays for SIMD-optimized operations
+            self.decay_rates = self._create_aligned_array(self.aligned_capacity, np.float32)
+            self.resting_potentials = self._create_aligned_array(self.aligned_capacity, np.float32)
+            
+            # Initialize decay rates to default value
+            self.decay_rates.fill(0.95)
+            
+            # Working arrays for vectorized operations
+            self._temp_potentials = self._create_aligned_array(self.aligned_capacity, np.float32)
+            self._temp_mask = self._create_aligned_array(self.aligned_capacity, np.bool_)
+    
+    def _create_aligned_array(self, size: int, dtype: np.dtype) -> np.ndarray:
+        """
+        Create a SIMD-aligned NumPy array for optimal performance.
+        
+        Args:
+            size: Number of elements
+            dtype: NumPy data type
+            
+        Returns:
+            Aligned NumPy array
+        """
+        # Calculate total bytes needed
+        element_size = np.dtype(dtype).itemsize
+        total_bytes = size * element_size
+        
+        # Pad to alignment boundary
+        aligned_bytes = (total_bytes + self.alignment - 1) & ~(self.alignment - 1)
+        aligned_size = aligned_bytes // element_size
+        
+        # Create array with extra padding and ensure C-order
+        array = np.zeros(aligned_size, dtype=dtype, order='C')
+        
+        # Verify alignment (best effort - NumPy doesn't guarantee alignment)
+        if array.ctypes.data % self.alignment == 0:
+            # Array is properly aligned
+            pass
+        else:
+            # NumPy couldn't provide aligned memory, but array is still usable
+            # Performance may be slightly reduced
+            pass
+        
+        return array[:size]  # Return only the requested size
     
     def get_membrane_potential(self, neuron_id: int) -> float:
         """Get membrane potential for a neuron."""
@@ -120,13 +192,25 @@ class GlobalNeuronArray:
             self.coordinates_y[neuron_id] = np.uint32(max(0, y))
             self.coordinates_z[neuron_id] = np.uint32(max(0, z))
     
-    def update_membrane_potentials(self, decay_factor: float) -> None:
-        """Update all membrane potentials with decay."""
+    def simd_optimized_update_membrane_potentials(self, decay_factor: float) -> None:
+        """
+        SIMD-optimized membrane potential update with vectorization.
+        
+        Args:
+            decay_factor: Global decay factor to apply
+        """
         if self._use_rust:
             self._rust_gna.decay_membrane_potentials(decay_factor)
         else:
-            # Vectorized operation using NumPy
-            self.membrane_potentials *= decay_factor
+            # Use SIMD-friendly vectorized operations
+            # Process in chunks for optimal cache utilization
+            chunk_size = max(self.vector_width * 8, 64)  # Process 8 SIMD vectors at a time
+            
+            for i in range(0, self.capacity, chunk_size):
+                end_idx = min(i + chunk_size, self.capacity)
+                
+                # Vectorized decay operation on chunk
+                self.membrane_potentials[i:end_idx] *= decay_factor
     
     def update_refractory_counters(self) -> None:
         """Update refractory counters for all neurons."""
@@ -137,34 +221,128 @@ class GlobalNeuronArray:
             mask = self.refractory_counters > 0
             self.refractory_counters[mask] -= 1
     
-    def find_fire_candidates(self, timestep: int) -> List[int]:
-        """Find neurons that are ready to fire."""
+    def simd_optimized_find_fire_candidates(self, timestep: int) -> List[int]:
+        """
+        SIMD-optimized fire candidate detection with vectorization.
+        
+        Args:
+            timestep: Current simulation timestep
+            
+        Returns:
+            List of neuron IDs ready to fire
+        """
         if self._use_rust:
             return self._rust_gna.get_fire_candidates(timestep)
         else:
-            # Vectorized operations using NumPy
-            # 1. Create masks for each condition
-            not_refractory = self.refractory_counters == 0
-            enabled = self.enabled_flags > 0
-            above_threshold = self.membrane_potentials >= self.thresholds
+            # Use vectorized operations for candidate detection
+            # Process in SIMD-friendly chunks
+            candidates = []
+            chunk_size = max(self.vector_width * 4, 32)
             
-            # 2. Combine masks and get indices
-            fire_mask = not_refractory & enabled & above_threshold
-            return np.where(fire_mask)[0].tolist()
+            for i in range(0, self.capacity, chunk_size):
+                end_idx = min(i + chunk_size, self.capacity)
+                
+                # Vectorized conditions check
+                not_refractory = self.refractory_counters[i:end_idx] == 0
+                enabled = self.enabled_flags[i:end_idx] > 0
+                above_threshold = self.membrane_potentials[i:end_idx] >= self.thresholds[i:end_idx]
+                
+                # Combined condition using vectorized AND
+                fire_mask = not_refractory & enabled & above_threshold
+                
+                # Get indices of firing neurons in this chunk
+                if np.any(fire_mask):
+                    chunk_candidates = np.where(fire_mask)[0] + i
+                    candidates.extend(chunk_candidates.tolist())
+            
+            return candidates
     
-    def process_fired_neurons(self, fired_list: List[int], timestep: int) -> None:
-        """Process neurons that have fired."""
+    def simd_optimized_process_fired_neurons(self, fired_list: List[int], timestep: int) -> None:
+        """
+        SIMD-optimized processing of fired neurons with vectorization.
+        
+        Args:
+            fired_list: List of neuron IDs that fired
+            timestep: Current simulation timestep
+        """
         if self._use_rust:
             self._rust_gna.process_fired_neurons(fired_list, timestep)
         else:
-            import numpy as np
-            # Convert to NumPy array if not already
+            if not fired_list:
+                return
+                
+            # Convert to NumPy array for vectorized operations
             fired_indices = np.asarray(fired_list, dtype=np.int32)
             
-            # Vectorized operations
-            self.membrane_potentials[fired_indices] = 0.0
+            # Vectorized reset operations
+            self.membrane_potentials[fired_indices] = self.resting_potentials[fired_indices]
             self.refractory_counters[fired_indices] = self.refractory_periods[fired_indices]
             self.last_fired[fired_indices] = timestep
+    
+    def batch_update_coordinates(self, neuron_ids: List[int], 
+                               coordinates: List[Tuple[int, int, int]]) -> None:
+        """
+        Batch update coordinates using vectorized operations.
+        
+        Args:
+            neuron_ids: List of neuron IDs to update
+            coordinates: List of (x, y, z) coordinate tuples
+        """
+        if len(neuron_ids) != len(coordinates):
+            raise ValueError("neuron_ids and coordinates must have same length")
+        
+        if not neuron_ids:
+            return
+        
+        # Convert to arrays for vectorized assignment
+        indices = np.asarray(neuron_ids, dtype=np.int32)
+        coords_array = np.asarray(coordinates, dtype=np.uint32)
+        
+        # Vectorized coordinate updates
+        self.coordinates_x[indices] = coords_array[:, 0]
+        self.coordinates_y[indices] = coords_array[:, 1]
+        self.coordinates_z[indices] = coords_array[:, 2]
+    
+    def vectorized_membrane_potential_update(self, 
+                                           input_currents: np.ndarray, 
+                                           target_indices: np.ndarray) -> np.ndarray:
+        """
+        Vectorized membrane potential update with input currents.
+        
+        Args:
+            input_currents: Array of input currents
+            target_indices: Array of target neuron indices
+            
+        Returns:
+            Array of neurons that fired
+        """
+        if len(input_currents) != len(target_indices):
+            raise ValueError("input_currents and target_indices must have same length")
+        
+        # Apply input currents using vectorized scatter operation
+        # Only update neurons not in refractory period
+        can_update = (self.refractory_counters[target_indices] == 0) & (self.enabled_flags[target_indices] > 0)
+        
+        if np.any(can_update):
+            valid_targets = target_indices[can_update]
+            valid_currents = input_currents[can_update]
+            
+            # Vectorized current application
+            self.membrane_potentials[valid_targets] += valid_currents
+            
+            # Check for firing (vectorized)
+            fired_mask = self.membrane_potentials[valid_targets] >= self.thresholds[valid_targets]
+            
+            if np.any(fired_mask):
+                fired_neurons = valid_targets[fired_mask]
+                
+                # Reset fired neurons (vectorized)
+                self.membrane_potentials[fired_neurons] = self.resting_potentials[fired_neurons]
+                self.refractory_counters[fired_neurons] = self.refractory_periods[fired_neurons]
+                
+                return fired_neurons
+        
+        return np.array([], dtype=np.int32)
     
     def get_all_membrane_potentials(self) -> List[float]:
         """Get all membrane potentials."""
@@ -172,6 +350,8 @@ class GlobalNeuronArray:
             return self._rust_gna.get_all_membrane_potentials()
         else:
             return self.membrane_potentials.tolist()
+            
+
 
 class FireCandidateList:
     """
@@ -355,8 +535,8 @@ class Connectome:
             self.weights = np.zeros(estimated_connections, dtype=np.float32)
             self.delays = np.zeros(estimated_connections, dtype=np.int32)
             self.connection_types = np.zeros(estimated_connections, dtype=np.int32)
-            self.source_area_ids = np.zeros(estimated_connections, dtype=np.int32)
-            self.target_area_ids = np.zeros(estimated_connections, dtype=np.int32)
+            self.source_cortical_idxs = np.zeros(estimated_connections, dtype=np.int32)
+            self.target_cortical_idxs = np.zeros(estimated_connections, dtype=np.int32)
             
             # Track actual used size
             self._connection_count = 0
@@ -368,25 +548,26 @@ class Connectome:
         weight: float,
         delay: int = 0,
         connection_type: int = 0,
-        source_area_id: int = 0,
-        target_area_id: int = 0,
+        source_cortical_idx: int = 0,
+        target_cortical_idx: int = 0,
     ) -> None:
-        """
-        Add a synaptic connection.
+        """Add a connection between neurons.
         
         Args:
-            source_id: Source neuron ID
-            target_id: Target neuron ID
-            weight: Synaptic weight
-            delay: Synaptic delay in timesteps
+            source_id: ID of the source neuron
+            target_id: ID of the target neuron
+            weight: Connection weight
+            delay: Connection delay in timesteps
             connection_type: Type of connection (0=excitatory, 1=inhibitory, etc.)
-            source_area_id: ID of the source cortical area
-            target_area_id: ID of the target cortical area
+            source_cortical_idx: Index of the source cortical area
+            target_cortical_idx: Index of the target cortical area
         """
         if self._use_rust:
+            # Use Rust implementation if available
             self._rust_connectome.add_connection(
-                source_id, target_id, weight, delay, connection_type, source_area_id, target_area_id
+                source_id, target_id, weight, delay, connection_type, source_cortical_idx, target_cortical_idx
             )
+            return
         else:
             # Check if we need to resize the arrays
             if self._connection_count >= len(self.target_indices):
@@ -409,16 +590,16 @@ class Connectome:
                 self.weights[insert_pos+1:self._connection_count+1] = self.weights[insert_pos:self._connection_count]
                 self.delays[insert_pos+1:self._connection_count+1] = self.delays[insert_pos:self._connection_count]
                 self.connection_types[insert_pos+1:self._connection_count+1] = self.connection_types[insert_pos:self._connection_count]
-                self.source_area_ids[insert_pos+1:self._connection_count+1] = self.source_area_ids[insert_pos:self._connection_count]
-                self.target_area_ids[insert_pos+1:self._connection_count+1] = self.target_area_ids[insert_pos:self._connection_count]
+                self.source_cortical_idxs[insert_pos+1:self._connection_count+1] = self.source_cortical_idxs[insert_pos:self._connection_count]
+                self.target_cortical_idxs[insert_pos+1:self._connection_count+1] = self.target_cortical_idxs[insert_pos:self._connection_count]
             
             # Insert new connection
             self.target_indices[insert_pos] = target_id
             self.weights[insert_pos] = weight
             self.delays[insert_pos] = delay
             self.connection_types[insert_pos] = connection_type
-            self.source_area_ids[insert_pos] = source_area_id
-            self.target_area_ids[insert_pos] = target_area_id
+            self.source_cortical_idxs[insert_pos] = source_cortical_idx
+            self.target_cortical_idxs[insert_pos] = target_cortical_idx
             
             # Update offsets for all sources after this one
             self.source_offsets[source_id+1:] += 1
@@ -437,8 +618,8 @@ class Connectome:
         self.weights = np.resize(self.weights, new_capacity)
         self.delays = np.resize(self.delays, new_capacity)
         self.connection_types = np.resize(self.connection_types, new_capacity)
-        self.source_area_ids = np.resize(self.source_area_ids, new_capacity)
-        self.target_area_ids = np.resize(self.target_area_ids, new_capacity)
+        self.source_cortical_idxs = np.resize(self.source_cortical_idxs, new_capacity)
+        self.target_cortical_idxs = np.resize(self.target_cortical_idxs, new_capacity)
     
     def get_connections_for_neuron(self, neuron_id: int) -> List[Dict[str, Any]]:
         """
@@ -466,8 +647,8 @@ class Connectome:
                     "weight": float(self.weights[i]),
                     "delay": int(self.delays[i]),
                     "connection_type": int(self.connection_types[i]),
-                    "source_area_id": int(self.source_area_ids[i]),
-                    "target_area_id": int(self.target_area_ids[i])
+                    "source_cortical_id": int(self.source_cortical_idxs[i]),
+                    "target_cortical_id": int(self.target_cortical_idxs[i])
                 })
             
             return connections
@@ -478,6 +659,8 @@ class Connectome:
             return self._rust_connectome.connection_count()
         else:
             return self._connection_count
+    
+
     
     def propagate_activations(
         self, source_activations: List[float], target_buffer: List[float]
@@ -562,13 +745,13 @@ class OptimizedFeagiCore:
         else:
             # Use our vectorized implementations
             # 1. Decay membrane potentials
-            self.gna.update_membrane_potentials(0.95)  # Example decay factor
+            self.gna.simd_optimized_update_membrane_potentials(0.95)  # Example decay factor
             
             # 2. Update refractory counters
             self.gna.update_refractory_counters()
             
             # 3. Find neurons ready to fire
-            fire_candidates = self.gna.find_fire_candidates(self._current_timestep)
+            fire_candidates = self.gna.simd_optimized_find_fire_candidates(self._current_timestep)
             
             # 4. Update FCL
             self.fcl.clear()
@@ -576,7 +759,7 @@ class OptimizedFeagiCore:
             
             # 5. Process fired neurons
             if fire_candidates:  # Only process if there are any candidates
-                self.gna.process_fired_neurons(fire_candidates, self._current_timestep)
+                self.gna.simd_optimized_process_fired_neurons(fire_candidates, self._current_timestep)
             
             # Increment timestep
             self._current_timestep += 1

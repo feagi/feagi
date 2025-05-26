@@ -39,14 +39,31 @@ Available notification categories:
 
 Service components in FEAGI transition through these states:
 
+- `UNAVAILABLE`: Service is not available or not started
 - `UNINITIALIZED`: Initial state before component is set up
 - `INITIALIZING`: Component is in the process of initializing
 - `READY`: Component is fully initialized and operational
-- `FAILED`: Component failed to initialize or encountered an error
+- `ON_HOLD`: **NEW** - Component is alive but paused (burst engine only)
+- `DEGRADED`: Component is running but with reduced functionality
+- `ERROR`: Component encountered an error during operation
+- `FAILED`: Component failed to initialize or encountered a critical error
 - `STOPPED`: Component was intentionally stopped
 - `SYNCING`: Component is synchronizing state with other components
 - `SYNC_COMPLETE`: Synchronization has completed successfully
 - `SYNC_ERROR`: Synchronization failed, needs intervention
+
+### Burst Engine Specific States
+
+The burst engine uses a strict lifecycle with specific state transitions:
+
+- `UNAVAILABLE` → Default state at FEAGI launch
+- `READY` → Engine running and processing neurons
+- `ON_HOLD` → Engine alive but neural processing paused
+- `FAILED/ERROR` → Engine cannot start or encountered critical errors
+
+**Critical Design Rule**: The burst engine MUST be in `READY` or `ON_HOLD` state when a genome is loaded. If not, the system will automatically start the engine or fail the genome load operation.
+
+See [Burst Engine Lifecycle Architecture](arch-burst-engine-lifecycle.md) for complete details on state transitions and dependencies.
 
 ## Genome-Connectome Synchronization
 
@@ -80,7 +97,7 @@ State transitions are logged with distinct emoji prefixes for visibility:
 | Connectome | Neuron and synapse data | 🧠 |
 | API Service | REST API availability | 🌐 |
 | ZMQ Service | Messaging system | 📡 |
-| FCL Sampler | Fire Candidate List sampling | 🔥 |
+| FQ Sampler | Fire Candidate List sampling | 🔥 |
 | Genome | Current genome status | 🧬 |
 | Brain Readiness | Overall system readiness | 🟢 |
 | Synchronization | System sync processes | 🔄 |

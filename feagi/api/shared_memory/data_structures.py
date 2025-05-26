@@ -33,7 +33,7 @@ class SharedNeuronArray:
         ('firing_threshold', np.float32),    # Firing threshold
         ('refractory_period', np.float32),   # Refractory period in ms
         ('last_fired_timestamp', np.float64),  # Last time the neuron fired
-        ('cortical_area_id', np.int64),  # ID of the cortical area this neuron belongs to
+        ('cortical_id', np.int64),      # ID of the cortical area this neuron belongs to
         ('neuron_type', np.int32),      # Type of neuron
         ('is_active', np.bool_),        # Whether the neuron is active
         ('reserved1', np.float32),      # Reserved for future use
@@ -74,7 +74,7 @@ class SharedNeuronArray:
         # Initialize metadata
         self.count = 0
         self._neuron_id_to_index: Dict[int, int] = {}
-        self._cortical_area_to_indices: Dict[int, List[int]] = {}
+        self._cortical_id_to_indices: Dict[int, List[int]] = {}
         
         # Initialize the array with zeros
         self.array.fill(0)
@@ -87,7 +87,7 @@ class SharedNeuronArray:
         x: float,
         y: float,
         z: float,
-        cortical_area_id: int,
+        cortical_id: int,
         neuron_type: int = 0,
         firing_threshold: float = 0.5,
         refractory_period: float = 5.0,
@@ -99,7 +99,7 @@ class SharedNeuronArray:
         Args:
             neuron_id: Unique neuron ID
             x, y, z: Coordinates of the neuron
-            cortical_area_id: ID of the cortical area this neuron belongs to
+            cortical_id: ID of the cortical area this neuron belongs to
             neuron_type: Type of neuron (0=default)
             firing_threshold: Threshold at which the neuron fires
             refractory_period: Refractory period in ms
@@ -128,16 +128,16 @@ class SharedNeuronArray:
         self.array[idx]['firing_threshold'] = firing_threshold
         self.array[idx]['refractory_period'] = refractory_period
         self.array[idx]['last_fired_timestamp'] = 0.0
-        self.array[idx]['cortical_area_id'] = cortical_area_id
+        self.array[idx]['cortical_id'] = cortical_id
         self.array[idx]['neuron_type'] = neuron_type
         self.array[idx]['is_active'] = True
         
         # Update our tracking data structures
         self._neuron_id_to_index[neuron_id] = idx
         
-        if cortical_area_id not in self._cortical_area_to_indices:
-            self._cortical_area_to_indices[cortical_area_id] = []
-        self._cortical_area_to_indices[cortical_area_id].append(idx)
+        if cortical_id not in self._cortical_id_to_indices:
+            self._cortical_id_to_indices[cortical_id] = []
+        self._cortical_id_to_indices[cortical_id].append(idx)
         
         self.count += 1
         return True
@@ -158,20 +158,20 @@ class SharedNeuronArray:
         idx = self._neuron_id_to_index[neuron_id]
         return self.array[idx]
     
-    def get_neurons_by_cortical_area(self, cortical_area_id: int) -> np.ndarray:
+    def get_neurons_by_cortical_area(self, cortical_id: int) -> np.ndarray:
         """
         Get all neurons in a cortical area.
         
         Args:
-            cortical_area_id: ID of the cortical area
+            cortical_id: ID of the cortical area
             
         Returns:
             Array of neurons in the cortical area (empty if none found)
         """
-        if cortical_area_id not in self._cortical_area_to_indices:
+        if cortical_id not in self._cortical_id_to_indices:
             return np.empty(0, dtype=self.NEURON_DTYPE)
         
-        indices = self._cortical_area_to_indices[cortical_area_id]
+        indices = self._cortical_id_to_indices[cortical_id]
         return self.array[indices]
     
     def update_neuron(self, neuron_id: int, **kwargs) -> bool:
@@ -213,7 +213,7 @@ class SharedNeuronArray:
             return False
         
         idx = self._neuron_id_to_index[neuron_id]
-        cortical_area_id = self.array[idx]['cortical_area_id']
+        cortical_id = self.array[idx]['cortical_id']
         
         # Instead of removing, just mark as inactive
         self.array[idx]['is_active'] = False
@@ -221,40 +221,42 @@ class SharedNeuronArray:
         # Update our tracking
         del self._neuron_id_to_index[neuron_id]
         
-        if cortical_area_id in self._cortical_area_to_indices:
+        if cortical_id in self._cortical_id_to_indices:
             try:
-                self._cortical_area_to_indices[cortical_area_id].remove(idx)
+                self._cortical_id_to_indices[cortical_id].remove(idx)
             except ValueError:
                 pass
         
         return True
     
-    def remove_cortical_area(self, cortical_area_id: int) -> int:
+    def remove_cortical_area(self, cortical_id: int) -> int:
         """
         Remove all neurons in a cortical area.
         
         Args:
-            cortical_area_id: ID of the cortical area to remove
+            cortical_id: ID of the cortical area to remove
             
         Returns:
             Number of neurons removed
         """
-        if cortical_area_id not in self._cortical_area_to_indices:
+        if cortical_id not in self._cortical_id_to_indices:
             return 0
         
         # Get all neurons in this area
-        indices = self._cortical_area_to_indices[cortical_area_id]
+        indices = self._cortical_id_to_indices[cortical_id]
         count = len(indices)
         
         # Mark them all as inactive
         for idx in indices:
-            self.array[idx]['is_active'] = False
             neuron_id = self.array[idx]['id']
+            self.array[idx]['is_active'] = False
+            
+            # Update our tracking
             if neuron_id in self._neuron_id_to_index:
                 del self._neuron_id_to_index[neuron_id]
         
         # Clear our tracking
-        del self._cortical_area_to_indices[cortical_area_id]
+        del self._cortical_id_to_indices[cortical_id]
         
         return count
 

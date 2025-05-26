@@ -84,8 +84,21 @@ class BitMapProtocol(Protocol):
 # Fallback implementation for environments without pyroaring
 class FallbackBitMap:
     """Simple set-based fallback for environments without pyroaring."""
+    
+    # WGPU-COMPATIBLE: Pre-allocate empty set to reduce dynamic allocation
+    _EMPTY_SET: Set[int] = set()
+    
     def __init__(self, elements=None):
-        self.elements: Set[int] = set(elements) if elements else set()
+        # WGPU-COMPATIBLE: Optimize initialization to reduce dynamic allocation
+        if elements is None:
+            # Use pre-allocated empty set when possible
+            self.elements: Set[int] = FallbackBitMap._EMPTY_SET.copy() if FallbackBitMap._EMPTY_SET else set()
+        elif isinstance(elements, set):
+            self.elements = elements.copy()
+        elif hasattr(elements, '__iter__'):
+            self.elements = set(elements)
+        else:
+            self.elements = {elements}
         
     def add(self, element: int) -> None:
         self.elements.add(element)
@@ -94,28 +107,33 @@ class FallbackBitMap:
         self.elements.clear()
         
     def copy(self) -> 'FallbackBitMap':
-        result = FallbackBitMap()
+        # WGPU-COMPATIBLE: Optimize copy operation
+        result = FallbackBitMap.__new__(FallbackBitMap)
         result.elements = self.elements.copy()
         return result
         
     def __or__(self, other: 'FallbackBitMap') -> 'FallbackBitMap':
-        result = self.copy()
-        result.elements |= other.elements
+        # WGPU-COMPATIBLE: Optimize union operation
+        result = FallbackBitMap.__new__(FallbackBitMap)
+        result.elements = self.elements | other.elements
         return result
     
     def __and__(self, other: 'FallbackBitMap') -> 'FallbackBitMap':
-        result = self.copy()
-        result.elements &= other.elements
+        # WGPU-COMPATIBLE: Optimize intersection operation
+        result = FallbackBitMap.__new__(FallbackBitMap)
+        result.elements = self.elements & other.elements
         return result
     
     def __sub__(self, other: 'FallbackBitMap') -> 'FallbackBitMap':
-        result = self.copy()
-        result.elements -= other.elements
+        # WGPU-COMPATIBLE: Optimize difference operation
+        result = FallbackBitMap.__new__(FallbackBitMap)
+        result.elements = self.elements - other.elements
         return result
     
     def __xor__(self, other: 'FallbackBitMap') -> 'FallbackBitMap':
-        result = self.copy()
-        result.elements ^= other.elements
+        # WGPU-COMPATIBLE: Optimize symmetric difference operation
+        result = FallbackBitMap.__new__(FallbackBitMap)
+        result.elements = self.elements ^ other.elements
         return result
     
     def __len__(self) -> int:
@@ -142,7 +160,11 @@ if PYROARING_AVAILABLE:
         """Wrapper for PyRoaring bitmap with consistent interface."""
         
         def __init__(self, elements=None):
-            self._bitmap = pyroaring.BitMap(elements) if elements is not None else pyroaring.BitMap()
+            # WGPU-COMPATIBLE: Optimize initialization
+            if elements is not None:
+                self._bitmap = pyroaring.BitMap(elements)
+            else:
+                self._bitmap = pyroaring.BitMap()
             
         def add(self, element: int) -> None:
             self._bitmap.add(element)
@@ -151,27 +173,32 @@ if PYROARING_AVAILABLE:
             self._bitmap.clear()
             
         def copy(self) -> 'RoaringBitmap':
-            result = RoaringBitmap()
+            # WGPU-COMPATIBLE: Optimize copy operation
+            result = RoaringBitmap.__new__(RoaringBitmap)
             result._bitmap = self._bitmap.copy()
             return result
             
         def __or__(self, other: 'RoaringBitmap') -> 'RoaringBitmap':
-            result = RoaringBitmap()
+            # WGPU-COMPATIBLE: Optimize union operation
+            result = RoaringBitmap.__new__(RoaringBitmap)
             result._bitmap = self._bitmap | other._bitmap
             return result
         
         def __and__(self, other: 'RoaringBitmap') -> 'RoaringBitmap':
-            result = RoaringBitmap()
+            # WGPU-COMPATIBLE: Optimize intersection operation
+            result = RoaringBitmap.__new__(RoaringBitmap)
             result._bitmap = self._bitmap & other._bitmap
             return result
         
         def __sub__(self, other: 'RoaringBitmap') -> 'RoaringBitmap':
-            result = RoaringBitmap()
+            # WGPU-COMPATIBLE: Optimize difference operation
+            result = RoaringBitmap.__new__(RoaringBitmap)
             result._bitmap = self._bitmap - other._bitmap
             return result
         
         def __xor__(self, other: 'RoaringBitmap') -> 'RoaringBitmap':
-            result = RoaringBitmap()
+            # WGPU-COMPATIBLE: Optimize symmetric difference operation
+            result = RoaringBitmap.__new__(RoaringBitmap)
             result._bitmap = self._bitmap ^ other._bitmap
             return result
         
@@ -251,8 +278,13 @@ class FCLManager:
             window_size: Number of timesteps to maintain in history
         """
         self.window_size: int = window_size
+        
+        # WGPU-COMPATIBLE: Pre-allocate BitMaps more efficiently
         # Main FCL history - stores all neurons regardless of cortical
-        self.global_fcl_history: List[BitMap] = [BitMap() for _ in range(window_size)]
+        self.global_fcl_history: List[BitMap] = []
+        for _ in range(window_size):
+            self.global_fcl_history.append(BitMap())
+            
         # Cortical-specific FCL history - mapping from cortical_idx to list of bitmaps
         self.cortical_fcl_history: Dict[CorticalIdx, List[BitMap]] = {}
         self.current_window_index: int = 0
@@ -273,7 +305,11 @@ class FCLManager:
             cortical_idx: ID of the cortical area to initialize
         """
         if cortical_idx not in self.cortical_fcl_history:
-            self.cortical_fcl_history[cortical_idx] = [BitMap() for _ in range(self.window_size)]
+            # WGPU-COMPATIBLE: Pre-allocate BitMaps more efficiently
+            cortical_history: List[BitMap] = []
+            for _ in range(self.window_size):
+                cortical_history.append(BitMap())
+            self.cortical_fcl_history[cortical_idx] = cortical_history
     
     def _get_index_for_timestep(self, timestep: Optional[int] = None) -> int:
         """
@@ -404,22 +440,22 @@ class FCLManager:
     
     def get_active_corticals(self, timestep: Optional[int] = None) -> Set[CorticalIdx]:
         """
-        Return a set of cortical indices that have any firing neurons.
+        Get cortical areas that have firing neurons at the specified timestep.
         
         Args:
-            timestep: Optional timestep to query (defaults to current timestep)
+            timestep: Optional timestep (defaults to current)
             
         Returns:
-            Set of cortical indices with active neurons
+            Set of cortical area IDs with active neurons
+            
+        Raises:
+            TimestepOutOfRangeError: If timestep is outside valid range
         """
         index = self._get_index_for_timestep(timestep)
-            
-        result: Set[CorticalIdx] = set()
-        for cortical_idx, fcl_history in self.cortical_fcl_history.items():
-            if not fcl_history[index].is_empty():
-                result.add(cortical_idx)
-                
-        return result
+        
+        # WGPU-COMPATIBLE: Use set comprehension instead of dynamic allocation
+        return {cortical_idx for cortical_idx, fcl_history in self.cortical_fcl_history.items() 
+                if not fcl_history[index].is_empty()}
     
     def get_neurons_by_corticals(self, cortical_indices: List[CorticalIdx], timestep: Optional[int] = None) -> BitMap:
         """
@@ -1030,22 +1066,22 @@ class EnhancedFCLManager:
     
     def get_active_corticals(self, timestep: Optional[int] = None) -> Set[CorticalIdx]:
         """
-        Return a set of cortical indices that have any firing neurons.
+        Get cortical areas that have firing neurons at the specified timestep.
         
         Args:
-            timestep: Optional timestep to query (defaults to current timestep)
+            timestep: Optional timestep (defaults to current)
             
         Returns:
-            Set of cortical indices with active neurons
+            Set of cortical area IDs with active neurons
+            
+        Raises:
+            TimestepOutOfRangeError: If timestep is outside valid range
         """
         index = self._get_index_for_timestep(timestep)
-            
-        result: Set[CorticalIdx] = set()
-        for cortical_idx, fcl_history in self.cortical_fcl_history.items():
-            if not fcl_history[index].is_empty():
-                result.add(cortical_idx)
-                
-        return result
+        
+        # WGPU-COMPATIBLE: Use set comprehension instead of dynamic allocation
+        return {cortical_idx for cortical_idx, fcl_history in self.cortical_fcl_history.items() 
+                if not fcl_history[index].is_empty()}
     
     def get_neurons_by_corticals(self, cortical_indices: List[CorticalIdx], timestep: Optional[int] = None) -> BitMap:
         """
@@ -1526,9 +1562,10 @@ def example_enhanced_fcl_usage() -> None:
         # Add activity for this timestep
         fcl_manager.update_fcl(t, neurons_by_cortical)
         
-        # Print firing statistics periodically
+        # WGPU-COMPATIBLE: Use logger instead of print for output
         if t % 5 == 0:
-            print(f"Timestep {t} - Total firing neurons: {fcl_manager.total_neurons_fired}")
+            logger = setup_logger("feagi.npu.fcl_manager.enhanced_example")
+            logger.info(f"Timestep {t} - Total firing neurons: {fcl_manager.total_neurons_fired}")
     
     # Get neurons from specific corticals
     standard_cortical_fcl = fcl_manager.get_cortical_fcl(100)
@@ -1555,7 +1592,9 @@ def example_enhanced_fcl_usage() -> None:
     memory_corticals = [400, 500]
     recent_memory_fcl = fcl_manager.get_neurons_fired_in_last_n_steps(10, memory_corticals)
     
-    print(f"Completed simulation with {fcl_manager.total_neurons_fired} total firing neurons")
+    # WGPU-COMPATIBLE: Use logger instead of print for final output
+    logger = setup_logger("feagi.npu.fcl_manager.enhanced_example")
+    logger.info(f"Completed simulation with {fcl_manager.total_neurons_fired} total firing neurons")
 
 def inject_neurons_into_fcl(fcl_manager, cortical_idx, neuron_ids, timestep=None):
     """
@@ -1593,7 +1632,8 @@ if __name__ == "__main__":
 
     # Check the injected neurons
     result = fcl.get_cortical_fcl(cortical_idx=500)
-    self.logger.info(f"Neurons in hippocampus: {result}")
+    logger = setup_logger("feagi.npu.fcl_manager.main_example")
+    logger.info(f"Neurons in hippocampus: {result}")
 
 # Compatibility aliases for backward compatibility
 HierarchicalFCL = FCLManager

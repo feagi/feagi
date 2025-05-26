@@ -26,7 +26,7 @@ import zmq
 import zmq.asyncio
 import asyncio
 import threading
-from typing import Dict, List, Optional, Set, Tuple, Any, Union, Callable
+from typing import Dict, List, Optional, Set, Tuple, Any, Union, Callable, Callable
 from enum import IntEnum
 
 from feagi.utils.logger import setup_logger
