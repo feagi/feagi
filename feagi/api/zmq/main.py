@@ -12,7 +12,7 @@ import os
 import signal
 import sys
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 import logging
 from feagi.logging_config import setup_feagi_logging
 

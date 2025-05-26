@@ -196,40 +196,61 @@ class NeuroEmbryogenesis:
                  config: Optional[FeagiConfig] = None,
                  progress_callback: Optional[Callable[[DevelopmentStage, float, str], None]] = None):
         """
-        Initialize the neuroembryogenesis process.
+        Initialize the NeuroEmbryogenesis system.
         
         Args:
-            connectome_manager: The ConnectomeManager to use for brain construction
-            config: Configuration for FEAGI, if not provided a default will be used
-            progress_callback: Optional callback to report development progress
+            connectome_manager: The connectome manager to use for brain development
+            config: Optional configuration object
+            progress_callback: Optional callback for progress reporting
         """
         self.connectome_manager = connectome_manager
-        self.config = config or FeagiConfig()
+        self.config = config
         self.progress_callback = progress_callback
         
-        # Development state
-        self.stage = DevelopmentStage.INITIALIZATION
+        # Configuration for logging verbosity
+        self.verbose_logging = True
+        self.suppress_no_mappings_logs = False
+        
+        # Check for embryogenesis-specific configuration
+        if config and hasattr(config, 'embryogenesis'):
+            embryo_config = config.embryogenesis
+            self.verbose_logging = embryo_config.get('verbose_logging', True)
+            self.suppress_no_mappings_logs = embryo_config.get('suppress_no_mappings_logs', False)
+        elif config and hasattr(config, 'get'):
+            # Alternative configuration access pattern
+            self.verbose_logging = config.get('embryogenesis_verbose_logging', True)
+            self.suppress_no_mappings_logs = config.get('embryogenesis_suppress_no_mappings_logs', False)
+        
+        # Check environment variables for runtime control
+        if os.environ.get('FEAGI_EMBRYOGENESIS_QUIET', '').lower() in ('true', '1', 'yes'):
+            self.suppress_no_mappings_logs = True
+        if os.environ.get('FEAGI_EMBRYOGENESIS_VERBOSE', '').lower() in ('false', '0', 'no'):
+            self.verbose_logging = False
+            
+        self.genome = None
+        self.cortical_areas = {}
+        self.error = None
+        
+        # Development statistics
         self.development_stats = {
+            "total_neurons": 0,
+            "total_synapses": 0,
             "cortical_areas": 0,
-            "neurons": 0,
-            "synapses": 0,
             "start_time": None,
             "end_time": None,
             "duration": None
         }
         
+        # Cache for morphology registry
+        self._morphology_registry_cache = None
+        
+        # Development state
+        self.stage = DevelopmentStage.INITIALIZATION
+        
         # Tracking data
-        self.genome = None
-        self.cortical_areas = {}  # cortical_idx -> CorticalArea
         self.cortical_id_map = {}  # cortical_idx -> cortical_id (6-char genome ID)
         self.reverse_cortical_id_map = {}  # cortical_id -> cortical_idx
         self.voxel_neuron_map = {}  # Maps (area_id, position) to list of neuron IDs
-        
-        # Error state
-        self.error = None
-        
-        # Cache for morphology registry to avoid regenerating it
-        self._morphology_registry_cache = None
         
         # Add temporary method to ConnectomeManager to provide morphology information
         # Add this once at initialization instead of each time in _perform_synaptogenesis
@@ -243,7 +264,14 @@ class NeuroEmbryogenesis:
         
     def _report_progress(self, stage: DevelopmentStage, percentage: float, message: str) -> None:
         """Report progress for the given development stage."""
-        logger.info(f"[{stage.value}] {percentage:.1f}% - {message}")
+        # Check if we should suppress this specific message
+        should_suppress = (
+            self.suppress_no_mappings_logs and 
+            "No mappings found" in message
+        )
+        
+        if self.verbose_logging and not should_suppress:
+            logger.info(f"[{stage.value}] {percentage:.1f}% - {message}")
         
         if self.progress_callback:
             self.progress_callback(stage, percentage, message)
@@ -313,8 +341,6 @@ class NeuroEmbryogenesis:
         """
         # In FEAGI 2.1, blueprint entries follow the pattern:
         # _____10c-<cortical_id>-<gene_type>-<property>-<value_type>
-
-        print(">>>>> cortical_id", cortical_id)
 
         properties = {}
         blueprint = self.genome["blueprint"]
@@ -391,19 +417,19 @@ class NeuroEmbryogenesis:
                 
         return properties
         
-    def _calculate_subregion(self, area_id: int, morphology: Dict) -> BoundingBox:
+    def _calculate_subregion(self, cortical_id: str, morphology: Dict) -> BoundingBox:
         """
         Calculate a bounding box for a subregion of the cortical area.
         
         Args:
-            area_id: Internal area ID
+            cortical_id: 6-character cortical identifier
             morphology: Morphology parameters
             
         Returns:
             Bounding box tuple ((min_x, min_y, min_z), (max_x, max_y, max_z))
         """
         # Get the area from the connectome manager
-        area = self.cortical_areas[area_id]
+        area = self.cortical_areas[cortical_id]
         dimensions = area.dimensions
         
         # Check if there's a specific subregion in the morphology
@@ -459,7 +485,7 @@ class NeuroEmbryogenesis:
             cortical_ids = self._get_cortical_ids_from_genome()
             total_areas = len(cortical_ids)
             
-            for cortical_idx, cortical_id in enumerate(cortical_ids):
+            for i, cortical_id in enumerate(cortical_ids):
                 properties = self._extract_cortical_properties(cortical_id)
                 
                 # Skip if required properties are missing
@@ -484,33 +510,38 @@ class NeuroEmbryogenesis:
                 
                 # Add to connectome manager
                 try:
-                    print(f">>>>> cortical_id {cortical_id}")
+                    logger.debug(f"Creating cortical area with ID {cortical_id}")
                     # Update to match the new ConnectomeManager API
-                    area_id = self.connectome_manager.add_cortical_area(
+                    created_cortical_id = self.connectome_manager.add_cortical_area(
                         name=name,
                         dimensions=dimensions,
                         position=position,
                         area_type=area_type,
-                        properties={**properties, "cortical_id": cortical_id}  # Store cortical_id in properties
+                        properties={**properties},
+                        cortical_id=cortical_id  # Pass the cortical_id from genome
                     )
                     
-                    # Store in our tracking maps
-                    self.cortical_areas[area_id] = self.connectome_manager.get_cortical_area(area_id)
-                    self.cortical_id_map[area_id] = cortical_id
-                    self.reverse_cortical_id_map[cortical_id] = area_id
+                    # Get the created area
+                    area = self.connectome_manager.get_cortical_area(created_cortical_id)
                     
-                    logger.debug(f"Created cortical area {name} (internal ID {area_id}, genome ID {cortical_id})")
+                    # Store in our tracking maps
+                    self.cortical_areas[created_cortical_id] = area
+                    
+                    # Get the cortical_idx assigned by ConnectomeManager
+                    cortical_idx = area.cortical_idx
+                    
+                    # Store mappings
+                    self.cortical_id_map[cortical_idx] = cortical_id
+                    self.reverse_cortical_id_map[cortical_id] = cortical_idx
+                    
+                    logger.debug(f"Created cortical area {name} (cortical_idx {cortical_idx}, cortical_id {cortical_id})")
                 except Exception as e:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
                 
-                # Report progress
-                progress = ((cortical_idx + 1) / total_areas) * 100
-                self._report_progress(
-                    DevelopmentStage.CORTICOGENESIS, 
-                    progress, 
-                    f"Created cortical area {cortical_idx+1}/{total_areas}: {name}"
-                )
+                # Report progress - Log detailed per-area progress at DEBUG level to reduce noise
+                progress = ((i + 1) / total_areas) * 100
+                logger.debug(f"[{DevelopmentStage.CORTICOGENESIS.value}] {progress:.1f}% - Created cortical area {i+1}/{total_areas}: {name}")
             
             self.development_stats["cortical_areas"] = len(self.cortical_areas)
             
@@ -534,7 +565,7 @@ class NeuroEmbryogenesis:
     
     def _perform_neurogenesis(self) -> bool:
         """
-        Create neurons for all cortical areas.
+        Create neurons in each cortical area.
         
         Returns:
             True if successful, False otherwise
@@ -545,8 +576,8 @@ class NeuroEmbryogenesis:
             total_areas = len(self.cortical_areas)
             total_neurons = 0
             
-            for i, (area_id, area) in enumerate(self.cortical_areas.items()):
-                cortical_id = self.cortical_id_map[area_id]
+            for i, (cortical_id, area) in enumerate(self.cortical_areas.items()):
+                # cortical_id is the 6-character identifier, we're already using it correctly
                 properties = self._extract_cortical_properties(cortical_id)
                 
                 # Skip memory areas in initial development if configured
@@ -571,8 +602,8 @@ class NeuroEmbryogenesis:
                 area_neuron_count = 0
                 
                 # Initialize voxel tracking for this area
-                if area_id not in self.voxel_neuron_map:
-                    self.voxel_neuron_map[area_id] = {}
+                if cortical_id not in self.voxel_neuron_map:
+                    self.voxel_neuron_map[cortical_id] = {}
                 
                 # Performance optimization: Batch neuron creation
                 batch_size = 1000  # Create neurons in batches of 1000
@@ -594,7 +625,7 @@ class NeuroEmbryogenesis:
                             # Add neuron specifications to the batch
                             for n_idx in range(neurons_per_voxel):
                                 neuron_specs.append((
-                                    area_id,
+                                    cortical_id,
                                     position,
                                     neuron_properties["threshold"],
                                     neuron_properties["refractory_period"],
@@ -620,15 +651,11 @@ class NeuroEmbryogenesis:
                             
                             voxel_num += 1
                             
-                            # Report progress periodically
+                            # Report progress periodically - Log detailed voxel progress at DEBUG level to reduce noise
                             if voxel_num % report_interval == 0 or voxel_num == voxel_count:
                                 voxel_progress = (voxel_num / voxel_count) * 100
                                 area_progress = ((i + voxel_progress/100) / total_areas) * 100
-                                self._report_progress(
-                                    DevelopmentStage.NEUROGENESIS,
-                                    area_progress,
-                                    f"Area {i+1}/{total_areas} ({area.name}): {voxel_progress:.1f}% complete"
-                                )
+                                logger.debug(f"[{DevelopmentStage.NEUROGENESIS.value}] {area_progress:.1f}% - Area {i+1}/{total_areas} ({area.name}): {voxel_progress:.1f}% complete")
                 
                 # Process any remaining neurons in the batch
                 if neuron_specs:
@@ -637,9 +664,9 @@ class NeuroEmbryogenesis:
                     area_neuron_count += len(neuron_ids)
                 
                 total_neurons += area_neuron_count
-                logger.info(f"Created {area_neuron_count} neurons in area {area.name}")
+                logger.debug(f"Created {area_neuron_count} neurons in area {area.name}")
             
-            self.development_stats["neurons"] = total_neurons
+            self.development_stats["total_neurons"] = total_neurons
             self._report_progress(
                 DevelopmentStage.NEUROGENESIS,
                 100,
@@ -648,9 +675,12 @@ class NeuroEmbryogenesis:
             return True
             
         except Exception as e:
+            import traceback
             self.error = f"Failed to create neurons: {str(e)}"
             self._report_progress(DevelopmentStage.FAILED, 0, self.error)
             logger.exception("Error during neurogenesis")
+            logger.error(f"Detailed error: {str(e)}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             return False
             
     def _batch_create_neurons(self, neuron_specs):
@@ -658,19 +688,19 @@ class NeuroEmbryogenesis:
         Create multiple neurons in batch for performance optimization.
         
         Args:
-            neuron_specs: List of (area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties) tuples
+            neuron_specs: List of (cortical_id, position, threshold, refractory_period, decay_rate, resting_potential, properties) tuples
             
         Returns:
             List of created neuron IDs with their associated voxel IDs
         """
         neuron_ids = []
         
-        # Group neuron specs by area_id for batch processing
+        # Group neuron specs by cortical_id for batch processing
         by_area = {}
         for spec in neuron_specs:
-            area_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
-            if area_id not in by_area:
-                by_area[area_id] = {
+            cortical_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
+            if cortical_id not in by_area:
+                by_area[cortical_id] = {
                     "positions": [],
                     "properties": [],
                     "voxel_ids": [],
@@ -680,24 +710,24 @@ class NeuroEmbryogenesis:
                     "resting_potentials": []
                 }
             
-            by_area[area_id]["positions"].append(position)
-            by_area[area_id]["properties"].append(properties)
-            by_area[area_id]["voxel_ids"].append(properties["voxel_id"])
-            by_area[area_id]["thresholds"].append(threshold)
-            by_area[area_id]["refractory_periods"].append(refractory_period)
-            by_area[area_id]["decay_rates"].append(decay_rate)
-            by_area[area_id]["resting_potentials"].append(resting_potential)
+            by_area[cortical_id]["positions"].append(position)
+            by_area[cortical_id]["properties"].append(properties)
+            by_area[cortical_id]["voxel_ids"].append(properties["voxel_id"])
+            by_area[cortical_id]["thresholds"].append(threshold)
+            by_area[cortical_id]["refractory_periods"].append(refractory_period)
+            by_area[cortical_id]["decay_rates"].append(decay_rate)
+            by_area[cortical_id]["resting_potentials"].append(resting_potential)
         
         # Process neurons by area using batch API if available
-        for area_id, area_specs in by_area.items():
+        for cortical_id, area_specs in by_area.items():
             positions = area_specs["positions"]
             
-            # Check if ConnectomeManager supports batch operation with separate area_id and positions
+            # Check if ConnectomeManager supports batch operation with separate cortical_id and positions
             if hasattr(self.connectome_manager, 'batch_create_neurons'):
                 try:
-                    # Try to use the batch API with area_id and positions
+                    # Try to use the batch API with cortical_id and positions
                     area_neuron_ids = self.connectome_manager.batch_create_neurons(
-                        area_id=area_id,
+                        cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
                         positions=positions,
                         threshold=area_specs["thresholds"][0],  # Use first value for all or support lists
                         refractory_period=area_specs["refractory_periods"][0],
@@ -719,7 +749,7 @@ class NeuroEmbryogenesis:
                         resting_potential = area_specs["resting_potentials"][i]
                         
                         neuron_id = self.connectome_manager.create_neuron(
-                            area_id=area_id,
+                            cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
                             position=position,
                             threshold=threshold,
                             refractory_period=refractory_period,
@@ -738,7 +768,7 @@ class NeuroEmbryogenesis:
                     resting_potential = area_specs["resting_potentials"][i]
                     
                     neuron_id = self.connectome_manager.create_neuron(
-                        area_id=area_id,
+                        cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
                         position=position,
                         threshold=threshold,
                         refractory_period=refractory_period,
@@ -768,10 +798,10 @@ class NeuroEmbryogenesis:
         # Add neurons to voxel_neuron_map
         for voxel_id, neurons in voxel_neurons.items():
             position = positions_map[voxel_id]
-            area_id = self.connectome_manager.get_area_for_neuron(neurons[0])
-            if area_id not in self.voxel_neuron_map:
-                self.voxel_neuron_map[area_id] = {}
-            self.voxel_neuron_map[area_id][position] = neurons
+            cortical_id = self.connectome_manager.get_cortical_area_for_neuron(neurons[0])
+            if cortical_id not in self.voxel_neuron_map:
+                self.voxel_neuron_map[cortical_id] = {}
+            self.voxel_neuron_map[cortical_id][position] = neurons
     
     def _perform_synaptogenesis(self) -> bool:
         """
@@ -801,17 +831,13 @@ class NeuroEmbryogenesis:
                     
                     mapping_data[src_id].append(mapping)
             
-            for i, (src_area_id, src_area) in enumerate(self.cortical_areas.items()):
-                src_cortical_id = self.cortical_id_map[src_area_id]
+            for i, (src_cortical_id, src_area) in enumerate(self.cortical_areas.items()):
                 properties = self._extract_cortical_properties(src_cortical_id)
                 
                 # Get mappings for this area
                 if src_cortical_id not in mapping_data:
-                    self._report_progress(
-                        DevelopmentStage.SYNAPTOGENESIS, 
-                        100 * i / total_areas, 
-                        f"No mappings found for area {src_area_id} ({src_area.name})"
-                    )
+                    # Log at DEBUG level instead of INFO to reduce noise during normal operation
+                    logger.debug(f"[{DevelopmentStage.SYNAPTOGENESIS.value}] {100 * i / total_areas:.1f}% - No mappings found for area {i+1}/{total_areas} ({src_area.name})")
                     continue
                 
                 mappings = mapping_data[src_cortical_id]
@@ -820,22 +846,17 @@ class NeuroEmbryogenesis:
                     dst_cortical_id = mapping["destination"]
                     
                     # Skip if destination area not created
-                    if dst_cortical_id not in self.reverse_cortical_id_map:
+                    if dst_cortical_id not in self.cortical_areas:
                         continue
                     
-                    dst_area_id = self.reverse_cortical_id_map[dst_cortical_id]
-                    
-                    if dst_area_id not in self.cortical_areas:
-                        continue
-                    
-                    dst_area = self.cortical_areas[dst_area_id]
+                    dst_area = self.cortical_areas[dst_cortical_id]
                     morphology = mapping["morphology"]
                     
                     # Get source area neurons
-                    src_neurons = self.connectome_manager.get_neurons_by_area(src_area_id)
+                    src_neurons = self.connectome_manager.get_neurons_by_area(src_cortical_id)
                     
                     # Calculate source subregion
-                    src_subregion = self._calculate_subregion(src_area_id, morphology)
+                    src_subregion = self._calculate_subregion(src_cortical_id, morphology)
                     
                     # Process each source neuron
                     neuron_count = len(src_neurons)
@@ -851,8 +872,8 @@ class NeuroEmbryogenesis:
                         
                         # Find target neurons based on connectivity rules
                         dst_neurons_with_weights = neighbor_finder(
-                            src_area_id=src_area_id,
-                            dst_area_id=dst_area_id,
+                            src_cortical_id=src_cortical_id,
+                            dst_cortical_id=dst_cortical_id,
                             src_neuron_id=src_neuron_id,
                             morphology=morphology,
                             src_subregion=src_subregion,
@@ -871,6 +892,7 @@ class NeuroEmbryogenesis:
                             total_synapses += 1
             
             self._report_progress(DevelopmentStage.SYNAPTOGENESIS, 100, f"Created {total_synapses} synaptic connections")
+            self.development_stats["total_synapses"] = total_synapses
             return True
             
         except Exception as e:
@@ -1008,8 +1030,8 @@ class NeuroEmbryogenesis:
             100,
             f"Brain development completed in {self.development_stats['duration']}. "
             f"Created {self.development_stats['cortical_areas']} cortical areas, "
-            f"{self.development_stats['neurons']} neurons, and "
-            f"{self.development_stats['synapses']} synapses."
+            f"{self.development_stats['total_neurons']} neurons, and "
+            f"{self.development_stats['total_synapses']} synapses."
         )
         
         return True

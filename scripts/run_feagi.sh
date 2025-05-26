@@ -6,12 +6,15 @@
 API_HOST="127.0.0.1"
 API_PORT=8000
 ZMQ_HOST="127.0.0.1"
-ZMQ_REQ_PORT=5555
-ZMQ_PUB_PORT=5556
-ZMQ_PUSH_PORT=5557
-ZMQ_SENSORIMOTOR_PORT=5558
-ZMQ_VIS_BASE_PORT=5560
+ZMQ_REQ_REP_PORT=5555
+ZMQ_PUB_SUB_PORT=5556
+ZMQ_PUSH_PULL_PORT=5557
+ZMQ_SENSORY_PORT=5558
+ZMQ_CONTROL_PORT=5559
+ZMQ_VIS_PORT=5560
+ZMQ_MOTOR_PORT=5564
 USE_GPU=0
+LOG_LEVEL="INFO"
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -28,24 +31,36 @@ while [[ $# -gt 0 ]]; do
       ZMQ_HOST="$2"
       shift 2
       ;;
-    --zmq-req-port)
-      ZMQ_REQ_PORT="$2"
+    --zmq-req-rep-port)
+      ZMQ_REQ_REP_PORT="$2"
       shift 2
       ;;
-    --zmq-pub-port)
-      ZMQ_PUB_PORT="$2"
+    --zmq-pub-sub-port)
+      ZMQ_PUB_SUB_PORT="$2"
       shift 2
       ;;
-    --zmq-push-port)
-      ZMQ_PUSH_PORT="$2"
+    --zmq-push-pull-port)
+      ZMQ_PUSH_PULL_PORT="$2"
       shift 2
       ;;
-    --zmq-sensorimotor-port)
-      ZMQ_SENSORIMOTOR_PORT="$2"
+    --zmq-sensory-port)
+      ZMQ_SENSORY_PORT="$2"
       shift 2
       ;;
-    --zmq-vis-base-port)
-      ZMQ_VIS_BASE_PORT="$2"
+    --zmq-control-port)
+      ZMQ_CONTROL_PORT="$2"
+      shift 2
+      ;;
+    --zmq-motor-port)
+      ZMQ_MOTOR_PORT="$2"
+      shift 2
+      ;;
+    --zmq-vis-port)
+      ZMQ_VIS_PORT="$2"
+      shift 2
+      ;;
+    --log-level)
+      LOG_LEVEL="$2"
       shift 2
       ;;
     --gpu)
@@ -60,11 +75,14 @@ while [[ $# -gt 0 ]]; do
       echo "  --api-host HOST            API server host (default: $API_HOST)"
       echo "  --api-port PORT            API server port (default: $API_PORT)"
       echo "  --zmq-host HOST            ZMQ server host (default: $ZMQ_HOST)"
-      echo "  --zmq-req-port PORT        ZMQ REQ/REP port (default: $ZMQ_REQ_PORT)"
-      echo "  --zmq-pub-port PORT        ZMQ PUB/SUB port (default: $ZMQ_PUB_PORT)"
-      echo "  --zmq-push-port PORT       ZMQ PUSH/PULL port (default: $ZMQ_PUSH_PORT)"
-      echo "  --zmq-sensorimotor-port PORT  ZMQ sensorimotor port (default: $ZMQ_SENSORIMOTOR_PORT)"
-      echo "  --zmq-vis-base-port PORT   ZMQ visualization base port (default: $ZMQ_VIS_BASE_PORT)"
+      echo "  --zmq-req-rep-port PORT    ZMQ request-reply port (default: $ZMQ_REQ_REP_PORT)"
+      echo "  --zmq-pub-sub-port PORT    ZMQ publish-subscribe port (default: $ZMQ_PUB_SUB_PORT)"
+      echo "  --zmq-push-pull-port PORT  ZMQ push-pull port (default: $ZMQ_PUSH_PULL_PORT)"
+      echo "  --zmq-sensory-port PORT    ZMQ sensory port (default: $ZMQ_SENSORY_PORT)"
+      echo "  --zmq-control-port PORT    ZMQ control port (default: $ZMQ_CONTROL_PORT)"
+      echo "  --zmq-motor-port PORT      ZMQ motor port (default: $ZMQ_MOTOR_PORT)"
+      echo "  --zmq-vis-port PORT        ZMQ visualization port (default: $ZMQ_VIS_PORT)"
+      echo "  --log-level LEVEL          Logging level (default: $LOG_LEVEL)"
       echo "  --gpu                      Use GPU acceleration if available"
       echo "  --help                     Show this help message"
       exit 0
@@ -115,18 +133,19 @@ function check_port {
 
 echo "Checking ports..."
 check_port "$API_PORT" || exit 1
-check_port "$ZMQ_REQ_PORT" || exit 1
-check_port "$ZMQ_PUB_PORT" || exit 1
-check_port "$ZMQ_PUSH_PORT" || exit 1
-check_port "$ZMQ_SENSORIMOTOR_PORT" || exit 1
-check_port "$ZMQ_VIS_BASE_PORT" || exit 1
+check_port "$ZMQ_REQ_REP_PORT" || exit 1
+check_port "$ZMQ_PUB_SUB_PORT" || exit 1
+check_port "$ZMQ_PUSH_PULL_PORT" || exit 1
+check_port "$ZMQ_SENSORY_PORT" || exit 1
+check_port "$ZMQ_CONTROL_PORT" || exit 1
+check_port "$ZMQ_MOTOR_PORT" || exit 1
+check_port "$ZMQ_VIS_PORT" || exit 1
 
 # Build command
 CMD="python -m feagi.main"
 CMD="$CMD --api-host $API_HOST --api-port $API_PORT"
-CMD="$CMD --zmq-host $ZMQ_HOST --zmq-req-port $ZMQ_REQ_PORT"
-CMD="$CMD --zmq-pub-port $ZMQ_PUB_PORT --zmq-push-port $ZMQ_PUSH_PORT"
-CMD="$CMD --zmq-sensorimotor-port $ZMQ_SENSORIMOTOR_PORT --zmq-vis-base-port $ZMQ_VIS_BASE_PORT"
+CMD="$CMD --zmq-host $ZMQ_HOST --zmq-req-rep-port $ZMQ_REQ_REP_PORT --zmq-pub-sub-port $ZMQ_PUB_SUB_PORT --zmq-push-pull-port $ZMQ_PUSH_PULL_PORT"
+CMD="$CMD --zmq-sensory-port $ZMQ_SENSORY_PORT --zmq-control-port $ZMQ_CONTROL_PORT --zmq-motor-port $ZMQ_MOTOR_PORT --zmq-vis-port $ZMQ_VIS_PORT"
 
 if [ "$USE_GPU" -eq 1 ]; then
     CMD="$CMD --gpu"

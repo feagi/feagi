@@ -31,8 +31,8 @@ import json
 from typing import Dict, Any
 
 from feagi.api.protocols.constants import ByteStructureID
-from feagi.api.protocols.byte_structures import ByteStructureEncoder, ByteStructureDecoder
-from feagi.api.protocols.byte_structures.utils import get_structure_info
+from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder
+# Note: get_structure_info not available in feagi_bytes - use decoder.decode_header instead
 from feagi.api.protocols import ByteStructureTranslator
 
 

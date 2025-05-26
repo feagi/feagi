@@ -26,58 +26,50 @@ class NeuronArray:
     format for vectorized operations.
     """
     
-    def __init__(self, max_neurons: int = 10_000_000, backend: Union[str, BackendType] = "auto"):
-        """Initialize neuron storage using contiguous arrays.
+    def __init__(self, max_neurons: int = 10_000_000, backend: Optional[str] = None):
+        """Initialize the NeuronArray with arrays for neuron properties.
         
         Args:
-            max_neurons: Maximum number of neurons to allocate memory for
-            backend: Array backend to use (numpy, pytorch, cupy, webgpu, or auto)
+            max_neurons: Maximum number of neurons to support
+            backend: Backend type to use (numpy, pytorch, cupy, webgpu, or auto)
         """
-        self.max_neurons = max_neurons
-        
-        # Ensure neuron count is aligned to MEMORY_ALIGNMENT-byte boundary for SIMD
-        # For float32, which is 4 bytes, we need to ensure the array size is divisible by 16
-        # (MEMORY_ALIGNMENT / 4) to maintain 64-byte alignment
-        aligned_size = ((max_neurons + (MEMORY_ALIGNMENT // 4) - 1) // (MEMORY_ALIGNMENT // 4)) * (MEMORY_ALIGNMENT // 4)
-        self.aligned_size = aligned_size
-        
-        # Initialize array backend
+        # Set backend
         self.backend = ArrayBackend(backend)
-        logger.info(f"Using {self.backend.backend_type.value} backend for NeuronArray")
         
-        # Core neuron properties as contiguous arrays
-        # Using float32 for most values as it's optimal for GPU computation
-        self.membrane_potentials = self.backend.zeros((aligned_size,), dtype=np.float32)
-        self.resting_potentials = self.backend.zeros((aligned_size,), dtype=np.float32)
-        self.thresholds = self.backend.ones((aligned_size,), dtype=np.float32)
-        self.decay_rates = self.backend.full((aligned_size,), 0.5, dtype=np.float32)
-        self.refractory_periods = self.backend.ones((aligned_size,), dtype=np.int32)
-        self.refractory_counters = self.backend.zeros((aligned_size,), dtype=np.int32)
+        # Initialize storage arrays with zeros - this creates a big block of memory
+        self.membrane_potentials = self.backend.zeros(max_neurons, dtype="float32")
+        self.resting_potentials = self.backend.zeros(max_neurons, dtype="float32")
+        self.thresholds = self.backend.ones(max_neurons, dtype="float32")  # Default threshold is 1.0
+        self.decay_rates = self.backend.full(max_neurons, 0.5, dtype="float32")  # Default decay rate is 0.5
+        self.refractory_periods = self.backend.ones(max_neurons, dtype="int32")  # Default period is 1
+        self.refractory_counters = self.backend.zeros(max_neurons, dtype="int32")
         
-        # Boolean values should use native boolean type for the backend
-        self.is_active = self.backend.zeros((aligned_size,), dtype=np.bool_)
+        # Position coordinates
+        self.positions_x = self.backend.zeros(max_neurons, dtype="int32")
+        self.positions_y = self.backend.zeros(max_neurons, dtype="int32")
+        self.positions_z = self.backend.zeros(max_neurons, dtype="int32")
         
-        # Area membership
-        self.area_ids = self.backend.zeros((aligned_size,), dtype=np.int32)
+        # Area mapping and activation
+        self.cortical_idxs = self.backend.zeros(max_neurons, dtype="int32")
+        self.is_active = self.backend.zeros(max_neurons, dtype="bool")
         
-        # Position tracking (3D coordinates)
-        # Stored as separate arrays for better memory access patterns in GPU
-        self.positions_x = self.backend.zeros((aligned_size,), dtype=np.int32)
-        self.positions_y = self.backend.zeros((aligned_size,), dtype=np.int32)
-        self.positions_z = self.backend.zeros((aligned_size,), dtype=np.int32)
+        # Valid mask (indicates which elements in the arrays correspond to active neurons)
+        self.valid_mask = self.backend.zeros(max_neurons, dtype="bool")
         
-        # Neuron validity mask (1 if neuron exists at this index, 0 if not)
-        self.valid_mask = self.backend.zeros((aligned_size,), dtype=np.bool_)
+        # Maps neuron IDs to indices in the arrays
+        self.id_to_index_map: Dict[int, int] = {}
+        self.index_to_id_map: Dict[int, int] = {}
         
-        # Keep track of allocated neurons
+        # For quickly accessing neurons by area
+        self.cortical_id_to_indices: Dict[int, List[int]] = {}
+        
+        # Device tracking for GPU support
+        self.device = getattr(self.backend, 'device', 'cpu')
+        
+        # Capacity tracking
+        self.max_neurons = max_neurons
         self.next_index = 0
-        self.free_indices = []  # Indices that can be reused
-        
-        # Mapping from neuron_id to index in the arrays
-        self.id_to_index_map = {}
-        
-        # Device where arrays are stored (depends on backend)
-        self.device = "cpu"  # Will be updated if arrays are moved to GPU
+        self.free_indices: Set[int] = set()
 
     def to_gpu(self):
         """Transfer neuron arrays to GPU for accelerated computation."""
@@ -97,7 +89,7 @@ class NeuronArray:
             self.refractory_counters = self.backend.to_device(self.refractory_counters)
             self.is_active = self.backend.to_device(self.is_active)
             self.valid_mask = self.backend.to_device(self.valid_mask)
-            self.area_ids = self.backend.to_device(self.area_ids)
+            self.cortical_idxs = self.backend.to_device(self.cortical_idxs)
             self.positions_x = self.backend.to_device(self.positions_x)
             self.positions_y = self.backend.to_device(self.positions_y)
             self.positions_z = self.backend.to_device(self.positions_z)
@@ -127,7 +119,7 @@ class NeuronArray:
             self.refractory_counters = self.backend.to_cpu(self.refractory_counters)
             self.is_active = self.backend.to_cpu(self.is_active)
             self.valid_mask = self.backend.to_cpu(self.valid_mask)
-            self.area_ids = self.backend.to_cpu(self.area_ids)
+            self.cortical_idxs = self.backend.to_cpu(self.cortical_idxs)
             self.positions_x = self.backend.to_cpu(self.positions_x)
             self.positions_y = self.backend.to_cpu(self.positions_y)
             self.positions_z = self.backend.to_cpu(self.positions_z)
@@ -191,65 +183,87 @@ class NeuronArray:
         self.valid_mask = self.backend.array(valid_mask_np)
         
         # Add to free indices for reuse
-        self.free_indices.append(index)
+        self.free_indices.add(index)
         
         # Remove from ID mapping
         del self.id_to_index_map[neuron_id]
         
         return True
 
-    def create_neuron(self, area_id: int, position: Tuple[int, int, int],
-                     threshold: float = 1.0, membrane_potential: float = 0.0,
-                     resting_potential: float = 0.0, decay_rate: float = 0.5,
-                     refractory_period: int = 1) -> int:
-        """Create a new neuron with the given properties.
-        
-        Args:
-            area_id: ID of the cortical area
-            position: 3D coordinates within the cortical area (x, y, z)
-            threshold: Firing threshold potential
-            membrane_potential: Initial membrane potential
-            resting_potential: Base membrane potential
-            decay_rate: Rate at which potential decays each timestep
-            refractory_period: Number of timesteps after firing during which the neuron cannot fire
-            
-        Returns:
-            Unique ID of the created neuron
+    def create_neuron(
+        self,
+        cortical_idx: Optional[int] = None,
+        position: Tuple[int, int, int] = (0, 0, 0),
+        threshold: float = 1.0,
+        membrane_potential: float = 0.0,
+        resting_potential: float = 0.0,
+        decay_rate: float = 0.5,
+        refractory_period: int = 1,
+        neuron_type: int = 0,
+        is_active: bool = True,
+        properties: Optional[Dict[str, Any]] = None
+    ) -> int:
         """
-        # Find the next available index
-        if self.free_indices:
-            index = self.free_indices.pop()
-        else:
-            index = self.next_index
-            self.next_index += 1
+        Create a new neuron and add it to the array.
+
+        Args:
+            cortical_idx: Integer index of the cortical area this neuron belongs to
+            position: 3D coordinates (x, y, z)
+            threshold: Firing threshold
+            membrane_potential: Initial membrane potential
+            resting_potential: Resting potential
+            decay_rate: Membrane potential decay rate (0-1)
+            refractory_period: Refractory period in timesteps
+            neuron_type: Type of neuron (0=excitatory, 1=inhibitory, etc.)
+            is_active: Whether the neuron is initially active
+            properties: Additional properties for the neuron
+
+        Returns:
+            ID of the created neuron
+        """
+        # Default to cortical_idx 0 if not provided
+        if cortical_idx is None:
+            cortical_idx = 0
+        
+        # Make sure we have capacity
+        if self.next_index >= self.max_neurons:
+            raise ValueError(f"Maximum number of neurons ({self.max_neurons}) exceeded")
+
+        # Assign a unique ID
+        neuron_id = self.next_index
+        self.next_index += 1
+
+        # Get the next available index
+        idx = self.next_index - 1
+
+        # Record the mapping
+        self.id_to_index_map[neuron_id] = idx
+        if cortical_idx not in self.cortical_id_to_indices:
+            self.cortical_id_to_indices[cortical_idx] = []
+        self.cortical_id_to_indices[cortical_idx].append(idx)
+
+        # Set valid flag
+        self.valid_mask[idx] = True
+        
+        # Initialize the neuron's properties
+        self.membrane_potentials[idx] = membrane_potential
+        self.resting_potentials[idx] = resting_potential
+        self.thresholds[idx] = threshold
+        self.decay_rates[idx] = decay_rate
+        self.refractory_periods[idx] = refractory_period
+        self.refractory_counters[idx] = 0  # Start with no refractory state
+        
+        self.positions_x[idx] = position[0]
+        self.positions_y[idx] = position[1]
+        self.positions_z[idx] = position[2]
+        
+        self.cortical_idxs[idx] = cortical_idx
+        self.is_active[idx] = is_active
+        
+        # Store any additional properties
+        if properties:
+            self.properties[neuron_id] = properties
             
-            if index >= self.max_neurons:
-                raise ValueError(f"Maximum number of neurons ({self.max_neurons}) exceeded")
-        
-        # Generate a unique ID
-        neuron_id = index  # In this simple implementation, we use the index as the ID
-        
-        # Store neuron properties
-        self.membrane_potentials[index] = membrane_potential
-        self.resting_potentials[index] = resting_potential
-        self.thresholds[index] = threshold
-        self.decay_rates[index] = decay_rate
-        self.refractory_periods[index] = refractory_period
-        self.refractory_counters[index] = 0
-        self.is_active[index] = False
-        
-        # Store area and position
-        self.area_ids[index] = area_id
-        self.positions_x[index] = position[0]
-        self.positions_y[index] = position[1]
-        self.positions_z[index] = position[2]
-        
-        # Mark as valid
-        self.valid_mask[index] = True
-        
-        # Map ID to index
-        self.id_to_index_map[neuron_id] = index
-        
         return neuron_id
 
     def get_neuron_property(self, neuron_id: int, property_name: str) -> Any:
@@ -283,11 +297,11 @@ class NeuronArray:
             return int(self.refractory_periods[index])
         elif property_name == "refractory_counter":
             return int(self.refractory_counters[index])
-        elif property_name == "area_id":
-            return int(self.area_ids[index])
+        elif property_name == "cortical_idx":
+            return int(self.cortical_idxs[index])
         elif property_name == "position":
-            return (int(self.positions_x[index]), 
-                    int(self.positions_y[index]), 
+            return (int(self.positions_x[index]),
+                    int(self.positions_y[index]),
                     int(self.positions_z[index]))
         elif property_name == "is_active":
             return bool(self.is_active[index])
@@ -323,8 +337,8 @@ class NeuronArray:
             self.refractory_periods[index] = int(value)
         elif property_name == "refractory_counter":
             self.refractory_counters[index] = int(value)
-        elif property_name == "area_id":
-            self.area_ids[index] = int(value)
+        elif property_name == "cortical_idx":
+            self.cortical_idxs[index] = int(value)
         elif property_name == "position":
             if not isinstance(value, tuple) or len(value) != 3:
                 raise ValueError("Position must be a tuple of (x, y, z)")
@@ -336,8 +350,36 @@ class NeuronArray:
         else:
             raise KeyError(f"Property {property_name} not found")
 
+    def get_neurons_by_cortical_area(self, cortical_id: int) -> List[int]:
+        """
+        Get all neurons in a specific cortical area.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            
+        Returns:
+            List of neuron IDs in the area
+        """
+        # Find neurons with matching cortical_id and valid mask
+        indices = self.cortical_id_to_indices.get(cortical_id, [])
+        
+        # Convert indices to neuron IDs
+        neuron_ids = []
+        for idx in indices:
+            if self.valid_mask[idx]:
+                for neuron_id, index in self.id_to_index_map.items():
+                    if index == idx:
+                        neuron_ids.append(neuron_id)
+                        break
+        
+        return neuron_ids
+
     def get_neurons_by_area(self, area_id: int) -> List[int]:
-        """Get all neurons in a specific cortical area.
+        """
+        Get all neurons in a specific cortical area.
+        
+        WARNING: This method is deprecated and will be removed. 
+        Use get_neurons_by_cortical_area() instead.
         
         Args:
             area_id: ID of the cortical area
@@ -345,18 +387,14 @@ class NeuronArray:
         Returns:
             List of neuron IDs in the area
         """
-        # Find neurons with matching area_id and valid mask
-        indices = np.where((self.area_ids == area_id) & self.valid_mask)[0]
-        
-        # Convert indices to neuron IDs
-        neuron_ids = []
-        for index in indices:
-            for neuron_id, idx in self.id_to_index_map.items():
-                if idx == index:
-                    neuron_ids.append(neuron_id)
-                    break
-        
-        return neuron_ids
+        import warnings
+        warnings.warn(
+            "get_neurons_by_area is deprecated and will be removed. "
+            "Use get_neurons_by_cortical_area instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.get_neurons_by_cortical_area(area_id)
 
     def get_neuron_count(self) -> int:
         """Get the total number of neurons.
@@ -364,7 +402,10 @@ class NeuronArray:
         Returns:
             Total number of neurons
         """
-        return np.sum(self.valid_mask)
+        if isinstance(self.valid_mask, torch.Tensor):
+            return int(torch.sum(self.valid_mask).item())
+        else:
+            return int(np.sum(self.valid_mask))
 
     def update_membrane_potentials(self, synapse_indices, synapse_data):
         """Update membrane potentials based on firing neurons and incoming connections.
@@ -543,7 +584,7 @@ class NeuronArray:
         
         return {
             "id": neuron_id,
-            "area_id": int(self.area_ids[index]),
+            "cortical_idx": int(self.cortical_idxs[index]),
             "position": (int(self.positions_x[index]), 
                          int(self.positions_y[index]), 
                          int(self.positions_z[index])),
@@ -556,7 +597,7 @@ class NeuronArray:
             "is_active": bool(self.is_active[index])
         }
 
-    def batch_create_neurons(self, area_id: int, positions: List[Tuple[int, int, int]],
+    def batch_create_neurons(self, cortical_idx: Optional[int], positions: List[Tuple[int, int, int]],
                          thresholds: Union[float, List[float]] = 1.0,
                          membrane_potentials: Union[float, List[float]] = 0.0,
                          resting_potentials: Union[float, List[float]] = 0.0,
@@ -568,7 +609,7 @@ class NeuronArray:
         using vectorized operations instead of loops.
         
         Args:
-            area_id: ID of the cortical area (int)
+            cortical_idx: Integer index of the cortical area
             positions: List of 3D coordinates for each neuron
             thresholds: Either a single value for all neurons or a list of values
             membrane_potentials: Either a single value for all neurons or a list of values
@@ -582,6 +623,10 @@ class NeuronArray:
         Raises:
             ValueError: If any list parameter doesn't match the length of positions
         """
+        # Default cortical_idx to 0 if None
+        if cortical_idx is None:
+            cortical_idx = 0
+            
         num_neurons = len(positions)
         
         # Validate lengths of parameters if they are lists
@@ -598,8 +643,8 @@ class NeuronArray:
         # Find indices for all neurons
         if len(self.free_indices) >= num_neurons:
             # We have enough free indices
-            indices = np.array(self.free_indices[:num_neurons])
-            self.free_indices = self.free_indices[num_neurons:]
+            indices = np.array(list(self.free_indices)[:num_neurons])
+            self.free_indices = self.free_indices - set(indices)
         else:
             # Use free indices + new indices
             num_new_indices = num_neurons - len(self.free_indices)
@@ -607,70 +652,109 @@ class NeuronArray:
             if self.next_index + num_new_indices > self.max_neurons:
                 raise ValueError(f"Maximum number of neurons ({self.max_neurons}) exceeded")
             
-            free_indices = np.array(self.free_indices) if self.free_indices else np.array([], dtype=np.int32)
+            free_indices = np.array(list(self.free_indices)) if self.free_indices else np.array([], dtype=np.int32)
             new_indices = np.arange(self.next_index, self.next_index + num_new_indices, dtype=np.int32)
             indices = np.concatenate([free_indices, new_indices])
             
-            self.free_indices = []
+            self.free_indices = set()
             self.next_index += num_new_indices
         
         # Generate neuron IDs (in this case, same as indices for simplicity)
-        neuron_ids = indices.copy()
+        neuron_ids = list(indices.copy())
         
         # Prepare property arrays (convert to arrays if they are single values)
-        if not isinstance(thresholds, list):
-            thresholds = np.full(num_neurons, thresholds, dtype=np.float32)
+        # Use backend-specific arrays
+        if not isinstance(thresholds, list) and not isinstance(thresholds, np.ndarray):
+            thresholds = self.backend.array([float(thresholds)] * num_neurons)
         else:
-            thresholds = np.array(thresholds, dtype=np.float32)
+            thresholds = self.backend.array(thresholds)
         
-        if not isinstance(membrane_potentials, list):
-            membrane_potentials = np.full(num_neurons, membrane_potentials, dtype=np.float32)
+        if not isinstance(membrane_potentials, list) and not isinstance(membrane_potentials, np.ndarray):
+            membrane_potentials = self.backend.array([float(membrane_potentials)] * num_neurons)
         else:
-            membrane_potentials = np.array(membrane_potentials, dtype=np.float32)
+            membrane_potentials = self.backend.array(membrane_potentials)
         
-        if not isinstance(resting_potentials, list):
-            resting_potentials = np.full(num_neurons, resting_potentials, dtype=np.float32)
+        if not isinstance(resting_potentials, list) and not isinstance(resting_potentials, np.ndarray):
+            resting_potentials = self.backend.array([float(resting_potentials)] * num_neurons)
         else:
-            resting_potentials = np.array(resting_potentials, dtype=np.float32)
+            resting_potentials = self.backend.array(resting_potentials)
         
-        if not isinstance(decay_rates, list):
-            decay_rates = np.full(num_neurons, decay_rates, dtype=np.float32)
+        if not isinstance(decay_rates, list) and not isinstance(decay_rates, np.ndarray):
+            decay_rates = self.backend.array([float(decay_rates)] * num_neurons)
         else:
-            decay_rates = np.array(decay_rates, dtype=np.float32)
+            decay_rates = self.backend.array(decay_rates)
         
-        if not isinstance(refractory_periods, list):
-            refractory_periods = np.full(num_neurons, refractory_periods, dtype=np.int32)
+        if not isinstance(refractory_periods, list) and not isinstance(refractory_periods, np.ndarray):
+            refractory_periods = self.backend.array([int(refractory_periods)] * num_neurons)
         else:
-            refractory_periods = np.array(refractory_periods, dtype=np.int32)
+            refractory_periods = self.backend.array(refractory_periods)
         
         # Extract position components
-        positions_x = np.array([pos[0] for pos in positions], dtype=np.int32)
-        positions_y = np.array([pos[1] for pos in positions], dtype=np.int32)
-        positions_z = np.array([pos[2] for pos in positions], dtype=np.int32)
+        positions_x = self.backend.array([pos[0] for pos in positions])
+        positions_y = self.backend.array([pos[1] for pos in positions])
+        positions_z = self.backend.array([pos[2] for pos in positions])
         
-        # Set neuron properties using vectorized operations
-        self.membrane_potentials[indices] = membrane_potentials
-        self.resting_potentials[indices] = resting_potentials
-        self.thresholds[indices] = thresholds
-        self.decay_rates[indices] = decay_rates
-        self.refractory_periods[indices] = refractory_periods
-        self.refractory_counters[indices] = 0
-        self.is_active[indices] = False
+        # Get numpy array of indices for indexing
+        idx_array = indices
         
-        # Set area and positions
-        self.area_ids[indices] = area_id
-        self.positions_x[indices] = positions_x
-        self.positions_y[indices] = positions_y
-        self.positions_z[indices] = positions_z
+        # Convert to tensors if using PyTorch
+        if isinstance(self.membrane_potentials, torch.Tensor):
+            idx_tensor = torch.tensor(idx_array, dtype=torch.long)
+            
+            # Determine the dtype of the target tensors
+            target_dtype = self.membrane_potentials.dtype
+            
+            # Use PyTorch indexing for tensors - ensure matching dtypes
+            self.membrane_potentials.index_copy_(0, idx_tensor, 
+                                               membrane_potentials.to(dtype=target_dtype))
+            self.resting_potentials.index_copy_(0, idx_tensor, 
+                                              resting_potentials.to(dtype=target_dtype))
+            self.thresholds.index_copy_(0, idx_tensor, 
+                                      thresholds.to(dtype=target_dtype))
+            self.decay_rates.index_copy_(0, idx_tensor, 
+                                       decay_rates.to(dtype=target_dtype))
+            # Convert integer tensors to the appropriate type
+            self.refractory_periods.index_copy_(0, idx_tensor, 
+                                              refractory_periods.to(dtype=self.refractory_periods.dtype))
+            self.positions_x.index_copy_(0, idx_tensor, 
+                                       positions_x.to(dtype=self.positions_x.dtype))
+            self.positions_y.index_copy_(0, idx_tensor, 
+                                       positions_y.to(dtype=self.positions_y.dtype))
+            self.positions_z.index_copy_(0, idx_tensor, 
+                                       positions_z.to(dtype=self.positions_z.dtype))
+            self.cortical_idxs.index_copy_(0, idx_tensor, 
+                                        torch.full_like(idx_tensor, cortical_idx, 
+                                                     dtype=self.cortical_idxs.dtype))
+            
+            # Set valid mask
+            valid_mask = self.backend.to_numpy(self.valid_mask)
+            valid_mask[idx_array] = True
+            self.valid_mask = self.backend.array(valid_mask)
+        else:
+            # For NumPy arrays, use standard indexing
+            self.membrane_potentials[idx_array] = membrane_potentials
+            self.resting_potentials[idx_array] = resting_potentials
+            self.thresholds[idx_array] = thresholds
+            self.decay_rates[idx_array] = decay_rates
+            self.refractory_periods[idx_array] = refractory_periods
+            self.positions_x[idx_array] = positions_x
+            self.positions_y[idx_array] = positions_y
+            self.positions_z[idx_array] = positions_z
+            self.cortical_idxs[idx_array] = cortical_idx
+            self.valid_mask[idx_array] = True
         
-        # Mark as valid
-        self.valid_mask[indices] = True
+        # Update mappings
+        for i, neuron_id in enumerate(neuron_ids):
+            idx = idx_array[i]
+            self.id_to_index_map[neuron_id] = idx
+            self.index_to_id_map[idx] = neuron_id
+            
+            # Add to cortical area mapping
+            if cortical_idx not in self.cortical_id_to_indices:
+                self.cortical_id_to_indices[cortical_idx] = []
+            self.cortical_id_to_indices[cortical_idx].append(idx)
         
-        # Update ID to index mapping
-        for neuron_id, index in zip(neuron_ids, indices):
-            self.id_to_index_map[int(neuron_id)] = int(index)
-        
-        return neuron_ids.tolist()
+        return neuron_ids
 
     def batch_update_membrane_potentials(self, neuron_ids: List[int], values: List[float]) -> None:
         """Update membrane potentials for multiple neurons at once.
@@ -789,7 +873,7 @@ class NeuronArray:
             # Calculate approximate memory requirements
             # Each float32 value takes 4 bytes, each int32 value takes 4 bytes, each bool takes 1 byte
             float_arrays_count = 4  # membrane_potentials, resting_potentials, thresholds, decay_rates
-            int_arrays_count = 4    # refractory_periods, refractory_counters, area_ids
+            int_arrays_count = 4    # refractory_periods, refractory_counters, cortical_idxs
             bool_arrays_count = 2   # is_active, valid_mask
             positions_count = 3     # positions_x, positions_y, positions_z
             
@@ -853,7 +937,7 @@ class NeuronArray:
         int_arrays = [
             self.refractory_periods,
             self.refractory_counters,
-            self.area_ids,
+            self.cortical_idxs,
             self.positions_x,
             self.positions_y,
             self.positions_z
@@ -886,50 +970,45 @@ class NeuronArray:
 
 # For backwards compatibility
 class Neuron:
-    """Legacy Neuron class for API compatibility.
+    """
+    Wrapper class for individual neurons.
     
-    This class provides a thin wrapper around neuron properties stored in the
-    NeuronArray class. It's meant for API compatibility only and should not be
-    used for internal storage of neurons.
+    This class provides an object-oriented interface to individual neurons for API compatibility.
+    It delegates most operations to the underlying NeuronArray for efficiency.
     """
     
-    def __init__(self, 
-                neuron_id: int,
-                area_id: str,
-                position: Tuple[int, int, int],
-                threshold: float = 1.0,
-                membrane_potential: float = 0.0,
-                resting_potential: float = 0.0,
-                decay_rate: float = 0.5,
-                refractory_period: int = 1,
-                properties: Optional[Dict[str, Any]] = None):
-        """Initialize a neuron object.
-        
-        This is used primarily for API serialization and should not be used
-        for internal storage of neurons.
+    def __init__(
+        self,
+        neuron_id: int,
+        cortical_id: Optional[str] = None,
+        position: Optional[Tuple[int, int, int]] = None,
+        threshold: float = 1.0,
+        membrane_potential: float = 0.0,
+        resting_potential: float = 0.0,
+        decay_rate: float = 0.5,
+        refractory_period: int = 1
+    ):
+        """
+        Initialize a Neuron object.
         
         Args:
-            neuron_id: Unique identifier for this neuron
-            area_id: ID of the cortical area
-            position: 3D coordinates within the cortical area (x, y, z)
-            threshold: Firing threshold potential
+            neuron_id: Unique neuron ID
+            cortical_id: ID of the cortical area
+            position: 3D coordinates (x, y, z)
+            threshold: Firing threshold
             membrane_potential: Initial membrane potential
-            resting_potential: Base membrane potential
-            decay_rate: Rate at which potential decays each timestep
-            refractory_period: Number of timesteps after firing during which the neuron cannot fire
-            properties: Additional properties for the neuron (optional)
+            resting_potential: Resting potential
+            decay_rate: Membrane potential decay rate
+            refractory_period: Refractory period in timesteps
         """
         self.id = neuron_id
-        self.area_id = area_id
-        self.position = position
+        self.cortical_id = cortical_id or "unknown"
+        self.position = position or (0, 0, 0)
         self.threshold = threshold
         self.membrane_potential = membrane_potential
         self.resting_potential = resting_potential
         self.decay_rate = decay_rate
         self.refractory_period = refractory_period
-        self.refractory_counter = 0
-        self.is_active = False
-        self.properties = properties or {}
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert neuron to dictionary representation.
@@ -939,16 +1018,17 @@ class Neuron:
         """
         return {
             "id": self.id,
-            "area_id": self.area_id,
+            "cortical_id": self.cortical_id,
             "position": self.position,
             "threshold": self.threshold,
             "membrane_potential": self.membrane_potential,
             "resting_potential": self.resting_potential,
             "decay_rate": self.decay_rate,
             "refractory_period": self.refractory_period,
-            "refractory_counter": self.refractory_counter,
-            "is_active": self.is_active,
-            "properties": self.properties
+            # Add defaults for optional attributes
+            "refractory_counter": getattr(self, "refractory_counter", 0),
+            "is_active": getattr(self, "is_active", False),
+            "properties": getattr(self, "properties", {})
         }
 
     @classmethod
@@ -963,14 +1043,13 @@ class Neuron:
         """
         neuron = cls(
             neuron_id=data["id"],
-            area_id=data["area_id"],
+            cortical_id=data["cortical_id"],
             position=data["position"],
             threshold=data["threshold"],
             membrane_potential=data["membrane_potential"],
             resting_potential=data["resting_potential"],
             decay_rate=data["decay_rate"],
-            refractory_period=data["refractory_period"],
-            properties=data.get("properties", {})
+            refractory_period=data["refractory_period"]
         )
         neuron.refractory_counter = data.get("refractory_counter", 0)
         neuron.is_active = data.get("is_active", False)

@@ -26,8 +26,8 @@ import numpy as np
 import pytest
 
 from feagi.api.protocols.constants import ByteStructureID
-from feagi.api.protocols.byte_structures import ByteStructureEncoder, ByteStructureDecoder
-from feagi.api.protocols.byte_structures.utils import validate_cortical_id, is_compressed
+from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder
+# Note: validate_cortical_id and is_compressed not available in feagi_bytes - implement locally if needed
 from feagi.api.protocols import ByteStructureTranslator
 
 

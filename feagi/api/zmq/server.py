@@ -1,19 +1,49 @@
 """
-ZeroMQ Server for FEAGI API
+ZeroMQ Server for FEAGI API.
 
-This module implements the ZeroMQ server for the FEAGI API, providing
-high-performance, real-time communication with clients.
+Provides ZeroMQ-based API access to FEAGI functionality.
 """
 
-import os
-import time
-from feagi.utils.logger import setup_logger
-logger = setup_logger(__name__)
-import threading
 import asyncio
-import concurrent.futures
 import json
-from typing import Dict, Any, List, Optional, Union, Callable
+import logging
+import os
+import sys
+import threading
+import time
+from typing import Dict, Any, Optional, List, Set, Callable, Callable
+import uuid
+import traceback
+
+import zmq
+import zmq.asyncio
+
+from feagi.utils.logger import setup_logger
+
+# Set up logger early so it's available for imports
+logger = setup_logger()
+
+# Core dependencies
+from feagi.core.state_manager import FeagiStateManager, GenomeState
+from feagi.bdu.connectome_manager import ConnectomeManager
+
+# Import all stream handlers
+from .streams.sensory import SensoryStream
+from .streams.motor import MotorStream  
+from .streams.visualization import VisualizationStream
+from .streams.control import ControlStream
+from .streams.rest import RestStream
+
+# Import pattern handlers
+from .patterns.req_rep import RequestReplyManager
+from .patterns.pub_sub import PubSubManager
+from .patterns.push_pull import PushPullManager
+
+# Import connection manager
+from .connection_manager import ConnectionManager
+
+# Import the unified CoreAPIService
+from ..core.services.core_api_service import CoreAPIService
 
 # Force importing the actual ZMQ module first to avoid circular imports
 try:
@@ -36,7 +66,6 @@ except ImportError:
 
 from zmq.auth.thread import ThreadAuthenticator
 
-from ..core.service import CoreApiService
 from .rest_adapter import ZMQRestAPIAdapter  # Import the REST API adapter
 
 # Import protocol definitions
@@ -154,62 +183,84 @@ class ZmqServer:
     
     def __init__(
         self,
-        core_api: CoreApiService,
-        host: str = "*",
+        core_api: CoreAPIService,
+        host: str = "127.0.0.1",
         req_rep_port: int = 5555,
         pub_sub_port: int = 5556,
         push_pull_port: int = 5557,
-        sensorimotor_port: int = 5558,
-        motor_port: int = 5564,
-        control_port: int = 5559,
-        vis_base_port: int = 5560,
-        context: Optional[zmq.asyncio.Context] = None
+        sensory_port: Optional[int] = 5558,
+        motor_port: Optional[int] = 5564,
+        control_port: Optional[int] = 5559,
+        rest_port: int = 5563,
+        vis_port: Optional[int] = 5562,
+        context: Optional[zmq.asyncio.Context] = None,
+        fq_sampler: Optional[Any] = None,
+        fq_sampler_queue: Optional[Any] = None,
+        stream_config: Optional[Dict[str, Any]] = None
     ):
         """
-        Initialize the ZMQ server.
+        Initialize the ZeroMQ server for FEAGI.
         
         Args:
-            core_api: Core API service for accessing FEAGI
-            host: Host to bind to
-            req_rep_port: Port for REQ/REP pattern
-            pub_sub_port: Port for PUB/SUB pattern
-            push_pull_port: Port for PUSH/PULL pattern
-            sensorimotor_port: Port for sensorimotor stream
-            motor_port: Port for motor commands stream
-            control_port: Port for control protocol stream
-            vis_base_port: Base port for visualization stream
-            context: Optional existing ZMQ context to use
+            core_api: Core API service for delegating calls to FEAGI core
+            host: Host address to bind to
+            req_rep_port: Port for REQ/REP pattern (5555)
+            pub_sub_port: Port for PUB/SUB pattern (5556)
+            push_pull_port: Port for PUSH/PULL pattern (5557)
+            sensory_port: Port for sensory data (5558), None to disable
+            motor_port: Port for motor data (5564), None to disable
+            control_port: Port for control interface (5559), None to disable
+            rest_port: Port for REST API (5563)
+            vis_port: Port for visualization data (5562), None to disable
+            context: Optional ZeroMQ context to use
+            fq_sampler: Optional FQ sampler instance for visualization data
+            fq_sampler_queue: Optional queue for FQ data from the sampler
+            stream_config: Optional stream configuration from TOML
         """
         self.core_api = core_api
         self.host = host
         self.req_rep_port = req_rep_port
         self.pub_sub_port = pub_sub_port
         self.push_pull_port = push_pull_port
-        self.sensorimotor_port = sensorimotor_port
+        self.sensory_port = sensory_port
         self.motor_port = motor_port
         self.control_port = control_port
-        self.vis_base_port = vis_base_port
+        self.rest_port = rest_port
+        self.vis_port = vis_port
+        
+        # Store stream configuration
+        self.stream_config = stream_config or {}
+        
+        # Create ZeroMQ context
+        self._context = context or zmq.asyncio.Context.instance()
+        
+        # State tracking
+        self._running = False
+        
+        # Store components (some may be None if disabled)
+        self._req_rep = None
+        self._pub_sub = None
+        self._push_pull = None
+        self._sensory = None
+        self._motor = None
+        self._control = None
+        self._visualization = None
+        self._rest = None
+        
+        # FQ Sampler integration
+        self._fq_sampler = fq_sampler
+        self._fq_sampler_queue = fq_sampler_queue
         
         # Thread and event loop management
         self._thread = None
         self._loop = None
-        self._context = context or zmq.asyncio.Context.instance()
-        self._running = False
         self._shutdown_event = threading.Event()
         
-        # Pattern managers
-        self._req_rep = None
-        self._pub_sub = None
-        self._push_pull = None
-        self._sensorimotor = None
-        self._visualization = None
-        self._control = None
-        
-        # Initialize sockets (will be created on start)
+        # Initialize sockets (will be created on start, may be None if stream disabled)
         self.control_socket = None
-        self.sensorimotor_socket = None
-        self.viz_structure_socket = None
-        self.viz_activity_socket = None
+        self.sensory_socket = None
+        self.motor_socket = None
+        self.vis_socket = None
         
         # State tracking
         self.agents = {}  # agent_id -> agent_info
@@ -218,12 +269,21 @@ class ZmqServer:
         # Callbacks
         self.sensory_callback = None
         
-        # Create connection manager
+        # Create connection manager (only for enabled streams)
+        enabled_ports = {}
+        if self.control_port is not None:
+            enabled_ports['control'] = self.control_port
+        if self.sensory_port is not None:
+            enabled_ports['sensory'] = self.sensory_port
+        if self.vis_port is not None:
+            enabled_ports['visualization'] = self.vis_port
+            
         self.connection_manager = ConnectionManager(
             context=self._context,
             control_port=self.control_port,
-            sensorimotor_port=self.sensorimotor_port,
-            visualization_port=self.vis_base_port
+            sensory_port=self.sensory_port,
+            motor_port=self.motor_port,
+            visualization_port=self.vis_port
         )
         
         # Create protocol translator
@@ -303,9 +363,12 @@ class ZmqServer:
     
     async def _start_server(self):
         """
-        Start the ZMQ server and its components.
+        Start the ZMQ server components.
         
-        This method initializes all sockets and message handlers.
+        This method:
+        1. Initializes all the ZMQ patterns (REQ/REP, PUB/SUB, etc.)
+        2. Sets up the message handlers
+        3. Starts the control and data processing tasks
         """
         try:
             logger.info("Starting ZMQ server")
@@ -318,11 +381,13 @@ class ZmqServer:
             from .patterns.req_rep import RequestReplyManager
             from .patterns.pub_sub import PubSubManager
             from .patterns.push_pull import PushPullManager
-            from .streams.sensorimotor import SensorimotorStream
-            from .streams.visualization import VisualizationStream
+            from .streams.sensory import SensoryStream
+            from .streams.motor import MotorStream
             from .streams.control import ControlStream
+            from .streams.rest import RestStream
+            # VisualizationStream imported conditionally at module level
             
-            # Initialize all managers with the current thread's event loop
+            # Initialize only enabled streams based on port configuration
             self._req_rep = RequestReplyManager(
                 core_api=self.core_api,
                 host=self.host,
@@ -344,51 +409,102 @@ class ZmqServer:
                 context=self._context
             )
             
-            self._sensorimotor = SensorimotorStream(
+            # Only create enabled streams (port != None)
+            if self.sensory_port is not None:
+                self._sensory = SensoryStream(
+                    core_api=self.core_api,
+                    host=self.host,
+                    port=self.sensory_port,
+                    context=self._context
+                )
+                logger.info(f"Sensory stream enabled on port {self.sensory_port}")
+            else:
+                logger.info("Sensory stream disabled")
+            
+            if self.motor_port is not None:
+                self._motor = MotorStream(
+                    core_api=self.core_api,
+                    host=self.host,
+                    port=self.motor_port,
+                    context=self._context,
+                    fq_sampler=self._fq_sampler,
+                    fq_sampler_queue=self._fq_sampler_queue,
+                    stream_config=self.stream_config.get('motor', {})
+                )
+                logger.info(f"Motor stream enabled on port {self.motor_port}")
+            else:
+                logger.info("Motor stream disabled")
+            
+            if self.control_port is not None:
+                self._control = ControlStream(
+                    core_api=self.core_api,
+                    host=self.host,
+                    port=self.control_port,
+                    context=self._context
+                )
+                logger.info(f"Control stream enabled on port {self.control_port}")
+            else:
+                logger.info("Control stream disabled")
+            
+            self._rest = RestStream(
                 core_api=self.core_api,
                 host=self.host,
-                sensory_port=self.sensorimotor_port,
-                motor_port=self.motor_port,
+                port=self.rest_port,
                 context=self._context
             )
             
-            self._control = ControlStream(
-                core_api=self.core_api,
-                host=self.host,
-                port=self.control_port,
-                context=self._context
-            )
+            if self.vis_port is not None:
+                # Use working visualization stream interface (EXACTLY as before)
+                self._visualization = VisualizationStream(
+                    host=self.host,
+                    port=self.vis_port,
+                    context=None,  # VisualizationStream creates its own sync context
+                    fq_sampler_queue=self._fq_sampler_queue
+                )
+                logger.info(f"Primary visualization stream enabled on port {self.vis_port}")
+            else:
+                logger.info("Visualization stream disabled")
             
-            self._visualization = VisualizationStream(
-                core_api=self.core_api,
-                host=self.host,
-                structure_port=self.vis_base_port,
-                activity_port=self.vis_base_port + 1,
-                control_port=self.vis_base_port + 2,
-                context=self._context
-            )
+            # Pass ZMQ server reference to REST stream for visualization endpoints
+            # IMPORTANT: This must happen AFTER visualization stream is created!
+            if hasattr(self._rest, 'set_zmq_server'):
+                self._rest.set_zmq_server(self)
+                logger.debug("ZMQ server reference passed to REST stream")
             
-            # Start all managers
+            # Start only enabled managers
             await self._req_rep.start()
             await self._pub_sub.start()
             await self._push_pull.start()
-            await self._sensorimotor.start()
-            await self._control.start()
-            await self._visualization.start()
             
-            # Create control socket (ROUTER) - Using existing socket from ControlStream to avoid double binding
-            self.control_socket = self._control.router_socket
+            if self._sensory:
+                await self._sensory.start()
+            if self._motor:
+                await self._motor.start()
+            if self._control:
+                await self._control.start()
             
-            # Create sensorimotor socket (XPUB/XSUB pattern) - Using existing socket from SensorimotorStream
-            self.sensorimotor_socket = self._sensorimotor.socket
+            await self._rest.start()
             
-            # Create visualization sockets (PUB) - Using existing sockets from VisualizationStream
-            self.viz_structure_socket = self._visualization.structure_socket
-            self.viz_activity_socket = self._visualization.activity_socket
+            # RTOS: VisualizationStream is now synchronous
+            if self._visualization:
+                self._visualization.start()  # No await - synchronous method
+            
+            # Create sockets only for enabled streams
+            if self._control:
+                self.control_socket = self._control.router_socket
+            
+            if self._sensory:
+                self.sensory_socket = self._sensory.socket
+            
+            if self._motor:
+                self.motor_socket = self._motor.socket
+            
+            if self._visualization:
+                self.vis_socket = self._visualization.socket
             
             # Start message handling tasks
-            self.tasks.append(asyncio.create_task(self._handle_control_messages()))
-            self.tasks.append(asyncio.create_task(self._handle_sensorimotor_messages()))
+            # Note: Control messages are handled by ControlStream on port 5559
+            self.tasks.append(asyncio.create_task(self._sensory_data_loop()))
             
             # Start message handlers
             self.message_handlers = await start_message_handlers(
@@ -426,79 +542,96 @@ class ZmqServer:
         This method is thread-safe and can be called from any thread.
         """
         if not self._running:
-            logger.warning("ZMQ server is not running")
+            print("ZMQ server is not running", file=sys.stderr, flush=True)
             return
         
-        logger.info("Shutting down ZMQ server")
+        # @cursor:critical-path - Signal-safe shutdown should minimize logging
+        print("Shutting down ZMQ server", file=sys.stderr, flush=True)
         
         # Signal the monitor loop to stop
         self._shutdown_event.set()
         
-        # Create a new event loop for shutdown if we're not in the server thread
-        if threading.current_thread() != self._thread:
-            # We're in a different thread, create a new event loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                # Run the shutdown in this new loop
-                loop.run_until_complete(self._stop_services())
-            finally:
-                loop.close()
-        else:
-            # We're in the server thread, use its loop
-            asyncio.ensure_future(self._stop_services())
+        try:
+            # Create a new event loop for shutdown if we're not in the server thread
+            if threading.current_thread() != self._thread:
+                # We're in a different thread, create a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    # Run the shutdown in this new loop
+                    loop.run_until_complete(self._stop_services())
+                finally:
+                    loop.close()
+            else:
+                # We're in the server thread, use its loop
+                asyncio.ensure_future(self._stop_services())
             
-        # Wait for the server thread to finish
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=5.0)
+            # Wait for the server thread to finish
+            if self._thread and self._thread.is_alive():
+                self._thread.join(timeout=5.0)
             
-        # Final cleanup
-        self._running = False
-        logger.info("ZMQ server shutdown complete")
+            # Final cleanup
+            self._running = False
+            print("ZMQ server shutdown complete", file=sys.stderr, flush=True)
+            
+        except Exception as e:
+            print(f"Error during ZMQ server shutdown: {e}", file=sys.stderr, flush=True)
     
     async def _stop_services(self):
         """
         Stop all ZMQ services asynchronously.
         """
-        logger.info("Stopping ZMQ services")
+        # @cursor:critical-path - Signal-safe shutdown should minimize logging
+        print("Stopping ZMQ services", file=sys.stderr, flush=True)
         
-        # Stop all services
-        stop_tasks = []
-        
-        if self._req_rep:
-            stop_tasks.append(self._req_rep.stop())
-    
-        if self._pub_sub:
-            stop_tasks.append(self._pub_sub.stop())
-    
-        if self._push_pull:
-            stop_tasks.append(self._push_pull.stop())
-    
-        if self._sensorimotor:
-            stop_tasks.append(self._sensorimotor.stop())
-    
-        if self._control:
-            stop_tasks.append(self._control.stop())
-    
-        if self._visualization:
-            stop_tasks.append(self._visualization.stop())
-        
-        # Wait for all services
-        if stop_tasks:
-            await asyncio.gather(*stop_tasks, return_exceptions=True)
+        try:
+            # Stop all services
+            stop_tasks = []
             
-        logger.info("All ZMQ services stopped")
+            if self._req_rep:
+                stop_tasks.append(self._req_rep.stop())
         
-        # Close sockets
-        for socket in [self.control_socket, self.sensorimotor_socket, 
-                      self.viz_structure_socket, self.viz_activity_socket]:
-            if socket:
-                socket.close(linger=0)
+            if self._pub_sub:
+                stop_tasks.append(self._pub_sub.stop())
+        
+            if self._push_pull:
+                stop_tasks.append(self._push_pull.stop())
+        
+            if self._sensory:
+                stop_tasks.append(self._sensory.stop())
+        
+            if self._motor:
+                stop_tasks.append(self._motor.stop())
+        
+            if self._control:
+                stop_tasks.append(self._control.stop())
+        
+            if self._rest:
+                stop_tasks.append(self._rest.stop())
+        
+            # RTOS: VisualizationStream is now synchronous, call stop() directly
+            if self._visualization:
+                self._visualization.stop()  # Direct call - synchronous method
+            
+            # Wait for all services
+            if stop_tasks:
+                await asyncio.gather(*stop_tasks, return_exceptions=True)
+            
+            print("All ZMQ services stopped", file=sys.stderr, flush=True)
+            
+            # Close sockets
+            for socket in [self.control_socket, self.sensory_socket, 
+                          self.motor_socket, self.vis_socket]:
+                if socket:
+                    socket.close(linger=0)
                 
-        self.control_socket = None
-        self.sensorimotor_socket = None
-        self.viz_structure_socket = None
-        self.viz_activity_socket = None
+            self.control_socket = None
+            self.sensory_socket = None
+            self.motor_socket = None
+            self.vis_socket = None
+            
+        except Exception as e:
+            print(f"Error stopping ZMQ services: {e}", file=sys.stderr, flush=True)
     
     def _cleanup(self):
         """
@@ -520,7 +653,8 @@ class ZmqServer:
             self._req_rep = None
             self._pub_sub = None
             self._push_pull = None
-            self._sensorimotor = None
+            self._sensory = None
+            self._motor = None
             self._control = None
             self._visualization = None
             
@@ -535,9 +669,10 @@ class ZmqServer:
             # Close connection manager
             self.connection_manager.close()
             
-            logger.info("ZMQ server resources cleaned up")
+            # @cursor:critical-path - Signal-safe cleanup should minimize logging
+            print("ZMQ server resources cleaned up", file=sys.stderr, flush=True)
         except Exception as e:
-            logger.error(f"Error during ZMQ server cleanup: {e}")
+            print(f"Error during ZMQ server cleanup: {e}", file=sys.stderr, flush=True)
     
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
         """
@@ -596,88 +731,15 @@ class ZmqServer:
             logger.error(f"Error sending control message: {e}")
             return False
     
-    async def _handle_control_messages(self):
-        """
-        Handle messages on the control socket.
-        
-        This includes commands, queries, and management operations.
-        
-        Uses the new REST API adapter to process standard-format control commands.
-        """
+    async def _sensory_data_loop(self):
+        """Handle incoming sensory data."""
         try:
-            # Create socket for control protocol
-            logger.info(f"Starting control message handler on port {self.control_port}")
-            socket = self._context.socket(zmq.ROUTER)
-            socket.bind(f"tcp://{self.host}:{self.control_port}")
-            
-            self.control_socket = socket
-            
-            # Process messages in a loop
-            while self._running and not self._shutdown_event.is_set():
-                try:
-                    # Wait for message with timeout
-                    if not await self._receive_with_timeout(socket, 1.0):
-                        continue
-                    
-                    # Receive message parts
-                    message_parts = await socket.recv_multipart()
-                    
-                    # Basic format checking
-                    if len(message_parts) < 2:
-                        logger.warning(f"Received invalid message format on control socket: {message_parts}")
-                        continue
-                    
-                    # Split into identity and payload
-                    identity = message_parts[0]
-                    payload = message_parts[1]
-                    
-                    # Try to detect and handle REST API format messages first
-                    try:
-                        # Check if this looks like a REST API format message
-                        # (has "route" and "method" fields)
-                        message_json = json.loads(payload.decode('utf-8'))
-                        if isinstance(message_json, dict) and 'route' in message_json and 'method' in message_json:
-                            # This is a REST API format message
-                            logger.debug(f"Processing REST API format message: {message_json['method']} {message_json['route']}")
-                            
-                            # Process with REST API adapter
-                            response_data = await self.rest_api_adapter.process_message(payload)
-                            
-                            # Send response back
-                            await socket.send_multipart([identity, response_data])
-                            continue
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        # Not JSON or not REST API format, continue with legacy handling
-                        pass
-                    
-                    # Legacy message handling (for backward compatibility)
-                    response = await self._process_control_message(identity, payload)
-                    if response:
-                        await socket.send_multipart([identity, response])
-                    
-                except asyncio.CancelledError:
-                    logger.info("Control message handler cancelled")
-                    break
-                except Exception as e:
-                    logger.error(f"Error handling control message: {str(e)}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-        
-        finally:
-            # Clean up
-            if socket:
-                socket.close()
-            logger.info("Control message handler stopped")
-    
-    async def _handle_sensorimotor_messages(self):
-        """Handle incoming sensorimotor messages."""
-        try:
-            while self._running and self.sensorimotor_socket:
+            while self._running and self.sensory_socket:
                 try:
                     # Receive message
-                    frames = await self.sensorimotor_socket.recv_multipart()
+                    frames = await self.sensory_socket.recv_multipart()
                     if len(frames) != 2:  # [topic, message]
-                        logger.warning(f"Invalid sensorimotor frame count: {len(frames)}")
+                        logger.warning(f"Invalid sensory frame count: {len(frames)}")
                         continue
                     
                     topic, message_data = frames
@@ -686,14 +748,14 @@ class ZmqServer:
                     if topic == b"sensory":
                         await self._handle_sensory_data(message_data)
                     else:
-                        logger.warning(f"Unknown sensorimotor topic: {topic}")
+                        logger.warning(f"Unknown sensory topic: {topic}")
                     
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
-                    logger.error(f"Error handling sensorimotor message: {e}")
+                    logger.error(f"Error handling sensory message: {e}")
         except asyncio.CancelledError:
-            logger.debug("Sensorimotor message handler cancelled")
+            logger.debug("Sensory message handler cancelled")
     
     async def _handle_register(self, identity: bytes, request: RegisterRequest) -> bytes:
         """
@@ -892,7 +954,7 @@ class ZmqServer:
             channel_id: Motor channel ID
             data: Motor data
         """
-        if not self._running or not self.sensorimotor_socket:
+        if not self._running or not self.motor_socket:
             logger.warning("Cannot send motor data: server not running")
             return
             
@@ -915,7 +977,7 @@ class ZmqServer:
         
         # Serialize and send
         data = message.SerializeToString()
-        await self.sensorimotor_socket.send_multipart([b"motor", data])
+        await self.motor_socket.send_multipart([b"motor", data])
         
     async def send_activity_data(self, data: bytes):
         """
@@ -924,7 +986,7 @@ class ZmqServer:
         Args:
             data: Serialized activity data
         """
-        if not self._running or not self.viz_activity_socket:
+        if not self._running or not self.vis_socket:
             logger.warning("Cannot send activity data: server not running")
             return
         
@@ -950,7 +1012,7 @@ class ZmqServer:
         
         # Serialize and send
         data = message.SerializeToString()
-        await self.viz_activity_socket.send_multipart([b"activity", data])
+        await self.vis_socket.send_multipart([b"activity", data])
         
     async def send_structure_data(self, data: bytes):
         """
@@ -959,7 +1021,7 @@ class ZmqServer:
         Args:
             data: Serialized structure data
         """
-        if not self._running or not self.viz_structure_socket:
+        if not self._running or not self.vis_socket:
             logger.warning("Cannot send structure data: server not running")
             return
         
@@ -985,7 +1047,7 @@ class ZmqServer:
         
         # Serialize and send
         data = message.SerializeToString()
-        await self.viz_structure_socket.send_multipart([b"structure", data])
+        await self.vis_socket.send_multipart([b"structure", data])
     
     def register_sensory_callback(self, callback: Callable[[int, bytes], None]):
         """
@@ -1160,29 +1222,43 @@ class ZmqServer:
     
     def get_server_stats(self) -> Dict[str, Any]:
         """
-        Get server statistics.
+        Get ZMQ server statistics.
         
         Returns:
-            Dictionary with server statistics
+            Dictionary containing server statistics
         """
-        import psutil
-        from datetime import datetime
-        
-        # Get process information
-        process = psutil.Process()
-        
-        # Calculate uptime
-        start_time = datetime.fromtimestamp(process.create_time())
-        uptime = (datetime.now() - start_time).total_seconds()
+        total_agents = len(self.agents)
+        active_agents = len([a for a in self.agents.values() if a.get('last_heartbeat')])
         
         return {
-            "cpu_usage": process.cpu_percent(),
-            "memory_usage": process.memory_info().rss / (1024 * 1024),  # MB
-            "uptime_seconds": int(uptime),
-            "agents": len(self.agents),
-            "start_time": start_time.isoformat(),
-            "active_tasks": len(self.tasks)
+            'running': self._running,
+            'total_agents': total_agents,
+            'active_agents': active_agents,
+            'host': self.host,
+            'req_rep_port': self.req_rep_port,
+            'pub_sub_port': self.pub_sub_port,
+            'push_pull_port': self.push_pull_port,
+            'control_port': self.control_port,
+            'sensory_port': self.sensory_port,
+            'motor_port': self.motor_port,
+            'rest_port': self.rest_port,
+            'vis_port': self.vis_port,
+            'enabled_streams': {
+                'sensory': self._sensory is not None,
+                'motor': self._motor is not None,
+                'control': self._control is not None,
+                'visualization': self._visualization is not None,
+            }
         }
+
+    def get_visualization_stream(self):
+        """
+        Get the visualization stream instance.
+        
+        Returns:
+            VisualizationStream instance if visualization is enabled, None otherwise
+        """
+        return self._visualization
     
     async def broadcast_message(self, 
                               protocol_type: str, 

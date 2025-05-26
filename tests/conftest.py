@@ -16,6 +16,18 @@ import asyncio
 # Configure logging for tests
 logging.basicConfig(level=logging.WARNING)
 
+# Suppress verbose logs from specific modules during testing
+# The embryogenesis module generates too many "No mappings found" messages
+verbose_loggers = [
+    'feagi.bdu.embryogenesis.neuroembryogenesis',
+    'feagi.bdu.embryogenesis',
+    'feagi.bdu',
+]
+
+for logger_name in verbose_loggers:
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.ERROR)  # Only show errors, suppress INFO/WARNING
+
 # Mock modules that are causing import issues
 MOCK_MODULES = ['wgpu', 'wgpu._coreutils']
 for mod_name in MOCK_MODULES:
@@ -714,7 +726,7 @@ sys.modules['feagi.api.protocols.fcp'] = mock_fcp
 sys.modules['feagi.api.protocols.fsmp'] = MagicMock()
 sys.modules['feagi.api.protocols.fvp'] = MagicMock()
 sys.modules['feagi.api.protocols.translator'] = MagicMock()
-sys.modules['feagi.api.protocols.byte_structures'] = MagicMock()
+# sys.modules['feagi.api.protocols.byte_structures'] = MagicMock()  # Removed - using feagi_bytes now
 sys.modules['feagi.api.protocols.constants'] = mock_constants
 
 # Mock utility functions
@@ -729,7 +741,7 @@ def mock_get_structure_info(data):
 mock_byte_structures_utils.get_structure_info = mock_get_structure_info
 
 # Add the mock to sys.modules
-sys.modules['feagi.api.protocols.byte_structures.utils'] = mock_byte_structures_utils
+# sys.modules['feagi.api.protocols.byte_structures.utils'] = mock_byte_structures_utils  # Removed - using feagi_bytes now
 
 # Create mock for protocol module with constants_pb2
 mock_protocol = MagicMock()
@@ -1133,13 +1145,13 @@ def skip_if_no_gpu():
         pytest.skip("PyTorch not installed, cannot check for GPU")
 
 # Add the mocks to sys.modules
-sys.modules['feagi.api.protocols.byte_structures.utils'] = mock_byte_structures_utils
+# sys.modules['feagi.api.protocols.byte_structures.utils'] = mock_byte_structures_utils  # Removed - using feagi_bytes now
 
 # Set up the byte structures module
-mock_byte_structures = MagicMock()
-mock_byte_structures.ByteStructureEncoder = MockByteStructureEncoder
-mock_byte_structures.ByteStructureDecoder = MockByteStructureDecoder
-sys.modules['feagi.api.protocols.byte_structures'] = mock_byte_structures
+# mock_byte_structures = MagicMock()  # Removed - using feagi_bytes now
+# mock_byte_structures.ByteStructureEncoder = MockByteStructureEncoder  # Removed - using feagi_bytes now
+# mock_byte_structures.ByteStructureDecoder = MockByteStructureDecoder  # Removed - using feagi_bytes now
+# sys.modules['feagi.api.protocols.byte_structures'] = mock_byte_structures  # Removed - using feagi_bytes now
 
 # Set up the protocols module
 mock_protocols = MagicMock()

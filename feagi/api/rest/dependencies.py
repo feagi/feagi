@@ -20,6 +20,11 @@ def set_core_api_service(api_service):
     global _core_api_service
     _core_api_service = api_service
 
+# RUST/RTOS COMPATIBLE: Alias for direct dependency injection
+def set_core_api_service_instance(api_service):
+    """Set the core API service instance (Rust/RTOS compatible alias)."""
+    set_core_api_service(api_service)
+
 def get_core_api():
     """Get the core API service instance."""
     if _core_api_service is None:

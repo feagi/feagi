@@ -149,6 +149,24 @@ DEFAULT_CONFIG = {
         "topics": ["neural", "metrics", "heartbeat"],
         "polling_timeout": 100,  # ms
         "message_buffer_size": 100,  # Maximum messages to buffer
+        
+        # Stream-specific enable/disable configuration
+        "streams": {
+            "visualization": {
+                "enabled": True,  # Enable visualization stream
+                "auto_enable_on_subscribers": True,  # Auto-enable FQ sampler when clients connect
+                "subscriber_check_interval": 1.0,  # Seconds between subscriber checks
+            },
+            "sensory": {
+                "enabled": True,  # Enable sensory stream
+            },
+            "motor": {
+                "enabled": True,  # Enable motor stream
+            },
+            "control": {
+                "enabled": True,  # Enable control stream
+            },
+        },
     },
     
     "pns": {

@@ -86,6 +86,39 @@ export FEAGI_API_PORT=9090
 python run_feagi.py
 ```
 
+## Command Line Options
+
+FEAGI supports various command line arguments for development and debugging. For comprehensive debugging information, see the [FEAGI Debugging Guide](https://github.com/feagi/feagi/blob/main/feagi_core/docs/guide-how-to-debug.md).
+
+### Quick Debug Commands
+
+```bash
+# Enable detailed API request/response logging
+python -m feagi.main --debug-api
+
+# Enable neural processing debug output (shows fire queue contents)
+python -m feagi.main --debug-npu
+
+# Enable both API and NPU debugging
+python -m feagi.main --debug-api --debug-npu
+
+# Run FEAGI in test mode with NPU debugging
+python -m feagi.main --test --debug-npu --test-duration 30
+```
+
+### Development Options
+
+```bash
+# Set log level for general debugging
+python -m feagi.main --log-level DEBUG
+
+# Use custom configuration file
+python -m feagi.main --config /path/to/custom_config.toml
+
+# Override specific ports
+python -m feagi.main --api-port 9000 --zmq-sensory-port 5570
+```
+
 ## Advanced Configuration
 
 ### Custom Neuron Models

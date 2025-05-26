@@ -1073,7 +1073,7 @@ Area 500 (Hippocampus, window_size=100):
 
 Area 501 (Working Memory, window_size=50):
 ┌───┬───┬───┬───┬───┬─────┬─────┐
-│ 0 │ 1 │ 2 │ 3 │...│ 48  │ 49  │
+│ 0 │ 1 │ 2 │...│ 48  │ 49  │
 └───┴───┴───┴───┴───┴─────┴─────┘
       │   │   ▲
       │   │   │
@@ -1166,14 +1166,14 @@ At the heart of the burst engine lies the FCL manager that is responsible for:
 
 The FCL Manager interfaces with the Hierarchical FCL implementation to manage the flow of neuron activations throughout the simulation.
 
-## FCL Sampler: Design and Integration (RTOS/Rust-Friendly)
+## FQ Sampler: Design and Integration (RTOS/Rust-Friendly)
 
 ## Overview
 
-The **FCLSampler** is a dedicated component responsible for sampling bursts (Fire Candidate Lists) from the neural simulation at a configurable rate for purposes such as visualization and motor command extraction. This design follows Option A: a separate sampler task/thread, which is the most RTOS/Rust-friendly approach.
+The **FQSampler** is a dedicated component responsible for sampling fire queue data from the neural simulation at a configurable rate for purposes such as visualization and motor command extraction. This design follows Option A: a separate sampler task/thread, which is the most RTOS/Rust-friendly approach.
 
 ## Rationale
-- **Separation of Concerns:** The BurstEngine runs at high simulation frequency, while the FCLSampler operates at a lower, independently scheduled frequency.
+- **Separation of Concerns:** The BurstEngine runs at high simulation frequency, while the FQSampler operates at a lower, independently scheduled frequency.
 - **RTOS/Rust Compatibility:** Each component can be mapped to a periodic task/thread, using RTOS primitives (queues, mutexes) for communication.
 - **Determinism:** Both the burst engine and sampler have predictable, bounded execution times.
 - **Extensibility:** Multiple samplers or consumers (visualization, motor, logging) can be added without modifying the core burst engine.
@@ -1181,13 +1181,13 @@ The **FCLSampler** is a dedicated component responsible for sampling bursts (Fir
 ## Architecture
 
 ```
-[BurstEngine] --updates--> [FCL Manager] <--read-- [FCLSampler] --+--> [Visualization]
-                                                                 |
-                                                                 +--> [Motor Command Extraction]
+[BurstEngine] --updates--> [Fire Queue] <--read-- [FQSampler] --+--> [Visualization]
+                                                               |
+                                                               +--> [Motor Command Extraction]
 ```
-- **BurstEngine:** Updates the FCL at the simulation frequency.
-- **FCL Manager:** Maintains the rolling window/history of FCLs.
-- **FCLSampler:** Periodically samples the latest FCL and forwards it to consumers.
+- **BurstEngine:** Updates the fire queue at the simulation frequency.
+- **Fire Queue:** Maintains current neuron firing data with rich information.
+- **FQSampler:** Periodically samples the latest fire queue data and forwards it to consumers.
 
 ## Sampling Strategies
 - **Ratio-based:** Sample a random X% of bursts (e.g., 10%).
@@ -1195,14 +1195,14 @@ The **FCLSampler** is a dedicated component responsible for sampling bursts (Fir
 - **Nth-burst:** Sample every Nth burst (e.g., every 5th burst).
 
 ## Integration Points
-- **Where to sample:** The FCLSampler runs in its own thread or async task, reading the latest FCL from the FCL manager at its configured interval.
-- **How to access FCL:** Direct reference (if in the same process/thread) or via a thread-safe queue or lock if needed.
+- **Where to sample:** The FQSampler runs in its own thread or async task, reading the latest fire queue from the fire queue provider at its configured interval.
+- **How to access fire queue:** Direct reference (if in the same process/thread) or via a thread-safe queue or lock if needed.
 - **How to forward data:**
   - Direct function call for motor command extraction
   - Publish to a queue, websocket, or other IPC for visualization
 
 ## RTOS/Rust-Friendly Design Notes
-- Each component (BurstEngine, FCLSampler) is a periodic task/thread.
+- Each component (BurstEngine, FQSampler) is a periodic task/thread.
 - All buffers and queues are pre-allocated; no dynamic allocation in the main loop.
 - Communication uses RTOS primitives (queues, mutexes) or Python equivalents (Queue, threading.Lock).
 - Deterministic, bounded execution for real-time guarantees.
@@ -1210,7 +1210,7 @@ The **FCLSampler** is a dedicated component responsible for sampling bursts (Fir
 ## Example Usage
 
 ```python
-from feagi.npu.burst_engine import BurstEngine, FCLSampler
+from feagi.npu.burst_engine import BurstEngine, FQSampler
 from queue import Queue
 import threading
 
@@ -1218,16 +1218,16 @@ import threading
 burst_engine = BurstEngine(connectome_manager, desired_frequency_hz=100)
 visualization_queue = Queue(maxsize=10)
 
-# FCLSampler samples at 20 Hz for visualization
-fcl_sampler = FCLSampler(
-    fcl_manager=connectome_manager.fcl_manager,
+# FQSampler samples at 20 Hz for visualization
+fq_sampler = FQSampler(
+    fire_queue_provider=burst_engine,
     sample_frequency_hz=20,
     output_queue=visualization_queue
 )
 
 # Start both components in separate threads
 burst_thread = threading.Thread(target=burst_engine.run)
-sampler_thread = threading.Thread(target=fcl_sampler.run)
+sampler_thread = threading.Thread(target=fq_sampler.run)
 burst_thread.start()
 sampler_thread.start()
 
@@ -1235,7 +1235,7 @@ sampler_thread.start()
 ```
 
 ## Implementation Details
-- The FCLSampler maintains its own timing and can be stopped gracefully.
+- The FQSampler maintains its own timing and can be stopped gracefully.
 - It supports different sampling strategies (frequency, ratio, Nth-burst).
 - It is easy to extend for multiple output queues or consumers.
 
@@ -1245,134 +1245,52 @@ sampler_thread.start()
 - **RTOS/Rust-ready:** Direct mapping to RTOS tasks/threads and message queues.
 - **Scalable:** Supports multiple visualization or motor output modules.
 
----
-
-## Neuron Firing Dynamics
-
-### Neuron Models
-
-FEAGI supports different neuron models that define the behavioral dynamics of neurons:
-
-1. **Leaky Integrate-and-Fire (LIF)** - The primary model historically used in FEAGI, featuring:
-   - Membrane potential that decays over time
-   - Firing threshold
-   - Refractory period
-   - Simple but computationally efficient
-
-2. **Custom Models** - FEAGI 2.0 is designed to enable supporting multiple neuron models, including:
-   - Izhikevich model elements for more biologically realistic behavior
-   - Customizable dynamics parameters
-   - Model-specific properties 
-
-## WebGPU Implementation
-
-As part of the NPU's GPU acceleration strategy, the Burst Engine can leverage WebGPU for cross-platform GPU acceleration. Below is an example of a WebGPU compute shader for neuron dynamics:
-
-```wgsl
-@group(0) @binding(0) var<storage, read> area_is_active: array<u32>;
-@group(0) @binding(1) var<storage, read> area_ids: array<u32>;
-@group(0) @binding(2) var<storage, read_write> membrane_potentials: array<f32>;
-@group(0) @binding(3) var<storage, read> resting_potentials: array<f32>;
-@group(0) @binding(4) var<storage, read> membrane_time_constants: array<f32>;
-@group(0) @binding(5) var<storage, read> firing_thresholds: array<f32>;
-@group(0) @binding(6) var<storage, read_write> fcl_buffer: array<u32>;
-@group(0) @binding(7) var<storage, read_write> refractory_timers: array<u32>;
-@group(0) @binding(8) var<storage, read> refractory_periods: array<u32>;
-@group(0) @binding(9) var<storage, read> active_neuron_indices: array<u32>;
-@group(0) @binding(10) var<uniform> active_neuron_count: u32;
-
-@compute @workgroup_size(256)
-fn update_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let thread_id = global_id.x;
-    if (thread_id >= active_neuron_count) {
-        return;
-    }
-    
-    let neuron_idx = active_neuron_indices[thread_id];
-    
-    // Check if parent area is active
-    let area_id = area_ids[neuron_idx];
-    if (area_is_active[area_id] == 0) {
-        return;
-    }
-    
-    // Refractory period check
-    if (refractory_timers[neuron_idx] > 0) {
-        refractory_timers[neuron_idx] -= 1;
-        return;
-    }
-    
-    // Update membrane potential
-    let tau = membrane_time_constants[neuron_idx];
-    let rest = resting_potentials[neuron_idx];
-    membrane_potentials[neuron_idx] += (rest - membrane_potentials[neuron_idx]) / tau;
-    
-    // Check for spike
-    let threshold = firing_thresholds[neuron_idx];
-    if (membrane_potentials[neuron_idx] >= threshold) {
-        fcl_buffer[neuron_idx] = 1;
-        membrane_potentials[neuron_idx] = rest;
-        refractory_timers[neuron_idx] = refractory_periods[neuron_idx];
-    }
-}
-```
-
-This shader demonstrates several important aspects of the NPU's design:
-
-1. **Sparse Processing**: Only active neurons (those in `active_neuron_indices`) are processed
-2. **Area-Based Filtering**: Early termination for neurons in inactive cortical areas
-3. **Refractory Period Handling**: Neurons in refractory periods are skipped from further computation
-4. **Memory Layout**: Uses Structure of Arrays (SoA) for optimal memory access patterns
-5. **Workgroup Optimization**: Uses a workgroup size of 256 for efficient GPU utilization
-
-By using WebGPU, FEAGI achieves high-performance neural simulation across multiple platforms without vendor lock-in, making advanced brain simulation more accessible and portable. 
-
 ## State Manager Integration and Observability
 
-The FCLSampler's operational state, sampling frequency, and consumer (e.g., Visualization, Motor, or Both) are now tracked in the global state manager. This allows for:
-- Real-time monitoring of the FCLSampler's health and configuration
+The FQSampler's operational state, sampling frequency, and consumer (e.g., Visualization, Motor, or Both) are now tracked in the global state manager. This allows for:
+- Real-time monitoring of the FQSampler's health and configuration
 - Dynamic reconfiguration of sampling parameters at runtime
 - Robust diagnostics and system introspection
 
 ### State Manager Fields
-- `fcl_sampler_state`: Service state (INITIALIZING, READY, ERROR, etc.)
-- `fcl_sampler_frequency`: Current sampling frequency in Hz
-- `fcl_sampler_consumer`: Code for the current consumer (1=Visualization, 2=Motor, 3=Both, etc.)
+- `fq_sampler_state`: Service state (INITIALIZING, READY, ERROR, etc.)
+- `fq_sampler_frequency`: Current sampling frequency in Hz
+- `fq_sampler_consumer`: Code for the current consumer (1=Visualization, 2=Motor, 3=Both, etc.)
 
 ## Dynamic Reconfiguration via API
 
-The FCLSampler's frequency and consumer can be made configurable via the FEAGI API. This enables remote or programmatic adjustment of sampling parameters without restarting the system.
+The FQSampler's frequency and consumer can be made configurable via the FEAGI API. This enables remote or programmatic adjustment of sampling parameters without restarting the system.
 
 ### Example API Endpoints (Intended Design)
-- `GET /api/v1/fcl_sampler/config` — Retrieve current FCLSampler configuration (frequency, consumer)
-- `POST /api/v1/fcl_sampler/config` — Update FCLSampler configuration
+- `GET /api/v1/fq_sampler/config` — Retrieve current FQSampler configuration (frequency, consumer)
+- `POST /api/v1/fq_sampler/config` — Update FQSampler configuration
 
 #### Example Request to Change Frequency and Consumer
 ```json
-POST /api/v1/fcl_sampler/config
+POST /api/v1/fq_sampler/config
 {
   "frequency": 10.0,
   "consumer": 3  // Both Visualization and Motor
 }
 ```
 
-The process manager and FCLSampler will update their internal state and the state manager fields accordingly.
+The process manager and FQSampler will update their internal state and the state manager fields accordingly.
 
-## Example: Monitoring and Reconfiguring FCLSampler
+## Example: Monitoring and Reconfiguring FQSampler
 
 - **Monitor:**
-  - Use the state manager API or direct memory access to read `fcl_sampler_state`, `fcl_sampler_frequency`, and `fcl_sampler_consumer`.
+  - Use the state manager API or direct memory access to read `fq_sampler_state`, `fq_sampler_frequency`, and `fq_sampler_consumer`.
 - **Reconfigure:**
-  - Send a POST request to the FCLSampler config endpoint to change frequency or consumer at runtime.
+  - Send a POST request to the FQSampler config endpoint to change frequency or consumer at runtime.
 
 ## Updated Architecture Diagram
 
 ```
-[BurstEngine] --updates--> [FCL Manager] <--read-- [FCLSampler] --+--> [Visualization]
-                                                                 |
-                                                                 +--> [Motor Command Extraction]
+[BurstEngine] --updates--> [Fire Queue] <--read-- [FQSampler] --+--> [Visualization]
+                                                               |
+                                                               +--> [Motor Command Extraction]
 
-[StateManager] <--- tracks state, frequency, consumer of FCLSampler
+[StateManager] <--- tracks state, frequency, consumer of FQSampler
 ```
 
 ## Best Practices for RTOS/Rust
@@ -1380,15 +1298,15 @@ The process manager and FCLSampler will update their internal state and the stat
 - Dynamic reconfiguration is handled via explicit API and state manager updates.
 - System is fully introspectable and robust for real-time and embedded deployments.
 
-## Per-Area Sample Rate Support in FCLSampler
+## Per-Area Sample Rate Support in FQSampler
 
-The FCLSampler now supports **per-cortical-area sample rates** using the `fcl_sample_rate` property in each area's `properties` dictionary.
+The FQSampler now supports **per-cortical-area sample rates** using the `fq_sample_rate` property in each area's `properties` dictionary.
 
 - **How it works:**
-  - If a cortical area has a `"fcl_sample_rate"` property (in Hz), the FCLSampler will sample that area's FCL at the specified rate.
+  - If a cortical area has a `"fq_sample_rate"` property (in Hz), the FQSampler will sample that area's fire queue at the specified rate.
   - If not set, the global sample rate is used as a fallback.
   - The sampler tracks the last sample time for each area and only samples when enough time has passed.
-  - The output queue receives `(area_id, area_fcl)` tuples for per-area samples.
+  - The output queue receives `(area_id, area_fire_queue_data)` tuples for per-area samples.
 
 ### Example: Setting Per-Area Sample Rate
 
@@ -1398,17 +1316,17 @@ To set a sample rate of 10 Hz for area `area_1`:
 PATCH /api/v1/cortical_area/area_1
 {
   "properties": {
-    "fcl_sample_rate": 10.0
+    "fq_sample_rate": 10.0
   }
 }
 ```
 
-### FCLSampler Usage with Per-Area Rates
+### FQSampler Usage with Per-Area Rates
 
 ```python
-# When initializing FCLSampler, pass connectome_manager:
-fcl_sampler = FCLSampler(
-    fcl_manager=connectome_manager.fcl_manager,
+# When initializing FQSampler, pass connectome_manager:
+fq_sampler = FQSampler(
+    fire_queue_provider=burst_engine,
     sample_frequency_hz=20,  # Global default
     output_queue=visualization_queue,
     connectome_manager=connectome_manager  # Enables per-area sampling
@@ -1418,18 +1336,18 @@ fcl_sampler = FCLSampler(
 ### Updated Architecture
 
 ```
-[BurstEngine] --updates--> [FCL Manager] <--read-- [FCLSampler] --+--> [Visualization]
-                                                                 |
-                                                                 +--> [Motor Command Extraction]
+[BurstEngine] --updates--> [Fire Queue] <--read-- [FQSampler] --+--> [Visualization]
+                                                               |
+                                                               +--> [Motor Command Extraction]
 
-[StateManager] <--- tracks state, frequency, consumer of FCLSampler
+[StateManager] <--- tracks state, frequency, consumer of FQSampler
 
-[CorticalArea.properties] -- 'fcl_sample_rate' --> [FCLSampler] (per-area sampling)
+[CorticalArea.properties] -- 'fq_sample_rate' --> [FQSampler] (per-area sampling)
 ```
 
 ### RTOS/Rust-Friendliness and Extensibility
 - Per-area sample rates are stored in fixed fields in each area's properties, not in a dynamic global mapping.
-- The FCLSampler logic is modular and can be ported to RTOS/Rust with statically allocated arrays for area sample rates and timers.
+- The FQSampler logic is modular and can be ported to RTOS/Rust with statically allocated arrays for area sample rates and timers.
 - Adding new per-area properties or sampling logic is straightforward and does not require global schema changes.
 
 # ... rest of documentation ... 

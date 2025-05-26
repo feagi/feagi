@@ -92,6 +92,26 @@ When adding new API tests:
 3. Structure tests to use the mock core API service
 4. Run tests individually to verify they work before integrating
 
+## Debugging API and NPU Issues
+
+FEAGI provides specialized debugging flags for troubleshooting. For comprehensive debugging information, see the [FEAGI Debugging Guide](../../docs/guide-how-to-debug.md).
+
+### Quick Debug Commands
+
+```bash
+# API debugging
+python -m feagi.main --debug-api
+
+# NPU debugging  
+python -m feagi.main --debug-npu
+
+# Combined debugging
+python -m feagi.main --debug-api --debug-npu --log-level DEBUG
+
+# Test mode with debugging
+python -m feagi.main --test --debug-npu --test-duration 30
+```
+
 ## Common Error Messages and Solutions
 
 ### Error: "Address already in use"

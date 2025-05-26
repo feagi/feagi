@@ -18,12 +18,13 @@ import traceback
 import time
 import string
 import random
+import os
 from feagi.utils.logger import setup_logger
 logger = setup_logger(name="api__server")
 logger.info("...")
 import json
-import os
 from pathlib import Path
+from typing import Dict, Any
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,11 +38,9 @@ from starlette.exceptions import HTTPException
 
 from .config import settings
 
-from .commons import CustomError, api_queue, check_burst_engine_or_allow_genome_ops, check_burst_engine, check_brain_running, check_active_genome
+from .commons import CustomError, api_queue, check_burst_engine_or_allow_genome_ops, check_burst_engine, check_brain_running, check_active_genome, check_burst_engine_or_allow_config_ops
 
-from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \
-    network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping, region
-from .routers.v1 import inputs
+# Remove the old router imports - no longer needed since we use universal wrapper directly
 from feagi.api.dependencies import *
 from feagi.api.models import *
 from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -50,9 +49,21 @@ from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.rest.dependencies import get_connectome
 from .response_utils import success_response, error_response
 
-# Import the v2 routers
-from .routers.v2 import genome as genome_v2
-# ... other v2 imports
+# Import the universal FastAPI wrapper directly instead of individual router files
+from feagi.api.transport.universal_fastapi import (
+    get_system_router, get_genome_router, get_cortical_area_router,
+    get_connectome_router, get_burst_engine_router, get_neuroplasticity_router,
+    get_region_router, get_morphology_router, get_monitoring_router,
+    get_simulation_router, get_feagi_agent_router, get_insights_router,
+    get_training_router, get_cortical_mapping_router, get_network_router,
+    get_inputs_router, get_outputs_router, get_evolution_router
+)
+
+# Import the visualization router
+from feagi.api.v1.visualization import router as visualization_router
+
+# Note: v2 routers have been removed since we now use the universal wrapper directly for all routes
+# The v2 functionality can be added in the future if needed via the universal wrapper pattern
 
 
 
@@ -156,19 +167,79 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
-    Credit: Phil Girard
+    Conditional API request logging middleware.
+    Only logs when FEAGI_DEBUG_API environment variable is set to '1'.
+    When enabled, provides detailed request/response information for debugging.
+    
+    Credit: Phil Girard (original middleware)
+    Enhanced to capture request body and response details for comprehensive debugging.
     """
+    # Check if debug API logging is enabled
+    debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+    
+    if not debug_api_enabled:
+        # If debug is not enabled, just pass through without logging
+        return await call_next(request)
+    
+    # Show debug enabled message on first request (if not already shown)
+    if not hasattr(log_requests, '_debug_shown'):
+        logger.info("🐛 API Debug logging is ENABLED - detailed request/response logging active")
+        log_requests._debug_shown = True
+    
+    # Generate unique request ID for tracking
     idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    logger.info(f"rid={idem} start request path={request.url.path}", emoji1="🌐")
+    
+    # Log request start with detailed information
+    logger.info(f"rid={idem} ✅ start request method={request.method} path={request.url.path}")
+    logger.info(f"rid={idem} 🌐 url={str(request.url)}")
+    logger.info(f"rid={idem} 📋 headers={dict(request.headers)}")
+    logger.info(f"rid={idem} 🔍 query_params={dict(request.query_params)}")
+    
+    # Log path parameters if available
+    if hasattr(request, 'path_params') and request.path_params:
+        logger.info(f"rid={idem} 🛤️  path_params={dict(request.path_params)}")
+    
+    # Capture request body for debugging
+    request_body = None
+    try:
+        body_bytes = await request.body()
+        if body_bytes:
+            request_body = body_bytes.decode('utf-8')
+            logger.info(f"rid={idem} 📝 request_body={request_body}")
+        else:
+            logger.info(f"rid={idem} 📝 request_body=<empty>")
+    except Exception as e:
+        logger.warning(f"rid={idem} ⚠️ failed to read request body: {e}")
+    
+    # Store original body for downstream handlers (since we consumed the stream)
+    async def receive():
+        return {"type": "http.request", "body": body_bytes if 'body_bytes' in locals() else b""}
+    
+    # Patch the request's receive method
+    if 'body_bytes' in locals():
+        request._receive = receive
+    
     start_time = time.time()
-
     response = await call_next(request)
-
     process_time = (time.time() - start_time) * 1000
     formatted_process_time = '{0:.2f}'.format(process_time)
-    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}", emoji1="✅")
-
-    # print(response.status_code, ":", request.method, ":", request.url.path)
+    
+    # Log response details
+    logger.info(f"rid={idem} ✅ completed method={request.method} path={request.url.path} status={response.status_code} duration={formatted_process_time}ms")
+    
+    # Try to capture response body if it's JSON
+    try:
+        if hasattr(response, 'body') and response.body:
+            response_body = response.body.decode('utf-8')
+            # Truncate very long responses to avoid log spam
+            if len(response_body) > 1000:
+                response_body = response_body[:1000] + "... (truncated)"
+            logger.info(f"rid={idem} 📤 response_body={response_body}")
+        else:
+            logger.info(f"rid={idem} 📤 response_body=<empty or not accessible>")
+    except Exception as e:
+        logger.info(f"rid={idem} 📤 response_body=<could not read: {e}>")
+    
     return response
 
 
@@ -227,7 +298,7 @@ standard_response = {
 #     return response
 
 app.include_router(
-    genome.router,
+    get_genome_router(),
     prefix="/v1/genome",
     tags=["GENOME"],
     dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
@@ -235,7 +306,7 @@ app.include_router(
 )
 
 app.include_router(
-    connectome.router,
+    get_connectome_router(),
     prefix="/v1/connectome",
     tags=["CONNECTOME"],
     dependencies=[Depends(check_brain_running)],
@@ -243,7 +314,7 @@ app.include_router(
 )
 
 app.include_router(
-    burst_engine.router,
+    get_burst_engine_router(),
     prefix="/v1/burst_engine",
     tags=["BURST ENGINE"],
     dependencies=[Depends(check_burst_engine)],
@@ -251,7 +322,7 @@ app.include_router(
 )
 
 app.include_router(
-    evolution.router,
+    get_evolution_router(),
     prefix="/v1/evolution",
     tags=["EVOLUTIONARY"],
     dependencies=[Depends(check_burst_engine)],
@@ -259,7 +330,7 @@ app.include_router(
 )
 
 app.include_router(
-    feagi_agent.router,
+    get_feagi_agent_router(),
     prefix="/v1/agent",
     tags=["FEAGI AGENT"],
     dependencies=[Depends(check_burst_engine)],
@@ -267,7 +338,7 @@ app.include_router(
 )
 
 app.include_router(
-    insights.router,
+    get_insights_router(),
     prefix="/v1/insight",
     tags=["INSIGHTS"],
     dependencies=[Depends(check_brain_running)],
@@ -275,7 +346,7 @@ app.include_router(
 )
 
 app.include_router(
-    morphology.router,
+    get_morphology_router(),
     prefix="/v1/morphology",
     tags=["NEURON MORPHOLOGIES"],
     dependencies=[Depends(check_active_genome)],
@@ -283,7 +354,7 @@ app.include_router(
 )
 
 app.include_router(
-    cortical_area.router,
+    get_cortical_area_router(),
     prefix="/v1/cortical_area",
     tags=["CORTICAL AREAS"],
     dependencies=[Depends(check_active_genome)],
@@ -291,7 +362,7 @@ app.include_router(
 )
 
 app.include_router(
-    region.router,
+    get_region_router(),
     prefix="/v1/region",
     tags=["BRAIN REGIONS"],
     dependencies=[Depends(check_active_genome)],
@@ -299,7 +370,7 @@ app.include_router(
 )
 
 app.include_router(
-    cortical_mapping.router,
+    get_cortical_mapping_router(),
     prefix="/v1/cortical_mapping",
     tags=["CORTICAL MAPPINGS"],
     dependencies=[Depends(check_active_genome)],
@@ -307,7 +378,7 @@ app.include_router(
 )
 
 app.include_router(
-    neuroplasticity.router,
+    get_neuroplasticity_router(),
     prefix="/v1/neuroplasticity",
     tags=["NEUROPLASTICITY"],
     dependencies=[Depends(check_active_genome)],
@@ -315,7 +386,7 @@ app.include_router(
 )
 
 app.include_router(
-    inputs.router,
+    get_inputs_router(),
     prefix="/v1/input",
     tags=["INPUT MANAGEMENT"],
     dependencies=[Depends(check_active_genome)],
@@ -323,7 +394,7 @@ app.include_router(
 )
 
 app.include_router(
-    network.router,
+    get_network_router(),
     prefix="/v1/network",
     tags=["NETWORK"],
     dependencies=[],
@@ -331,7 +402,7 @@ app.include_router(
 )
 
 app.include_router(
-    simulation.router,
+    get_simulation_router(),
     prefix="/v1/simulation",
     tags=["SIMULATION"],
     dependencies=[Depends(check_brain_running)],
@@ -339,26 +410,45 @@ app.include_router(
 )
 
 app.include_router(
-    system.router,
+    get_system_router(),
     prefix="/v1/system",
     tags=["SYSTEM"],
     dependencies=[],
     responses=standard_response
 )
+
 app.include_router(
-    training.router,
+    get_training_router(),
     prefix="/v1/training",
     tags=["TRAINING"],
     dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
 
-# Register v2 routes
+# Add the missing outputs router
 app.include_router(
-    genome_v2.router,
-    prefix="/v2/genome",
-    tags=["GENOME V2"],
-    dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
+    get_outputs_router(),
+    prefix="/v1/output",
+    tags=["OUTPUT MANAGEMENT"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+# Add the missing monitoring router
+app.include_router(
+    get_monitoring_router(),
+    prefix="/v1/monitoring",
+    tags=["MONITORING"],
+    dependencies=[],
+    responses=standard_response
+)
+
+# Add the visualization router
+app.include_router(
+    visualization_router,
+    prefix="/v1/visualization",
+    tags=["VISUALIZATION"],
+    dependencies=[],
     responses=standard_response
 )
 
@@ -367,22 +457,116 @@ async def set_api_state_ready():
     state = FeagiStateManager.instance()
     state.set_api_state(ServiceState.READY)
 
+def create_rest_app_direct(config: Dict[str, Any]):
+    """
+    RUST/RTOS COMPATIBLE: Factory function for REST app with direct dependency injection.
+    
+    This eliminates subprocess boundaries and environment variable dependencies,
+    making the code much easier to port to Rust where all services run as async tasks
+    in the same process space.
+    
+    Args:
+        config: Direct configuration with all dependencies:
+            - core_api: CoreAPIService instance
+            - state_manager: FeagiStateManager instance  
+            - connectome_manager: ConnectomeManager instance
+            - host: API server host
+            - port: API server port
+            - debug: Debug mode flag
+    """
+    logger.info("🔗 Creating REST app with direct dependency injection (Rust/RTOS compatible)", emoji1="🔗")
+    
+    # RUST/RTOS COMPATIBLE: Direct dependency injection instead of environment lookup
+    core_api_service = config['core_api']
+    state_manager = config['state_manager']
+    connectome_manager = config['connectome_manager']
+    
+    if not core_api_service:
+        raise RuntimeError("CoreAPIService is required for direct REST app creation")
+    
+    logger.info("✅ Using directly injected CoreAPIService and ConnectomeManager", emoji1="✅")
+    logger.info("🎯 All dependencies injected directly - no environment variables needed", emoji1="🎯")
+    
+    # Set the connectome instance for FastAPI dependency injection  
+    from feagi.api.rest.dependencies import set_connectome_instance
+    set_connectome_instance(connectome_manager)
+    
+    # Set core API service for dependency injection
+    from feagi.api.rest.dependencies import set_core_api_service_instance
+    set_core_api_service_instance(core_api_service)
+    
+    # For now, return the existing app instance (already configured with all routes)
+    # In future iterations, we can create a fresh app instance here
+    global app
+    
+    # Set state in FeagiStateManager
+    state_manager.set_api_state(ServiceState.READY)
+    logger.info("REST API state changed: UNAVAILABLE → READY", emoji1="🚦")
+    
+    return app
+
 def create_rest_app(connectome: ConnectomeManager = None):
     """Factory function to return the FastAPI app instance, with connectome dependency injection."""
     
-    # If no connectome was provided, create a new one
-    if connectome is None:
-        connectome = ConnectomeManager()
+    # CRITICAL FIX: Ensure true singleton pattern for mission-critical reliability
+    core_api_service = None
     
-    # Set the connectome in the dependencies module, not in a local variable
-    from feagi.api.rest.dependencies import set_connectome_instance, set_core_api_service
+    # Check if we're running as part of the main FEAGI process (singleton mode)
+    if os.environ.get("FEAGI_INITIALIZED") == "1":
+        logger.info("🔗 Running in FEAGI subprocess, using singleton ConnectomeManager", emoji1="🔗")
+        
+        # CRITICAL FIX: In subprocess mode, we can't access parent's ProcessManager
+        # Instead, use the singleton ConnectomeManager directly
+        from feagi.bdu.connectome_manager import ConnectomeManager
+        connectome = ConnectomeManager.instance()
+        logger.info("🎯 Created singleton ConnectomeManager instance", emoji1="🎯")
+        
+        # Create CoreAPIService with singleton instances
+        from feagi.core.state_manager import FeagiStateManager
+        from feagi.core import create_core_api
+        
+        state_manager = FeagiStateManager.instance()
+        core_api_service = create_core_api(connectome, {})
+        
+        if core_api_service:
+            logger.info("✅ Successfully created CoreAPIService with singleton ConnectomeManager", emoji1="✅")
+        else:
+            logger.error("❌ Failed to create CoreAPIService", emoji1="❌")
+            raise RuntimeError("Failed to create CoreAPIService")
+            
+        logger.info("🎯 FastAPI app configured with subprocess singleton services", emoji1="🎯")
+        
+    else:
+        # Standalone mode (development/testing)
+        logger.info("🏠 Running in standalone mode, creating new ConnectomeManager", emoji1="🏠")
+        
+        if connectome is None:
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            connectome = ConnectomeManager()
+            
+        # Create a basic CoreAPIService for standalone operation
+        from feagi.core import create_core_api
+        core_api_service = create_core_api(connectome, {})
+        
+        if not core_api_service:
+            logger.error("❌ Failed to create CoreAPIService in standalone mode", emoji1="❌")
+            raise RuntimeError("Failed to create CoreAPIService in standalone mode")
+    
+    # Set the connectome instance for FastAPI dependency injection  
+    from feagi.api.rest.dependencies import set_connectome_instance
     set_connectome_instance(connectome)
     
-    # Create the core API service with the initialized connectome
-    core_api_service = CoreAPIService(connectome)
+    # Set core API service for dependency injection
+    from feagi.api.rest.dependencies import set_core_api_service_instance
+    set_core_api_service_instance(core_api_service)
     
-    # Make it available to routers
-    set_core_api_service(core_api_service)
+    # Return the existing app instance (already configured with all routes)
+    global app
+    
+    # Set state in FeagiStateManager
+    from feagi.core.state_manager import FeagiStateManager, ServiceState
+    state_manager = FeagiStateManager.instance()
+    state_manager.set_api_state(ServiceState.READY)
     
     return app
 
