@@ -117,21 +117,16 @@ class VisualizationStream:
 
     def _setup_socket(self) -> None:
         """Set up the ZMQ PUB socket with optimal settings."""
-        # Create a PURELY SYNCHRONOUS PUB socket 
+        # Create a synchronous PUB socket 
         self.socket = self.context.socket(zmq.PUB)
         
-        # Ensure this is synchronous by checking the socket type
-        logger.info(f"🔧 Created ZMQ socket type: {type(self.socket)}")
-        
-        # Optimize for real-time streaming but ALLOW queuing when no subscribers
+        # Optimize for real-time streaming but allow queuing when no subscribers
         self.socket.setsockopt(zmq.SNDHWM, 1000)   # Higher send buffer to prevent drops
         self.socket.setsockopt(zmq.LINGER, 1000)   # Wait briefly on close to send pending messages
-        # REMOVED: self.socket.setsockopt(zmq.IMMEDIATE, 1) - This drops messages when no subscribers!
         
         bind_addr = f"tcp://{self.host}:{self.port}"
         self.socket.bind(bind_addr)
-        logger.info(f"📡 Primary visualization stream bound to {bind_addr}")
-        logger.info(f"🔧 Socket will queue messages even when no subscribers are connected")
+        logger.info(f"📡 Visualization stream bound to {bind_addr}")
 
     def _update_active_mode(self):
         """Update active mode based on genome availability (crucial feature from full version)."""
@@ -174,7 +169,7 @@ class VisualizationStream:
         if self.running:
             return
             
-        logger.info("🚀 Starting primary visualization stream")
+        logger.info("🚀 Starting visualization stream")
         self.running = True
         self._stop_event.clear()
         
@@ -189,9 +184,9 @@ class VisualizationStream:
             )
             fq_thread.start()
             self.worker_threads.append(fq_thread)
-            logger.info("✅ FQ data processing thread started")
+            logger.debug("FQ data processing thread started")
         else:
-            logger.warning("⚠️ No FQ sampler queue provided - no data will be processed")
+            logger.warning("No FQ sampler queue provided - no data will be processed")
             
         # Thread 2: Client cleanup and monitoring (crucial feature from full version)
         cleanup_thread = threading.Thread(
@@ -201,7 +196,7 @@ class VisualizationStream:
         )
         cleanup_thread.start()
         self.worker_threads.append(cleanup_thread)
-        logger.info("✅ Client cleanup thread started")
+        logger.debug("Client cleanup thread started")
         
         # Thread 3: Subscriber monitoring for automatic FQ sampler control (crucial feature)
         if self.auto_enable_on_subscribers:
@@ -212,9 +207,9 @@ class VisualizationStream:
             )
             monitor_thread.start()
             self.worker_threads.append(monitor_thread)
-            logger.info("✅ Subscriber monitoring thread started")
+            logger.debug("Subscriber monitoring thread started")
             
-        logger.info(f"✅ Primary visualization stream started with {len(self.worker_threads)} worker threads")
+        logger.info(f"✅ Visualization stream started with {len(self.worker_threads)} worker threads")
 
     def stop(self) -> None:
         """Stop the visualization stream gracefully."""
@@ -399,15 +394,15 @@ class VisualizationStream:
 
     def _recreate_socket(self):
         """Recreate the ZMQ socket when it gets corrupted."""
-        logger.warning(f"🔧 Recreating corrupted ZMQ socket...")
+        logger.warning("Recreating corrupted ZMQ socket...")
         
         # Close old socket if it exists
         if self.socket:
             try:
                 self.socket.close(linger=0)
-                logger.info(f"🔧 Old socket closed")
+                logger.debug("Old socket closed")
             except Exception as e:
-                logger.error(f"🔧 Error closing old socket: {e}")
+                logger.error(f"Error closing old socket: {e}")
         
         # Recreate socket with same settings
         try:
@@ -417,10 +412,10 @@ class VisualizationStream:
             
             bind_addr = f"tcp://{self.host}:{self.port}"
             self.socket.bind(bind_addr)
-            logger.info(f"🔧 Socket recreated and bound to {bind_addr}")
+            logger.info(f"Socket recreated and bound to {bind_addr}")
             
         except Exception as e:
-            logger.error(f"🔧 Failed to recreate socket: {e}")
+            logger.error(f"Failed to recreate socket: {e}")
             raise
 
     def _process_tuple_data(self, fq_data) -> None:
@@ -428,21 +423,11 @@ class VisualizationStream:
         try:
             cortical_id, fire_data = fq_data
             
-            # LOG RAW DATA FOR DEBUGGING
-            logger.info(f"🔬 RAW FIRE_DATA for {cortical_id}:")
-            logger.info(f"   📋 Keys: {list(fire_data.keys()) if fire_data else 'None'}")
-            if fire_data:
-                for key, value in fire_data.items():
-                    if isinstance(value, list):
-                        logger.info(f"   🔑 {key}: {len(value)} items - FULL DATA: {value}")
-                    else:
-                        logger.info(f"   🔑 {key}: {value}")
-            
             if fire_data and 'neuron_ids' in fire_data:
                 neuron_ids = fire_data.get('neuron_ids', [])
                 neuron_count = len(neuron_ids)
                 
-                # Handle coordinates - NO FALLBACKS, fail if missing
+                # Handle coordinates
                 coordinates = fire_data.get('coordinates', [])
                 x_coords = []
                 y_coords = []
@@ -454,55 +439,36 @@ class VisualizationStream:
                         x_coords = [coord[0] for coord in coordinates]
                         y_coords = [coord[1] for coord in coordinates]  
                         z_coords = [coord[2] for coord in coordinates]
-                        logger.info(f"✅ Using provided coordinates (triplet format)")
                     else:
                         # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
                         coords_per_neuron = 3
                         x_coords = coordinates[0::coords_per_neuron]
                         y_coords = coordinates[1::coords_per_neuron]
                         z_coords = coordinates[2::coords_per_neuron]
-                        logger.info(f"✅ Using provided coordinates (flat format)")
                 elif isinstance(coordinates, dict):
                     # If coordinates is a dict with x, y, z keys
                     x_coords = coordinates.get('x', [])
                     y_coords = coordinates.get('y', [])
                     z_coords = coordinates.get('z', [])
-                    logger.info(f"✅ Using provided coordinates (dict format)")
                 else:
-                    # NO FALLBACK - FAIL if coordinates are missing
-                    logger.error(f"❌ MISSING COORDINATES for {cortical_id} - fire_data has no valid coordinates!")
-                    logger.error(f"❌ Coordinates field: {coordinates}")
+                    logger.error(f"Missing coordinates for {cortical_id}")
                     return
                 
-                # Handle membrane potentials - NO FALLBACKS, fail if missing
+                # Handle membrane potentials
                 membrane_potentials = fire_data.get('membrane_potentials', [])
                 
                 if not membrane_potentials:
-                    logger.error(f"❌ MISSING MEMBRANE POTENTIALS for {cortical_id} - fire_data has no membrane_potentials field!")
+                    logger.error(f"Missing membrane potentials for {cortical_id}")
                     return
                 
                 if len(membrane_potentials) != neuron_count:
-                    logger.error(f"❌ MEMBRANE POTENTIAL COUNT MISMATCH for {cortical_id}:")
-                    logger.error(f"   🧠 Neuron count: {neuron_count}")
-                    logger.error(f"   ⚡ Membrane potential count: {len(membrane_potentials)}")
+                    logger.error(f"Membrane potential count mismatch for {cortical_id}: {len(membrane_potentials)} vs {neuron_count}")
                     return
                 
                 # Validate coordinate arrays
                 if len(x_coords) != neuron_count or len(y_coords) != neuron_count or len(z_coords) != neuron_count:
-                    logger.error(f"❌ COORDINATE COUNT MISMATCH for {cortical_id}:")
-                    logger.error(f"   🧠 Neuron count: {neuron_count}")
-                    logger.error(f"   📍 X coords: {len(x_coords)}")
-                    logger.error(f"   📍 Y coords: {len(y_coords)}")
-                    logger.error(f"   📍 Z coords: {len(z_coords)}")
+                    logger.error(f"Coordinate count mismatch for {cortical_id}: x={len(x_coords)}, y={len(y_coords)}, z={len(z_coords)}, neurons={neuron_count}")
                     return
-                
-                # LOG FINAL DATA BEFORE ENCODING - SHOW ALL DATA
-                logger.info(f"🎯 VALIDATED DATA for {cortical_id} ({neuron_count} neurons):")
-                logger.info(f"   🔢 ALL Neuron IDs: {neuron_ids}")
-                logger.info(f"   📍 ALL X coords: {x_coords}")
-                logger.info(f"   📍 ALL Y coords: {y_coords}")
-                logger.info(f"   📍 ALL Z coords: {z_coords}")
-                logger.info(f"   ⚡ ALL Potentials: {membrane_potentials}")
                 
                 # Create cortical IDs list (same cortical ID for all neurons)
                 cortical_ids = [cortical_id] * neuron_count
@@ -511,7 +477,7 @@ class VisualizationStream:
                 try:
                     from feagi_bytes import ByteStructureEncoder
                     encoder = ByteStructureEncoder()
-                    
+                            
                     binary_data = encoder.encode_neuron_flat(
                         cortical_ids=cortical_ids,
                         x_coords=x_coords,
@@ -522,19 +488,20 @@ class VisualizationStream:
                     
                     # Publish the binary data
                     self._publish_data(binary_data)
-                    logger.info(f"✅ Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (BINARY)")
+                    logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes")
                     
                 except ImportError:
-                    logger.error("❌ feagi_bytes library not available - cannot encode binary data")
+                    logger.error("feagi_bytes library not available - cannot encode binary data")
                 except Exception as e:
-                    logger.error(f"❌ Error encoding binary data: {e}")
+                    logger.error(f"Error encoding binary data: {e}")
             else:
-                logger.error(f"❌ INVALID FIRE_DATA for {cortical_id} - missing neuron_ids or fire_data is None")
+                logger.error(f"Invalid fire_data for {cortical_id} - missing neuron_ids")
                 
         except Exception as e:
-            logger.error(f"❌ Error processing {fq_data[0] if len(fq_data) > 0 else 'unknown'}: {e}")
-            import traceback
-            logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            logger.error(f"Error processing {fq_data[0] if len(fq_data) > 0 else 'unknown'}: {e}")
+            if logger.isEnabledFor(10):  # DEBUG level
+                import traceback
+                logger.debug(f"Processing traceback: {traceback.format_exc()}")
 
     def _process_dict_data(self, fire_data) -> None:
         """Process legacy dict format data."""
