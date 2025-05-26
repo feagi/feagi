@@ -7,12 +7,17 @@ Provides ZeroMQ-based API access to FEAGI functionality.
 import asyncio
 import json
 import logging
+import os
 import sys
 import threading
 import time
 from typing import Dict, Any, Optional, List, Set, Callable, Callable
 import uuid
 import traceback
+
+# Enable comprehensive ZMQ debugging for troubleshooting
+os.environ['FEAGI_DEBUG_ZMQ_OUTBOUND'] = '1'
+os.environ['FEAGI_DEBUG_ZMQ_INBOUND'] = '1'
 
 import zmq
 import zmq.asyncio
@@ -29,7 +34,7 @@ from feagi.bdu.connectome_manager import ConnectomeManager
 # Import all stream handlers
 from .streams.sensory import SensoryStream
 from .streams.motor import MotorStream  
-from .streams.simple_visualization import SimpleVisualizationStream as VisualizationStream
+from .streams.visualization import VisualizationStream
 from .streams.control import ControlStream
 from .streams.rest import RestStream
 
@@ -452,22 +457,23 @@ class ZmqServer:
                 context=self._context
             )
             
-            # Pass ZMQ server reference to REST stream for visualization endpoints
-            if hasattr(self._rest, 'set_zmq_server'):
-                self._rest.set_zmq_server(self)
-                logger.debug("ZMQ server reference passed to REST stream")
-            
             if self.vis_port is not None:
-                # Use simplified visualization stream (WORKING VERSION)
+                # Use working visualization stream interface (EXACTLY as before)
                 self._visualization = VisualizationStream(
                     host=self.host,
                     port=self.vis_port,
-                    context=None,  # SimpleVisualizationStream creates its own sync context
+                    context=None,  # VisualizationStream creates its own sync context
                     fq_sampler_queue=self._fq_sampler_queue
                 )
-                logger.info(f"Visualization stream enabled on port {self.vis_port}")
+                logger.info(f"Primary visualization stream enabled on port {self.vis_port}")
             else:
                 logger.info("Visualization stream disabled")
+            
+            # Pass ZMQ server reference to REST stream for visualization endpoints
+            # IMPORTANT: This must happen AFTER visualization stream is created!
+            if hasattr(self._rest, 'set_zmq_server'):
+                self._rest.set_zmq_server(self)
+                logger.debug("ZMQ server reference passed to REST stream")
             
             # Start only enabled managers
             await self._req_rep.start()
