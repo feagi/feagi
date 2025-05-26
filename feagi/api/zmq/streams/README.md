@@ -6,6 +6,37 @@
 
 This directory contains the ZeroMQ stream implementations for FEAGI, providing specialized data channels optimized for different use cases. A key innovation is the **differentiated FQ sampler integration** that provides optimized data delivery for different subscriber types.
 
+## Recent Major Updates
+
+### VisualizationStream Enhanced Threading Implementation
+
+The `VisualizationStream` has been **completely rewritten** with a threading-based architecture for optimal RTOS compatibility and reliability. Key improvements include:
+
+**🔧 Threading-Based Architecture:**
+- Replaced async-based implementation with synchronous threading approach
+- Eliminates async/sync context conflicts that caused previous issues
+- RTOS-compatible design for future migration
+
+**👥 Enhanced Client Tracking:**
+- Real-time heartbeat monitoring with 30-second timeout
+- Thread-safe client management with proper locking
+- Automatic cleanup of disconnected clients
+
+**🔄 Automatic FQ Sampler Control:**
+- Enables FQ sampler automatically when visualization clients connect
+- Disables FQ sampler when no clients present (resource conservation)
+- Independent control per stream type
+
+**⚡ Responsive Shutdown:**
+- Improved thread management with 5-second timeout per thread
+- Replaces `time.sleep()` with `Event.wait()` for faster response
+- Frequent stop signal checks (200-250ms intervals)
+
+**🛡️ Enhanced Error Handling:**
+- ZMQ socket corruption detection and automatic recreation
+- Graceful handling of malformed data
+- Production-ready logging with appropriate levels
+
 ## Stream Architecture
 
 ### Differentiated Data Delivery
@@ -22,34 +53,80 @@ FEAGI implements **dual-path FQ sampling** to optimize data delivery:
 **Purpose**: Real-time neural activity broadcasting for brain visualization and analysis.
 
 **Key Features:**
+- **Threading-Based Implementation**: Reliable RTOS-compatible design
+- **Enhanced Client Tracking**: Real-time heartbeat monitoring and timeout management
 - **Comprehensive Sampling**: Receives data from ALL cortical areas
 - **Configurable Rates**: Respects per-area `fq_sample_rate` properties
 - **Rich Data Format**: Full neuron state including membrane potentials, thresholds, coordinates
 - **Automatic Subscriber Detection**: Enables FQ sampler when visualization clients connect
-- **Heartbeat Monitoring**: Tracks client connections and automatically disables sampling when no clients
+- **Standby Mode**: Intelligently pauses processing when genome not loaded
+- **Production Logging**: Clean, structured logging suitable for production environments
 
 **Port**: 5562  
 **Socket Type**: PUB (Publisher)  
 **Protocol**: feagi_bytes binary format  
+**Threading Model**: 3 worker threads (data processing, client cleanup, subscriber monitoring)
 
 ```python
-# Client connection example
+# Enhanced client connection example with heartbeat
 import zmq
-context = zmq.Context()
-socket = context.socket(zmq.SUB)
-socket.connect("tcp://localhost:5562")
-socket.setsockopt(zmq.SUBSCRIBE, b"activity")
+import time
+import threading
 
-# Register for subscriber detection
-control_socket = context.socket(zmq.DEALER)
-control_socket.connect("tcp://localhost:5561")
-heartbeat = {
-    "message_type": "heartbeat",
-    "agent_id": "visualization_client_001",
-    "timestamp": time.time() * 1000
-}
-control_socket.send_json(heartbeat)
+def visualization_client_example():
+    # Set up data subscription
+    context = zmq.Context()
+    data_socket = context.socket(zmq.SUB)
+    data_socket.connect("tcp://localhost:5562")
+    data_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
+    
+    # Set up heartbeat via REST API (recommended approach)
+    import requests
+    client_id = "my_visualization_client"
+    
+    def send_heartbeat():
+        while True:
+            try:
+                response = requests.post(
+                    "http://localhost:8000/v1/visualization/heartbeat",
+                    json={"client_id": client_id}
+                )
+                print(f"Heartbeat response: {response.status_code}")
+                time.sleep(5)  # Send every 5 seconds
+            except Exception as e:
+                print(f"Heartbeat error: {e}")
+                time.sleep(5)
+    
+    # Start heartbeat thread
+    heartbeat_thread = threading.Thread(target=send_heartbeat, daemon=True)
+    heartbeat_thread.start()
+    
+    # Process visualization data
+    while True:
+        try:
+            topic, data = data_socket.recv_multipart()
+            if topic == b"activity":
+                # Process neural activity data
+                print(f"Received {len(data)} bytes of neural data")
+        except KeyboardInterrupt:
+            break
+    
+    context.term()
 ```
+
+**Client Lifecycle Management:**
+1. **Connection**: Client connects to visualization port
+2. **Registration**: Send initial heartbeat via REST API (`POST /v1/visualization/heartbeat`)
+3. **Automatic FQ Enablement**: FQ sampler enabled when first client connects
+4. **Heartbeat Maintenance**: Send heartbeat every 5-15 seconds (timeout = 30 seconds)
+5. **Automatic Cleanup**: Client removed after 30 seconds without heartbeat
+6. **Automatic FQ Disablement**: FQ sampler disabled when last client disconnects
+
+**Thread Architecture:**
+- **Main Thread**: Socket management and initialization
+- **FQ Data Worker**: Processes fire queue data and publishes to ZMQ
+- **Client Cleanup Worker**: Monitors heartbeat timeouts and removes inactive clients
+- **Subscriber Monitor Worker**: Controls FQ sampler based on active client count
 
 ### MotorStream (`motor.py`)
 
@@ -128,6 +205,7 @@ Motor stream automatically detects OPU areas using multiple criteria:
 - **API Operations**: Standard CRUD operations on FEAGI resources
 - **JSON Protocol**: Human-readable message format
 - **Modern Interface**: Designed for modern applications and web interfaces
+- **Visualization Heartbeat Endpoint**: `POST /v1/visualization/heartbeat`
 
 **Port**: 5563  
 **Socket Type**: ROUTER  
@@ -168,7 +246,7 @@ VisualizationStream  MotorStream
 
 Both visualization and motor streams implement automatic subscriber detection:
 
-1. **Connection Monitoring**: Track client heartbeats via control stream
+1. **Connection Monitoring**: Track client heartbeats via REST API
 2. **Automatic Activation**: Enable FQ sampler when subscribers connect
 3. **Resource Conservation**: Disable sampling when no subscribers present
 4. **Type-Specific Control**: Independent enable/disable for each stream type
@@ -198,99 +276,160 @@ visualization_config = {
 motor_config = {
     'auto_enable_on_subscribers': True,
     'subscriber_check_interval': 0.5,  # Faster for real-time
-    'motor_timeout_seconds': 10.0,
-    'optimize_for_latency': True,
-    'include_only_coordinates': True
+    'motor_latency_target_ms': 10,
+    'opu_detection_patterns': ['opu_', 'motor_', 'output_']
 }
 ```
 
-### Per-Area FQ Sampler Configuration
+### TOML Configuration Example
 
-```python
-# Configure different sampling rates for visualization
-cortical_areas = {
-    "visual_cortex": {
-        "properties": {
-            "fq_sample_rate": 30.0,  # High rate for visual analysis
-            "cortical_type": "sensory"
-        }
-    },
-    "motor_cortex": {
-        "properties": {
-            "cortical_type": "OPU",  # Auto-detected for motor sampling
-            # Uses burst frequency automatically
-        }
-    },
-    "memory_area": {
-        "properties": {
-            "fq_sample_rate": 5.0,   # Low rate for memory areas
-            "cortical_type": "associative"
-        }
-    },
-    "noise_area": {
-        "properties": {
-            "fq_sample_rate": 0.0,   # Disable sampling
-            "cortical_type": "utility"
-        }
-    }
-}
+```toml
+[feagi.api.zmq.streams]
+enabled = ["visualization", "motor", "sensory", "control", "rest"]
+
+[feagi.api.zmq.streams.visualization]
+port = 5562
+auto_enable_on_subscribers = true
+subscriber_check_interval = 1.0
+client_heartbeat_timeout = 30
+
+[feagi.api.zmq.streams.motor]
+port = 5564
+auto_enable_on_subscribers = true
+subscriber_check_interval = 0.5
+motor_latency_target_ms = 10
 ```
 
-## Testing and Validation
+## Threading and RTOS Compatibility
 
-### Test Differentiated Behavior
+### Design Principles
+
+The threading-based approach follows these principles:
+
+1. **Synchronous Operations**: No async/await complexity
+2. **Dedicated Threads**: Each responsibility gets its own thread
+3. **Responsive Shutdown**: Fast response to stop signals
+4. **Thread Safety**: Proper locking for shared data
+5. **Resource Management**: Clean startup and shutdown
+
+### Thread Management
 
 ```python
-# Verify that motor and visualization streams receive different data
-import zmq
-from feagi_bytes import ByteStructureDecoder
-
-ctx = zmq.Context()
-decoder = ByteStructureDecoder()
-
-# Connect to both streams
-viz_socket = ctx.socket(zmq.SUB)
-viz_socket.connect("tcp://localhost:5562")
-viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-
-motor_socket = ctx.socket(zmq.SUB)  
-motor_socket.connect("tcp://localhost:5564")
-motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
-
-# Collect and compare data
-viz_topic, viz_data = viz_socket.recv_multipart()
-motor_topic, motor_data = motor_socket.recv_multipart()
-
-viz_decoded = decoder.decode_neuron_flat(viz_data)
-motor_decoded = decoder.decode_neuron_flat(motor_data)
-
-viz_areas = set(viz_decoded['cortical_ids'])
-motor_areas = set(motor_decoded['cortical_ids'])
-
-print(f"Visualization areas: {len(viz_areas)}")
-print(f"Motor areas: {len(motor_areas)}")
-print(f"Motor areas are subset: {motor_areas.issubset(viz_areas)}")
+# Example of responsive thread pattern used throughout
+def worker_thread(self):
+    while self.running and not self._stop_event.is_set():
+        try:
+            # Quick exit check
+            if self._stop_event.is_set():
+                break
+            
+            # Do work with short timeouts
+            data = self.queue.get(timeout=0.05)
+            self.process_data(data)
+            
+        except Empty:
+            # Use wait() instead of sleep() for responsive shutdown
+            if self._stop_event.wait(timeout=0.2):
+                break
+            continue
+        except Exception as e:
+            self.logger.error(f"Worker error: {e}")
+            # Brief pause on error, still responsive
+            if self._stop_event.wait(timeout=0.1):
+                break
 ```
 
-## Best Practices
+## Migration and Compatibility
 
-### Client Implementation
+### Backward Compatibility
 
-1. **Always Send Heartbeats**: Register with control stream for subscriber detection
-2. **Handle Disconnections**: Implement proper cleanup when disconnecting
-3. **Use Appropriate Stream**: Choose visualization for analysis, motor for control
-4. **Monitor Data Flow**: Verify you're receiving expected data types
+The new VisualizationStream maintains full API compatibility:
 
-### Performance Optimization
+- All public methods preserved
+- Same initialization parameters
+- Compatible with existing client code
+- Legacy tuple and dict data formats supported
 
-1. **Configure Sampling Rates**: Set appropriate `fq_sample_rate` for your needs
-2. **Use Motor Stream for Control**: Minimize latency with dedicated motor stream
-3. **Monitor Subscriber Counts**: Verify automatic activation is working
-4. **Handle Backpressure**: Drop data if you can't keep up with the stream
+### Migration Notes
+
+**From Previous VisualizationStream:**
+- No client code changes required
+- Improved reliability and performance
+- Better error handling and logging
+- Responsive shutdown (no more hanging)
+
+**Key Behavioral Changes:**
+- Heartbeat tracking now functional (previously stubbed)
+- FQ sampler auto-control now working
+- Production-ready logging levels
+- Thread-safe client management
+
+## Troubleshooting
+
+### Common Issues
+
+**FQ Sampler Not Enabling:**
+- Verify clients send heartbeats via `POST /v1/visualization/heartbeat`
+- Check logs for client connection messages
+- Ensure `auto_enable_on_subscribers` is True
+
+**Slow Shutdown:**
+- Updated implementation should shutdown in <2 seconds
+- If hanging, check for blocking operations in custom code
+- Monitor thread join timeouts in logs
+
+**Missing Data:**
+- Verify genome is loaded (stream enters standby mode otherwise)
+- Check FQ sampler queue connection
+- Monitor queue size and processing logs
+
+**Client Timeout Issues:**
+- Default timeout is 30 seconds
+- Ensure heartbeat interval < 30 seconds
+- Check network connectivity and REST API access
+
+### Debug Logging
+
+Enable debug logging for detailed information:
+
+```python
+import logging
+logging.getLogger('feagi.api.zmq.streams.visualization').setLevel(logging.DEBUG)
+```
+
+## Performance Monitoring
+
+### Statistics
+
+All streams provide runtime statistics:
+
+```python
+# Get visualization stream stats
+stats = viz_stream.get_stats()
+print(f"Messages sent: {stats['data_sent']}")
+print(f"Bytes sent: {stats['bytes_sent']}")
+print(f"Message rate: {stats['messages_per_second']:.2f} msg/s")
+print(f"Connected clients: {viz_stream.get_connected_client_count()}")
+```
+
+### Monitoring Endpoints
+
+- **Stream Status**: `GET /v1/system/zmq_status`
+- **Client Count**: Available via stream statistics
+- **Performance Metrics**: Built into each stream implementation
 
 ## Related Documentation
 
-- [ZMQ Architecture](../../../docs/arch-zmq.md)
-- [NPU Architecture](../../npu/arch-npu.md)
 - [FQ Sampler Documentation](../../npu/README.md#fq-sampler)
-- [System Architecture](../../../docs/arch-system-overview.md) 
+- [Protocol Documentation](../protocols/README.md)
+- [Core API Documentation](../core/README.md)
+- [ZMQ Server Documentation](../README.md)
+
+## Testing
+
+Comprehensive test coverage includes:
+
+- **Unit Tests**: `tests/api/zmq/test_visualization_stream.py`
+- **Integration Tests**: `tests/api/zmq/test_rest_integration.py`
+- **Performance Tests**: `tests/performance/test_zmq_streams.py`
+- **Thread Safety Tests**: Multi-threaded client simulation 
