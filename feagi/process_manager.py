@@ -321,6 +321,17 @@ class ProcessManager:
                             connectome_manager=self._connectome_manager
                         )
                         
+                        # CRITICAL FIX: Register FQSampler with burst engine for debug tracking
+                        try:
+                            burst_engine = self._core_api.get_burst_engine()
+                            if burst_engine:
+                                burst_engine.register_fq_sampler(self._fq_sampler)
+                                logger.info("✅ FQSampler registered with burst engine")
+                            else:
+                                logger.warning("⚠️  Burst engine not available for FQSampler registration")
+                        except Exception as reg_error:
+                            logger.warning(f"⚠️  Failed to register FQSampler with burst engine: {reg_error}")
+                        
                         # Start FQ sampler in a thread
                         import threading
                         self._fq_sampler_thread = threading.Thread(
@@ -396,6 +407,17 @@ class ProcessManager:
                             output_queue=self._fq_sampler_queue,
                             connectome_manager=self._connectome_manager
                         )
+                        
+                        # CRITICAL FIX: Register FQSampler with burst engine for debug tracking
+                        try:
+                            burst_engine = self._core_api.get_burst_engine()
+                            if burst_engine:
+                                burst_engine.register_fq_sampler(self._fq_sampler)
+                                logger.info("✅ FQSampler registered with burst engine")
+                            else:
+                                logger.warning("⚠️  Burst engine not available for FQSampler registration")
+                        except Exception as reg_error:
+                            logger.warning(f"⚠️  Failed to register FQSampler with burst engine: {reg_error}")
                         
                         # Start FQ sampler in a thread
                         import threading

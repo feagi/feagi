@@ -929,31 +929,42 @@ class BurstEngine:
                         logger.info(f"         📺 Viz subscribers: {'YES' if viz_subs else 'NO'}")
                         logger.info(f"         🚗 Motor subscribers: {'YES' if motor_subs else 'NO'}")
                         
-                        # Try to get sample data for current burst
-                        if hasattr(fq_sampler, '_get_global_fire_queue_data'):
-                            sample_data = fq_sampler._get_global_fire_queue_data()
-                            if sample_data and sample_data.get('neuron_ids'):
-                                sample_count = len(sample_data['neuron_ids'])
-                                logger.info(f"         📊 Sample data: {sample_count} neurons")
+                        # Try to get sample data for current burst using actual FQSampler interface
+                        try:
+                            # Get active areas from FQSampler's current operation
+                            active_areas = None
+                            if hasattr(fq_sampler, '_get_active_areas_snapshot'):
+                                active_areas = fq_sampler._get_active_areas_snapshot()
+                            
+                            if active_areas:
+                                total_neurons = sum(len(neurons) if hasattr(neurons, '__len__') else 0 
+                                                  for neurons in active_areas.values())
+                                area_count = len(active_areas)
+                                logger.info(f"         📊 Current data: {total_neurons} neurons across {area_count} active areas")
                                 
-                                # Show membrane potential range if available
-                                if sample_data.get('membrane_potentials'):
-                                    potentials = sample_data['membrane_potentials']
-                                    min_pot = min(potentials)
-                                    max_pot = max(potentials)
-                                    avg_pot = sum(potentials) / len(potentials)
-                                    logger.info(f"         🧠 Membrane potentials: {min_pot:.2f} - {max_pot:.2f} (avg: {avg_pot:.2f})")
-                                    
-                                # Show coordinate range if available
-                                if sample_data.get('coordinates'):
-                                    coords = sample_data['coordinates']
-                                    if coords:
-                                        x_coords = [c[0] for c in coords]
-                                        y_coords = [c[1] for c in coords]
-                                        z_coords = [c[2] for c in coords]
-                                        logger.info(f"         📍 Coordinate ranges: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
+                                # Show sample of active areas
+                                sample_areas = list(active_areas.items())[:3]  # First 3 areas
+                                for area_id, neurons in sample_areas:
+                                    neuron_count = len(neurons) if hasattr(neurons, '__len__') else 0
+                                    if neuron_count > 0:
+                                        logger.info(f"         🧠 {area_id}: {neuron_count} active neurons")
+                                        
+                                        # Build sample fire queue data for this area
+                                        if hasattr(fq_sampler, '_build_fire_queue_data_optimized'):
+                                            fire_queue_data = fq_sampler._build_fire_queue_data_optimized(area_id, neurons)
+                                            if fire_queue_data and fire_queue_data.get('coordinates'):
+                                                coords = fire_queue_data['coordinates']
+                                                if coords and len(coords) > 0:
+                                                    x_coords = [c[0] for c in coords if len(c) > 0]
+                                                    y_coords = [c[1] for c in coords if len(c) > 1]
+                                                    z_coords = [c[2] for c in coords if len(c) > 2]
+                                                    if x_coords and y_coords and z_coords:
+                                                        logger.info(f"         📍 Coordinates: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
                             else:
-                                logger.info(f"         📊 Sample data: No neurons firing")
+                                logger.info(f"         📊 Current data: No active areas detected")
+                                
+                        except Exception as e:
+                            logger.info(f"         📊 Data sampling error: {e}")
                         
                         # Check queue status
                         if hasattr(fq_sampler, 'output_queue'):
@@ -996,25 +1007,32 @@ class BurstEngine:
                     ):
                         logger.info(f"   📊 FQSampler-{i+1} Recent Sample:")
                         
-                        # Try to get per-area samples for key areas
+                        # Try to get per-area samples for key areas using actual FQSampler interface
                         if hasattr(fq_sampler, 'connectome_manager') and fq_sampler.connectome_manager:
                             try:
-                                # Sample a few key areas (motor and sensory)
-                                sample_areas = ['motor_', 'vision', 'sensor', 'output', 'input']  # Common prefixes
-                                sampled_any = False
+                                # Get current active areas from the FQSampler
+                                active_areas = None
+                                if hasattr(fq_sampler, '_get_active_areas_snapshot'):
+                                    active_areas = fq_sampler._get_active_areas_snapshot()
                                 
-                                for area_id in list(fcl_by_cortical.keys())[:5]:  # Sample first 5 active areas
-                                    area_sample = fq_sampler._get_area_fire_queue_data(area_id)
-                                    if area_sample and area_sample.get('neuron_ids'):
-                                        neuron_count = len(area_sample['neuron_ids'])
-                                        logger.info(f"      {area_id}: {neuron_count} active neurons")
-                                        sampled_any = True
-                                
-                                if not sampled_any:
-                                    logger.info(f"      No area samples available")
+                                if active_areas:
+                                    sampled_any = False
+                                    # Sample first 5 active areas to show activity
+                                    for area_id, neurons in list(active_areas.items())[:5]:
+                                        neuron_count = len(neurons) if hasattr(neurons, '__len__') else 0
+                                        if neuron_count > 0:
+                                            logger.info(f"      {area_id}: {neuron_count} active neurons")
+                                            sampled_any = True
+                                    
+                                    if not sampled_any:
+                                        logger.info(f"      No active neurons found in sampled areas")
+                                else:
+                                    logger.info(f"      No active areas detected")
                                     
                             except Exception as sample_error:
                                 logger.info(f"      Sample error: {sample_error}")
+                        else:
+                            logger.info(f"      No connectome manager available")
             
             logger.info(f"🔥 ========================================\n")
             
@@ -1575,16 +1593,43 @@ class FQSampler:
         """
         try:
             with self._fcl_lock:  # FIXED: Thread-safe FCL access
-                if hasattr(self.fire_queue_provider, 'get_fcl_by_cortical'):
-                    # OPTIMAL PATH: Direct access to active areas only
-                    fcl_by_cortical_idx = self.fire_queue_provider.get_fcl_by_cortical()
-                    return self._convert_cortical_indices_to_ids(fcl_by_cortical_idx)
-                elif hasattr(self.fire_queue_provider, 'fcl_manager'):
-                    # FALLBACK: Access via FCL manager
+                # FIXED: Try multiple interface paths to access FCL data
+                fcl_by_cortical_idx = None
+                
+                # Method 1: Direct access to FCL manager from fire_queue_provider
+                if hasattr(self.fire_queue_provider, 'fcl_manager') and self.fire_queue_provider.fcl_manager:
                     fcl_manager = self.fire_queue_provider.fcl_manager
                     if hasattr(fcl_manager, 'get_fcl_by_cortical'):
                         fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
-                        return self._convert_cortical_indices_to_ids(fcl_by_cortical_idx)
+                
+                # Method 2: Through connectome manager's FCL manager
+                elif hasattr(self.fire_queue_provider, '_connectome_manager'):
+                    connectome_manager = self.fire_queue_provider._connectome_manager
+                    if hasattr(connectome_manager, 'fcl_manager') and connectome_manager.fcl_manager:
+                        fcl_manager = connectome_manager.fcl_manager
+                        if hasattr(fcl_manager, 'get_fcl_by_cortical'):
+                            fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
+                
+                # Method 3: Get FCL manager through get_fcl_manager() method
+                elif hasattr(self.fire_queue_provider, 'get_fcl_manager'):
+                    fcl_manager = self.fire_queue_provider.get_fcl_manager()
+                    if fcl_manager and hasattr(fcl_manager, 'get_fcl_by_cortical'):
+                        fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
+                
+                # Method 4: Try accessing through burst engine instance
+                if fcl_by_cortical_idx is None:
+                    try:
+                        from feagi.npu.burst_engine import BurstEngine
+                        burst_engine = BurstEngine.get_instance()
+                        if burst_engine and hasattr(burst_engine, 'fcl_manager'):
+                            fcl_manager = burst_engine.fcl_manager
+                            if hasattr(fcl_manager, 'get_fcl_by_cortical'):
+                                fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
+                    except Exception:
+                        pass  # Fallback failed
+                
+                if fcl_by_cortical_idx:
+                    return self._convert_cortical_indices_to_ids(fcl_by_cortical_idx)
                         
             return None
         except Exception as e:
