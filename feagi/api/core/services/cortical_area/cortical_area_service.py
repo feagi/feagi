@@ -38,6 +38,85 @@ class CorticalAreaService(BaseService):
         self._cortical_areas_cache = None
         self._cortical_areas_cache_timestamp = 0
 
+    def _validate_state_consistency(self) -> bool:
+        """
+        Validate that the state manager and connectome manager are consistent.
+        
+        Returns:
+            bool: True if state is consistent, False if inconsistencies are detected
+        """
+        try:
+            # Check if state manager says genome is loaded
+            state_manager_loaded = self.state_manager and self.state_manager.is_genome_loaded()
+            
+            # Check if connectome actually has cortical areas
+            connectome_has_areas = (
+                hasattr(self._connectome_manager, 'cortical_areas') and 
+                self._connectome_manager.cortical_areas and 
+                len(self._connectome_manager.cortical_areas) > 0
+            )
+            
+            # If both agree, state is consistent
+            if state_manager_loaded == connectome_has_areas:
+                return True
+            
+            # Log the inconsistency for debugging
+            self.logger.debug(f"State inconsistency detected: state_manager_loaded={state_manager_loaded}, connectome_has_areas={connectome_has_areas}")
+            return False
+            
+        except Exception as e:
+            self.logger.warning(f"Error checking state consistency: {e}")
+            return False
+    
+    def _sync_state_if_needed(self) -> bool:
+        """
+        Attempt to synchronize state manager with actual connectome state.
+        
+        Returns:
+            bool: True if synchronization was successful, False otherwise
+        """
+        try:
+            if not self.state_manager:
+                return False
+            
+            # Check if connectome has cortical areas
+            if hasattr(self._connectome_manager, 'cortical_areas') and self._connectome_manager.cortical_areas:
+                cortical_count = len(self._connectome_manager.cortical_areas)
+                
+                if cortical_count > 0:
+                    # Connectome has data, ensure state manager reflects this
+                    from feagi.core.state_manager import GenomeState
+                    
+                    current_state = self.state_manager.get_genome_state()
+                    if current_state != GenomeState.LOADED:
+                        self.logger.info(f"Syncing state manager: setting genome state to LOADED (found {cortical_count} cortical areas)")
+                        self.state_manager.set_genome_state(GenomeState.LOADED)
+                        self.state_manager.set_brain_readiness(True)
+                        
+                        # Update brain stats if missing
+                        if not self.state_manager.brain_stats or self.state_manager.brain_stats.get('cortical_area_count', 0) == 0:
+                            self.state_manager.brain_stats = {
+                                "cortical_area_count": cortical_count,
+                                "neuron_count": getattr(self._connectome_manager, 'neuron_count', 0),
+                                "synapse_count": 0  # Will be updated by other processes
+                            }
+                        
+                        return True
+                else:
+                    # No cortical areas, ensure state manager reflects this
+                    current_state = self.state_manager.get_genome_state()
+                    if current_state == GenomeState.LOADED:
+                        self.logger.info("Syncing state manager: no cortical areas found, setting state to NOT_LOADED")
+                        self.state_manager.set_genome_state(GenomeState.NOT_LOADED)
+                        self.state_manager.set_brain_readiness(False)
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error synchronizing state: {e}")
+            return False
+
     def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
         """
         Map a cortical_id (6-character string) to its corresponding cortical_idx (integer).

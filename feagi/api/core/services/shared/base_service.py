@@ -54,11 +54,69 @@ class BaseService:
         return True
         
     def _validate_genome_loaded(self) -> bool:
-        """Check if a genome is currently loaded."""
-        if not self.state_manager:
-            return False
-            
-        return self.state_manager.is_genome_loaded()
+        """
+        Check if a genome is currently loaded with robust fallback validation.
+        
+        This method uses multiple validation approaches to handle timing issues
+        between genome loading and state manager synchronization.
+        """
+        # Method 1: Check state manager (preferred method)
+        if self.state_manager:
+            try:
+                state_manager_result = self.state_manager.is_genome_loaded()
+                if state_manager_result:
+                    return True
+                else:
+                    # State manager says no genome, but let's double-check with connectome
+                    self.logger.debug("State manager reports no genome loaded, checking connectome directly")
+            except Exception as e:
+                self.logger.warning(f"Error checking state manager genome status: {e}")
+        
+        # Method 2: Check connectome manager directly (fallback for timing issues)
+        if self._connectome_manager:
+            try:
+                # If connectome has cortical areas, genome is effectively loaded
+                if hasattr(self._connectome_manager, 'cortical_areas') and self._connectome_manager.cortical_areas:
+                    cortical_count = len(self._connectome_manager.cortical_areas)
+                    if cortical_count > 0:
+                        self.logger.debug(f"Genome validation: Found {cortical_count} cortical areas in connectome - genome is loaded")
+                        
+                        # Try to sync state manager if it's out of sync
+                        if self.state_manager:
+                            try:
+                                from feagi.core.state_manager import GenomeState
+                                current_state = self.state_manager.get_genome_state()
+                                if current_state != GenomeState.LOADED:
+                                    self.logger.info(f"Correcting state manager: genome state was {current_state.name}, setting to LOADED")
+                                    self.state_manager.set_genome_state(GenomeState.LOADED)
+                                    self.state_manager.set_brain_readiness(True)
+                            except Exception as sync_error:
+                                self.logger.warning(f"Failed to sync state manager: {sync_error}")
+                        
+                        return True
+                    else:
+                        self.logger.debug("Genome validation: No cortical areas found in connectome")
+                        return False
+                else:
+                    self.logger.debug("Genome validation: Connectome has no cortical_areas attribute or it's empty")
+                    return False
+            except Exception as e:
+                self.logger.warning(f"Error checking connectome for genome validation: {e}")
+        
+        # Method 3: Final fallback - check if we have basic brain stats
+        if self.state_manager:
+            try:
+                if hasattr(self.state_manager, 'brain_stats') and self.state_manager.brain_stats:
+                    brain_stats = self.state_manager.brain_stats
+                    if isinstance(brain_stats, dict) and brain_stats.get('cortical_area_count', 0) > 0:
+                        self.logger.debug("Genome validation: Found brain stats with cortical areas - genome appears loaded")
+                        return True
+            except Exception as e:
+                self.logger.warning(f"Error checking brain stats for genome validation: {e}")
+        
+        # All methods failed
+        self.logger.debug("Genome validation: All validation methods indicate no genome is loaded")
+        return False
         
     def _get_current_genome(self) -> Optional[dict]:
         """Get the currently loaded genome data."""

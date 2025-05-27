@@ -162,7 +162,7 @@ class GenomeService(BaseService):
             
             self.logger.info(f"Loading genome from {filename}")
             
-            # STEP 1: START BURST ENGINE FIRST (new design requirement)
+            # STEP 1: START BURST ENGINE FIRST (design requirement - but pause it during genome load)
             self.logger.info("Step 1: Starting burst engine before genome load")
             if self.state_manager:
                 try:
@@ -171,30 +171,58 @@ class GenomeService(BaseService):
                     
                     # Check current burst engine state
                     current_state = self.state_manager.get_burst_engine_state()
-                    if current_state not in [ServiceState.READY, ServiceState.ON_HOLD]:
-                        # Need to start the burst engine using existing brain service
+                    burst_was_running = current_state in [ServiceState.READY, ServiceState.ON_HOLD]
+                    
+                    if burst_was_running:
+                        # Stop the existing burst engine to prevent resource interference during genome loading
+                        self.logger.info("🔥 GENOME SERVICE: Stopping burst engine for genome loading")
                         if self._brain_service:
-                            print(f"🔥 GENOME SERVICE: Using existing brain service to start burst engine")
-                            burst_start_success = self._brain_service.start_burst_engine()
+                            stop_success = self._brain_service.stop_burst_engine()
                         else:
-                            print(f"🔥 GENOME SERVICE: Creating temporary brain service to start burst engine")
                             brain_service = BrainService(self._connectome_manager, self.state_manager)
-                            burst_start_success = brain_service.start_burst_engine()
+                            stop_success = brain_service.stop_burst_engine()
                         
-                        if not burst_start_success:
-                            self.logger.error("CRITICAL: Failed to start burst engine - aborting genome load")
-                            return {"success": False, "error": "Failed to start burst engine - genome load aborted"}
-                        
-                        self.logger.info("✅ Burst engine started successfully")
+                        if stop_success:
+                            self.logger.info("✅ Burst engine stopped successfully for genome loading")
+                        else:
+                            self.logger.warning("⚠️ Failed to cleanly stop burst engine - proceeding anyway")
                     else:
-                        self.logger.info(f"✅ Burst engine already in acceptable state: {current_state.name}")
+                        self.logger.info(f"✅ Burst engine not running (state: {current_state.name}) - proceeding with genome loading")
                         
                 except Exception as engine_error:
-                    self.logger.error(f"CRITICAL: Error starting burst engine: {str(engine_error)}")
+                    self.logger.error(f"CRITICAL: Error starting/pausing burst engine: {str(engine_error)}")
                     return {"success": False, "error": f"Failed to start burst engine: {str(engine_error)}"}
             
-            # STEP 2: PROCEED WITH GENOME LOADING (existing logic)
+            # STEP 2: PROCEED WITH GENOME LOADING (with burst engine safely paused)
             self.logger.info("Step 2: Proceeding with genome loading")
+            
+            # STEP 3: PREPARE CONNECTOME FOR NEW GENOME
+            self.logger.info("Step 3: Preparing connectome for new genome")
+            
+            # Use the new ConnectomeManager method to handle all preparation
+            preparation_result = self._connectome_manager.prepare_for_new_genome(genome_data, save_current_state=True)
+            
+            if not preparation_result["success"]:
+                self.logger.error(f"Failed to prepare connectome: {preparation_result.get('error', 'Unknown error')}")
+                if self.state_manager:
+                    from feagi.core.state_manager import GenomeState
+                    self.state_manager.set_genome_state(GenomeState.ERROR)
+                    self.state_manager.set_brain_readiness(False)
+                    self.state_manager.genome_validity = False
+                return {"success": False, "error": f"Failed to prepare connectome: {preparation_result.get('error', 'Unknown error')}"}
+            
+            self.logger.info("✅ Connectome prepared successfully for new genome")
+            
+            # Log summary of preparation
+            memory_req = preparation_result["memory_requirements"]
+            capacity_res = preparation_result["capacity_results"]
+            self.logger.info(f"Genome analysis: {memory_req['cortical_areas']} areas, "
+                           f"{memory_req['estimated_neurons']} neurons, {memory_req['estimated_synapses']} synapses")
+            self.logger.info(f"Memory allocation: {capacity_res['max_neurons']} neurons, "
+                           f"{capacity_res['max_synapses']} synapses {'(reallocated)' if capacity_res['reallocated'] else '(existing)'}")
+            
+            # STEP 4: VALIDATE AND PREPARE GENOME DATA 
+            self.logger.info("Step 4: Validating genome structure")
             
             # Set brain readiness to False while loading
             if self.state_manager:
@@ -228,6 +256,9 @@ class GenomeService(BaseService):
                 self.state_manager.genome = genome_data
                 self.state_manager.genome_file_name = filename
                 # Don't set to LOADED yet - wait until brain development succeeds
+            
+            # STEP 5: RUN BRAIN EMBRYOGENESIS
+            self.logger.info("Step 5: Running brain embryogenesis")
                 
             # Save genome data to a temporary file
             temp_genome_path = os.path.join(self._temp_dir, "temp_genome.json")
@@ -331,50 +362,26 @@ class GenomeService(BaseService):
                     self.state_manager.genome_validity = False
                     return {"success": False, "error": f"Failed to update state manager: {str(stats_error)}"}
                 
-                # Automatically start the burst engine if it's not already running
+                # STEP 6: RESTART BURST ENGINE AFTER SUCCESSFUL GENOME LOADING
                 try:
-                    # Check if we have access to the brain service through the core API
-                    # We need to import at runtime to avoid circular imports
-                    if hasattr(self.state_manager, 'get_burst_engine_state'):
-                        from feagi.core.state_manager import ServiceState
-                        burst_state = self.state_manager.get_burst_engine_state()
-                        
-                        if burst_state != ServiceState.READY:
-                            self.logger.info("Burst engine not running, starting automatically after genome load")
-                            
-                            # Properly start the burst engine through the brain service
-                            try:
-                                if self._brain_service:
-                                    print(f"🔥 GENOME SERVICE: Using existing brain service for auto-start")
-                                    success = self._brain_service.start_burst_engine()
-                                else:
-                                    print(f"🔥 GENOME SERVICE: Creating temporary brain service for auto-start")
-                                    from feagi.api.core.services.brain.brain_service import BrainService
-                                    brain_service = BrainService(self._connectome_manager, self.state_manager)
-                                    success = brain_service.start_burst_engine()
-                                    
-                                if success:
-                                    self.logger.info("Burst engine started automatically")
-                                else:
-                                    self.logger.warning("Failed to start burst engine automatically")
-                            except Exception as start_error:
-                                self.logger.warning(f"Error starting burst engine: {str(start_error)}")
-                                # Fallback: Set exit condition to False (legacy method)
-                                self.state_manager.exit_condition = False
-                                self.logger.info("Used fallback method to start burst engine")
-                        else:
-                            self.logger.info("Burst engine already running")
+                    self.logger.info("Step 6: Restarting burst engine after successful genome loading")
+                    
+                    # Restart the burst engine now that genome loading is complete
+                    if self._brain_service:
+                        restart_success = self._brain_service.start_burst_engine()
                     else:
-                        # Fallback method - directly set exit_condition to False and set burst engine state
-                        self.logger.info("Starting burst engine using fallback method")
-                        self.state_manager.exit_condition = False
-                        # Also set the burst engine state to READY
-                        self.state_manager.set_burst_engine_state(ServiceState.READY)
+                        brain_service = BrainService(self._connectome_manager, self.state_manager)
+                        restart_success = brain_service.start_burst_engine()
+                    
+                    if restart_success:
+                        self.logger.info("✅ Burst engine restarted and ready for neural processing")
+                    else:
+                        self.logger.warning("⚠️ Failed to restart burst engine - you may need to start it manually")
                         
                 except Exception as burst_error:
-                    # Don't fail the genome loading if burst engine auto-start fails
+                    # Don't fail the genome loading if burst engine restart fails
                     # Just log the error and continue
-                    self.logger.warning(f"Failed to auto-start burst engine: {str(burst_error)}")
+                    self.logger.warning(f"Failed to restart burst engine: {str(burst_error)}")
                     self.logger.warning("You may need to start the burst engine manually")
                 
             # Get cortical area count from connectome manager for return value
@@ -403,6 +410,237 @@ class GenomeService(BaseService):
                 self.state_manager.genome_validity = False
                 
             return {"success": False, "error": str(e)}
+
+    def _calculate_genome_memory_requirements(self, genome_data: Dict[str, Any]) -> Dict[str, int]:
+        """
+        Calculate memory requirements from genome data.
+        
+        This method analyzes the genome to determine how much memory the ConnectomeManager
+        needs to allocate for neurons, synapses, and cortical areas.
+        
+        Args:
+            genome_data: The genome dictionary
+            
+        Returns:
+            Dictionary with estimated memory requirements
+        """
+        try:
+            requirements = {
+                "cortical_areas": 0,
+                "estimated_neurons": 0,
+                "estimated_synapses": 0,
+                "max_dimensions": [0, 0, 0]
+            }
+            
+            if "blueprint" not in genome_data:
+                self.logger.warning("No blueprint found in genome - using minimal requirements")
+                return {
+                    "cortical_areas": 1,
+                    "estimated_neurons": 1000,
+                    "estimated_synapses": 10000,
+                    "max_dimensions": [10, 10, 10]
+                }
+            
+            # Extract cortical area information from blueprint
+            cortical_areas = {}
+            
+            # Parse blueprint keys to group by cortical_id
+            # Blueprint format: "_____10c-{cortical_id}-{prop_category}-{property_name}-{type}"
+            for blueprint_key, value in genome_data["blueprint"].items():
+                parts = blueprint_key.split('-')
+                if len(parts) >= 4:
+                    cortical_id = parts[1]
+                    prop_category = parts[2]  # 'cx' for cortical, 'nx' for neuron
+                    property_name = parts[3]
+                    
+                    if cortical_id not in cortical_areas:
+                        cortical_areas[cortical_id] = {}
+                    
+                    # Map blueprint property names to our expected names
+                    if prop_category == "cx":  # Cortical properties
+                        if property_name == "___bbx":
+                            cortical_areas[cortical_id]["dimx"] = value
+                        elif property_name == "___bby":
+                            cortical_areas[cortical_id]["dimy"] = value
+                        elif property_name == "___bbz":
+                            cortical_areas[cortical_id]["dimz"] = value
+                        elif property_name == "_n_cnt":
+                            cortical_areas[cortical_id]["neurons_per_voxel"] = value
+            
+            requirements["cortical_areas"] = len(cortical_areas)
+            
+            # Calculate neuron and synapse requirements for each cortical area
+            total_neurons = 0
+            total_synapses = 0
+            
+            for cortical_id, properties in cortical_areas.items():
+                # Get dimensions (default to 1x1x1 if missing)
+                dim_x = int(properties.get("dimx", 1))
+                dim_y = int(properties.get("dimy", 1))
+                dim_z = int(properties.get("dimz", 1))
+                
+                # Update max dimensions
+                requirements["max_dimensions"][0] = max(requirements["max_dimensions"][0], dim_x)
+                requirements["max_dimensions"][1] = max(requirements["max_dimensions"][1], dim_y)
+                requirements["max_dimensions"][2] = max(requirements["max_dimensions"][2], dim_z)
+                
+                # Calculate voxel count
+                voxel_count = dim_x * dim_y * dim_z
+                
+                # Get neurons per voxel (default to 1)
+                neurons_per_voxel = int(properties.get("neurons_per_voxel", 1))
+                
+                # Calculate neurons for this area
+                area_neurons = voxel_count * neurons_per_voxel
+                total_neurons += area_neurons
+                
+                # Estimate synapses (conservative estimate: avg 10 synapses per neuron)
+                # This will be refined based on actual morphology connections
+                estimated_synapses_per_neuron = 10
+                area_synapses = area_neurons * estimated_synapses_per_neuron
+                total_synapses += area_synapses
+                
+                self.logger.debug(f"Area {cortical_id}: {dim_x}x{dim_y}x{dim_z} = {voxel_count} voxels, "
+                                f"{area_neurons} neurons, ~{area_synapses} synapses")
+            
+            requirements["estimated_neurons"] = total_neurons
+            requirements["estimated_synapses"] = total_synapses
+            
+            # Add morphology-based synapse estimates
+            if "neuron_morphologies" in genome_data:
+                morphology_multiplier = len(genome_data["neuron_morphologies"]) * 1.2
+                requirements["estimated_synapses"] = int(requirements["estimated_synapses"] * morphology_multiplier)
+            
+            # Ensure minimum reasonable values
+            requirements["estimated_neurons"] = max(requirements["estimated_neurons"], 100)
+            requirements["estimated_synapses"] = max(requirements["estimated_synapses"], 1000)
+            
+            self.logger.info(f"Genome analysis complete: {requirements['cortical_areas']} areas, "
+                           f"~{requirements['estimated_neurons']} neurons, "
+                           f"~{requirements['estimated_synapses']} synapses")
+            
+            return requirements
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating genome memory requirements: {str(e)}")
+            # Return safe defaults on error
+            return {
+                "cortical_areas": 10,
+                "estimated_neurons": 10000,
+                "estimated_synapses": 100000,
+                "max_dimensions": [20, 20, 20]
+            }
+
+    def _reset_connectome_singleton(self) -> bool:
+        """
+        Reset the ConnectomeManager singleton to allow creation of a fresh instance.
+        
+        This method forces the singleton pattern to release the current instance
+        so that a new one can be created with proper memory allocation for the new genome.
+        
+        Returns:
+            True if reset was successful, False otherwise
+        """
+        try:
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            
+            # Reset the singleton state using the proper method
+            if hasattr(ConnectomeManager, '_instance') and ConnectomeManager._instance is not None:
+                self.logger.info("Resetting ConnectomeManager singleton for fresh genome load")
+                
+                # Use the proper reset method
+                ConnectomeManager.reset_singleton()
+                
+                self.logger.info("✅ ConnectomeManager singleton reset successfully")
+                return True
+            else:
+                self.logger.info("No ConnectomeManager singleton to reset")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Error resetting ConnectomeManager singleton: {str(e)}")
+            return False
+
+    def _save_current_connectome_state(self) -> bool:
+        """
+        Save the current connectome state to a file before replacing with new genome.
+        
+        This method serializes the current brain state so it can be restored later
+        or analyzed for comparison with the new genome.
+        
+        Returns:
+            True if save was successful, False otherwise
+        """
+        try:
+            import json
+            import datetime
+            
+            if not hasattr(self._connectome_manager, 'cortical_areas') or not self._connectome_manager.cortical_areas:
+                self.logger.info("No connectome state to save - skipping backup")
+                return True
+            
+            # Generate timestamp for unique filename
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_filename = f"connectome_backup_{timestamp}.json"
+            backup_path = os.path.join(self._temp_dir, backup_filename)
+            
+            # Collect connectome state data
+            connectome_state = {
+                "metadata": {
+                    "timestamp": timestamp,
+                    "genome_filename": self._genome_filename,
+                    "cortical_area_count": len(self._connectome_manager.cortical_areas)
+                },
+                "cortical_areas": {},
+                "statistics": {}
+            }
+            
+            # Save cortical area information
+            for area_idx, area in self._connectome_manager.cortical_areas.items():
+                try:
+                    # Get neuron count safely
+                    neuron_count = 0
+                    if hasattr(self._connectome_manager, 'get_neurons_by_area'):
+                        neurons = self._connectome_manager.get_neurons_by_area(area_idx)
+                        neuron_count = len(neurons) if neurons else 0
+                    
+                    connectome_state["cortical_areas"][str(area_idx)] = {
+                        "name": getattr(area, 'name', f"Area_{area_idx}"),
+                        "cortical_id": getattr(area, 'cortical_id', f"ID_{area_idx}"),
+                        "dimensions": getattr(area, 'dimensions', [1, 1, 1]),
+                        "position": getattr(area, 'position', [0, 0, 0]),
+                        "area_type": getattr(area, 'area_type', 'unknown'),
+                        "neuron_count": neuron_count
+                    }
+                except Exception as area_error:
+                    self.logger.warning(f"Error saving area {area_idx}: {area_error}")
+            
+            # Save overall statistics
+            try:
+                total_neurons = sum(
+                    area_data["neuron_count"] 
+                    for area_data in connectome_state["cortical_areas"].values()
+                )
+                connectome_state["statistics"] = {
+                    "total_neurons": total_neurons,
+                    "total_areas": len(connectome_state["cortical_areas"])
+                }
+            except Exception:
+                connectome_state["statistics"] = {"total_neurons": 0, "total_areas": 0}
+            
+            # Write to file
+            with open(backup_path, 'w') as f:
+                json.dump(connectome_state, f, indent=2)
+            
+            self.logger.info(f"✅ Connectome state saved to: {backup_filename}")
+            self.logger.info(f"Backup contains {connectome_state['statistics']['total_areas']} areas, "
+                           f"{connectome_state['statistics']['total_neurons']} neurons")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save connectome state: {str(e)}")
+            return False
 
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
