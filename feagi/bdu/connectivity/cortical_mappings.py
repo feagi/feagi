@@ -29,38 +29,31 @@ logger = logging.getLogger(__name__)
 
 
 class CorticalMapping:
-    """Base class for mappings between cortical areas."""
+    """Base class for cortical area mappings."""
     
-    def __init__(self, source_area_id: str, target_area_id: str, 
-                 morphology_id: str, morphology_scalar: List[float],
-                 plasticity_flag: bool = False, psc_multiplier: float = 1.0,
-                 name: str = "", mapping_id: Optional[str] = None,
-                 properties: Optional[Dict[str, Any]] = None,
-                 mapping_type: str = "topological"):
+    def __init__(self, source_cortical_id: str, target_cortical_id: str,
+                mapping_type: str, parameters: Dict[str, Any],
+                name: str = "", description: str = "", mapping_id: Optional[str] = None):
         """Initialize a cortical mapping.
         
         Args:
-            source_area_id: ID of the source cortical area
-            target_area_id: ID of the target cortical area
-            morphology_id: ID of the morphology to use
-            morphology_scalar: Scaling factors for the morphology [x, y, z]
-            plasticity_flag: Whether synapses in this mapping should be plastic
-            psc_multiplier: Multiplier for post-synaptic currents
+            source_cortical_id: ID of the source cortical area
+            target_cortical_id: ID of the target cortical area
+            mapping_type: Type of mapping
+            parameters: Mapping-specific parameters
             name: Human-readable name for this mapping
+            description: Optional description of the mapping
             mapping_id: Unique identifier for this mapping (optional, generated if not provided)
-            properties: Additional custom properties (optional)
-            mapping_type: Type of mapping (default: "topological")
         """
-        self.id = mapping_id if mapping_id else str(uuid.uuid4())
-        self.name = name
-        self.source_area_id = source_area_id
-        self.target_area_id = target_area_id
-        self.morphology_id = morphology_id
-        self.morphology_scalar = morphology_scalar
-        self.plasticity_flag = plasticity_flag
-        self.psc_multiplier = psc_multiplier
-        self.properties = properties or {}
+        self.source_cortical_id = source_cortical_id
+        self.target_cortical_id = target_cortical_id
         self.mapping_type = mapping_type
+        self.parameters = parameters
+        self.name = name
+        self.description = description
+        self.enabled = True
+        self.morphology_id = None  # Associated morphology template
+        self.id = mapping_id if mapping_id else f"{source_cortical_id}_{target_cortical_id}_{mapping_type}"
     
     def transform_coordinates(self, source_position: Tuple[int, int, int], 
                              source_dimensions: Tuple[int, int, int],
@@ -86,14 +79,10 @@ class CorticalMapping:
         return {
             "id": self.id,
             "name": self.name,
-            "source_area_id": self.source_area_id,
-            "target_area_id": self.target_area_id,
-            "morphology_id": self.morphology_id,
-            "morphology_scalar": self.morphology_scalar,
-            "plasticity_flag": self.plasticity_flag,
-            "psc_multiplier": self.psc_multiplier,
+            "source_cortical_id": self.source_cortical_id,
+            "target_cortical_id": self.target_cortical_id,
             "mapping_type": self.mapping_type,
-            "properties": self.properties
+            "parameters": self.parameters
         }
     
     def update(self, updates: Dict[str, Any]) -> None:
@@ -105,8 +94,7 @@ class CorticalMapping:
         Raises:
             KeyError: If an invalid property is specified
         """
-        valid_props = {"name", "morphology_id", "morphology_scalar", 
-                       "plasticity_flag", "psc_multiplier", "properties"}
+        valid_props = {"name", "source_cortical_id", "target_cortical_id", "mapping_type", "parameters"}
         invalid_props = set(updates.keys()) - valid_props
         
         if invalid_props:
@@ -115,20 +103,17 @@ class CorticalMapping:
         if "name" in updates:
             self.name = updates["name"]
         
-        if "morphology_id" in updates:
-            self.morphology_id = updates["morphology_id"]
+        if "source_cortical_id" in updates:
+            self.source_cortical_id = updates["source_cortical_id"]
         
-        if "morphology_scalar" in updates:
-            self.morphology_scalar = updates["morphology_scalar"]
+        if "target_cortical_id" in updates:
+            self.target_cortical_id = updates["target_cortical_id"]
         
-        if "plasticity_flag" in updates:
-            self.plasticity_flag = updates["plasticity_flag"]
+        if "mapping_type" in updates:
+            self.mapping_type = updates["mapping_type"]
         
-        if "psc_multiplier" in updates:
-            self.psc_multiplier = updates["psc_multiplier"]
-        
-        if "properties" in updates:
-            self.properties.update(updates["properties"])
+        if "parameters" in updates:
+            self.parameters.update(updates["parameters"])
     
     def validate(self) -> bool:
         """Validate that the mapping has all required properties set.
@@ -137,15 +122,7 @@ class CorticalMapping:
             True if the mapping is valid, False otherwise
         """
         # Check required fields
-        if not self.name or not self.source_area_id or not self.target_area_id or not self.morphology_id:
-            return False
-        
-        # Check morphology scalar
-        if not isinstance(self.morphology_scalar, (list, tuple)) or len(self.morphology_scalar) != 3:
-            return False
-        
-        # Check for negative values in morphology scalar
-        if any(val < 0 for val in self.morphology_scalar):
+        if not self.name or not self.source_cortical_id or not self.target_cortical_id or not self.mapping_type:
             return False
         
         # All checks passed
@@ -162,16 +139,13 @@ class CorticalMapping:
             Instantiated mapping object
         """
         mapping = cls(
-            source_area_id=data["source_area_id"],
-            target_area_id=data["target_area_id"],
-            morphology_id=data["morphology_id"],
-            morphology_scalar=data["morphology_scalar"],
-            plasticity_flag=data.get("plasticity_flag", False),
-            psc_multiplier=data.get("psc_multiplier", 1.0),
+            source_cortical_id=data["source_cortical_id"],
+            target_cortical_id=data["target_cortical_id"],
+            mapping_type=data["mapping_type"],
+            parameters=data["parameters"],
             name=data.get("name", ""),
-            mapping_id=data.get("id"),
-            properties=data.get("properties", {}),
-            mapping_type=data.get("mapping_type", "topological") 
+            description=data.get("description", ""),
+            mapping_id=data.get("id")
         )
         return mapping
 
@@ -179,7 +153,7 @@ class CorticalMapping:
 class TopologicalMapping(CorticalMapping):
     """Mapping that preserves spatial relationships between areas."""
     
-    def __init__(self, source_area_id: str, target_area_id: str, 
+    def __init__(self, source_cortical_id: str, target_cortical_id: str, 
                  morphology_id: str, morphology_scalar: List[float],
                  scale_factors: Optional[Tuple[float, float, float]] = None,
                  offset: Optional[Tuple[int, int, int]] = None,
@@ -189,8 +163,8 @@ class TopologicalMapping(CorticalMapping):
         """Initialize a topological mapping.
         
         Args:
-            source_area_id: ID of the source cortical area
-            target_area_id: ID of the target cortical area
+            source_cortical_id: ID of the source cortical area
+            target_cortical_id: ID of the target cortical area
             morphology_id: ID of the morphology to use
             morphology_scalar: Scaling factors for the morphology [x, y, z]
             scale_factors: Scale factors for each dimension (default: (1.0, 1.0, 1.0))
@@ -201,23 +175,23 @@ class TopologicalMapping(CorticalMapping):
             mapping_id: Unique identifier for this mapping (optional, generated if not provided)
             properties: Additional custom properties (optional)
         """
-        props = properties or {}
-        props.update({
+        params = properties or {}
+        params.update({
             "scale_factors": scale_factors or (1.0, 1.0, 1.0),
-            "offset": offset or (0, 0, 0)
+            "offset": offset or (0, 0, 0),
+            "morphology_id": morphology_id,
+            "morphology_scalar": morphology_scalar,
+            "plasticity_flag": plasticity_flag,
+            "psc_multiplier": psc_multiplier
         })
         
         super().__init__(
-            source_area_id=source_area_id,
-            target_area_id=target_area_id,
-            morphology_id=morphology_id,
-            morphology_scalar=morphology_scalar,
-            plasticity_flag=plasticity_flag,
-            psc_multiplier=psc_multiplier,
+            source_cortical_id=source_cortical_id,
+            target_cortical_id=target_cortical_id,
+            mapping_type="topological",
+            parameters=params,
             name=name,
-            mapping_id=mapping_id,
-            properties=props,
-            mapping_type="topological"
+            mapping_id=mapping_id
         )
     
     def transform_coordinates(self, source_position: Tuple[int, int, int], 
@@ -239,7 +213,7 @@ class TopologicalMapping(CorticalMapping):
         norm_z = source_position[2] / (source_dimensions[2] - 1) if source_dimensions[2] > 1 else 0
         
         # Scale by scale factors
-        scale_factors = self.properties["scale_factors"]
+        scale_factors = self.parameters["scale_factors"]
         scaled_x = norm_x * scale_factors[0]
         scaled_y = norm_y * scale_factors[1]
         scaled_z = norm_z * scale_factors[2]
@@ -250,7 +224,7 @@ class TopologicalMapping(CorticalMapping):
         target_z = int(scaled_z * (target_dimensions[2] - 1) + 0.5)
         
         # Apply offset
-        offset = self.properties["offset"]
+        offset = self.parameters["offset"]
         final_x = min(max(target_x + offset[0], 0), target_dimensions[0] - 1)
         final_y = min(max(target_y + offset[1], 0), target_dimensions[1] - 1)
         final_z = min(max(target_z + offset[2], 0), target_dimensions[2] - 1)
@@ -261,7 +235,7 @@ class TopologicalMapping(CorticalMapping):
 class ProjectionMapping(CorticalMapping):
     """Mapping that projects from a higher-dimensional space to a lower one or vice versa."""
     
-    def __init__(self, source_area_id: str, target_area_id: str,
+    def __init__(self, source_cortical_id: str, target_cortical_id: str,
                  morphology_id: str, morphology_scalar: List[float],
                  projection_type: str = "flatten",
                  projection_axis: int = 2,
@@ -271,8 +245,8 @@ class ProjectionMapping(CorticalMapping):
         """Initialize a projection mapping.
         
         Args:
-            source_area_id: ID of the source cortical area
-            target_area_id: ID of the target cortical area
+            source_cortical_id: ID of the source cortical area
+            target_cortical_id: ID of the target cortical area
             morphology_id: ID of the morphology to use
             morphology_scalar: Scaling factors for the morphology [x, y, z]
             projection_type: Type of projection ("flatten" or "expand")
@@ -283,23 +257,23 @@ class ProjectionMapping(CorticalMapping):
             mapping_id: Unique identifier for this mapping (optional, generated if not provided)
             properties: Additional custom properties (optional)
         """
-        props = properties or {}
-        props.update({
+        params = properties or {}
+        params.update({
             "projection_type": projection_type,
-            "projection_axis": projection_axis
+            "projection_axis": projection_axis,
+            "morphology_id": morphology_id,
+            "morphology_scalar": morphology_scalar,
+            "plasticity_flag": plasticity_flag,
+            "psc_multiplier": psc_multiplier
         })
         
         super().__init__(
-            source_area_id=source_area_id,
-            target_area_id=target_area_id,
-            morphology_id=morphology_id,
-            morphology_scalar=morphology_scalar,
-            plasticity_flag=plasticity_flag,
-            psc_multiplier=psc_multiplier,
+            source_cortical_id=source_cortical_id,
+            target_cortical_id=target_cortical_id,
+            mapping_type="projection",
+            parameters=params,
             name=name,
-            mapping_id=mapping_id,
-            properties=props,
-            mapping_type="projection"
+            mapping_id=mapping_id
         )
     
     def transform_coordinates(self, source_position: Tuple[int, int, int], 
@@ -315,8 +289,8 @@ class ProjectionMapping(CorticalMapping):
         Returns:
             Transformed position in target space (x, y, z)
         """
-        projection_type = self.properties["projection_type"]
-        axis = self.properties["projection_axis"]
+        projection_type = self.parameters["projection_type"]
+        axis = self.parameters["projection_axis"]
         
         # Create a normalized position
         norm_pos = [
@@ -367,7 +341,7 @@ MAPPING_TYPES = {
 }
 
 
-def create_cortical_mapping(source_area_id: str, target_area_id: str,
+def create_cortical_mapping(source_cortical_id: str, target_cortical_id: str,
                            morphology_id: str, morphology_scalar: List[float],
                            mapping_type: str = "topological", 
                            plasticity_flag: bool = False, psc_multiplier: float = 1.0,
@@ -376,8 +350,8 @@ def create_cortical_mapping(source_area_id: str, target_area_id: str,
     """Factory function to create a cortical mapping.
     
     Args:
-        source_area_id: ID of the source cortical area
-        target_area_id: ID of the target cortical area
+        source_cortical_id: ID of the source cortical area
+        target_cortical_id: ID of the target cortical area
         morphology_id: ID of the morphology to use
         morphology_scalar: Scaling factors for the morphology [x, y, z]
         mapping_type: Type of mapping to create (default: "topological")
@@ -402,8 +376,8 @@ def create_cortical_mapping(source_area_id: str, target_area_id: str,
         scale_factors = props.pop("scale_factors", (1.0, 1.0, 1.0))
         offset = props.pop("offset", (0, 0, 0))
         return TopologicalMapping(
-            source_area_id=source_area_id,
-            target_area_id=target_area_id,
+            source_cortical_id=source_cortical_id,
+            target_cortical_id=target_cortical_id,
             morphology_id=morphology_id,
             morphology_scalar=morphology_scalar,
             scale_factors=scale_factors,
@@ -418,8 +392,8 @@ def create_cortical_mapping(source_area_id: str, target_area_id: str,
         projection_type = props.pop("projection_type", "flatten")
         projection_axis = props.pop("projection_axis", 2)
         return ProjectionMapping(
-            source_area_id=source_area_id,
-            target_area_id=target_area_id,
+            source_cortical_id=source_cortical_id,
+            target_cortical_id=target_cortical_id,
             morphology_id=morphology_id,
             morphology_scalar=morphology_scalar,
             projection_type=projection_type,
@@ -432,17 +406,20 @@ def create_cortical_mapping(source_area_id: str, target_area_id: str,
         )
     else:
         # Generic mapping
+        params = props.copy()
+        params.update({
+            "morphology_id": morphology_id,
+            "morphology_scalar": morphology_scalar,
+            "plasticity_flag": plasticity_flag,
+            "psc_multiplier": psc_multiplier
+        })
         return CorticalMapping(
-            source_area_id=source_area_id,
-            target_area_id=target_area_id,
-            morphology_id=morphology_id,
-            morphology_scalar=morphology_scalar,
-            plasticity_flag=plasticity_flag,
-            psc_multiplier=psc_multiplier,
+            source_cortical_id=source_cortical_id,
+            target_cortical_id=target_cortical_id,
+            mapping_type=mapping_type,
+            parameters=params,
             name=name,
-            mapping_id=mapping_id,
-            properties=props,
-            mapping_type=mapping_type
+            mapping_id=mapping_id
         )
 
 
