@@ -20,6 +20,8 @@ import os
 import sys
 import unicodedata
 from typing import Optional
+from pathlib import Path
+from datetime import datetime
 
 
 # -----------------------------------------------------------------------------
@@ -148,11 +150,6 @@ def setup_logger(
     console: bool = True,
     tag: Optional[str] = None,
 ) -> EmojiAdapter:
-    # Import required modules at the start
-    import os
-    from pathlib import Path
-    from datetime import datetime
-    
     # Check for CLI-provided log level override
     cli_log_level = os.environ.get('FEAGI_CLI_LOG_LEVEL')
     if cli_log_level:
@@ -242,8 +239,9 @@ def setup_logger(
 
     formatter = AlignedFormatter(datefmt="%Y-%m-%d %H:%M:%S")
 
-    # ALWAYS create a log file in feagi_core/feagi/logs/ directory
+    # ALWAYS create a log file in feagi_core/feagi/logs/run_TIMESTAMP/ directory
     # This ensures we can always see what's happening during startup/operation
+    # Each run gets its own directory to avoid clutter
     try:
         # Get the feagi_core directory - look for it in the current working directory or parents
         feagi_core_dir = None
@@ -264,24 +262,29 @@ def setup_logger(
         if feagi_core_dir is None:
             feagi_core_dir = current_path
         
-        # Create logs directory under feagi/
-        logs_dir = feagi_core_dir / "feagi" / "logs"
-        logs_dir.mkdir(parents=True, exist_ok=True)
+        # Create base logs directory under feagi/
+        base_logs_dir = feagi_core_dir / "feagi" / "logs"
+        base_logs_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generate timestamped log filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Create run-specific directory
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_dir = base_logs_dir / f"run_{run_timestamp}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate timestamped log filename (shorter since we have run directory)
+        file_timestamp = datetime.now().strftime("%H%M%S")
         
         # Use provided log_file or generate one based on logger name
         if log_file:
-            # If user provided a specific file, use it but put it in logs directory
+            # If user provided a specific file, use it but put it in run directory
             log_filename = Path(log_file).name
         else:
-            # Generate filename based on logger name and timestamp
+            # Generate filename based on logger name and file timestamp
             safe_name = name.replace(".", "_").replace("/", "_")
-            log_filename = f"feagi_{safe_name}_{timestamp}.log"
+            log_filename = f"{safe_name}_{file_timestamp}.log"
         
         # Full path for the log file
-        full_log_path = logs_dir / log_filename
+        full_log_path = run_dir / log_filename
         
         # Create file handler
         file_handler = logging.FileHandler(full_log_path)
@@ -289,12 +292,22 @@ def setup_logger(
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
         
-        # Create a symlink to "latest" for easy access
-        latest_link = logs_dir / f"feagi_{safe_name}_latest.log"
+        # Create a symlink to "latest" run for easy access
+        latest_run_link = base_logs_dir / "latest_run"
         try:
-            if latest_link.exists() or latest_link.is_symlink():
-                latest_link.unlink()
-            latest_link.symlink_to(log_filename)
+            if latest_run_link.exists() or latest_run_link.is_symlink():
+                latest_run_link.unlink()
+            latest_run_link.symlink_to(f"run_{run_timestamp}")
+        except (OSError, NotImplementedError):
+            # Symlinks might not be supported on all platforms
+            pass
+        
+        # Create individual file symlink within the run directory
+        latest_file_link = run_dir / f"{safe_name}_latest.log"
+        try:
+            if latest_file_link.exists() or latest_file_link.is_symlink():
+                latest_file_link.unlink()
+            latest_file_link.symlink_to(log_filename)
         except (OSError, NotImplementedError):
             # Symlinks might not be supported on all platforms
             pass
@@ -307,7 +320,8 @@ def setup_logger(
             temp_logger.addHandler(temp_console)
             temp_logger.setLevel(logging.INFO)
             temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
-            temp_adapter.info(f"📝 FEAGI logs saved to: {full_log_path}", emoji1="📝")
+            temp_adapter.info(f"📁 FEAGI run: {run_dir}", emoji1="📁")
+            temp_adapter.info(f"📝 Log file: {full_log_path}", emoji1="📝")
             temp_logger.removeHandler(temp_console)
             
     except Exception as e:
