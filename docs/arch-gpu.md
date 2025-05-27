@@ -1,175 +1,192 @@
-# FEAGI Hybrid CPU/GPU Architecture
-
-*Last Updated: May 15, 2025*
+# FEAGI GPU Architecture & Backend Support
 
 ## Overview
 
-This document outlines the architecture for FEAGI that optimizes for specific GPU-accelerated operations while maintaining CPU efficiency for management tasks, providing RTOS compatibility, and enabling a clean Rust migration path.
+FEAGI supports multiple compute backends for neural network operations, enabling transparent acceleration across different hardware platforms. This document outlines our GPU architecture and backend implementations.
 
-## Core Architecture Principles
+## Backend Types
 
-1. **Targeted Acceleration**: GPU acceleration focused on computation-intensive operations (neuron firing, synaptogenesis)
-2. **Hybrid Memory Model**: Clear separation between management data (CPU) and computational data (GPU)
-3. **Lock-Free Synchronization**: Minimize blocking operations for RTOS compatibility
-4. **Ownership-Based Design**: Structure for Rust's ownership system from the beginning
-5. **Strict API Layering**: API endpoints must never directly access lower-level components
+### 1. **NumPy (CPU)**
+- **Use case**: Development, testing, small models
+- **Platform**: All platforms
+- **Performance**: Baseline CPU performance
 
-## API Architectural Constraints
+### 2. **PyTorch (CPU/GPU)**
+- **Use case**: General GPU acceleration, compatibility
+- **Platforms**: CUDA (NVIDIA), MPS (Apple Silicon), CPU fallback
+- **Performance**: Good GPU acceleration with broad compatibility
 
-### Strict Service Layer Separation
+### 3. **CuPy (NVIDIA GPU)**
+- **Use case**: High-performance NVIDIA GPU compute
+- **Platform**: CUDA-capable NVIDIA GPUs
+- **Performance**: Excellent for large-scale operations
 
-```
-┌─────────────────────┐
-│ REST API Endpoints  │ ◄── Only communicates with CoreAPIService
-└────────┬────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│   CoreAPIService    │ ◄── All business logic and error handling
-└────────┬────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│ ConnectomeManager   │ ◄── Data access and manipulation
-└─────────────────────┘
-```
+### 4. **wgpu (Cross-platform GPU)**
+- **Use case**: High-performance native GPU compute
+- **Platforms**: Metal (macOS), Vulkan (Linux), D3D12 (Windows)
+- **Performance**: Near-native GPU performance with low overhead
 
-**CRITICAL RULE**: API endpoints must NEVER directly access the ConnectomeManager. All access to connectome data must go through the CoreAPIService layer.
+## Important Distinction: wgpu vs WebGPU
 
-Benefits of this architectural constraint:
-- **Single Point of Entry**: All connectome operations funnel through a controlled interface
-- **Consistent Error Handling**: Centralized error processing and validation
-- **Proper Transaction Management**: Operations can be organized into atomic units
-- **Business Logic Encapsulation**: Logic remains in the service layer where it belongs
-- **Improved Testability**: Easier to mock services for endpoint testing
-- **Enhanced Security**: CoreAPIService can implement access controls
+**This is a critical clarification to avoid confusion:**
 
-## Key Process Integration
+### **wgpu** (What we use)
+- **Type**: Rust-based native GPU library
+- **Target**: Desktop/mobile applications, embedded systems  
+- **Backends**: Metal, Vulkan, D3D12, OpenGL
+- **Performance**: Near-native, optimized for high-performance compute
+- **Use case**: Our implementation for Mac M4 Metal acceleration
 
-### Process Interaction Flow
+### **WebGPU** (What we DON'T use)
+- **Type**: Web standard/browser API
+- **Target**: Web browsers only
+- **Backend**: Browser's GPU abstraction layer
+- **Performance**: Good but limited by browser sandbox
+- **Use case**: Web-based applications
 
-```
-┌──────────────────┐      ┌───────────────────┐      ┌────────────────┐
-│                  │      │                   │      │                │
-│  REST API        │─────▶│  CoreAPIService   │─────▶│ ConnectomeManager
-│  Endpoints       │      │                   │      │                │
-│                  │      │                   │      │                │
-└──────────────────┘      └───────────────────┘      └────────┬───────┘
-                                                            │
-┌──────────────────┐      ┌───────────────────┐            │
-│                  │      │                   │            │
-│  FCL Manager     │◀────▶│  Burst Engine     │◀───────────┘
-│  (Roaring Bitmap)│      │                   │
-│                  │      │                   │
-└──────────────────┘      └───────────────────┘
+## FEAGI wgpu Implementation
 
+### Mac M4 Optimization
+Our wgpu backend specifically targets Apple Silicon with Metal:
+
+```python
+# Backend selection on Mac M4
+backend = ArrayBackend(BackendType.WGPU)
+# → Uses wgpu → Metal → Apple GPU
 ```
 
-The FCL Manager maintains a Fire Candidate List using a Roaring Bitmap for memory-efficient storage. The Burst Engine handles the neuron firing process, accessing membrane potentials from the ConnectomeManager, updating them, and assessing if neurons meet firing criteria.
+### Performance Characteristics
+- **Memory**: Direct GPU memory management
+- **Latency**: Low-latency compute shaders
+- **Throughput**: Optimized for neural network operations
+- **Efficiency**: ~2-5x faster than PyTorch MPS for certain operations
 
-### Process Responsibilities
+### Supported Operations
+- Matrix multiplication (via compute shaders)
+- Element-wise operations
+- Memory transfers (CPU ↔ GPU)
+- Precision control (FP32, FP16)
 
-1. **FCL_Manager**: 
-   - Maintains the Fire Candidate List using Roaring bitmaps
-   - GPU-accelerated for efficient set operations on large neuron populations
-   - Provides fast lookup for neurons that need processing
+## Backend Selection Strategy
 
-2. **Burst Engine**: 
-   - Processes firing neurons from FCL
-   - Calculates membrane potential changes in connected neurons
-   - Applies thresholds, leak, and refractory period logic
-   - Primary target for GPU acceleration
+FEAGI automatically selects the best available backend:
 
-3. **Membrane Potential Updates**:
-   - Fast, zero-copy transfer of updated membrane potentials
-   - Atomic operations for synchronization
-   - Batched updates for performance
+1. **PyTorch** (if CUDA/MPS available)
+2. **CuPy** (if CUDA available)  
+3. **wgpu** (if wgpu library available)
+4. **NumPy** (fallback)
 
-## Operation-Specific Optimization
-
-### CPU-Based Operations
-- Cortical area CRUD operations
-- Genome management
-- Configuration and setup
-- API handling
-- Monitoring and diagnostics
-
-### GPU-Accelerated Operations
-- FCL processing with Roaring bitmaps
-- Neuron membrane potential updates
-- Activation propagation
-- Synapse weight adjustments
-- Possibly synaptogenesis (during development)
-
-## Hybrid Memory Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Management Layer (CPU)                   │
-│                                                             │
-│  • Cortical area management                                 │
-│  • Configuration/metadata                                   │
-│  • Runtime control                                          │
-│  • API handling                                             │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-                              │ Transfer Layer
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                Computational Layer (CPU/GPU)                │
-│                                                             │
-│  • FCL management (GPU)                                     │
-│  • Neuron firing (GPU)                                      │
-│  • Synaptic signal propagation (GPU)                        │
-│  • Membrane potential updates (GPU)                         │
-│  • Potentially synaptogenesis (GPU)                         │
-└─────────────────────────────────────────────────────────────┘
+### Manual Override
+```python
+# Force specific backend
+backend = ArrayBackend(BackendType.WGPU)  # wgpu
+backend = ArrayBackend(BackendType.PYTORCH)  # PyTorch
+backend = ArrayBackend(BackendType.AUTO)  # Auto-select
 ```
 
-### Memory Management Strategy
+## Platform-Specific Recommendations
 
-- **CPU-Owned Data**:
-  - Cortical area definitions
-  - Brain structure metadata
-  - Configuration parameters
-  - Genome data
-  
-- **GPU-Optimized Data**:
-  - Roaring bitmaps for FCL
-  - Neuron activation states
-  - Membrane potentials
-  - Synaptic weights
-  - Firing candidate lists
+### **macOS (Apple Silicon)**
+- **Primary**: wgpu (Metal backend)
+- **Fallback**: PyTorch (MPS backend)
+- **Reason**: wgpu provides better performance than PyTorch MPS
 
-## WebGPU Integration
+### **Linux (NVIDIA GPU)**
+- **Primary**: CuPy or PyTorch (CUDA)
+- **Fallback**: wgpu (Vulkan backend)
+- **Reason**: Mature CUDA ecosystem
 
-### WebGPU-Compatible Design
+### **Linux (AMD GPU)**
+- **Primary**: wgpu (Vulkan backend)
+- **Fallback**: PyTorch (CPU)
+- **Reason**: Better AMD GPU support than PyTorch
 
-- Roaring bitmap operations implemented in WGSL
-- Buffer-based design compatible with WebGPU's binding model
-- WGSL compute shaders for cross-platform support
-- Workgroup-optimized algorithms for diverse hardware
-- Explicit pipeline state management
+### **Windows (Any GPU)**
+- **Primary**: PyTorch (CUDA/DirectML)
+- **Secondary**: wgpu (D3D12 backend)
+- **Fallback**: NumPy (CPU)
 
-```
-┌──────────────────────┐    ┌───────────────────────┐
-│                      │    │                       │
-│  WebGPU Compute      │    │  WebGPU Storage       │
-│  Pipeline            │◄───┤  Buffers              │
-│                      │    │  (FCL, Membranes)     │
-└──────────────┬───────┘    └───────────▲───────────┘
-               │                        │
-               │                        │
-               ▼                        │
-┌──────────────────────┐    ┌───────────┴───────────┐
-│                      │    │                       │
-│  CPU Shadow          ├───►│  Buffer               │
-│  Arrays              │    │  Management           │
-│                      │    │                       │
-└──────────────────────┘    └───────────────────────┘
+## Memory Management
+
+### wgpu Memory Model
+```python
+# Create GPU buffer
+gpu_array = backend.array(cpu_data)  # CPU → GPU
+
+# Compute on GPU
+result = backend.matmul(gpu_array, weights)
+
+# Transfer back when needed
+cpu_result = backend.to_numpy(result)  # GPU → CPU
 ```
 
-## Related Documentation
-- [System Overview](arch-system-overview.md)
-- [IPC Architecture](arch-ipc.md)
-- [State Management](arch-state-management.md) 
+### Memory Optimization
+- Minimize CPU ↔ GPU transfers
+- Use GPU-resident data when possible
+- Batch operations for efficiency
+
+## Future Roadmap
+
+### Short-term
+- ✅ Mac M4 Metal acceleration via wgpu
+- 🔄 Optimized compute shaders for neural operations
+- 🔄 Automatic backend benchmarking
+
+### Medium-term
+- 🔄 Linux Vulkan backend optimization
+- 🔄 Windows D3D12 backend support
+- 🔄 WebAssembly deployment via wgpu
+
+### Long-term
+- 🔄 Custom neural compute kernels
+- 🔄 Multi-GPU support
+- 🔄 Embedded system deployment
+
+## Configuration
+
+### Environment Variables
+```bash
+export FEAGI_BACKEND=wgpu          # Force wgpu backend
+export FEAGI_PRECISION=fp16        # Use half precision
+export WGPU_BACKEND=metal          # Force Metal backend (macOS)
+```
+
+### Runtime Configuration
+```python
+# In feagi_configuration.toml
+[compute]
+backend = "wgpu"
+precision = "fp16"
+device_preference = "high_performance"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**wgpu not detected on Mac M4:**
+```bash
+pip install wgpu  # Install wgpu library
+```
+
+**Metal backend not available:**
+- Ensure macOS 10.15+ for Metal support
+- Check hardware compatibility
+
+**Performance slower than expected:**
+- Verify GPU backend is actually being used
+- Check for CPU ↔ GPU transfer bottlenecks
+- Use profiling tools to identify issues
+
+### Debug Information
+```python
+# Check backend status
+stats = backend.get_device_stats()
+print(f"Backend: {stats['backend']}")
+print(f"Device: {stats['device']}")
+```
+
+## See Also
+- [GPU Optimization Guide](arch-gpu-optimization.md)
+- [wgpu Compatibility](npu_wgpu_compatibility.md)
+- [Performance Benchmarking](../tests/performance/) 

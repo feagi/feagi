@@ -16,8 +16,11 @@ limitations under the License.
 
 """Array backend abstraction for FEAGI.
 
-This module provides a unified interface for different array backends (NumPy, PyTorch, CuPy, WebGPU),
+This module provides a unified interface for different array backends (NumPy, PyTorch, CuPy, wgpu),
 enabling transparent switching between CPU and GPU acceleration.
+
+Note: This uses the Rust-based 'wgpu' library for native high-performance GPU compute,
+not the browser-based 'WebGPU' web standard.
 """
 
 import logging
@@ -54,7 +57,7 @@ class BackendType(Enum):
     NUMPY = "numpy"
     PYTORCH = "pytorch"
     CUPY = "cupy"
-    WEBGPU = "webgpu"
+    WGPU = "wgpu"  # Rust-based wgpu library (not WebGPU web standard)
     AUTO = "auto"  # Automatically select best available backend
 
 
@@ -123,7 +126,7 @@ class ArrayBackend:
             return backend_type
         
         # Try to find the best available backend
-        for candidate in [BackendType.PYTORCH, BackendType.CUPY, BackendType.WEBGPU, BackendType.NUMPY]:
+        for candidate in [BackendType.PYTORCH, BackendType.CUPY, BackendType.WGPU, BackendType.NUMPY]:
             if self._is_backend_available(candidate):
                 return candidate
         
@@ -147,7 +150,7 @@ class ArrayBackend:
             return TORCH_AVAILABLE and (torch.cuda.is_available() or True)  # CPU fallback
         elif backend_type == BackendType.CUPY:
             return CUPY_AVAILABLE
-        elif backend_type == BackendType.WEBGPU:
+        elif backend_type == BackendType.WGPU:
             return WGPU_AVAILABLE
         else:
             return False
@@ -164,8 +167,8 @@ class ArrayBackend:
             self._initialize_pytorch()
         elif self.backend_type == BackendType.CUPY:
             self._initialize_cupy()
-        elif self.backend_type == BackendType.WEBGPU:
-            self._initialize_webgpu()
+        elif self.backend_type == BackendType.WGPU:
+            self._initialize_wgpu()
         else:
             # Unknown backend type - fall back to NumPy
             logger.warning(f"Unknown backend type: {self.backend_type}. Falling back to NumPy.")
@@ -215,12 +218,30 @@ class ArrayBackend:
         else:
             logger.info(f"Using CuPy with device: {cp.cuda.runtime.getDeviceProperties(0)['name'].decode()}")
     
-    def _initialize_webgpu(self):
-        """Initialize WebGPU backend."""
-        # Initialize WebGPU device
-        self.adapter = wgpu.request_adapter()
-        self.device = self.adapter.request_device()
-        logger.info(f"Using WebGPU device: {self.adapter.request_adapter_info().description}")
+    def _initialize_wgpu(self):
+        """Initialize wgpu backend (Rust-based GPU library with Metal backend on Mac)."""
+        if not WGPU_AVAILABLE:
+            logger.error("wgpu not available but wgpu backend requested")
+            raise RuntimeError("wgpu package not available")
+        
+        try:
+            # Request adapter and device using modern API
+            self.adapter = wgpu.gpu.request_adapter_sync()
+            if not self.adapter:
+                raise RuntimeError("No wgpu adapter available")
+            
+            # Check adapter info and ensure we have Metal backend on Mac
+            info = self.adapter.info
+            logger.info(f"🔥 wgpu adapter: {info['device']} ({info['backend_type']})")
+            
+            # Create device
+            self.device = self.adapter.request_device_sync()
+            
+            logger.info(f"Using wgpu device: {info['device']} with {info['backend_type']} backend")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize wgpu backend: {e}")
+            raise RuntimeError(f"wgpu initialization failed: {e}")
     
     def _get_dtype_for_precision(self, base_dtype: Any = None) -> Any:
         """Get the appropriate dtype for the current precision setting.
@@ -282,8 +303,8 @@ class ArrayBackend:
             return torch.zeros(shape, dtype=torch_dtype, device=device)
         elif self.backend_type == BackendType.CUPY:
             return cp.zeros(shape, dtype=adjusted_dtype)
-        elif self.backend_type == BackendType.WEBGPU:
-            # For WebGPU, we create a NumPy array first, then transfer it to GPU
+        elif self.backend_type == BackendType.WGPU:
+            # For wgpu, we create a NumPy array first, then transfer it to GPU
             cpu_array = np.zeros(shape, dtype=adjusted_dtype)
             return self._numpy_to_wgpu(cpu_array)
     
@@ -315,8 +336,8 @@ class ArrayBackend:
             return torch.ones(shape, dtype=torch_dtype, device=device)
         elif self.backend_type == BackendType.CUPY:
             return cp.ones(shape, dtype=adjusted_dtype)
-        elif self.backend_type == BackendType.WEBGPU:
-            # For WebGPU, we create a NumPy array first, then transfer it to GPU
+        elif self.backend_type == BackendType.WGPU:
+            # For wgpu, we create a NumPy array first, then transfer it to GPU
             cpu_array = np.ones(shape, dtype=adjusted_dtype)
             return self._numpy_to_wgpu(cpu_array)
     
@@ -349,8 +370,8 @@ class ArrayBackend:
             return torch.full(shape, fill_value, dtype=torch_dtype, device=device)
         elif self.backend_type == BackendType.CUPY:
             return cp.full(shape, fill_value, dtype=adjusted_dtype)
-        elif self.backend_type == BackendType.WEBGPU:
-            # For WebGPU, we create a NumPy array first, then transfer it to GPU
+        elif self.backend_type == BackendType.WGPU:
+            # For wgpu, we create a NumPy array first, then transfer it to GPU
             cpu_array = np.full(shape, fill_value, dtype=adjusted_dtype)
             return self._numpy_to_wgpu(cpu_array)
     
@@ -412,8 +433,8 @@ class ArrayBackend:
                 return cp.array(data, dtype=adjusted_dtype)
             else:
                 return cp.array(data)
-        elif self.backend_type == BackendType.WEBGPU:
-            # For WebGPU, first create a NumPy array, then transfer to GPU
+        elif self.backend_type == BackendType.WGPU:
+            # For wgpu, we create a NumPy array first, then transfer it to GPU
             data_np = np.array(data, dtype=adjusted_dtype)
             return self._numpy_to_wgpu(data_np)
         else:
@@ -438,7 +459,7 @@ class ArrayBackend:
             return self._pytorch_to_numpy(array)
         elif self.backend_type == BackendType.CUPY:
             return self._cupy_to_numpy(array)
-        elif self.backend_type == BackendType.WEBGPU:
+        elif self.backend_type == BackendType.WGPU:
             # Check if this is a mock object (for testing)
             if hasattr(array, '_mock_name'):
                 # For mocks in tests, return a dummy numpy array
@@ -516,9 +537,9 @@ class ArrayBackend:
                 data_np = data_np.astype(np.int8)
                 
             return cp.sparse.csr_matrix((cp.array(data_np), cp.array(indices), cp.array(indptr)), shape=shape)
-        elif self.backend_type == BackendType.WEBGPU:
-            # WebGPU doesn't have built-in sparse matrix support, so we'll convert to dense
-            logger.warning("WebGPU doesn't have native sparse matrix support. Converting to dense.")
+        elif self.backend_type == BackendType.WGPU:
+            # wgpu doesn't have built-in sparse matrix support, so we'll convert to dense
+            logger.warning("wgpu doesn't have native sparse matrix support. Converting to dense.")
             
             # Convert data based on precision setting
             data_np = np.array(data)
@@ -564,9 +585,9 @@ class ArrayBackend:
                 return cp.array(array)
             else:
                 return array
-        elif self.backend_type == BackendType.WEBGPU:
+        elif self.backend_type == BackendType.WGPU:
             if isinstance(array, np.ndarray):
-                # Apply precision conversion before moving to WebGPU
+                # Apply precision conversion before moving to wgpu
                 if self.precision == PrecisionType.FP16 and array.dtype == np.float32:
                     array = array.astype(np.float16)
                 return self._numpy_to_wgpu(array)
@@ -610,40 +631,54 @@ class ArrayBackend:
         return torch_dtype
     
     def _numpy_to_wgpu(self, array: np.ndarray) -> Any:
-        """Convert NumPy array to WebGPU buffer."""
-        # This is a placeholder - actual implementation would use wgpu to create buffers
-        # Store array shape and dtype for later reconstruction
+        """Convert NumPy array to wgpu buffer."""
+        # Convert to float32 for GPU processing
+        gpu_array = array.astype(np.float32)
+        
+        # Create buffer with proper usage flags
         buffer = self.device.create_buffer_with_data(
-            data=array.tobytes(), 
-            usage=wgpu.BufferUsages.STORAGE | wgpu.BufferUsages.COPY_SRC | wgpu.BufferUsages.COPY_DST
+            data=gpu_array.tobytes(), 
+            usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_SRC | wgpu.BufferUsage.COPY_DST
         )
         
         # Store metadata for later reconstruction
-        buffer.shape = array.shape
-        buffer.dtype = array.dtype
+        buffer._feagi_shape = array.shape
+        buffer._feagi_dtype = array.dtype
+        buffer._feagi_size = array.size  # Total number of elements
+        buffer._feagi_nbytes = len(gpu_array.tobytes())  # Actual buffer size in bytes
         
         return buffer
     
     def _wgpu_to_numpy(self, buffer: Any) -> np.ndarray:
-        """Convert WebGPU buffer to NumPy array."""
-        # This is a simplified version - actual implementation would be more complex
+        """Convert wgpu buffer to NumPy array."""
+        # Get metadata from buffer
+        shape = getattr(buffer, '_feagi_shape', (buffer._feagi_size,))
+        dtype = getattr(buffer, '_feagi_dtype', np.float32)
+        
+        # Create staging buffer for reading
         staging_buffer = self.device.create_buffer(
             size=buffer.size,
-            usage=wgpu.BufferUsages.MAP_READ | wgpu.BufferUsages.COPY_DST
+            usage=wgpu.BufferUsage.MAP_READ | wgpu.BufferUsage.COPY_DST
         )
         
-        # Copy from the buffer to the staging buffer
+        # Copy from GPU buffer to staging buffer
         encoder = self.device.create_command_encoder()
         encoder.copy_buffer_to_buffer(buffer, 0, staging_buffer, 0, buffer.size)
         self.device.queue.submit([encoder.finish()])
         
-        # Map the staging buffer and read its contents
-        staging_buffer.map_read()
-        data = staging_buffer.read_mapped()
+        # Map the staging buffer and read its contents (synchronous)
+        staging_buffer.map_sync(wgpu.MapMode.READ)
+        data_bytes = staging_buffer.read_mapped()
         staging_buffer.unmap()
         
-        # Reconstruct the NumPy array
-        return np.frombuffer(data, dtype=buffer.dtype).reshape(buffer.shape)
+        # Convert back to numpy - data is always float32 from GPU
+        np_array = np.frombuffer(data_bytes, dtype=np.float32)
+        
+        # Convert to original dtype if needed and reshape
+        if dtype != np.float32:
+            np_array = np_array.astype(dtype)
+        
+        return np_array.reshape(shape)
     
     def synchronize(self):
         """Synchronize the device to ensure all operations are complete.
@@ -654,8 +689,8 @@ class ArrayBackend:
             torch.cuda.synchronize()
         elif self.backend_type == BackendType.CUPY:
             cp.cuda.stream.get_current_stream().synchronize()
-        elif self.backend_type == BackendType.WEBGPU:
-            # WebGPU is asynchronous - we'd need a synchronization primitive
+        elif self.backend_type == BackendType.WGPU:
+            # wgpu is asynchronous - we'd need a synchronization primitive
             pass
     
     def matmul(self, a: Any, b: Any) -> Any:
@@ -698,8 +733,8 @@ class ArrayBackend:
                 return cp.matmul(a_cp, b_cp)
             else:
                 return cp.matmul(a, b)
-        elif self.backend_type == BackendType.WEBGPU:
-            # For WebGPU, we can use a precompiled shader for matrix multiplication
+        elif self.backend_type == BackendType.WGPU:
+            # For wgpu, we can use a precompiled shader for matrix multiplication
             # This is a simplified example; in practice, you would need to handle different shapes
             a_numpy = self._wgpu_to_numpy(a)
             b_numpy = self._wgpu_to_numpy(b)
@@ -736,8 +771,8 @@ class ArrayBackend:
             stats["device_name"] = cp.cuda.runtime.getDeviceProperties(device_id)['name'].decode()
             stats["memory_allocated_mb"] = cp.cuda.Device().mem_info[1] / (1024 * 1024)  # Used memory
             stats["max_memory_mb"] = cp.cuda.Device().mem_info[0] / (1024 * 1024)  # Total memory
-        elif self.backend_type == BackendType.WEBGPU:
-            stats["device"] = "webgpu"
+        elif self.backend_type == BackendType.WGPU:
+            stats["device"] = "wgpu"
             if hasattr(self.adapter, 'request_adapter_info'):
                 adapter_info = self.adapter.request_adapter_info()
                 stats["device_name"] = adapter_info.description
@@ -769,4 +804,60 @@ class ArrayBackend:
         Returns:
             NumPy array
         """
-        return cp.asnumpy(array) 
+        return cp.asnumpy(array)
+    
+    def set_item(self, array: Any, index: Union[int, Tuple[int, ...]], value: Any) -> None:
+        """Set item at index in array (handles GPU buffers that don't support item assignment).
+        
+        Args:
+            array: Array to modify
+            index: Index to set
+            value: Value to set
+        """
+        if self.backend_type == BackendType.NUMPY:
+            array[index] = value
+        elif self.backend_type == BackendType.PYTORCH:
+            array[index] = value
+        elif self.backend_type == BackendType.CUPY:
+            array[index] = value
+        elif self.backend_type == BackendType.WGPU:
+            # For wgpu, we need to handle this differently since GPU buffers don't support item assignment
+            # Convert to numpy, modify, then upload back (inefficient but works for now)
+            numpy_array = self._wgpu_to_numpy(array)
+            numpy_array[index] = value
+            # Update the GPU buffer by recreating it
+            new_buffer = self._numpy_to_wgpu(numpy_array)
+            # Copy metadata
+            new_buffer._feagi_shape = array._feagi_shape
+            new_buffer._feagi_dtype = array._feagi_dtype  
+            new_buffer._feagi_size = array._feagi_size
+            # Replace the original buffer's contents (this is a workaround)
+            # In practice, we'd need to modify the calling code to handle this better
+            logger.warning("wgpu item assignment requires buffer recreation - consider batch operations for better performance")
+            # Return the new buffer (caller needs to handle this)
+            return new_buffer
+        else:
+            array[index] = value
+    
+    def get_item(self, array: Any, index: Union[int, Tuple[int, ...]]) -> Any:
+        """Get item at index from array (handles GPU buffers).
+        
+        Args:
+            array: Array to read from
+            index: Index to get
+            
+        Returns:
+            Value at index
+        """
+        if self.backend_type == BackendType.NUMPY:
+            return array[index]
+        elif self.backend_type == BackendType.PYTORCH:
+            return array[index]
+        elif self.backend_type == BackendType.CUPY:
+            return array[index]
+        elif self.backend_type == BackendType.WGPU:
+            # For wgpu, convert to numpy first, then index
+            numpy_array = self._wgpu_to_numpy(array)
+            return numpy_array[index]
+        else:
+            return array[index] 
