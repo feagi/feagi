@@ -50,9 +50,22 @@ import asyncio
 import traceback
 from typing import Dict, Any, Optional, Tuple, Union, List, Callable, Callable
 import inspect
+import os
 
 from feagi.utils.logger import setup_logger
-from feagi.api.transport.zmq_adapter import ZMQRestAdapter
+
+# Check if embedded mode is enabled
+EMBEDDED_MODE = os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1'
+
+if not EMBEDDED_MODE:
+    from feagi.api.transport.zmq_adapter import ZMQRestAdapter
+else:
+    # In embedded mode, provide a stub class
+    class ZMQRestAdapter:
+        def __init__(self, core_api_service):
+            pass
+        async def process_message(self, request_json):
+            return b'{"status": 503, "body": {"message": "REST API disabled in embedded mode"}}'
 
 logger = setup_logger(__name__)
 
@@ -215,6 +228,21 @@ class ZMQRestAPIAdapter:
     async def _handle_visualization_register_client(self, params, query, body, headers) -> Any:
         """Handle visualization client registration."""
         try:
+            # Check if embedded mode is enabled
+            if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
+                client_id = body.get('client_id') if body else None
+                if not client_id:
+                    import uuid
+                    client_id = str(uuid.uuid4())
+                
+                logger.info(f"🔧 Embedded mode: Visualization registration ignored for client {client_id}")
+                return {
+                    "client_id": client_id,
+                    "success": False,
+                    "message": f"Visualization disabled in embedded mode",
+                    "embedded_mode": True
+                }
+            
             import uuid
             
             # Generate client ID if not provided
@@ -261,6 +289,16 @@ class ZMQRestAPIAdapter:
     async def _handle_visualization_unregister_client(self, params, query, body, headers) -> Any:
         """Handle visualization client unregistration."""
         try:
+            # Check if embedded mode is enabled
+            if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
+                client_id = body.get('client_id') if body else None
+                logger.info(f"🔧 Embedded mode: Visualization unregistration ignored for client {client_id}")
+                return {
+                    "success": False,
+                    "message": f"Visualization disabled in embedded mode",
+                    "embedded_mode": True
+                }
+            
             client_id = body.get('client_id') if body else None
             if not client_id:
                 raise ValueError("Client ID is required")
@@ -296,6 +334,16 @@ class ZMQRestAPIAdapter:
     async def _handle_visualization_heartbeat(self, params, query, body, headers) -> Any:
         """Handle visualization client heartbeat."""
         try:
+            # Check if embedded mode is enabled
+            if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
+                client_id = body.get('client_id') if body else None
+                logger.debug(f"🔧 Embedded mode: Visualization heartbeat ignored for client {client_id}")
+                return {
+                    "success": False,
+                    "message": f"Visualization disabled in embedded mode",
+                    "embedded_mode": True
+                }
+            
             client_id = body.get('client_id') if body else None
             if not client_id:
                 raise ValueError("Client ID is required")
@@ -353,6 +401,17 @@ class ZMQRestAPIAdapter:
     async def _handle_visualization_status(self, params, query, body, headers) -> Any:
         """Handle visualization status request."""
         try:
+            # Check if embedded mode is enabled
+            if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
+                logger.debug("🔧 Embedded mode: Visualization status - disabled")
+                return {
+                    "enabled": False,
+                    "active_clients": 0,
+                    "fq_sampler_enabled": False,
+                    "message": "Visualization disabled in embedded mode",
+                    "embedded_mode": True
+                }
+            
             logger.debug("📊 Getting visualization status")
             
             # Get the ZMQ server from the module registry

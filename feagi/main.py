@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Copyright 2025 Neuraville Inc.
 
@@ -21,14 +21,27 @@ This module provides the single entry point for starting the complete FEAGI syst
 It uses the ProcessManager to handle process creation, monitoring, and shutdown
 according to the architecture described in feagi_processes.md.
 """
-import argparse
-import os
-import signal
+
 import sys
+import os
+
+# CRITICAL: Check for embedded mode BEFORE any other imports
+# This prevents FastAPI modules from being imported in embedded mode
+if '--embedded' in sys.argv:
+    os.environ['FEAGI_EMBEDDED_MODE'] = '1'
+    print("🔧 Embedded mode detected - FastAPI imports disabled")
+
+import argparse
+import signal
 import time
+from pathlib import Path
+from typing import Dict, Any, Optional
 from feagi.utils.logger import setup_logger
 from feagi.core.state_manager import FeagiStateManager
 from feagi.logging_config import setup_feagi_logging
+from feagi.config.toml_loader import load_feagi_config, FeagiConfigurationError
+from feagi.utils.port_checker import PortConflictError
+from feagi.process_manager import get_process_manager
 
 setup_feagi_logging()
 
@@ -115,6 +128,7 @@ def main():
     parser.add_argument("--cpu-cores", type=int, default=None, help="Number of CPU cores to use (default: all)")
     parser.add_argument("--memory-limit", type=int, default=None, help="Memory limit in MB (default: no limit)")
     parser.add_argument("--genome-path", type=str, default=None, help="Path to genome file to load on startup")
+    parser.add_argument("--genome", type=str, default=None, help="Path to genome file to load on startup (alias for --genome-path)")
     
     # Test mode arguments
     parser.add_argument("--test", action="store_true", help="Run FEAGI in test mode")
@@ -132,6 +146,9 @@ def main():
     
     # Performance profiling arguments
     parser.add_argument("--profile", action="store_true", help="Enable system resource monitoring (CPU, memory, GPU usage)")
+    
+    # Embedded device mode
+    parser.add_argument("--embedded", action="store_true", help="Enable embedded device mode (disables REST API, uvicorn, visualization, and non-essential monitoring)")
     
     args = parser.parse_args()
     
@@ -198,6 +215,16 @@ def main():
             cli_overrides['profile'] = True
             logger.info("📊 System resource profiling enabled via --profile flag")
         
+        if args.embedded:
+            cli_overrides['embedded'] = True
+            logger.info("🔧 Embedded device mode enabled via --embedded flag")
+        
+        # Handle genome path (support both --genome and --genome-path)
+        genome_path = args.genome or args.genome_path
+        if genome_path:
+            cli_overrides['genome_path'] = genome_path
+            logger.info(f"📄 Genome file specified: {genome_path}")
+        
         # Load configuration with CLI overrides
         logger.info("Loading FEAGI configuration...")
         config = load_feagi_config(cli_args=cli_overrides)
@@ -244,12 +271,15 @@ def main():
     from feagi.bdu.connectome_manager import ConnectomeManager
     connectome = ConnectomeManager.instance()
     
-    # Set the connectome instance for FastAPI dependency injection
-    from feagi.api.rest.dependencies import set_connectome_instance
-    set_connectome_instance(connectome)
+    # Set the connectome instance for FastAPI dependency injection (only in normal mode)
+    embedded_mode = config.get('system', {}).get('embedded', False)
+    if not embedded_mode:
+        from feagi.api.rest.dependencies import set_connectome_instance
+        set_connectome_instance(connectome)
+    else:
+        logger.info("🔧 Embedded mode: Skipping FastAPI dependency injection setup")
     
     # Initialize the ProcessManager with the connectome  
-    from feagi.process_manager import get_process_manager
     process_manager = get_process_manager()
     
     # Set up signal handlers for graceful shutdown

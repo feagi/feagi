@@ -221,6 +221,13 @@ class ProcessManager:
         logger.info("Initializing critical (Priority 1) processes...")
         
         try:
+            # Check if embedded mode is enabled to prevent FastAPI imports
+            embedded_mode = config.get('system', {}).get('embedded', False)
+            
+            if embedded_mode:
+                logger.info("🔧 Embedded mode: Initializing core components without REST API imports")
+                # Environment variable already set in main.py before any imports
+            
             # Initialize core components - these run in the same process
             # but are conceptually distinct according to the architecture
             
@@ -261,6 +268,11 @@ class ProcessManager:
         """
         logger.info("Initializing important (Priority 2) processes...")
         
+        # Check if embedded mode is enabled
+        embedded_mode = config.get('system', {}).get('embedded', False)
+        if embedded_mode:
+            logger.info("🔧 Embedded device mode enabled - disabling non-essential components")
+        
         try:
             # --- FQSampler Integration ---
             from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -278,11 +290,14 @@ class ProcessManager:
                 zmq_config = config.get('zmq', {})
                 stream_config = zmq_config.get('streams', {})
                 
-                # Check which streams are enabled
-                visualization_enabled = stream_config.get('visualization', {}).get('enabled', True)
+                # Check which streams are enabled (disable visualization in embedded mode)
+                visualization_enabled = stream_config.get('visualization', {}).get('enabled', True) and not embedded_mode
                 sensory_enabled = stream_config.get('sensory', {}).get('enabled', True)
                 motor_enabled = stream_config.get('motor', {}).get('enabled', True)
                 control_enabled = stream_config.get('control', {}).get('enabled', True)
+                
+                if embedded_mode:
+                    logger.info("🔧 Embedded mode: Visualization stream disabled")
                 
                 logger.info(f"Stream configuration: visualization={visualization_enabled}, "
                            f"sensory={sensory_enabled}, motor={motor_enabled}, control={control_enabled}")
@@ -409,13 +424,20 @@ class ProcessManager:
                 # Check if profiling mode is enabled via --profile flag
                 profile_enabled = config.get('system', {}).get('profile', False)
                 
-                if profile_enabled:
+                # In embedded mode, only enable profiling if explicitly requested
+                if profile_enabled and (not embedded_mode or profile_enabled):
                     from feagi.utils.system_monitor import start_system_monitoring
                     
                     # Configure monitoring based on profile settings
                     monitoring_interval = config.get('profile', {}).get('resource_monitor_interval', 5.0)
                     enable_gpu = config.get('profile', {}).get('monitor_gpu', True)
                     enable_logging = config.get('profile', {}).get('monitor_logging', True)
+                    
+                    # In embedded mode, use minimal resource monitoring
+                    if embedded_mode:
+                        monitoring_interval = max(monitoring_interval, 10.0)  # Slower monitoring
+                        enable_gpu = False  # No GPU monitoring in embedded
+                        logger.info("🔧 Embedded mode: Using minimal resource monitoring")
                     
                     system_monitor = start_system_monitoring(
                         monitoring_interval=monitoring_interval,
@@ -428,6 +450,8 @@ class ProcessManager:
                         logger.info(f"📊 System resource monitor started (profile mode) - interval: {monitoring_interval}s")
                     else:
                         logger.warning("Failed to start system resource monitor")
+                elif embedded_mode:
+                    logger.info("🔧 Embedded mode: System resource monitoring disabled (use --profile to enable minimal monitoring)")
                         
             except Exception as e:
                 logger.warning(f"System resource monitor initialization failed: {e}")
@@ -456,51 +480,156 @@ class ProcessManager:
         """
         logger.info("Initializing background (Priority 3) processes...")
         
+        # Check if embedded mode is enabled
+        embedded_mode = config.get('system', {}).get('embedded', False)
+        
         try:
-            # Get API configuration from TOML config
+            # --- REST API Server (completely disabled in embedded mode) ---
             api_config = config.get('api', {})
             api_host = api_config.get('host', '127.0.0.1')
             api_port = api_config.get('port', 8000)
-            api_workers = api_config.get('workers', 1)
-            api_reload = api_config.get('reload', False)
             
-            logger.info(f"API Configuration: host={api_host}, port={api_port}, workers={api_workers}")
-            
-            # --- REST API Server ---
-            try:
-                from feagi.api.rest.app import create_rest_app
-                import uvicorn
-                import threading
+            if not embedded_mode:
+                # Full REST API for normal mode
+                api_workers = api_config.get('workers', 1)
+                api_reload = api_config.get('reload', False)
                 
-                # Create FastAPI application using create_rest_app
-                app = create_rest_app()
+                logger.info(f"API Configuration: host={api_host}, port={api_port}, workers={api_workers}")
                 
-                # Start uvicorn in a background thread
-                def run_uvicorn():
-                    uvicorn.run(
-                        app,
-                        host=api_host,
-                        port=api_port,
-                        log_level="info"
-                    )
-                
-                # Start the REST server in a thread
-                rest_thread = threading.Thread(target=run_uvicorn, daemon=True)
-                rest_thread.start()
-                
-                # Store the thread reference for shutdown
-                self._processes['rest_api'] = rest_thread
-                logger.info(f"REST API server started on {api_host}:{api_port}")
+                try:
+                    # CRITICAL FIX: Only import FastAPI modules when NOT in embedded mode
+                    # This prevents FastAPI app creation during module import in embedded mode
+                    from feagi.api.rest.app import create_rest_app
+                    import uvicorn
+                    import threading
                     
-            except Exception as e:
-                logger.error(f"Failed to initialize REST API: {e}")
-                logger.debug(traceback.format_exc())
-                return False
+                    # Create FastAPI application using create_rest_app
+                    app = create_rest_app()
+                    
+                    # Start uvicorn in a background thread
+                    def run_uvicorn():
+                        uvicorn.run(
+                            app,
+                            host=api_host,
+                            port=api_port,
+                            log_level="info"
+                        )
+                    
+                    # Start the REST server in a thread
+                    rest_thread = threading.Thread(target=run_uvicorn, daemon=True)
+                    rest_thread.start()
+                    
+                    # Store the thread reference for shutdown
+                    self._processes['rest_api'] = rest_thread
+                    logger.info(f"REST API server started on {api_host}:{api_port}")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to initialize REST API: {e}")
+                    logger.debug(traceback.format_exc())
+                    return False
+            else:
+                # EMBEDDED MODE: Completely eliminate REST API
+                logger.info(f"🔧 Embedded mode: REST API completely disabled for minimal resource usage")
+                logger.info(f"🔧 Control interface available only via ZMQ streams (control, sensory, motor)")
+                logger.info(f"🔧 No web interface, no FastAPI imports, no uvicorn server")
+                
+                # For debugging/status monitoring, create simple socket-based status server
+                try:
+                    import socket
+                    import threading
+                    import json
+                    
+                    def simple_status_server():
+                        """Minimal TCP status server for embedded mode."""
+                        try:
+                            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                            server_socket.bind((api_host, api_port))
+                            server_socket.listen(1)
+                            logger.info(f"🔧 Embedded status server listening on {api_host}:{api_port}")
+                            
+                            while self._running:
+                                try:
+                                    server_socket.settimeout(1.0)  # Non-blocking with timeout
+                                    client_socket, addr = server_socket.accept()
+                                    
+                                    # Read HTTP request (simple parsing)
+                                    request = client_socket.recv(1024).decode('utf-8')
+                                    
+                                    # Simple status response
+                                    if 'GET /' in request or 'GET /status' in request:
+                                        # Get basic status from state manager
+                                        try:
+                                            from feagi.core.state_manager import FeagiStateManager
+                                            state_manager = FeagiStateManager.instance()
+                                            status = {
+                                                "mode": "embedded",
+                                                "status": "running",
+                                                "brain_state": state_manager.get_brain_state().name,
+                                                "features": ["zmq_control", "zmq_sensory", "zmq_motor"],
+                                                "disabled": ["rest_api", "visualization", "web_interface"],
+                                                "message": "FEAGI running in embedded mode - use ZMQ for control"
+                                            }
+                                        except Exception:
+                                            status = {
+                                                "mode": "embedded", 
+                                                "status": "running",
+                                                "message": "FEAGI embedded mode - minimal interface"
+                                            }
+                                        
+                                        response_body = json.dumps(status, indent=2)
+                                        response = (
+                                            "HTTP/1.1 200 OK\r\n"
+                                            "Content-Type: application/json\r\n"
+                                            f"Content-Length: {len(response_body)}\r\n"
+                                            "Connection: close\r\n"
+                                            "\r\n"
+                                            f"{response_body}"
+                                        )
+                                    else:
+                                        # Simple 404 for other requests
+                                        response_body = '{"error": "Not found", "mode": "embedded"}'
+                                        response = (
+                                            "HTTP/1.1 404 Not Found\r\n"
+                                            "Content-Type: application/json\r\n"
+                                            f"Content-Length: {len(response_body)}\r\n"
+                                            "Connection: close\r\n"
+                                            "\r\n"
+                                            f"{response_body}"
+                                        )
+                                    
+                                    client_socket.send(response.encode('utf-8'))
+                                    client_socket.close()
+                                    
+                                except socket.timeout:
+                                    continue  # Normal timeout, keep running
+                                except Exception as e:
+                                    if self._running:  # Only log if we're still supposed to be running
+                                        logger.debug(f"Status server error: {e}")
+                                    
+                            server_socket.close()
+                            logger.info("🔧 Embedded status server stopped")
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to start embedded status server: {e}")
+                    
+                    # Start minimal status server in background
+                    status_thread = threading.Thread(target=simple_status_server, daemon=True)
+                    status_thread.start()
+                    
+                    # Store the thread reference for shutdown
+                    self._processes['embedded_status'] = status_thread
+                    logger.info(f"🔧 Embedded mode: Minimal status server started on {api_host}:{api_port}")
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to initialize embedded status server: {e}")
+                    logger.info("🔧 Embedded mode: Running without any HTTP interface")
+                    # Continue without status server - this is not critical
                 
             # --- WebSocket Server (Optional) ---
             try:
                 websocket_enabled = config.get('websocket', {}).get('enabled', False)
-                if websocket_enabled:
+                if websocket_enabled and not embedded_mode:
                     from feagi.api.websocket.server import WebSocketServer
                     
                     ws_port = config.get('websocket', {}).get('port', 8080)
@@ -513,14 +642,16 @@ class ProcessManager:
                         logger.info(f"WebSocket server started on {ws_host}:{ws_port}")
                     else:
                         logger.warning("Failed to start WebSocket server - continuing without it")
+                elif embedded_mode:
+                    logger.info("🔧 Embedded mode: WebSocket server disabled")
                         
             except Exception as e:
                 logger.warning(f"WebSocket server initialization failed: {e}")
                 # Non-critical - continue without WebSocket
                 
-            # --- Health Check Service ---
+            # --- Health Check Service (skip in embedded mode) ---
             try:
-                health_enabled = config.get('resources', {}).get('enable_health_check', True)
+                health_enabled = config.get('resources', {}).get('enable_health_check', True) and not embedded_mode
                 if health_enabled:
                     from feagi.core.health_monitor import HealthMonitor
                     
@@ -530,11 +661,13 @@ class ProcessManager:
                         logger.info("Health monitor started")
                     else:
                         logger.warning("Failed to start health monitor - continuing without it")
+                elif embedded_mode:
+                    logger.info("🔧 Embedded mode: Health monitor disabled")
                         
             except Exception as e:
                 logger.warning(f"Health monitor initialization failed: {e}")
                 # Non-critical - continue without health monitoring
-                
+
             logger.info("Background processes initialization completed")
             return True
             

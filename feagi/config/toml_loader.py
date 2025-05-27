@@ -225,6 +225,7 @@ def apply_cli_overrides(config: Dict[str, Any], cli_args: Optional[Dict[str, Any
         'debug': ('system', 'debug'),
         'log_level': ('system', 'log_level'),
         'profile': ('system', 'profile'),
+        'embedded': ('system', 'embedded'),
     }
     
     for cli_arg, (section, key) in cli_mappings.items():

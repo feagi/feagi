@@ -73,42 +73,14 @@ provides a programmatic method to interact with FEAGI.
 
 """
 
+# Create the FastAPI application
 app = FastAPI(
-    title=settings.title,
-    description=settings.description,
-    version=settings.version,
-    terms_of_service=settings.terms_of_service,
-    contact=settings.contact,
-    license_info=settings.license_info,
-    docs_url=None,
-    swagger_ui_parameters={
-        "defaultModelsExpandDepth": -1,
-        "filter": True,  # Enable filtering
-        # "jsonEditor": True
-        "syntaxHighlight.theme": "monokai",
-        "docExpansion": "none",
-        "deepLinking": True,
-        "persistAuthorization": True,
-        "displayOperationId": False,
-        "tryItOutEnabled": True,
-        "theme": "dark",
-        "defaultModelRendering": "model",
-        "showExtensions": True,
-        "showCommonExtensions": True,
-        "layout": "BaseLayout",
-        "displayRequestDuration": True,
-        "withCredentials": True,
-        "requestSnippetsEnabled": True,
-        "requestSnippets": {
-            "generators": {
-                "curl_bash": {"title": "cURL (bash)", "syntax": "bash"},
-                "curl_powershell": {"title": "cURL (PowerShell)", "syntax": "powershell"},
-                "python_requests": {"title": "Python (requests)", "syntax": "python"}
-            },
-            "defaultExpanded": True,
-            "languages": ["curl_bash", "curl_powershell", "python_requests"]
-        }
-    }
+    title="FEAGI REST API",
+    description="Framework for Evolutionary Artificial General Intelligence",
+    version="2.0.0",
+    docs_url=None,  # Disable default docs
+    redoc_url=None,  # Disable default redoc
+    openapi_url="/openapi.json"
 )
 
 # Get the directory of the current file
@@ -265,27 +237,13 @@ async def catch_exceptions_middleware(request: Request, call_next):
             },
         )
 
+# Standard response format for all endpoints
 standard_response = {
-        400: {
-            "model": GeneralErrorResponse,
-            "description": "All Handled Errors",
-            "content": {
-                "application/json": {
-                    "example": {"error_code": 400, "error_message": "Request failed"}
-                }
-            }
-        },
-        500: {
-            "model": InternalServerErrorResponse,
-            "description": "Internal Server Error",
-            "content": {
-                "application/json": {
-                    "example": {"error_code": 500, "error_message": "Internal error"}
-                }
-            }
-        },
-    }
-
+    200: {"description": "Success"},
+    400: {"description": "Bad Request"},
+    404: {"description": "Not Found"},
+    500: {"description": "Internal Server Error"}
+}
 
 # todo: To add the ability of updating allowable cors list on the fly
 # # Append to the CORS origin
@@ -296,161 +254,6 @@ standard_response = {
 #     new_origin = ""
 #     response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
 #     return response
-
-app.include_router(
-    get_genome_router(),
-    prefix="/v1/genome",
-    tags=["GENOME"],
-    dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_connectome_router(),
-    prefix="/v1/connectome",
-    tags=["CONNECTOME"],
-    dependencies=[Depends(check_brain_running)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_burst_engine_router(),
-    prefix="/v1/burst_engine",
-    tags=["BURST ENGINE"],
-    dependencies=[Depends(check_burst_engine)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_evolution_router(),
-    prefix="/v1/evolution",
-    tags=["EVOLUTIONARY"],
-    dependencies=[Depends(check_burst_engine)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_feagi_agent_router(),
-    prefix="/v1/agent",
-    tags=["FEAGI AGENT"],
-    dependencies=[Depends(check_burst_engine)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_insights_router(),
-    prefix="/v1/insight",
-    tags=["INSIGHTS"],
-    dependencies=[Depends(check_brain_running)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_morphology_router(),
-    prefix="/v1/morphology",
-    tags=["NEURON MORPHOLOGIES"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_cortical_area_router(),
-    prefix="/v1/cortical_area",
-    tags=["CORTICAL AREAS"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_region_router(),
-    prefix="/v1/region",
-    tags=["BRAIN REGIONS"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_cortical_mapping_router(),
-    prefix="/v1/cortical_mapping",
-    tags=["CORTICAL MAPPINGS"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_neuroplasticity_router(),
-    prefix="/v1/neuroplasticity",
-    tags=["NEUROPLASTICITY"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_inputs_router(),
-    prefix="/v1/input",
-    tags=["INPUT MANAGEMENT"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_network_router(),
-    prefix="/v1/network",
-    tags=["NETWORK"],
-    dependencies=[],
-    responses=standard_response
-)
-
-app.include_router(
-    get_simulation_router(),
-    prefix="/v1/simulation",
-    tags=["SIMULATION"],
-    dependencies=[Depends(check_brain_running)],
-    responses=standard_response
-)
-
-app.include_router(
-    get_system_router(),
-    prefix="/v1/system",
-    tags=["SYSTEM"],
-    dependencies=[],
-    responses=standard_response
-)
-
-app.include_router(
-    get_training_router(),
-    prefix="/v1/training",
-    tags=["TRAINING"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-# Add the missing outputs router
-app.include_router(
-    get_outputs_router(),
-    prefix="/v1/output",
-    tags=["OUTPUT MANAGEMENT"],
-    dependencies=[Depends(check_active_genome)],
-    responses=standard_response
-)
-
-# Add the missing monitoring router
-app.include_router(
-    get_monitoring_router(),
-    prefix="/v1/monitoring",
-    tags=["MONITORING"],
-    dependencies=[],
-    responses=standard_response
-)
-
-# Add the visualization router
-app.include_router(
-    visualization_router,
-    prefix="/v1/visualization",
-    tags=["VISUALIZATION"],
-    dependencies=[],
-    responses=standard_response
-)
 
 @app.on_event("startup")
 async def set_api_state_ready():
@@ -560,8 +363,169 @@ def create_rest_app(connectome: ConnectomeManager = None):
     from feagi.api.rest.dependencies import set_core_api_service_instance
     set_core_api_service_instance(core_api_service)
     
-    # Return the existing app instance (already configured with all routes)
+    # Get the global app instance
     global app
+    
+    # CRITICAL: Include all routers here instead of at module level
+    # This prevents FastAPI router creation during module import in embedded mode
+    logger.info("🔗 Including FastAPI routers for REST endpoints")
+    
+    app.include_router(
+        get_genome_router(),
+        prefix="/v1/genome",
+        tags=["GENOME"],
+        dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_connectome_router(),
+        prefix="/v1/connectome",
+        tags=["CONNECTOME"],
+        dependencies=[Depends(check_brain_running)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_burst_engine_router(),
+        prefix="/v1/burst_engine",
+        tags=["BURST ENGINE"],
+        dependencies=[Depends(check_burst_engine)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_evolution_router(),
+        prefix="/v1/evolution",
+        tags=["EVOLUTIONARY"],
+        dependencies=[Depends(check_burst_engine)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_feagi_agent_router(),
+        prefix="/v1/agent",
+        tags=["FEAGI AGENT"],
+        dependencies=[Depends(check_burst_engine)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_insights_router(),
+        prefix="/v1/insight",
+        tags=["INSIGHTS"],
+        dependencies=[Depends(check_brain_running)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_morphology_router(),
+        prefix="/v1/morphology",
+        tags=["NEURON MORPHOLOGIES"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_cortical_area_router(),
+        prefix="/v1/cortical_area",
+        tags=["CORTICAL AREAS"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_region_router(),
+        prefix="/v1/region",
+        tags=["BRAIN REGIONS"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_cortical_mapping_router(),
+        prefix="/v1/cortical_mapping",
+        tags=["CORTICAL MAPPINGS"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_neuroplasticity_router(),
+        prefix="/v1/neuroplasticity",
+        tags=["NEUROPLASTICITY"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_inputs_router(),
+        prefix="/v1/input",
+        tags=["INPUT MANAGEMENT"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_network_router(),
+        prefix="/v1/network",
+        tags=["NETWORK"],
+        dependencies=[],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_simulation_router(),
+        prefix="/v1/simulation",
+        tags=["SIMULATION"],
+        dependencies=[Depends(check_brain_running)],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_system_router(),
+        prefix="/v1/system",
+        tags=["SYSTEM"],
+        dependencies=[],
+        responses=standard_response
+    )
+    
+    app.include_router(
+        get_training_router(),
+        prefix="/v1/training",
+        tags=["TRAINING"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    # Add the missing outputs router
+    app.include_router(
+        get_outputs_router(),
+        prefix="/v1/output",
+        tags=["OUTPUT MANAGEMENT"],
+        dependencies=[Depends(check_active_genome)],
+        responses=standard_response
+    )
+    
+    # Add the missing monitoring router
+    app.include_router(
+        get_monitoring_router(),
+        prefix="/v1/monitoring",
+        tags=["MONITORING"],
+        dependencies=[],
+        responses=standard_response
+    )
+    
+    # Add the visualization router
+    app.include_router(
+        visualization_router,
+        prefix="/v1/visualization",
+        tags=["VISUALIZATION"],
+        dependencies=[],
+        responses=standard_response
+    )
+    
+    logger.info("✅ All FastAPI routers included successfully")
     
     # Set state in FeagiStateManager
     from feagi.core.state_manager import FeagiStateManager, ServiceState
