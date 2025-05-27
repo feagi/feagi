@@ -549,103 +549,12 @@ class VisualizationStream:
         """Process legacy dict format data."""
         try:
             if fire_data and 'neuron_ids' in fire_data:
-                neuron_ids = fire_data.get('neuron_ids', [])
-                neuron_count = len(neuron_ids)
-                
-                if neuron_count == 0:
-                    logger.debug("Received dict data with no neurons")
-                    return
-                
-                # Get cortical_id from the dict data
-                cortical_id = fire_data.get('cortical_id', 'unknown')
-                
-                # Handle coordinates
-                coordinates = fire_data.get('coordinates', [])
-                x_coords = []
-                y_coords = []
-                z_coords = []
-                
-                if isinstance(coordinates, list) and len(coordinates) > 0:
-                    # If coordinates is a list of [x, y, z] triplets
-                    if isinstance(coordinates[0], (list, tuple)) and len(coordinates[0]) >= 3:
-                        x_coords = [coord[0] for coord in coordinates]
-                        y_coords = [coord[1] for coord in coordinates]  
-                        z_coords = [coord[2] for coord in coordinates]
-                    else:
-                        # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
-                        coords_per_neuron = 3
-                        x_coords = coordinates[0::coords_per_neuron]
-                        y_coords = coordinates[1::coords_per_neuron]
-                        z_coords = coordinates[2::coords_per_neuron]
-                elif isinstance(coordinates, dict):
-                    # If coordinates is a dict with x, y, z keys
-                    x_coords = coordinates.get('x', [])
-                    y_coords = coordinates.get('y', [])
-                    z_coords = coordinates.get('z', [])
-                else:
-                    # Default coordinates if missing
-                    x_coords = list(range(neuron_count))
-                    y_coords = [0] * neuron_count
-                    z_coords = [0] * neuron_count
-                    logger.debug(f"Using default coordinates for {cortical_id}")
-                
-                # Handle membrane potentials
-                membrane_potentials = fire_data.get('membrane_potentials', [])
-                
-                if not membrane_potentials:
-                    # Default membrane potentials if missing
-                    membrane_potentials = [1.0] * neuron_count
-                    logger.debug(f"Using default membrane potentials for {cortical_id}")
-                
-                if len(membrane_potentials) != neuron_count:
-                    # Pad or truncate to match neuron count
-                    if len(membrane_potentials) < neuron_count:
-                        membrane_potentials.extend([1.0] * (neuron_count - len(membrane_potentials)))
-                    else:
-                        membrane_potentials = membrane_potentials[:neuron_count]
-                    logger.debug(f"Adjusted membrane potential count for {cortical_id}")
-                
-                # Validate coordinate arrays
-                if len(x_coords) != neuron_count:
-                    x_coords = (x_coords * neuron_count)[:neuron_count] if x_coords else list(range(neuron_count))
-                if len(y_coords) != neuron_count:
-                    y_coords = (y_coords * neuron_count)[:neuron_count] if y_coords else [0] * neuron_count
-                if len(z_coords) != neuron_count:
-                    z_coords = (z_coords * neuron_count)[:neuron_count] if z_coords else [0] * neuron_count
-                
-                # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES) FOR DPR COMPATIBILITY
-                try:
-                    from feagi_bytes import ByteStructureEncoder
-                    encoder = ByteStructureEncoder()
-
-                    # Convert to Type 11 (NEURON_CATEGORIES) format for DPR compatibility
-                    cortical_data = {
-                        cortical_id: {
-                            'x': x_coords,
-                            'y': y_coords,
-                            'z': z_coords,
-                            'potentials': membrane_potentials
-                        }
-                    }
-                    
-                    binary_data = encoder.encode_neuron_categories(cortical_data)
-
-                    # Publish the binary data
-                    self._publish_data(binary_data)
-                    logger.debug(f"Published dict data {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
-                    
-                except ImportError:
-                    logger.error("feagi_bytes library not available - cannot encode binary data")
-                except Exception as e:
-                    logger.error(f"Error encoding dict data to binary: {e}")
-            else:
-                logger.debug("Received dict data missing neuron_ids")
+                neuron_count = len(fire_data.get('neuron_ids', []))
+                logger.debug(f"Received dict data: {neuron_count} neurons")
+                # TODO: Implement proper binary serialization
                 
         except Exception as e:
             logger.error(f"Error processing dict data: {e}")
-            if logger.isEnabledFor(10):  # DEBUG level
-                import traceback
-                logger.debug(f"Dict processing traceback: {traceback.format_exc()}")
 
     def get_stats(self) -> Dict[str, Any]:
         """Get simple statistics."""

@@ -108,124 +108,6 @@ class ConnectomeManager:
             logger.debug("🔗 Returning existing ConnectomeManager singleton", extra={'emoji': '🔗'})
         return cls._instance
     
-    @classmethod
-    def reset_singleton(cls):
-        """Reset the singleton instance to force recreation.
-        
-        WARNING: This should only be used for testing or when you need to completely
-        reinitialize the ConnectomeManager with different parameters.
-        """
-        cls._instance = None
-        cls._initialized = False
-        logger.info("🔄 ConnectomeManager singleton has been reset", extra={'emoji': '🔄'})
-
-    def prepare_for_new_genome(self, genome_data: Dict[str, Any], save_current_state: bool = True) -> Dict[str, Any]:
-        """
-        Prepare the connectome for loading a new genome.
-        
-        This method handles all connectome-related preparation for a new genome:
-        1. Analyzes genome memory requirements
-        2. Saves current state if requested and data exists
-        3. Clears existing brain data
-        4. Reallocates memory if needed
-        5. Returns preparation results
-        
-        Args:
-            genome_data: The genome dictionary to analyze
-            save_current_state: Whether to save current connectome state before clearing
-            
-        Returns:
-            Dictionary with preparation results and statistics
-        """
-        try:
-            import json
-            import tempfile
-            import datetime
-            from typing import Dict, Any
-            
-            logger.info("🧠 Preparing connectome for new genome")
-            
-            # STEP 1: ANALYZE GENOME MEMORY REQUIREMENTS
-            logger.info("Step 1: Analyzing genome memory requirements")
-            memory_requirements = self._calculate_genome_memory_requirements(genome_data)
-            
-            logger.info(f"Genome requires: {memory_requirements['estimated_neurons']} neurons, "
-                       f"{memory_requirements['estimated_synapses']} synapses, "
-                       f"{memory_requirements['cortical_areas']} cortical areas")
-            
-            # STEP 2: CHECK IF WE HAVE EXISTING BRAIN DATA
-            has_existing_brain = (hasattr(self, 'cortical_areas') and 
-                                self.cortical_areas and 
-                                len(self.cortical_areas) > 0)
-            
-            saved_state_info = None
-            
-            if has_existing_brain:
-                existing_area_count = len(self.cortical_areas) if hasattr(self, 'cortical_areas') else 0
-                logger.info(f"Step 2: Had existing brain with {existing_area_count} cortical areas (now cleared)")
-                
-                # STEP 3: SAVE CURRENT STATE IF REQUESTED
-                if save_current_state:
-                    logger.info("Step 3: Saving current connectome state")
-                    saved_state_info = self._save_current_connectome_state()
-                    if saved_state_info["success"]:
-                        logger.info(f"✅ Current brain state saved: {saved_state_info['filename']}")
-                    else:
-                        logger.warning("⚠️ Failed to save current brain state - proceeding anyway")
-            else:
-                logger.info("Step 2: No existing brain found - proceeding with fresh initialization")
-            
-            # STEP 4: CLEAR EXISTING BRAIN DATA (ALWAYS!)
-            # Even if no existing brain, we need to reset counters from any previous state
-            logger.info("Step 4: Clearing/resetting all brain data and arrays")
-            clear_results = self._clear_existing_brain_data()
-            logger.info(f"✅ Cleared/reset {clear_results['cortical_areas_cleared']} cortical areas, "
-                       f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses")
-            
-            # STEP 5: CHECK MEMORY CAPACITY AND REALLOCATE IF NEEDED
-            logger.info("Step 5: Checking memory capacity requirements")
-            capacity_results = self._ensure_sufficient_capacity(memory_requirements)
-            
-            if capacity_results["reallocated"]:
-                logger.info(f"✅ Reallocated connectome with {capacity_results['max_neurons']} neurons, "
-                           f"{capacity_results['max_synapses']} synapses")
-                
-                # CRITICAL: After reallocation, ensure NeuronArray is in pristine state
-                if hasattr(self, 'neuron_array'):
-                    self.neuron_array.next_index = 0
-                    self.neuron_array.neuron_count = 0
-                    self.neuron_array.free_indices = set()
-                    if hasattr(self.neuron_array, 'id_to_index_map'):
-                        self.neuron_array.id_to_index_map.clear()
-                    if hasattr(self.neuron_array, 'index_to_id_map'):
-                        self.neuron_array.index_to_id_map.clear()
-                    if hasattr(self.neuron_array, 'cortical_id_to_indices'):
-                        self.neuron_array.cortical_id_to_indices.clear()
-                    logger.info("✅ Post-reallocation NeuronArray reset confirmed")
-            else:
-                logger.info(f"✅ Using existing capacity: {capacity_results['max_neurons']} neurons, "
-                           f"{capacity_results['max_synapses']} synapses")
-            
-            # Return comprehensive results
-            return {
-                "success": True,
-                "memory_requirements": memory_requirements,
-                "had_existing_brain": has_existing_brain,
-                "saved_state": saved_state_info,
-                "capacity_results": capacity_results,
-                "message": "Connectome prepared successfully for new genome"
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to prepare connectome for new genome: {str(e)}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            return {
-                "success": False,
-                "error": str(e),
-                "message": "Failed to prepare connectome for new genome"
-            }
-    
     def __new__(cls, *args, **kwargs):
         """Override __new__ to enforce singleton pattern."""
         if cls._instance is not None:
@@ -268,11 +150,8 @@ class ConnectomeManager:
         self.neuron_id_to_index: Dict[int, int] = {}
         self.index_to_neuron_id: Dict[int, int] = {}
         
-        # Cortical area management - NEW CLEAR ARCHITECTURE
-        self.cortical_areas_by_id: Dict[str, CorticalArea] = {}  # String lookups
-        self.cortical_areas_by_idx: Dict[int, CorticalArea] = {}  # Integer lookups
-        self.cortical_id_to_idx: Dict[str, int] = {}  # Fast string -> int conversion
-        self.cortical_idx_to_id: Dict[int, str] = {}  # Fast int -> string conversion
+        # Cortical area management
+        self.cortical_areas: Dict[str, CorticalArea] = {}
         self.next_cortical_idx = 1  # Start from 1, reserve 0 for special purposes
         self.area_neuron_masks: Dict[str, np.ndarray] = {}
         
@@ -306,15 +185,6 @@ class ConnectomeManager:
         ConnectomeManager._instance = self
         
         logger.info(f"✅ ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend")
-    
-    @property
-    def cortical_areas(self) -> Dict[int, CorticalArea]:
-        """Backward compatibility property for legacy code.
-        
-        Returns the cortical_areas_by_idx dictionary to maintain compatibility
-        with existing code that expects .cortical_areas to exist.
-        """
-        return self.cortical_areas_by_idx
     
     def _init_multi_gpu(self, multi_gpu_config):
         """Initialize multi-GPU support.
@@ -547,10 +417,10 @@ class ConnectomeManager:
             ValueError: If the position is outside the area's boundaries
         """
         # Validate area exists
-        if cortical_id not in self.cortical_areas_by_id:
+        if cortical_id not in self.cortical_areas:
             raise ValueError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas_by_id[cortical_id]
+        area = self.cortical_areas[cortical_id]
         
         # Validate position
         if not area.contains_position(position):
@@ -703,7 +573,7 @@ class ConnectomeManager:
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas_by_id:
+        if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
         if cortical_id not in self.area_neuron_masks:
@@ -740,17 +610,19 @@ class ConnectomeManager:
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Find the corresponding cortical_id using new lookup
-        return self.cortical_idx_to_id.get(cortical_idx)
+        # Find the corresponding cortical_id
+        for cortical_id, area in self.cortical_areas.items():
+            if area.cortical_idx == cortical_idx:
+                return cortical_id
                 
         # If we can't find a matching area, return the TEST__ area if it exists
-        if "TEST__" in self.cortical_areas_by_id:
+        if "TEST__" in self.cortical_areas:
             logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using TEST__ area.")
             return "TEST__"
                 
         # If no match found and no TEST__ area, use the first available area
-        if self.cortical_areas_by_id:
-            first_cortical_id = next(iter(self.cortical_areas_by_id.keys()))
+        if self.cortical_areas:
+            first_cortical_id = next(iter(self.cortical_areas.keys()))
             logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using {first_cortical_id} area.")
             return first_cortical_id
         
@@ -1235,7 +1107,7 @@ class ConnectomeManager:
             ValueError: If an area with the same name already exists
         """
         # Check if an area with this name already exists
-        for area in self.cortical_areas_by_id.values():
+        for area in self.cortical_areas.values():
             if area.name == name:
                 raise ValueError(f"Cortical area with name '{name}' already exists")
         
@@ -1255,11 +1127,7 @@ class ConnectomeManager:
         )
         
         # Add to cortical areas dict
-        # Store in all lookup structures
-        self.cortical_areas_by_id[area.id] = area
-        self.cortical_areas_by_idx[area.cortical_idx] = area
-        self.cortical_id_to_idx[area.id] = area.cortical_idx
-        self.cortical_idx_to_id[area.cortical_idx] = area.id
+        self.cortical_areas[area.id] = area
         
         # Initialize area neuron mask
         self.area_neuron_masks[area.id] = np.zeros(self.max_neurons, dtype=np.bool_)
@@ -1279,10 +1147,10 @@ class ConnectomeManager:
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas_by_id:
+        if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
             
-        return self.cortical_areas_by_id[cortical_id]
+        return self.cortical_areas[cortical_id]
     
     def get_cortical_area_by_name(self, name: str) -> Optional[CorticalArea]:
         """Get a cortical area by its name.
@@ -1293,7 +1161,7 @@ class ConnectomeManager:
         Returns:
             The cortical area object, or None if not found
         """
-        for area in self.cortical_areas_by_id.values():
+        for area in self.cortical_areas.values():
             if area.name == name:
                 return area
         
@@ -1305,7 +1173,7 @@ class ConnectomeManager:
         Returns:
             List of area names
         """
-        return [area.name for area in self.cortical_areas_by_id.values()]
+        return [area.name for area in self.cortical_areas.values()]
     
     def delete_cortical_area(self, cortical_id: str, delete_neurons: bool = True) -> bool:
         """Delete a cortical area from the connectome.
@@ -1320,10 +1188,10 @@ class ConnectomeManager:
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas_by_id:
+        if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas_by_id[cortical_id]
+        area = self.cortical_areas[cortical_id]
         
         # Get neurons in this area
         neurons_to_delete = self.get_neurons_by_cortical_area(cortical_id)
@@ -1347,13 +1215,9 @@ class ConnectomeManager:
         if cortical_id in self.area_neuron_masks:
             del self.area_neuron_masks[cortical_id]
         
-        # Remove area from all lookup structures
+        # Remove area
         area_name = area.name
-        cortical_idx = area.cortical_idx
-        del self.cortical_areas_by_id[cortical_id]
-        del self.cortical_areas_by_idx[cortical_idx]
-        del self.cortical_id_to_idx[cortical_id]
-        del self.cortical_idx_to_id[cortical_idx]
+        del self.cortical_areas[cortical_id]
         
         logger.info(f"Deleted cortical area {cortical_id} ({area_name})")
         return True
@@ -1502,9 +1366,9 @@ class ConnectomeManager:
         else:
             # Just remove the association
             for cortical_id in areas_to_delete:
-                if cortical_id in self.cortical_areas_by_id:
-                    if "region_id" in self.cortical_areas_by_id[cortical_id].properties:
-                        del self.cortical_areas_by_id[cortical_id].properties["region_id"]
+                if cortical_id in self.cortical_areas:
+                    if "region_id" in self.cortical_areas[cortical_id].properties:
+                        del self.cortical_areas[cortical_id].properties["region_id"]
         
         # Remove region from tracking
         region_name = self.brain_regions[region_id]["name"]
@@ -1528,14 +1392,14 @@ class ConnectomeManager:
         Raises:
             KeyError: If either the cortical_id or region_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas_by_id:
+        if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
         
         # Check if area is already in another region and remove if so
-        area = self.cortical_areas_by_id[cortical_id]
+        area = self.cortical_areas[cortical_id]
         current_region_id = area.properties.get("region_id")
         if current_region_id and current_region_id in self.region_area_map:
             self.region_area_map[current_region_id].discard(cortical_id)
@@ -1562,7 +1426,7 @@ class ConnectomeManager:
         Raises:
             KeyError: If either the cortical_id or region_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas_by_id:
+        if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
         if region_id not in self.brain_regions:
@@ -1573,7 +1437,7 @@ class ConnectomeManager:
             self.region_area_map[region_id].discard(cortical_id)
         
         # Remove region_id from area properties
-        area = self.cortical_areas_by_id[cortical_id]
+        area = self.cortical_areas[cortical_id]
         if "region_id" in area.properties and area.properties["region_id"] == region_id:
             del area.properties["region_id"]
         
@@ -1650,15 +1514,19 @@ class ConnectomeManager:
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Find the corresponding cortical_id using new lookup
-        cortical_id = self.cortical_idx_to_id.get(cortical_idx)
+        # Find the corresponding cortical_id
+        cortical_id = None
+        for cortical_id_key, area in self.cortical_areas.items():
+            if area.cortical_idx == cortical_idx:
+                cortical_id = cortical_id_key
+                break
         
         if cortical_id is None:
             logger.error(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}")
             return False
         
         # Validate new position
-        area = self.cortical_areas_by_id[cortical_id]
+        area = self.cortical_areas[cortical_id]
         if not area.contains_position(new_position):
             raise ValueError(f"Position {new_position} is outside the bounds of area {area.name}")
         
@@ -1702,10 +1570,10 @@ class ConnectomeManager:
             ValueError: If there are duplicate positions
         """
         # Validate area exists
-        if cortical_id not in self.cortical_areas_by_id:
+        if cortical_id not in self.cortical_areas:
             raise ValueError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas_by_id[cortical_id]
+        area = self.cortical_areas[cortical_id]
         
         # Validate positions
         for pos in positions:
@@ -1956,11 +1824,11 @@ class ConnectomeManager:
                 raise ValueError("New dimensions required for resize operation")
             
             for cortical_id in cortical_ids:
-                if cortical_id not in self.cortical_areas_by_id:
+                if cortical_id not in self.cortical_areas:
                     results[cortical_id] = {"success": False, "reason": "Area not found"}
                     continue
                 
-                area = self.cortical_areas_by_id[cortical_id]
+                area = self.cortical_areas[cortical_id]
                 old_dimensions = area.dimensions
                 
                 # Update area dimensions
@@ -2005,11 +1873,11 @@ class ConnectomeManager:
                 raise ValueError("New position required for move operation")
             
             for cortical_id in cortical_ids:
-                if cortical_id not in self.cortical_areas_by_id:
+                if cortical_id not in self.cortical_areas:
                     results[cortical_id] = {"success": False, "reason": "Area not found"}
                     continue
                 
-                area = self.cortical_areas_by_id[cortical_id]
+                area = self.cortical_areas[cortical_id]
                 old_position = area.position
                 
                 # Update area position
@@ -2024,11 +1892,11 @@ class ConnectomeManager:
         elif operation == "get_bounds":
             # Get position bounds for multiple areas at once
             for cortical_id in cortical_ids:
-                if cortical_id not in self.cortical_areas_by_id:
+                if cortical_id not in self.cortical_areas:
                     results[cortical_id] = {"success": False, "reason": "Area not found"}
                     continue
                 
-                area = self.cortical_areas_by_id[cortical_id]
+                area = self.cortical_areas[cortical_id]
                 
                 # Calculate bounds
                 min_pos = area.position
@@ -2117,8 +1985,8 @@ class ConnectomeManager:
                 continue
             
             # Check dimensions
-            source_area = self.cortical_areas_by_id[source_cortical_id]
-            target_area = self.cortical_areas_by_id[target_cortical_id]
+            source_area = self.cortical_areas[source_cortical_id]
+            target_area = self.cortical_areas[target_cortical_id]
             
             if source_area.dimensions != target_area.dimensions:
                 results[rule_id] = 0
@@ -2273,8 +2141,8 @@ class ConnectomeManager:
             scale_by_distance = rule["parameters"].get("scale_by_distance", False)
             
             # Get areas
-            source_area = self.cortical_areas_by_id[source_cortical_id]
-            target_area = self.cortical_areas_by_id[target_cortical_id]
+            source_area = self.cortical_areas[source_cortical_id]
+            target_area = self.cortical_areas[target_cortical_id]
             
             # Get positions in global coordinates
             source_global_positions = {}
@@ -2442,7 +2310,7 @@ class ConnectomeManager:
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
             test_cortical_id = "TEST__"
-            if test_cortical_id not in self.cortical_areas_by_id:
+            if test_cortical_id not in self.cortical_areas:
                 self.add_cortical_area(
                     name="Test Area",
                     dimensions=(100, 100, 100),
@@ -2491,7 +2359,7 @@ class ConnectomeManager:
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
             test_cortical_id = "TEST__"
-            if test_cortical_id not in self.cortical_areas_by_id:
+            if test_cortical_id not in self.cortical_areas:
                 self.add_cortical_area(
                     name="Test Area",
                     dimensions=(100, 100, 100),
@@ -2689,7 +2557,7 @@ class ConnectomeManager:
         return deleted_count
 
     def delete_synapses(self, synapse_specs: List[Tuple[int, int]]) -> int:
-        """Delete multiple synapses.
+        """Delete multiple synapses at once.
         
         Args:
             synapse_specs: List of (pre_neuron_id, post_neuron_id) tuples
@@ -2698,413 +2566,11 @@ class ConnectomeManager:
             Number of synapses successfully deleted
         """
         deleted_count = 0
-        for pre_neuron_id, post_neuron_id in synapse_specs:
-            if self.delete_synapse(pre_neuron_id, post_neuron_id):
-                deleted_count += 1
-        return deleted_count
-
-    def _calculate_genome_memory_requirements(self, genome_data: Dict[str, Any]) -> Dict[str, int]:
-        """
-        Calculate memory requirements from genome data.
-        
-        Args:
-            genome_data: The genome dictionary
-            
-        Returns:
-            Dictionary with estimated memory requirements
-        """
-        try:
-            requirements = {
-                "cortical_areas": 0,
-                "estimated_neurons": 0,
-                "estimated_synapses": 0,
-                "max_dimensions": [0, 0, 0]
-            }
-            
-            if "blueprint" not in genome_data:
-                logger.warning("No blueprint found in genome - using minimal requirements")
-                return {
-                    "cortical_areas": 1,
-                    "estimated_neurons": 1000,
-                    "estimated_synapses": 10000,
-                    "max_dimensions": [10, 10, 10]
-                }
-            
-            # Extract cortical area information from blueprint
-            cortical_areas = {}
-            
-            # Parse blueprint keys to group by cortical_id
-            # Blueprint format: "_____10c-{cortical_id}-{prop_category}-{property_name}-{type}"
-            for blueprint_key, value in genome_data["blueprint"].items():
-                parts = blueprint_key.split('-')
-                if len(parts) >= 4:
-                    cortical_id = parts[1]
-                    prop_category = parts[2]  # 'cx' for cortical, 'nx' for neuron
-                    property_name = parts[3]
-                    
-                    if cortical_id not in cortical_areas:
-                        cortical_areas[cortical_id] = {}
-                    
-                    # Map blueprint property names to our expected names
-                    if prop_category == "cx":  # Cortical properties
-                        if property_name == "___bbx":
-                            cortical_areas[cortical_id]["dimx"] = value
-                        elif property_name == "___bby":
-                            cortical_areas[cortical_id]["dimy"] = value
-                        elif property_name == "___bbz":
-                            cortical_areas[cortical_id]["dimz"] = value
-                        elif property_name == "_n_cnt":
-                            cortical_areas[cortical_id]["neurons_per_voxel"] = value
-            
-            requirements["cortical_areas"] = len(cortical_areas)
-            
-            # Calculate neuron and synapse requirements for each cortical area
-            total_neurons = 0
-            total_synapses = 0
-            
-            for cortical_id, properties in cortical_areas.items():
-                # Get dimensions (default to 1x1x1 if missing)
-                dim_x = int(properties.get("dimx", 1))
-                dim_y = int(properties.get("dimy", 1))
-                dim_z = int(properties.get("dimz", 1))
-                
-                # Update max dimensions
-                requirements["max_dimensions"][0] = max(requirements["max_dimensions"][0], dim_x)
-                requirements["max_dimensions"][1] = max(requirements["max_dimensions"][1], dim_y)
-                requirements["max_dimensions"][2] = max(requirements["max_dimensions"][2], dim_z)
-                
-                # Calculate voxel count
-                voxel_count = dim_x * dim_y * dim_z
-                
-                # Get neurons per voxel (default to 1)
-                neurons_per_voxel = int(properties.get("neurons_per_voxel", 1))
-                
-                # Calculate neurons for this area
-                area_neurons = voxel_count * neurons_per_voxel
-                total_neurons += area_neurons
-                
-                # Estimate synapses (conservative estimate: avg 10 synapses per neuron)
-                estimated_synapses_per_neuron = 10
-                area_synapses = area_neurons * estimated_synapses_per_neuron
-                total_synapses += area_synapses
-                
-                logger.debug(f"Area {cortical_id}: {dim_x}x{dim_y}x{dim_z} = {voxel_count} voxels, "
-                           f"{area_neurons} neurons, ~{area_synapses} synapses")
-            
-            requirements["estimated_neurons"] = total_neurons
-            requirements["estimated_synapses"] = total_synapses
-            
-            # Add morphology-based synapse estimates
-            if "neuron_morphologies" in genome_data:
-                morphology_multiplier = len(genome_data["neuron_morphologies"]) * 1.2
-                requirements["estimated_synapses"] = int(requirements["estimated_synapses"] * morphology_multiplier)
-            
-            # Ensure minimum reasonable values
-            requirements["estimated_neurons"] = max(requirements["estimated_neurons"], 100)
-            requirements["estimated_synapses"] = max(requirements["estimated_synapses"], 1000)
-            
-            logger.debug(f"Genome analysis complete: {requirements['cortical_areas']} areas, "
-                        f"~{requirements['estimated_neurons']} neurons, "
-                        f"~{requirements['estimated_synapses']} synapses")
-            
-            return requirements
-            
-        except Exception as e:
-            logger.error(f"Error calculating genome memory requirements: {str(e)}")
-            # Return safe defaults on error
-            return {
-                "cortical_areas": 10,
-                "estimated_neurons": 10000,
-                "estimated_synapses": 100000,
-                "max_dimensions": [20, 20, 20]
-            }
-
-    def _save_current_connectome_state(self) -> Dict[str, Any]:
-        """
-        Save the current connectome state to a file.
-        
-        Returns:
-            Dictionary with save results
-        """
-        try:
-            import json
-            import datetime
-            import tempfile
-            import os
-            
-            if not hasattr(self, 'cortical_areas_by_id') or not self.cortical_areas_by_id:
-                return {"success": True, "message": "No connectome state to save"}
-            
-            # Generate timestamp for unique filename
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_filename = f"connectome_backup_{timestamp}.json"
-            backup_path = os.path.join(tempfile.gettempdir(), backup_filename)
-            
-            # Collect connectome state data
-            connectome_state = {
-                "metadata": {
-                    "timestamp": timestamp,
-                    "cortical_area_count": len(self.cortical_areas_by_id)
-                },
-                "cortical_areas": {},
-                "statistics": {}
-            }
-            
-            # Save cortical area information
-            for area_idx, area in self.cortical_areas_by_id.items():
-                try:
-                    # Get neuron count safely
-                    neuron_count = 0
-                    if hasattr(self, 'get_neurons_by_area'):
-                        neurons = self.get_neurons_by_area(area_idx)
-                        neuron_count = len(neurons) if neurons else 0
-                    
-                    connectome_state["cortical_areas"][str(area_idx)] = {
-                        "name": getattr(area, 'name', f"Area_{area_idx}"),
-                        "cortical_id": getattr(area, 'cortical_id', f"ID_{area_idx}"),
-                        "dimensions": getattr(area, 'dimensions', [1, 1, 1]),
-                        "position": getattr(area, 'position', [0, 0, 0]),
-                        "area_type": getattr(area, 'area_type', 'unknown'),
-                        "neuron_count": neuron_count
-                    }
-                except Exception as area_error:
-                    logger.warning(f"Error saving area {area_idx}: {area_error}")
-            
-            # Save overall statistics
+        for pre_id, post_id in synapse_specs:
             try:
-                total_neurons = sum(
-                    area_data["neuron_count"] 
-                    for area_data in connectome_state["cortical_areas"].values()
-                )
-                connectome_state["statistics"] = {
-                    "total_neurons": total_neurons,
-                    "total_areas": len(connectome_state["cortical_areas"])
-                }
-            except Exception:
-                connectome_state["statistics"] = {"total_neurons": 0, "total_areas": 0}
-            
-            # Write to file
-            with open(backup_path, 'w') as f:
-                json.dump(connectome_state, f, indent=2)
-            
-            return {
-                "success": True,
-                "filename": backup_filename,
-                "path": backup_path,
-                "stats": connectome_state["statistics"]
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to save connectome state: {str(e)}")
-            return {"success": False, "error": str(e)}
-
-    def _clear_existing_brain_data(self) -> Dict[str, int]:
-        """
-        Clear all existing brain data (cortical areas, neurons, synapses) using FAST bulk operations.
+                if self.remove_synapse(pre_id, post_id):
+                    deleted_count += 1
+            except (ValueError, KeyError) as e:
+                logger.warning(f"Failed to delete synapse {pre_id}->{post_id}: {e}")
         
-        Returns:
-            Dictionary with counts of cleared items
-        """
-        try:
-            cleared_areas = 0
-            cleared_neurons = 0
-            cleared_synapses = 0
-            
-            logger.info("🚀 Starting FAST bulk brain data clearing")
-            
-            # Get counts before clearing (quick count using efficient methods)
-            if hasattr(self, 'cortical_areas_by_id') and self.cortical_areas_by_id:
-                cleared_areas = len(self.cortical_areas_by_id)
-                
-                # Fast neuron counting using area masks
-                for area_id in self.cortical_areas_by_id.keys():
-                    if area_id in self.area_neuron_masks:
-                        cleared_neurons += np.sum(self.area_neuron_masks[area_id])
-            
-            # Count synapses efficiently
-            if hasattr(self, 'outgoing_matrix') and self.outgoing_matrix is not None:
-                try:
-                    cleared_synapses = self.outgoing_matrix.nnz
-                except Exception:
-                    pass
-            
-            logger.info(f"📊 Found {cleared_areas} areas, {cleared_neurons} neurons, {cleared_synapses} synapses to clear")
-            
-            # FAST BULK CLEARING - No individual iterations!
-            
-            # 1. Clear all cortical areas at once (dictionary clear)
-            if hasattr(self, 'cortical_areas_by_id'):
-                self.cortical_areas_by_id.clear()
-            if hasattr(self, 'cortical_areas_by_idx'):
-                self.cortical_areas_by_idx.clear()
-            if hasattr(self, 'cortical_id_to_idx'):
-                self.cortical_id_to_idx.clear()
-            if hasattr(self, 'cortical_idx_to_id'):
-                self.cortical_idx_to_id.clear()
-            logger.info("✅ Cleared all cortical areas in one operation")
-            
-            # 2. Clear all area neuron masks at once
-            if hasattr(self, 'area_neuron_masks'):
-                self.area_neuron_masks.clear()
-                logger.info("✅ Cleared all area neuron masks in one operation")
-            
-            # 3. Reset all neuron arrays to empty state (vectorized operation)
-            if hasattr(self, 'neuron_array'):
-                try:
-                    # Reset the neuron array to empty state efficiently
-                    # Handle both PyTorch tensors and NumPy arrays
-                    import torch
-                    if isinstance(self.neuron_array.valid_mask, torch.Tensor):
-                        # PyTorch tensors use fill_() method
-                        self.neuron_array.valid_mask.fill_(False)
-                        self.neuron_array.is_active.fill_(False)
-                    else:
-                        # NumPy arrays use fill() method
-                        self.neuron_array.valid_mask.fill(False)
-                        self.neuron_array.is_active.fill(False)
-                    
-                    self.neuron_array.neuron_count = 0
-                    
-                    # CRITICAL: Reset the internal index tracking to allow reuse of neurons
-                    self.neuron_array.next_index = 0
-                    self.neuron_array.free_indices = set()
-                    
-                    # Clear the ID mappings in neuron array as well
-                    if hasattr(self.neuron_array, 'id_to_index_map'):
-                        self.neuron_array.id_to_index_map.clear()
-                    if hasattr(self.neuron_array, 'index_to_id_map'):
-                        self.neuron_array.index_to_id_map.clear()
-                    if hasattr(self.neuron_array, 'cortical_id_to_indices'):
-                        self.neuron_array.cortical_id_to_indices.clear()
-                    
-                    logger.info("✅ Reset neuron array state and index tracking efficiently")
-                except Exception as e:
-                    logger.warning(f"Error resetting neuron array: {e}")
-                    # Force reset the critical counters even if tensor reset fails
-                    self.neuron_array.neuron_count = 0
-                    self.neuron_array.next_index = 0
-                    self.neuron_array.free_indices = set()
-                    logger.info("✅ Force-reset critical neuron array counters")
-            
-            # 4. Clear all ID mappings in one operation
-            if hasattr(self, 'neuron_id_to_index'):
-                self.neuron_id_to_index.clear()
-            if hasattr(self, 'index_to_neuron_id'):
-                self.index_to_neuron_id.clear()
-            if hasattr(self, '_neuron_to_position'):
-                self._neuron_to_position.clear()
-            logger.info("✅ Cleared all neuron ID mappings")
-                
-            # 5. Reset neuron ID counter
-            if hasattr(self, 'next_neuron_id'):
-                self.next_neuron_id = 0
-                
-            # 6. Fast synapse matrix clearing
-            if hasattr(self, 'outgoing_matrix') and self.outgoing_matrix is not None:
-                try:
-                    # For sparse matrices, create new empty matrix instead of clearing data
-                    from scipy import sparse
-                    self.outgoing_matrix = sparse.lil_matrix((self.max_neurons, self.max_neurons), dtype=np.float32)
-                    logger.info("✅ Created fresh outgoing synapse matrix")
-                except Exception as e:
-                    logger.warning(f"Error clearing outgoing matrix: {e}")
-                    
-            if hasattr(self, 'incoming_matrix') and self.incoming_matrix is not None:
-                try:
-                    from scipy import sparse
-                    self.incoming_matrix = sparse.lil_matrix((self.max_neurons, self.max_neurons), dtype=np.float32)
-                    logger.info("✅ Created fresh incoming synapse matrix")
-                except Exception as e:
-                    logger.warning(f"Error clearing incoming matrix: {e}")
-            
-            # 7. Clear brain regions if they exist
-            if hasattr(self, 'brain_regions'):
-                self.brain_regions.clear()
-            if hasattr(self, 'region_area_map'):
-                self.region_area_map.clear()
-                
-            # 8. Reset cortical area counter
-            if hasattr(self, 'next_cortical_idx'):
-                self.next_cortical_idx = 1
-                
-            logger.info("🎯 FAST bulk clearing completed successfully!")
-                
-            return {
-                "cortical_areas_cleared": cleared_areas,
-                "neurons_cleared": cleared_neurons,
-                "synapses_cleared": cleared_synapses
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in fast bulk brain data clearing: {str(e)}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            return {
-                "cortical_areas_cleared": 0,
-                "neurons_cleared": 0,
-                "synapses_cleared": 0
-            }
-
-    def _ensure_sufficient_capacity(self, memory_requirements: Dict[str, int]) -> Dict[str, Any]:
-        """
-        Ensure the connectome has sufficient capacity for the new genome.
-        
-        Args:
-            memory_requirements: Dictionary with required capacities
-            
-        Returns:
-            Dictionary with capacity check results
-        """
-        try:
-            # Calculate buffer sizes (allocate extra space for future expansion)
-            buffer_multiplier = 1.5  # 50% extra space for expansion
-            required_neurons = int(memory_requirements['estimated_neurons'] * buffer_multiplier)
-            required_synapses = int(memory_requirements['estimated_synapses'] * buffer_multiplier)
-            
-            # Check current capacity
-            current_max_neurons = getattr(self, 'max_neurons', 0)
-            current_max_synapses = getattr(self, 'max_synapses', 0)
-            
-            needs_reallocation = (current_max_neurons < required_neurons or 
-                                current_max_synapses < required_synapses)
-            
-            if needs_reallocation:
-                logger.info(f"Current capacity insufficient. "
-                           f"Current: {current_max_neurons} neurons, {current_max_synapses} synapses. "
-                           f"Required: {required_neurons} neurons, {required_synapses} synapses. Reallocating...")
-                
-                # Reset singleton and create new instance with proper capacity
-                ConnectomeManager.reset_singleton()
-                new_instance = ConnectomeManager.instance(
-                    config_or_max_neurons=required_neurons,
-                    max_synapses=required_synapses
-                )
-                
-                # Update self to point to the new instance
-                self.__dict__.update(new_instance.__dict__)
-                
-                return {
-                    "reallocated": True,
-                    "max_neurons": required_neurons,
-                    "max_synapses": required_synapses,
-                    "previous_capacity": {
-                        "neurons": current_max_neurons,
-                        "synapses": current_max_synapses
-                    }
-                }
-            else:
-                return {
-                    "reallocated": False,
-                    "max_neurons": current_max_neurons,
-                    "max_synapses": current_max_synapses,
-                    "sufficient_capacity": True
-                }
-                
-        except Exception as e:
-            logger.error(f"Error ensuring sufficient capacity: {str(e)}")
-            return {
-                "reallocated": False,
-                "error": str(e),
-                "max_neurons": getattr(self, 'max_neurons', 0),
-                "max_synapses": getattr(self, 'max_synapses', 0)
-            }
+        return deleted_count
