@@ -53,6 +53,7 @@ import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional, Union, Any, Callable
+import numpy as np
 
 # Custom types
 Position = Tuple[int, int, int]
@@ -701,7 +702,7 @@ class NeuroEmbryogenesis:
             
     def _batch_create_neurons(self, neuron_specs):
         """
-        Create multiple neurons in batch for performance optimization.
+        Create multiple neurons using TRUE vectorized operations (NumPy-style bulk initialization).
         
         Args:
             neuron_specs: List of (cortical_id, position, threshold, refractory_period, decay_rate, resting_potential, properties) tuples
@@ -711,7 +712,7 @@ class NeuroEmbryogenesis:
         """
         neuron_ids = []
         
-        # Group neuron specs by cortical_id for batch processing
+        # Group neuron specs by cortical_id for vectorized processing
         by_area = {}
         for spec in neuron_specs:
             cortical_id, position, threshold, refractory_period, decay_rate, resting_potential, properties = spec
@@ -734,75 +735,61 @@ class NeuroEmbryogenesis:
             by_area[cortical_id]["decay_rates"].append(decay_rate)
             by_area[cortical_id]["resting_potentials"].append(resting_potential)
         
-        # Process neurons by area using batch API if available
+        # Process neurons by area using TRUE VECTORIZED OPERATIONS
         for cortical_id, area_specs in by_area.items():
             positions = area_specs["positions"]
+            num_neurons = len(positions)
             
-            # Check if ConnectomeManager supports batch operation with separate cortical_id and positions
-            if hasattr(self.connectome_manager, 'batch_create_neurons'):
-                try:
-                    # Try to use the batch API with cortical_id and positions
-                    area_neuron_ids = self.connectome_manager.batch_create_neurons(
-                        cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
-                        positions=positions,
-                        threshold=area_specs["thresholds"][0],  # Use first value for all or support lists
-                        refractory_period=area_specs["refractory_periods"][0],
-                        decay_rate=area_specs["decay_rates"][0],
-                        resting_potential=area_specs["resting_potentials"][0],
-                        properties=area_specs["properties"][0]
-                    )
+            logger.warning(f"🚀 VECTORIZED CREATION for {cortical_id}: {num_neurons} neurons")
+            
+            try:
+                # Get the cortical area object to get cortical_idx
+                area = self.connectome_manager.get_cortical_area(cortical_id)
+                cortical_idx = area.cortical_idx
+                
+                # PURE VECTORIZED APPROACH - No loops, no individual calls!
+                area_neuron_ids = self.connectome_manager.neuron_array.batch_create_neurons(
+                    cortical_idx=cortical_idx,
+                    positions=positions,
+                    thresholds=area_specs["thresholds"],      # Pass as list for vectorized ops
+                    membrane_potentials=0.0,                  # Single value broadcasted
+                    resting_potentials=area_specs["resting_potentials"],
+                    decay_rates=area_specs["decay_rates"],
+                    refractory_periods=area_specs["refractory_periods"]
+                )
+                
+                logger.warning(f"✅ VECTORIZED SUCCESS for {cortical_id}: created {len(area_neuron_ids)} neurons in one operation")
+                
+                # Update ConnectomeManager ID mappings for the batch
+                for i, neuron_id in enumerate(area_neuron_ids):
+                    # Map neuron_id to index in ConnectomeManager
+                    index = self.connectome_manager.neuron_array.id_to_index_map[neuron_id]
+                    self.connectome_manager.neuron_id_to_index[neuron_id] = index
+                    self.connectome_manager.index_to_neuron_id[index] = neuron_id
                     
-                    # Construct result tuples with neuron IDs and voxel IDs
-                    for i, neuron_id in enumerate(area_neuron_ids):
-                        neuron_ids.append((neuron_id, area_specs["voxel_ids"][i]))
-                except Exception as e:
-                    # Log the batch creation failure so we can see why it's falling back
-                    logger.error(f"🐌 BATCH CREATION FAILED for {cortical_id}: {str(e)} - falling back to individual creation for {len(positions)} neurons")
-                    import traceback
-                    logger.error(f"🐌 BATCH CREATION TRACEBACK: {traceback.format_exc()}")
-                    
-                    # Also log the parameters being used to help debug
-                    logger.error(f"🐌 BATCH CREATION PARAMS: cortical_id={cortical_id}, positions={len(positions)} items, first_position={positions[0] if positions else None}")
-                    logger.error(f"🐌 BATCH CREATION THRESHOLD: {area_specs['thresholds'][0] if area_specs['thresholds'] else 'None'}")
-                    logger.error(f"🐌 CORTICAL AREAS AVAILABLE: {list(self.connectome_manager.cortical_areas.keys()) if hasattr(self.connectome_manager, 'cortical_areas') else 'No cortical_areas attr'}")
-                    
-                    # Fall back to individual creation if batch API fails
-                    for i, position in enumerate(positions):
-                        properties = area_specs["properties"][i]
-                        threshold = area_specs["thresholds"][i]
-                        refractory_period = area_specs["refractory_periods"][i]
-                        decay_rate = area_specs["decay_rates"][i]
-                        resting_potential = area_specs["resting_potentials"][i]
-                        
-                        neuron_id = self.connectome_manager.create_neuron(
-                            cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
-                            position=position,
-                            threshold=threshold,
-                            refractory_period=refractory_period,
-                            decay_rate=decay_rate,
-                            resting_potential=resting_potential,
-                            properties=properties
+                    # Update area tracking efficiently
+                    if cortical_id not in self.connectome_manager.area_neuron_masks:
+                        self.connectome_manager.area_neuron_masks[cortical_id] = np.zeros(
+                            self.connectome_manager.max_neurons, dtype=np.bool_
                         )
-                        neuron_ids.append((neuron_id, properties["voxel_id"]))
-            else:
-                # Fall back to individual creation if batch API not available
-                for i, position in enumerate(positions):
-                    properties = area_specs["properties"][i]
-                    threshold = area_specs["thresholds"][i]
-                    refractory_period = area_specs["refractory_periods"][i]
-                    decay_rate = area_specs["decay_rates"][i]
-                    resting_potential = area_specs["resting_potentials"][i]
+                    self.connectome_manager.area_neuron_masks[cortical_id][index] = True
                     
-                    neuron_id = self.connectome_manager.create_neuron(
-                        cortical_id=cortical_id,  # Use cortical_id instead of deprecated area_id
-                        position=position,
-                        threshold=threshold,
-                        refractory_period=refractory_period,
-                        decay_rate=decay_rate,
-                        resting_potential=resting_potential,
-                        properties=properties
-                    )
-                    neuron_ids.append((neuron_id, properties["voxel_id"]))
+                    # Add to area's neuron list
+                    area.add_neuron(neuron_id, positions[i])
+                    
+                    # Update backward compatibility tracking
+                    self.connectome_manager._neuron_to_position[neuron_id] = (cortical_id, *positions[i], index)
+                    
+                    # Construct result with voxel ID
+                    neuron_ids.append((neuron_id, area_specs["voxel_ids"][i]))
+                
+            except Exception as e:
+                logger.error(f"🔥 VECTORIZED CREATION FAILED for {cortical_id}: {str(e)}")
+                import traceback
+                logger.error(f"🔥 Traceback: {traceback.format_exc()}")
+                
+                # This should NOT happen with proper SoA implementation
+                raise RuntimeError(f"Vectorized neuron creation failed - SoA implementation issue: {e}")
         
         return neuron_ids
         
@@ -1036,8 +1023,8 @@ class NeuroEmbryogenesis:
         if not self._setup_cortical_areas():
             return False
         
-        # Create neurons
-        if not self._perform_neurogenesis():
+        # Create neurons using vectorized approach
+        if not self._perform_neurogenesis_vectorized():
             return False
         
         # Create synapses
@@ -1065,6 +1052,146 @@ class NeuroEmbryogenesis:
     def get_development_statistics(self) -> Dict[str, Any]:
         """Get statistics about the brain development process."""
         return self.development_stats
+
+    def _perform_neurogenesis_vectorized(self) -> bool:
+        """
+        Ultra-efficient vectorized neurogenesis using pure NumPy-style bulk operations.
+        This is how neurogenesis SHOULD be done in a high-performance SoA system.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        self._report_progress(DevelopmentStage.NEUROGENESIS, 0, "Creating neurons (vectorized)")
+        
+        try:
+            total_areas = len(self.cortical_areas)
+            total_neurons = 0
+            
+            for i, (cortical_id, area) in enumerate(self.cortical_areas.items()):
+                properties = self._extract_cortical_properties(cortical_id)
+                
+                # Skip memory areas in initial development if configured
+                if area.area_type == "memory" and self.config and self.config.get("skip_memory_neurogenesis", False):
+                    logger.info(f"Skipping neurogenesis for memory area {area.name}")
+                    continue
+                
+                # Get area properties
+                neurons_per_voxel = properties.get("neurons_per_voxel", 1)
+                width, height, depth = area.dimensions
+                voxel_count = width * height * depth
+                area_neuron_count = voxel_count * neurons_per_voxel
+                
+                logger.warning(f"🎯 BULK NEUROGENESIS for {cortical_id}: {area_neuron_count} neurons ({width}×{height}×{depth} × {neurons_per_voxel})")
+                
+                # PRE-CALCULATE ALL DATA (NumPy style!)
+                # Create position arrays efficiently
+                positions = []
+                voxel_indices = []
+                
+                for x in range(width):
+                    for y in range(height):
+                        for z in range(depth):
+                            for n_idx in range(neurons_per_voxel):
+                                positions.append((x, y, z))
+                                voxel_indices.append(x * height * depth + y * depth + z)
+                
+                # Convert to numpy arrays for efficiency
+                positions_array = np.array(positions)
+                
+                # Pre-calculate neuron properties (vectorized)
+                thresholds = np.full(area_neuron_count, properties.get("fire_t", 1.0), dtype=np.float32)
+                resting_potentials = np.zeros(area_neuron_count, dtype=np.float32)
+                decay_rates = np.full(area_neuron_count, 1.0 - (properties.get("leak_c", 0) / 100.0), dtype=np.float32)
+                refractory_periods = np.full(area_neuron_count, properties.get("refrac", 1), dtype=np.int32)
+                
+                # Get cortical_idx 
+                cortical_idx = area.cortical_idx
+                
+                # 🚀 SINGLE VECTORIZED CALL - NO LOOPS!
+                start_time = datetime.datetime.now()
+                area_neuron_ids = self.connectome_manager.neuron_array.batch_create_neurons(
+                    cortical_idx=cortical_idx,
+                    positions=positions,
+                    thresholds=thresholds.tolist(),
+                    membrane_potentials=0.0,
+                    resting_potentials=resting_potentials.tolist(),
+                    decay_rates=decay_rates.tolist(),
+                    refractory_periods=refractory_periods.tolist()
+                )
+                end_time = datetime.datetime.now()
+                creation_time = (end_time - start_time).total_seconds()
+                
+                logger.warning(f"⚡ VECTORIZED COMPLETE for {cortical_id}: {len(area_neuron_ids)} neurons in {creation_time:.3f}s ({len(area_neuron_ids)/creation_time:.0f} neurons/sec)")
+                
+                # Update ConnectomeManager mappings efficiently (vectorized where possible)
+                start_mapping_time = datetime.datetime.now()
+                
+                # Bulk update area tracking
+                if cortical_id not in self.connectome_manager.area_neuron_masks:
+                    self.connectome_manager.area_neuron_masks[cortical_id] = np.zeros(
+                        self.connectome_manager.max_neurons, dtype=np.bool_
+                    )
+                
+                # Get all indices at once
+                indices = [self.connectome_manager.neuron_array.id_to_index_map[nid] for nid in area_neuron_ids]
+                indices_array = np.array(indices)
+                
+                # Vectorized mask update
+                self.connectome_manager.area_neuron_masks[cortical_id][indices_array] = True
+                
+                # Batch update mappings (unavoidable loop but minimized)
+                for j, (neuron_id, index) in enumerate(zip(area_neuron_ids, indices)):
+                    self.connectome_manager.neuron_id_to_index[neuron_id] = index
+                    self.connectome_manager.index_to_neuron_id[index] = neuron_id
+                    area.add_neuron(neuron_id, tuple(positions[j]))
+                    self.connectome_manager._neuron_to_position[neuron_id] = (cortical_id, *positions[j], index)
+                
+                end_mapping_time = datetime.datetime.now()
+                mapping_time = (end_mapping_time - start_mapping_time).total_seconds()
+                
+                logger.warning(f"🔗 MAPPING COMPLETE for {cortical_id}: {len(area_neuron_ids)} mappings in {mapping_time:.3f}s")
+                
+                # Initialize voxel tracking for this area (vectorized)
+                if cortical_id not in self.voxel_neuron_map:
+                    self.voxel_neuron_map[cortical_id] = {}
+                
+                # Group neurons by position efficiently
+                position_to_neurons = {}
+                for j, (neuron_id, pos) in enumerate(zip(area_neuron_ids, positions)):
+                    pos_tuple = tuple(pos)
+                    if pos_tuple not in position_to_neurons:
+                        position_to_neurons[pos_tuple] = []
+                    position_to_neurons[pos_tuple].append(neuron_id)
+                
+                # Update voxel map
+                self.voxel_neuron_map[cortical_id].update(position_to_neurons)
+                
+                total_neurons += area_neuron_count
+                
+                # Report progress
+                progress = ((i + 1) / total_areas) * 100
+                self._report_progress(
+                    DevelopmentStage.NEUROGENESIS, 
+                    progress, 
+                    f"Area {i+1}/{total_areas} ({area.name}): {area_neuron_count} neurons created vectorized"
+                )
+            
+            self.development_stats["total_neurons"] = total_neurons
+            self._report_progress(
+                DevelopmentStage.NEUROGENESIS,
+                100,
+                f"Created {total_neurons} neurons across {len(self.cortical_areas)} areas (vectorized)"
+            )
+            return True
+            
+        except Exception as e:
+            import traceback
+            self.error = f"Failed to create neurons (vectorized): {str(e)}"
+            self._report_progress(DevelopmentStage.FAILED, 0, self.error)
+            logger.exception("Error during vectorized neurogenesis")
+            logger.error(f"Detailed error: {str(e)}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            return False
 
 
 # Convenience function for direct use

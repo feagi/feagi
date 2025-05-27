@@ -21,7 +21,7 @@ using Structure of Arrays (SoA) format compatible with SIMD and GPU acceleration
 """
 
 import numpy as np
-from typing import Dict, List, Tuple, Any, Optional, Union
+from typing import Dict, List, Tuple, Any, Optional, Union, Set
 import torch
 import logging
 from feagi.bdu.models.array_backend import ArrayBackend, BackendType
@@ -86,6 +86,7 @@ class NeuronArray:
         self.max_neurons = max_neurons
         self.next_index = 0
         self.free_indices: Set[int] = set()
+        self.neuron_count = 0  # Track actual number of active neurons
 
     def to_gpu(self):
         """Transfer neuron arrays to GPU for accelerated computation."""
@@ -769,6 +770,9 @@ class NeuronArray:
             if cortical_idx not in self.cortical_id_to_indices:
                 self.cortical_id_to_indices[cortical_idx] = []
             self.cortical_id_to_indices[cortical_idx].append(idx)
+        
+        # Update neuron count
+        self.neuron_count += len(neuron_ids)
         
         return neuron_ids
 
