@@ -59,19 +59,19 @@ class ConnectionManager:
                  control_port: int = 5559,
                  sensory_port: int = 5558,
                  motor_port: int = 5564,
-                 visualization_port: int = 5560):
+                 visualization_port: Optional[int] = 5560):
         """
         Initialize the connection manager.
         
         Args:
-            context: ZMQ context (will create a new one if None)
-            control_port: Port for control messages (FCP protocol)
-            sensory_port: Port for sensory data input (FSMP protocol)
-            motor_port: Port for motor data output (FSMP protocol)
-            visualization_port: Port for visualization data (FVP protocol)
+            context: ZMQ context (will create one if not provided)
+            control_port: Port for control messages (ROUTER pattern)
+            sensory_port: Port for sensory data (PULL pattern)
+            motor_port: Port for motor commands (PUB pattern)
+            visualization_port: Port for visualization data (PUB pattern), None to disable
         """
         self.context = context or zmq.asyncio.Context.instance()
-        self.connections: Dict[str, Dict[str, Any]] = {}  # agent_id -> connection_info
+        self.connections = {}  # agent_id -> connection_info
         
         # Create control socket (ROUTER) for bidirectional control messages
         self.control_socket = self.context.socket(zmq.ROUTER)
@@ -93,12 +93,16 @@ class ConnectionManager:
         self.motor_socket.bind(f"tcp://*:{motor_port}")
         logger.info(f"Motor socket (PUB) bound to port {motor_port}")
         
-        # Create visualization socket (PUB) for broadcasting visualization data
-        self.visualization_socket = self.context.socket(zmq.PUB)
-        self.visualization_socket.setsockopt(zmq.SNDHWM, 1)
-        self.visualization_socket.setsockopt(zmq.CONFLATE, 1)
-        self.visualization_socket.bind(f"tcp://*:{visualization_port}")
-        logger.info(f"Visualization socket (PUB) bound to port {visualization_port}")
+        # Create visualization socket (PUB) only if visualization port is provided
+        self.visualization_socket = None
+        if visualization_port is not None:
+            self.visualization_socket = self.context.socket(zmq.PUB)
+            self.visualization_socket.setsockopt(zmq.SNDHWM, 1)
+            self.visualization_socket.setsockopt(zmq.CONFLATE, 1)
+            self.visualization_socket.bind(f"tcp://*:{visualization_port}")
+            logger.info(f"Visualization socket (PUB) bound to port {visualization_port}")
+        else:
+            logger.info("Visualization socket disabled (port is None)")
         
         # Store port information
         self.ports = {
@@ -219,6 +223,9 @@ class ConnectionManager:
                 await self.motor_socket.send_multipart([channel_id, message])
             elif protocol_type == "fvp":
                 # Visualization data uses PUB-SUB pattern with topic
+                if self.visualization_socket is None:
+                    logger.debug("Visualization socket disabled, cannot send visualization data")
+                    return False
                 topic = b"activity"  # Default topic
                 await self.visualization_socket.send_multipart([topic, message])
             else:

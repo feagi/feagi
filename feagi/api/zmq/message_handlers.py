@@ -79,6 +79,11 @@ class MessageHandler:
         """Start the message handler."""
         if self.running:
             return
+        
+        # Don't start if socket is None (disabled stream)
+        if self.socket is None:
+            logger.info(f"Skipping {self.protocol_type} message handler - socket is disabled")
+            return
             
         self.running = True
         self.task = asyncio.create_task(self._handle_messages())
@@ -102,6 +107,11 @@ class MessageHandler:
     async def _handle_messages(self) -> None:
         """Main message handling loop."""
         logger.info(f"Listening for {self.protocol_type} messages")
+        
+        # Additional safety check for None socket
+        if self.socket is None:
+            logger.warning(f"{self.protocol_type} handler started but socket is None")
+            return
         
         while self.running:
             try:
@@ -342,11 +352,16 @@ async def start_message_handlers(connection_manager: ConnectionManager,
         translator
     )
     
-    handlers["fvp"] = FVPMessageHandler(
-        connection_manager, 
-        message_processors["fvp"], 
-        translator
-    )
+    # Only create FVP handler if visualization socket exists
+    if connection_manager.visualization_socket is not None:
+        handlers["fvp"] = FVPMessageHandler(
+            connection_manager, 
+            message_processors["fvp"], 
+            translator
+        )
+        logger.info("FVP message handler created (visualization enabled)")
+    else:
+        logger.info("FVP message handler skipped (visualization disabled)")
     
     # Start handlers
     for protocol, handler in handlers.items():

@@ -527,6 +527,12 @@ class FeagiStateManager:
     def get_connectome(self):
         """Get the current connectome instance"""
         try:
+            # Check if embedded mode is enabled
+            import os
+            if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
+                logger.debug("Embedded mode: Skipping connectome dependency injection")
+                return None
+                
             from feagi.api.rest.dependencies import get_connectome
             return get_connectome()
         except (ImportError, RuntimeError):
