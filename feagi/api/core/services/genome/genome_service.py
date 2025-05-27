@@ -342,7 +342,7 @@ class GenomeService(BaseService):
                     
                     # Ensure connected_agents is initialized if not already set
                     if not hasattr(self.state_manager, 'connected_agents') or self.state_manager.connected_agents is None:
-                        self.state_manager.connected_agents = 0  # Count of connected agents, not a list
+                        self.state_manager.connected_agents = {}  # Dictionary of connected agents, not a count
                     
                     # Ensure changes_saved_externally is initialized
                     if not hasattr(self.state_manager, 'changes_saved_externally'):

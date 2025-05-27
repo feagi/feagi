@@ -307,6 +307,15 @@ class ConnectomeManager:
         
         logger.info(f"✅ ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend")
     
+    @property
+    def cortical_areas(self) -> Dict[int, CorticalArea]:
+        """Backward compatibility property for legacy code.
+        
+        Returns the cortical_areas_by_idx dictionary to maintain compatibility
+        with existing code that expects .cortical_areas to exist.
+        """
+        return self.cortical_areas_by_idx
+    
     def _init_multi_gpu(self, multi_gpu_config):
         """Initialize multi-GPU support.
         

@@ -292,7 +292,8 @@ class ProcessManager:
                 stream_config = zmq_config.get('streams', {})
                 
                 # Check which streams are enabled (disable visualization in embedded mode)
-                visualization_enabled = stream_config.get('visualization', {}).get('enabled', True) and not embedded_mode
+                visualization_config = config.get('visualization', {})
+                visualization_enabled = visualization_config.get('enabled', True) and not embedded_mode
                 sensory_enabled = stream_config.get('sensory', {}).get('enabled', True)
                 motor_enabled = stream_config.get('motor', {}).get('enabled', True)
                 control_enabled = stream_config.get('control', {}).get('enabled', True)
@@ -339,36 +340,24 @@ class ProcessManager:
                 else:
                     logger.info("Visualization disabled, skipping FQ Sampler initialization")
                 
-                # Use hardcoded ports from configuration
-                zmq_ports = {
-                    'req_rep': port_config.zmq_req_rep_port,
-                    'pub_sub': port_config.zmq_pub_sub_port,
-                    'push_pull': port_config.zmq_push_pull_port,
-                    'sensory': port_config.zmq_sensory_port if sensory_enabled else None,
-                    'motor': port_config.zmq_motor_port if motor_enabled else None,
-                    'control': port_config.zmq_control_port if control_enabled else None,
-                    'visualization': port_config.zmq_visualization_port if visualization_enabled else None,
-                    'rest': port_config.zmq_rest_port,
-                }
-                
-                logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
-                
-                # Initialize ZMQ server with configuration-based stream enablement
+                # Create ZMQ server (this may fail due to port conflicts)
                 zmq_server = ZmqServer(
                     core_api=self._core_api,
                     host=zmq_host,
-                    req_rep_port=port_config.zmq_req_rep_port,
-                    pub_sub_port=port_config.zmq_pub_sub_port,
-                    push_pull_port=port_config.zmq_push_pull_port,
-                    sensory_port=port_config.zmq_sensory_port if sensory_enabled else None,
-                    motor_port=port_config.zmq_motor_port if motor_enabled else None,
-                    control_port=port_config.zmq_control_port if control_enabled else None,
-                    rest_port=port_config.zmq_rest_port,
-                    vis_port=port_config.zmq_visualization_port if visualization_enabled else None,
-                    fq_sampler=self._fq_sampler,  # Pass the actual FQ sampler
-                    fq_sampler_queue=self._fq_sampler_queue,  # Pass the actual queue
-                    stream_config=stream_config  # Pass stream configuration to ZMQ server
+                    req_rep_port=port_config.get_all_ports().get('zmq_req_rep_port', 5555),
+                    pub_sub_port=port_config.get_all_ports().get('zmq_pub_sub_port', 5556),
+                    push_pull_port=port_config.get_all_ports().get('zmq_push_pull_port', 5557),
+                    sensory_port=port_config.get_all_ports().get('zmq_sensory_port', 5558) if sensory_enabled else None,
+                    motor_port=port_config.get_all_ports().get('zmq_motor_port', 5564) if motor_enabled else None,
+                    control_port=port_config.get_all_ports().get('zmq_control_port', 5559) if control_enabled else None,
+                    rest_port=port_config.get_all_ports().get('zmq_rest_port', 5563),
+                    vis_port=port_config.get_all_ports().get('zmq_vis_port', 5562) if visualization_enabled else None,
+                    # Pass FQ sampler and queue for visualization stream
+                    fq_sampler=self._fq_sampler if visualization_enabled else None,
+                    fq_sampler_queue=self._fq_sampler_queue if visualization_enabled else None
                 )
+                
+                self._zmq_server = zmq_server
                 
                 # Start ZMQ server
                 if zmq_server.start():
@@ -377,12 +366,53 @@ class ProcessManager:
                     logger.info("ZMQ Message Broker initialized successfully")
                 else:
                     logger.error("Failed to start ZMQ Message Broker")
-                    return False
+                    # CRITICAL FIX: Don't fail the entire startup just because of port conflicts
+                    # The FQSampler was already created successfully above
+                    logger.warning("⚠️  Continuing without ZMQ server due to port conflicts")
+                    logger.warning("⚠️  FQSampler still available for direct access")
                     
             except Exception as e:
                 logger.error(f"Failed to initialize ZMQ Message Broker: {e}")
                 logger.debug(traceback.format_exc())
-                return False
+                # CRITICAL FIX: Don't return False - allow the process to continue
+                # The FQSampler might have been created successfully even if ZMQ failed
+                logger.warning("⚠️  Continuing despite ZMQ initialization failure")
+                logger.warning("⚠️  Some features may not be available")
+                
+                # If ZMQ failed but we have a core API, try to create FQSampler anyway
+                if self._core_api and not hasattr(self, '_fq_sampler') or self._fq_sampler is None:
+                    try:
+                        logger.info("🔧 Attempting standalone FQSampler creation...")
+                        from feagi.npu.burst_engine import FQSampler
+                        from queue import Queue
+                        
+                        # Create FQ sampler queue
+                        self._fq_sampler_queue = Queue(maxsize=100)
+                        
+                        # Create FQ sampler
+                        self._fq_sampler = FQSampler(
+                            fire_queue_provider=self._core_api,
+                            sample_frequency_hz=50.0,
+                            output_queue=self._fq_sampler_queue,
+                            connectome_manager=self._connectome_manager
+                        )
+                        
+                        # Start FQ sampler in a thread
+                        import threading
+                        self._fq_sampler_thread = threading.Thread(
+                            target=self._fq_sampler.run,
+                            daemon=True,
+                            name="FQSampler"
+                        )
+                        self._fq_sampler_thread.start()
+                        
+                        logger.info("✅ Standalone FQ Sampler created successfully")
+                        
+                    except Exception as fq_error:
+                        logger.error(f"Failed to create standalone FQ Sampler: {fq_error}")
+                        self._fq_sampler = None
+                        self._fq_sampler_queue = None
+                        self._fq_sampler_thread = None
                 
             # --- Resource Manager ---
             try:
