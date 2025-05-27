@@ -161,8 +161,8 @@ class ConnectomeManager:
             saved_state_info = None
             
             if has_existing_brain:
-                existing_area_count = len(self.cortical_areas)
-                logger.info(f"Step 2: Found existing brain with {existing_area_count} cortical areas")
+                existing_area_count = len(self.cortical_areas) if hasattr(self, 'cortical_areas') else 0
+                logger.info(f"Step 2: Had existing brain with {existing_area_count} cortical areas (now cleared)")
                 
                 # STEP 3: SAVE CURRENT STATE IF REQUESTED
                 if save_current_state:
@@ -172,14 +172,15 @@ class ConnectomeManager:
                         logger.info(f"✅ Current brain state saved: {saved_state_info['filename']}")
                     else:
                         logger.warning("⚠️ Failed to save current brain state - proceeding anyway")
-                
-                # STEP 4: CLEAR EXISTING BRAIN DATA
-                logger.info("Step 4: Clearing existing brain data")
-                clear_results = self._clear_existing_brain_data()
-                logger.info(f"✅ Cleared {clear_results['cortical_areas_cleared']} cortical areas, "
-                           f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses")
             else:
                 logger.info("Step 2: No existing brain found - proceeding with fresh initialization")
+            
+            # STEP 4: CLEAR EXISTING BRAIN DATA (ALWAYS!)
+            # Even if no existing brain, we need to reset counters from any previous state
+            logger.info("Step 4: Clearing/resetting all brain data and arrays")
+            clear_results = self._clear_existing_brain_data()
+            logger.info(f"✅ Cleared/reset {clear_results['cortical_areas_cleared']} cortical areas, "
+                       f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses")
             
             # STEP 5: CHECK MEMORY CAPACITY AND REALLOCATE IF NEEDED
             logger.info("Step 5: Checking memory capacity requirements")
@@ -188,6 +189,19 @@ class ConnectomeManager:
             if capacity_results["reallocated"]:
                 logger.info(f"✅ Reallocated connectome with {capacity_results['max_neurons']} neurons, "
                            f"{capacity_results['max_synapses']} synapses")
+                
+                # CRITICAL: After reallocation, ensure NeuronArray is in pristine state
+                if hasattr(self, 'neuron_array'):
+                    self.neuron_array.next_index = 0
+                    self.neuron_array.neuron_count = 0
+                    self.neuron_array.free_indices = set()
+                    if hasattr(self.neuron_array, 'id_to_index_map'):
+                        self.neuron_array.id_to_index_map.clear()
+                    if hasattr(self.neuron_array, 'index_to_id_map'):
+                        self.neuron_array.index_to_id_map.clear()
+                    if hasattr(self.neuron_array, 'cortical_id_to_indices'):
+                        self.neuron_array.cortical_id_to_indices.clear()
+                    logger.info("✅ Post-reallocation NeuronArray reset confirmed")
             else:
                 logger.info(f"✅ Using existing capacity: {capacity_results['max_neurons']} neurons, "
                            f"{capacity_results['max_synapses']} synapses")
@@ -2918,8 +2932,17 @@ class ConnectomeManager:
             if hasattr(self, 'neuron_array'):
                 try:
                     # Reset the neuron array to empty state efficiently
-                    self.neuron_array.valid_mask.fill(False)
-                    self.neuron_array.is_active.fill(False)
+                    # Handle both PyTorch tensors and NumPy arrays
+                    import torch
+                    if isinstance(self.neuron_array.valid_mask, torch.Tensor):
+                        # PyTorch tensors use fill_() method
+                        self.neuron_array.valid_mask.fill_(False)
+                        self.neuron_array.is_active.fill_(False)
+                    else:
+                        # NumPy arrays use fill() method
+                        self.neuron_array.valid_mask.fill(False)
+                        self.neuron_array.is_active.fill(False)
+                    
                     self.neuron_array.neuron_count = 0
                     
                     # CRITICAL: Reset the internal index tracking to allow reuse of neurons
@@ -2937,6 +2960,11 @@ class ConnectomeManager:
                     logger.info("✅ Reset neuron array state and index tracking efficiently")
                 except Exception as e:
                     logger.warning(f"Error resetting neuron array: {e}")
+                    # Force reset the critical counters even if tensor reset fails
+                    self.neuron_array.neuron_count = 0
+                    self.neuron_array.next_index = 0
+                    self.neuron_array.free_indices = set()
+                    logger.info("✅ Force-reset critical neuron array counters")
             
             # 4. Clear all ID mappings in one operation
             if hasattr(self, 'neuron_id_to_index'):
