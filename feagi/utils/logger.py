@@ -148,6 +148,11 @@ def setup_logger(
     console: bool = True,
     tag: Optional[str] = None,
 ) -> EmojiAdapter:
+    # Import required modules at the start
+    import os
+    from pathlib import Path
+    from datetime import datetime
+    
     # Check for CLI-provided log level override
     cli_log_level = os.environ.get('FEAGI_CLI_LOG_LEVEL')
     if cli_log_level:
@@ -237,13 +242,87 @@ def setup_logger(
 
     formatter = AlignedFormatter(datefmt="%Y-%m-%d %H:%M:%S")
 
-    if log_file:
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
+    # ALWAYS create a log file in feagi_core/feagi/logs/ directory
+    # This ensures we can always see what's happening during startup/operation
+    try:
+        # Get the feagi_core directory - look for it in the current working directory or parents
+        feagi_core_dir = None
+        current_path = Path.cwd()
+        
+        # Look for feagi_core directory up the directory tree
+        for path in [current_path] + list(current_path.parents):
+            potential_feagi_core = path / "feagi_core"
+            if potential_feagi_core.exists() and potential_feagi_core.is_dir():
+                feagi_core_dir = potential_feagi_core
+                break
+        
+        # If not found, check if we're already in feagi_core
+        if feagi_core_dir is None and current_path.name == "feagi_core":
+            feagi_core_dir = current_path
+        
+        # If still not found, use current directory
+        if feagi_core_dir is None:
+            feagi_core_dir = current_path
+        
+        # Create logs directory under feagi/
+        logs_dir = feagi_core_dir / "feagi" / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate timestamped log filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Use provided log_file or generate one based on logger name
+        if log_file:
+            # If user provided a specific file, use it but put it in logs directory
+            log_filename = Path(log_file).name
+        else:
+            # Generate filename based on logger name and timestamp
+            safe_name = name.replace(".", "_").replace("/", "_")
+            log_filename = f"feagi_{safe_name}_{timestamp}.log"
+        
+        # Full path for the log file
+        full_log_path = logs_dir / log_filename
+        
+        # Create file handler
+        file_handler = logging.FileHandler(full_log_path)
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
+        
+        # Create a symlink to "latest" for easy access
+        latest_link = logs_dir / f"feagi_{safe_name}_latest.log"
+        try:
+            if latest_link.exists() or latest_link.is_symlink():
+                latest_link.unlink()
+            latest_link.symlink_to(log_filename)
+        except (OSError, NotImplementedError):
+            # Symlinks might not be supported on all platforms
+            pass
+        
+        # Log the file location (only to console to avoid recursion)
+        if console:
+            temp_console = logging.StreamHandler(sys.stdout)
+            temp_console.setFormatter(formatter)
+            temp_logger = logging.getLogger("temp_setup")
+            temp_logger.addHandler(temp_console)
+            temp_logger.setLevel(logging.INFO)
+            temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
+            temp_adapter.info(f"📝 FEAGI logs saved to: {full_log_path}", emoji1="📝")
+            temp_logger.removeHandler(temp_console)
+            
+    except Exception as e:
+        # If log file creation fails, just continue with console logging
+        if console:
+            temp_console = logging.StreamHandler(sys.stdout)
+            temp_console.setFormatter(formatter)
+            temp_logger = logging.getLogger("temp_setup")
+            temp_logger.addHandler(temp_console)
+            temp_logger.setLevel(logging.WARNING)
+            temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
+            temp_adapter.warning(f"⚠️  Failed to create log file: {e}", emoji1="⚠️")
+            temp_logger.removeHandler(temp_console)
 
+    # Add console handler if requested
     if console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(level)
