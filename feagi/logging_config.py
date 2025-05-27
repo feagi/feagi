@@ -35,4 +35,4 @@ def setup_feagi_logging():
     # handler.setFormatter(EmojiFormatter("%(message)s", "%Y-%m-%d %H:%M:%S"))
     root = logging.getLogger()
     root.handlers = [handler]
-    root.setLevel(logging.INFO) 
+    root.setLevel(logging.WARNING) 

@@ -32,6 +32,7 @@ if '--embedded' in sys.argv:
     print("🔧 Embedded mode detected - FastAPI imports disabled")
 
 import argparse
+import logging
 import signal
 import time
 from pathlib import Path
@@ -151,6 +152,18 @@ def main():
     parser.add_argument("--embedded", action="store_true", help="Enable embedded device mode (disables REST API, uvicorn, visualization, and non-essential monitoring)")
     
     args = parser.parse_args()
+    
+    # Apply log level from CLI arguments immediately to prevent early INFO messages
+    if args.log_level is not None:
+        numeric_level = getattr(logging, args.log_level.upper(), logging.WARNING)
+        # Set the root logger level
+        logging.getLogger().setLevel(numeric_level)
+        # Store the log level in environment variable so new loggers can pick it up
+        os.environ['FEAGI_CLI_LOG_LEVEL'] = args.log_level.upper()
+        # Also update all existing loggers to use the new level
+        for name in logging.Logger.manager.loggerDict:
+            logger_obj = logging.getLogger(name)
+            logger_obj.setLevel(numeric_level)
     
     try:
         # Load TOML configuration with command-line overrides
