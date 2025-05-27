@@ -90,7 +90,7 @@ Implement a complete rewrite of `VisualizationStream` with threading-based archi
 ### Testing Results
 
 ✅ All 19 test cases passing  
-✅ Shutdown time: <2 seconds (previously 10+ seconds)  
+✅ Shutdown time: less than 2 seconds (previously 10+ seconds)  
 ✅ Thread safety verified under load  
 ✅ Error recovery automatic  
 ✅ Zero client compatibility issues  

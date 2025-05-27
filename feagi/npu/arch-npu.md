@@ -333,7 +333,7 @@ motor_area = {
 
 | Stream Type | Latency Target | Data Volume | Update Frequency | Use Case |
 |-------------|---------------|-------------|------------------|----------|
-| Motor | <10ms | Low (OPU only) | Burst Rate (~100Hz) | Real-time control |
+| Motor | less than 10ms | Low (OPU only) | Burst Rate (~100Hz) | Real-time control |
 | Visualization | ~50ms | High (All areas) | Configurable (1-60Hz) | Monitoring/Analysis |
 | Analytics | ~100ms | Variable | On-demand | Research/Logging |
 
