@@ -38,6 +38,8 @@ class TestConnectomeManager(unittest.TestCase):
     
     def setUp(self):
         """Set up a test connectome with some basic structure."""
+        # Reset singleton to ensure fresh instance for each test
+        ConnectomeManager.reset_singleton()
         self.connectome = ConnectomeManager()
         
         # Add some cortical areas
@@ -89,6 +91,11 @@ class TestConnectomeManager(unittest.TestCase):
                     position=(x, y, 0)
                 )
                 self.motor_neurons.append(neuron_id)
+
+    def tearDown(self):
+        """Clean up after each test."""
+        # Reset singleton to prevent test interference
+        ConnectomeManager.reset_singleton()
 
     def test_brain_region_operations(self):
         """Test the CRUD operations for brain regions."""
