@@ -78,7 +78,11 @@ class SystemService(BaseService):
             
             # Health check: burst engine is "healthy" if READY or ON_HOLD
             health["burst_engine"] = burst_state in [ServiceState.READY, ServiceState.ON_HOLD]
-            health["connected_agents"] = getattr(self.state_manager, 'connected_agents', None)
+            
+            # Get connected agents count (not the dictionary itself) for health check response
+            connected_agents_dict = getattr(self.state_manager, 'connected_agents', {})
+            health["connected_agents"] = len(connected_agents_dict) if isinstance(connected_agents_dict, dict) else 0
+            
             health["influxdb_availability"] = bool(getattr(self.state_manager, 'influxdb', False))
             
             # Resource limits - check parameters in state manager or use defaults

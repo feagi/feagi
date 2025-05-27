@@ -492,18 +492,20 @@ class FeagiTestRunner:
                 logger.warning("register_agent method not available, skipping visualization agent registration")
                 return False
                 
-            # Register a fake visualization agent
-            result = self.core_api.register_agent(
-                agent_id=self.visualization_agent_id,
-                agent_type="visualization",
-                agent_ip="127.0.0.1",
-                agent_data_port=5555,
-                agent_version="1.0.0",
-                controller_version="1.0.0",
-                capabilities={"visualization": True}
-            )
+            # Register a fake visualization agent - FIXED: Pass as dictionary to match CoreAPIService signature
+            agent_data = {
+                "agent_id": self.visualization_agent_id,
+                "type": "visualization",  # Note: using "type" not "agent_type" to match AgentsService expectation
+                "agent_ip": "127.0.0.1",
+                "agent_data_port": 5555,
+                "agent_version": "1.0.0",
+                "controller_version": "1.0.0",
+                "capabilities": {"visualization": True}
+            }
             
-            if result:
+            result = self.core_api.register_agent(agent_data)
+            
+            if result and result.get("success", False):
                 self.is_visualization_agent_registered = True
                 logger.info(f"Registered test visualization agent: {self.visualization_agent_id}")
                 
@@ -511,7 +513,8 @@ class FeagiTestRunner:
                 self.start_heartbeat_thread()
                 return True
             else:
-                logger.error("Failed to register visualization agent")
+                error_msg = result.get("error", "Unknown error") if result else "No result returned"
+                logger.error(f"Failed to register visualization agent: {error_msg}")
                 return False
                 
         except Exception as e:
