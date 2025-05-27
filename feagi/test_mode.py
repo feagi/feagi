@@ -104,12 +104,6 @@ class FeagiTestRunner:
         self.fcl_manager = self.core_api.get_fcl_manager()
         self.state_manager = FeagiStateManager.instance()
         
-        # Validate critical components are available
-        if not self.fcl_manager:
-            raise RuntimeError("FCL manager is not available - cannot run test mode")
-        if not self.connectome:
-            raise RuntimeError("Connectome manager is not available - cannot run test mode")
-        
         # Test configuration
         self.test_duration = test_duration
         self.frequency_hz = frequency_hz
@@ -235,9 +229,9 @@ class FeagiTestRunner:
             result = self.core_api.load_essential_genome()
             
             # Verify that the genome was loaded by checking if there are cortical areas
-            if len(self.connectome.cortical_areas_by_id) > 0:
+            if len(self.connectome.cortical_areas) > 0:
                 logger.info("Essential genome loaded successfully")
-                logger.info(f"Loaded genome has {len(self.connectome.cortical_areas_by_id)} cortical areas")
+                logger.info(f"Loaded genome has {len(self.connectome.cortical_areas)} cortical areas")
                 return True
             else:
                 logger.error("Genome was processed but no cortical areas found")
@@ -265,11 +259,11 @@ class FeagiTestRunner:
                 return False
                 
             # Verify we have cortical areas with neurons
-            if not self.connectome.cortical_areas_by_id:
+            if not self.connectome.cortical_areas:
                 logger.error("No cortical areas found in connectome")
                 return False
                 
-            logger.info(f"Genome validation successful: {len(self.connectome.cortical_areas_by_id)} cortical areas available")
+            logger.info(f"Genome validation successful: {len(self.connectome.cortical_areas)} cortical areas available")
             return True
             
         except Exception as e:
@@ -280,12 +274,8 @@ class FeagiTestRunner:
         """Capture the initial state of FCLs for comparison."""
         self.initial_fcls = {}
         
-        for cortical_id in self.connectome.cortical_areas_by_id:
-            # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
-            cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
-            cortical_idx = cortical_area.cortical_idx
-            
-            fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
+        for cortical_id in self.connectome.cortical_areas:
+            fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
             self.initial_fcls[cortical_id] = set(fcl) if fcl else set()
             
         logger.info(f"Captured initial state of {len(self.initial_fcls)} cortical areas")
@@ -332,11 +322,11 @@ class FeagiTestRunner:
             for cortical_id, coordinates_list in self.test_activations_data.items():
                 try:
                     # Check if this cortical area exists in the connectome
-                    if cortical_id not in self.connectome.cortical_areas_by_id:
+                    if cortical_id not in self.connectome.cortical_areas:
                         logger.warning(f"Cortical area {cortical_id} from JSON not found in connectome - skipping")
                         continue
                     
-                    cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
+                    cortical_area = self.connectome.cortical_areas[cortical_id]
                     
                     # Convert coordinates to neuron IDs
                     selected_neurons = []
@@ -373,12 +363,7 @@ class FeagiTestRunner:
                         if len(bitmap) > 0:
                             total_active_neurons += len(bitmap)
                             active_areas.append(cortical_id)
-                            
-                            # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
-                            cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
-                            cortical_idx = cortical_area.cortical_idx
-                            
-                            self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_idx: bitmap})
+                            self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
                             logger.debug(f"Injected {len(bitmap)} predictable neurons in {cortical_id}")
                     else:
                         logger.warning(f"No valid neurons found for coordinates in {cortical_id}")
@@ -412,7 +397,7 @@ class FeagiTestRunner:
             import random
             
             # Get all cortical areas from the loaded connectome
-            cortical_areas = list(self.connectome.cortical_areas_by_id.keys())
+            cortical_areas = list(self.connectome.cortical_areas.keys())
             
             if not cortical_areas:
                 logger.error("No cortical areas found in connectome")
@@ -427,7 +412,7 @@ class FeagiTestRunner:
             for cortical_id in cortical_areas:
                 try:
                     # Get the cortical area object
-                    cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
+                    cortical_area = self.connectome.cortical_areas[cortical_id]
                     
                     # Get all neurons in this cortical area
                     all_neurons = cortical_area.get_all_neurons()
@@ -451,12 +436,7 @@ class FeagiTestRunner:
                     if len(bitmap) > 0:
                         total_active_neurons += len(bitmap)
                         active_areas.append(cortical_id)
-                        
-                        # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
-                        cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
-                        cortical_idx = cortical_area.cortical_idx
-                        
-                        self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_idx: bitmap})
+                        self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
                         
                 except Exception as e:
                     logger.error(f"Error processing cortical area {cortical_id}: {e}")
@@ -492,20 +472,18 @@ class FeagiTestRunner:
                 logger.warning("register_agent method not available, skipping visualization agent registration")
                 return False
                 
-            # Register a fake visualization agent - FIXED: Pass as dictionary to match CoreAPIService signature
-            agent_data = {
-                "agent_id": self.visualization_agent_id,
-                "type": "visualization",  # Note: using "type" not "agent_type" to match AgentsService expectation
-                "agent_ip": "127.0.0.1",
-                "agent_data_port": 5555,
-                "agent_version": "1.0.0",
-                "controller_version": "1.0.0",
-                "capabilities": {"visualization": True}
-            }
+            # Register a fake visualization agent
+            result = self.core_api.register_agent(
+                agent_id=self.visualization_agent_id,
+                agent_type="visualization",
+                agent_ip="127.0.0.1",
+                agent_data_port=5555,
+                agent_version="1.0.0",
+                controller_version="1.0.0",
+                capabilities={"visualization": True}
+            )
             
-            result = self.core_api.register_agent(agent_data)
-            
-            if result and result.get("success", False):
+            if result:
                 self.is_visualization_agent_registered = True
                 logger.info(f"Registered test visualization agent: {self.visualization_agent_id}")
                 
@@ -513,8 +491,7 @@ class FeagiTestRunner:
                 self.start_heartbeat_thread()
                 return True
             else:
-                error_msg = result.get("error", "Unknown error") if result else "No result returned"
-                logger.error(f"Failed to register visualization agent: {error_msg}")
+                logger.error("Failed to register visualization agent")
                 return False
                 
         except Exception as e:
@@ -637,12 +614,8 @@ class FeagiTestRunner:
         active_fcls = []
         total_active_neurons = 0
         
-        for cortical_id in self.connectome.cortical_areas_by_id:
-            # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
-            cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
-            cortical_idx = cortical_area.cortical_idx
-            
-            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
+        for cortical_id in self.connectome.cortical_areas:
+            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
             current_fcl_set = set(current_fcl) if current_fcl else set()
             
             # Skip empty FCLs
@@ -711,7 +684,7 @@ class FeagiTestRunner:
                 self.hook_fq_sampler()
             
             # Get the IPU (sensory) areas from the connectome
-            ipu_areas = {id: area for id, area in self.connectome.cortical_areas_by_id.items() 
+            ipu_areas = {id: area for id, area in self.connectome.cortical_areas.items() 
                         if area.properties.get('group') == 'IPU'}
             if not ipu_areas:
                 logger.error("No IPU areas found in the genome")

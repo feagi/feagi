@@ -32,7 +32,6 @@ if '--embedded' in sys.argv:
     print("🔧 Embedded mode detected - FastAPI imports disabled")
 
 import argparse
-import logging
 import signal
 import time
 from pathlib import Path
@@ -91,177 +90,6 @@ def check_dependencies():
     except Exception as e:
         logger.error(f"Error checking dependencies: {e}", emoji1="❌")
         return True  # Continue execution despite the error
-
-
-def _calculate_genome_memory_requirements(genome_data: Dict[str, Any]) -> Dict[str, int]:
-    """
-    Calculate memory requirements from genome data.
-    
-    This method analyzes the genome to determine how much memory the ConnectomeManager
-    needs to allocate for neurons, synapses, and cortical areas.
-    
-    Args:
-        genome_data: The genome dictionary
-        
-    Returns:
-        Dictionary with estimated memory requirements
-    """
-    try:
-        requirements = {
-            "cortical_areas": 0,
-            "estimated_neurons": 0,
-            "estimated_synapses": 0,
-            "max_dimensions": [0, 0, 0]
-        }
-        
-        if "blueprint" not in genome_data:
-            logger.warning("No blueprint found in genome - using minimal requirements")
-            return {
-                "cortical_areas": 1,
-                "estimated_neurons": 1000,
-                "estimated_synapses": 10000,
-                "max_dimensions": [10, 10, 10]
-            }
-        
-        # Extract cortical area information from blueprint
-        cortical_areas = {}
-        
-        # Parse blueprint keys to group by cortical_id
-        for blueprint_key, value in genome_data["blueprint"].items():
-            parts = blueprint_key.split('-')
-            if len(parts) >= 2:
-                cortical_id = parts[1]
-                if cortical_id not in cortical_areas:
-                    cortical_areas[cortical_id] = {}
-                
-                # Extract property name (everything after the second dash)
-                if len(parts) >= 4:
-                    property_name = parts[3]
-                    cortical_areas[cortical_id][property_name] = value
-        
-        requirements["cortical_areas"] = len(cortical_areas)
-        
-        # Calculate neuron and synapse requirements for each cortical area
-        total_neurons = 0
-        total_synapses = 0
-        
-        for cortical_id, properties in cortical_areas.items():
-            # Get dimensions (default to 1x1x1 if missing)
-            dim_x = int(properties.get("dimx", 1))
-            dim_y = int(properties.get("dimy", 1))
-            dim_z = int(properties.get("dimz", 1))
-            
-            # Update max dimensions
-            requirements["max_dimensions"][0] = max(requirements["max_dimensions"][0], dim_x)
-            requirements["max_dimensions"][1] = max(requirements["max_dimensions"][1], dim_y)
-            requirements["max_dimensions"][2] = max(requirements["max_dimensions"][2], dim_z)
-            
-            # Calculate voxel count
-            voxel_count = dim_x * dim_y * dim_z
-            
-            # Get neurons per voxel (default to 1)
-            neurons_per_voxel = int(properties.get("neurons_per_voxel", 1))
-            
-            # Calculate neurons for this area
-            area_neurons = voxel_count * neurons_per_voxel
-            total_neurons += area_neurons
-            
-            # Estimate synapses (conservative estimate: avg 10 synapses per neuron)
-            # This will be refined based on actual morphology connections
-            estimated_synapses_per_neuron = 10
-            area_synapses = area_neurons * estimated_synapses_per_neuron
-            total_synapses += area_synapses
-            
-            logger.debug(f"Area {cortical_id}: {dim_x}x{dim_y}x{dim_z} = {voxel_count} voxels, "
-                        f"{area_neurons} neurons, ~{area_synapses} synapses")
-        
-        requirements["estimated_neurons"] = total_neurons
-        requirements["estimated_synapses"] = total_synapses
-        
-        # Add morphology-based synapse estimates
-        if "neuron_morphologies" in genome_data:
-            morphology_multiplier = len(genome_data["neuron_morphologies"]) * 1.2
-            requirements["estimated_synapses"] = int(requirements["estimated_synapses"] * morphology_multiplier)
-        
-        # Ensure minimum reasonable values
-        requirements["estimated_neurons"] = max(requirements["estimated_neurons"], 100)
-        requirements["estimated_synapses"] = max(requirements["estimated_synapses"], 1000)
-        
-        logger.info(f"Genome analysis complete: {requirements['cortical_areas']} areas, "
-                   f"~{requirements['estimated_neurons']} neurons, "
-                   f"~{requirements['estimated_synapses']} synapses")
-        
-        return requirements
-        
-    except Exception as e:
-        logger.error(f"Error calculating genome memory requirements: {str(e)}")
-        # Return safe defaults on error
-        return {
-            "cortical_areas": 10,
-            "estimated_neurons": 10000,
-            "estimated_synapses": 100000,
-            "max_dimensions": [20, 20, 20]
-        }
-
-
-def _initialize_with_essential_genome():
-    """Initialize ConnectomeManager with essential genome requirements."""
-    try:
-        # Load essential genome to calculate requirements
-        possible_paths = [
-            os.path.join(os.path.dirname(__file__), "../evo/defaults/genome/essential_genome.json"),
-            os.path.join(os.path.dirname(__file__), "../../evo/defaults/genome/essential_genome.json"),
-            os.path.join(os.getcwd(), "feagi/evo/defaults/genome/essential_genome.json"),
-            os.path.join(os.getcwd(), "feagi_core/feagi/evo/defaults/genome/essential_genome.json"),
-            os.path.join(os.environ.get("FEAGI_HOME", ""), "evo/defaults/genome/essential_genome.json"),
-        ]
-        
-        essential_path = None
-        for path in possible_paths:
-            if path and os.path.exists(path):
-                essential_path = path
-                break
-                
-        if essential_path:
-            import json
-            with open(essential_path, 'r') as f:
-                genome_data = json.load(f)
-            
-            # Calculate memory requirements from essential genome
-            memory_requirements = _calculate_genome_memory_requirements(genome_data)
-            buffer_multiplier = 1.5  # 50% extra space for expansion
-            max_neurons = int(memory_requirements['estimated_neurons'] * buffer_multiplier)
-            max_synapses = int(memory_requirements['estimated_synapses'] * buffer_multiplier)
-            
-            logger.info(f"Essential genome analysis: {memory_requirements['estimated_neurons']} neurons, "
-                       f"{memory_requirements['estimated_synapses']} synapses")
-            logger.info(f"Allocating buffers: {max_neurons} neurons, {max_synapses} synapses")
-            
-            # Initialize ConnectomeManager with calculated requirements
-            from feagi.bdu.connectome_manager import ConnectomeManager
-            return ConnectomeManager.instance(
-                config_or_max_neurons=max_neurons,
-                max_synapses=max_synapses
-            )
-        else:
-            logger.warning("Essential genome not found, using conservative defaults")
-            # Use conservative defaults if essential genome is not found
-            from feagi.bdu.connectome_manager import ConnectomeManager
-            return ConnectomeManager.instance(
-                config_or_max_neurons=50000,  # Conservative default
-                max_synapses=500000  # Conservative default
-            )
-            
-    except Exception as e:
-        logger.error(f"Error loading essential genome: {e}")
-        logger.info("Using conservative defaults for ConnectomeManager")
-        # Fall back to conservative defaults
-        from feagi.bdu.connectome_manager import ConnectomeManager
-        return ConnectomeManager.instance(
-            config_or_max_neurons=50000,  # Conservative default
-            max_synapses=500000  # Conservative default
-        )
-
 
 def main():
     """
@@ -323,18 +151,6 @@ def main():
     parser.add_argument("--embedded", action="store_true", help="Enable embedded device mode (disables REST API, uvicorn, visualization, and non-essential monitoring)")
     
     args = parser.parse_args()
-    
-    # Apply log level from CLI arguments immediately to prevent early INFO messages
-    if args.log_level is not None:
-        numeric_level = getattr(logging, args.log_level.upper(), logging.WARNING)
-        # Set the root logger level
-        logging.getLogger().setLevel(numeric_level)
-        # Store the log level in environment variable so new loggers can pick it up
-        os.environ['FEAGI_CLI_LOG_LEVEL'] = args.log_level.upper()
-        # Also update all existing loggers to use the new level
-        for name in logging.Logger.manager.loggerDict:
-            logger_obj = logging.getLogger(name)
-            logger_obj.setLevel(numeric_level)
     
     try:
         # Load TOML configuration with command-line overrides
@@ -451,48 +267,9 @@ def main():
         logger.error("Dependency check failed. Please install required dependencies.")
         return 1
     
-    # GENOME-DRIVEN INITIALIZATION: Load genome FIRST to determine ConnectomeManager requirements
-    logger.info("🧬 Starting genome-driven initialization...")
-    
-    # Determine which genome to load
-    genome_path = args.genome or args.genome_path
-    
-    # Initialize ConnectomeManager with proper genome-driven parameters
+    # Initialize the main connectome instance using singleton pattern
     from feagi.bdu.connectome_manager import ConnectomeManager
-    
-    if genome_path:
-        logger.info(f"📄 Loading custom genome: {genome_path}")
-        # Load custom genome and calculate requirements
-        try:
-            import json
-            with open(genome_path, 'r') as f:
-                genome_data = json.load(f)
-            
-            # Calculate memory requirements from genome
-            memory_requirements = _calculate_genome_memory_requirements(genome_data)
-            buffer_multiplier = 1.5  # 50% extra space for expansion
-            max_neurons = int(memory_requirements['estimated_neurons'] * buffer_multiplier)
-            max_synapses = int(memory_requirements['estimated_synapses'] * buffer_multiplier)
-            
-            logger.info(f"Genome analysis: {memory_requirements['estimated_neurons']} neurons, "
-                       f"{memory_requirements['estimated_synapses']} synapses")
-            logger.info(f"Allocating buffers: {max_neurons} neurons, {max_synapses} synapses")
-            
-            # Initialize ConnectomeManager with calculated requirements
-            connectome = ConnectomeManager.instance(
-                config_or_max_neurons=max_neurons,
-                max_synapses=max_synapses
-            )
-            
-        except Exception as e:
-            logger.error(f"❌ Error loading genome {genome_path}: {e}")
-            logger.info("Falling back to essential genome...")
-            # Fall back to essential genome
-            connectome = _initialize_with_essential_genome()
-    else:
-        # No genome specified - use essential genome by default
-        logger.info("📄 No genome specified, loading essential genome...")
-        connectome = _initialize_with_essential_genome()
+    connectome = ConnectomeManager.instance()
     
     # Set the connectome instance for FastAPI dependency injection (only in normal mode)
     embedded_mode = config.get('system', {}).get('embedded', False)
@@ -502,7 +279,7 @@ def main():
     else:
         logger.info("🔧 Embedded mode: Skipping FastAPI dependency injection setup")
     
-    # Initialize the ProcessManager - it will now use the existing ConnectomeManager singleton
+    # Initialize the ProcessManager with the connectome  
     process_manager = get_process_manager()
     
     # Set up signal handlers for graceful shutdown
