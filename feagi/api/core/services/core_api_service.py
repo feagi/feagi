@@ -1354,8 +1354,8 @@ class CoreAPIService:
             Integer index if found, None otherwise
         """
         try:
-            if not hasattr(self._connectome_manager, 'cortical_areas'):
-                self.logger.debug(f"🔍 No cortical_areas attribute for {cortical_id}")
+            if not hasattr(self._connectome_manager, 'cortical_areas_by_id'):
+                self.logger.debug(f"🔍 No cortical_areas_by_id attribute for {cortical_id}")
                 return None
                 
             self.logger.debug(f"🔍 Searching for {cortical_id} in {len(self._connectome_manager.cortical_areas_by_id)} areas")
