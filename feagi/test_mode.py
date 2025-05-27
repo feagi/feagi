@@ -104,6 +104,12 @@ class FeagiTestRunner:
         self.fcl_manager = self.core_api.get_fcl_manager()
         self.state_manager = FeagiStateManager.instance()
         
+        # Validate critical components are available
+        if not self.fcl_manager:
+            raise RuntimeError("FCL manager is not available - cannot run test mode")
+        if not self.connectome:
+            raise RuntimeError("Connectome manager is not available - cannot run test mode")
+        
         # Test configuration
         self.test_duration = test_duration
         self.frequency_hz = frequency_hz
@@ -275,7 +281,11 @@ class FeagiTestRunner:
         self.initial_fcls = {}
         
         for cortical_id in self.connectome.cortical_areas_by_id:
-            fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
+            # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
+            cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
+            cortical_idx = cortical_area.cortical_idx
+            
+            fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
             self.initial_fcls[cortical_id] = set(fcl) if fcl else set()
             
         logger.info(f"Captured initial state of {len(self.initial_fcls)} cortical areas")
@@ -363,7 +373,12 @@ class FeagiTestRunner:
                         if len(bitmap) > 0:
                             total_active_neurons += len(bitmap)
                             active_areas.append(cortical_id)
-                            self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
+                            
+                            # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
+                            cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
+                            cortical_idx = cortical_area.cortical_idx
+                            
+                            self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_idx: bitmap})
                             logger.debug(f"Injected {len(bitmap)} predictable neurons in {cortical_id}")
                     else:
                         logger.warning(f"No valid neurons found for coordinates in {cortical_id}")
@@ -436,7 +451,12 @@ class FeagiTestRunner:
                     if len(bitmap) > 0:
                         total_active_neurons += len(bitmap)
                         active_areas.append(cortical_id)
-                        self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
+                        
+                        # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
+                        cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
+                        cortical_idx = cortical_area.cortical_idx
+                        
+                        self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_idx: bitmap})
                         
                 except Exception as e:
                     logger.error(f"Error processing cortical area {cortical_id}: {e}")
@@ -615,7 +635,11 @@ class FeagiTestRunner:
         total_active_neurons = 0
         
         for cortical_id in self.connectome.cortical_areas_by_id:
-            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
+            # FIXED: Convert cortical_id (string) to cortical_idx (integer) for FCL manager
+            cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
+            cortical_idx = cortical_area.cortical_idx
+            
+            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
             current_fcl_set = set(current_fcl) if current_fcl else set()
             
             # Skip empty FCLs
