@@ -116,90 +116,75 @@ class ConnectomeManager:
         return super().__new__(cls)
     
     def __init__(self, config_or_max_neurons=10_000_000, max_synapses=100_000_000, 
-                backend=None, multi_gpu_config=None):
-        """Initialize the ConnectomeManager with GPU/CPU-optimized data structures.
+                 backend=None, multi_gpu_config=None):
+        """Initialize the ConnectomeManager with optimized performance settings.
         
         Args:
-            config_or_max_neurons: Either a FeagiConfig object or the maximum number of neurons
-            max_synapses: Maximum number of synapses (only used if first parameter is an integer)
-            backend: Backend type to use (numpy, pytorch, cupy, webgpu, or auto)
-            multi_gpu_config: Configuration for multi-GPU operation (optional)
+            config_or_max_neurons: Either a config dict or max number of neurons (backward compatibility)
+            max_synapses: Maximum number of synapses to support
+            backend: Specific backend to use ('pytorch', 'cupy', 'wgpu', 'numpy')
+            multi_gpu_config: Configuration for multi-GPU setup (optional)
         """
-        # Prevent re-initialization of singleton
-        if self._initialized:
-            logger.debug("🔒 ConnectomeManager already initialized - skipping re-initialization", extra={'emoji': '🔒'})
+        if ConnectomeManager._initialized:
             return
-            
-        # Handle either a config object or direct integers
-        if hasattr(config_or_max_neurons, 'get'):
-            # This is a FeagiConfig object
-            self.max_neurons = config_or_max_neurons.get('connectome.max_neurons', 10_000_000)
-            self.max_synapses = config_or_max_neurons.get('connectome.max_synapses_per_neuron', 10) * self.max_neurons
-            fcl_window_size = config_or_max_neurons.get('connectome.fcl_window_size', 20)
+        
+        # Handle legacy parameter passing
+        if isinstance(config_or_max_neurons, dict):
+            config = config_or_max_neurons
+            self.max_neurons = config.get("max_neurons", 10_000_000)
+            max_synapses = config.get("max_synapses", max_synapses)
+            backend = config.get("backend", backend)
         else:
-            # This is a direct integer
             self.max_neurons = config_or_max_neurons
-            self.max_synapses = max_synapses
-            fcl_window_size = 20
         
-        # Set backend type
-        self.backend = backend
+        self.max_synapses = max_synapses
         
-        # Initialize neuron storage using NeuronArray for SIMD/GPU optimization
-        self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=backend)
+        # Initialize neuron array with automatic backend selection
+        self.neuron_array = NeuronArray(
+            max_neurons=self.max_neurons,
+            backend=backend
+        )
         
-        # Cortical area storage (still dictionary-based as areas are fewer in number)
-        self.cortical_areas: Dict[str, CorticalArea] = {}
-        
-        # Mapping from cortical_id to neuron indices - use NumPy arrays for efficiency
-        # This is a mapping of cortical_id (string) to a boolean mask of length max_neurons
-        self.area_neuron_masks: Dict[str, np.ndarray] = {}
-        
-        # Brain region storage
-        self.brain_regions: Dict[str, Dict[str, Any]] = {}
-        
-        # Region to area mapping - use sets for small collections
-        self.region_area_map: Dict[str, Set[str]] = {}
-        
-        # Connectivity rules storage
-        self.connectivity_rules: Dict[str, Dict[str, Any]] = {}
-        
-        # Cortical connections storage
-        self.cortical_connections: Dict[str, Dict[str, Any]] = {}
-        
-        # Synapse storage using sparse matrices
-        self._init_synapse_storage()
-        
-        # Track neuron ID assignment
+        # Neuron ID management
         self.next_neuron_id = 0
-        
-        # Mapping from neuron_id (int) to index in the NeuronArray
-        # This is needed for backward compatibility with existing API
         self.neuron_id_to_index: Dict[int, int] = {}
         self.index_to_neuron_id: Dict[int, int] = {}
         
-        # For tracking active neurons
-        self.active_neurons = np.zeros(self.max_neurons, dtype=np.bool_)
+        # Cortical area management
+        self.cortical_areas: Dict[str, CorticalArea] = {}
+        self.next_cortical_idx = 1  # Start from 1, reserve 0 for special purposes
+        self.area_neuron_masks: Dict[str, np.ndarray] = {}
         
-        # Simulation state
+        # Brain region management
+        self.brain_regions: Dict[str, Dict[str, Any]] = {}
+        self.region_area_map: Dict[str, Set[str]] = {}
+        
+        # Initialize synapse storage with automatic sparsity detection
+        self.max_synapses = max_synapses
+        self._init_synapse_storage()
+        
+        # For backward compatibility with tests
+        self._neuron_to_position: Dict[int, Tuple] = {}
+        
+        # Initialize FCL manager and other missing attributes for BurstEngine compatibility
+        from feagi.npu.fcl_manager import FCLManager
+        self.fcl_manager = FCLManager()
+        
+        # Initialize active neurons tracking
+        self.active_neurons = np.zeros(self.max_neurons, dtype=np.bool_)
         self.current_timestep = 0
         
-        # Initialize FCL manager
-        # Import here to avoid circular imports
-        from feagi.npu.fcl_manager import FCLManager
-        self.fcl_manager = FCLManager(window_size=fcl_window_size)
-        
-        # Multi-GPU support
+        # Initialize multi-GPU manager
         self.multi_gpu_manager = None
-        if multi_gpu_config is not None:
+        if multi_gpu_config:
             self._init_multi_gpu(multi_gpu_config)
         
-        # For test compatibility
-        self._neuron_to_position = {}
-        self.is_initialized = True
+        ConnectomeManager._initialized = True
         
-        logger.info(f"Initialized optimized ConnectomeManager (Structure of Arrays) with capacity for {self.max_neurons} neurons "
-                   f"and {self.max_synapses} synapses using {self.neuron_array.backend.backend_type.value if hasattr(self.neuron_array.backend, 'backend_type') else 'unknown'} backend")
+        # Backward compatibility for tests - store the instance
+        ConnectomeManager._instance = self
+        
+        logger.info(f"✅ ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend")
     
     def _init_multi_gpu(self, multi_gpu_config):
         """Initialize multi-GPU support.
@@ -1126,14 +1111,19 @@ class ConnectomeManager:
             if area.name == name:
                 raise ValueError(f"Cortical area with name '{name}' already exists")
         
-        # Create the cortical area
+        # Assign unique cortical_idx
+        cortical_idx = self.next_cortical_idx
+        self.next_cortical_idx += 1
+        
+        # Create the cortical area with assigned cortical_idx
         area = CorticalArea(
             name=name,
             dimensions=dimensions,
             position=position,
             area_type=area_type,
             properties=properties or {},
-            cortical_id=cortical_id
+            cortical_id=cortical_id,
+            cortical_idx=cortical_idx  # Now we assign a unique index
         )
         
         # Add to cortical areas dict
@@ -1142,7 +1132,7 @@ class ConnectomeManager:
         # Initialize area neuron mask
         self.area_neuron_masks[area.id] = np.zeros(self.max_neurons, dtype=np.bool_)
         
-        logger.debug(f"Added cortical area '{name}' with ID {area.id}")
+        logger.debug(f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}")
         return area.id
         
     def get_cortical_area(self, cortical_id: str) -> CorticalArea:

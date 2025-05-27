@@ -24,7 +24,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "Neuraville Inc.", email = "contact@neuraville.com"}
+    {name = "Neuraville Inc.", email = "feagi@neuraville.com"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

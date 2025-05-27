@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import time
+import logging
 # RTOS-COMPATIBLE: Removed signal and threading imports - not available in RTOS
 # import signal  # REMOVED: Not compatible with RTOS
 # import threading  # REMOVED: Not compatible with RTOS - use RTOS task primitives instead
@@ -147,6 +148,9 @@ class BurstEngine:
             
         # WGPU-COMPATIBLE: Use logger instead of print for debug output
         logger.info(f"🔥 BURST ENGINE: Initializing singleton instance {self._instance_id}")
+        
+        # Initialize logger for this instance
+        self.logger = logging.getLogger(__name__ + f".BurstEngine.{self._instance_id}")
         
         self.connectome_manager = connectome_manager
         self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
