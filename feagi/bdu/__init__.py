@@ -1,14 +1,15 @@
-"""Brain Development Unit (BDU) for FEAGI.
+"""
+BDU (Brain Data Unit) - Core data structures and connectome management.
 
-The BDU is responsible for developing and managing the neural connectome
-based on genomic instructions.
+This module provides the fundamental data structures for FEAGI's neural simulation,
+including the optimized ConnectomeManager with Structure of Arrays (SoA) storage.
 """
 
-from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
+from feagi.bdu.models.cortical_area import CorticalArea
+from feagi.bdu.models.neuron import Neuron, NeuronArray
 
 # Import core models
-from feagi.bdu.models.neuron import Neuron, NeuronArray
-from feagi.bdu.models.cortical_area import CorticalArea
 from feagi.bdu.models.brain_region import BrainRegion
 from feagi.bdu.models.synapse import SynapseManager
 
@@ -23,15 +24,25 @@ from feagi.bdu.connectivity.mapping_utils import get_detailed_cortical_map, buil
 from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 
 __all__ = [
+    # Core connectome management - optimized SoA implementation
     'ConnectomeManager',
+    'NeuronPropertyType',
+    
+    # Data models
+    'CorticalArea',
     'Neuron',
     'NeuronArray',
-    'CorticalArea',
+    
+    # Core models
     'BrainRegion',
     'SynapseManager',
+    
+    # Connectivity modules
     'ConnectivityRule',
     'CorticalMapping',
     'SynaptogenesisRule',
     'SynapseRule',
+    
+    # Neuroembryogenesis
     'NeuroEmbryogenesis'
 ]
