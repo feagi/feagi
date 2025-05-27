@@ -99,11 +99,11 @@ class SystemService(BaseService):
                 # Get data from connectome manager (now properly singleton)
                 if self._validate_connectome_ready():
                     health["cortical_area_count"] = len(self._connectome_manager.cortical_areas)
-                    health["neuron_count"] = len(self._connectome_manager.neurons)
+                    health["neuron_count"] = self._connectome_manager.neuron_count
                     health["synapse_count"] = self._connectome_manager.get_synapse_count()
                     
                     # Estimate brain size 
-                    neuron_size_mb = len(self._connectome_manager.neurons) * 0.001  # ~1KB per neuron
+                    neuron_size_mb = self._connectome_manager.neuron_count * 0.001  # ~1KB per neuron
                     synapse_size_mb = self._connectome_manager.get_synapse_count() * 0.0001  # ~100B per synapse  
                     health["estimated_brain_size_in_MB"] = round(neuron_size_mb + synapse_size_mb, 2)
                 else:
