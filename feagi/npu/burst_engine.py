@@ -192,7 +192,7 @@ class BurstEngine:
         self.burst_interval = 1.0 / self.desired_frequency
         
         # Use cortical_areas instead of _areas - fix the attribute name
-        self.cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
+        self.cortical_areas = list(self.connectome_manager.cortical_areas_by_id.values()) if hasattr(self.connectome_manager, 'cortical_areas_by_id') else []
         self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
         
         # Initialize special area handling if a genome is already loaded
@@ -617,7 +617,7 @@ class BurstEngine:
         self.burst_count = 0  # Reset burst count for new genome
         
         # Use cortical_areas instead of _areas - fix the attribute name
-        self.cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
+        self.cortical_areas = list(self.connectome_manager.cortical_areas_by_id.values()) if hasattr(self.connectome_manager, 'cortical_areas_by_id') else []
         self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
         
         # WGPU-COMPATIBLE: Use config-based debug instead of environment variable
@@ -1543,7 +1543,7 @@ class FQSampler:
                 areas_processed = 0
                 areas_with_data = 0
                 
-                for area in self.connectome_manager.cortical_areas.values():
+                for area in self.connectome_manager.cortical_areas_by_id.values():
                     cortical_id = area.id
                     areas_processed += 1
                     
@@ -1621,7 +1621,7 @@ class FQSampler:
             if not self.connectome_manager:
                 return opu_areas
                 
-            for area in self.connectome_manager.cortical_areas.values():
+            for area in self.connectome_manager.cortical_areas_by_id.values():
                 # Check if area is of type OPU
                 area_type = area.properties.get('cortical_type', '').upper()
                 
@@ -1844,7 +1844,7 @@ class FQSampler:
             return fire_queue
             
         try:
-            area = self.connectome_manager.cortical_areas.get(cortical_id)
+            area = self.connectome_manager.cortical_areas_by_id.get(cortical_id)
             if not area:
                 return {'neuron_ids': [], 'membrane_potentials': [], 'thresholds': [], 
                        'consecutive_fire_counts': [], 'refractory_counters': []}
@@ -1885,7 +1885,7 @@ class FQSampler:
         
         try:
             if self.connectome_manager:
-                area = self.connectome_manager.cortical_areas.get(cortical_id)
+                area = self.connectome_manager.cortical_areas_by_id.get(cortical_id)
                 if area:
                     logger.info(f"   ✅ Found area '{area.name}' with {area.neuron_count} total neurons")
                     
@@ -1973,7 +1973,7 @@ class FQSampler:
                 # Map neuron IDs to their areas and get coordinates
                 for neuron_id in neuron_ids:
                     found = False
-                    for cortical_id, area in self.connectome_manager.cortical_areas.items():
+                    for cortical_id, area in self.connectome_manager.cortical_areas_by_id.items():
                         try:
                             # Check if this neuron is in this area by checking the position map
                             position = area.get_neuron_position(neuron_id)

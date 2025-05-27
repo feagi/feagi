@@ -268,8 +268,11 @@ class ConnectomeManager:
         self.neuron_id_to_index: Dict[int, int] = {}
         self.index_to_neuron_id: Dict[int, int] = {}
         
-        # Cortical area management
-        self.cortical_areas: Dict[str, CorticalArea] = {}
+        # Cortical area management - NEW CLEAR ARCHITECTURE
+        self.cortical_areas_by_id: Dict[str, CorticalArea] = {}  # String lookups
+        self.cortical_areas_by_idx: Dict[int, CorticalArea] = {}  # Integer lookups
+        self.cortical_id_to_idx: Dict[str, int] = {}  # Fast string -> int conversion
+        self.cortical_idx_to_id: Dict[int, str] = {}  # Fast int -> string conversion
         self.next_cortical_idx = 1  # Start from 1, reserve 0 for special purposes
         self.area_neuron_masks: Dict[str, np.ndarray] = {}
         
@@ -535,10 +538,10 @@ class ConnectomeManager:
             ValueError: If the position is outside the area's boundaries
         """
         # Validate area exists
-        if cortical_id not in self.cortical_areas:
+        if cortical_id not in self.cortical_areas_by_id:
             raise ValueError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas[cortical_id]
+        area = self.cortical_areas_by_id[cortical_id]
         
         # Validate position
         if not area.contains_position(position):
@@ -691,7 +694,7 @@ class ConnectomeManager:
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas:
+        if cortical_id not in self.cortical_areas_by_id:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
         if cortical_id not in self.area_neuron_masks:
@@ -728,19 +731,17 @@ class ConnectomeManager:
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Find the corresponding cortical_id
-        for cortical_id, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                return cortical_id
+        # Find the corresponding cortical_id using new lookup
+        return self.cortical_idx_to_id.get(cortical_idx)
                 
         # If we can't find a matching area, return the TEST__ area if it exists
-        if "TEST__" in self.cortical_areas:
+        if "TEST__" in self.cortical_areas_by_id:
             logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using TEST__ area.")
             return "TEST__"
                 
         # If no match found and no TEST__ area, use the first available area
-        if self.cortical_areas:
-            first_cortical_id = next(iter(self.cortical_areas.keys()))
+        if self.cortical_areas_by_id:
+            first_cortical_id = next(iter(self.cortical_areas_by_id.keys()))
             logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using {first_cortical_id} area.")
             return first_cortical_id
         
@@ -1225,7 +1226,7 @@ class ConnectomeManager:
             ValueError: If an area with the same name already exists
         """
         # Check if an area with this name already exists
-        for area in self.cortical_areas.values():
+        for area in self.cortical_areas_by_id.values():
             if area.name == name:
                 raise ValueError(f"Cortical area with name '{name}' already exists")
         
@@ -1245,7 +1246,11 @@ class ConnectomeManager:
         )
         
         # Add to cortical areas dict
-        self.cortical_areas[area.id] = area
+        # Store in all lookup structures
+        self.cortical_areas_by_id[area.id] = area
+        self.cortical_areas_by_idx[area.cortical_idx] = area
+        self.cortical_id_to_idx[area.id] = area.cortical_idx
+        self.cortical_idx_to_id[area.cortical_idx] = area.id
         
         # Initialize area neuron mask
         self.area_neuron_masks[area.id] = np.zeros(self.max_neurons, dtype=np.bool_)
@@ -1265,10 +1270,10 @@ class ConnectomeManager:
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas:
+        if cortical_id not in self.cortical_areas_by_id:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
             
-        return self.cortical_areas[cortical_id]
+        return self.cortical_areas_by_id[cortical_id]
     
     def get_cortical_area_by_name(self, name: str) -> Optional[CorticalArea]:
         """Get a cortical area by its name.
@@ -1279,7 +1284,7 @@ class ConnectomeManager:
         Returns:
             The cortical area object, or None if not found
         """
-        for area in self.cortical_areas.values():
+        for area in self.cortical_areas_by_id.values():
             if area.name == name:
                 return area
         
@@ -1291,7 +1296,7 @@ class ConnectomeManager:
         Returns:
             List of area names
         """
-        return [area.name for area in self.cortical_areas.values()]
+        return [area.name for area in self.cortical_areas_by_id.values()]
     
     def delete_cortical_area(self, cortical_id: str, delete_neurons: bool = True) -> bool:
         """Delete a cortical area from the connectome.
@@ -1306,10 +1311,10 @@ class ConnectomeManager:
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas:
+        if cortical_id not in self.cortical_areas_by_id:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas[cortical_id]
+        area = self.cortical_areas_by_id[cortical_id]
         
         # Get neurons in this area
         neurons_to_delete = self.get_neurons_by_cortical_area(cortical_id)
@@ -1333,9 +1338,13 @@ class ConnectomeManager:
         if cortical_id in self.area_neuron_masks:
             del self.area_neuron_masks[cortical_id]
         
-        # Remove area
+        # Remove area from all lookup structures
         area_name = area.name
-        del self.cortical_areas[cortical_id]
+        cortical_idx = area.cortical_idx
+        del self.cortical_areas_by_id[cortical_id]
+        del self.cortical_areas_by_idx[cortical_idx]
+        del self.cortical_id_to_idx[cortical_id]
+        del self.cortical_idx_to_id[cortical_idx]
         
         logger.info(f"Deleted cortical area {cortical_id} ({area_name})")
         return True
@@ -1484,9 +1493,9 @@ class ConnectomeManager:
         else:
             # Just remove the association
             for cortical_id in areas_to_delete:
-                if cortical_id in self.cortical_areas:
-                    if "region_id" in self.cortical_areas[cortical_id].properties:
-                        del self.cortical_areas[cortical_id].properties["region_id"]
+                if cortical_id in self.cortical_areas_by_id:
+                    if "region_id" in self.cortical_areas_by_id[cortical_id].properties:
+                        del self.cortical_areas_by_id[cortical_id].properties["region_id"]
         
         # Remove region from tracking
         region_name = self.brain_regions[region_id]["name"]
@@ -1510,14 +1519,14 @@ class ConnectomeManager:
         Raises:
             KeyError: If either the cortical_id or region_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas:
+        if cortical_id not in self.cortical_areas_by_id:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
         
         # Check if area is already in another region and remove if so
-        area = self.cortical_areas[cortical_id]
+        area = self.cortical_areas_by_id[cortical_id]
         current_region_id = area.properties.get("region_id")
         if current_region_id and current_region_id in self.region_area_map:
             self.region_area_map[current_region_id].discard(cortical_id)
@@ -1544,7 +1553,7 @@ class ConnectomeManager:
         Raises:
             KeyError: If either the cortical_id or region_id doesn't exist
         """
-        if cortical_id not in self.cortical_areas:
+        if cortical_id not in self.cortical_areas_by_id:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
         if region_id not in self.brain_regions:
@@ -1555,7 +1564,7 @@ class ConnectomeManager:
             self.region_area_map[region_id].discard(cortical_id)
         
         # Remove region_id from area properties
-        area = self.cortical_areas[cortical_id]
+        area = self.cortical_areas_by_id[cortical_id]
         if "region_id" in area.properties and area.properties["region_id"] == region_id:
             del area.properties["region_id"]
         
@@ -1632,19 +1641,15 @@ class ConnectomeManager:
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Find the corresponding cortical_id
-        cortical_id = None
-        for cortical_id_key, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                cortical_id = cortical_id_key
-                break
+        # Find the corresponding cortical_id using new lookup
+        cortical_id = self.cortical_idx_to_id.get(cortical_idx)
         
         if cortical_id is None:
             logger.error(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}")
             return False
         
         # Validate new position
-        area = self.cortical_areas[cortical_id]
+        area = self.cortical_areas_by_id[cortical_id]
         if not area.contains_position(new_position):
             raise ValueError(f"Position {new_position} is outside the bounds of area {area.name}")
         
@@ -1688,10 +1693,10 @@ class ConnectomeManager:
             ValueError: If there are duplicate positions
         """
         # Validate area exists
-        if cortical_id not in self.cortical_areas:
+        if cortical_id not in self.cortical_areas_by_id:
             raise ValueError(f"Cortical area {cortical_id} does not exist")
         
-        area = self.cortical_areas[cortical_id]
+        area = self.cortical_areas_by_id[cortical_id]
         
         # Validate positions
         for pos in positions:
@@ -1942,11 +1947,11 @@ class ConnectomeManager:
                 raise ValueError("New dimensions required for resize operation")
             
             for cortical_id in cortical_ids:
-                if cortical_id not in self.cortical_areas:
+                if cortical_id not in self.cortical_areas_by_id:
                     results[cortical_id] = {"success": False, "reason": "Area not found"}
                     continue
                 
-                area = self.cortical_areas[cortical_id]
+                area = self.cortical_areas_by_id[cortical_id]
                 old_dimensions = area.dimensions
                 
                 # Update area dimensions
@@ -1991,11 +1996,11 @@ class ConnectomeManager:
                 raise ValueError("New position required for move operation")
             
             for cortical_id in cortical_ids:
-                if cortical_id not in self.cortical_areas:
+                if cortical_id not in self.cortical_areas_by_id:
                     results[cortical_id] = {"success": False, "reason": "Area not found"}
                     continue
                 
-                area = self.cortical_areas[cortical_id]
+                area = self.cortical_areas_by_id[cortical_id]
                 old_position = area.position
                 
                 # Update area position
@@ -2010,11 +2015,11 @@ class ConnectomeManager:
         elif operation == "get_bounds":
             # Get position bounds for multiple areas at once
             for cortical_id in cortical_ids:
-                if cortical_id not in self.cortical_areas:
+                if cortical_id not in self.cortical_areas_by_id:
                     results[cortical_id] = {"success": False, "reason": "Area not found"}
                     continue
                 
-                area = self.cortical_areas[cortical_id]
+                area = self.cortical_areas_by_id[cortical_id]
                 
                 # Calculate bounds
                 min_pos = area.position
@@ -2103,8 +2108,8 @@ class ConnectomeManager:
                 continue
             
             # Check dimensions
-            source_area = self.cortical_areas[source_cortical_id]
-            target_area = self.cortical_areas[target_cortical_id]
+            source_area = self.cortical_areas_by_id[source_cortical_id]
+            target_area = self.cortical_areas_by_id[target_cortical_id]
             
             if source_area.dimensions != target_area.dimensions:
                 results[rule_id] = 0
@@ -2259,8 +2264,8 @@ class ConnectomeManager:
             scale_by_distance = rule["parameters"].get("scale_by_distance", False)
             
             # Get areas
-            source_area = self.cortical_areas[source_cortical_id]
-            target_area = self.cortical_areas[target_cortical_id]
+            source_area = self.cortical_areas_by_id[source_cortical_id]
+            target_area = self.cortical_areas_by_id[target_cortical_id]
             
             # Get positions in global coordinates
             source_global_positions = {}
@@ -2428,7 +2433,7 @@ class ConnectomeManager:
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
             test_cortical_id = "TEST__"
-            if test_cortical_id not in self.cortical_areas:
+            if test_cortical_id not in self.cortical_areas_by_id:
                 self.add_cortical_area(
                     name="Test Area",
                     dimensions=(100, 100, 100),
@@ -2477,7 +2482,7 @@ class ConnectomeManager:
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
             test_cortical_id = "TEST__"
-            if test_cortical_id not in self.cortical_areas:
+            if test_cortical_id not in self.cortical_areas_by_id:
                 self.add_cortical_area(
                     name="Test Area",
                     dimensions=(100, 100, 100),
@@ -2818,7 +2823,7 @@ class ConnectomeManager:
             import tempfile
             import os
             
-            if not hasattr(self, 'cortical_areas') or not self.cortical_areas:
+            if not hasattr(self, 'cortical_areas_by_id') or not self.cortical_areas_by_id:
                 return {"success": True, "message": "No connectome state to save"}
             
             # Generate timestamp for unique filename
@@ -2830,14 +2835,14 @@ class ConnectomeManager:
             connectome_state = {
                 "metadata": {
                     "timestamp": timestamp,
-                    "cortical_area_count": len(self.cortical_areas)
+                    "cortical_area_count": len(self.cortical_areas_by_id)
                 },
                 "cortical_areas": {},
                 "statistics": {}
             }
             
             # Save cortical area information
-            for area_idx, area in self.cortical_areas.items():
+            for area_idx, area in self.cortical_areas_by_id.items():
                 try:
                     # Get neuron count safely
                     neuron_count = 0
@@ -2899,11 +2904,11 @@ class ConnectomeManager:
             logger.info("🚀 Starting FAST bulk brain data clearing")
             
             # Get counts before clearing (quick count using efficient methods)
-            if hasattr(self, 'cortical_areas') and self.cortical_areas:
-                cleared_areas = len(self.cortical_areas)
+            if hasattr(self, 'cortical_areas_by_id') and self.cortical_areas_by_id:
+                cleared_areas = len(self.cortical_areas_by_id)
                 
                 # Fast neuron counting using area masks
-                for area_id in self.cortical_areas.keys():
+                for area_id in self.cortical_areas_by_id.keys():
                     if area_id in self.area_neuron_masks:
                         cleared_neurons += np.sum(self.area_neuron_masks[area_id])
             
@@ -2919,9 +2924,15 @@ class ConnectomeManager:
             # FAST BULK CLEARING - No individual iterations!
             
             # 1. Clear all cortical areas at once (dictionary clear)
-            if hasattr(self, 'cortical_areas'):
-                self.cortical_areas.clear()
-                logger.info("✅ Cleared all cortical areas in one operation")
+            if hasattr(self, 'cortical_areas_by_id'):
+                self.cortical_areas_by_id.clear()
+            if hasattr(self, 'cortical_areas_by_idx'):
+                self.cortical_areas_by_idx.clear()
+            if hasattr(self, 'cortical_id_to_idx'):
+                self.cortical_id_to_idx.clear()
+            if hasattr(self, 'cortical_idx_to_id'):
+                self.cortical_idx_to_id.clear()
+            logger.info("✅ Cleared all cortical areas in one operation")
             
             # 2. Clear all area neuron masks at once
             if hasattr(self, 'area_neuron_masks'):

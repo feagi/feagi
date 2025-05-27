@@ -654,12 +654,32 @@ class CoreAPIService:
         """Get fire queue data for a specific cortical area."""
         try:
             if not self._validate_genome_loaded():
+                self.logger.debug(f"Genome not loaded, returning None for area {cortical_id}")
                 return None
                 
             if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
-                area_fcl = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_id)  # Pass cortical_id directly
+                # CRITICAL FIX: Convert cortical_id to cortical_idx first
+                cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+                self.logger.debug(f"🔄 Mapping {cortical_id} -> cortical_idx: {cortical_idx} (type: {type(cortical_idx)})")
+                
+                if cortical_idx is None:
+                    self.logger.debug(f"❌ No cortical_idx found for cortical_id: {cortical_id}")
+                    # Let's also check what cortical areas are available
+                    if hasattr(self._connectome_manager, 'cortical_areas'):
+                        available_areas = list(self._connectome_manager.cortical_areas.keys())[:5]  # Show first 5
+                        self.logger.debug(f"Available cortical areas (first 5): {available_areas}")
+                    return None
+                
+                # ADDITIONAL SAFETY CHECK: Ensure cortical_idx is actually an integer
+                if not isinstance(cortical_idx, int):
+                    self.logger.error(f"🚨 CRITICAL BUG: cortical_idx should be int, got {type(cortical_idx)}: {cortical_idx}")
+                    return None
+                
+                # Get FCL data using the numeric index
+                area_fcl = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_idx)
                 if area_fcl and hasattr(area_fcl, '__iter__'):
                     neuron_ids = list(area_fcl)
+                    self.logger.debug(f"✅ Found {len(neuron_ids)} firing neurons for area {cortical_id} (idx: {cortical_idx})")
                     return {
                         'cortical_id': cortical_id,
                         'neuron_ids': neuron_ids,
@@ -668,9 +688,16 @@ class CoreAPIService:
                         'consecutive_fire_counts': [0] * len(neuron_ids),
                         'refractory_counters': [0] * len(neuron_ids)
                     }
-            return None
+                else:
+                    self.logger.debug(f"❌ No FCL data found for area {cortical_id} (idx: {cortical_idx})")
+                    return None
+            else:
+                self.logger.debug(f"❌ FCL manager not available for area {cortical_id}")
+                return None
         except Exception as e:
-            self.logger.error(f"Error getting area fire queue for {cortical_id}: {str(e)}")
+            self.logger.error(f"❌ Error getting area fire queue for {cortical_id}: {str(e)}")
+            import traceback
+            self.logger.debug(traceback.format_exc())
             return None
 
     def genome_is_loaded(self) -> bool:
@@ -1328,14 +1355,23 @@ class CoreAPIService:
         """
         try:
             if not hasattr(self._connectome_manager, 'cortical_areas'):
+                self.logger.debug(f"🔍 No cortical_areas attribute for {cortical_id}")
                 return None
                 
-            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
-                if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
-                    return cortical_idx
-            return None
+            self.logger.debug(f"🔍 Searching for {cortical_id} in {len(self._connectome_manager.cortical_areas_by_id)} areas")
+            
+            # Use the new fast lookup
+            cortical_idx = self._connectome_manager.cortical_id_to_idx.get(cortical_id)
+            if cortical_idx is not None:
+                self.logger.debug(f"✅ Found match! {cortical_id} -> {cortical_idx} (integer)")
+                return cortical_idx
+            else:
+                self.logger.debug(f"❌ No match found for {cortical_id}")
+                return None
         except Exception as e:
-            self.logger.error(f"Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
+            self.logger.error(f"❌ Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
+            import traceback
+            self.logger.debug(traceback.format_exc())
             return None
 
     def _validate_genome_loaded(self) -> bool:

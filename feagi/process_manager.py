@@ -736,6 +736,11 @@ class ProcessManager:
     def get_zmq_server(self):
         """Get the ZMQ server instance."""
         return self._zmq_server
+    
+    @classmethod
+    def get_instance(cls) -> Optional['ProcessManager']:
+        """Get the global ProcessManager instance (alias for get_process_manager)."""
+        return get_process_manager()
         
     def shutdown(self) -> None:
         """

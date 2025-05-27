@@ -229,9 +229,9 @@ class FeagiTestRunner:
             result = self.core_api.load_essential_genome()
             
             # Verify that the genome was loaded by checking if there are cortical areas
-            if len(self.connectome.cortical_areas) > 0:
+            if len(self.connectome.cortical_areas_by_id) > 0:
                 logger.info("Essential genome loaded successfully")
-                logger.info(f"Loaded genome has {len(self.connectome.cortical_areas)} cortical areas")
+                logger.info(f"Loaded genome has {len(self.connectome.cortical_areas_by_id)} cortical areas")
                 return True
             else:
                 logger.error("Genome was processed but no cortical areas found")
@@ -259,11 +259,11 @@ class FeagiTestRunner:
                 return False
                 
             # Verify we have cortical areas with neurons
-            if not self.connectome.cortical_areas:
+            if not self.connectome.cortical_areas_by_id:
                 logger.error("No cortical areas found in connectome")
                 return False
                 
-            logger.info(f"Genome validation successful: {len(self.connectome.cortical_areas)} cortical areas available")
+            logger.info(f"Genome validation successful: {len(self.connectome.cortical_areas_by_id)} cortical areas available")
             return True
             
         except Exception as e:
@@ -274,7 +274,7 @@ class FeagiTestRunner:
         """Capture the initial state of FCLs for comparison."""
         self.initial_fcls = {}
         
-        for cortical_id in self.connectome.cortical_areas:
+        for cortical_id in self.connectome.cortical_areas_by_id:
             fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
             self.initial_fcls[cortical_id] = set(fcl) if fcl else set()
             
@@ -322,11 +322,11 @@ class FeagiTestRunner:
             for cortical_id, coordinates_list in self.test_activations_data.items():
                 try:
                     # Check if this cortical area exists in the connectome
-                    if cortical_id not in self.connectome.cortical_areas:
+                    if cortical_id not in self.connectome.cortical_areas_by_id:
                         logger.warning(f"Cortical area {cortical_id} from JSON not found in connectome - skipping")
                         continue
                     
-                    cortical_area = self.connectome.cortical_areas[cortical_id]
+                    cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
                     
                     # Convert coordinates to neuron IDs
                     selected_neurons = []
@@ -397,7 +397,7 @@ class FeagiTestRunner:
             import random
             
             # Get all cortical areas from the loaded connectome
-            cortical_areas = list(self.connectome.cortical_areas.keys())
+            cortical_areas = list(self.connectome.cortical_areas_by_id.keys())
             
             if not cortical_areas:
                 logger.error("No cortical areas found in connectome")
@@ -412,7 +412,7 @@ class FeagiTestRunner:
             for cortical_id in cortical_areas:
                 try:
                     # Get the cortical area object
-                    cortical_area = self.connectome.cortical_areas[cortical_id]
+                    cortical_area = self.connectome.cortical_areas_by_id[cortical_id]
                     
                     # Get all neurons in this cortical area
                     all_neurons = cortical_area.get_all_neurons()
@@ -614,7 +614,7 @@ class FeagiTestRunner:
         active_fcls = []
         total_active_neurons = 0
         
-        for cortical_id in self.connectome.cortical_areas:
+        for cortical_id in self.connectome.cortical_areas_by_id:
             current_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
             current_fcl_set = set(current_fcl) if current_fcl else set()
             
@@ -684,7 +684,7 @@ class FeagiTestRunner:
                 self.hook_fq_sampler()
             
             # Get the IPU (sensory) areas from the connectome
-            ipu_areas = {id: area for id, area in self.connectome.cortical_areas.items() 
+            ipu_areas = {id: area for id, area in self.connectome.cortical_areas_by_id.items() 
                         if area.properties.get('group') == 'IPU'}
             if not ipu_areas:
                 logger.error("No IPU areas found in the genome")
