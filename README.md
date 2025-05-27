@@ -77,14 +77,51 @@ Several utilities are available in `tools/doc_helpers/` to assist with documenta
 
 ### Installation
 
+#### Standard Installation
+
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/feagi.git
-cd feagi
+git clone https://github.com/neuraville/feagi.git
+cd feagi_core
 
-# Install dependencies
-pip install -r requirements.txt
+# Install using pip (recommended)
+pip install -e .
 ```
+
+#### Alternative Installation (using requirements.txt)
+
+For compatibility with tools that don't support `pyproject.toml`:
+
+```bash
+# Install core dependencies only
+pip install -r requirements.txt
+
+# Or install with development dependencies
+pip install -r requirements-dev.txt
+```
+
+**Note**: The `requirements.txt` files are automatically generated from `pyproject.toml` and should be kept in sync. To update them, run:
+
+```bash
+python scripts/update_requirements.py
+```
+
+#### Dependencies
+
+FEAGI Core requires Python 3.8+ and the following main packages:
+- `fastapi>=0.95.0` - Web framework and API
+- `uvicorn>=0.21.0` - ASGI server
+- `pydantic>=2.0.0` - Data validation and configuration
+- `numpy>=1.24.0` - Scientific computing
+- `scipy>=1.10.0` - Scientific computing
+- `torch>=2.0.0` - Neural processing
+- `pyzmq>=26.0.0` - ZMQ communication
+- `PyYAML>=6.0.0` - Configuration management
+- `feagi-bytes>=0.1.0` - FEAGI byte structures
+- `psutil>=5.8.0` - System monitoring
+- And other supporting libraries for authentication, security, and data processing
+
+For development work, additional dependencies include testing frameworks (pytest), code formatting tools (black, ruff), and profiling tools.
 
 ### Running FEAGI
 
