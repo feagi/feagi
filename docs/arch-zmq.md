@@ -213,7 +213,7 @@ response = socket.recv_string()
 - **Per-Area Sampling Rates**: Configurable sampling frequency per cortical area via `fq_sample_rate` property
 - **Rich Data Format**: Includes membrane potentials, thresholds, coordinates, and firing history
 - **Efficient Routing**: Only processes visualization-targeted data from FQ sampler
-- **Responsive Shutdown**: Fast thread management with <2 second shutdown time
+- **Responsive Shutdown**: Fast thread management with less than 2 second shutdown time
 - **Production Logging**: Clean, structured logging suitable for production environments
 
 #### Threading Architecture
@@ -971,7 +971,7 @@ except zmq.Again:
 
 **Issues Resolved**:
 - Fixed `SimpleVisualizationStream` → `VisualizationStream` import errors
-- Eliminated FEAGI shutdown hanging (reduced from 10+ seconds to <2 seconds)
+- Eliminated FEAGI shutdown hanging (reduced from 10+ seconds to less than 2 seconds)
 - Resolved critical server initialization order dependency in `server.py`
 - Cleaned up excessive debugging logs (>90% reduction in log volume)
 
@@ -983,7 +983,7 @@ except zmq.Again:
 - **Production Logging**: Clean, structured logs suitable for production use
 
 **Performance Improvements**:
-- Shutdown time: 10+ seconds → <2 seconds (80%+ improvement)
+- Shutdown time: 10+ seconds → less than 2 seconds (80%+ improvement)
 - Thread responsiveness: 1000ms+ → 200-250ms (75%+ improvement)
 - Error recovery: Manual restart → Automatic socket recreation (100% automated)
 - Log volume: >1000 debug lines/min → ~10 info lines/min (90%+ reduction)

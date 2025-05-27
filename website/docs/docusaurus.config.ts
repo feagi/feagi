@@ -115,23 +115,7 @@ const config: Config = {
       include: ['**/*.md', '**/*.mdx'],
     }],
 
-    // FEAGI Bytes documentation
-    ['@docusaurus/plugin-content-docs', {
-      id: 'feagi-bytes',
-      path: '../../feagi_bytes',
-      routeBasePath: 'modules/feagi-bytes',
-      sidebarPath: './sidebars/feagiByteSidebar.ts',
-      include: ['**/*.md', '**/*.mdx'],
-    }],
 
-    // FEAGI Connector documentation
-    ['@docusaurus/plugin-content-docs', {
-      id: 'feagi-connector',
-      path: '../../feagi_connector',
-      routeBasePath: 'modules/feagi-connector',
-      sidebarPath: './sidebars/feagiConnectorSidebar.ts',
-      include: ['**/*.md', '**/*.mdx'],
-    }],
   ],
 
   presets: [
@@ -196,14 +180,6 @@ const config: Config = {
             {
               label: 'PNS',
               to: '/modules/pns',
-            },
-            {
-              label: 'FEAGI Bytes',
-              to: '/modules/feagi-bytes',
-            },
-            {
-              label: 'FEAGI Connector',
-              to: '/modules/feagi-connector',
             },
           ],
         },

@@ -374,7 +374,7 @@ The new VisualizationStream maintains full API compatibility:
 - Ensure `auto_enable_on_subscribers` is True
 
 **Slow Shutdown:**
-- Updated implementation should shutdown in <2 seconds
+- Updated implementation should shutdown in less than 2 seconds
 - If hanging, check for blocking operations in custom code
 - Monitor thread join timeouts in logs
 
