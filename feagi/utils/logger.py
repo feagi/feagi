@@ -148,6 +148,10 @@ def setup_logger(
     console: bool = True,
     tag: Optional[str] = None,
 ) -> EmojiAdapter:
+    # Check for CLI-provided log level override
+    cli_log_level = os.environ.get('FEAGI_CLI_LOG_LEVEL')
+    if cli_log_level:
+        level = getattr(logging, cli_log_level, level)
     LEVEL_MAP = {
         "DEBUG":    "DEBUG   ",
         "INFO":     "INFO    ",
