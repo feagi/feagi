@@ -143,7 +143,7 @@ class EmojiAdapter(logging.LoggerAdapter):
 
 def setup_logger(
     name: str = "feagi",
-    level: int = logging.INFO,
+    level: int = logging.WARNING,
     log_file: Optional[str] = None,
     console: bool = True,
     tag: Optional[str] = None,
