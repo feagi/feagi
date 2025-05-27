@@ -91,6 +91,7 @@ class ProcessManager:
         self._zmq_server = None
         
         # CRITICAL: Use ConnectomeManager singleton for mission-critical reliability
+        # The ConnectomeManager should already be initialized with proper parameters by main.py
         from feagi.bdu.connectome_manager import ConnectomeManager
         self._connectome_manager = ConnectomeManager.instance()
         

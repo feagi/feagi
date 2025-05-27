@@ -756,6 +756,16 @@ class NeuroEmbryogenesis:
                     for i, neuron_id in enumerate(area_neuron_ids):
                         neuron_ids.append((neuron_id, area_specs["voxel_ids"][i]))
                 except Exception as e:
+                    # Log the batch creation failure so we can see why it's falling back
+                    logger.error(f"🐌 BATCH CREATION FAILED for {cortical_id}: {str(e)} - falling back to individual creation for {len(positions)} neurons")
+                    import traceback
+                    logger.error(f"🐌 BATCH CREATION TRACEBACK: {traceback.format_exc()}")
+                    
+                    # Also log the parameters being used to help debug
+                    logger.error(f"🐌 BATCH CREATION PARAMS: cortical_id={cortical_id}, positions={len(positions)} items, first_position={positions[0] if positions else None}")
+                    logger.error(f"🐌 BATCH CREATION THRESHOLD: {area_specs['thresholds'][0] if area_specs['thresholds'] else 'None'}")
+                    logger.error(f"🐌 CORTICAL AREAS AVAILABLE: {list(self.connectome_manager.cortical_areas.keys()) if hasattr(self.connectome_manager, 'cortical_areas') else 'No cortical_areas attr'}")
+                    
                     # Fall back to individual creation if batch API fails
                     for i, position in enumerate(positions):
                         properties = area_specs["properties"][i]
