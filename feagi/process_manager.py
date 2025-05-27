@@ -484,148 +484,64 @@ class ProcessManager:
         embedded_mode = config.get('system', {}).get('embedded', False)
         
         try:
-            # --- REST API Server (completely disabled in embedded mode) ---
+            # --- REST API (normal mode only) ---
             api_config = config.get('api', {})
             api_host = api_config.get('host', '127.0.0.1')
             api_port = api_config.get('port', 8000)
             
             if not embedded_mode:
-                # Full REST API for normal mode
-                api_workers = api_config.get('workers', 1)
-                api_reload = api_config.get('reload', False)
-                
-                logger.info(f"API Configuration: host={api_host}, port={api_port}, workers={api_workers}")
-                
                 try:
-                    # CRITICAL FIX: Only import FastAPI modules when NOT in embedded mode
-                    # This prevents FastAPI app creation during module import in embedded mode
-                    from feagi.api.rest.app import create_rest_app
-                    import uvicorn
-                    import threading
+                    # Only run FastAPI if not in embedded mode
+                    api_config = {
+                        'host': api_host,
+                        'port': api_port,
+                        'reload': config.get('development', {}).get('reload', False),
+                        'access_log': config.get('api', {}).get('access_log', True)
+                    }
                     
-                    # Create FastAPI application using create_rest_app
-                    app = create_rest_app()
+                    # Create event loop if not already running
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
                     
-                    # Start uvicorn in a background thread
                     def run_uvicorn():
-                        uvicorn.run(
-                            app,
-                            host=api_host,
-                            port=api_port,
-                            log_level="info"
-                        )
+                        """Run uvicorn server in background thread."""
+                        try:
+                            # Import FastAPI app here to avoid circular imports
+                            from feagi.api.rest.app import create_rest_app
+                            app = create_rest_app()
+                            
+                            import uvicorn
+                            uvicorn.run(
+                                app,
+                                host=api_config['host'],
+                                port=api_config['port'],
+                                access_log=api_config.get('access_log', True),
+                                loop="asyncio"
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to start uvicorn: {e}")
                     
-                    # Start the REST server in a thread
-                    rest_thread = threading.Thread(target=run_uvicorn, daemon=True)
-                    rest_thread.start()
+                    # Start uvicorn in background thread
+                    api_thread = threading.Thread(target=run_uvicorn, daemon=True)
+                    api_thread.start()
                     
                     # Store the thread reference for shutdown
-                    self._processes['rest_api'] = rest_thread
-                    logger.info(f"REST API server started on {api_host}:{api_port}")
+                    self._processes['rest_api'] = api_thread
+                    logger.info(f"REST API server started on http://{api_host}:{api_port}")
                         
                 except Exception as e:
-                    logger.error(f"Failed to initialize REST API: {e}")
-                    logger.debug(traceback.format_exc())
+                    logger.error(f"Failed to initialize REST API server: {e}")
                     return False
             else:
-                # EMBEDDED MODE: Completely eliminate REST API
-                logger.info(f"🔧 Embedded mode: REST API completely disabled for minimal resource usage")
-                logger.info(f"🔧 Control interface available only via ZMQ streams (control, sensory, motor)")
-                logger.info(f"🔧 No web interface, no FastAPI imports, no uvicorn server")
-                
-                # For debugging/status monitoring, create simple socket-based status server
-                try:
-                    import socket
-                    import threading
-                    import json
-                    
-                    def simple_status_server():
-                        """Minimal TCP status server for embedded mode."""
-                        try:
-                            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                            server_socket.bind((api_host, api_port))
-                            server_socket.listen(1)
-                            logger.info(f"🔧 Embedded status server listening on {api_host}:{api_port}")
-                            
-                            while self._running:
-                                try:
-                                    server_socket.settimeout(1.0)  # Non-blocking with timeout
-                                    client_socket, addr = server_socket.accept()
-                                    
-                                    # Read HTTP request (simple parsing)
-                                    request = client_socket.recv(1024).decode('utf-8')
-                                    
-                                    # Simple status response
-                                    if 'GET /' in request or 'GET /status' in request:
-                                        # Get basic status from state manager
-                                        try:
-                                            from feagi.core.state_manager import FeagiStateManager
-                                            state_manager = FeagiStateManager.instance()
-                                            status = {
-                                                "mode": "embedded",
-                                                "status": "running",
-                                                "brain_state": state_manager.get_brain_state().name,
-                                                "features": ["zmq_control", "zmq_sensory", "zmq_motor"],
-                                                "disabled": ["rest_api", "visualization", "web_interface"],
-                                                "message": "FEAGI running in embedded mode - use ZMQ for control"
-                                            }
-                                        except Exception:
-                                            status = {
-                                                "mode": "embedded", 
-                                                "status": "running",
-                                                "message": "FEAGI embedded mode - minimal interface"
-                                            }
-                                        
-                                        response_body = json.dumps(status, indent=2)
-                                        response = (
-                                            "HTTP/1.1 200 OK\r\n"
-                                            "Content-Type: application/json\r\n"
-                                            f"Content-Length: {len(response_body)}\r\n"
-                                            "Connection: close\r\n"
-                                            "\r\n"
-                                            f"{response_body}"
-                                        )
-                                    else:
-                                        # Simple 404 for other requests
-                                        response_body = '{"error": "Not found", "mode": "embedded"}'
-                                        response = (
-                                            "HTTP/1.1 404 Not Found\r\n"
-                                            "Content-Type: application/json\r\n"
-                                            f"Content-Length: {len(response_body)}\r\n"
-                                            "Connection: close\r\n"
-                                            "\r\n"
-                                            f"{response_body}"
-                                        )
-                                    
-                                    client_socket.send(response.encode('utf-8'))
-                                    client_socket.close()
-                                    
-                                except socket.timeout:
-                                    continue  # Normal timeout, keep running
-                                except Exception as e:
-                                    if self._running:  # Only log if we're still supposed to be running
-                                        logger.debug(f"Status server error: {e}")
-                                    
-                            server_socket.close()
-                            logger.info("🔧 Embedded status server stopped")
-                            
-                        except Exception as e:
-                            logger.error(f"Failed to start embedded status server: {e}")
-                    
-                    # Start minimal status server in background
-                    status_thread = threading.Thread(target=simple_status_server, daemon=True)
-                    status_thread.start()
-                    
-                    # Store the thread reference for shutdown
-                    self._processes['embedded_status'] = status_thread
-                    logger.info(f"🔧 Embedded mode: Minimal status server started on {api_host}:{api_port}")
-                        
-                except Exception as e:
-                    logger.warning(f"Failed to initialize embedded status server: {e}")
-                    logger.info("🔧 Embedded mode: Running without any HTTP interface")
-                    # Continue without status server - this is not critical
-                
+                # Embedded mode: No HTTP interface at all
+                logger.info("🔧 Embedded mode: REST API completely disabled for minimal resource usage")
+                logger.info("🔧 Control interface available only via ZMQ streams (control, sensory, motor)")
+                logger.info("🔧 No web interface, no FastAPI imports, no uvicorn server")
+                logger.info("🔧 Status available via ZMQ control stream: tcp://127.0.0.1:5559")
+            
             # --- WebSocket Server (Optional) ---
             try:
                 websocket_enabled = config.get('websocket', {}).get('enabled', False)
