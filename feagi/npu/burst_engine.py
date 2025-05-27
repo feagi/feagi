@@ -1595,12 +1595,14 @@ class FQSampler:
             with self._fcl_lock:  # FIXED: Thread-safe FCL access
                 # FIXED: Try multiple interface paths to access FCL data
                 fcl_by_cortical_idx = None
+                access_method = "NONE"
                 
                 # Method 1: Direct access to FCL manager from fire_queue_provider
                 if hasattr(self.fire_queue_provider, 'fcl_manager') and self.fire_queue_provider.fcl_manager:
                     fcl_manager = self.fire_queue_provider.fcl_manager
                     if hasattr(fcl_manager, 'get_fcl_by_cortical'):
                         fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
+                        access_method = "Method1-DirectFCL"
                 
                 # Method 2: Through connectome manager's FCL manager
                 elif hasattr(self.fire_queue_provider, '_connectome_manager'):
@@ -1609,12 +1611,14 @@ class FQSampler:
                         fcl_manager = connectome_manager.fcl_manager
                         if hasattr(fcl_manager, 'get_fcl_by_cortical'):
                             fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
+                            access_method = "Method2-ConnectomeFCL"
                 
                 # Method 3: Get FCL manager through get_fcl_manager() method
                 elif hasattr(self.fire_queue_provider, 'get_fcl_manager'):
                     fcl_manager = self.fire_queue_provider.get_fcl_manager()
                     if fcl_manager and hasattr(fcl_manager, 'get_fcl_by_cortical'):
                         fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
+                        access_method = "Method3-GetFCLManager"
                 
                 # Method 4: Try accessing through burst engine instance
                 if fcl_by_cortical_idx is None:
@@ -1625,11 +1629,29 @@ class FQSampler:
                             fcl_manager = burst_engine.fcl_manager
                             if hasattr(fcl_manager, 'get_fcl_by_cortical'):
                                 fcl_by_cortical_idx = fcl_manager.get_fcl_by_cortical()
+                                access_method = "Method4-BurstEngine"
                     except Exception:
                         pass  # Fallback failed
                 
+                # DEBUG: Log what we found
+                if self._stats_counter % 50 == 0:  # Log every 50 cycles
+                    if fcl_by_cortical_idx:
+                        cortical_indices = list(fcl_by_cortical_idx.keys())
+                        total_neurons = sum(len(neurons) for neurons in fcl_by_cortical_idx.values())
+                        logger.info(f"🔍 FQSampler FCL Access: {access_method} found {total_neurons} neurons in areas {cortical_indices}")
+                    else:
+                        logger.warning(f"🔍 FQSampler FCL Access: {access_method} - No FCL data found")
+                
                 if fcl_by_cortical_idx:
-                    return self._convert_cortical_indices_to_ids(fcl_by_cortical_idx)
+                    result = self._convert_cortical_indices_to_ids(fcl_by_cortical_idx)
+                    # DEBUG: Log conversion result
+                    if self._stats_counter % 50 == 0:
+                        if result:
+                            area_ids = list(result.keys())
+                            logger.info(f"🔄 FQSampler ID Conversion: {len(fcl_by_cortical_idx)} indices → {len(result)} IDs: {area_ids}")
+                        else:
+                            logger.warning(f"🔄 FQSampler ID Conversion: FAILED - {len(fcl_by_cortical_idx)} indices → 0 IDs")
+                    return result
                         
             return None
         except Exception as e:
@@ -1821,14 +1843,40 @@ class FQSampler:
         uses string cortical IDs. This method provides the mapping.
         """
         if not self.connectome_manager or not fcl_by_cortical_idx:
+            if self._stats_counter % 100 == 0:
+                logger.warning(f"🔄 ID Conversion: Missing connectome_manager={bool(self.connectome_manager)} or fcl_data={bool(fcl_by_cortical_idx)}")
             return {}
              
         result = {}
         try:
+            # DEBUG: Log available areas for debugging
+            if self._stats_counter % 100 == 0:
+                if hasattr(self.connectome_manager, 'cortical_areas_by_id'):
+                    available_ids = list(self.connectome_manager.cortical_areas_by_id.keys())[:5]  # First 5
+                    logger.info(f"🔄 Available area IDs (first 5): {available_ids}")
+                
             # Build reverse mapping from cortical_idx to cortical_id
+            mapped_count = 0
             for area in self.connectome_manager.cortical_areas_by_id.values():
                 if hasattr(area, 'cortical_idx') and area.cortical_idx in fcl_by_cortical_idx:
                     result[area.id] = fcl_by_cortical_idx[area.cortical_idx]
+                    mapped_count += 1
+                    
+                    # DEBUG: Log successful mappings occasionally
+                    if self._stats_counter % 100 == 0 and mapped_count <= 3:
+                        neuron_count = len(fcl_by_cortical_idx[area.cortical_idx])
+                        logger.info(f"🔄 Mapped: cortical_idx {area.cortical_idx} → area_id '{area.id}' ({neuron_count} neurons)")
+                        
+            # DEBUG: Log conversion summary
+            if self._stats_counter % 100 == 0:
+                input_indices = list(fcl_by_cortical_idx.keys())
+                logger.info(f"🔄 Conversion Summary: {len(input_indices)} input indices {input_indices} → {len(result)} output areas")
+                if len(result) == 0 and len(input_indices) > 0:
+                    # Try to find why mapping failed
+                    sample_area = next(iter(self.connectome_manager.cortical_areas_by_id.values()))
+                    has_cortical_idx = hasattr(sample_area, 'cortical_idx')
+                    sample_idx = getattr(sample_area, 'cortical_idx', 'MISSING') if has_cortical_idx else 'MISSING'
+                    logger.warning(f"🔄 Mapping Debug: Sample area has cortical_idx={has_cortical_idx}, value={sample_idx}")
                     
         except Exception as e:
             if self._stats_counter % 100 == 0:
