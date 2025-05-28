@@ -50,15 +50,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PortConfiguration:
-    """Port configuration with validation."""
-    zmq_req_rep_port: int = 5555
-    zmq_pub_sub_port: int = 5556  
-    zmq_push_pull_port: int = 5557
-    zmq_sensory_port: int = 5558
-    zmq_control_port: int = 5559
-    zmq_visualization_port: int = 5562
-    zmq_rest_port: int = 5563
-    zmq_motor_port: int = 5564
+    """Port configuration with validation. NO DEFAULTS - all values must come from TOML."""
+    zmq_req_rep_port: int
+    zmq_pub_sub_port: int
+    zmq_push_pull_port: int
+    zmq_sensory_port: int
+    zmq_control_port: int
+    zmq_visualization_port: int
+    zmq_rest_port: int
+    zmq_motor_port: int
 
     def get_all_ports(self) -> Dict[str, int]:
         """Get all port numbers as a dictionary."""

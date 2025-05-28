@@ -200,15 +200,15 @@ class ZmqServer:
     def __init__(
         self,
         core_api: CoreAPIService,
+        req_rep_port: int,
+        pub_sub_port: int,
+        push_pull_port: int,
+        rest_port: int,
         host: str = "127.0.0.1",
-        req_rep_port: int = 5555,
-        pub_sub_port: int = 5556,
-        push_pull_port: int = 5557,
-        sensory_port: Optional[int] = 5558,
-        motor_port: Optional[int] = 5564,
-        control_port: Optional[int] = 5559,
-        rest_port: int = 5563,
-        vis_port: Optional[int] = 5562,
+        sensory_port: Optional[int] = None,
+        motor_port: Optional[int] = None,
+        control_port: Optional[int] = None,
+        vis_port: Optional[int] = None,
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
         fq_sampler_queue: Optional[Any] = None,
@@ -219,15 +219,15 @@ class ZmqServer:
         
         Args:
             core_api: Core API service for delegating calls to FEAGI core
+            req_rep_port: Port for REQ/REP pattern (from config)
+            pub_sub_port: Port for PUB/SUB pattern (from config)
+            push_pull_port: Port for PUSH/PULL pattern (from config)
+            rest_port: Port for REST API (from config)
             host: Host address to bind to
-            req_rep_port: Port for REQ/REP pattern (5555)
-            pub_sub_port: Port for PUB/SUB pattern (5556)
-            push_pull_port: Port for PUSH/PULL pattern (5557)
-            sensory_port: Port for sensory data (5558), None to disable
-            motor_port: Port for motor data (5564), None to disable
-            control_port: Port for control interface (5559), None to disable
-            rest_port: Port for REST API (5563)
-            vis_port: Port for visualization data (5562), None to disable
+            sensory_port: Port for sensory data (from config), None to disable
+            motor_port: Port for motor data (from config), None to disable
+            control_port: Port for control interface (from config), None to disable
+            vis_port: Port for visualization data (from config), None to disable
             context: Optional ZeroMQ context to use
             fq_sampler: Optional FQ sampler instance for visualization data
             fq_sampler_queue: Optional queue for FQ data from the sampler
@@ -296,10 +296,10 @@ class ZmqServer:
             enabled_ports['visualization'] = self.vis_port
             
         self.connection_manager = ConnectionManager(
-            context=self._context,
             control_port=self.control_port,
             sensory_port=self.sensory_port,
             motor_port=self.motor_port,
+            context=self._context,
             visualization_port=self.vis_port
         )
         
