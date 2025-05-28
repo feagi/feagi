@@ -101,6 +101,19 @@ def main():
     Returns:
         int: Exit code (0 for success, non-zero for failure)
     """
+    # CRITICAL: Windows asyncio compatibility fix for ZMQ
+    # Must be done BEFORE any ZMQ/asyncio operations
+    import platform
+    if platform.system() == "Windows":
+        import asyncio
+        try:
+            # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            print("🪟 Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility")
+        except AttributeError:
+            # Fallback for older Python versions
+            print("⚠️  Warning: WindowsSelectorEventLoopPolicy not available - ZMQ may have issues")
+    
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="FEAGI - Framework for Evolutionary Artificial General Intelligence")
     

@@ -1160,3 +1160,34 @@ export FEAGI_API_HOST=0.0.0.0
 The Windows compatibility fix maintains FEAGI's architecture compliance:
 
 - ✅ **No Hardcoded Fallbacks**: Uses configuration system with `
+
+### ZMQ Asyncio Event Loop Issue
+
+**Problem:** On Windows, Python 3.8+ uses the `ProactorEventLoop` by default, but ZMQ asyncio requires the `SelectorEventLoop` for compatibility.
+
+**Error Symptoms:**
+```
+ERROR: Proactor event loop does not implement add_reader family of methods required for zmq. 
+zmq will work with proactor if tornado >= 6.1 can be found. 
+Use asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy()) or install 'tornado>=6.1' to avoid this error.
+```
+
+**Solution:** FEAGI automatically detects Windows and sets the appropriate event loop policy:
+
+```python
+# In main.py and zmq/server.py
+if platform.system() == "Windows":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        print("🪟 Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility")
+    except AttributeError:
+        print("⚠️ Warning: WindowsSelectorEventLoopPolicy not available - ZMQ may have issues")
+```
+
+**Implementation Details:**
+- Applied in `feagi/main.py` during system initialization  
+- Applied in `feagi/api/zmq/server.py` when creating ZMQ server threads
+- Uses `@architecture:acceptable` annotation for Windows-specific platform code
+- Gracefully handles older Python versions without WindowsSelectorEventLoopPolicy
+
+This fix ensures cross-platform compatibility while maintaining FEAGI's platform-agnostic architecture principles.
