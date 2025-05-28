@@ -36,12 +36,12 @@ class ZMQRestClient:
     use ZMQ as the transport protocol instead of HTTP.
     """
     
-    def __init__(self, host: str = "localhost", port: int = 5555, timeout: int = 30):
+    def __init__(self, host: str, port: int = 5555, timeout: int = 30):
         """
         Initialize the ZMQ REST client.
         
         Args:
-            host: FEAGI ZMQ server host
+            host: FEAGI ZMQ server host (required - no hardcoded defaults)
             port: FEAGI ZMQ control port
             timeout: Request timeout in seconds
         """

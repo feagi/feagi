@@ -152,8 +152,15 @@ def create_zmq_client(
             pass
         
         # Create the client
+        # Use configuration system instead of hardcoded fallback
+        if host is None:
+            from feagi.config.toml_loader import load_feagi_config, get_host_config
+            config = load_feagi_config()
+            host_config = get_host_config(config)
+            host = host_config.zmq_host
+        
         client = ZmqClient(
-            host=host or os.environ.get("FEAGI_ZMQ_HOST", "127.0.0.1"),
+            host=host,
             req_port=5555,  # Default req_port
             pub_port=pub_port or int(os.environ.get("FEAGI_ZMQ_PUB_PORT", "5556")),
             push_port=sub_port or int(os.environ.get("FEAGI_ZMQ_SUB_PORT", "5557")),

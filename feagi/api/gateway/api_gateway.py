@@ -147,6 +147,7 @@ class APIGateway:
             return
             
         self._initialized = True
+        self._running = True
         self._core_api = core_api
         self._zmq_client = None
         self._rate_limiters = {}
@@ -200,11 +201,20 @@ class APIGateway:
         """Initialize the ZMQ client if enabled by environment variables."""
         if os.environ.get("FEAGI_ZMQ_ENABLED", "0") == "1":
             try:
-                zmq_host = os.environ.get("FEAGI_ZMQ_HOST", "127.0.0.1")
-                zmq_req_port = int(os.environ.get("FEAGI_ZMQ_REQ_PORT", "5555"))
-                zmq_pub_port = int(os.environ.get("FEAGI_ZMQ_PUB_PORT", "5556"))
-                zmq_push_port = int(os.environ.get("FEAGI_ZMQ_PUSH_PORT", "5557"))
-                zmq_stream_port = int(os.environ.get("FEAGI_ZMQ_STREAM_PORT", "5558"))
+                # Use configuration system instead of hardcoded fallbacks
+                from feagi.config.toml_loader import load_feagi_config, get_host_config, get_port_config
+                
+                # Load configuration
+                config = load_feagi_config()
+                host_config = get_host_config(config)
+                port_config = get_port_config(config)
+                
+                # Use validated configuration values
+                zmq_host = host_config.zmq_host
+                zmq_req_port = port_config.zmq_req_rep_port
+                zmq_pub_port = port_config.zmq_pub_sub_port
+                zmq_push_port = port_config.zmq_push_pull_port
+                zmq_stream_port = port_config.zmq_sensory_port
                 
                 logger.info(f"Initializing ZMQ client to {zmq_host}")
                 self._zmq_client = ZmqClient(
@@ -228,15 +238,33 @@ class APIGateway:
         ).start()
     
     def _process_incoming_messages(self):
-        """Process incoming messages from the queue."""
-        while True:
+        """Process incoming messages from agents."""
+        # Get configurable timeout values once at the start
+        try:
+            from feagi.config.toml_loader import load_feagi_config, get_timeout_config
+            config = load_feagi_config()
+            timeout_config = get_timeout_config(config)
+            queue_timeout = timeout_config.polling_timeout / 1000.0  # Convert ms to seconds
+            error_delay = timeout_config.polling_timeout / 10000.0  # Small fraction of polling timeout
+        except Exception:
+            queue_timeout = 1.0  # @architecture:acceptable - emergency fallback
+            error_delay = 0.1  # @architecture:acceptable - emergency fallback
+            
+        while self._running:
             try:
-                agent_id, message, protocol_id, version = self._incoming_queue.get()
+                # Get message from queue with configurable timeout
+                binary_data, agent_id, protocol_id, version = self._incoming_queue.get(timeout=queue_timeout)
+                
+                # Decode message using protocol translator
+                message = self._protocol_translator.decode_message(binary_data, protocol_id, version)
+                
+                # Route to appropriate handler
                 self._route_message_to_core(agent_id, message, protocol_id, version)
+                
                 self._incoming_queue.task_done()
             except Exception as e:
                 logger.error(f"Error processing incoming message: {str(e)}")
-                time.sleep(0.1)  # Prevent tight loop on error
+                time.sleep(error_delay)  # Prevent tight loop on error
     
     def _process_outgoing_messages(self, agent_id: str):
         """
@@ -245,14 +273,25 @@ class APIGateway:
         Args:
             agent_id: Agent identifier
         """
+        # Get configurable timeout values
+        try:
+            from feagi.config.toml_loader import load_feagi_config, get_timeout_config
+            config = load_feagi_config()
+            timeout_config = get_timeout_config(config)
+            queue_timeout = timeout_config.polling_timeout / 1000.0  # Convert ms to seconds
+            error_delay = timeout_config.polling_timeout / 10000.0  # Small fraction of polling timeout
+        except Exception:
+            queue_timeout = 1.0  # @architecture:acceptable - emergency fallback
+            error_delay = 0.1  # @architecture:acceptable - emergency fallback
+            
         while agent_id in self._agent_connections and self._agent_connections[agent_id].connected:
             try:
                 queue = self._outgoing_queues.get(agent_id)
                 if not queue:
-                    time.sleep(0.1)
+                    time.sleep(error_delay)
                     continue
                     
-                binary_data, protocol_id = queue.get(timeout=1)
+                binary_data, protocol_id = queue.get(timeout=queue_timeout)
                 
                 # Here we would send the binary data via ZMQ
                 # This will be implemented when integrated with ZMQManager
@@ -263,7 +302,7 @@ class APIGateway:
                 if str(e) != "Empty":  # Ignore empty queue exceptions
                     logger.error(f"Error processing outgoing message for {agent_id}: {str(e)}")
                     
-                time.sleep(0.1)
+                time.sleep(error_delay)
     
     def _route_message_to_core(self, agent_id: str, message: Any, 
                               protocol_id: ProtocolID, version: int) -> None:

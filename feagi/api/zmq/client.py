@@ -41,13 +41,15 @@ class ZmqClient:
     
     def __init__(
         self,
-        host: str = "127.0.0.1",
+        host: str,
         req_port: int = 5555,
-        sub_port: int = 5556,
+        pub_port: int = 5556,
         push_port: int = 5557,
         stream_port: int = 5558,
-        context: Optional[zmq.asyncio.Context] = None,
-        timeout: float = 5.0
+        timeout: int = 30000,
+        context: Optional[zmq.Context] = None,
+        topics: Optional[List[str]] = None,
+        stream_topics: Optional[List[str]] = None
     ):
         """
         Initialize a new ZMQ client.
@@ -55,21 +57,23 @@ class ZmqClient:
         Args:
             host: Host address to connect to
             req_port: Port for Request-Reply pattern
-            sub_port: Port for Subscribe (to server's Publish)
+            pub_port: Port for Publish-Subscribe pattern
             push_port: Port for Push (to server's Pull)
             stream_port: Port for Sensorimotor stream
+            timeout: Timeout for requests in milliseconds
             context: Optional existing ZMQ context to use
-            timeout: Timeout for requests in seconds
+            topics: List of topics to subscribe to
+            stream_topics: List of stream topics to subscribe to
         """
         self.host = host
         self.req_port = req_port
-        self.sub_port = sub_port
+        self.pub_port = pub_port
         self.push_port = push_port
         self.stream_port = stream_port
         self.timeout = timeout
         
         # Initialize ZMQ context
-        self.context = context or zmq.asyncio.Context.instance()
+        self.context = context or zmq.Context.instance()
         
         # Initialize sockets
         self._req_socket = None
@@ -82,6 +86,10 @@ class ZmqClient:
         self._running = False
         self._event_task = None
         
+        # Topics
+        self.topics = topics or []
+        self.stream_topics = stream_topics or []
+        
     async def connect(self):
         """Connect to the ZMQ server."""
         logger.info(f"Connecting to ZMQ server at {self.host}")
@@ -92,7 +100,7 @@ class ZmqClient:
         
         # Create Subscribe socket
         self._sub_socket = self.context.socket(zmq.SUB)
-        self._sub_socket.connect(f"tcp://{self.host}:{self.sub_port}")
+        self._sub_socket.connect(f"tcp://{self.host}:{self.pub_port}")
         
         # Create Push socket
         self._push_socket = self.context.socket(zmq.PUSH)
@@ -163,11 +171,11 @@ class ZmqClient:
         poller = zmq.Poller()
         poller.register(self._req_socket, zmq.POLLIN)
         
-        if poller.poll(int(self.timeout * 1000)):
+        if poller.poll(int(self.timeout / 1000)):
             response = await self._req_socket.recv_json()
             return response
         else:
-            raise TimeoutError(f"Request timed out after {self.timeout} seconds")
+            raise TimeoutError(f"Request timed out after {self.timeout / 1000} seconds")
     
     async def subscribe(self, topic: str, callback: Callable[[Dict[str, Any]], None]):
         """
@@ -258,12 +266,13 @@ class ZmqClient:
             pass
 
 def create_zmq_client(
-    host: str = "127.0.0.1",
+    host: str,
     req_port: int = 5555,
     pub_port: int = 5556,
     push_port: int = 5557,
     stream_port: int = 5558,
     topics: Optional[List[str]] = None,
+    stream_topics: Optional[List[str]] = None
 ) -> ZmqClient:
     """
     Create and start a ZeroMQ client.
@@ -275,6 +284,7 @@ def create_zmq_client(
         push_port: Port for Push-Pull socket.
         stream_port: Port for Stream socket.
         topics: List of topics to subscribe to.
+        stream_topics: List of stream topics to subscribe to.
         
     Returns:
         Running ZmqClient instance.
@@ -286,6 +296,7 @@ def create_zmq_client(
         push_port=push_port,
         stream_port=stream_port,
         topics=topics,
+        stream_topics=stream_topics,
     )
     client.start()
     return client 

@@ -320,10 +320,15 @@ class MultiGPUManager:
                     # Use NCCL backend for GPU, gloo for CPU
                     backend = "nccl" if torch.cuda.is_available() else "gloo"
                     if torch.cuda.is_available():
-                        os.environ["MASTER_ADDR"] = "127.0.0.1"
+                        # Use configuration system for distributed training hosts
+                        from feagi.config.toml_loader import load_feagi_config, get_host_config
+                        config = load_feagi_config()
+                        host_config = get_host_config(config)
+                        
+                        os.environ["MASTER_ADDR"] = host_config.zmq_host  # Use configured host instead of hardcoded
                         os.environ["MASTER_PORT"] = "29500"
                         dist.init_process_group(backend=backend, rank=0, world_size=1)
-                        logger.info(f"Initialized PyTorch distributed with {backend} backend")
+                        logger.info(f"Initialized PyTorch distributed with {backend} backend on {host_config.zmq_host}")
                     else:
                         logger.warning("CUDA not available for PyTorch distributed. Using single device.")
                 except Exception as e:

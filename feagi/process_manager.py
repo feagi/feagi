@@ -52,7 +52,9 @@ import multiprocessing
 from feagi.config.toml_loader import (
     load_feagi_config, 
     FeagiConfigurationError,
-    get_port_config
+    get_port_config,
+    get_host_config,
+    get_timeout_config
 )
 from feagi.utils.port_checker import (
     check_port_availability,
@@ -113,52 +115,57 @@ class ProcessManager:
         
     def load_and_validate_ports(self, cli_args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Load port configuration from TOML file and validate availability.
+        Load and validate port configuration from TOML configuration.
         
-        This replaces the old auto port conflict resolution with fail-fast validation.
+        This method enforces the principle that NO hardcoded defaults should exist for 
+        network configuration. All hosts and ports must come from explicit configuration.
         
         Args:
-            cli_args: Optional command-line argument overrides
+            cli_args: Optional command-line arguments to override config
             
         Returns:
-            Complete configuration dictionary
+            Complete configuration dictionary with validated ports and hosts
             
         Raises:
+            PortConflictError: If any configured port is already in use
+            ValueError: If required host/port configuration is missing
             FeagiConfigurationError: If configuration loading fails
-            PortConflictError: If any port is already in use
         """
         try:
             # Load TOML configuration with all overrides applied
             config = load_feagi_config(cli_args=cli_args)
             
+            # Extract and validate host configuration (will fail if hosts not set)
+            host_config = get_host_config(config)
+            
             # Extract port configuration
             port_config = get_port_config(config)
             
-            # Validate all ports are available
-            host = config.get('zmq', {}).get('host', '127.0.0.1')
-            
+            # Validate all ports are available on configured hosts
             for port_name, port_number in port_config.get_all_ports().items():
                 try:
-                    check_port_availability(host, port_number)
-                    logger.debug(f"Port {port_number} ({port_name}) is available")
+                    check_port_availability(host_config.zmq_host, port_number)
+                    logger.debug(f"Port {port_number} ({port_name}) is available on {host_config.zmq_host}")
                 except PortConflictError as e:
                     logger.error(f"Port conflict detected: {e}")
                     raise PortConflictError(
-                        f"Port {port_number} (used for {port_name}) is already in use. "
+                        f"Port {port_number} (used for {port_name}) is already in use on {host_config.zmq_host}. "
                         f"Edit feagi_configuration.toml to change port assignments. "
                         f"Available ports can be found using: netstat -tuln"
                     )
             
             # Also validate API port
-            api_port = config.get('api', {}).get('port', 8000)
-            api_host = config.get('api', {}).get('host', '127.0.0.1')
+            api_port = config.get('api', {}).get('port', 0)
+            if api_port <= 0:
+                raise ValueError("API port must be configured and greater than 0")
+            
             try:
-                check_port_availability(api_host, api_port)
-                logger.debug(f"API port {api_port} is available")
+                check_port_availability(host_config.api_host, api_port)
+                logger.debug(f"API port {api_port} is available on {host_config.api_host}")
             except PortConflictError as e:
                 logger.error(f"API port conflict detected: {e}")
                 raise PortConflictError(
-                    f"API port {api_port} is already in use. "
+                    f"API port {api_port} is already in use on {host_config.api_host}. "
                     f"Edit feagi_configuration.toml to change the api.port setting. "
                     f"Available ports can be found using: netstat -tuln"
                 )
@@ -293,7 +300,10 @@ class ProcessManager:
             
             # Get port configuration from TOML config
             port_config = get_port_config(config)
-            zmq_host = config.get('zmq', {}).get('host', '127.0.0.1')
+            
+            # Get host configuration with validation (no hardcoded fallbacks)
+            host_config = get_host_config(config)
+            zmq_host = host_config.zmq_host
             
             # --- ZMQ Message Broker Setup ---
             try:
@@ -499,7 +509,10 @@ class ProcessManager:
         try:
             # --- REST API (normal mode only) ---
             api_config = config.get('api', {})
-            api_host = api_config.get('host', '127.0.0.1')
+            
+            # Get host configuration with validation (no hardcoded fallbacks)
+            host_config = get_host_config(config)
+            api_host = host_config.api_host
             api_port = api_config.get('port', 8000)
             
             if not embedded_mode:
@@ -553,7 +566,7 @@ class ProcessManager:
                 logger.info("🔧 Embedded mode: REST API completely disabled for minimal resource usage")
                 logger.info("🔧 Control interface available only via ZMQ streams (control, sensory, motor)")
                 logger.info("🔧 No web interface, no FastAPI imports, no uvicorn server")
-                logger.info("🔧 Status available via ZMQ control stream: tcp://127.0.0.1:5559")
+                logger.info(f"🔧 Status available via ZMQ control stream: tcp://{zmq_host}:{port_config.zmq_control_port}")
             
             # --- WebSocket Server (Optional) ---
             try:
@@ -562,7 +575,8 @@ class ProcessManager:
                     from feagi.api.websocket.server import WebSocketServer
                     
                     ws_port = config.get('websocket', {}).get('port', 8080)
-                    ws_host = config.get('websocket', {}).get('host', '127.0.0.1')
+                    # Use validated host configuration (no hardcoded fallbacks)
+                    ws_host = host_config.api_host  # WebSocket uses same host as API
                     
                     ws_server = WebSocketServer(host=ws_host, port=ws_port)
                     
@@ -706,7 +720,17 @@ class ProcessManager:
                     self._check_processes()
                 except Exception as e:
                     logger.error(f"Error in process monitor: {e}")
-                time.sleep(5)  # Check every 5 seconds
+                
+                # Use configurable timeout instead of hardcoded value
+                try:
+                    config = load_feagi_config()
+                    timeout_config = get_timeout_config(config)
+                    monitor_interval = timeout_config.polling_timeout / 1000.0  # Convert ms to seconds
+                except Exception:
+                    # Fallback if config unavailable
+                    monitor_interval = 5.0
+                
+                time.sleep(monitor_interval)  # Use configurable interval
                 
         self._monitor_thread = threading.Thread(target=monitor_processes, daemon=True)
         self._monitor_thread.start()
@@ -751,10 +775,9 @@ class ProcessManager:
         
     def shutdown(self) -> None:
         """
-        Shut down the Process Manager and all managed tasks/processes.
+        Gracefully shutdown all FEAGI processes and services.
         
-        RUST/RTOS COMPATIBLE: Handles both async tasks and legacy processes.
-        In Rust, this would be a clean async task cancellation system.
+        Uses configurable timeout values from TOML configuration instead of hardcoded values.
         """
         # @cursor:critical-path - Signal-safe shutdown should minimize logging
         try:
@@ -767,10 +790,24 @@ class ProcessManager:
             import threading
             import time
             
-            # Define timeout for graceful shutdown attempts
-            GRACEFUL_SHUTDOWN_TIMEOUT = 8.0  # 8 seconds for graceful shutdown
+            # Load timeout configuration from TOML (use defaults if config unavailable during shutdown)
+            try:
+                config = load_feagi_config()
+                timeout_config = get_timeout_config(config)
+                graceful_shutdown_timeout = timeout_config.graceful_shutdown
+                thread_join_timeout = timeout_config.thread_join
+                process_join_timeout = timeout_config.process_join
+                fq_sampler_timeout = timeout_config.fq_sampler_shutdown
+            except Exception as e:
+                print(f"Warning: Could not load timeout config during shutdown, using fallback values: {e}", 
+                      file=sys.stderr, flush=True)
+                # Emergency fallback values only used if configuration is completely unavailable
+                graceful_shutdown_timeout = 8.0  # @architecture:acceptable - emergency fallback
+                thread_join_timeout = 2.0  # @architecture:acceptable - emergency fallback
+                process_join_timeout = 2.0  # @architecture:acceptable - emergency fallback
+                fq_sampler_timeout = 2.0  # @architecture:acceptable - emergency fallback
             
-            # Shutdown each service properly based on its type with timeouts
+            # Shutdown each service properly based on its type with configurable timeouts
             for name, service in self._processes.items():
                 try:
                     print(f"Stopping service: {name}...", file=sys.stderr, flush=True)
@@ -801,11 +838,11 @@ class ProcessManager:
                                 # Legacy subprocess handling
                                 if service.poll() is None:
                                     service.terminate()
-                                    service.wait(timeout=2)
+                                    service.wait(timeout=process_join_timeout)
                             elif hasattr(service, 'is_alive') and hasattr(service, 'join'):
                                 # Thread-like objects
                                 if service.is_alive():
-                                    service.join(timeout=2)
+                                    service.join(timeout=thread_join_timeout)
                             else:
                                 print(f"Service {name} doesn't have a known shutdown method", file=sys.stderr, flush=True)
                         except Exception as e:
@@ -814,10 +851,11 @@ class ProcessManager:
                     # Run shutdown with timeout using a separate thread
                     shutdown_thread = threading.Thread(target=shutdown_service, daemon=True)
                     shutdown_thread.start()
-                    shutdown_thread.join(timeout=GRACEFUL_SHUTDOWN_TIMEOUT)
+                    shutdown_thread.join(timeout=graceful_shutdown_timeout)
                     
                     if shutdown_thread.is_alive():
-                        print(f"⚠️  Service {name} didn't stop within {GRACEFUL_SHUTDOWN_TIMEOUT}s - continuing anyway", file=sys.stderr, flush=True)
+                        print(f"⚠️  Service {name} didn't stop within {graceful_shutdown_timeout}s - continuing anyway", 
+                              file=sys.stderr, flush=True)
                         
                 except Exception as e:
                     print(f"Error stopping service {name}: {e}", file=sys.stderr, flush=True)
@@ -828,7 +866,7 @@ class ProcessManager:
                 try:
                     self._fq_sampler.stop()
                     if hasattr(self, '_fq_sampler_thread') and self._fq_sampler_thread:
-                        self._fq_sampler_thread.join(timeout=2)
+                        self._fq_sampler_thread.join(timeout=fq_sampler_timeout)
                     self._fq_sampler = None
                     self._fq_sampler_thread = None
                     self._fq_sampler_queue = None

@@ -308,24 +308,29 @@ class ZMQConnectionManager:
     @classmethod
     def instance(cls, 
                  core_api: Optional[CoreAPIService] = None,
-                 host: str = "127.0.0.1"):
+                 host: str = None):
         """Get the singleton instance."""
         if cls._instance is None:
+            if host is None:
+                raise ValueError("Host must be provided when creating the initial instance")
             cls._instance = ZMQConnectionManager(core_api, host)
         return cls._instance
     
     def __init__(self, 
                  core_api: Optional[CoreAPIService] = None,
-                 host: str = "127.0.0.1"):
+                 host: str = None):
         """
         Initialize the connection manager.
         
         Args:
             core_api: Core API service
-            host: Host to bind to
+            host: Host to bind to (required - no hardcoded defaults)
         """
         if ZMQConnectionManager._instance is not None:
             raise RuntimeError("Use ZMQConnectionManager.instance() to get the singleton instance")
+            
+        if host is None:
+            raise ValueError("Host is required for ZMQ connection manager - no hardcoded defaults for deployment compatibility")
             
         self.host = host
         self.core_api = core_api

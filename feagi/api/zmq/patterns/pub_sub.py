@@ -210,7 +210,7 @@ class SubscriberClient:
     
     def __init__(
         self, 
-        host: str = "localhost", 
+        host: str,  # Remove hardcoded default - must be provided from configuration
         port: int = 5556,
         topics: Optional[List[str]] = None,
         context: Optional[zmq.asyncio.Context] = None
