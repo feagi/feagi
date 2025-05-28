@@ -228,10 +228,41 @@ class FeagiTestRunner:
         try:
             logger.info("Loading essential genome for testing")
             
+            # Check initial brain readiness state - should be False when starting
+            initial_brain_ready = self.state_manager.get_brain_readiness()
+            logger.info(f"Initial brain readiness state: {initial_brain_ready}")
+            
             # Use the CoreAPIService method to load the essential genome
             result = self.core_api.load_essential_genome()
             
-            # Verify that the genome was loaded by checking if there are cortical areas
+            # Check if the genome loading was successful
+            if not result.get("success", False):
+                logger.error(f"Failed to load genome: {result.get('error', 'Unknown error')}")
+                return False
+            
+            # Wait for brain readiness to become True (state-driven)
+            logger.info("Waiting for brain readiness state to become True...")
+            
+            # Poll the state manager for brain readiness changes
+            check_interval = 0.1  # Check every 100ms for responsive state monitoring
+            
+            while True:
+                brain_ready = self.state_manager.get_brain_readiness()
+                genome_valid = getattr(self.state_manager, 'genome_validity', False)
+                cortical_areas_count = len(self.connectome.cortical_areas) if self.connectome.cortical_areas else 0
+                
+                # Brain is ready when all conditions are met
+                if brain_ready and genome_valid and cortical_areas_count > 0:
+                    logger.info("Brain readiness state confirmed - neuroembryogenesis complete")
+                    logger.info(f"Final state: brain_ready={brain_ready}, genome_valid={genome_valid}, cortical_areas={cortical_areas_count}")
+                    break
+                
+                # Log state changes for debugging
+                logger.debug(f"State check: brain_ready={brain_ready}, genome_valid={genome_valid}, cortical_areas={cortical_areas_count}")
+                
+                time.sleep(check_interval)
+            
+            # Final verification that the genome was loaded by checking if there are cortical areas
             if len(self.connectome.cortical_areas) > 0:
                 logger.info("Essential genome loaded successfully")
                 logger.info(f"Loaded genome has {len(self.connectome.cortical_areas)} cortical areas")
@@ -254,6 +285,11 @@ class FeagiTestRunner:
             bool: True if genome is available, False otherwise
         """
         try:
+            # Double-check brain readiness before proceeding
+            if not self.state_manager.get_brain_readiness():
+                logger.error("Brain is not ready for neuron injection")
+                return False
+            
             # Get the genome data from the connectome
             genome_data = self.core_api.get_genome()
             
@@ -265,8 +301,22 @@ class FeagiTestRunner:
             if not self.connectome.cortical_areas:
                 logger.error("No cortical areas found in connectome")
                 return False
+            
+            # Verify cortical areas actually have neurons (neuroembryogenesis completed)
+            total_neurons = 0
+            areas_with_neurons = 0
+            for cortical_id, area in self.connectome.cortical_areas.items():
+                neuron_count = len(area.get_all_neurons())
+                total_neurons += neuron_count
+                if neuron_count > 0:
+                    areas_with_neurons += 1
+            
+            if total_neurons == 0:
+                logger.error("No neurons found in any cortical area - neuroembryogenesis may be incomplete")
+                return False
                 
-            logger.info(f"Genome validation successful: {len(self.connectome.cortical_areas)} cortical areas available")
+            logger.info(f"Genome validation successful: {len(self.connectome.cortical_areas)} cortical areas, {total_neurons} neurons total")
+            logger.info(f"Areas with neurons: {areas_with_neurons}/{len(self.connectome.cortical_areas)}")
             return True
             
         except Exception as e:
