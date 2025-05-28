@@ -286,22 +286,11 @@ class ZmqServer:
         # Callbacks
         self.sensory_callback = None
         
-        # Create connection manager (only for enabled streams)
-        enabled_ports = {}
-        if self.control_port is not None:
-            enabled_ports['control'] = self.control_port
-        if self.sensory_port is not None:
-            enabled_ports['sensory'] = self.sensory_port
-        if self.vis_port is not None:
-            enabled_ports['visualization'] = self.vis_port
-            
-        self.connection_manager = ConnectionManager(
-            control_port=self.control_port,
-            sensory_port=self.sensory_port,
-            motor_port=self.motor_port,
-            context=self._context,
-            visualization_port=self.vis_port
-        )
+        # Create connection manager only if control port is enabled
+        # NOTE: ConnectionManager now only handles control port - all other ports are handled by dedicated streams
+        # UPDATE: Control port is also handled by ControlStream, so ConnectionManager is not needed
+        self.connection_manager = None
+        logger.info("ConnectionManager disabled - all ports handled by dedicated streams")
         
         # Create protocol translator
         self.translator = ByteStructureTranslator()
@@ -534,11 +523,15 @@ class ZmqServer:
             self.tasks.append(asyncio.create_task(self._sensory_data_loop()))
             
             # Start message handlers
-            self.message_handlers = await start_message_handlers(
-                self.connection_manager,
-                None,
-                self.message_processors
-            )
+            if self.connection_manager:
+                self.message_handlers = await start_message_handlers(
+                    self.connection_manager,
+                    None,
+                    self.message_processors
+                )
+            else:
+                logger.info("Message handlers disabled - connection manager not available")
+                self.message_handlers = {}
             
             # Start client cleanup task
             self.cleanup_task = asyncio.create_task(self._cleanup_inactive_clients())
@@ -751,7 +744,8 @@ class ZmqServer:
             self.tasks = []
             
             # Close connection manager
-            self.connection_manager.close()
+            if self.connection_manager:
+                self.connection_manager.close()
             
             # @cursor:critical-path - Signal-safe cleanup should minimize logging
             print("ZMQ server resources cleaned up", file=sys.stderr, flush=True)
@@ -1214,7 +1208,7 @@ class ZmqServer:
                 # Register client in connection manager
                 # Note: The HandshakeMessageHandler should have updated the ZMQ ID
                 client_info = self.pending_clients.get(agent_id)
-                if client_info:
+                if client_info and self.connection_manager:
                     # Get ZMQ ID from somewhere (needs to be passed from handler)
                     zmq_id = client_info.get("zmq_id")
                     if zmq_id:
@@ -1362,6 +1356,11 @@ class ZmqServer:
         # Check protocol type
         if protocol_type not in ["fcp", "fsmp", "fvp"]:
             raise ValueError(f"Invalid protocol type: {protocol_type}")
+        
+        # Return 0 if connection manager is disabled
+        if not self.connection_manager:
+            logger.debug("Connection manager disabled - cannot broadcast messages")
+            return 0
             
         # Get all connected clients
         count = 0
@@ -1397,6 +1396,10 @@ class ZmqServer:
             while True:
                 # Wait for a while
                 await asyncio.sleep(30)
+                
+                # Skip cleanup if connection manager is disabled
+                if not self.connection_manager:
+                    continue
                 
                 # Find inactive clients
                 inactive_clients = self.connection_manager.get_inactive_clients(timeout_seconds=60)
