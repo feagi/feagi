@@ -232,10 +232,10 @@ class RequestReplyClient:
     
     def __init__(
         self, 
-        host: str = "localhost", 
+        host: str,  # Remove hardcoded default - must be provided from configuration
         port: int = 5555,
-        context: Optional[zmq.asyncio.Context] = None,
-        timeout: float = 5.0
+        timeout: int = 30,
+        context: Optional[zmq.asyncio.Context] = None
     ):
         """
         Initialize a new Request-Reply client.

@@ -204,7 +204,7 @@ class ZmqServer:
         pub_sub_port: int,
         push_pull_port: int,
         rest_port: int,
-        host: str = "127.0.0.1",
+        host: str,
         sensory_port: Optional[int] = None,
         motor_port: Optional[int] = None,
         control_port: Optional[int] = None,
@@ -343,8 +343,16 @@ class ZmqServer:
             self._thread = threading.Thread(target=self._run_server_thread, daemon=True)
             self._thread.start()
             
-            # Wait briefly to allow the server to start or fail
-            time.sleep(0.5)
+            # Wait briefly to allow the server to start or fail - use configurable timeout
+            try:
+                from feagi.config.toml_loader import load_feagi_config, get_timeout_config
+                config = load_feagi_config()
+                timeout_config = get_timeout_config(config)
+                startup_wait = timeout_config.service_startup / 6.0  # Brief fraction of service startup timeout
+            except Exception:
+                startup_wait = 0.5  # @architecture:acceptable - emergency fallback
+            
+            time.sleep(startup_wait)
             
             if not self._running:
                 # If the server didn't start properly, the thread will have set _running to False

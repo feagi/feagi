@@ -44,7 +44,7 @@ logger = logging.getLogger("feagi.zmq")
 def main():
     """Run the FEAGI ZMQ server in standalone mode."""
     parser = argparse.ArgumentParser(description="FEAGI ZMQ Server (Standalone)")
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to run the server on")
+    parser.add_argument("--host", type=str, help="Host to run the server on (required)")
     parser.add_argument("--req-port", type=int, default=5555, help="REQ/REP port")
     parser.add_argument("--pub-port", type=int, default=5556, help="PUB/SUB port")
     parser.add_argument("--push-port", type=int, default=5557, help="PUSH/PULL port")
@@ -53,6 +53,10 @@ def main():
     parser.add_argument("--vis-base-port", type=int, default=5560, help="Visualization base port")
     parser.add_argument("--mock", action="store_true", help="Use mock core API")
     args = parser.parse_args()
+    
+    # Validate required arguments
+    if not args.host:
+        parser.error("--host is required. No hardcoded defaults for deployment compatibility.")
     
     # Warning about standalone mode
     logger.warning("Running FEAGI ZMQ server in standalone mode. For full functionality, use 'python -m feagi.main'")

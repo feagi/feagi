@@ -194,7 +194,7 @@ class PullClient:
     
     def __init__(
         self, 
-        host: str = "localhost", 
+        host: str,  # Remove hardcoded default - must be provided from configuration
         port: int = 5557,
         hwm: int = 100,
         context: Optional[zmq.asyncio.Context] = None

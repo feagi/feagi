@@ -274,7 +274,12 @@ if __name__ == "__main__":
     }
     
     try:
-        perform_comprehensive_port_check('127.0.0.1', test_ports)
+        # Use configuration system instead of hardcoded IP
+        from feagi.config.toml_loader import load_feagi_config, get_host_config
+        config = load_feagi_config()
+        host_config = get_host_config(config)
+        
+        perform_comprehensive_port_check(host_config.api_host, test_ports)
         print("All ports available!")
     except (PortConflictError, ValueError) as e:
         print(f"Port check failed:\n{e}") 

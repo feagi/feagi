@@ -71,6 +71,7 @@ from pathlib import Path
 from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
 from feagi.utils.logger import setup_logger
 from feagi.evo.genome_processor import process_and_load_genome
+from feagi.config.toml_loader import load_feagi_config, get_host_config
 
 # Use feagi_sim for activity generation
 # from feagi_sim.activity_generator import (\n    CorticalType, \n    OutputFormat,\n    timed_cortical_activity_generator\n)
@@ -473,10 +474,13 @@ class FeagiTestRunner:
                 return False
                 
             # Register a fake visualization agent
+            config = load_feagi_config()
+            host_config = get_host_config(config)
+            
             agent_data = {
                 "agent_id": self.visualization_agent_id,
                 "agent_type": "visualization",
-                "agent_ip": "127.0.0.1",
+                "agent_ip": host_config.api_host,
                 "agent_data_port": 5555,
                 "agent_version": "1.0.0",
                 "controller_version": "1.0.0",

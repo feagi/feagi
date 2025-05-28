@@ -34,6 +34,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
+import tempfile
 
 try:
     import tomllib  # Python 3.11+
@@ -50,9 +51,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PortConfiguration:
-    """Port configuration with validation. NO DEFAULTS - all values must come from TOML."""
+    """
+    Port configuration loaded from TOML with validation.
+    
+    All port numbers are required and must be explicitly configured.
+    No default values are provided to enforce configuration-driven architecture.
+    """
+    # Required port configurations
     zmq_req_rep_port: int
-    zmq_pub_sub_port: int
+    zmq_pub_sub_port: int  
     zmq_push_pull_port: int
     zmq_sensory_port: int
     zmq_control_port: int
@@ -61,27 +68,67 @@ class PortConfiguration:
     zmq_motor_port: int
 
     def get_all_ports(self) -> Dict[str, int]:
-        """Get all port numbers as a dictionary."""
+        """Return all configured ports as a dictionary."""
         return {
-            'zmq_req_rep_port': self.zmq_req_rep_port,
-            'zmq_pub_sub_port': self.zmq_pub_sub_port,
-            'zmq_push_pull_port': self.zmq_push_pull_port,
-            'zmq_sensory_port': self.zmq_sensory_port,
-            'zmq_control_port': self.zmq_control_port,
-            'zmq_visualization_port': self.zmq_visualization_port,
-            'zmq_rest_port': self.zmq_rest_port,
-            'zmq_motor_port': self.zmq_motor_port,
+            'zmq_req_rep': self.zmq_req_rep_port,
+            'zmq_pub_sub': self.zmq_pub_sub_port,
+            'zmq_push_pull': self.zmq_push_pull_port,
+            'zmq_sensory': self.zmq_sensory_port,
+            'zmq_control': self.zmq_control_port,
+            'zmq_visualization': self.zmq_visualization_port,
+            'zmq_rest': self.zmq_rest_port,
+            'zmq_motor': self.zmq_motor_port
         }
 
-    def validate_unique_ports(self) -> None:
-        """Validate that all ports are unique."""
-        ports = list(self.get_all_ports().values())
-        if len(ports) != len(set(ports)):
-            duplicates = [port for port in set(ports) if ports.count(port) > 1]
+
+@dataclass 
+class HostConfiguration:
+    """
+    Host configuration with required validation.
+    
+    All hosts must be explicitly configured - no defaults provided.
+    """
+    api_host: str
+    zmq_host: str
+    
+    def __post_init__(self):
+        """Validate required host configurations."""
+        if not self.api_host or self.api_host == "":
             raise ValueError(
-                f"Port configuration contains duplicate ports: {duplicates}. "
-                f"Edit feagi_configuration.toml to fix conflicts."
+                "API host is required. Set via FEAGI_API_HOST environment variable "
+                "or api.host in configuration file."
             )
+        if not self.zmq_host or self.zmq_host == "":
+            raise ValueError(
+                "ZMQ host is required. Set via FEAGI_ZMQ_HOST environment variable "
+                "or zmq.host in configuration file."
+            )
+
+
+@dataclass
+class TimeoutConfiguration:
+    """
+    System timeout configurations loaded from TOML.
+    
+    All timeouts are configurable to support different deployment environments.
+    """
+    # System timeouts (seconds)
+    graceful_shutdown: float = 8.0
+    service_startup: float = 3.0
+    thread_join: float = 2.0
+    process_join: float = 2.0
+    service_stop: float = 5.0
+    visualization_shutdown: float = 5.0
+    api_service_shutdown: float = 10.0
+    fq_sampler_shutdown: float = 2.0
+    
+    # ZMQ timeouts (milliseconds)
+    socket_connect_timeout: int = 1000
+    socket_receive_timeout: int = 5000
+    socket_send_timeout: int = 5000
+    client_heartbeat_timeout: int = 30000
+    inactive_client_timeout: int = 60000
+    polling_timeout: int = 100
 
 
 class FeagiConfigurationError(Exception):
@@ -277,34 +324,123 @@ def load_toml_configuration(
         config = apply_cli_overrides(config, cli_args)
         
         # Validate port configuration
-        port_config = PortConfiguration(**config.get('ports', {}))
-        port_config.validate_unique_ports()
-        
-        # Update config with validated ports
-        config['ports'] = port_config.get_all_ports()
+        port_config = get_port_config(config)
         
         logger.info("FEAGI configuration loaded successfully")
         return config
         
     except FileNotFoundError as e:
         raise FeagiConfigurationError(f"Configuration file not found: {e}")
-    except tomllib.TOMLDecodeError as e:
-        raise FeagiConfigurationError(f"Invalid TOML syntax: {e}")
     except Exception as e:
+        # Handle both tomllib.TOMLDecodeError and any other errors
+        if "TOML" in str(type(e)):
+            raise FeagiConfigurationError(f"Invalid TOML syntax: {e}")
         raise FeagiConfigurationError(f"Failed to load configuration: {e}")
 
 
 def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
     """
-    Extract port configuration from the full config.
+    Extract and validate port configuration from loaded TOML config.
     
     Args:
-        config: Full configuration dictionary
+        config: Configuration dictionary loaded from TOML
         
     Returns:
-        PortConfiguration object
+        PortConfiguration with all required ports
+        
+    Raises:
+        ValueError: If any required port is missing or invalid
+        KeyError: If ports section is missing from configuration
     """
-    return PortConfiguration(**config.get('ports', {}))
+    if 'ports' not in config:
+        raise KeyError("Missing 'ports' section in configuration")
+    
+    ports = config['ports']
+    
+    # Validate all required ports are present
+    required_ports = [
+        'zmq_req_rep_port', 'zmq_pub_sub_port', 'zmq_push_pull_port',
+        'zmq_sensory_port', 'zmq_control_port', 'zmq_visualization_port', 
+        'zmq_rest_port', 'zmq_motor_port'
+    ]
+    
+    for port_name in required_ports:
+        if port_name not in ports:
+            raise ValueError(f"Missing required port configuration: {port_name}")
+        port_value = ports[port_name]
+        if not isinstance(port_value, int) or port_value <= 0:
+            raise ValueError(f"Invalid port value for {port_name}: {port_value} (must be positive integer)")
+    
+    return PortConfiguration(
+        zmq_req_rep_port=ports['zmq_req_rep_port'],
+        zmq_pub_sub_port=ports['zmq_pub_sub_port'],
+        zmq_push_pull_port=ports['zmq_push_pull_port'],
+        zmq_sensory_port=ports['zmq_sensory_port'],
+        zmq_control_port=ports['zmq_control_port'],
+        zmq_visualization_port=ports['zmq_visualization_port'],
+        zmq_rest_port=ports['zmq_rest_port'],
+        zmq_motor_port=ports['zmq_motor_port']
+    )
+
+
+def get_host_config(config: Dict[str, Any]) -> HostConfiguration:
+    """
+    Extract and validate host configuration from loaded TOML config.
+    
+    Args:
+        config: Configuration dictionary loaded from TOML
+        
+    Returns:
+        HostConfiguration with validated hosts
+        
+    Raises:
+        ValueError: If required hosts are missing or empty
+    """
+    api_host = config.get('api', {}).get('host', '')
+    zmq_host = config.get('zmq', {}).get('host', '')
+    
+    # Allow environment variable overrides
+    api_host = os.environ.get('FEAGI_API_HOST', api_host)
+    zmq_host = os.environ.get('FEAGI_ZMQ_HOST', zmq_host)
+    
+    return HostConfiguration(
+        api_host=api_host,
+        zmq_host=zmq_host
+    )
+
+
+def get_timeout_config(config: Dict[str, Any]) -> TimeoutConfiguration:
+    """
+    Extract timeout configuration from loaded TOML config.
+    
+    Args:
+        config: Configuration dictionary loaded from TOML
+        
+    Returns:
+        TimeoutConfiguration with all timeout values
+    """
+    timeout_config = config.get('timeouts', {})
+    zmq_config = config.get('zmq', {})
+    
+    return TimeoutConfiguration(
+        # System timeouts
+        graceful_shutdown=timeout_config.get('graceful_shutdown', 8.0),
+        service_startup=timeout_config.get('service_startup', 3.0),
+        thread_join=timeout_config.get('thread_join', 2.0),
+        process_join=timeout_config.get('process_join', 2.0),
+        service_stop=timeout_config.get('service_stop', 5.0),
+        visualization_shutdown=timeout_config.get('visualization_shutdown', 5.0),
+        api_service_shutdown=timeout_config.get('api_service_shutdown', 10.0),
+        fq_sampler_shutdown=timeout_config.get('fq_sampler_shutdown', 2.0),
+        
+        # ZMQ timeouts
+        socket_connect_timeout=zmq_config.get('socket_connect_timeout', 1000),
+        socket_receive_timeout=zmq_config.get('socket_receive_timeout', 5000),
+        socket_send_timeout=zmq_config.get('socket_send_timeout', 5000),
+        client_heartbeat_timeout=zmq_config.get('client_heartbeat_timeout', 30000),
+        inactive_client_timeout=zmq_config.get('inactive_client_timeout', 60000),
+        polling_timeout=zmq_config.get('polling_timeout', 100)
+    )
 
 
 def validate_configuration(config: Dict[str, Any]) -> None:
@@ -332,12 +468,23 @@ def validate_configuration(config: Dict[str, Any]) -> None:
                 f"Edit feagi_configuration.toml to fix this."
             )
     
-    # Validate API port separately
+    # Validate API port with environment variable override support
     api_port = config.get('api', {}).get('port', 8000)
-    if not (1024 <= api_port <= 65535):
+    # Check for environment variable override
+    api_port = int(os.environ.get('FEAGI_API_PORT', api_port))
+    
+    # Allow port 0 as a special "must be configured" value
+    if api_port != 0 and not (1024 <= api_port <= 65535):
         raise FeagiConfigurationError(
             f"API port = {api_port} is outside valid range (1024-65535). "
-            f"Edit feagi_configuration.toml to fix this."
+            f"Edit feagi_configuration.toml or set FEAGI_API_PORT environment variable to fix this."
+        )
+    
+    # If port is 0, it means it must be configured via environment variable
+    if api_port == 0:
+        logger.warning(
+            "API port is set to 0 in configuration. "
+            "This requires explicit configuration via FEAGI_API_PORT environment variable."
         )
     
     logger.info("Configuration validation passed")

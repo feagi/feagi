@@ -11,19 +11,21 @@
 max_cores = 0  # 0 = auto-detect
 debug = true
 log_level = "INFO"
-data_dir = "/tmp/feagi"  # Can be overridden with $FEAGI_DATA_DIR
+data_dir = ""  # Must be set via environment variable or configuration override
 
 [api]
 # REST API server configuration
-host = "127.0.0.1"  # Can be overridden with $FEAGI_API_HOST
-port = 8000         # Can be overridden with $FEAGI_API_PORT
-workers = 1         # Can be overridden with $FEAGI_API_WORKERS
-reload = false      # Can be overridden with $FEAGI_API_RELOAD
+# REQUIRED: These values must be provided via environment variables or config override
+# Example: FEAGI_API_HOST=0.0.0.0 FEAGI_API_PORT=8080
+host = ""       # REQUIRED: Must be set (e.g., via $FEAGI_API_HOST)
+port = 0        # REQUIRED: Must be set (e.g., via $FEAGI_API_PORT)
+workers = 1     # Can be overridden with $FEAGI_API_WORKERS
+reload = false  # Can be overridden with $FEAGI_API_RELOAD
 
 [ports]
 # ZMQ Communication Ports
 # 
-# ⚠️  CRITICAL: Edit these values if you have port conflicts
+# ⚠️  CRITICAL: All port values are REQUIRED and must be explicitly set
 # ⚠️  DO NOT change these ports while FEAGI is running
 # ⚠️  Restart FEAGI after making any port changes
 # ⚠️  Ensure all port numbers are unique
@@ -45,10 +47,30 @@ zmq_motor_port = 5564        # Motor data output
 
 [zmq]
 # ZMQ-specific settings
-host = "127.0.0.1"  # Can be overridden with $FEAGI_ZMQ_HOST
+# REQUIRED: Host must be provided via environment variable or config override
+# Example: FEAGI_ZMQ_HOST=0.0.0.0
+host = ""                    # REQUIRED: Must be set (e.g., via $FEAGI_ZMQ_HOST)
 enabled = true
-polling_timeout = 100      # milliseconds
-message_buffer_size = 100  # max messages to buffer
+
+# Timeout configurations (all in milliseconds)
+polling_timeout = 100        # ZMQ polling timeout
+message_buffer_size = 100    # max messages to buffer
+socket_connect_timeout = 1000  # Socket connection timeout
+socket_receive_timeout = 5000  # Socket receive timeout  
+socket_send_timeout = 5000     # Socket send timeout
+client_heartbeat_timeout = 30000  # Client heartbeat timeout
+inactive_client_timeout = 60000   # Consider clients inactive after this
+
+[timeouts]
+# System-wide timeout configurations (all in seconds unless specified)
+graceful_shutdown = 8.0        # Time to wait for graceful shutdown
+service_startup = 3.0          # Max time to wait for service startup
+thread_join = 2.0              # Default thread join timeout
+process_join = 2.0             # Default process join timeout
+service_stop = 5.0             # Timeout for stopping services
+visualization_shutdown = 5.0    # Visualization-specific shutdown timeout
+api_service_shutdown = 10.0    # API service shutdown timeout
+fq_sampler_shutdown = 2.0      # FQ sampler shutdown timeout
 
 [neural]
 # Neural processing configuration

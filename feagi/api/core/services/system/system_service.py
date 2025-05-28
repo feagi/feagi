@@ -237,10 +237,15 @@ class SystemService(BaseService):
         try:
             # Check if InfluxDB configuration exists
             if self.state_manager and hasattr(self.state_manager, 'influxdb_config'):
+                # Use configuration system for host instead of hardcoded localhost
+                from feagi.config.toml_loader import load_feagi_config, get_host_config
+                config = load_feagi_config()
+                host_config = get_host_config(config)
+                
                 return {
                     "status": "connected",
                     "database": self.state_manager.influxdb_config.get('database', 'feagi'),
-                    "host": self.state_manager.influxdb_config.get('host', 'localhost'),
+                    "host": self.state_manager.influxdb_config.get('host', host_config.api_host),  # Use configured host
                     "port": self.state_manager.influxdb_config.get('port', 8086)
                 }
             

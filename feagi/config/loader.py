@@ -39,7 +39,7 @@ DEFAULT_CONFIG = {
         "file": None,
     },
     "api": {
-        "host": "127.0.0.1",
+        "host": "",  # Require explicit configuration - no hardcoded fallback
         "port": 8000,
     },
 }

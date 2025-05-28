@@ -33,16 +33,22 @@ logger = setup_logger()
 def main():
     """Run the FEAGI API server in standalone mode."""
     parser = argparse.ArgumentParser(description="FEAGI API Server (Standalone)")
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to run the server on")
+    parser.add_argument("--host", type=str, help="Host to run the server on (required)")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     parser.add_argument("--zmq", action="store_true", help="Enable ZeroMQ client mode")
-    parser.add_argument("--zmq-host", type=str, default="127.0.0.1", help="ZeroMQ host")
+    parser.add_argument("--zmq-host", type=str, help="ZeroMQ host (required if using --zmq)")
     parser.add_argument("--zmq-req-port", type=int, default=5555, help="ZeroMQ Request-Reply port")
     parser.add_argument("--zmq-pub-port", type=int, default=5556, help="ZeroMQ Publish-Subscribe port")
     parser.add_argument("--zmq-push-port", type=int, default=5557, help="ZeroMQ Push-Pull port")
     parser.add_argument("--zmq-stream-port", type=int, default=5558, help="ZeroMQ Stream port")
     args = parser.parse_args()
+    
+    # Validate required arguments
+    if not args.host:
+        parser.error("--host is required. No hardcoded defaults for deployment compatibility.")
+    if args.zmq and not args.zmq_host:
+        parser.error("--zmq-host is required when using --zmq. No hardcoded defaults for deployment compatibility.")
     
     # Warning about standalone mode
     logger.warning("Running FEAGI API server in standalone mode. For full functionality, use 'python -m feagi.main'")
