@@ -362,6 +362,17 @@ class ZmqServer:
         
         This method creates a new event loop for the thread and runs the server in it.
         """
+        # CRITICAL: Windows asyncio compatibility fix for ZMQ
+        # Must be done BEFORE creating event loop for this thread
+        import platform
+        if platform.system() == "Windows":
+            try:
+                # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            except AttributeError:
+                # Fallback for older Python versions
+                logger.warning("WindowsSelectorEventLoopPolicy not available - ZMQ may have issues")
+        
         # Create a new event loop for this thread
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
