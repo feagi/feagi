@@ -469,22 +469,15 @@ def validate_configuration(config: Dict[str, Any]) -> None:
             )
     
     # Validate API port with environment variable override support
-    api_port = config.get('api', {}).get('port', 8000)
+    api_port = config.get('api', {}).get('port', 8080)
     # Check for environment variable override
     api_port = int(os.environ.get('FEAGI_API_PORT', api_port))
     
-    # Allow port 0 as a special "must be configured" value
-    if api_port != 0 and not (1024 <= api_port <= 65535):
+    # Validate port range
+    if not (1024 <= api_port <= 65535):
         raise FeagiConfigurationError(
             f"API port = {api_port} is outside valid range (1024-65535). "
             f"Edit feagi_configuration.toml or set FEAGI_API_PORT environment variable to fix this."
-        )
-    
-    # If port is 0, it means it must be configured via environment variable
-    if api_port == 0:
-        logger.warning(
-            "API port is set to 0 in configuration. "
-            "This requires explicit configuration via FEAGI_API_PORT environment variable."
         )
     
     logger.info("Configuration validation passed")
