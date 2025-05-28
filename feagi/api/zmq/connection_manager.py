@@ -55,19 +55,19 @@ class ConnectionManager:
     """
     
     def __init__(self, 
+                 control_port: int,
+                 sensory_port: int,
+                 motor_port: int,
                  context: Optional[zmq.asyncio.Context] = None,
-                 control_port: int = 5559,
-                 sensory_port: int = 5558,
-                 motor_port: int = 5564,
-                 visualization_port: Optional[int] = 5560):
+                 visualization_port: Optional[int] = None):
         """
         Initialize the connection manager.
         
         Args:
-            context: ZMQ context (will create one if not provided)
             control_port: Port for control messages (ROUTER pattern)
             sensory_port: Port for sensory data (PULL pattern)
             motor_port: Port for motor commands (PUB pattern)
+            context: ZMQ context (will create one if not provided)
             visualization_port: Port for visualization data (PUB pattern), None to disable
         """
         self.context = context or zmq.asyncio.Context.instance()
@@ -308,7 +308,7 @@ class ZMQConnectionManager:
     @classmethod
     def instance(cls, 
                  core_api: Optional[CoreAPIService] = None,
-                 host: str = "*"):
+                 host: str = "127.0.0.1"):
         """Get the singleton instance."""
         if cls._instance is None:
             cls._instance = ZMQConnectionManager(core_api, host)
@@ -316,7 +316,7 @@ class ZMQConnectionManager:
     
     def __init__(self, 
                  core_api: Optional[CoreAPIService] = None,
-                 host: str = "*"):
+                 host: str = "127.0.0.1"):
         """
         Initialize the connection manager.
         
