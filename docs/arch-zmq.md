@@ -1029,9 +1029,134 @@ control_client = ControlClient(port=5561)  # Control only
 3. **Connection Pooling**: Reuse connections for multiple operations
 4. **Async Operations**: Use async clients for better throughput
 
-## Related Documentation
+## Windows Platform Compatibility
 
-- [System Overview](arch-system-overview.md)
-- [IPC Architecture](arch-ipc.md)
-- [State Management](arch-state-management.md)
-- [System Diagrams](arch-system-diagrams.md) 
+### Windows ZMQ Binding Issues & Solutions
+
+**Issue**: Windows systems may encounter "Permission denied" errors when FEAGI attempts to bind ZMQ sockets to `127.0.0.1` addresses:
+
+```
+Failed to start ZMQ services: Permission denied (addr='tcp://127.0.0.1:5558')
+```
+
+**Root Cause**: Windows handles loopback interface binding differently than Linux/macOS. Binding to `127.0.0.1` can trigger Windows Firewall or network stack restrictions, even when the port is available.
+
+**Solution Architecture**: FEAGI 2.0 implements an automatic Windows compatibility fix in the Process Manager:
+
+```python
+# Windows-specific ZMQ binding fix in process_manager.py
+import platform
+if platform.system() == "Windows" and zmq_host in ["127.0.0.1", "localhost"]:
+    logger.info(f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding")
+    zmq_bind_host = "*"  # Bind to all interfaces on Windows only
+else:
+    # On non-Windows platforms, use the configured host directly
+    # ZMQ will handle 0.0.0.0 appropriately on each platform
+    zmq_bind_host = zmq_host
+```
+
+### Cross-Platform Configuration
+
+**Recommended Configuration** (`feagi_configuration.toml`):
+
+```toml
+[api]
+host = "0.0.0.0"  # Cross-platform compatible for all interfaces
+port = 8080
+
+[zmq]
+host = "0.0.0.0"  # Works cross-platform; Windows converts loopback addresses to "*" automatically
+
+[ports]
+zmq_req_rep_port = 5555
+zmq_pub_sub_port = 5556
+zmq_push_pull_port = 5557
+zmq_sensory_port = 5558
+zmq_control_port = 5559
+zmq_visualization_port = 5562
+zmq_rest_port = 5563
+zmq_motor_port = 5564
+```
+
+**Environment Variable Overrides** (Production):
+```bash
+# Linux/Docker deployment
+export FEAGI_ZMQ_HOST=0.0.0.0
+export FEAGI_API_HOST=0.0.0.0
+
+# Windows development
+export FEAGI_ZMQ_HOST=0.0.0.0
+export FEAGI_API_HOST=0.0.0.0
+
+# Kubernetes deployment
+export FEAGI_ZMQ_HOST=0.0.0.0  # Service discovery handles routing
+export FEAGI_API_HOST=0.0.0.0
+```
+
+### Platform-Specific Considerations
+
+#### Windows Development
+- **Use `0.0.0.0`**: Always configure hosts as `0.0.0.0` instead of `127.0.0.1`
+- **ZMQ Binding**: FEAGI automatically converts loopback addresses to `"*"` for ZMQ socket binding on Windows only
+- **Firewall**: Windows Defender may prompt for network access - allow FEAGI through firewall
+- **Port Conflicts**: Use `netstat -ano | findstr :5555` to check for port conflicts
+
+#### Linux/macOS Development
+- **Standard Configuration**: `0.0.0.0` works universally without conversion
+- **Docker Compatibility**: `0.0.0.0` ensures containers can bind properly
+- **No Special Handling**: Platform differences are handled automatically - ZMQ uses the configured host directly
+
+#### Container Deployments
+- **Docker**: Always use `0.0.0.0` for host binding inside containers
+- **Kubernetes**: Use `0.0.0.0` with Service discovery for external access
+- **Network Policies**: Configure appropriate NetworkPolicies for ZMQ ports
+
+### Troubleshooting Windows ZMQ Issues
+
+**Error**: `Failed to start ZMQ services: Permission denied`
+
+**Solutions**:
+1. **Configuration Fix** (Permanent):
+   ```toml
+   # In feagi_configuration.toml
+   [zmq]
+   host = "0.0.0.0"  # NOT "127.0.0.1"
+   ```
+
+2. **Environment Override** (Temporary):
+   ```bash
+   set FEAGI_ZMQ_HOST=0.0.0.0
+   python main.py
+   ```
+
+3. **Check Port Availability**:
+   ```bash
+   netstat -ano | findstr :5558
+   # Should show no existing connections
+   ```
+
+4. **Windows Firewall**: 
+   - Allow Python/FEAGI through Windows Defender Firewall
+   - Or run PowerShell as Administrator: `New-NetFirewallRule -DisplayName "FEAGI ZMQ" -Direction Inbound -Port 5555-5564 -Protocol TCP -Action Allow`
+
+**Error**: `Address already in use`
+
+**Solutions**:
+1. **Find Conflicting Process**:
+   ```bash
+   netstat -ano | findstr :5558
+   taskkill /PID <process_id> /F
+   ```
+
+2. **Change Ports** (if needed):
+   ```toml
+   # In feagi_configuration.toml
+   [ports]
+   zmq_sensory_port = 5568  # Use different port
+   ```
+
+### Architecture Compliance
+
+The Windows compatibility fix maintains FEAGI's architecture compliance:
+
+- ✅ **No Hardcoded Fallbacks**: Uses configuration system with `

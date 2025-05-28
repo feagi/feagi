@@ -66,7 +66,10 @@ class MessageHandler:
             self.socket = connection_manager.control_socket
         elif protocol_type == "fsmp":
             # Using sensory socket for FSMP as it's primarily for receiving data
+            # But sensory socket may be None if handled by dedicated stream
             self.socket = connection_manager.sensory_socket
+            if self.socket is None:
+                logger.info("FSMP handler disabled - sensory socket handled by dedicated stream")
         elif protocol_type == "fsmp_motor":
             # Separate handler type for motor data
             self.socket = connection_manager.motor_socket

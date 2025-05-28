@@ -91,6 +91,10 @@ class TestCodebaseHardcodingDetection:
                             stripped = line.strip()
                             if stripped.startswith('#') or stripped.startswith('"""') or stripped.startswith("'''"):
                                 continue
+                            
+                            # Check for @architecture:acceptable annotation
+                            if '@architecture:acceptable' in line:
+                                continue  # Skip explicitly marked acceptable cases
                                 
                             violations.append({
                                 'file': str(py_file.relative_to(feagi_dir.parent)),

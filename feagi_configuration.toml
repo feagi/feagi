@@ -16,9 +16,9 @@ data_dir = ""  # Must be set via environment variable or configuration override
 [api]
 # REST API server configuration
 # REQUIRED: These values must be provided via environment variables or config override
-# Example: FEAGI_API_HOST=0.0.0.0 FEAGI_API_PORT=8080
-host = "127.0.0.1"  # Default for development, override with FEAGI_API_HOST for production
-port = 8080         # Default for development, override with FEAGI_API_PORT for production
+# Example: FEAGI_API_HOST=0.0.0.0 FEAGI_API_PORT=8000
+host = "0.0.0.0"  # Default for cross-platform compatibility, override with FEAGI_API_HOST for production
+port = 8000         # Default API port, override with FEAGI_API_PORT for production
 workers = 1         # Can be overridden with $FEAGI_API_WORKERS
 reload = false      # Can be overridden with $FEAGI_API_RELOAD
 
@@ -49,7 +49,7 @@ zmq_motor_port = 5564        # Motor data output
 # ZMQ-specific settings
 # REQUIRED: Host must be provided via environment variable or config override
 # Example: FEAGI_ZMQ_HOST=0.0.0.0
-host = "127.0.0.1"           # Default for development, override with FEAGI_ZMQ_HOST for production
+host = "0.0.0.0"           # Default for cross-platform compatibility, override with FEAGI_ZMQ_HOST for production
 enabled = true
 
 # Timeout configurations (all in milliseconds)

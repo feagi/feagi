@@ -56,8 +56,8 @@ class ConnectionManager:
     
     def __init__(self, 
                  control_port: int,
-                 sensory_port: int,
-                 motor_port: int,
+                 sensory_port: Optional[int],
+                 motor_port: Optional[int],
                  context: Optional[zmq.asyncio.Context] = None,
                  visualization_port: Optional[int] = None):
         """
@@ -65,8 +65,8 @@ class ConnectionManager:
         
         Args:
             control_port: Port for control messages (ROUTER pattern)
-            sensory_port: Port for sensory data (PULL pattern)
-            motor_port: Port for motor commands (PUB pattern)
+            sensory_port: Port for sensory data (PULL pattern), None to disable
+            motor_port: Port for motor commands (PUB pattern), None to disable
             context: ZMQ context (will create one if not provided)
             visualization_port: Port for visualization data (PUB pattern), None to disable
         """
@@ -80,18 +80,26 @@ class ConnectionManager:
         self.control_socket.bind(f"tcp://*:{control_port}")
         logger.info(f"Control socket (ROUTER) bound to port {control_port}")
         
-        # Create sensory socket (PULL) for receiving sensory data
-        self.sensory_socket = self.context.socket(zmq.PULL)
-        self.sensory_socket.setsockopt(zmq.RCVHWM, 1)  # Minimal receive queue
-        self.sensory_socket.bind(f"tcp://*:{sensory_port}")
-        logger.info(f"Sensory socket (PULL) bound to port {sensory_port}")
+        # Create sensory socket (PULL) for receiving sensory data only if port is provided
+        self.sensory_socket = None
+        if sensory_port is not None:
+            self.sensory_socket = self.context.socket(zmq.PULL)
+            self.sensory_socket.setsockopt(zmq.RCVHWM, 1)  # Minimal receive queue
+            self.sensory_socket.bind(f"tcp://*:{sensory_port}")
+            logger.info(f"Sensory socket (PULL) bound to port {sensory_port}")
+        else:
+            logger.info("Sensory socket disabled (handled by dedicated stream)")
         
-        # Create motor socket (PUB) for broadcasting motor commands
-        self.motor_socket = self.context.socket(zmq.PUB)
-        self.motor_socket.setsockopt(zmq.SNDHWM, 1)  # Minimal send queue
-        self.motor_socket.setsockopt(zmq.CONFLATE, 1)  # Only keep most recent message
-        self.motor_socket.bind(f"tcp://*:{motor_port}")
-        logger.info(f"Motor socket (PUB) bound to port {motor_port}")
+        # Create motor socket (PUB) for broadcasting motor commands only if port is provided
+        self.motor_socket = None
+        if motor_port is not None:
+            self.motor_socket = self.context.socket(zmq.PUB)
+            self.motor_socket.setsockopt(zmq.SNDHWM, 1)  # Minimal send queue
+            self.motor_socket.setsockopt(zmq.CONFLATE, 1)  # Only keep most recent message
+            self.motor_socket.bind(f"tcp://*:{motor_port}")
+            logger.info(f"Motor socket (PUB) bound to port {motor_port}")
+        else:
+            logger.info("Motor socket disabled (handled by dedicated stream)")
         
         # Create visualization socket (PUB) only if visualization port is provided
         self.visualization_socket = None

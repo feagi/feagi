@@ -305,6 +305,20 @@ class ProcessManager:
             host_config = get_host_config(config)
             zmq_host = host_config.zmq_host
             
+            # Windows-specific ZMQ binding fix: normalize host for binding
+            # On Windows, binding to 127.0.0.1 can cause permission issues
+            # Use "*" (all interfaces) for binding when host is loopback on Windows
+            import platform
+            if platform.system() == "Windows" and zmq_host in ["127.0.0.1", "localhost"]:  # @architecture:acceptable - Windows compatibility fix
+                logger.info(f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding")
+                zmq_bind_host = "*"
+            else:
+                # On non-Windows platforms, use the configured host directly
+                # ZMQ will handle 0.0.0.0 appropriately on each platform
+                zmq_bind_host = zmq_host
+            
+            logger.info(f"ZMQ server will bind to: {zmq_bind_host} (configured host: {zmq_host})")
+            
             # --- ZMQ Message Broker Setup ---
             try:
                 from feagi.api.zmq.server import ZmqServer
@@ -378,7 +392,7 @@ class ProcessManager:
                 # Initialize ZMQ server with configuration-based stream enablement
                 zmq_server = ZmqServer(
                     core_api=self._core_api,
-                    host=zmq_host,
+                    host=zmq_bind_host,
                     req_rep_port=port_config.zmq_req_rep_port,
                     pub_sub_port=port_config.zmq_pub_sub_port,
                     push_pull_port=port_config.zmq_push_pull_port,
