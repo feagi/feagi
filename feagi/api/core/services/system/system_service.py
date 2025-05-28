@@ -16,9 +16,12 @@ limitations under the License.
 
 """System service for managing FEAGI system operations."""
 
+import asyncio
+import logging
 import sys
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+from pathlib import Path
 from ..shared.base_service import BaseService
 from feagi.core.state_manager import ServiceState
 
@@ -250,12 +253,10 @@ class SystemService(BaseService):
     def set_circuit_library_path(self, path: str) -> bool:
         """Set the circuit library path."""
         try:
-            import os
-            
-            if not os.path.exists(path):
+            if not Path(path).exists():
                 raise ValueError(f"Path does not exist: {path}")
             
-            if not os.path.isdir(path):
+            if not Path(path).is_dir():
                 raise ValueError(f"Path is not a directory: {path}")
             
             if self.state_manager:
