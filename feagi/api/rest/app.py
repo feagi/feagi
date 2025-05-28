@@ -162,14 +162,14 @@ async def log_requests(request: Request, call_next):
     idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     
     # Log request start with detailed information
-    logger.info(f"rid={idem} ✅ start request method={request.method} path={request.url.path}")
-    logger.info(f"rid={idem} 🌐 url={str(request.url)}")
+    logger.info(f"rid={idem} [OK] start request method={request.method} path={request.url.path}")
+    logger.info(f"rid={idem} [NET] url={str(request.url)}")
     logger.info(f"rid={idem} 📋 headers={dict(request.headers)}")
-    logger.info(f"rid={idem} 🔍 query_params={dict(request.query_params)}")
+    logger.info(f"rid={idem} [SEARCH] query_params={dict(request.query_params)}")
     
     # Log path parameters if available
     if hasattr(request, 'path_params') and request.path_params:
-        logger.info(f"rid={idem} 🛤️  path_params={dict(request.path_params)}")
+        logger.info(f"rid={idem} [PATH]  path_params={dict(request.path_params)}")
     
     # Capture request body for debugging
     request_body = None
@@ -177,11 +177,11 @@ async def log_requests(request: Request, call_next):
         body_bytes = await request.body()
         if body_bytes:
             request_body = body_bytes.decode('utf-8')
-            logger.info(f"rid={idem} 📝 request_body={request_body}")
+            logger.info(f"rid={idem} [LOG] request_body={request_body}")
         else:
-            logger.info(f"rid={idem} 📝 request_body=<empty>")
+            logger.info(f"rid={idem} [LOG] request_body=<empty>")
     except Exception as e:
-        logger.warning(f"rid={idem} ⚠️ failed to read request body: {e}")
+        logger.warning(f"rid={idem} [WARN] failed to read request body: {e}")
     
     # Store original body for downstream handlers (since we consumed the stream)
     async def receive():
@@ -197,7 +197,7 @@ async def log_requests(request: Request, call_next):
     formatted_process_time = '{0:.2f}'.format(process_time)
     
     # Log response details
-    logger.info(f"rid={idem} ✅ completed method={request.method} path={request.url.path} status={response.status_code} duration={formatted_process_time}ms")
+    logger.info(f"rid={idem} [OK] completed method={request.method} path={request.url.path} status={response.status_code} duration={formatted_process_time}ms")
     
     # Try to capture response body if it's JSON
     try:
@@ -221,13 +221,13 @@ async def catch_exceptions_middleware(request: Request, call_next):
         return await call_next(request)
     except CustomError as e:
         # Handle CustomError
-        logger.error(f"❌ Exception:\n {e}\n{traceback.format_exc()}")
+        logger.error(f"[ERR] Exception:\n {e}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=e.status_code,
             content={"message": f"A custom error occurred: {str(e.message)}"},
         )
     except Exception as e:
-        logger.error(f"❌ Exception:\n {e}\n{traceback.format_exc()}")
+        logger.error(f"[ERR] Exception:\n {e}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
             content={
@@ -277,7 +277,7 @@ def create_rest_app_direct(config: Dict[str, Any]):
             - port: API server port
             - debug: Debug mode flag
     """
-    logger.info("🔗 Creating REST app with direct dependency injection (Rust/RTOS compatible)", emoji1="🔗")
+    logger.info("[LINK] Creating REST app with direct dependency injection (Rust/RTOS compatible)", status="[LINK]")
     
     # RUST/RTOS COMPATIBLE: Direct dependency injection instead of environment lookup
     core_api_service = config['core_api']
@@ -287,8 +287,8 @@ def create_rest_app_direct(config: Dict[str, Any]):
     if not core_api_service:
         raise RuntimeError("CoreAPIService is required for direct REST app creation")
     
-    logger.info("✅ Using directly injected CoreAPIService and ConnectomeManager", emoji1="✅")
-    logger.info("🎯 All dependencies injected directly - no environment variables needed", emoji1="🎯")
+    logger.info("[OK] Using directly injected CoreAPIService and ConnectomeManager", status="[OK]")
+    logger.info("[TARGET] All dependencies injected directly - no environment variables needed", status="[TARGET]")
     
     # Set the connectome instance for FastAPI dependency injection  
     from feagi.api.rest.dependencies import set_connectome_instance
@@ -304,7 +304,7 @@ def create_rest_app_direct(config: Dict[str, Any]):
     
     # Set state in FeagiStateManager
     state_manager.set_api_state(ServiceState.READY)
-    logger.info("REST API state changed: UNAVAILABLE → READY", emoji1="🚦")
+    logger.info("REST API state changed: UNAVAILABLE → READY", status="[FAST]")
     
     return app
 
@@ -316,13 +316,13 @@ def create_rest_app(connectome: ConnectomeManager = None):
     
     # Check if we're running as part of the main FEAGI process (singleton mode)
     if os.environ.get("FEAGI_INITIALIZED") == "1":
-        logger.info("🔗 Running in FEAGI subprocess, using singleton ConnectomeManager", emoji1="🔗")
+        logger.info("[LINK] Running in FEAGI subprocess, using singleton ConnectomeManager", status="[LINK]")
         
         # CRITICAL FIX: In subprocess mode, we can't access parent's ProcessManager
         # Instead, use the singleton ConnectomeManager directly
         from feagi.bdu.connectome_manager import ConnectomeManager
         connectome = ConnectomeManager.instance()
-        logger.info("🎯 Created singleton ConnectomeManager instance", emoji1="🎯")
+        logger.info("[TARGET] Created singleton ConnectomeManager instance", status="[TARGET]")
         
         # Create CoreAPIService with singleton instances
         from feagi.core.state_manager import FeagiStateManager
@@ -332,16 +332,16 @@ def create_rest_app(connectome: ConnectomeManager = None):
         core_api_service = create_core_api(connectome, {})
         
         if core_api_service:
-            logger.info("✅ Successfully created CoreAPIService with singleton ConnectomeManager", emoji1="✅")
+            logger.info("[OK] Successfully created CoreAPIService with singleton ConnectomeManager", status="[OK]")
         else:
-            logger.error("❌ Failed to create CoreAPIService", emoji1="❌")
+            logger.error("[ERR] Failed to create CoreAPIService", status="[ERR]")
             raise RuntimeError("Failed to create CoreAPIService")
             
-        logger.info("🎯 FastAPI app configured with subprocess singleton services", emoji1="🎯")
+        logger.info("[TARGET] FastAPI app configured with subprocess singleton services", status="[TARGET]")
         
     else:
         # Standalone mode (development/testing)
-        logger.info("🏠 Running in standalone mode, creating new ConnectomeManager", emoji1="🏠")
+        logger.info("Running in standalone mode, creating new ConnectomeManager", status="[CONFIG]")
         
         if connectome is None:
             from feagi.bdu.connectome_manager import ConnectomeManager
@@ -352,7 +352,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
         core_api_service = create_core_api(connectome, {})
         
         if not core_api_service:
-            logger.error("❌ Failed to create CoreAPIService in standalone mode", emoji1="❌")
+            logger.error("[ERR] Failed to create CoreAPIService in standalone mode", status="[ERR]")
             raise RuntimeError("Failed to create CoreAPIService in standalone mode")
     
     # Set the connectome instance for FastAPI dependency injection  
@@ -368,7 +368,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
     
     # CRITICAL: Include all routers here instead of at module level
     # This prevents FastAPI router creation during module import in embedded mode
-    logger.info("🔗 Including FastAPI routers for REST endpoints")
+    logger.info("[LINK] Including FastAPI routers for REST endpoints")
     
     app.include_router(
         get_genome_router(),
@@ -525,7 +525,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
         responses=standard_response
     )
     
-    logger.info("✅ All FastAPI routers included successfully")
+    logger.info("[OK] All FastAPI routers included successfully")
     
     # Set state in FeagiStateManager
     from feagi.core.state_manager import FeagiStateManager, ServiceState

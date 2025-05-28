@@ -88,12 +88,12 @@ def log_zmq_outbound(endpoint: str, topic: Union[str, bytes], data: bytes,
     timestamp = time.strftime("%H:%M:%S.%f")[:-3]  # Include milliseconds
     
     logger.info(f"📤 ZMQ OUTBOUND [{timestamp}]")
-    logger.info(f"   🎯 Endpoint: {endpoint}")
-    logger.info(f"   🏷️  Topic: '{topic_str}'")
+    logger.info(f"   [TARGET] Endpoint: {endpoint}")
+    logger.info(f"   [TAG]  Topic: '{topic_str}'")
     logger.info(f"   📦 Type: {message_type}")
-    logger.info(f"   📊 Size: {len(data)} bytes")
+    logger.info(f"   [STATS] Size: {len(data)} bytes")
     if context:
-        logger.info(f"   🔍 Context: {context}")
+        logger.info(f"   [SEARCH] Context: {context}")
     logger.info(f"   📄 Data: {decoded_data}")
     logger.info("   " + "─" * 50)
 
@@ -115,11 +115,11 @@ def log_zmq_inbound(endpoint: str, frames: List[bytes],
     total_size = sum(len(frame) for frame in frames)
     
     logger.info(f"📥 ZMQ INBOUND [{timestamp}]")
-    logger.info(f"   🎯 Endpoint: {endpoint}")
+    logger.info(f"   [TARGET] Endpoint: {endpoint}")
     logger.info(f"   📦 Type: {message_type}")
-    logger.info(f"   📊 Frames: {len(frames)}, Total size: {total_size} bytes")
+    logger.info(f"   [STATS] Frames: {len(frames)}, Total size: {total_size} bytes")
     if context:
-        logger.info(f"   🔍 Context: {context}")
+        logger.info(f"   [SEARCH] Context: {context}")
     
     # Log each frame
     for i, frame in enumerate(frames):
@@ -158,12 +158,12 @@ def log_zmq_multipart_outbound(endpoint: str, multipart_data: List[bytes],
     total_size = sum(len(frame) for frame in multipart_data)
     
     logger.info(f"📤 ZMQ MULTIPART OUTBOUND [{timestamp}]")
-    logger.info(f"   🎯 Endpoint: {endpoint}")
-    logger.info(f"   🏷️  Topic: '{topic_str}'")
+    logger.info(f"   [TARGET] Endpoint: {endpoint}")
+    logger.info(f"   [TAG]  Topic: '{topic_str}'")
     logger.info(f"   📦 Type: {message_type}")
-    logger.info(f"   📊 Frames: {len(multipart_data)}, Total size: {total_size} bytes")
+    logger.info(f"   [STATS] Frames: {len(multipart_data)}, Total size: {total_size} bytes")
     if context:
-        logger.info(f"   🔍 Context: {context}")
+        logger.info(f"   [SEARCH] Context: {context}")
     
     # Log each frame
     for i, frame in enumerate(multipart_data):

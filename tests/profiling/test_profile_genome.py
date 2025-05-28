@@ -80,7 +80,7 @@ class FeagiProfileRunner:
                 text=True
             )
             
-            logger.info(f"🚀 Started FEAGI process with PID {self.process.pid}")
+            logger.info(f"[START] Started FEAGI process with PID {self.process.pid}")
             return True
             
         except Exception as e:
@@ -113,7 +113,7 @@ class FeagiProfileRunner:
                         }
                         
                         self.resource_snapshots.append(snapshot)
-                        logger.info(f"📊 Snapshot {len(self.resource_snapshots)}: "
+                        logger.info(f"[STATS] Snapshot {len(self.resource_snapshots)}: "
                                   f"{snapshot['memory_mb']:.1f}MB, {snapshot['cpu_percent']:.1f}% CPU")
                     
                     time.sleep(snapshot_interval)
@@ -127,14 +127,14 @@ class FeagiProfileRunner:
         
         self.monitoring_thread = threading.Thread(target=monitor, daemon=True)
         self.monitoring_thread.start()
-        logger.info("📊 Started resource monitoring")
+        logger.info("[STATS] Started resource monitoring")
     
     def stop_monitoring(self):
         """Stop resource monitoring."""
         self.monitoring_active = False
         if self.monitoring_thread:
             self.monitoring_thread.join(timeout=5)
-        logger.info("📊 Stopped resource monitoring")
+        logger.info("[STATS] Stopped resource monitoring")
     
     def wait_for_completion(self) -> tuple[bool, str, str]:
         """Wait for FEAGI to complete and capture output."""
@@ -268,9 +268,9 @@ def test_profile_genome_performance(genome_path, logs_dir):
         genome_data = json.load(f)
     
     genome_stats = genome_data.get('stats', {})
-    logger.info(f"📊 Testing with genome: {genome_data.get('genome_title', 'Unknown')}")
-    logger.info(f"📊 Neurons: {genome_stats.get('innate_neuron_count', 0)}")
-    logger.info(f"📊 Cortical Areas: {genome_stats.get('innate_cortical_area_count', 0)}")
+    logger.info(f"[STATS] Testing with genome: {genome_data.get('genome_title', 'Unknown')}")
+    logger.info(f"[STATS] Neurons: {genome_stats.get('innate_neuron_count', 0)}")
+    logger.info(f"[STATS] Cortical Areas: {genome_stats.get('innate_cortical_area_count', 0)}")
     
     # Create profiler runner
     runner = FeagiProfileRunner(genome_path, runtime_seconds=60)
@@ -298,7 +298,7 @@ def test_profile_genome_performance(genome_path, logs_dir):
         with open(report_file, 'w') as f:
             json.dump(report, indent=2, fp=f)
         
-        logger.info(f"📁 Report saved to {report_file}")
+        logger.info(f"[FOLDER] Report saved to {report_file}")
         
         # Save stdout/stderr if they exist
         if stdout:
@@ -317,7 +317,7 @@ def test_profile_genome_performance(genome_path, logs_dir):
             memory_per_neuron = report['resource_usage']['memory']['memory_per_neuron_kb']
             cpu_avg = report['resource_usage']['cpu']['avg_percent']
             
-            logger.info(f"📊 PERFORMANCE SUMMARY:")
+            logger.info(f"[STATS] PERFORMANCE SUMMARY:")
             logger.info(f"   Average Memory: {memory_avg:.1f}MB")
             logger.info(f"   Memory per Neuron: {memory_per_neuron:.1f}KB")
             logger.info(f"   Average CPU: {cpu_avg:.1f}%")
@@ -330,10 +330,10 @@ def test_profile_genome_performance(genome_path, logs_dir):
         # Process should have run successfully (or at least not crashed immediately)
         assert len(runner.resource_snapshots) > 0, "No resource snapshots were collected"
         
-        logger.info("✅ Profiling test completed successfully")
+        logger.info("[OK] Profiling test completed successfully")
         
     except Exception as e:
-        logger.error(f"❌ Profiling test failed: {e}")
+        logger.error(f"[ERR] Profiling test failed: {e}")
         raise
     finally:
         # Cleanup

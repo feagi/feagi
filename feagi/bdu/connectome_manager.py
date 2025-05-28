@@ -21,7 +21,6 @@ using NumPy arrays and sparse matrices for efficient data processing and
 transfer to GPU memory.
 """
 
-import logging
 import uuid
 import numpy as np
 import torch
@@ -40,8 +39,9 @@ from feagi.bdu.utils.position import (
     validate_position
 )
 from feagi.utils.config import FeagiConfig
+from feagi.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 
 class NeuronPropertyType(Enum):
@@ -103,15 +103,15 @@ class ConnectomeManager:
             cls._instance = cls.__new__(cls)
             cls._instance.__init__(config_or_max_neurons, max_synapses, backend)
             cls._initialized = True
-            logger.info("🎯 Created singleton ConnectomeManager instance (optimized SoA version)", extra={'emoji': '🎯'})
+            logger.info("Created singleton ConnectomeManager instance (optimized SoA version)", status="[TARGET]")
         else:
-            logger.debug("🔗 Returning existing ConnectomeManager singleton", extra={'emoji': '🔗'})
+            logger.debug("Returning existing ConnectomeManager singleton", status="[LINK]")
         return cls._instance
     
     def __new__(cls, *args, **kwargs):
         """Override __new__ to enforce singleton pattern."""
         if cls._instance is not None:
-            logger.warning("⚠️ Attempted to create multiple ConnectomeManager instances - returning singleton", extra={'emoji': '⚠️'})
+            logger.warning("Attempted to create multiple ConnectomeManager instances - returning singleton", status="[WARN]")
             return cls._instance
         return super().__new__(cls)
     
@@ -184,7 +184,7 @@ class ConnectomeManager:
         # Backward compatibility for tests - store the instance
         ConnectomeManager._instance = self
         
-        logger.info(f"✅ ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend")
+        logger.info(f"ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend", status="[OK]")
     
     def _init_multi_gpu(self, multi_gpu_config):
         """Initialize multi-GPU support.
@@ -2631,14 +2631,14 @@ class ConnectomeManager:
                 if hasattr(self.neuron_array, 'cortical_id_to_indices'):
                     self.neuron_array.cortical_id_to_indices.clear()
                 
-                logger.info("✅ Reset neuron array state and index tracking efficiently")
+                logger.info("Reset neuron array state and index tracking efficiently", status="[OK]")
             except Exception as e:
                 logger.warning(f"Error resetting neuron array: {e}")
                 # Force reset the critical counters even if tensor reset fails
                 self.neuron_array.neuron_count = 0
                 self.neuron_array.next_index = 0
                 self.neuron_array.free_indices = set()
-                logger.info("✅ Force-reset critical neuron array counters")
+                logger.info("Force-reset critical neuron array counters", status="[OK]")
         
         # 5. Clear all ID mappings in one operation
         if hasattr(self, 'neuron_id_to_index'):
@@ -2662,7 +2662,7 @@ class ConnectomeManager:
                     # Reset indptr to all zeros for empty CSR matrix
                     self.synapse_matrix.indptr = np.zeros(self.max_neurons + 1, dtype=np.int32)
                 
-                logger.info("✅ Reset synapse matrix efficiently")
+                logger.info("Reset synapse matrix efficiently", status="[OK]")
             except Exception as e:
                 logger.warning(f"Error resetting synapse matrix: {e}")
                 
@@ -2670,7 +2670,7 @@ class ConnectomeManager:
         if hasattr(self, 'active_neurons'):
             self.active_neurons = np.zeros(self.max_neurons, dtype=bool)
             
-        logger.info(f"✅ Cleared {cortical_areas_cleared} cortical areas, {neurons_cleared} neurons, {synapses_cleared} synapses")
+        logger.info(f"Cleared {cortical_areas_cleared} cortical areas, {neurons_cleared} neurons, {synapses_cleared} synapses", status="[OK]")
         
         return {
             'cortical_areas_cleared': cortical_areas_cleared,
@@ -2695,7 +2695,7 @@ class ConnectomeManager:
         Returns:
             Dictionary with preparation results and saved state info
         """
-        logger.info("🧠 PREPARE FOR NEW GENOME: Starting complete brain reset process")
+        logger.info("PREPARE FOR NEW GENOME: Starting complete brain reset process", status="[BRAIN]")
         
         # STEP 1: DETECT EXISTING BRAIN STATE
         has_existing_brain = (
@@ -2715,9 +2715,9 @@ class ConnectomeManager:
                 try:
                     # Save current brain state (placeholder - implement actual save logic)
                     saved_state_info = {"filename": "brain_state_backup.json", "timestamp": "now"}
-                    logger.info(f"✅ Current brain state saved: {saved_state_info['filename']}")
+                    logger.info(f"Current brain state saved: {saved_state_info['filename']}", status="[OK]")
                 except Exception as e:
-                    logger.warning("⚠️ Failed to save current brain state - proceeding anyway")
+                    logger.warning("Failed to save current brain state - proceeding anyway", status="[WARN]")
         else:
             logger.info("Step 2: No existing brain found - proceeding with fresh initialization")
         
@@ -2725,8 +2725,8 @@ class ConnectomeManager:
         # Even if no existing brain, we need to reset counters from any previous state
         logger.info("Step 4: Clearing/resetting all brain data and arrays")
         clear_results = self._clear_existing_brain_data()
-        logger.info(f"✅ Cleared/reset {clear_results['cortical_areas_cleared']} cortical areas, "
-                   f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses")
+        logger.info(f"Cleared/reset {clear_results['cortical_areas_cleared']} cortical areas, "
+                   f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses", status="[OK]")
         
         # STEP 5: CHECK MEMORY CAPACITY AND REALLOCATE IF NEEDED
         logger.info("Step 5: Checking memory capacity requirements")
@@ -2744,8 +2744,8 @@ class ConnectomeManager:
             capacity_results["max_synapses"] = max(self.max_synapses, estimated_synapses)
         
         if capacity_results["reallocated"]:
-            logger.info(f"✅ Reallocated connectome with {capacity_results['max_neurons']} neurons, "
-                       f"{capacity_results['max_synapses']} synapses")
+            logger.info(f"Reallocated connectome with {capacity_results['max_neurons']} neurons, "
+                       f"{capacity_results['max_synapses']} synapses", status="[OK]")
             
             # CRITICAL: After reallocation, ensure NeuronArray is in pristine state
             if hasattr(self, 'neuron_array'):
@@ -2758,12 +2758,12 @@ class ConnectomeManager:
                     self.neuron_array.index_to_id_map.clear()
                 if hasattr(self.neuron_array, 'cortical_id_to_indices'):
                     self.neuron_array.cortical_id_to_indices.clear()
-                logger.info("✅ Post-reallocation NeuronArray reset confirmed")
+                logger.info("Post-reallocation NeuronArray reset confirmed", status="[OK]")
         else:
-            logger.info(f"✅ Using existing capacity: {capacity_results['max_neurons']} neurons, "
-                       f"{capacity_results['max_synapses']} synapses")
+            logger.info(f"Using existing capacity: {capacity_results['max_neurons']} neurons, "
+                       f"{capacity_results['max_synapses']} synapses", status="[OK]")
         
-        logger.info("🎯 PREPARE FOR NEW GENOME: Brain preparation completed successfully")
+        logger.info("PREPARE FOR NEW GENOME: Brain preparation completed successfully", status="[TARGET]")
         
         return {
             "success": True,

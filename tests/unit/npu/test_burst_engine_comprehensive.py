@@ -125,7 +125,7 @@ class TestBurstEngineComprehensive(unittest.TestCase):
                 mock_logger.info(f"Processed {self.burst_engine.burst_count} bursts. "
                                f"Target: {self.burst_engine.desired_frequency:.1f}Hz, "
                                f"Actual: {actual_freq:.1f}Hz",
-                               emoji1="⚡ ")
+                               emoji1="[FAST] ")
                 
                 # Increment burst count
                 self.burst_engine.burst_count += 1

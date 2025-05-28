@@ -471,14 +471,14 @@ class NPUWGPUCompatibilityMonitor:
         excellent_modules = [name for name, r in results.items() if r.compatibility_level == WGPUCompatibilityLevel.EXCELLENT]
         
         report = []
-        report.append("🚀 NPU WGPU COMPATIBILITY ANALYSIS REPORT")
+        report.append("[START] NPU WGPU COMPATIBILITY ANALYSIS REPORT")
         report.append("=" * 60)
-        report.append(f"📊 SUMMARY:")
+        report.append(f"[STATS] SUMMARY:")
         report.append(f"   Total modules analyzed: {total_modules}")
         report.append(f"   Average compatibility score: {avg_score:.1f}/100")
         report.append("")
         
-        report.append("📈 COMPATIBILITY BREAKDOWN:")
+        report.append("[UP] COMPATIBILITY BREAKDOWN:")
         for level in WGPUCompatibilityLevel:
             emoji = {"EXCELLENT": "🟢", "GOOD": "🟢", "MEDIUM": "🟡", "POOR": "🟠", "CRITICAL": "🔴"}[level.value]
             count = level_counts[level]
@@ -487,7 +487,7 @@ class NPUWGPUCompatibilityMonitor:
         report.append("")
         
         if excellent_modules:
-            report.append("✅ WGPU-READY MODULES:")
+            report.append("[OK] WGPU-READY MODULES:")
             for module in excellent_modules:
                 score = results[module].compatibility_score
                 report.append(f"   🟢 {module} (Score: {score:.1f}/100)")
@@ -502,19 +502,19 @@ class NPUWGPUCompatibilityMonitor:
                     report.append(f"      - {issue}")
             report.append("")
         
-        report.append("🎯 DETAILED MODULE ANALYSIS:")
+        report.append("[TARGET] DETAILED MODULE ANALYSIS:")
         for module_name, result in sorted(results.items(), key=lambda x: x[1].compatibility_score, reverse=True):
             emoji = {"EXCELLENT": "🟢", "GOOD": "🟢", "MEDIUM": "🟡", "POOR": "🟠", "CRITICAL": "🔴"}[result.compatibility_level.value]
             report.append(f"{emoji} {module_name}: {result.compatibility_score:.1f}/100 ({result.compatibility_level.value})")
             
             # Show top patterns
             if result.excellent_patterns:
-                report.append(f"   ✅ WGPU-Ready: {len(result.excellent_patterns)} excellent patterns")
+                report.append(f"   [OK] WGPU-Ready: {len(result.excellent_patterns)} excellent patterns")
                 for pattern in result.excellent_patterns[:2]:  # Show top 2
                     report.append(f"      + {pattern}")
             
             if result.poor_patterns:
-                report.append(f"   ⚠️  Issues: {len(result.poor_patterns)} problematic patterns")
+                report.append(f"   [WARN]  Issues: {len(result.poor_patterns)} problematic patterns")
                 for pattern in result.poor_patterns[:2]:  # Show top 2
                     report.append(f"      - {pattern}")
             
@@ -525,7 +525,7 @@ class NPUWGPUCompatibilityMonitor:
             
             report.append("")
         
-        report.append("🔧 WGPU IMPLEMENTATION RECOMMENDATIONS:")
+        report.append("[CONFIG] WGPU IMPLEMENTATION RECOMMENDATIONS:")
         report.append("   1. Modules with excellent scores are WGPU-ready")
         report.append("   2. Replace os.environ with config parameters")
         report.append("   3. Replace print() with logger calls")
@@ -562,7 +562,7 @@ def test_npu_wgpu_compatibility():
         f.write(report)
     
     print("\n" + "="*60)
-    print("🚀 NPU WGPU COMPATIBILITY TEST")
+    print("[START] NPU WGPU COMPATIBILITY TEST")
     print("="*60)
     
     # Calculate summary metrics
@@ -579,8 +579,8 @@ def test_npu_wgpu_compatibility():
     # Find modules with excessive environment dependencies
     env_heavy_modules = [name for name, analysis in analyses.items() if analysis.environment_dependencies > 5]
     
-    print(f"📊 Analyzed {total_modules} NPU modules")
-    print(f"📈 Average WGPU compatibility score: {avg_score:.1f}/100")
+    print(f"[STATS] Analyzed {total_modules} NPU modules")
+    print(f"[UP] Average WGPU compatibility score: {avg_score:.1f}/100")
     
     # Print summary by compatibility level
     for level in WGPUCompatibilityLevel:
@@ -592,7 +592,7 @@ def test_npu_wgpu_compatibility():
     excellent_modules = [name for name, analysis in analyses.items() 
                         if analysis.compatibility_level == WGPUCompatibilityLevel.EXCELLENT]
     if excellent_modules:
-        print(f"\n✅ WGPU-READY MODULES ({len(excellent_modules)}):")
+        print(f"\n[OK] WGPU-READY MODULES ({len(excellent_modules)}):")
         for module in excellent_modules[:5]:  # Show top 5
             score = analyses[module].compatibility_score
             print(f"   🟢 {module} ({score:.1f}/100)")
@@ -635,8 +635,8 @@ def test_npu_wgpu_compatibility():
         )
         pytest.fail(failure_message)
     
-    print(f"\n✅ NPU WGPU COMPATIBILITY TEST PASSED!")
-    print(f"🚀 NPU modules are ready for WGPU acceleration on Metal/DirectX 12/Vulkan!")
+    print(f"\n[OK] NPU WGPU COMPATIBILITY TEST PASSED!")
+    print(f"[START] NPU modules are ready for WGPU acceleration on Metal/DirectX 12/Vulkan!")
 
 if __name__ == "__main__":
     # Allow running as standalone script with proper path handling

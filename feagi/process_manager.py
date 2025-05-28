@@ -232,7 +232,7 @@ class ProcessManager:
             embedded_mode = config.get('system', {}).get('embedded', False)
             
             if embedded_mode:
-                logger.info("🔧 Embedded mode: Initializing core components without REST API imports")
+                logger.info("[CONFIG] Embedded mode: Initializing core components without REST API imports")
                 # Environment variable already set in main.py before any imports
             
             # Initialize core components - these run in the same process
@@ -251,20 +251,20 @@ class ProcessManager:
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
                 
-                # 🔥 CRITICAL FIX: Auto-start the burst engine after initialization
-                logger.info("🔥 PROCESS MANAGER: Starting burst engine automatically...")
+                # [DEBUG] CRITICAL FIX: Auto-start the burst engine after initialization
+                logger.info("[DEBUG] PROCESS MANAGER: Starting burst engine automatically...")
                 try:
                     burst_start_success = self._core_api.start_burst_engine()
                     if burst_start_success:
-                        logger.info("✅ Burst engine started successfully by Process Manager")
+                        logger.info("[OK] Burst engine started successfully by Process Manager")
                     else:
-                        logger.error("❌ Failed to start burst engine - neural processing will not work!")
+                        logger.error("[ERR] Failed to start burst engine - neural processing will not work!")
                         return False
                 except Exception as e:
-                    logger.error(f"❌ Error starting burst engine: {e}")
+                    logger.error(f"[ERR] Error starting burst engine: {e}")
                     return False
             
-            logger.info("✓ Critical processes initialized successfully", emoji1="✓ ")
+            logger.info("[OK] Critical processes initialized successfully", status="[OK] ")
             return True
             
         except Exception as e:
@@ -291,7 +291,7 @@ class ProcessManager:
         # Check if embedded mode is enabled
         embedded_mode = config.get('system', {}).get('embedded', False)
         if embedded_mode:
-            logger.info("🔧 Embedded device mode enabled - disabling non-essential components")
+            logger.info("[CONFIG] Embedded device mode enabled - disabling non-essential components")
         
         try:
             # --- FQSampler Integration ---
@@ -334,7 +334,7 @@ class ProcessManager:
                 control_enabled = stream_config.get('control', {}).get('enabled', True)
                 
                 if embedded_mode:
-                    logger.info("🔧 Embedded mode: Visualization stream disabled")
+                    logger.info("[CONFIG] Embedded mode: Visualization stream disabled")
                 
                 logger.info(f"Stream configuration: visualization={visualization_enabled}, "
                            f"sensory={sensory_enabled}, motor={motor_enabled}, control={control_enabled}")
@@ -365,7 +365,7 @@ class ProcessManager:
                         )
                         self._fq_sampler_thread.start()
                         
-                        logger.info("✅ FQ Sampler initialized and started")
+                        logger.info("[OK] FQ Sampler initialized and started")
                         
                     except Exception as e:
                         logger.error(f"Failed to initialize FQ Sampler: {e}")
@@ -474,7 +474,7 @@ class ProcessManager:
                     if embedded_mode:
                         monitoring_interval = max(monitoring_interval, 10.0)  # Slower monitoring
                         enable_gpu = False  # No GPU monitoring in embedded
-                        logger.info("🔧 Embedded mode: Using minimal resource monitoring")
+                        logger.info("[CONFIG] Embedded mode: Using minimal resource monitoring")
                     
                     system_monitor = start_system_monitoring(
                         monitoring_interval=monitoring_interval,
@@ -484,11 +484,11 @@ class ProcessManager:
                     
                     if system_monitor:
                         self._processes['system_monitor'] = system_monitor
-                        logger.info(f"📊 System resource monitor started (profile mode) - interval: {monitoring_interval}s")
+                        logger.info(f"[STATS] System resource monitor started (profile mode) - interval: {monitoring_interval}s")
                     else:
                         logger.warning("Failed to start system resource monitor")
                 elif embedded_mode:
-                    logger.info("🔧 Embedded mode: System resource monitoring disabled (use --profile to enable minimal monitoring)")
+                    logger.info("[CONFIG] Embedded mode: System resource monitoring disabled (use --profile to enable minimal monitoring)")
                         
             except Exception as e:
                 logger.warning(f"System resource monitor initialization failed: {e}")
@@ -563,6 +563,12 @@ class ProcessManager:
                             )
                         except Exception as e:
                             logger.error(f"Failed to start uvicorn: {e}")
+                            logger.error(f"Full traceback: {traceback.format_exc()}")
+                            # Also log the exception type and context for debugging
+                            logger.error(f"Exception type: {type(e).__name__}")
+                            logger.error(f"Host: {api_config['host']}, Port: {api_config['port']}")
+                            # Re-raise to ensure the thread actually exits with failure
+                            raise
                     
                     # Start uvicorn in background thread
                     api_thread = threading.Thread(target=run_uvicorn, daemon=True)
@@ -577,10 +583,10 @@ class ProcessManager:
                     return False
             else:
                 # Embedded mode: No HTTP interface at all
-                logger.info("🔧 Embedded mode: REST API completely disabled for minimal resource usage")
-                logger.info("🔧 Control interface available only via ZMQ streams (control, sensory, motor)")
-                logger.info("🔧 No web interface, no FastAPI imports, no uvicorn server")
-                logger.info(f"🔧 Status available via ZMQ control stream: tcp://{zmq_host}:{port_config.zmq_control_port}")
+                logger.info("[CONFIG] Embedded mode: REST API completely disabled for minimal resource usage")
+                logger.info("[CONFIG] Control interface available only via ZMQ streams (control, sensory, motor)")
+                logger.info("[CONFIG] No web interface, no FastAPI imports, no uvicorn server")
+                logger.info(f"[CONFIG] Status available via ZMQ control stream: tcp://{zmq_host}:{port_config.zmq_control_port}")
             
             # --- WebSocket Server (Optional) ---
             try:
@@ -600,7 +606,7 @@ class ProcessManager:
                     else:
                         logger.warning("Failed to start WebSocket server - continuing without it")
                 elif embedded_mode:
-                    logger.info("🔧 Embedded mode: WebSocket server disabled")
+                    logger.info("[CONFIG] Embedded mode: WebSocket server disabled")
                         
             except Exception as e:
                 logger.warning(f"WebSocket server initialization failed: {e}")
@@ -619,7 +625,7 @@ class ProcessManager:
                     else:
                         logger.warning("Failed to start health monitor - continuing without it")
                 elif embedded_mode:
-                    logger.info("🔧 Embedded mode: Health monitor disabled")
+                    logger.info("[CONFIG] Embedded mode: Health monitor disabled")
                         
             except Exception as e:
                 logger.warning(f"Health monitor initialization failed: {e}")
@@ -649,9 +655,9 @@ class ProcessManager:
             state_manager = FeagiStateManager.instance()
             if hasattr(state_manager, 'path'):
                 os.environ["FEAGI_STATE_FILE"] = state_manager.path
-                logger.info(f"🔗 Sharing state file with FastAPI thread: {state_manager.path}")
+                logger.info(f"[LINK] Sharing state file with FastAPI thread: {state_manager.path}")
             else:
-                logger.warning("⚠️  State manager has no path attribute")
+                logger.warning("[WARN]  State manager has no path attribute")
             
             # Create dedicated event loop for API service
             # In Rust, this would be a tokio::spawn() call
@@ -681,7 +687,7 @@ class ProcessManager:
             api_thread = threading.Thread(target=run_api_service, daemon=True)
             api_thread.start()
             
-            logger.info("✓ API service task started successfully", emoji1="✓ ")
+            logger.info("[OK] API service task started successfully", status="[OK] ")
             return api_thread
             
         except Exception as e:
@@ -767,6 +773,13 @@ class ProcessManager:
                     # Thread-like objects
                     if not service.is_alive():
                         logger.error(f"Thread {name} has stopped unexpectedly")
+                        if name == 'rest_api':
+                            logger.error(f"REST API thread failure - this usually indicates:")
+                            logger.error(f"  1. Unicode/encoding issues in log messages")
+                            logger.error(f"  2. Import errors or missing dependencies")  
+                            logger.error(f"  3. Port conflicts or network issues")
+                            logger.error(f"  4. FastAPI/uvicorn startup failures")
+                            logger.error(f"Check the detailed traceback above for the root cause")
                 elif hasattr(service, 'poll') and callable(service.poll):
                     # Legacy subprocess
                     if service.poll() is not None:
@@ -868,7 +881,7 @@ class ProcessManager:
                     shutdown_thread.join(timeout=graceful_shutdown_timeout)
                     
                     if shutdown_thread.is_alive():
-                        print(f"⚠️  Service {name} didn't stop within {graceful_shutdown_timeout}s - continuing anyway", 
+                        print(f"[WARN]  Service {name} didn't stop within {graceful_shutdown_timeout}s - continuing anyway", 
                               file=sys.stderr, flush=True)
                         
                 except Exception as e:
@@ -934,7 +947,7 @@ def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
             # Import and start detailed profiling
             from feagi.utils.resource_profiler import start_profiling, profile_component
             start_profiling()
-            logger.info("🔍 Detailed resource profiling enabled")
+            logger.info("[SEARCH] Detailed resource profiling enabled")
             
             # Profile initial state
             profile_component("startup_baseline")
@@ -1026,7 +1039,7 @@ def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
 
         # Start system resource monitor if profile enabled
         if profile_enabled:
-            logger.info("📊 System resource profiling enabled via --profile flag")
+            logger.info("[STATS] System resource profiling enabled via --profile flag")
             from feagi.utils.system_monitor import SystemMonitor
             
             monitor = SystemMonitor()
@@ -1037,16 +1050,16 @@ def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
                 name="SystemMonitor"
             )
             monitor_thread.start()
-            logger.info("📊 System resource monitor started (profile mode) - interval: 5.0s")
+            logger.info("[STATS] System resource monitor started (profile mode) - interval: 5.0s")
             
             # Final profiling snapshot
             profile_component("all_processes_started")
 
-        logger.info("✅ All processes started successfully")
+        logger.info("[OK] All processes started successfully")
         return True
 
     except Exception as e:
-        logger.error(f"❌ Error starting processes: {e}")
+        logger.error(f"[ERR] Error starting processes: {e}")
         return False
 
 # Removed the global process_manager instantiation that was here 

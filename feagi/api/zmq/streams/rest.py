@@ -121,7 +121,7 @@ class RestStream:
         self.zmq_server = zmq_server
         if self.rest_adapter:
             self.rest_adapter.set_zmq_server(zmq_server)
-            logger.debug("✅ ZMQ server reference passed to REST adapter for visualization endpoints")
+            logger.debug("[OK] ZMQ server reference passed to REST adapter for visualization endpoints")
         
     async def start(self):
         """Start the REST stream."""
@@ -148,11 +148,11 @@ class RestStream:
             self.stats['start_time'] = time.time()
             
             self.running = True
-            logger.info("✅ REST Stream started successfully")
-            logger.info(f"🔧 DEBUG: REST Stream ready to accept requests on tcp://{self.host}:{self.port}")
+            logger.info("[OK] REST Stream started successfully")
+            logger.info(f"[CONFIG] DEBUG: REST Stream ready to accept requests on tcp://{self.host}:{self.port}")
             
         except Exception as e:
-            logger.error(f"❌ Failed to start REST stream: {e}")
+            logger.error(f"[ERR] Failed to start REST stream: {e}")
             await self.stop()
             raise
         
@@ -185,7 +185,7 @@ class RestStream:
         
         # Print final statistics
         self._log_statistics(final=True)
-        logger.info("🛑 REST Stream stopped")
+        logger.info("[HALT] REST Stream stopped")
         
     async def _router_dealer_proxy(self):
         """
@@ -240,14 +240,14 @@ class RestStream:
                     # Receive message with timeout
                     message_parts = await worker_socket.recv_multipart()
                     
-                    # 🔧 DETAILED REQUEST LOGGING FOR DEBUGGING
-                    logger.info(f"🔧 DEBUG: REST STREAM - Received ZMQ message with {len(message_parts)} parts")
+                    # [CONFIG] DETAILED REQUEST LOGGING FOR DEBUGGING
+                    logger.info(f"[CONFIG] DEBUG: REST STREAM - Received ZMQ message with {len(message_parts)} parts")
                     for i, part in enumerate(message_parts):
                         try:
                             decoded = part.decode('utf-8')
-                            logger.info(f"🔧 DEBUG: Part {i}: '{decoded}' ({len(part)} bytes)")
+                            logger.info(f"[CONFIG] DEBUG: Part {i}: '{decoded}' ({len(part)} bytes)")
                         except:
-                            logger.info(f"🔧 DEBUG: Part {i}: <binary data> ({len(part)} bytes)")
+                            logger.info(f"[CONFIG] DEBUG: Part {i}: <binary data> ({len(part)} bytes)")
                     
                     # Debug logging for inbound ZMQ traffic
                     endpoint = f"tcp://{self.host}:{self.port}"
@@ -272,10 +272,10 @@ class RestStream:
                     # Try to decode as JSON
                     try:
                         message = json.loads(message_data.decode('utf-8'))
-                        logger.info(f"🔧 DEBUG: Parsed JSON message: {message}")
+                        logger.info(f"[CONFIG] DEBUG: Parsed JSON message: {message}")
                     except json.JSONDecodeError as e:
-                        logger.error(f"🔧 DEBUG: JSON DECODE ERROR: {e}")
-                        logger.error(f"🔧 DEBUG: Raw message data: {message_data}")
+                        logger.error(f"[CONFIG] DEBUG: JSON DECODE ERROR: {e}")
+                        logger.error(f"[CONFIG] DEBUG: Raw message data: {message_data}")
                         
                         # Send error response
                         error_response = {
@@ -300,8 +300,8 @@ class RestStream:
                     
                     # Validate REST format
                     if not self._is_valid_rest_message(message):
-                        logger.error(f"🔧 DEBUG: INVALID REST FORMAT: {message}")
-                        logger.error(f"🔧 DEBUG: Missing required fields - message keys: {list(message.keys()) if isinstance(message, dict) else 'not a dict'}")
+                        logger.error(f"[CONFIG] DEBUG: INVALID REST FORMAT: {message}")
+                        logger.error(f"[CONFIG] DEBUG: Missing required fields - message keys: {list(message.keys()) if isinstance(message, dict) else 'not a dict'}")
                         
                         error_response = {
                             "status": 400,
@@ -327,24 +327,24 @@ class RestStream:
                     method = message.get('method', 'UNKNOWN')
                     route = message.get('route', 'unknown')
                     
-                    logger.info(f"🔧 DEBUG: Processing REST API request: {method} {route}")
-                    logger.info(f"🔧 DEBUG: Full message content: {json.dumps(message, indent=2)}")
+                    logger.info(f"[CONFIG] DEBUG: Processing REST API request: {method} {route}")
+                    logger.info(f"[CONFIG] DEBUG: Full message content: {json.dumps(message, indent=2)}")
                     
                     try:
                         start_time = time.time()
                         response_data = await self.rest_adapter.process_message(message_data)
                         processing_time = time.time() - start_time
                         
-                        logger.info(f"🔧 DEBUG: REST request processed in {processing_time:.3f}s")
-                        logger.info(f"🔧 DEBUG: Response size: {len(response_data)} bytes")
+                        logger.info(f"[CONFIG] DEBUG: REST request processed in {processing_time:.3f}s")
+                        logger.info(f"[CONFIG] DEBUG: Response size: {len(response_data)} bytes")
                         
                         # Try to decode and show response for debugging
                         try:
                             response_json = json.loads(response_data.decode('utf-8'))
-                            logger.info(f"🔧 DEBUG: Response status: {response_json.get('status', 'unknown')}")
-                            logger.info(f"🔧 DEBUG: Response body preview: {str(response_json.get('body', {}))[:200]}...")
+                            logger.info(f"[CONFIG] DEBUG: Response status: {response_json.get('status', 'unknown')}")
+                            logger.info(f"[CONFIG] DEBUG: Response body preview: {str(response_json.get('body', {}))[:200]}...")
                         except:
-                            logger.info(f"🔧 DEBUG: Response (non-JSON): {response_data[:100]}...")
+                            logger.info(f"[CONFIG] DEBUG: Response (non-JSON): {response_data[:100]}...")
                         
                         # Send response
                         await worker_socket.send_multipart([
@@ -361,10 +361,10 @@ class RestStream:
                         )
                         
                         self.stats['requests_success'] += 1
-                        logger.debug(f"✅ REST request completed: {method} {route}")
+                        logger.debug(f"[OK] REST request completed: {method} {route}")
                         
                     except Exception as e:
-                        logger.error(f"❌ Error processing REST request {method} {route}: {e}")
+                        logger.error(f"[ERR] Error processing REST request {method} {route}: {e}")
                         
                         # Send internal server error
                         error_response = {
@@ -430,15 +430,15 @@ class RestStream:
         success_rate = (self.stats['requests_success'] / total_requests * 100) if total_requests > 0 else 100
         requests_per_second = total_requests / uptime if uptime > 0 else 0
         
-        prefix = "🏁 Final" if final else "📊"
+        prefix = "[FINAL]" if final else "[STATS]"
         
         logger.info(f"{prefix} REST Stream Statistics:")
-        logger.info(f"   ⏱️  Uptime: {uptime:.1f}s")
-        logger.info(f"   📊 Total requests: {total_requests}")
-        logger.info(f"   ✅ Success: {self.stats['requests_success']}")
-        logger.info(f"   ❌ Errors: {self.stats['requests_error']}")
-        logger.info(f"   📈 Success rate: {success_rate:.1f}%")
-        logger.info(f"   🚀 Requests/sec: {requests_per_second:.2f}")
+        logger.info(f"   [TIME]  Uptime: {uptime:.1f}s")
+        logger.info(f"   [STATS] Total requests: {total_requests}")
+        logger.info(f"   [OK] Success: {self.stats['requests_success']}")
+        logger.info(f"   [ERR] Errors: {self.stats['requests_error']}")
+        logger.info(f"   [UP] Success rate: {success_rate:.1f}%")
+        logger.info(f"   [START] Requests/sec: {requests_per_second:.2f}")
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get current REST stream statistics."""

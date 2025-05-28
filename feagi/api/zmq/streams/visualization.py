@@ -142,7 +142,7 @@ class VisualizationStream:
         
         bind_addr = f"tcp://{self.host}:{self.port}"
         self.socket.bind(bind_addr)
-        logger.info(f"📡 Visualization stream bound to {bind_addr}")
+        logger.info(f"[COMM] Visualization stream bound to {bind_addr}")
 
     def _update_active_mode(self):
         """Update active mode based on genome availability (crucial feature from full version)."""
@@ -185,7 +185,7 @@ class VisualizationStream:
         if self.running:
             return
             
-        logger.info("🚀 Starting visualization stream")
+        logger.info("[START] Starting visualization stream")
         self.running = True
         self._stop_event.clear()
         
@@ -225,14 +225,14 @@ class VisualizationStream:
             self.worker_threads.append(monitor_thread)
             logger.debug("Subscriber monitoring thread started")
             
-        logger.info(f"✅ Visualization stream started with {len(self.worker_threads)} worker threads")
+        logger.info(f"[OK] Visualization stream started with {len(self.worker_threads)} worker threads")
 
     def stop(self) -> None:
         """Stop the visualization stream gracefully with improved timeout handling."""
         if not self.running:
             return
             
-        logger.info("🛑 Stopping visualization stream...")
+        logger.info("[HALT] Stopping visualization stream...")
         self.running = False
         self._stop_event.set()
         
@@ -281,7 +281,7 @@ class VisualizationStream:
         # Clear worker thread list regardless of join status
         self.worker_threads.clear()
             
-        logger.info("✅ Visualization stream stopped")
+        logger.info("[OK] Visualization stream stopped")
 
     def _data_worker(self) -> None:
         """
@@ -639,11 +639,11 @@ class VisualizationStream:
             
             if self.fq_sampler and hasattr(self.fq_sampler, 'set_visualization_subscribers'):
                 if enable:
-                    logger.info("🔔 Enabling FQ sampler - visualization clients connected")
+                    logger.info("Enabling FQ sampler - visualization clients connected", status="[CONFIG]")
                     self.fq_sampler.set_visualization_subscribers(True)
                     self._fq_sampler_enabled = True
                 else:
-                    logger.info("🔕 Disabling FQ sampler - no visualization clients")
+                    logger.info("Disabling FQ sampler - no visualization clients", status="[CONFIG]")
                     self.fq_sampler.set_visualization_subscribers(False)
                     self._fq_sampler_enabled = False
             else:

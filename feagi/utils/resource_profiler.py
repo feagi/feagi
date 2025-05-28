@@ -78,20 +78,20 @@ class ResourceProfiler:
         if not tracemalloc.is_tracing():
             tracemalloc.start()
             self.tracemalloc_enabled = True
-            logger.info("🔍 Started memory tracing")
+            logger.info("[SEARCH] Started memory tracing")
         
         # Capture baseline
         self.baseline_memory = self.process.memory_info().rss / (1024 * 1024)
         self.baseline_cpu = self.process.cpu_percent()
         
-        logger.info(f"📊 Profiling started - Baseline: {self.baseline_memory:.1f}MB, {self.baseline_cpu:.1f}%")
+        logger.info(f"[STATS] Profiling started - Baseline: {self.baseline_memory:.1f}MB, {self.baseline_cpu:.1f}%")
     
     def stop_profiling(self):
         """Stop profiling and cleanup."""
         if self.tracemalloc_enabled:
             tracemalloc.stop()
             self.tracemalloc_enabled = False
-            logger.info("🔍 Stopped memory tracing")
+            logger.info("[SEARCH] Stopped memory tracing")
     
     def snapshot_component(self, component_name: str) -> ComponentResourceUsage:
         """Take a resource snapshot for a specific component."""
@@ -202,7 +202,7 @@ class ResourceProfiler:
         current_memory = self.process.memory_info().rss / (1024 * 1024)
         current_cpu = self.process.cpu_percent()
         
-        report.append(f"📊 CURRENT USAGE:")
+        report.append(f"[STATS] CURRENT USAGE:")
         report.append(f"   Memory: {current_memory:.1f}MB")
         report.append(f"   CPU: {current_cpu:.1f}%")
         
@@ -225,15 +225,15 @@ class ResourceProfiler:
             # List thread details
             report.append("   Thread breakdown:")
             for thread in thread_analysis['threads']:
-                status = "✅" if thread['alive'] else "❌"
-                daemon = "🔧" if thread['daemon'] else "👤"
+                status = "[OK]" if thread['alive'] else "[ERR]"
+                daemon = "[CONFIG]" if thread['daemon'] else "👤"
                 report.append(f"     {status} {daemon} {thread['name']}")
             report.append("")
         
         # Memory breakdown
         memory_breakdown = self.get_memory_breakdown()
         if "error" not in memory_breakdown:
-            report.append(f"💾 MEMORY ALLOCATION BREAKDOWN:")
+            report.append(f"[SAVE] MEMORY ALLOCATION BREAKDOWN:")
             report.append(f"   Total traced: {memory_breakdown['total_mb']:.1f}MB")
             report.append("")
             report.append("   Top memory consumers:")
@@ -259,7 +259,7 @@ class ResourceProfiler:
             report.append("")
         
         # Optimization recommendations
-        report.append("🎯 OPTIMIZATION RECOMMENDATIONS:")
+        report.append("[TARGET] OPTIMIZATION RECOMMENDATIONS:")
         
         if current_memory > 1000:  # > 1GB
             report.append("   🔴 CRITICAL - Memory usage > 1GB:")
@@ -281,7 +281,7 @@ class ResourceProfiler:
             report.append("     • Implement CPU-efficient neural algorithms")
         
         report.append("")
-        report.append("🎯 EMBEDDED DEVICE TARGETS:")
+        report.append("[TARGET] EMBEDDED DEVICE TARGETS:")
         report.append("   • Memory: <100MB total, <1KB per neuron")
         report.append("   • CPU: <0.5 cores average")
         report.append("   • Threads: <5 total")

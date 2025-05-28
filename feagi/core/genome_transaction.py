@@ -61,9 +61,9 @@ class GenomeTransaction:
         """Commit all changes and synchronize with connectome"""
         if self._has_committed:
             try:
-                logger.warning("Transaction already committed", emoji1="⚠️")
+                logger.warning("Transaction already committed", status="[WARN]")
             except TypeError:
-                logger.warning("⚠️ Transaction already committed")
+                logger.warning("[WARN] Transaction already committed")
             return False
             
         try:
@@ -82,9 +82,9 @@ class GenomeTransaction:
         except Exception as e:
             # Roll back changes
             try:
-                logger.error(f"Transaction failed: {e}", emoji1="❌")
+                logger.error(f"Transaction failed: {e}", status="[ERR]")
             except TypeError:
-                logger.error(f"❌ Transaction failed: {e}")
+                logger.error(f"[ERR] Transaction failed: {e}")
             self.rollback()
             self._get_state_manager().set_genome_state(GenomeState.ERROR)
             return False
@@ -98,9 +98,9 @@ class GenomeTransaction:
         genome = self._get_core_api_service().get_genome()
         if not genome:
             try:
-                logger.error("Cannot rollback - no genome loaded", emoji1="⚠️")
+                logger.error("Cannot rollback - no genome loaded", status="[WARN]")
             except TypeError:
-                logger.error("⚠️ Cannot rollback - no genome loaded")
+                logger.error("[WARN] Cannot rollback - no genome loaded")
             return
         
         # Apply changes in reverse order
@@ -119,18 +119,18 @@ class GenomeTransaction:
                 
             except Exception as e:
                 try:
-                    logger.error(f"Error during rollback: {e}", emoji1="⚠️")
+                    logger.error(f"Error during rollback: {e}", status="[WARN]")
                 except TypeError:
-                    logger.error(f"⚠️ Error during rollback: {e}")
+                    logger.error(f"[WARN] Error during rollback: {e}")
         
         # Re-synchronize connectome after rollback
         self._synchronize_connectome(genome)
         # Update state
         self._get_state_manager().set_genome_state(GenomeState.LOADED)
         try:
-            logger.info(f"Transaction {self._transaction_id} rolled back: {self.description}", emoji1="↩️")
+            logger.info(f"Transaction {self._transaction_id} rolled back: {self.description}", status="[BACK]")
         except TypeError:
-            logger.info(f"↩️ Transaction {self._transaction_id} rolled back: {self.description}")
+            logger.info(f"[BACK] Transaction {self._transaction_id} rolled back: {self.description}")
 
     def _set_at_path(self, genome, path, value):
         """Set a value at the specified path in the genome."""
@@ -155,7 +155,7 @@ class GenomeTransaction:
 
     def _apply_to_genome(self, operation, path, old_value, new_value):
         """Apply a change to the genome"""
-        logger.info(f"Applying genome operation: {operation}", emoji1="🧬")
+        logger.info(f"Applying genome operation: {operation}", status="[DNA]")
         
         # Handle different operation types
         if operation == "update_cortical_area":
@@ -180,9 +180,9 @@ class GenomeTransaction:
             genome: Optional genome data. If not provided, will get from core_api_service
         """
         try:
-            logger.info("Synchronizing changes with connectome", emoji1="🔄")
+            logger.info("Synchronizing changes with connectome", status="[PROC]")
         except TypeError:
-            logger.info("🔄 Synchronizing changes with connectome")
+            logger.info("[PROC] Synchronizing changes with connectome")
         
         if genome is None and self._core_api_service:
             genome = self._core_api_service.get_genome()

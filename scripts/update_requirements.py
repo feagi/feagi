@@ -185,10 +185,10 @@ def main():
         generate_dev_requirements_txt(dev_requirements_path)
         logger.info(f"Generated: {dev_requirements_path}")
         
-        logger.info("✅ Requirements files updated successfully!")
+        logger.info("[OK] Requirements files updated successfully!")
         
     except Exception as e:
-        logger.error(f"❌ Error updating requirements: {e}")
+        logger.error(f"[ERR] Error updating requirements: {e}")
         sys.exit(1)
 
 

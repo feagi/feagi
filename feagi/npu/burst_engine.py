@@ -101,10 +101,10 @@ class BurstEngine:
             cls._instance = super(BurstEngine, cls).__new__(cls)
             cls._instance_id = _generate_instance_id()
             # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.info(f"🔥 BURST ENGINE: Creating NEW singleton instance {cls._instance_id}")
+            logger.info(f"[DEBUG] BURST ENGINE: Creating NEW singleton instance {cls._instance_id}")
         else:
             # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.info(f"🔥 BURST ENGINE: Returning EXISTING singleton instance {cls._instance_id}")
+            logger.info(f"[DEBUG] BURST ENGINE: Returning EXISTING singleton instance {cls._instance_id}")
         return cls._instance
     
     @property
@@ -121,9 +121,9 @@ class BurstEngine:
         # WGPU-COMPATIBLE: Check debug_npu config instead of environment variable
         if hasattr(self, 'debug_npu') and self.debug_npu and old_value != value:
             # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.debug(f"🔥 BURST ENGINE: Instance {self._instance_id} _running changed: {old_value} → {value}")
+            logger.debug(f"[DEBUG] BURST ENGINE: Instance {self._instance_id} _running changed: {old_value} → {value}")
             import traceback
-            logger.debug(f"🔥 BURST ENGINE: Stack trace:")
+            logger.debug(f"[DEBUG] BURST ENGINE: Stack trace:")
             for line in traceback.format_stack():
                 logger.debug(f"    {line.strip()}")
 
@@ -143,11 +143,11 @@ class BurstEngine:
         # Prevent re-initialization if already initialized
         if hasattr(self, '_initialized') and self._initialized:
             # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.info(f"🔥 BURST ENGINE: Instance {self._instance_id} already initialized, skipping")
+            logger.info(f"[DEBUG] BURST ENGINE: Instance {self._instance_id} already initialized, skipping")
             return
             
         # WGPU-COMPATIBLE: Use logger instead of print for debug output
-        logger.info(f"🔥 BURST ENGINE: Initializing singleton instance {self._instance_id}")
+        logger.info(f"[DEBUG] BURST ENGINE: Initializing singleton instance {self._instance_id}")
         
         # Initialize logger for this instance
         self.logger = logging.getLogger(__name__ + f".BurstEngine.{self._instance_id}")
@@ -161,7 +161,7 @@ class BurstEngine:
         
         # Log debug NPU status when enabled
         if self.debug_npu:
-            logger.info("🔥 NPU debug mode enabled - will show detailed fire queue contents during bursts")
+            logger.info("[DEBUG] NPU debug mode enabled - will show detailed fire queue contents during bursts")
         
         self.genome_loaded = False
         self._running = False  # This will now trigger the setter with debug logging
@@ -181,7 +181,7 @@ class BurstEngine:
         
         # Initialize in a valid but inactive state
         # Will become fully operational when a genome is loaded
-        logger.info("Burst Engine initialized in standby mode", emoji1="⚡️")
+        logger.info("Burst Engine initialized in standby mode", status="[FAST]")
         
         self.state_manager = FeagiStateManager.instance()
         
@@ -228,7 +228,7 @@ class BurstEngine:
         # Mark as initialized
         self._initialized = True
         # WGPU-COMPATIBLE: Use logger instead of print for debug output
-        logger.info(f"🔥 BURST ENGINE: Instance {self._instance_id} initialization complete")
+        logger.info(f"[DEBUG] BURST ENGINE: Instance {self._instance_id} initialization complete")
     
     @classmethod
     def get_instance(cls) -> Optional['BurstEngine']:
@@ -249,7 +249,7 @@ class BurstEngine:
         with an already-loaded connectome.
         """
         if not self.enable_power_injection:
-            logger.info("Power injection disabled by configuration", emoji1="⚡")
+            logger.info("Power injection disabled by configuration", status="[FAST]")
             return
         
         try:
@@ -271,13 +271,13 @@ class BurstEngine:
                     config=self.config.get('fcl_injection_config', {})
                 )
                 
-                logger.info(f"Initialized power injection for {len(power_areas)} power areas", emoji1="💉")
+                logger.info(f"Initialized power injection for {len(power_areas)} power areas", status="[CONFIG]")
                 
                 # Log power area preview
                 preview = self.fcl_injection_service.get_power_injection_preview()
                 logger.debug(f"Power injection preview: {preview}")
             else:
-                logger.info("No power areas detected, injection service not initialized", emoji1="⚡")
+                logger.info("No power areas detected, injection service not initialized", status="[FAST]")
                 
         except Exception as e:
             logger.error(f"Error initializing special area services: {e}")
@@ -296,42 +296,42 @@ class BurstEngine:
         """
         # WGPU-COMPATIBLE: Use logger instead of print for debug output
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE _process_burst called! Instance {self._instance_id}, Burst count: {self.burst_count}")
+            logger.debug(f"[DEBUG] BURST ENGINE _process_burst called! Instance {self._instance_id}, Burst count: {self.burst_count}")
             
             # Check injection service availability
             if self.fcl_injection_service:
-                logger.debug(f"🔥 BURST ENGINE: Injection service AVAILABLE")
+                logger.debug(f"[DEBUG] BURST ENGINE: Injection service AVAILABLE")
             else:
-                logger.debug(f"🔥 BURST ENGINE: NO INJECTION SERVICE!")
+                logger.debug(f"[DEBUG] BURST ENGINE: NO INJECTION SERVICE!")
         
         # 1. Pre-burst power injection
         if self.fcl_injection_service and self.power_injection_timing == 'pre_burst':
             if self.debug_npu:
-                logger.debug(f"🔥 BURST ENGINE: Calling pre-burst injection")
+                logger.debug(f"[DEBUG] BURST ENGINE: Calling pre-burst injection")
             self.fcl_injection_service.inject_pre_burst(self.burst_count)
         
         # 2. Update membrane potentials and get fired neurons
         if self.debug_npu:
             # FCL manager uses sliding window with current timestep always 0
             current_timestep = 0  # Fixed: always use 0 for current timestep
-            logger.debug(f"🔥 BURST ENGINE: About to call update_membrane_potentials with timestep {current_timestep}")
+            logger.debug(f"[DEBUG] BURST ENGINE: About to call update_membrane_potentials with timestep {current_timestep}")
         
         fired_neurons = self.connectome_manager.update_membrane_potentials()
         
         if self.debug_npu:
             fired_count = len(fired_neurons) if fired_neurons else 0
-            logger.debug(f"🔥 BURST ENGINE: Got {fired_count} firing neurons")
+            logger.debug(f"[DEBUG] BURST ENGINE: Got {fired_count} firing neurons")
         
         # 3. During-burst injection (for modulators)
         if self.fcl_injection_service and self.power_injection_timing == 'during_burst':
             if self.debug_npu:
-                logger.debug(f"🔥 BURST ENGINE: Calling during-burst injection")
+                logger.debug(f"[DEBUG] BURST ENGINE: Calling during-burst injection")
             self.fcl_injection_service.inject_during_burst(self.burst_count)
         
         # 4. Post-burst injection  
         if self.fcl_injection_service and self.power_injection_timing == 'post_burst':
             if self.debug_npu:
-                logger.debug(f"🔥 BURST ENGINE: Calling post-burst injection")
+                logger.debug(f"[DEBUG] BURST ENGINE: Calling post-burst injection")
             self.fcl_injection_service.inject_post_burst(self.burst_count)
         
         # 5. Debug fire queue output if --debug-npu flag is enabled
@@ -352,53 +352,53 @@ class BurstEngine:
         """
         # Debug logging if --debug-npu is enabled
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}")
+            logger.debug(f"[DEBUG] BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}")
             
             # Check injection service availability
             if self.fcl_injection_service:
-                logger.debug(f"🔥 BURST ENGINE: Enhanced injection service AVAILABLE")
+                logger.debug(f"[DEBUG] BURST ENGINE: Enhanced injection service AVAILABLE")
             else:
-                logger.debug(f"🔥 BURST ENGINE: NO ENHANCED INJECTION SERVICE!")
+                logger.debug(f"[DEBUG] BURST ENGINE: NO ENHANCED INJECTION SERVICE!")
         
         # 1. Pre-burst power injection (inject power area neurons)
         if self.fcl_injection_service:
             if self.debug_npu:
-                logger.debug(f"🔥 BURST ENGINE: Calling enhanced pre-burst injection")
+                logger.debug(f"[DEBUG] BURST ENGINE: Calling enhanced pre-burst injection")
             injected_pre = self.fcl_injection_service.inject_pre_burst(current_timestep)
             if injected_pre > 0:
                 logger.debug(f"Pre-burst injection: {injected_pre} neurons")
                 if self.debug_npu:
-                    logger.debug(f"🔥 BURST ENGINE: Pre-burst injected {injected_pre} neurons")
+                    logger.debug(f"[DEBUG] BURST ENGINE: Pre-burst injected {injected_pre} neurons")
         
         # 2. Standard burst processing (membrane potential updates, regular firing)
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: About to call enhanced update_membrane_potentials with timestep {current_timestep}")
+            logger.debug(f"[DEBUG] BURST ENGINE: About to call enhanced update_membrane_potentials with timestep {current_timestep}")
         
         fired_neurons = self.connectome_manager.update_membrane_potentials()
         
         if self.debug_npu:
             fired_count = len(fired_neurons) if fired_neurons else 0
-            logger.debug(f"🔥 BURST ENGINE: Enhanced processing got {fired_count} firing neurons")
+            logger.debug(f"[DEBUG] BURST ENGINE: Enhanced processing got {fired_count} firing neurons")
         
         # 3. During-burst injection (for modulator areas)
         if self.fcl_injection_service:
             if self.debug_npu:
-                logger.debug(f"🔥 BURST ENGINE: Calling enhanced during-burst injection")
+                logger.debug(f"[DEBUG] BURST ENGINE: Calling enhanced during-burst injection")
             injected_during = self.fcl_injection_service.inject_during_burst(current_timestep)
             if injected_during > 0:
                 logger.debug(f"During-burst injection: {injected_during} neurons")
                 if self.debug_npu:
-                    logger.debug(f"🔥 BURST ENGINE: During-burst injected {injected_during} neurons")
+                    logger.debug(f"[DEBUG] BURST ENGINE: During-burst injected {injected_during} neurons")
         
         # 4. Post-burst injection (for cleanup or special processing)
         if self.fcl_injection_service:
             if self.debug_npu:
-                logger.debug(f"🔥 BURST ENGINE: Calling enhanced post-burst injection")
+                logger.debug(f"[DEBUG] BURST ENGINE: Calling enhanced post-burst injection")
             injected_post = self.fcl_injection_service.inject_post_burst(current_timestep)
             if injected_post > 0:
                 logger.debug(f"Post-burst injection: {injected_post} neurons")
                 if self.debug_npu:
-                    logger.debug(f"🔥 BURST ENGINE: Post-burst injected {injected_post} neurons")
+                    logger.debug(f"[DEBUG] BURST ENGINE: Post-burst injected {injected_post} neurons")
         
         # 5. Debug fire queue output if --debug-npu flag is enabled
         if self.debug_npu:
@@ -419,26 +419,26 @@ class BurstEngine:
         import traceback
         
         # ALWAYS log key run method events for debugging
-        logger.info(f"🔥 BURST ENGINE: run() method called for instance {self._instance_id}")
-        logger.info(f"🔥 BURST ENGINE: Target frequency: {self.desired_frequency}Hz, interval: {self.burst_interval}s")
+        logger.info(f"[DEBUG] BURST ENGINE: run() method called for instance {self._instance_id}")
+        logger.info(f"[DEBUG] BURST ENGINE: Target frequency: {self.desired_frequency}Hz, interval: {self.burst_interval}s")
         
         # Debug logging for run method entry
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: Current _running state: {self._running}")
-            logger.debug(f"🔥 BURST ENGINE: Stack trace:")
+            logger.debug(f"[DEBUG] BURST ENGINE: Current _running state: {self._running}")
+            logger.debug(f"[DEBUG] BURST ENGINE: Stack trace:")
             for line in traceback.format_stack()[-5:-1]:  # Show last 4 stack frames
                 logger.debug(f"    {line.strip()}")
             logger.debug("")
         
         self._running = True
         self.state_manager.set_burst_engine_state(ServiceState.READY)
-        logger.info(f"🔥 BURST ENGINE: Set _running=True, about to enter main loop")
+        logger.info(f"[DEBUG] BURST ENGINE: Set _running=True, about to enter main loop")
         
         # RTOS-COMPATIBLE: Removed signal handling - not available in RTOS
         # In RTOS environment, use task control and events instead of signal handlers
             
         try:
-            logger.info(f"🔥 BURST ENGINE: Entering main while loop")
+            logger.info(f"[DEBUG] BURST ENGINE: Entering main while loop")
             loop_count = 0
             while self._running:
                 loop_count += 1
@@ -446,11 +446,11 @@ class BurstEngine:
                 
                 # Log first few loops and every 10th loop for debugging
                 if loop_count <= 3 or loop_count % 10 == 0:
-                    logger.info(f"🔥 BURST ENGINE: Starting burst {self.burst_count + 1} (loop {loop_count})")
+                    logger.info(f"[DEBUG] BURST ENGINE: Starting burst {self.burst_count + 1} (loop {loop_count})")
                 
                 # Debug logging if --debug-npu is enabled
                 if self.debug_npu:
-                    logger.debug(f"🔥 BURST ENGINE: Starting burst {self.burst_count + 1} in main loop")
+                    logger.debug(f"[DEBUG] BURST ENGINE: Starting burst {self.burst_count + 1} in main loop")
                 
                 # Measure pure processing time
                 processing_start = time.perf_counter()
@@ -459,12 +459,12 @@ class BurstEngine:
                 if self.fcl_injection_service:
                     # Enhanced processing with power injection - always use timestep 0 for current
                     if self.debug_npu:
-                        logger.debug(f"🔥 BURST ENGINE: Using ENHANCED processing with power injection")
+                        logger.debug(f"[DEBUG] BURST ENGINE: Using ENHANCED processing with power injection")
                     fired_neurons = self._process_burst_with_power_injection(0)  # Fixed: use 0 for current timestep
                 else:
                     # Standard processing
                     if self.debug_npu:
-                        logger.debug(f"🔥 BURST ENGINE: Using STANDARD processing (no injection service)")
+                        logger.debug(f"[DEBUG] BURST ENGINE: Using STANDARD processing (no injection service)")
                     fired_neurons = self._process_burst()
                 
                 # End of pure processing time measurement
@@ -512,10 +512,10 @@ class BurstEngine:
                 
                 # Debug timing information - log first few and every 10th
                 if loop_count <= 3 or loop_count % 10 == 0:
-                    logger.info(f"🔥 BURST ENGINE: Burst {self.burst_count + 1} - Processing: {processing_elapsed*1000:.2f}ms, "
+                    logger.info(f"[DEBUG] BURST ENGINE: Burst {self.burst_count + 1} - Processing: {processing_elapsed*1000:.2f}ms, "
                                   f"Full cycle: {final_cycle_time*1000:.2f}ms, Target: {self.desired_frequency:.1f}Hz, Actual: {actual_freq:.1f}Hz")
                 elif self.debug_npu:
-                    logger.debug(f"🔥 BURST ENGINE: Burst {self.burst_count + 1} - Processing: {processing_elapsed*1000:.2f}ms, "
+                    logger.debug(f"[DEBUG] BURST ENGINE: Burst {self.burst_count + 1} - Processing: {processing_elapsed*1000:.2f}ms, "
                                   f"Full cycle: {final_cycle_time*1000:.2f}ms, Potential: {potential_freq:.1f}Hz, Actual: {actual_freq:.1f}Hz")
                 
                 # Increment burst count
@@ -523,8 +523,8 @@ class BurstEngine:
                 
         except Exception as e:
             # Handle crashes in the main loop by resetting _running flag
-            logger.error(f"🔥 BURST ENGINE: EXCEPTION in main loop: {e}")
-            logger.error(f"🔥 BURST ENGINE: Exception traceback:")
+            logger.error(f"[DEBUG] BURST ENGINE: EXCEPTION in main loop: {e}")
+            logger.error(f"[DEBUG] BURST ENGINE: Exception traceback:")
             logger.error(traceback.format_exc())
             
             logger.error(f"BurstEngine main loop crashed: {e}")
@@ -532,7 +532,7 @@ class BurstEngine:
             self.state_manager.set_burst_engine_state(ServiceState.ERROR)
             return
                 
-        logger.info(f"🔥 BURST ENGINE: Main loop exited normally, _running={self._running}")
+        logger.info(f"[DEBUG] BURST ENGINE: Main loop exited normally, _running={self._running}")
         logger.info("BurstEngine stopped.")
         self.state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
 
@@ -611,7 +611,7 @@ class BurstEngine:
         """
         # WGPU-COMPATIBLE: Use config-based debug instead of environment variable
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: Instance {self._instance_id} updating with genome")
+            logger.debug(f"[DEBUG] BURST ENGINE: Instance {self._instance_id} updating with genome")
         
         self.genome_loaded = True
         self.burst_count = 0  # Reset burst count for new genome
@@ -622,7 +622,7 @@ class BurstEngine:
         
         # WGPU-COMPATIBLE: Use config-based debug instead of environment variable
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: Instance {self._instance_id} re-initializing special area services for new genome")
+            logger.debug(f"[DEBUG] BURST ENGINE: Instance {self._instance_id} re-initializing special area services for new genome")
         
         # Reinitialize special area services for the new genome
         self._initialize_special_area_services()
@@ -639,7 +639,7 @@ class BurstEngine:
         if self.fcl_injection_service:
             self.fcl_injection_service.refresh_injection_batches()
             
-        logger.info("Refreshed special area services", emoji1="🔄")
+        logger.info("Refreshed special area services", status="[PROC]")
 
     def get_power_injection_statistics(self) -> Dict[str, Any]:
         """
@@ -694,30 +694,30 @@ class BurstEngine:
         import traceback
         
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: run_with_fire_queue() called for instance {self._instance_id}")
-            logger.debug(f"🔥 BURST ENGINE: Stack trace:")
+            logger.debug(f"[DEBUG] BURST ENGINE: run_with_fire_queue() called for instance {self._instance_id}")
+            logger.debug(f"[DEBUG] BURST ENGINE: Stack trace:")
             for line in traceback.format_stack()[-5:-1]:  # Show last 4 stack frames
                 logger.debug(f"    {line.strip()}")
             logger.debug("")
         
         if self.state_manager.get_burst_engine_state() != ServiceState.READY:
             if self.debug_npu:
-                logger.warning(f"🔥 BURST ENGINE: run_with_fire_queue() - engine not ready, returning False")
+                logger.warning(f"[DEBUG] BURST ENGINE: run_with_fire_queue() - engine not ready, returning False")
             logger.warning("Burst engine is not ready, cannot start burst execution")
             return False
             
         # Update state - use READY state to indicate it's running (later could be changed to SYNCING or similar)
         self.state_manager.set_burst_engine_state(ServiceState.READY)
-        logger.info("Burst engine starting with fire queue process", emoji1="🚀 ")
+        logger.info("Burst engine starting with fire queue process", status="[START] ")
         
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: run_with_fire_queue() - about to set _running = True")
+            logger.debug(f"[DEBUG] BURST ENGINE: run_with_fire_queue() - about to set _running = True")
         
         # Set running flag
         self._running = True
         
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: run_with_fire_queue() - _running set to True, entering main loop")
+            logger.debug(f"[DEBUG] BURST ENGINE: run_with_fire_queue() - _running set to True, entering main loop")
         
         # Try to use optimized structures if available
         try:
@@ -732,7 +732,7 @@ class BurstEngine:
                 cycle_start_time = time.perf_counter()
                 
                 if self.debug_npu:
-                    logger.debug(f"🔥 BURST ENGINE: run_with_fire_queue() - main loop iteration, burst {self.burst_count}")
+                    logger.debug(f"[DEBUG] BURST ENGINE: run_with_fire_queue() - main loop iteration, burst {self.burst_count}")
                 
                 # Measure pure processing time
                 processing_start_time = time.perf_counter()
@@ -801,7 +801,7 @@ class BurstEngine:
                                f"Target: {self.desired_frequency:.1f}Hz, "
                                f"Actual: {actual_freq:.1f}Hz, "
                                f"Potential: {potential_freq:.1f}Hz",
-                               emoji1="⚡ ")
+                               emoji1="[FAST] ")
                 
                 # Increment burst count
                 self.burst_count += 1
@@ -809,8 +809,8 @@ class BurstEngine:
         except Exception as e:
             # Handle crashes in the fire queue main loop
             if self.debug_npu:
-                logger.error(f"🔥 BURST ENGINE: EXCEPTION in run_with_fire_queue main loop: {e}")
-                logger.error(f"🔥 BURST ENGINE: Stack trace:")
+                logger.error(f"[DEBUG] BURST ENGINE: EXCEPTION in run_with_fire_queue main loop: {e}")
+                logger.error(f"[DEBUG] BURST ENGINE: Stack trace:")
                 traceback.print_exc()
             
             logger.error(f"BurstEngine fire queue main loop crashed: {e}")
@@ -821,8 +821,8 @@ class BurstEngine:
         # Update state when stopped
         self.state_manager.set_burst_engine_state(ServiceState.READY)
         if self.debug_npu:
-            logger.debug(f"🔥 BURST ENGINE: run_with_fire_queue() - exiting normally, loop finished")
-        logger.info("Burst engine stopped", emoji1="🛑 ")
+            logger.debug(f"[DEBUG] BURST ENGINE: run_with_fire_queue() - exiting normally, loop finished")
+        logger.info("Burst engine stopped", status="[HALT] ")
         return True
 
     def _debug_fire_queue_output(self) -> None:
@@ -838,13 +838,13 @@ class BurstEngine:
         - FCL Sampler status and data (legacy)
         """
         try:
-            logger.info(f"\n🔥 ===== NPU DEBUG - BURST {self.burst_count} =====")
+            logger.info(f"\n[DEBUG] ===== NPU DEBUG - BURST {self.burst_count} =====")
             
             # Get global FCL
             global_fcl = self.fcl_manager.get_global_fcl()
             total_firing = len(global_fcl)
             
-            logger.info(f"📊 Global Fire Summary:")
+            logger.info(f"[STATS] Global Fire Summary:")
             logger.info(f"   Total firing neurons: {total_firing}")
             logger.info(f"   Burst frequency: {1.0/self.burst_interval:.1f}Hz target")
             
@@ -852,7 +852,7 @@ class BurstEngine:
                 # Get firing neurons by cortical area
                 fcl_by_cortical = self.fcl_manager.get_fcl_by_cortical()
                 
-                logger.info(f"🧠 Per-Area Breakdown ({len(fcl_by_cortical)} active areas):")
+                logger.info(f"[BRAIN] Per-Area Breakdown ({len(fcl_by_cortical)} active areas):")
                 
                 # Sort areas by number of firing neurons for consistent output
                 sorted_areas = sorted(fcl_by_cortical.items(), key=lambda x: len(x[1]), reverse=True)
@@ -874,7 +874,7 @@ class BurstEngine:
                     stats = self.get_power_injection_statistics()
                     if 'injection' in stats and stats['injection'].get('total_injections', 0) > 0:
                         power_neurons = stats['special_areas'].get('total_power_neurons', 0)
-                        logger.info(f"⚡ Power Injection: {power_neurons} neurons from {stats['special_areas'].get('power_areas_count', 0)} power areas")
+                        logger.info(f"[FAST] Power Injection: {power_neurons} neurons from {stats['special_areas'].get('power_areas_count', 0)} power areas")
             else:
                 logger.info("   No neurons firing this burst")
                 
@@ -882,12 +882,12 @@ class BurstEngine:
             if hasattr(self.fcl_manager, 'get_firing_statistics'):
                 firing_stats = self.fcl_manager.get_firing_statistics()
                 if firing_stats:
-                    logger.info(f"📈 Recent Activity:")
+                    logger.info(f"[UP] Recent Activity:")
                     logger.info(f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst")
                     logger.info(f"   Peak firing: {firing_stats.get('peak_firing', 0)} neurons")
             
             # === NEW: FQ SAMPLER DEBUG INFORMATION ===
-            logger.info(f"🎯 Sampler Debug Information:")
+            logger.info(f"[TARGET] Sampler Debug Information:")
             
             # FQ Samplers (for motor and visualization)
             if self._fq_samplers:
@@ -911,7 +911,7 @@ class BurstEngine:
                             sample_data = fq_sampler._get_global_fire_queue_data()
                             if sample_data and sample_data.get('neuron_ids'):
                                 sample_count = len(sample_data['neuron_ids'])
-                                logger.info(f"         📊 Sample data: {sample_count} neurons")
+                                logger.info(f"         [STATS] Sample data: {sample_count} neurons")
                                 
                                 # Show membrane potential range if available
                                 if sample_data.get('membrane_potentials'):
@@ -919,7 +919,7 @@ class BurstEngine:
                                     min_pot = min(potentials)
                                     max_pot = max(potentials)
                                     avg_pot = sum(potentials) / len(potentials)
-                                    logger.info(f"         🧠 Membrane potentials: {min_pot:.2f} - {max_pot:.2f} (avg: {avg_pot:.2f})")
+                                    logger.info(f"         [BRAIN] Membrane potentials: {min_pot:.2f} - {max_pot:.2f} (avg: {avg_pot:.2f})")
                                     
                                 # Show coordinate range if available
                                 if sample_data.get('coordinates'):
@@ -930,7 +930,7 @@ class BurstEngine:
                                         z_coords = [c[2] for c in coords]
                                         logger.info(f"         📍 Coordinate ranges: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
                             else:
-                                logger.info(f"         📊 Sample data: No neurons firing")
+                                logger.info(f"         [STATS] Sample data: No neurons firing")
                         
                         # Check queue status
                         if hasattr(fq_sampler, 'output_queue'):
@@ -963,7 +963,7 @@ class BurstEngine:
                 logger.info(f"   📺 Visualization stream: {viz_active_count} active samplers")
                 
                 if motor_active_count == 0 and viz_active_count == 0:
-                    logger.info(f"   ⚠️  WARNING: No active subscribers - streams may be inactive!")
+                    logger.info(f"   [WARN]  WARNING: No active subscribers - streams may be inactive!")
                 
                 # Sample recent data from each active FQ sampler
                 for i, fq_sampler in enumerate(self._fq_samplers):
@@ -971,7 +971,7 @@ class BurstEngine:
                         getattr(fq_sampler, '_has_visualization_subscribers', False) or 
                         getattr(fq_sampler, '_has_motor_subscribers', False)
                     ):
-                        logger.info(f"   📊 FQSampler-{i+1} Recent Sample:")
+                        logger.info(f"   [STATS] FQSampler-{i+1} Recent Sample:")
                         
                         # Try to get per-area samples for key areas
                         if hasattr(fq_sampler, 'connectome_manager') and fq_sampler.connectome_manager:
@@ -993,14 +993,14 @@ class BurstEngine:
                             except Exception as sample_error:
                                 logger.info(f"      Sample error: {sample_error}")
             
-            logger.info(f"🔥 ========================================\n")
+            logger.info(f"[DEBUG] ========================================\n")
             
         except Exception as e:
-            logger.error(f"🔥 NPU DEBUG ERROR: Failed to display fire queue - {e}")
+            logger.error(f"[DEBUG] NPU DEBUG ERROR: Failed to display fire queue - {e}")
             logger.error(f"NPU debug output error: {e}")
             # Include stack trace for debugging
             import traceback
-            logger.error(f"🔥 NPU DEBUG ERROR stack trace:")
+            logger.error(f"[DEBUG] NPU DEBUG ERROR stack trace:")
             logger.error(traceback.format_exc())
 
     def measure_actual_frequency(self, duration_seconds: float = 5.0, sample_count: int = 100) -> dict:
@@ -1025,7 +1025,7 @@ class BurstEngine:
         
         # Only log detailed frequency measurement start when debugging NPU
         if self.debug_npu:
-            logger.info(f"Starting frequency measurement for {duration_seconds}s", emoji1="🔬")
+            logger.info(f"Starting frequency measurement for {duration_seconds}s", status="[DEBUG]")
         
         # Enable frequency measurement mode
         old_measurement_enabled = getattr(self, '_frequency_measurement_enabled', False)
@@ -1121,7 +1121,7 @@ class BurstEngine:
             
             # Only log detailed completion when debugging NPU
             if self.debug_npu:
-                logger.info(f"Frequency measurement complete - Actual: {actual_frequency_hz:.1f}Hz, Potential: {potential_frequency_hz:.1f}Hz (target: {self.desired_frequency:.1f}Hz)", emoji1="📊")
+                logger.info(f"Frequency measurement complete - Actual: {actual_frequency_hz:.1f}Hz, Potential: {potential_frequency_hz:.1f}Hz (target: {self.desired_frequency:.1f}Hz)", emoji1="[STATS]")
             
             return measurement_result
             
@@ -1178,7 +1178,7 @@ class BurstEngine:
         if fq_sampler not in self._fq_samplers:
             self._fq_samplers.append(fq_sampler)
             if self.debug_npu:
-                logger.info(f"🔥 NPU DEBUG: Registered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+                logger.info(f"[DEBUG] NPU DEBUG: Registered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
 
     def unregister_fq_sampler(self, fq_sampler: Any) -> None:
         """
@@ -1190,7 +1190,7 @@ class BurstEngine:
         if fq_sampler in self._fq_samplers:
             self._fq_samplers.remove(fq_sampler)
             if self.debug_npu:
-                logger.info(f"🔥 NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+                logger.info(f"[DEBUG] NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
 
     def _init_simd_support(self):
         """Initialize SIMD detection and configuration."""
@@ -1204,7 +1204,7 @@ class BurstEngine:
                 # Log SIMD capabilities
                 caps = self.simd_detector.capabilities
                 self.logger.info(f"🧮 SIMD Backend: {self.simd_config['recommended_backend']}")
-                self.logger.info(f"🎯 Vector Width: {caps.vector_width}, Cache Line: {caps.cache_line_size}B")
+                self.logger.info(f"[TARGET] Vector Width: {caps.vector_width}, Cache Line: {caps.cache_line_size}B")
                 
             except Exception as e:
                 self.logger.warning(f"Failed to initialize SIMD support: {e}")
@@ -1224,7 +1224,7 @@ class BurstEngine:
                     capacity=capacity,
                     use_profiling=self.use_simd_profiling
                 )
-                self.logger.info(f"🧠 SIMD membrane processor initialized for {capacity} neurons")
+                self.logger.info(f"[BRAIN] SIMD membrane processor initialized for {capacity} neurons")
             except Exception as e:
                 self.logger.warning(f"Failed to initialize SIMD membrane processor: {e}")
                 self.membrane_processor = None
@@ -1371,7 +1371,7 @@ class BurstEngine:
             if self.membrane_processor:
                 stats = self.membrane_processor.get_performance_stats()
                 self.logger.info(
-                    f"🚀 SIMD Performance: {stats['avg_neurons_per_update']:.0f} neurons/update, "
+                    f"[START] SIMD Performance: {stats['avg_neurons_per_update']:.0f} neurons/update, "
                     f"backend: {stats['simd_backend']}, vector_width: {stats['vector_width']}"
                 )
             
@@ -1381,7 +1381,7 @@ class BurstEngine:
                     report = self.simd_profiler.get_performance_report()
                     top_ops = report.get("top_operations", [])
                     if top_ops:
-                        self.logger.info(f"🔥 Top SIMD operation: {top_ops[0]['name']} "
+                        self.logger.info(f"[DEBUG] Top SIMD operation: {top_ops[0]['name']} "
                                        f"({top_ops[0]['simd_efficiency']:.2f} efficiency)")
                         
         except Exception as e:
@@ -1565,10 +1565,10 @@ class FQSampler:
                         test_data = self._get_area_fire_queue_data(cortical_id)
                         if test_data and test_data.get('neuron_ids'):
                             neuron_count = len(test_data['neuron_ids'])
-                            logger.debug(f"🎯 FQ Sampler: Area {cortical_id} has {neuron_count} firing neurons")
+                            logger.debug(f"[TARGET] FQ Sampler: Area {cortical_id} has {neuron_count} firing neurons")
                             areas_with_data += 1
                         else:
-                            logger.debug(f"❌ FQ Sampler: Area {cortical_id} has no fire queue data")
+                            logger.debug(f"[ERR] FQ Sampler: Area {cortical_id} has no fire queue data")
                            
                         self._sample_area_fire_queue(cortical_id, target='visualization')
                         self._last_sample_time_per_area[cortical_id] = now
@@ -1683,7 +1683,7 @@ class FQSampler:
                         break  # Success
                         
                     except Exception as put_error:
-                        logger.error(f"❌ Error queuing {cortical_id} data: {put_error}")
+                        logger.error(f"[ERR] Error queuing {cortical_id} data: {put_error}")
                         break  # Don't retry on queue errors
                         
                 else:
@@ -1693,9 +1693,9 @@ class FQSampler:
                     break
                     
             except Exception as general_error:
-                logger.error(f"❌ Error sampling {cortical_id}: {general_error}")
+                logger.error(f"[ERR] Error sampling {cortical_id}: {general_error}")
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"❌ Max retries reached for {cortical_id}")
+                    logger.error(f"[ERR] Max retries reached for {cortical_id}")
                     
                 # Wait before retrying
                 delay_start = time.perf_counter()
@@ -1733,7 +1733,7 @@ class FQSampler:
                         break  # Success
                         
                     except Exception as put_error:
-                        logger.error(f"❌ Error queuing global data: {put_error}")
+                        logger.error(f"[ERR] Error queuing global data: {put_error}")
                         break
                         
                 else:
@@ -1741,9 +1741,9 @@ class FQSampler:
                     break
                     
             except Exception as general_error:
-                logger.error(f"❌ Error in global sampling: {general_error}")
+                logger.error(f"[ERR] Error in global sampling: {general_error}")
                 if retry_count == self._max_retries - 1:
-                    logger.error(f"❌ Max retries reached for global sampling")
+                    logger.error(f"[ERR] Max retries reached for global sampling")
                     
                 # Wait before retrying
                 delay_start = time.perf_counter()
@@ -1766,50 +1766,50 @@ class FQSampler:
             }
         """
         try:
-            logger.debug(f"🔍 Getting fire queue data for area: {cortical_id}")
+            logger.debug(f"[SEARCH] Getting fire queue data for area: {cortical_id}")
             
             # Get fire queue from provider
             if hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
-                logger.debug(f"🔍 Using provider.get_area_fire_queue for {cortical_id}")
+                logger.debug(f"[SEARCH] Using provider.get_area_fire_queue for {cortical_id}")
                 fire_queue = self.fire_queue_provider.get_area_fire_queue(cortical_id)
-                logger.debug(f"🔍 Provider returned: {fire_queue is not None} for {cortical_id}")
+                logger.debug(f"[SEARCH] Provider returned: {fire_queue is not None} for {cortical_id}")
                 
                 if fire_queue:
                     neuron_ids = fire_queue.get('neuron_ids', [])
-                    logger.debug(f"🔍 Fire queue has {len(neuron_ids)} neuron_ids for {cortical_id}")
+                    logger.debug(f"[SEARCH] Fire queue has {len(neuron_ids)} neuron_ids for {cortical_id}")
                
             elif hasattr(self.fire_queue_provider, 'get_fire_queue'):
-                logger.debug(f"🔍 Using global fire queue and filtering for {cortical_id}")
+                logger.debug(f"[SEARCH] Using global fire queue and filtering for {cortical_id}")
                 # Filter global fire queue for this area
                 global_fire_queue = self.fire_queue_provider.get_fire_queue()
-                logger.debug(f"🔍 Global fire queue: {global_fire_queue is not None}")
+                logger.debug(f"[SEARCH] Global fire queue: {global_fire_queue is not None}")
                 
                 if global_fire_queue:
                     global_neuron_count = len(global_fire_queue.get('neuron_ids', []))
-                    logger.debug(f"🔍 Global fire queue has {global_neuron_count} neurons total")
+                    logger.debug(f"[SEARCH] Global fire queue has {global_neuron_count} neurons total")
                     
                 fire_queue = self._filter_fire_queue_by_area(global_fire_queue, cortical_id)
                 
                 if fire_queue:
                     filtered_neuron_count = len(fire_queue.get('neuron_ids', []))
-                    logger.debug(f"🔍 Filtered fire queue has {filtered_neuron_count} neurons for {cortical_id}")
+                    logger.debug(f"[SEARCH] Filtered fire queue has {filtered_neuron_count} neurons for {cortical_id}")
             else:
-                logger.warning(f"🔍 Fire queue provider has no suitable methods for {cortical_id}")
+                logger.warning(f"[SEARCH] Fire queue provider has no suitable methods for {cortical_id}")
                 return None
                 
             if not fire_queue:
-                logger.debug(f"❌ No fire queue returned for {cortical_id}")
+                logger.debug(f"[ERR] No fire queue returned for {cortical_id}")
                 return None
                 
             if not fire_queue.get('neuron_ids'):
-                logger.debug(f"❌ Fire queue has no neuron_ids for {cortical_id}")
+                logger.debug(f"[ERR] Fire queue has no neuron_ids for {cortical_id}")
                 return None
                 
             # Add coordinate information
             coordinates = self._get_neuron_coordinates(cortical_id, fire_queue['neuron_ids'])
             fire_queue['coordinates'] = coordinates
             
-            logger.debug(f"✅ Returning fire queue data for {cortical_id} with {len(fire_queue['neuron_ids'])} neurons")
+            logger.debug(f"[OK] Returning fire queue data for {cortical_id} with {len(fire_queue['neuron_ids'])} neurons")
             return fire_queue
             
         except Exception as e:
@@ -1880,14 +1880,14 @@ class FQSampler:
         coordinates = []
         
         # Add detailed debugging for coordinate issues
-        logger.info(f"🔍 COORDINATE DEBUG: Getting coordinates for {len(neuron_ids)} neurons in area {cortical_id}")
+        logger.info(f"[SEARCH] COORDINATE DEBUG: Getting coordinates for {len(neuron_ids)} neurons in area {cortical_id}")
         logger.info(f"   🔢 Neuron IDs being processed: {neuron_ids[:10]}{'...' if len(neuron_ids) > 10 else ''}")
         
         try:
             if self.connectome_manager:
                 area = self.connectome_manager.cortical_areas.get(cortical_id)
                 if area:
-                    logger.info(f"   ✅ Found area '{area.name}' with {area.neuron_count} total neurons")
+                    logger.info(f"   [OK] Found area '{area.name}' with {area.neuron_count} total neurons")
                     
                     # Check how many neurons in the area have positions
                     total_neurons_with_positions = len(area._position_map) if hasattr(area, '_position_map') else 0
@@ -1896,7 +1896,7 @@ class FQSampler:
                     # Show sample of neurons with positions for debugging
                     if hasattr(area, '_position_map') and area._position_map:
                         sample_stored_neurons = list(area._position_map.keys())[:5]
-                        logger.info(f"   📝 Sample neurons with positions: {sample_stored_neurons}")
+                        logger.info(f"   [LOG] Sample neurons with positions: {sample_stored_neurons}")
                     
                     found_positions = 0
                     fallback_positions = 0
@@ -1912,7 +1912,7 @@ class FQSampler:
                                 continue
                             
                             # Log which neurons don't have stored positions
-                            logger.debug(f"   ❌ Neuron {neuron_id} not found in area position map")
+                            logger.debug(f"   [ERR] Neuron {neuron_id} not found in area position map")
                             
                             # If neuron not in this area's position map, try fallback calculation
                             # Use area dimensions (tuple format: width, height, depth)
@@ -1932,10 +1932,10 @@ class FQSampler:
                             default_positions += 1
                     
                     # Log summary of coordinate lookup results
-                    logger.info(f"   📊 Coordinate lookup results for {cortical_id}:")
-                    logger.info(f"      ✅ Found stored positions: {found_positions}")
-                    logger.info(f"      🔄 Fallback calculations: {fallback_positions}")
-                    logger.info(f"      ⚠️  Default (0,0,0) coords: {default_positions}")
+                    logger.info(f"   [STATS] Coordinate lookup results for {cortical_id}:")
+                    logger.info(f"      [OK] Found stored positions: {found_positions}")
+                    logger.info(f"      [PROC] Fallback calculations: {fallback_positions}")
+                    logger.info(f"      [WARN]  Default (0,0,0) coords: {default_positions}")
                     
                     if found_positions == 0 and len(neuron_ids) > 0:
                         logger.warning(f"   🚨 CRITICAL: NO stored positions found for ANY neurons in {cortical_id}!")
@@ -1945,7 +1945,7 @@ class FQSampler:
                         # Check if these neurons exist at all in the connectome
                         if hasattr(self.connectome_manager, 'neurons'):
                             existing_neurons = [nid for nid in neuron_ids if nid in self.connectome_manager.neurons]
-                            logger.warning(f"      🔍 {len(existing_neurons)}/{len(neuron_ids)} neurons exist in global connectome")
+                            logger.warning(f"      [SEARCH] {len(existing_neurons)}/{len(neuron_ids)} neurons exist in global connectome")
                             if existing_neurons:
                                 logger.warning(f"         Sample existing: {existing_neurons[:5]}")
                             
@@ -2008,7 +2008,7 @@ class FQSampler:
         if hasattr(self.fire_queue_provider, 'unregister_fq_sampler'):
             try:
                 self.fire_queue_provider.unregister_fq_sampler(self)
-                logger.info(f"🔥 NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+                logger.info(f"[DEBUG] NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
             except Exception as e:
                 logger.warning(f"Failed to auto-unregister FQSampler from BurstEngine: {e}")
         

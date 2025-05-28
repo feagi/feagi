@@ -740,7 +740,7 @@ class NeuroEmbryogenesis:
             positions = area_specs["positions"]
             num_neurons = len(positions)
             
-            logger.warning(f"🚀 VECTORIZED CREATION for {cortical_id}: {num_neurons} neurons")
+            logger.warning(f"[START] VECTORIZED CREATION for {cortical_id}: {num_neurons} neurons")
             
             try:
                 # Get the cortical area object to get cortical_idx
@@ -758,7 +758,7 @@ class NeuroEmbryogenesis:
                     refractory_periods=area_specs["refractory_periods"]
                 )
                 
-                logger.warning(f"✅ VECTORIZED SUCCESS for {cortical_id}: created {len(area_neuron_ids)} neurons in one operation")
+                logger.warning(f"[OK] VECTORIZED SUCCESS for {cortical_id}: created {len(area_neuron_ids)} neurons in one operation")
                 
                 # Update ConnectomeManager ID mappings for the batch
                 for i, neuron_id in enumerate(area_neuron_ids):
@@ -784,9 +784,9 @@ class NeuroEmbryogenesis:
                     neuron_ids.append((neuron_id, area_specs["voxel_ids"][i]))
                 
             except Exception as e:
-                logger.error(f"🔥 VECTORIZED CREATION FAILED for {cortical_id}: {str(e)}")
+                logger.error(f"[DEBUG] VECTORIZED CREATION FAILED for {cortical_id}: {str(e)}")
                 import traceback
-                logger.error(f"🔥 Traceback: {traceback.format_exc()}")
+                logger.error(f"[DEBUG] Traceback: {traceback.format_exc()}")
                 
                 # This should NOT happen with proper SoA implementation
                 raise RuntimeError(f"Vectorized neuron creation failed - SoA implementation issue: {e}")
@@ -1081,7 +1081,7 @@ class NeuroEmbryogenesis:
                 voxel_count = width * height * depth
                 area_neuron_count = voxel_count * neurons_per_voxel
                 
-                logger.warning(f"🎯 BULK NEUROGENESIS for {cortical_id}: {area_neuron_count} neurons ({width}×{height}×{depth} × {neurons_per_voxel})")
+                logger.warning(f"[TARGET] BULK NEUROGENESIS for {cortical_id}: {area_neuron_count} neurons ({width}×{height}×{depth} × {neurons_per_voxel})")
                 
                 # PRE-CALCULATE ALL DATA (NumPy style!)
                 # Create position arrays efficiently
@@ -1107,7 +1107,7 @@ class NeuroEmbryogenesis:
                 # Get cortical_idx 
                 cortical_idx = area.cortical_idx
                 
-                # 🚀 SINGLE VECTORIZED CALL - NO LOOPS!
+                # [START] SINGLE VECTORIZED CALL - NO LOOPS!
                 start_time = datetime.datetime.now()
                 area_neuron_ids = self.connectome_manager.neuron_array.batch_create_neurons(
                     cortical_idx=cortical_idx,
@@ -1121,7 +1121,7 @@ class NeuroEmbryogenesis:
                 end_time = datetime.datetime.now()
                 creation_time = (end_time - start_time).total_seconds()
                 
-                logger.warning(f"⚡ VECTORIZED COMPLETE for {cortical_id}: {len(area_neuron_ids)} neurons in {creation_time:.3f}s ({len(area_neuron_ids)/creation_time:.0f} neurons/sec)")
+                logger.warning(f"[FAST] VECTORIZED COMPLETE for {cortical_id}: {len(area_neuron_ids)} neurons in {creation_time:.3f}s ({len(area_neuron_ids)/creation_time:.0f} neurons/sec)")
                 
                 # Update ConnectomeManager mappings efficiently (vectorized where possible)
                 start_mapping_time = datetime.datetime.now()
@@ -1149,7 +1149,7 @@ class NeuroEmbryogenesis:
                 end_mapping_time = datetime.datetime.now()
                 mapping_time = (end_mapping_time - start_mapping_time).total_seconds()
                 
-                logger.warning(f"🔗 MAPPING COMPLETE for {cortical_id}: {len(area_neuron_ids)} mappings in {mapping_time:.3f}s")
+                logger.warning(f"[LINK] MAPPING COMPLETE for {cortical_id}: {len(area_neuron_ids)} mappings in {mapping_time:.3f}s")
                 
                 # Initialize voxel tracking for this area (vectorized)
                 if cortical_id not in self.voxel_neuron_map:

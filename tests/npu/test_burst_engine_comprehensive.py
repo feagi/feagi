@@ -176,7 +176,7 @@ def test_run_with_fire_queue_log_performance():
                 mock_logger.info(f"Processed {self.burst_count} bursts. "
                               f"Target: {self.desired_frequency:.1f}Hz, "
                               f"Actual: {actual_freq:.1f}Hz",
-                              emoji1="⚡ ")
+                              emoji1="[FAST] ")
             
             # Increment burst count
             self.burst_count += 1
@@ -209,7 +209,7 @@ def test_run_with_fire_queue_log_performance():
             # Verify the log was called with correct format using assert_any_call
             mock_logger.info.assert_any_call(
                 "Processed 99 bursts. Target: 100.0Hz, Actual: 100.0Hz",
-                emoji1="⚡ "
+                emoji1="[FAST] "
             )
         finally:
             # Restore original method

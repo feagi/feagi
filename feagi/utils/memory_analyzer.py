@@ -67,7 +67,7 @@ class MemoryAnalyzer:
         }
         
         self.baseline_memory = baseline
-        logger.info(f"📊 Baseline captured: {baseline['rss_mb']:.1f}MB RSS")
+        logger.info(f"[STATS] Baseline captured: {baseline['rss_mb']:.1f}MB RSS")
         
         return baseline
     
@@ -111,7 +111,7 @@ class MemoryAnalyzer:
                 'note': 'These are rough estimates based on typical data structure sizes'
             }
             
-            logger.info(f"🧠 Estimated neural data: {neural_memory['estimated_total_neural_mb']:.1f}MB "
+            logger.info(f"[BRAIN] Estimated neural data: {neural_memory['estimated_total_neural_mb']:.1f}MB "
                        f"({neural_memory['memory_per_neuron_kb']:.1f}KB per neuron)")
             
             return neural_memory
@@ -213,7 +213,7 @@ class MemoryAnalyzer:
                 'overhead_percentage': (max(0, overhead_mb) / total_mb) * 100 if total_mb > 0 else 0
             }
             
-            logger.info(f"📊 Memory breakdown: {total_mb:.1f}MB total = "
+            logger.info(f"[STATS] Memory breakdown: {total_mb:.1f}MB total = "
                        f"{neural_mb:.1f}MB neural ({current_memory['memory_breakdown']['neural_percentage']:.1f}%) + "
                        f"{max(0, overhead_mb):.1f}MB overhead ({current_memory['memory_breakdown']['overhead_percentage']:.1f}%)")
         
@@ -229,7 +229,7 @@ class MemoryAnalyzer:
                     breakdown = analysis.get('memory_breakdown', {})
                     
                     if breakdown:
-                        logger.info(f"🔍 Memory: {breakdown['total_mb']:.1f}MB total "
+                        logger.info(f"[SEARCH] Memory: {breakdown['total_mb']:.1f}MB total "
                                    f"({breakdown['estimated_neural_data_mb']:.1f}MB neural + "
                                    f"{breakdown['estimated_overhead_mb']:.1f}MB overhead)")
                     
@@ -243,12 +243,12 @@ class MemoryAnalyzer:
             self.tracking_enabled = True
             monitor_thread = threading.Thread(target=monitor, daemon=True)
             monitor_thread.start()
-            logger.info(f"🔍 Started continuous memory monitoring (interval: {interval_seconds}s)")
+            logger.info(f"[SEARCH] Started continuous memory monitoring (interval: {interval_seconds}s)")
     
     def stop_continuous_monitoring(self):
         """Stop continuous memory monitoring."""
         self.tracking_enabled = False
-        logger.info("🛑 Stopped continuous memory monitoring")
+        logger.info("[HALT] Stopped continuous memory monitoring")
 
 
 # Global instance

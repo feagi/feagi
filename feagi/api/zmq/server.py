@@ -602,7 +602,7 @@ class ZmqServer:
                         asyncio.wait_for(self._stop_services(), timeout=15.0)
                     )
                 except asyncio.TimeoutError:
-                    print("⚠️  Shutdown timed out after 15 seconds - forcing exit", file=sys.stderr, flush=True)
+                    print("[WARN]  Shutdown timed out after 15 seconds - forcing exit", file=sys.stderr, flush=True)
                 finally:
                     try:
                         loop.close()
@@ -617,7 +617,7 @@ class ZmqServer:
             if self._thread and self._thread.is_alive():
                 self._thread.join(timeout=8.0)
                 if self._thread.is_alive():
-                    print("⚠️  Server thread didn't stop within timeout", file=sys.stderr, flush=True)
+                    print("[WARN]  Server thread didn't stop within timeout", file=sys.stderr, flush=True)
             
             # Final cleanup
             self._running = False
@@ -677,7 +677,7 @@ class ZmqServer:
                         timeout=5.0  # 5 second timeout for visualization shutdown
                     )
                 except asyncio.TimeoutError:
-                    logger.error("⚠️  Visualization stream shutdown timed out after 5 seconds - forcing cleanup")
+                    logger.error("[WARN]  Visualization stream shutdown timed out after 5 seconds - forcing cleanup")
                     # Force cleanup by setting visualization to None
                     self._visualization = None
                 except Exception as e:
@@ -692,7 +692,7 @@ class ZmqServer:
                         timeout=10.0  # 10 second timeout for other services
                     )
                 except asyncio.TimeoutError:
-                    logger.error("⚠️  Some services didn't stop within timeout - forcing cleanup")
+                    logger.error("[WARN]  Some services didn't stop within timeout - forcing cleanup")
 
             print("All ZMQ services stopped", file=sys.stderr, flush=True)
             

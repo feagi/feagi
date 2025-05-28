@@ -38,11 +38,11 @@ class GenomeService(BaseService):
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
         self._brain_service = brain_service  # Reference to existing brain service
         
-        print(f"🔥 GENOME SERVICE: Initialized with brain_service: {brain_service is not None}")
+        print(f"[DEBUG] GENOME SERVICE: Initialized with brain_service: {brain_service is not None}")
         if brain_service:
-            self.logger.info("🔥 GENOME SERVICE: Using provided brain service instance")
+            self.logger.info("[DEBUG] GENOME SERVICE: Using provided brain service instance")
         else:
-            self.logger.info("🔥 GENOME SERVICE: No brain service provided, will create when needed")
+            self.logger.info("[DEBUG] GENOME SERVICE: No brain service provided, will create when needed")
 
     def load_essential_genome(self) -> Dict[str, Any]:
         """Load the essential genome from the default templates."""
@@ -185,10 +185,10 @@ class GenomeService(BaseService):
                     if current_state not in [ServiceState.READY, ServiceState.ON_HOLD]:
                         # Need to start the burst engine using existing brain service
                         if self._brain_service:
-                            print(f"🔥 GENOME SERVICE: Using existing brain service to start burst engine")
+                            print(f"[DEBUG] GENOME SERVICE: Using existing brain service to start burst engine")
                             burst_start_success = self._brain_service.start_burst_engine()
                         else:
-                            print(f"🔥 GENOME SERVICE: Creating temporary brain service to start burst engine")
+                            print(f"[DEBUG] GENOME SERVICE: Creating temporary brain service to start burst engine")
                             brain_service = BrainService(self._connectome_manager, self.state_manager)
                             burst_start_success = brain_service.start_burst_engine()
                         
@@ -196,9 +196,9 @@ class GenomeService(BaseService):
                             self.logger.error("CRITICAL: Failed to start burst engine - aborting genome load")
                             return {"success": False, "error": "Failed to start burst engine - genome load aborted"}
                         
-                        self.logger.info("✅ Burst engine started successfully")
+                        self.logger.info("[OK] Burst engine started successfully")
                     else:
-                        self.logger.info(f"✅ Burst engine already in acceptable state: {current_state.name}")
+                        self.logger.info(f"[OK] Burst engine already in acceptable state: {current_state.name}")
                         
                 except Exception as engine_error:
                     self.logger.error(f"CRITICAL: Error starting burst engine: {str(engine_error)}")
@@ -252,7 +252,7 @@ class GenomeService(BaseService):
                     self.state_manager.genome_validity = False
                 return {"success": False, "error": "Failed to prepare connectome for new genome"}
             
-            self.logger.info(f"✅ Connectome preparation complete: {preparation_result.get('message', 'Ready for genome loading')}")
+            self.logger.info(f"[OK] Connectome preparation complete: {preparation_result.get('message', 'Ready for genome loading')}")
                 
             # Save genome data to a temporary file
             temp_genome_path = os.path.join(self._temp_dir, "temp_genome.json")
@@ -370,10 +370,10 @@ class GenomeService(BaseService):
                             # Properly start the burst engine through the brain service
                             try:
                                 if self._brain_service:
-                                    print(f"🔥 GENOME SERVICE: Using existing brain service for auto-start")
+                                    print(f"[DEBUG] GENOME SERVICE: Using existing brain service for auto-start")
                                     success = self._brain_service.start_burst_engine()
                                 else:
-                                    print(f"🔥 GENOME SERVICE: Creating temporary brain service for auto-start")
+                                    print(f"[DEBUG] GENOME SERVICE: Creating temporary brain service for auto-start")
                                     from feagi.api.core.services.brain.brain_service import BrainService
                                     brain_service = BrainService(self._connectome_manager, self.state_manager)
                                     success = brain_service.start_burst_engine()
@@ -424,23 +424,23 @@ class GenomeService(BaseService):
                         is_new_genome = True
                         self.logger.info(f"🆕 NEW genome detected: data changed (hash: {old_hash[:8]} → {new_hash[:8]})")
                     else:
-                        self.logger.info(f"♻️ SAME genome being reloaded: '{filename}' with identical data")
+                        self.logger.info(f"[RELOAD] SAME genome being reloaded: '{filename}' with identical data")
                 
                 # Only increment counter and update timestamp for genuinely new genomes
                 if is_new_genome:
                     self.state_manager.increment_genome_counter()
                     current_genome_number = self.state_manager.get_genome_counter()
-                    self.logger.info(f"✅ Genome counter incremented to {current_genome_number}")
+                    self.logger.info(f"[OK] Genome counter incremented to {current_genome_number}")
                     
                     # Update timestamp to signal change to downstream clients
                     import time
                     new_genome_timestamp = int(time.time() * 1000)  # milliseconds
                     self.state_manager.set_genome_timestamp(new_genome_timestamp)
-                    self.logger.info(f"✅ Genome timestamp updated to {new_genome_timestamp} (signals NEW genome to clients)")
+                    self.logger.info(f"[OK] Genome timestamp updated to {new_genome_timestamp} (signals NEW genome to clients)")
                 else:
                     current_genome_number = old_genome_counter
-                    self.logger.info(f"⏭️ Genome counter NOT incremented (same genome reloaded)")
-                    self.logger.info(f"⏭️ Genome timestamp NOT updated (prevents reload loop)")
+                    self.logger.info(f"[SKIP] Genome counter NOT incremented (same genome reloaded)")
+                    self.logger.info(f"[SKIP] Genome timestamp NOT updated (prevents reload loop)")
             
             # Log success
             self.logger.info(f"Genome loaded successfully: {cortical_area_count} cortical areas created")
@@ -468,7 +468,7 @@ class GenomeService(BaseService):
 
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
-        self.logger.info(f"{stage} {percentage:.1f}% - {message}", emoji1="  ")
+        self.logger.info(f"{stage} {percentage:.1f}% - {message}", status="[PROC]")
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
         """Get the currently loaded genome data."""
@@ -584,12 +584,12 @@ class GenomeService(BaseService):
     def deploy_genome(self, genome_filepath: str) -> bool:
         """Deploy a genome from a file path."""
         try:
-            self.logger.info(f"Deploying genome from {genome_filepath}", emoji1="🧬")
+            self.logger.info(f"Deploying genome from {genome_filepath}", status="[DNA]")
             
             # Ensure the file exists
             genome_path = Path(genome_filepath)
             if not genome_path.exists():
-                self.logger.error(f"Genome file not found: {genome_filepath}", emoji1="❌")
+                self.logger.error(f"Genome file not found: {genome_filepath}", status="[ERR]")
                 return False
                 
             # Update state to LOADING
@@ -609,7 +609,7 @@ class GenomeService(BaseService):
             result = self.load_genome(genome_data, filename=filename)
             
             if not result.get("success", False):
-                self.logger.error(f"Failed to load genome: {result.get('error', 'Unknown error')}", emoji1="❌")
+                self.logger.error(f"Failed to load genome: {result.get('error', 'Unknown error')}", status="[ERR]")
                 
                 # Update state to ERROR
                 if self.state_manager:
@@ -625,11 +625,11 @@ class GenomeService(BaseService):
                 self.state_manager.set_genome_state(GenomeState.LOADED)
                 self.state_manager.set_brain_readiness(True)
                 
-            self.logger.info(f"Genome deployed successfully from {filename}", emoji1="✅")
+            self.logger.info(f"Genome deployed successfully from {filename}", status="[OK]")
             return True
             
         except json.JSONDecodeError:
-            self.logger.error(f"Invalid JSON in genome file: {genome_filepath}", emoji1="❌")
+            self.logger.error(f"Invalid JSON in genome file: {genome_filepath}", status="[ERR]")
             
             # Update state to ERROR
             if self.state_manager:
@@ -639,7 +639,7 @@ class GenomeService(BaseService):
                 
             return False
         except Exception as e:
-            self.logger.error(f"Error deploying genome: {str(e)}", emoji1="❌")
+            self.logger.error(f"Error deploying genome: {str(e)}", status="[ERR]")
             
             # Update state to ERROR
             if self.state_manager:

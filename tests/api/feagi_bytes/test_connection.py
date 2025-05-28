@@ -323,6 +323,6 @@ if __name__ == "__main__":
     success = asyncio.run(test_client_communication())
     
     if success:
-        logger.info("\n✅ Test completed successfully! FEAGI and client are using feagi_bytes.")
+        logger.info("\n[OK] Test completed successfully! FEAGI and client are using feagi_bytes.")
     else:
-        logger.error("\n❌ Test failed! Check if FEAGI is running and if both are using the same feagi_bytes package.") 
+        logger.error("\n[ERR] Test failed! Check if FEAGI is running and if both are using the same feagi_bytes package.") 

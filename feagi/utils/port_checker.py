@@ -124,7 +124,7 @@ def _format_port_conflict_error(conflicts: List[Dict]) -> str:
         Formatted error message with resolution instructions
     """
     error_lines = [
-        "❌ PORT CONFLICT DETECTED ❌",
+        "[ERR] PORT CONFLICT DETECTED [ERR]",
         "",
         "The following FEAGI ports are already in use:",
         ""
@@ -139,7 +139,7 @@ def _format_port_conflict_error(conflicts: List[Dict]) -> str:
     
     error_lines.extend([
         "",
-        "🔧 RESOLUTION:",
+        "[CONFIG] RESOLUTION:",
         "",
         "1. Stop the processes using these ports, OR",
         "2. Edit the port configuration in feagi_configuration.ini",
@@ -155,7 +155,7 @@ def _format_port_conflict_error(conflicts: List[Dict]) -> str:
         "  - 6000-6010 (high range)",
         "  - 7000-7010 (alternative high range)",
         "",
-        "⚠️  Make sure all port numbers are unique in the configuration file!",
+        "[WARN]  Make sure all port numbers are unique in the configuration file!",
         ""
     ])
     
@@ -262,7 +262,7 @@ def perform_comprehensive_port_check(host: str, port_config: Dict[str, int]) -> 
     # Step 3: Check availability
     check_all_ports_available(host, port_config)
     
-    logger.info("✓ All port checks passed")
+    logger.info("[OK] All port checks passed")
 
 
 if __name__ == "__main__":

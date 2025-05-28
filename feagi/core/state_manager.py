@@ -240,7 +240,7 @@ class FeagiStateManager:
                 shared_state_file = os.environ.get("FEAGI_STATE_FILE")
                 if shared_state_file:
                     path = shared_state_file
-                    logger.info(f"🔗 Using shared state file from environment: {path}")
+                    logger.info(f"[LINK] Using shared state file from environment: {path}")
                 else:
                     # Create new state file (main process mode) - cross-platform temp directory
                     timestamp = int(time.time())
@@ -349,7 +349,7 @@ class FeagiStateManager:
         old = GenomeState(self.state_ptr.contents.genome_state)
         self.state_ptr.contents.genome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Genome state changed: {old.name} → {state.name}", emoji1="🧬")
+        logger.info(f"Genome state changed: {old.name} → {state.name}", status="[DNA]")
         self._notify_state_change("genome", old, state)
     
     # ===== Connectome State =====
@@ -363,7 +363,7 @@ class FeagiStateManager:
         old = ConnectomeState(self.state_ptr.contents.connectome_state)
         self.state_ptr.contents.connectome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Connectome state changed: {old.name} → {state.name}", emoji1="🕸️")
+        logger.info(f"Connectome state changed: {old.name} → {state.name}", status="[WEB]")
         self._notify_state_change("connectome", old, state)
 
     # ===== API State =====
@@ -378,7 +378,7 @@ class FeagiStateManager:
         old_state = self.get_api_state()
         self.state_ptr.contents.api_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"REST API state changed: {old_state.name} → {state.name}", emoji1="🚦")
+        logger.info(f"REST API state changed: {old_state.name} → {state.name}", status="[NET]")
         self._notify_state_change("API", old_state, state)
 
     # ===== ZMQ State =====
@@ -393,7 +393,7 @@ class FeagiStateManager:
         old_state = self.get_zmq_state()
         self.state_ptr.contents.zmq_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"ZMQ state changed: {old_state.name} → {state.name}", emoji1="📬")
+        logger.info(f"ZMQ state changed: {old_state.name} → {state.name}", status="[NET]")
         self._notify_state_change("ZMQ", old_state, state)
 
     # ===== Agent Count =====
@@ -425,7 +425,7 @@ class FeagiStateManager:
         
         self.state_ptr.contents.burst_engine_state = int_value
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Burst Engine state changed: {old_state.name} → {state.name}", emoji1="💥")
+        logger.info(f"Burst Engine state changed: {old_state.name} → {state.name}", status="[BURST]")
         # Use the category key from the notification callbacks dict
         self._notify_state_change("burst_engine", old_state, state)
 
@@ -441,7 +441,7 @@ class FeagiStateManager:
         
         # Only log frequency changes when debugging NPU
         if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-            logger.info(f"Target burst frequency set to {frequency:.1f}Hz", emoji1="⚡")
+            logger.info(f"Target burst frequency set to {frequency:.1f}Hz", status="[FAST]")
 
     # ===== Simulation State =====
     def get_simulation_state(self) -> SimulationState:
@@ -468,7 +468,7 @@ class FeagiStateManager:
         old_state = self.get_fq_sampler_state()
         self.state_ptr.contents.fq_sampler_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"FQSampler state changed: {old_state.name} → {state.name}", emoji1="🎯")
+        logger.info(f"FQSampler state changed: {old_state.name} → {state.name}", status="[TARGET]")
         self._notify_state_change("FQ Sampler", old_state, state)
 
     # ===== FQSampler Frequency =====
@@ -536,7 +536,7 @@ class FeagiStateManager:
         old = bool(self.state_ptr.contents.brain_readiness)
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Brain readiness changed: {old} → {ready}", emoji1="🧠")
+        logger.info(f"Brain readiness changed: {old} → {ready}", status="[BRAIN]")
 
     def get_genome_timestamp(self) -> int:
         """Get the genome timestamp (milliseconds since epoch when genome was last loaded/changed)"""
@@ -547,7 +547,7 @@ class FeagiStateManager:
         old = self.state_ptr.contents.genome_timestamp
         self.state_ptr.contents.genome_timestamp = timestamp
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Genome timestamp changed: {old} → {timestamp}", emoji1="🕒")
+        logger.info(f"Genome timestamp changed: {old} → {timestamp}", status="[TIME]")
 
     def get_test_visualization_mode(self) -> bool:
         """Get the test visualization mode flag (True if test visualization is enabled)"""
@@ -567,7 +567,7 @@ class FeagiStateManager:
         self.state_ptr.contents.test_visualization_mode = 1 if enabled else 0
         self.state_ptr.contents.state_version += 1
         if old != enabled:
-            logger.info(f"Test visualization mode changed: {old} → {enabled}", emoji1="🧮")
+            logger.info(f"Test visualization mode changed: {old} → {enabled}", status="[TEST]")
 
     def get_connectome(self):
         """Get the current connectome instance"""
@@ -592,7 +592,7 @@ class FeagiStateManager:
         """Update the genome synchronization state"""
         old_state = self.genome_sync_state
         self.genome_sync_state = state
-        logger.info(f"Genome-Connectome sync state changed: {old_state} → {state}", emoji1="🔄")
+        logger.info(f"Genome-Connectome sync state changed: {old_state} → {state}", status="[PROC]")
         
         # Notify observers
         for observer in self.sync_observers:
@@ -649,7 +649,7 @@ class FeagiStateManager:
                     callback(old_state, new_state)
                 except Exception as e:
                     # Do NOT use the emoji parameter here
-                    logger.error(f"⚠️ Error in notification callback: {e}")
+                    logger.error(f"[WARN] Error in notification callback: {e}")
 
     def _verify_enum(self, state, enum_type):
         if not isinstance(state, enum_type):
@@ -725,11 +725,11 @@ class FeagiStateManager:
         
         # Only log detailed frequency measurements when debugging NPU
         if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-            logger.info(f"Frequency measurement recorded - Actual: {actual_frequency_hz:.1f}Hz, Potential: {potential_frequency_hz:.1f}Hz ({status})", emoji1="📊")
+            logger.info(f"Frequency measurement recorded - Actual: {actual_frequency_hz:.1f}Hz, Potential: {potential_frequency_hz:.1f}Hz ({status})", status="[STATS]")
         else:
             # For normal operation, only log significant measurements or changes
             if status in ["POOR", "DEGRADED"] or (hasattr(self, '_last_logged_status') and self._last_logged_status != status):
-                logger.info(f"Performance status: {status} - Actual: {actual_frequency_hz:.1f}Hz", emoji1="📊")
+                logger.info(f"Performance status: {status} - Actual: {actual_frequency_hz:.1f}Hz", status="[STATS]")
                 self._last_logged_status = status
     
     def get_frequency_measurement_history(self, limit: Optional[int] = None) -> dict:
@@ -796,7 +796,7 @@ class FeagiStateManager:
                 
             # Only log detailed measurement triggers when debugging NPU
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                logger.info(f"Starting frequency measurement ({measurement_duration_s}s, {sample_count} samples)", emoji1="🔬")
+                logger.info(f"Starting frequency measurement ({measurement_duration_s}s, {sample_count} samples)", status="[DEBUG]")
             
             # Trigger measurement in burst engine
             measurement_result = burst_engine.measure_actual_frequency(

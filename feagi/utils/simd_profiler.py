@@ -316,7 +316,7 @@ class SIMDProfiler:
                     "efficiency": op_data["simd_efficiency"],
                     "description": f"Operation {op_name} has low SIMD efficiency ({op_data['simd_efficiency']:.2f})"
                 })
-                recommendations.append(f"🔧 Optimize {op_name} for better vectorization")
+                recommendations.append(f"[CONFIG] Optimize {op_name} for better vectorization")
             
             # High call frequency with low throughput
             if op_data["call_count"] > 100 and op_data["throughput"] < 1000:
@@ -326,11 +326,11 @@ class SIMDProfiler:
                     "call_count": op_data["call_count"],
                     "throughput": op_data["throughput"]
                 })
-                recommendations.append(f"🚀 Consider batching {op_name} operations")
+                recommendations.append(f"[START] Consider batching {op_name} operations")
             
             # Memory bandwidth issues
             if op_data["bandwidth_mb_s"] > 10000:  # > 10 GB/s might indicate memory bound
-                recommendations.append(f"💾 {op_name} may be memory-bound, consider cache optimization")
+                recommendations.append(f"[SAVE] {op_name} may be memory-bound, consider cache optimization")
         
         report["performance_issues"] = issues
         report["recommendations"] = recommendations
@@ -345,21 +345,21 @@ class SIMDProfiler:
         
         # Summary
         summary = report["summary"]
-        print(f"\n📊 Summary:")
+        print(f"\n[STATS] Summary:")
         print(f"   Sessions: {summary['total_sessions']}")
         print(f"   Duration: {summary['overall_duration']:.3f}s")
         print(f"   Elements: {summary['total_elements']:,}")
         print(f"   Data: {summary['total_bytes'] / (1024*1024):.1f} MB")
         
         # Top operations
-        print(f"\n🔥 Top Operations by Time:")
+        print(f"\n[DEBUG] Top Operations by Time:")
         for i, op in enumerate(report["top_operations"][:3], 1):
             print(f"   {i}. {op['name']}: {op['total_time']:.3f}s "
                   f"({op['call_count']} calls, {op['simd_efficiency']:.2f} efficiency)")
         
         # Performance issues
         if report["performance_issues"]:
-            print(f"\n⚠️  Performance Issues:")
+            print(f"\n[WARN] Performance Issues:")
             for issue in report["performance_issues"][:3]:
                 print(f"   • {issue['description']}")
         

@@ -86,7 +86,7 @@ async def register_visualization_client(
             viz_stream = pm._zmq_server.get_visualization_stream()
             if viz_stream:
                 viz_stream.register_visualization_client(client_id)
-                logger.info(f"✅ Visualization client registered: {client_id}")
+                logger.info(f"[OK] Visualization client registered: {client_id}")
                 
                 return VisualizationClientResponse(
                     client_id=client_id,
@@ -94,14 +94,14 @@ async def register_visualization_client(
                     message=f"Visualization client {client_id} registered successfully"
                 )
             else:
-                logger.error("❌ Visualization stream not available")
+                logger.error("[ERR] Visualization stream not available")
                 raise HTTPException(status_code=503, detail="Visualization stream not available")
         else:
-            logger.error("❌ Process manager or ZMQ server not available")
+            logger.error("[ERR] Process manager or ZMQ server not available")
             raise HTTPException(status_code=503, detail="FEAGI services not available")
             
     except Exception as e:
-        logger.error(f"❌ Error registering visualization client: {str(e)}")
+        logger.error(f"[ERR] Error registering visualization client: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
@@ -131,20 +131,20 @@ async def unregister_visualization_client(
             viz_stream = pm._zmq_server.get_visualization_stream()
             if viz_stream:
                 viz_stream.unregister_visualization_client(client_id)
-                logger.info(f"✅ Visualization client unregistered: {client_id}")
+                logger.info(f"[OK] Visualization client unregistered: {client_id}")
                 
                 return SuccessResponse(
                     message=f"Visualization client {client_id} unregistered successfully"
                 )
             else:
-                logger.error("❌ Visualization stream not available")
+                logger.error("[ERR] Visualization stream not available")
                 raise HTTPException(status_code=503, detail="Visualization stream not available")
         else:
-            logger.error("❌ Process manager or ZMQ server not available")
+            logger.error("[ERR] Process manager or ZMQ server not available")
             raise HTTPException(status_code=503, detail="FEAGI services not available")
             
     except Exception as e:
-        logger.error(f"❌ Error unregistering visualization client: {str(e)}")
+        logger.error(f"[ERR] Error unregistering visualization client: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Unregistration failed: {str(e)}")
 
 
@@ -177,14 +177,14 @@ async def visualization_client_heartbeat(
                     message=f"Heartbeat received from client {client_id}"
                 )
             else:
-                logger.error("❌ Visualization stream not available")
+                logger.error("[ERR] Visualization stream not available")
                 raise HTTPException(status_code=503, detail="Visualization stream not available")
         else:
-            logger.error("❌ Process manager or ZMQ server not available")
+            logger.error("[ERR] Process manager or ZMQ server not available")
             raise HTTPException(status_code=503, detail="FEAGI services not available")
             
     except Exception as e:
-        logger.error(f"❌ Error processing visualization heartbeat: {str(e)}")
+        logger.error(f"[ERR] Error processing visualization heartbeat: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Heartbeat failed: {str(e)}")
 
 
@@ -198,7 +198,7 @@ async def get_visualization_status(
     Returns information about active clients and FQ sampler status.
     """
     try:
-        logger.debug("📊 Getting visualization status")
+        logger.debug("[STATS] Getting visualization status")
         
         # Get the process manager to access the visualization stream
         from feagi.process_manager import ProcessManager
@@ -238,5 +238,5 @@ async def get_visualization_status(
             )
             
     except Exception as e:
-        logger.error(f"❌ Error getting visualization status: {str(e)}")
+        logger.error(f"[ERR] Error getting visualization status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}") 
