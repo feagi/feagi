@@ -118,6 +118,31 @@
       color: var(--filter-text, #333);
     }
 
+    /* Windows compatibility - Error message styling */
+    .feagi-error-message {
+      padding: 20px;
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      color: #856404;
+      border-radius: 5px;
+      margin: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .feagi-error-message h3 {
+      margin-top: 0;
+      color: #856404;
+    }
+
+    .feagi-error-message a {
+      color: #007acc;
+      text-decoration: none;
+    }
+
+    .feagi-error-message a:hover {
+      text-decoration: underline;
+    }
+
     @media (prefers-color-scheme: dark) {
       :root {
         --header-bg: #222;
@@ -135,6 +160,17 @@
       
       .custom-filter-input::placeholder {
         color: #aaa;
+      }
+
+      /* Dark mode error message */
+      .feagi-error-message {
+        background: #2d2d2d;
+        border-color: #444;
+        color: #f0f0f0;
+      }
+
+      .feagi-error-message h3 {
+        color: #f0f0f0;
       }
     }
   </style>
@@ -167,6 +203,46 @@
 
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
   <script>
+    // Windows compatibility debugging and error handling
+    console.log('FEAGI Swagger UI: Starting initialization...');
+    console.log('OpenAPI URL:', '{{ openapi_url }}');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('Platform:', navigator.platform);
+
+    function showErrorMessage(title, details) {
+      document.getElementById('swagger-ui').innerHTML = 
+        '<div class="feagi-error-message">' +
+        '<h3>' + title + '</h3>' +
+        '<p>The Swagger UI failed to load. This can happen due to:</p>' +
+        '<ul>' +
+        '<li>Network connectivity issues</li>' +
+        '<li>CORS restrictions</li>' +
+        '<li>OpenAPI specification errors</li>' +
+        '<li>JavaScript errors (check browser console)</li>' +
+        '</ul>' +
+        '<p><strong>Details:</strong> ' + details + '</p>' +
+        '<p><strong>Solutions:</strong></p>' +
+        '<ul>' +
+        '<li>Check browser console for detailed errors (F12)</li>' +
+        '<li>Try accessing <a href="{{ openapi_url }}" target="_blank">OpenAPI spec directly</a></li>' +
+        '<li>Refresh the page or try a different browser</li>' +
+        '<li>Disable browser extensions temporarily</li>' +
+        '<li>Check if antivirus/firewall is blocking requests</li>' +
+        '</ul>' +
+        '</div>';
+    }
+
+    // Enhanced error handling for Windows compatibility
+    window.addEventListener('error', function(e) {
+      console.error('FEAGI Swagger UI Error:', e);
+      showErrorMessage('API Documentation Loading Error', e.message || 'Unknown error occurred');
+    });
+
+    window.addEventListener('unhandledrejection', function(e) {
+      console.error('FEAGI Swagger UI Promise Rejection:', e);
+      showErrorMessage('Promise Rejection Error', e.reason || 'Promise was rejected');
+    });
+
     function getSystemTheme() {
       return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
@@ -209,140 +285,169 @@
     });
 
     window.onload = function () {
-      const savedTheme = localStorage.getItem('feagi-theme') || 'system';
-      setTheme(savedTheme);
-
-      // Create Swagger UI instance
-      const ui = SwaggerUIBundle({
-        url: "{{ openapi_url }}",
-        dom_id: '#swagger-ui',
-        deepLinking: true,
-        presets: [
-          SwaggerUIBundle.presets.apis,
-          SwaggerUIBundle.SwaggerUIStandalonePreset
-        ],
-        layout: "BaseLayout",
-        docExpansion: "none",
-        filter: false, // Disable built-in filter since we're using our own
-        persistAuthorization: true,
-        tryItOutEnabled: true
-      });
-
-      window.ui = ui;
-
-      // Expand/collapse functionality
-      document.getElementById('expand-all').addEventListener('click', () => {
-        document.querySelectorAll('.opblock-tag-section').forEach(tag => {
-          if (!tag.classList.contains('is-open')) {
-            tag.querySelector('.opblock-tag').click();
-          }
-        });
-      });
-
-      document.getElementById('collapse-all').addEventListener('click', () => {
-        document.querySelectorAll('.opblock-tag-section.is-open').forEach(tag => {
-          tag.querySelector('.opblock-tag').click();
-        });
-      });
-      
-      // Listen for system theme changes to update our custom elements
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-        if (document.getElementById('theme-select').value === 'system') {
-          setTheme('system'); // Re-apply system theme to update colors
-        }
-      });
-      
-      // Set up the filter functionality with a timeout to ensure Swagger UI is fully loaded
-      setTimeout(() => {
-        setupFilter();
-      }, 1000);
-      
-      function setupFilter() {
-        const filterInput = document.getElementById('custom-filter-input');
+      try {
+        console.log('FEAGI Swagger UI: Window loaded, initializing...');
         
-        filterInput.addEventListener('input', function(e) {
-          const searchTerm = e.target.value.trim().toLowerCase();
-          
-          // If search term is empty, show everything
-          if (!searchTerm) {
-            document.querySelectorAll('.opblock-tag-section').forEach(tag => {
-              tag.style.display = '';
-            });
-            document.querySelectorAll('.opblock').forEach(op => {
-              op.style.display = '';
-            });
-            return;
+        const savedTheme = localStorage.getItem('feagi-theme') || 'system';
+        setTheme(savedTheme);
+
+        // Test if SwaggerUIBundle is available
+        if (typeof SwaggerUIBundle === 'undefined') {
+          throw new Error('SwaggerUIBundle is not loaded. CDN may be blocked or unavailable.');
+        }
+
+        // Create Swagger UI instance with Windows-compatible configuration
+        const ui = SwaggerUIBundle({
+          url: "{{ openapi_url }}",
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIBundle.SwaggerUIStandalonePreset
+          ],
+          layout: "BaseLayout",
+          docExpansion: "none",
+          filter: false, // Disable built-in filter since we're using our own
+          persistAuthorization: true,
+          tryItOutEnabled: true,
+          // Windows compatibility settings
+          requestInterceptor: function(request) {
+            console.log('FEAGI API Request:', request);
+            return request;
+          },
+          responseInterceptor: function(response) {
+            console.log('FEAGI API Response:', response);
+            return response;
+          },
+          onComplete: function() {
+            console.log('FEAGI Swagger UI: Initialization complete');
+          },
+          onFailure: function(error) {
+            console.error('FEAGI Swagger UI: Initialization failed', error);
+            showErrorMessage('Swagger UI Initialization Failed', error.message || 'Failed to initialize Swagger UI');
           }
-          
-          // Ensure all tags are expanded to check their operations
-          document.querySelectorAll('.opblock-tag-section:not(.is-open)').forEach(tagSection => {
-            const tagButton = tagSection.querySelector('.opblock-tag');
-            if (tagButton) tagButton.click();
+        });
+
+        window.ui = ui;
+
+        // Expand/collapse functionality
+        document.getElementById('expand-all').addEventListener('click', () => {
+          document.querySelectorAll('.opblock-tag-section').forEach(tag => {
+            if (!tag.classList.contains('is-open')) {
+              tag.querySelector('.opblock-tag').click();
+            }
           });
-          
-          // Process operations one by one
-          document.querySelectorAll('.opblock').forEach(opblock => {
-            let isMatch = false;
-            
-            // 1. Check operation path
-            const pathElement = opblock.querySelector('.opblock-summary-path');
-            const deprecatedPathElement = opblock.querySelector('.opblock-summary-path__deprecated');
-            const pathText = pathElement ? pathElement.textContent.trim().toLowerCase() : 
-                             deprecatedPathElement ? deprecatedPathElement.textContent.trim().toLowerCase() : '';
-            if (pathText.includes(searchTerm)) {
-              console.log('Path match:', pathText);
-              isMatch = true;
-            }
-            
-            // 2. Check operation method (GET, POST, etc.)
-            if (!isMatch) {
-              const methodElement = opblock.querySelector('.opblock-summary-method');
-              const methodText = methodElement ? methodElement.textContent.trim().toLowerCase() : '';
-              if (methodText.includes(searchTerm)) {
-                console.log('Method match:', methodText);
-                isMatch = true;
-              }
-            }
-            
-            // 3. Check operation description
-            if (!isMatch) {
-              const descriptionElement = opblock.querySelector('.opblock-summary-description');
-              const descriptionText = descriptionElement ? descriptionElement.textContent.trim().toLowerCase() : '';
-              if (descriptionText.includes(searchTerm)) {
-                console.log('Description match:', descriptionText);
-                isMatch = true;
-              }
-            }
-            
-            // Show/hide operation based on match
-            opblock.style.display = isMatch ? '' : 'none';
+        });
+
+        document.getElementById('collapse-all').addEventListener('click', () => {
+          document.querySelectorAll('.opblock-tag-section.is-open').forEach(tag => {
+            tag.querySelector('.opblock-tag').click();
           });
+        });
+        
+        // Listen for system theme changes to update our custom elements
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+          if (document.getElementById('theme-select').value === 'system') {
+            setTheme('system'); // Re-apply system theme to update colors
+          }
+        });
+        
+        // Set up the filter functionality with a timeout to ensure Swagger UI is fully loaded
+        setTimeout(() => {
+          setupFilter();
+        }, 1000);
+        
+        function setupFilter() {
+          const filterInput = document.getElementById('custom-filter-input');
           
-          // Process tag sections: show if the tag itself matches or if any of its operations are visible
-          document.querySelectorAll('.opblock-tag-section').forEach(tagSection => {
-            const tagElement = tagSection.querySelector('.opblock-tag');
-            const tagText = tagElement ? tagElement.textContent.trim().toLowerCase() : '';
+          filterInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.trim().toLowerCase();
             
-            // Check if tag name matches
-            const tagMatches = tagText.includes(searchTerm);
-            
-            // Check if any operations within this tag are visible
-            const hasVisibleOps = Array.from(tagSection.querySelectorAll('.opblock'))
-                                   .some(op => op.style.display !== 'none');
-            
-            // Show the tag section if either condition is met
-            tagSection.style.display = (tagMatches || hasVisibleOps) ? '' : 'none';
-            
-            // If tag name matches, ensure all its operations are visible
-            if (tagMatches) {
-              tagSection.querySelectorAll('.opblock').forEach(op => {
+            // If search term is empty, show everything
+            if (!searchTerm) {
+              document.querySelectorAll('.opblock-tag-section').forEach(tag => {
+                tag.style.display = '';
+              });
+              document.querySelectorAll('.opblock').forEach(op => {
                 op.style.display = '';
               });
+              return;
             }
+            
+            // Ensure all tags are expanded to check their operations
+            document.querySelectorAll('.opblock-tag-section:not(.is-open)').forEach(tagSection => {
+              const tagButton = tagSection.querySelector('.opblock-tag');
+              if (tagButton) tagButton.click();
+            });
+            
+            // Process operations one by one
+            document.querySelectorAll('.opblock').forEach(opblock => {
+              let isMatch = false;
+              
+              // 1. Check operation path
+              const pathElement = opblock.querySelector('.opblock-summary-path');
+              const deprecatedPathElement = opblock.querySelector('.opblock-summary-path__deprecated');
+              const pathText = pathElement ? pathElement.textContent.trim().toLowerCase() : 
+                               deprecatedPathElement ? deprecatedPathElement.textContent.trim().toLowerCase() : '';
+              if (pathText.includes(searchTerm)) {
+                console.log('Path match:', pathText);
+                isMatch = true;
+              }
+              
+              // 2. Check operation method (GET, POST, etc.)
+              if (!isMatch) {
+                const methodElement = opblock.querySelector('.opblock-summary-method');
+                const methodText = methodElement ? methodElement.textContent.trim().toLowerCase() : '';
+                if (methodText.includes(searchTerm)) {
+                  console.log('Method match:', methodText);
+                  isMatch = true;
+                }
+              }
+              
+              // 3. Check operation description
+              if (!isMatch) {
+                const descriptionElement = opblock.querySelector('.opblock-summary-description');
+                const descriptionText = descriptionElement ? descriptionElement.textContent.trim().toLowerCase() : '';
+                if (descriptionText.includes(searchTerm)) {
+                  console.log('Description match:', descriptionText);
+                  isMatch = true;
+                }
+              }
+              
+              // Show/hide operation based on match
+              opblock.style.display = isMatch ? '' : 'none';
+            });
+            
+            // Process tag sections: show if the tag itself matches or if any of its operations are visible
+            document.querySelectorAll('.opblock-tag-section').forEach(tagSection => {
+              const tagElement = tagSection.querySelector('.opblock-tag');
+              const tagText = tagElement ? tagElement.textContent.trim().toLowerCase() : '';
+              
+              // Check if tag name matches
+              const tagMatches = tagText.includes(searchTerm);
+              
+              // Check if any operations within this tag are visible
+              const hasVisibleOps = Array.from(tagSection.querySelectorAll('.opblock'))
+                                     .some(op => op.style.display !== 'none');
+              
+              // Show the tag section if either condition is met
+              tagSection.style.display = (tagMatches || hasVisibleOps) ? '' : 'none';
+              
+              // If tag name matches, ensure all its operations are visible
+              if (tagMatches) {
+                tagSection.querySelectorAll('.opblock').forEach(op => {
+                  op.style.display = '';
+                });
+              }
+            });
           });
-        });
-        
-        console.log('Filter setup complete');
+          
+          console.log('FEAGI Swagger UI: Filter setup complete');
+        }
+
+      } catch (error) {
+        console.error('FEAGI Swagger UI: Critical error during initialization', error);
+        showErrorMessage('Critical Initialization Error', error.message || 'Unknown error during initialization');
       }
     };
   </script>
