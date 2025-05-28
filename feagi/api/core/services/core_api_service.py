@@ -22,6 +22,9 @@ while maintaining complete backward compatibility with the existing API.
 """
 
 from typing import Dict, Any, Optional, List, Tuple, Set
+import tempfile
+import os
+from pathlib import Path
 
 # Import all domain services
 from .system.system_service import SystemService
@@ -588,7 +591,6 @@ class CoreAPIService:
                 self.logger.info("🔥 CORE API: Creating singleton BurstEngine instance")
                 
                 # Check for debug NPU flag and pass through config
-                import os
                 debug_npu = os.getenv('FEAGI_DEBUG_NPU', '').lower() in ('1', 'true', 'yes')
                 engine_config = {'debug_npu': debug_npu}
                 
@@ -1229,11 +1231,11 @@ class CoreAPIService:
     
     def get_data_path(self) -> str:
         """Get data path."""
-        return "/tmp/feagi_data"
+        return os.path.join(tempfile.gettempdir(), "feagi_data")
     
     def get_temp_path(self) -> str:
         """Get temporary path."""
-        return "/tmp/feagi_temp"
+        return os.path.join(tempfile.gettempdir(), "feagi_temp")
 
     # =================================================================
     # STIMULATION METHODS

@@ -29,12 +29,14 @@ Logging Patterns:
 import ctypes
 import mmap
 import os
+import tempfile
 from enum import IntEnum, Enum
 from typing import Optional
 import time
 from feagi.utils.logger import setup_logger
 import datetime
 from contextlib import contextmanager
+from pathlib import Path
 
 logger = setup_logger(__name__)
 
@@ -222,7 +224,7 @@ class FeagiStateManager:
     - Cross-process shared memory support
     """
     _instance = None
-    _default_dir = "/tmp"
+    _default_dir = tempfile.gettempdir()  # Cross-platform temp directory
 
     @classmethod
     def instance(cls, path: Optional[str] = None):
@@ -240,9 +242,9 @@ class FeagiStateManager:
                     path = shared_state_file
                     logger.info(f"🔗 Using shared state file from environment: {path}")
                 else:
-                    # Create new state file (main process mode)
+                    # Create new state file (main process mode) - cross-platform temp directory
                     timestamp = int(time.time())
-                    path = f"{cls._default_dir}/feagi_state_{timestamp}.bin"
+                    path = os.path.join(cls._default_dir, f"feagi_state_{timestamp}.bin")
                     logger.info(f"🏠 Creating new state file: {path}")
             cls._instance = cls(path)
         return cls._instance
@@ -260,17 +262,48 @@ class FeagiStateManager:
         let mmap = unsafe { MmapMut::map_mut(&file)? };
         ```
         """
+        import os
+        import mmap
+        import ctypes
+        from pathlib import Path
+        
+        # Ensure the directory exists
+        state_dir = Path(path).parent
+        if not state_dir.exists():
+            try:
+                state_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created state directory: {state_dir}")
+            except Exception as e:
+                logger.error(f"Failed to create state directory {state_dir}: {e}")
+                raise
+        
         size = ctypes.sizeof(FeagiStateStruct)
+        
         # Create file if it doesn't exist or resize if too small
-        if not os.path.exists(path) or os.path.getsize(path) != size:
-            with open(path, "wb") as f:
-                f.write(b"\0" * size)
-        self.file = open(path, "r+b")
-        self.mm = mmap.mmap(self.file.fileno(), size)
-        self.state_ptr = ctypes.pointer(
-            FeagiStateStruct.from_buffer(self.mm)
-        )
-        self.path = path
+        try:
+            if not os.path.exists(path) or os.path.getsize(path) != size:
+                with open(path, "wb") as f:
+                    f.write(b"\0" * size)
+                logger.debug(f"Created/resized state file: {path} ({size} bytes)")
+        except Exception as e:
+            logger.error(f"Failed to create state file {path}: {e}")
+            raise
+        
+        # Open the file for memory mapping
+        try:
+            self.file = open(path, "r+b")
+            self.mm = mmap.mmap(self.file.fileno(), size)
+            self.state_ptr = ctypes.pointer(
+                FeagiStateStruct.from_buffer(self.mm)
+            )
+            self.path = path
+        except Exception as e:
+            logger.error(f"Failed to initialize memory mapping for {path}: {e}")
+            if hasattr(self, 'mm'):
+                self.mm.close()
+            if hasattr(self, 'file'):
+                self.file.close()
+            raise
 
         # Add synchronization tracking
         self.genome_sync_state = ServiceState.UNINITIALIZED
