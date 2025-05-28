@@ -243,6 +243,19 @@ class ProcessManager:
                 self._connectome_manager = self._core_api.get_connectome_manager()
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
+                
+                # 🔥 CRITICAL FIX: Auto-start the burst engine after initialization
+                logger.info("🔥 PROCESS MANAGER: Starting burst engine automatically...")
+                try:
+                    burst_start_success = self._core_api.start_burst_engine()
+                    if burst_start_success:
+                        logger.info("✅ Burst engine started successfully by Process Manager")
+                    else:
+                        logger.error("❌ Failed to start burst engine - neural processing will not work!")
+                        return False
+                except Exception as e:
+                    logger.error(f"❌ Error starting burst engine: {e}")
+                    return False
             
             logger.info("✓ Critical processes initialized successfully", emoji1="✓ ")
             return True

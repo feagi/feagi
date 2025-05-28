@@ -94,11 +94,16 @@ class SystemService(BaseService):
             # Genome-related information
             health["latest_changes_saved_externally"] = getattr(self.state_manager, 'changes_saved_externally', False)
             
+            # CRITICAL: Include genome_timestamp for downstream clients (Bridge/Godot)
+            health["genome_timestamp"] = self.state_manager.get_genome_timestamp()
+            
             # Use the proper state manager method to check if genome is loaded
             if self.state_manager.is_genome_loaded():
                 health["genome_availability"] = True
                 health["brain_readiness"] = self.state_manager.get_brain_readiness()
-                health["fitness"] = getattr(self.state_manager, 'genome_fitness', None)
+                # Ensure fitness is a number or null (but not undefined)
+                fitness_raw = getattr(self.state_manager, 'genome_fitness', None)
+                health["fitness"] = fitness_raw if fitness_raw is not None else 0.0
                 
                 # Get data from connectome manager (now properly singleton)
                 if self._validate_connectome_ready():
@@ -119,13 +124,15 @@ class SystemService(BaseService):
             else:
                 health["genome_availability"] = False
                 health["brain_readiness"] = False
-                health["fitness"] = None
+                health["fitness"] = 0.0  # Use 0.0 instead of None for consistency
                 health["cortical_area_count"] = 0
                 health["neuron_count"] = 0
                 health["synapse_count"] = 0
                 health["estimated_brain_size_in_MB"] = 0.0
             
-            health["genome_validity"] = getattr(self.state_manager, 'genome_validity', None)
+            # CRITICAL: Ensure genome_validity is always a boolean for Godot compatibility
+            genome_validity_raw = getattr(self.state_manager, 'genome_validity', None)
+            health["genome_validity"] = bool(genome_validity_raw) if genome_validity_raw is not None else False
             
             # Check for pending amalgamation
             if self._has_pending_amalgamation():
