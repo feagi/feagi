@@ -143,6 +143,9 @@ class EmojiAdapter(logging.LoggerAdapter):
 # Logger setup with emoji-aligned formatting
 # -----------------------------------------------------------------------------
 
+# Global flag to track if we've already shown the main logger setup messages
+_MAIN_LOGGER_SETUP_SHOWN = False
+
 def setup_logger(
     name: str = "feagi",
     level: int = logging.WARNING,
@@ -150,6 +153,8 @@ def setup_logger(
     console: bool = True,
     tag: Optional[str] = None,
 ) -> EmojiAdapter:
+    global _MAIN_LOGGER_SETUP_SHOWN
+    
     # Check for CLI-provided log level override
     cli_log_level = os.environ.get('FEAGI_CLI_LOG_LEVEL')
     if cli_log_level:
@@ -312,29 +317,35 @@ def setup_logger(
             # Symlinks might not be supported on all platforms
             pass
         
-        # Log the file location (only to console to avoid recursion)
-        if console:
-            temp_console = logging.StreamHandler(sys.stdout)
-            temp_console.setFormatter(formatter)
-            temp_logger = logging.getLogger("temp_setup")
-            temp_logger.addHandler(temp_console)
-            temp_logger.setLevel(logging.INFO)
-            temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
-            temp_adapter.info(f"📁 FEAGI run: {run_dir}", emoji1="📁")
-            temp_adapter.info(f"📝 Log file: {full_log_path}", emoji1="📝")
-            temp_logger.removeHandler(temp_console)
+        # Log the file location ONLY ONCE for the main logger to avoid spam
+        # Only log setup info for the main "feagi" logger, not every module
+        if console and name == "feagi":
+            if not _MAIN_LOGGER_SETUP_SHOWN:
+                temp_console = logging.StreamHandler(sys.stdout)
+                temp_console.setFormatter(formatter)
+                temp_logger = logging.getLogger("temp_setup")
+                temp_logger.addHandler(temp_console)
+                temp_logger.setLevel(logging.INFO)
+                temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
+                temp_adapter.info(f"📁 FEAGI run: {run_dir}", emoji1="📁")
+                temp_adapter.info(f"📝 Log file: {full_log_path}", emoji1="📝")
+                temp_logger.removeHandler(temp_console)
+                _MAIN_LOGGER_SETUP_SHOWN = True
             
     except Exception as e:
         # If log file creation fails, just continue with console logging
-        if console:
-            temp_console = logging.StreamHandler(sys.stdout)
-            temp_console.setFormatter(formatter)
-            temp_logger = logging.getLogger("temp_setup")
-            temp_logger.addHandler(temp_console)
-            temp_logger.setLevel(logging.WARNING)
-            temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
-            temp_adapter.warning(f"⚠️  Failed to create log file: {e}", emoji1="⚠️")
-            temp_logger.removeHandler(temp_console)
+        # Only show warning for main logger to avoid spam
+        if console and name == "feagi":
+            if not _MAIN_LOGGER_SETUP_SHOWN:
+                temp_console = logging.StreamHandler(sys.stdout)
+                temp_console.setFormatter(formatter)
+                temp_logger = logging.getLogger("temp_setup")
+                temp_logger.addHandler(temp_console)
+                temp_logger.setLevel(logging.WARNING)
+                temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
+                temp_adapter.warning(f"⚠️  Failed to create log file: {e}", emoji1="⚠️")
+                temp_logger.removeHandler(temp_console)
+                _MAIN_LOGGER_SETUP_SHOWN = True
 
     # Add console handler if requested
     if console:
