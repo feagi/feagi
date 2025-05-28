@@ -116,7 +116,7 @@ def main():
         try:
             # Set the event loop policy to WindowsSelectorEventLoopPolicy for ZMQ compatibility
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-            print("🪟 Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility")
+            print("Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility")
         except AttributeError:
             # Fallback for older Python versions
             print("[WARN]  Warning: WindowsSelectorEventLoopPolicy not available - ZMQ may have issues")
@@ -214,7 +214,7 @@ def main():
         if args.debug_api:
             # Set environment variable for API debug logging middleware
             os.environ['FEAGI_DEBUG_API'] = '1'
-            logger.info("🐛 API debug logging enabled via --debug-api flag")
+            logger.info("API debug logging enabled via --debug-api flag")
         
         if args.debug_npu:
             # Set environment variable for NPU fire queue debugging
@@ -224,12 +224,12 @@ def main():
         if args.debug_zmq_outbound:
             # Set environment variable for ZMQ outbound traffic debugging
             os.environ['FEAGI_DEBUG_ZMQ_OUTBOUND'] = '1'
-            logger.info("📤 ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag")
+            logger.info("ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag")
         
         if args.debug_zmq_inbound:
             # Set environment variable for ZMQ inbound traffic debugging
             os.environ['FEAGI_DEBUG_ZMQ_INBOUND'] = '1'
-            logger.info("📥 ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag")
+            logger.info("ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag")
         
         if args.profile:
             cli_overrides['profile'] = True
@@ -243,7 +243,7 @@ def main():
         genome_path = args.genome or args.genome_path
         if genome_path:
             cli_overrides['genome_path'] = genome_path
-            logger.info(f"📄 Genome file specified: {genome_path}")
+            logger.info(f"Genome file specified: {genome_path}")
         
         # Load configuration with CLI overrides
         logger.info("Loading FEAGI configuration...")

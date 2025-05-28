@@ -20,117 +20,111 @@ import argparse
 from feagi.utils.system_monitor import start_system_monitoring, stop_system_monitoring, print_resource_report
 
 
-def simulate_workload():
-    """Simulate some CPU/memory intensive work."""
-    print("🔥 Simulating CPU-intensive workload...")
-    
-    # CPU intensive task
-    for i in range(3):
-        result = sum(x * x for x in range(100000))
-        print(f"   Iteration {i+1}: computed sum = {result}")
+def simulate_workload(workload_type="cpu"):
+    """Simulate different types of workloads."""
+    if workload_type == "cpu":
+        print("Simulating CPU-intensive workload...")
+        start_time = time.time()
+        x = 0
+        while time.time() - start_time < 2:  # 2 seconds of CPU work
+            x += 1
+    elif workload_type == "memory":
+        print("Simulating memory-intensive workload...")
+        # Allocate and use memory
+        data = [0] * (10 * 1024 * 1024)  # 10M integers
+        for i in range(len(data)):
+            data[i] = i % 100
         time.sleep(1)
+        del data
     
-    # Memory intensive task
-    print("💾 Simulating memory-intensive workload...")
-    large_data = []
-    for i in range(3):
-        data_chunk = [x for x in range(50000)]
-        large_data.append(data_chunk)
-        print(f"   Allocated chunk {i+1}: {len(data_chunk)} integers")
-        time.sleep(1)
-    
-    print("✅ Workload simulation complete")
-    return len(large_data)
+    print("Workload simulation complete")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FEAGI System Resource Monitor Demo")
-    parser.add_argument("--interval", type=float, default=2.0, help="Monitoring interval in seconds")
-    parser.add_argument("--duration", type=int, default=15, help="Demo duration in seconds")
-    parser.add_argument("--no-gpu", action="store_true", help="Disable GPU monitoring")
-    parser.add_argument("--no-logging", action="store_true", help="Disable detailed logging")
+    """Main demo function."""
+    parser = argparse.ArgumentParser(description="System Resource Monitor Demo")
+    parser.add_argument("--interval", type=float, default=1.0,
+                       help="Monitoring interval in seconds (default: 1.0)")
+    parser.add_argument("--duration", type=int, default=30,
+                       help="Demo duration in seconds (default: 30)")
+    parser.add_argument("--no-gpu", action="store_true",
+                       help="Disable GPU monitoring")
+    parser.add_argument("--simulate-workload", choices=["cpu", "memory"],
+                       help="Simulate workload type")
     
     args = parser.parse_args()
     
-    print("="*80)
-    print("FEAGI SYSTEM RESOURCE MONITOR DEMO")
-    print("="*80)
-    print(f"⏱️  Monitoring interval: {args.interval}s")
-    print(f"⏰ Demo duration: {args.duration}s")
-    print(f"🎮 GPU monitoring: {'Disabled' if args.no_gpu else 'Enabled'}")
-    print(f"📝 Detailed logging: {'Disabled' if args.no_logging else 'Enabled'}")
-    print()
+    print("System Resource Monitor Demo")
+    print("=" * 40)
+    print(f"Monitoring interval: {args.interval}s")
+    print(f"Demo duration: {args.duration}s")
+    print(f"GPU monitoring: {'Disabled' if args.no_gpu else 'Enabled'}")
+    print("=" * 40)
+    
+    # Create monitor instance
+    monitor = SystemMonitor(enable_gpu=not args.no_gpu)
+    
+    print("Starting system resource monitor...")
     
     try:
-        # Start system monitoring
-        print("🚀 Starting system resource monitor...")
-        monitor = start_system_monitoring(
-            monitoring_interval=args.interval,
-            enable_gpu_monitoring=not args.no_gpu,
-            enable_detailed_logging=not args.no_logging
-        )
+        # Start monitoring
+        monitor.start_monitoring()
+    except Exception:
+        print("Failed to start system monitor")
+        return
+    
+    print("System monitor started successfully")
+    
+    try:
+        print("Collecting baseline measurements...")
         
-        if not monitor:
-            print("❌ Failed to start system monitor")
-            return 1
+        # Let monitor collect some baseline data
+        time.sleep(5)
         
-        print("✅ System monitor started successfully")
-        print()
+        # Simulate workload if requested
+        if args.simulate_workload:
+            print(f"Running {args.simulate_workload} workload simulation...")
+            simulate_workload(args.simulate_workload)
         
-        # Wait a bit for initial measurements
-        print("📊 Collecting baseline measurements...")
-        time.sleep(args.interval * 2)
+        print(f"Collecting {args.duration - 8} more seconds of measurements...")
         
-        # Run some workload simulation
-        simulate_workload()
-        
-        # Wait for more measurements
-        print(f"⏳ Collecting {args.duration - 8} more seconds of measurements...")
-        remaining_time = max(1, args.duration - 8)  # Account for workload time
+        # Continue monitoring for the rest of the duration
+        remaining_time = max(0, args.duration - 8)  # Account for startup time
         time.sleep(remaining_time)
         
-        # Print detailed report
-        print("\n" + "="*80)
-        print("FINAL RESOURCE USAGE REPORT")
-        print("="*80)
-        print_resource_report()
+        # Get current stats
+        current = monitor.get_current_stats()
+        averages = monitor.get_averages()
+        peak = monitor.get_peaks()
         
-        # Show current usage
-        current = monitor.get_current_usage()
-        if current:
-            print("📈 Current Usage Summary:")
-            print(current.format_summary())
+        # Display results
+        print("Current Usage Summary:")
+        print(f"  CPU: {current.cpu_cores_used:.2f} cores")
+        print(f"  Memory: {current.memory_mb:.1f} MB")
+        print(f"  GPU Memory: {current.gpu_memory_mb if current.gpu_memory_mb is not None else 'N/A'} MB")
+        print(f"  GPU Utilization: {current.gpu_utilization if current.gpu_utilization is not None else 'N/A'}%")
         
-        # Show recent summary
-        summary = monitor.get_usage_summary(last_n_entries=10)
-        if summary:
-            print("\n📊 Recent Performance Summary:")
-            print(f"   Entries analyzed: {summary['entries_analyzed']}")
-            print(f"   Time span: {summary['time_span_minutes']:.1f} minutes")
-            print(f"   System CPU: avg {summary['system']['cpu_avg']:.1f}%, peak {summary['system']['cpu_peak']:.1f}%")
-            print(f"   System Memory: avg {summary['system']['memory_mb_avg']:.1f} MB, peak {summary['system']['memory_mb_peak']:.1f} MB")
-            print(f"   FEAGI Process CPU: avg {summary['process']['cpu_avg']:.1f}%, peak {summary['process']['cpu_peak']:.1f}%")
-            print(f"   FEAGI Process Memory: avg {summary['process']['memory_mb_avg']:.1f} MB, peak {summary['process']['memory_mb_peak']:.1f} MB")
-            
-            if 'gpu' in summary:
-                print(f"   GPU Performance:")
-                for gpu in summary['gpu']:
-                    print(f"      GPU {gpu['index']}: avg {gpu['utilization_avg']:.1f}%, peak {gpu['utilization_peak']:.1f}%")
+        print("\nRecent Performance Summary:")
+        if averages:
+            print(f"  Average CPU: {averages.cpu_cores_used:.2f} cores")
+            print(f"  Average Memory: {averages.memory_mb:.1f} MB")
+            print(f"  Average GPU Memory: {averages.gpu_memory_mb if averages.gpu_memory_mb is not None else 'N/A'} MB")
+            print(f"  Average GPU Utilization: {averages.gpu_utilization if averages.gpu_utilization is not None else 'N/A'}%")
         
-        print()
+        if peak:
+            print(f"  Peak CPU: {peak.cpu_cores_used:.2f} cores")
+            print(f"  Peak Memory: {peak.memory_mb:.1f} MB")
+            print(f"  Peak GPU Memory: {peak.gpu_memory_mb if peak.gpu_memory_mb is not None else 'N/A'} MB")
+            print(f"  Peak GPU Utilization: {peak.gpu_utilization if peak.gpu_utilization is not None else 'N/A'}%")
         
     except KeyboardInterrupt:
-        print("\n⚠️  Demo interrupted by user")
+        print("\nDemo interrupted by user")
     except Exception as e:
-        print(f"\n❌ Demo failed: {e}")
-        return 1
+        print(f"\nDemo failed: {e}")
     finally:
-        # Clean shutdown
-        print("🛑 Stopping system monitor...")
-        stop_system_monitoring()
-        print("✅ Demo completed successfully")
-    
-    return 0
+        # Stop monitoring
+        monitor.stop_monitoring()
+        print("Demo completed successfully")
 
 
 if __name__ == "__main__":

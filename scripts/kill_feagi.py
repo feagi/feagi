@@ -39,36 +39,39 @@ def find_feagi_processes() -> List[Tuple[int, str]]:
     Returns:
         List of tuples (pid, command_line)
     """
-    print_colored("🔍 Searching for FEAGI processes...", Colors.YELLOW)
+    print_colored("Searching for FEAGI processes...", Colors.YELLOW)
     
     feagi_processes = []
     
     try:
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        # Get all running processes
+        all_processes = psutil.process_iter(['pid', 'name', 'cmdline'])
+        
+        for proc in all_processes:
             try:
-                pid = proc.info['pid']
-                name = proc.info['name'] or ''
-                cmdline = ' '.join(proc.info['cmdline'] or [])
+                proc_info = proc.info
+                pid = proc_info['pid']
+                name = proc_info['name']
+                cmdline = proc_info['cmdline']
                 
-                # Check if process is FEAGI-related
-                is_feagi = any([
-                    'feagi' in name.lower(),
-                    'feagi' in cmdline.lower(),
-                    'feagi/main.py' in cmdline,
-                    'feagi.api.core.main' in cmdline,
-                    'feagi.main' in cmdline,
-                ])
+                if not cmdline:
+                    continue
+                    
+                # Convert cmdline list to string for easier searching
+                cmdline_str = ' '.join(cmdline)
                 
-                # Exclude this script itself
-                if is_feagi and 'kill_feagi' not in cmdline:
-                    feagi_processes.append((pid, cmdline))
+                # Check if this is a FEAGI process
+                is_feagi = any(pattern in cmdline_str.lower() for pattern in FEAGI_PATTERNS)
+                
+                if is_feagi:
+                    feagi_processes.append((pid, cmdline_str))
                     
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                # Process disappeared or no access - skip it
+                # Process disappeared or we don't have access
                 continue
                 
     except Exception as e:
-        print_colored(f"Error scanning processes: {e}", Colors.RED)
+        print_colored(f"Error searching for processes: {e}", Colors.RED)
         return []
     
     return feagi_processes
@@ -77,7 +80,7 @@ def find_feagi_processes() -> List[Tuple[int, str]]:
 def display_processes(processes: List[Tuple[int, str]]) -> None:
     """Display found processes in a formatted way"""
     if not processes:
-        print_colored("✅ No FEAGI processes found running", Colors.GREEN)
+        print_colored("No FEAGI processes found running", Colors.GREEN)
         return
     
     print_colored("Found the following FEAGI processes:", Colors.RED)
@@ -210,7 +213,7 @@ def main():
     if os.name == 'nt' or args.no_color:
         Colors.disable()
     
-    print_colored("🔍 FEAGI Process Killer", Colors.BLUE)
+    print_colored("FEAGI Process Killer", Colors.BLUE)
     print("=" * 40)
     
     # Find FEAGI processes
@@ -238,7 +241,7 @@ def main():
         final_remaining = kill_processes_force(remaining_pids)
         
         if final_remaining:
-            print_colored("⚠️  Warning: Some processes could not be killed:", Colors.RED)
+            print_colored("Warning: Some processes could not be killed:", Colors.RED)
             for pid in final_remaining:
                 try:
                     proc = psutil.Process(pid)
@@ -247,7 +250,7 @@ def main():
                     pass
             return 1
     
-    print_colored("✅ All FEAGI processes have been terminated successfully", Colors.GREEN)
+    print_colored("All FEAGI processes have been terminated successfully", Colors.GREEN)
     
     # Final verification
     print_colored("Final verification...", Colors.BLUE)

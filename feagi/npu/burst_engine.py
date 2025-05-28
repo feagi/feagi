@@ -891,7 +891,7 @@ class BurstEngine:
             
             # FQ Samplers (for motor and visualization)
             if self._fq_samplers:
-                logger.info(f"   📺 FQ Samplers Active: {len(self._fq_samplers)}")
+                logger.info(f"   FQ Samplers Active: {len(self._fq_samplers)}")
                 for i, fq_sampler in enumerate(self._fq_samplers):
                     try:
                         sampler_name = f"FQSampler-{i+1}"
@@ -903,8 +903,8 @@ class BurstEngine:
                         motor_subs = getattr(fq_sampler, '_has_motor_subscribers', False)
                         
                         logger.info(f"      {sampler_name}: {running_status} @ {sample_freq:.1f}Hz")
-                        logger.info(f"         📺 Viz subscribers: {'YES' if viz_subs else 'NO'}")
-                        logger.info(f"         🚗 Motor subscribers: {'YES' if motor_subs else 'NO'}")
+                        logger.info(f"         Viz subscribers: {'YES' if viz_subs else 'NO'}")
+                        logger.info(f"         Motor subscribers: {'YES' if motor_subs else 'NO'}")
                         
                         # Try to get sample data for current burst
                         if hasattr(fq_sampler, '_get_global_fire_queue_data'):
@@ -928,7 +928,7 @@ class BurstEngine:
                                         x_coords = [c[0] for c in coords]
                                         y_coords = [c[1] for c in coords]
                                         z_coords = [c[2] for c in coords]
-                                        logger.info(f"         📍 Coordinate ranges: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
+                                        logger.info(f"         Coordinate ranges: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
                             else:
                                 logger.info(f"         [STATS] Sample data: No neurons firing")
                         
@@ -936,18 +936,18 @@ class BurstEngine:
                         if hasattr(fq_sampler, 'output_queue'):
                             try:
                                 queue_size = fq_sampler.output_queue.qsize()
-                                logger.info(f"         📤 Output queue: {queue_size} items")
+                                logger.info(f"         Output queue: {queue_size} items")
                             except:
-                                logger.info(f"         📤 Output queue: Status unknown")
+                                logger.info(f"         Output queue: Status unknown")
                                 
                     except Exception as sampler_error:
                         logger.info(f"      FQSampler-{i+1}: ERROR - {sampler_error}")
             else:
-                logger.info(f"   📺 FQ Samplers: NONE REGISTERED")
+                logger.info(f"   FQ Samplers: NONE REGISTERED")
             
             # === MOTOR/VISUALIZATION STREAM DEBUGGING ===
             if self._fq_samplers:
-                logger.info(f"🚗 Motor & Visualization Stream Debug:")
+                logger.info(f"Motor & Visualization Stream Debug:")
                 
                 # Check if any samplers are active for motor output
                 motor_active_count = 0
@@ -959,8 +959,8 @@ class BurstEngine:
                     if getattr(sampler, '_has_visualization_subscribers', False):
                         viz_active_count += 1
                 
-                logger.info(f"   🚗 Motor stream: {motor_active_count} active samplers")
-                logger.info(f"   📺 Visualization stream: {viz_active_count} active samplers")
+                logger.info(f"   Motor stream: {motor_active_count} active samplers")
+                logger.info(f"   Visualization stream: {viz_active_count} active samplers")
                 
                 if motor_active_count == 0 and viz_active_count == 0:
                     logger.info(f"   [WARN]  WARNING: No active subscribers - streams may be inactive!")
@@ -1559,7 +1559,7 @@ class FQSampler:
                     
                     if now - last_time >= interval:
                         # Debug: Log what we're trying to sample
-                        logger.debug(f"🔬 FQ Sampler: Attempting to sample area {cortical_id} (type: {area.area_type})")
+                        logger.debug(f"FQ Sampler: Attempting to sample area {cortical_id} (type: {area.area_type})")
                         
                         # Try to get area fire queue data first for debugging
                         test_data = self._get_area_fire_queue_data(cortical_id)
@@ -1580,10 +1580,10 @@ class FQSampler:
                     self._debug_sample_count = 1
                     
                 if self._debug_sample_count % 100 == 0:
-                    logger.info(f"🔬 FQ Sampler Debug: Processed {areas_processed} areas, {areas_with_data} had data")
+                    logger.info(f"FQ Sampler Debug: Processed {areas_processed} areas, {areas_with_data} had data")
             else:
                 # Global sampling for visualization
-                logger.debug("🌍 FQ Sampler: Using global sampling (no connectome manager)")
+                logger.debug("FQ Sampler: Using global sampling (no connectome manager)")
                 self._sample_global_fire_queue(target='visualization')
                 
         except Exception as e:
@@ -1668,7 +1668,7 @@ class FQSampler:
                         if target == 'visualization':
                             # THE CRITICAL PUT OPERATION
                             self.output_queue.put((cortical_id, area_fire_data))
-                            logger.debug(f"📤 Queued {cortical_id}: {neuron_count} neurons for visualization")
+                            logger.debug(f"Queued {cortical_id}: {neuron_count} neurons for visualization")
                         else:
                             # For motor, use tagged format
                             data_package = {
@@ -1678,7 +1678,7 @@ class FQSampler:
                                 'timestamp': time.time()
                             }
                             self.output_queue.put(data_package)
-                            logger.debug(f"📤 Queued {cortical_id}: {neuron_count} neurons for {target}")
+                            logger.debug(f"Queued {cortical_id}: {neuron_count} neurons for {target}")
                             
                         break  # Success
                         
@@ -1689,7 +1689,7 @@ class FQSampler:
                 else:
                     # Only log occasionally for areas with no data to avoid spam
                     if retry_count == 0:  # Only log on first attempt
-                        logger.debug(f"📭 No data for {cortical_id}")
+                        logger.debug(f"No data for {cortical_id}")
                     break
                     
             except Exception as general_error:
@@ -1724,11 +1724,11 @@ class FQSampler:
                                 'timestamp': time.time()
                             }
                             self.output_queue.put_nowait(data_package)
-                            logger.debug(f"📤 Queued global motor data: {neuron_count} neurons")
+                            logger.debug(f"Queued global motor data: {neuron_count} neurons")
                         else:
                             # For visualization, use existing format
                             self.output_queue.put_nowait(fire_data)
-                            logger.debug(f"📤 Queued global visualization data: {neuron_count} neurons")
+                            logger.debug(f"Queued global visualization data: {neuron_count} neurons")
                             
                         break  # Success
                         
@@ -1737,7 +1737,7 @@ class FQSampler:
                         break
                         
                 else:
-                    logger.debug(f"📭 No global fire queue data")
+                    logger.debug(f"No global fire queue data")
                     break
                     
             except Exception as general_error:
@@ -1938,7 +1938,7 @@ class FQSampler:
                     logger.info(f"      [WARN]  Default (0,0,0) coords: {default_positions}")
                     
                     if found_positions == 0 and len(neuron_ids) > 0:
-                        logger.warning(f"   🚨 CRITICAL: NO stored positions found for ANY neurons in {cortical_id}!")
+                        logger.warning(f"   CRITICAL: NO stored positions found for ANY neurons in {cortical_id}!")
                         logger.warning(f"      This indicates neurons in FCL were not properly created during embryogenesis")
                         logger.warning(f"      or there's a mismatch between FCL neuron IDs and stored neuron IDs")
                         

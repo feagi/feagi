@@ -233,7 +233,7 @@ async def log_requests(request: Request, call_next):
     # Log request start with detailed information
     logger.info(f"rid={idem} [OK] start request method={request.method} path={request.url.path}")
     logger.info(f"rid={idem} [NET] url={str(request.url)}")
-    logger.info(f"rid={idem} 📋 headers={dict(request.headers)}")
+    logger.info(f"rid={idem} headers={dict(request.headers)}")
     logger.info(f"rid={idem} [SEARCH] query_params={dict(request.query_params)}")
     
     # Log path parameters if available
@@ -275,11 +275,11 @@ async def log_requests(request: Request, call_next):
             # Truncate very long responses to avoid log spam
             if len(response_body) > 1000:
                 response_body = response_body[:1000] + "... (truncated)"
-            logger.info(f"rid={idem} 📤 response_body={response_body}")
+            logger.info(f"rid={idem} response_body={response_body}")
         else:
-            logger.info(f"rid={idem} 📤 response_body=<empty or not accessible>")
+            logger.info(f"rid={idem} response_body=<empty or not accessible>")
     except Exception as e:
-        logger.info(f"rid={idem} 📤 response_body=<could not read: {e}>")
+        logger.info(f"rid={idem} response_body=<could not read: {e}>")
     
     return response
 

@@ -93,16 +93,16 @@ def analyze_running_feagi(runtime_seconds: int = 30, output_file: str = None) ->
             
             report += f"[UP] Memory growth during analysis: {memory_growth:+.1f}MB\n"
             if memory_growth > 50:  # > 50MB growth
-                report += "🚨 WARNING: Significant memory growth detected - possible memory leak!\n"
+                report += "WARNING: Significant memory growth detected - possible memory leak!\n"
             
             growth_rate = memory_growth / runtime_seconds * 60  # MB per minute
             report += f"[STATS] Memory growth rate: {growth_rate:+.1f}MB/minute\n"
             
             if growth_rate > 10:  # > 10MB/minute
-                report += "🚨 CRITICAL: Memory growth rate too high for embedded devices!\n"
+                report += "CRITICAL: Memory growth rate too high for embedded devices!\n"
         
         # Component analysis
-        report += "\n🏗️  COMPONENT IMPACT ANALYSIS:\n"
+        report += "\nCOMPONENT IMPACT ANALYSIS:\n"
         for snapshot in snapshots:
             if "pre_" in snapshot.name or "post_" in snapshot.name:
                 component = snapshot.name.replace("pre_", "").replace("post_", "")
@@ -167,9 +167,9 @@ def main():
         print("\n" + "="*80)
         print("[TARGET] IMMEDIATE ACTION ITEMS:")
         print("="*80)
-        print("1. 🔴 CRITICAL: 3GB RAM usage is 30x too high for embedded devices")
-        print("2. 🔴 CRITICAL: 14+ CPU cores is 28x too high for embedded targets") 
-        print("3. 🔴 CRITICAL: Need embedded mode that disables heavy components")
+        print("1. CRITICAL: 3GB RAM usage is 30x too high for embedded devices")
+        print("2. CRITICAL: 14+ CPU cores is 28x too high for embedded targets") 
+        print("3. CRITICAL: Need embedded mode that disables heavy components")
         print("4. [SEARCH] INVESTIGATE: FastAPI/Uvicorn may be the primary memory hog")
         print("5. [SEARCH] INVESTIGATE: Multiple ZMQ sockets may be causing thread overhead")
         print("6. [TARGET] TARGET: <100MB total, <1KB per neuron, <0.5 CPU cores")

@@ -79,8 +79,8 @@ class ResourceSnapshot:
                 gpu_summaries.append(f"GPU{i}: {gpu.get('utilization', 0):.1f}% ({gpu.get('memory_used', 0):.1f}MB/{gpu.get('memory_total', 0):.1f}MB)")
             gpu_info = f" | {' | '.join(gpu_summaries)}"
         
-        return (f"🖥️  System: CPU {self.cpu_cores_used:.2f} cores | RAM {self.memory_mb:.1f}MB{gpu_info} | "
-                f"[STATS] FEAGI Process: CPU {self.process_cpu_cores_used:.2f} cores | RAM {self.process_memory_mb:.1f}MB")
+        return (f"System: CPU {self.cpu_cores_used:.2f} cores | RAM {self.memory_mb:.1f}MB{gpu_info} | "
+                f"Threads: {self.thread_count}")
 
 
 class SystemResourceMonitor:
@@ -350,8 +350,8 @@ class SystemResourceMonitor:
         print("="*80)
         
         if current:
-            print(f"🕒 Current Time: {current.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"🖥️  System CPU: {current.cpu_cores_used:.2f} cores")
+            print(f"Current Time: {current.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"System CPU: {current.cpu_cores_used:.2f} cores")
             print(f"[BRAIN] System Memory: {current.memory_mb:.1f} MB")
             print(f"[FAST] FEAGI Process CPU: {current.process_cpu_cores_used:.2f} cores")
             print(f"[SAVE] FEAGI Process Memory: {current.process_memory_mb:.1f} MB")
