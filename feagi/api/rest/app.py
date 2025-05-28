@@ -28,7 +28,7 @@ from typing import Dict, Any
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, HTMLResponse
+from fastapi.responses import JSONResponse, Response, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
@@ -92,33 +92,102 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Custom Swagger UI with dark theme
 def custom_swagger_ui_html():
-    # Read the custom HTML template directly
+    """
+    Custom Swagger UI with Windows compatibility and better error handling.
+    This fixes the white screen issue that can occur on Windows systems.
+    """
+    # Read the custom HTML template directly with Windows-compatible path handling
     template_path = Path(__file__).parent / "static" / "custom-swagger-ui.html"
-    print(f"DEBUG: Loading custom Swagger UI template from {template_path}")
+    logger.info(f"Loading custom Swagger UI template from {template_path}", status="[CONFIG]")
+    
     try:
-        with open(template_path, "r") as f:
+        # Use pathlib and explicit encoding for Windows compatibility
+        with open(template_path, "r", encoding="utf-8") as f:
             html_content = f.read()
         
         # Replace the OpenAPI URL placeholder with the actual URL
-        html_content = html_content.replace("{{ openapi_url }}", str(app.openapi_url))
+        # Ensure the URL is properly formatted for all platforms
+        openapi_url = str(app.openapi_url)
+        if not openapi_url.startswith('/'):
+            openapi_url = '/' + openapi_url
+            
+        html_content = html_content.replace("{{ openapi_url }}", openapi_url)
         
-        print("DEBUG: Custom Swagger UI template loaded successfully")
+        # Add Windows-specific error handling and debugging
+        debug_script = """
+        <script>
+        // Windows compatibility debugging
+        console.log('FEAGI Swagger UI Debug: Starting initialization...');
+        console.log('OpenAPI URL:', '""" + openapi_url + """');
+        
+        // Add error handling for failed OpenAPI spec loading
+        window.addEventListener('error', function(e) {
+            console.error('FEAGI Swagger UI Error:', e);
+            document.getElementById('swagger-ui').innerHTML = 
+                '<div style="padding: 20px; background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; border-radius: 5px; margin: 20px;">' +
+                '<h3>API Documentation Loading Issue</h3>' +
+                '<p>The Swagger UI failed to load. This can happen due to:</p>' +
+                '<ul>' +
+                '<li>Network connectivity issues</li>' +
+                '<li>CORS restrictions</li>' +
+                '<li>OpenAPI specification errors</li>' +
+                '<li>JavaScript errors in browser console</li>' +
+                '</ul>' +
+                '<p><strong>Solutions:</strong></p>' +
+                '<ul>' +
+                '<li>Check browser console for detailed errors</li>' +
+                '<li>Try accessing <a href="' + '""" + openapi_url + """' + '" target="_blank">OpenAPI spec directly</a></li>' +
+                '<li>Refresh the page or try a different browser</li>' +
+                '<li>Contact support if the issue persists</li>' +
+                '</ul>' +
+                '</div>';
+        });
+        </script>
+        """
+        
+        # Insert debug script before the closing body tag
+        html_content = html_content.replace("</body>", debug_script + "</body>")
+        
+        logger.info("Custom Swagger UI template loaded successfully", status="[OK]")
         return HTMLResponse(content=html_content)
+        
+    except FileNotFoundError:
+        logger.error(f"Custom Swagger UI template not found at {template_path}", status="[ERR]")
+        return _fallback_swagger_ui()
+    except UnicodeDecodeError as e:
+        logger.error(f"Encoding error reading Swagger UI template: {e}", status="[ERR]")
+        return _fallback_swagger_ui()
     except Exception as e:
-        print(f"ERROR: Failed to load custom Swagger UI template: {e}")
-        # Fall back to default Swagger UI
-        return get_swagger_ui_html(
-            openapi_url=app.openapi_url,
-            title=app.title + " - API Documentation",
-            swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
-            swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css",
-        )
+        logger.error(f"Failed to load custom Swagger UI template: {e}", status="[ERR]")
+        return _fallback_swagger_ui()
+
+
+def _fallback_swagger_ui():
+    """
+    Fallback to default FastAPI Swagger UI if custom template fails.
+    """
+    logger.warning("Using fallback default Swagger UI", status="[WARN]")
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - API Documentation",
+        swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
+        swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css",
+    )
 
 
 @app.get("/docs", include_in_schema=False)
 async def swagger_ui_html_route():
     # Use the same custom UI for the default /docs route
     return custom_swagger_ui_html()
+
+
+@app.get("/", include_in_schema=False)
+async def root_redirect():
+    """
+    Automatically redirect root URL to API documentation.
+    When users visit http://127.0.0.1:8000/, they'll be redirected to /docs
+    """
+    return RedirectResponse(url="/docs", status_code=302)
 
 
 favicon_path = settings.favicon_path
