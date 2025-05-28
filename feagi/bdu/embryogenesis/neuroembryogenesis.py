@@ -740,7 +740,7 @@ class NeuroEmbryogenesis:
             positions = area_specs["positions"]
             num_neurons = len(positions)
             
-            logger.warning(f"[START] VECTORIZED CREATION for {cortical_id}: {num_neurons} neurons")
+            logger.debug(f"[START] VECTORIZED CREATION for {cortical_id}: {num_neurons} neurons")
             
             try:
                 # Get the cortical area object to get cortical_idx
@@ -758,7 +758,7 @@ class NeuroEmbryogenesis:
                     refractory_periods=area_specs["refractory_periods"]
                 )
                 
-                logger.warning(f"[OK] VECTORIZED SUCCESS for {cortical_id}: created {len(area_neuron_ids)} neurons in one operation")
+                logger.debug(f"[OK] VECTORIZED SUCCESS for {cortical_id}: created {len(area_neuron_ids)} neurons in one operation")
                 
                 # Update ConnectomeManager ID mappings for the batch
                 for i, neuron_id in enumerate(area_neuron_ids):
@@ -1081,7 +1081,7 @@ class NeuroEmbryogenesis:
                 voxel_count = width * height * depth
                 area_neuron_count = voxel_count * neurons_per_voxel
                 
-                logger.warning(f"[TARGET] BULK NEUROGENESIS for {cortical_id}: {area_neuron_count} neurons ({width}×{height}×{depth} × {neurons_per_voxel})")
+                logger.debug(f"[TARGET] BULK NEUROGENESIS for {cortical_id}: {area_neuron_count} neurons ({width}×{height}×{depth} × {neurons_per_voxel})")
                 
                 # PRE-CALCULATE ALL DATA (NumPy style!)
                 # Create position arrays efficiently
@@ -1121,7 +1121,7 @@ class NeuroEmbryogenesis:
                 end_time = datetime.datetime.now()
                 creation_time = (end_time - start_time).total_seconds()
                 
-                logger.warning(f"[FAST] VECTORIZED COMPLETE for {cortical_id}: {len(area_neuron_ids)} neurons in {creation_time:.3f}s ({len(area_neuron_ids)/creation_time:.0f} neurons/sec)")
+                logger.debug(f"[FAST] VECTORIZED COMPLETE for {cortical_id}: {len(area_neuron_ids)} neurons in {creation_time:.3f}s ({len(area_neuron_ids)/creation_time:.0f} neurons/sec)")
                 
                 # Update ConnectomeManager mappings efficiently (vectorized where possible)
                 start_mapping_time = datetime.datetime.now()
@@ -1149,7 +1149,7 @@ class NeuroEmbryogenesis:
                 end_mapping_time = datetime.datetime.now()
                 mapping_time = (end_mapping_time - start_mapping_time).total_seconds()
                 
-                logger.warning(f"[LINK] MAPPING COMPLETE for {cortical_id}: {len(area_neuron_ids)} mappings in {mapping_time:.3f}s")
+                logger.debug(f"[LINK] MAPPING COMPLETE for {cortical_id}: {len(area_neuron_ids)} mappings in {mapping_time:.3f}s")
                 
                 # Initialize voxel tracking for this area (vectorized)
                 if cortical_id not in self.voxel_neuron_map:
