@@ -394,11 +394,42 @@ class GenomeService(BaseService):
             # Get cortical area count from connectome manager for return value
             cortical_area_count = len(getattr(self._connectome_manager, 'cortical_areas', {}))
             
-            # CRITICAL: Increment genome counter ONLY after successful genome load
+            # CRITICAL: Only increment genome counter for ACTUALLY NEW genomes
             if self.state_manager:
-                self.state_manager.increment_genome_counter()
-                current_genome_number = self.state_manager.get_genome_counter()
-                self.logger.info(f"✅ Genome counter incremented to {current_genome_number}")
+                old_genome_counter = self.state_manager.get_genome_counter()
+                
+                # Check if this is genuinely a NEW genome (different from what we had before)
+                is_new_genome = False
+                if self._current_genome is None or self._genome_filename != filename:
+                    # Definitely new - no previous genome or different filename
+                    is_new_genome = True
+                    self.logger.info(f"🆕 NEW genome detected: filename changed from '{self._genome_filename}' to '{filename}'")
+                else:
+                    # Same filename - check if genome data actually changed
+                    import hashlib
+                    new_hash = hashlib.md5(json.dumps(genome_data, sort_keys=True).encode()).hexdigest()
+                    old_hash = hashlib.md5(json.dumps(self._current_genome, sort_keys=True).encode()).hexdigest()
+                    if new_hash != old_hash:
+                        is_new_genome = True
+                        self.logger.info(f"🆕 NEW genome detected: data changed (hash: {old_hash[:8]} → {new_hash[:8]})")
+                    else:
+                        self.logger.info(f"♻️ SAME genome being reloaded: '{filename}' with identical data")
+                
+                # Only increment counter and update timestamp for genuinely new genomes
+                if is_new_genome:
+                    self.state_manager.increment_genome_counter()
+                    current_genome_number = self.state_manager.get_genome_counter()
+                    self.logger.info(f"✅ Genome counter incremented to {current_genome_number}")
+                    
+                    # Update timestamp to signal change to downstream clients
+                    import time
+                    new_genome_timestamp = int(time.time() * 1000)  # milliseconds
+                    self.state_manager.set_genome_timestamp(new_genome_timestamp)
+                    self.logger.info(f"✅ Genome timestamp updated to {new_genome_timestamp} (signals NEW genome to clients)")
+                else:
+                    current_genome_number = old_genome_counter
+                    self.logger.info(f"⏭️ Genome counter NOT incremented (same genome reloaded)")
+                    self.logger.info(f"⏭️ Genome timestamp NOT updated (prevents reload loop)")
             
             # Log success
             self.logger.info(f"Genome loaded successfully: {cortical_area_count} cortical areas created")

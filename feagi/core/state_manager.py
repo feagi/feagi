@@ -140,6 +140,7 @@ class FeagiStateStruct(ctypes.Structure):
         ("genome_counter", ctypes.c_uint32),
         ("brain_readiness", ctypes.c_uint8),  # 0 = False, 1 = True
         ("test_visualization_mode", ctypes.c_uint8),  # 0 = False, 1 = True
+        ("genome_timestamp", ctypes.c_uint64),  # Timestamp (milliseconds) when genome was last loaded/changed
     ]
 
 
@@ -503,6 +504,17 @@ class FeagiStateManager:
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
         self.state_ptr.contents.state_version += 1
         logger.info(f"Brain readiness changed: {old} → {ready}", emoji1="🧠")
+
+    def get_genome_timestamp(self) -> int:
+        """Get the genome timestamp (milliseconds since epoch when genome was last loaded/changed)"""
+        return self.state_ptr.contents.genome_timestamp
+
+    def set_genome_timestamp(self, timestamp: int) -> None:
+        """Set the genome timestamp (milliseconds since epoch when genome was last loaded/changed)"""
+        old = self.state_ptr.contents.genome_timestamp
+        self.state_ptr.contents.genome_timestamp = timestamp
+        self.state_ptr.contents.state_version += 1
+        logger.info(f"Genome timestamp changed: {old} → {timestamp}", emoji1="🕒")
 
     def get_test_visualization_mode(self) -> bool:
         """Get the test visualization mode flag (True if test visualization is enabled)"""
