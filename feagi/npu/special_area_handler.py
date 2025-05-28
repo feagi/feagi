@@ -86,7 +86,7 @@ class SpecialAreaHandler:
         # Performance optimization: batch injection threshold
         self.batch_threshold = self.config.get('batch_injection_threshold', 100)
         
-        logger.info("Special Area Handler initialized", emoji1="⚡")
+        logger.info("Special Area Handler initialized", status="[FAST]")
     
     def detect_special_areas(self) -> None:
         """
@@ -120,14 +120,14 @@ class SpecialAreaHandler:
                     try:
                         neurons = self.connectome_manager.get_neurons_by_area(cortical_id)
                         self.power_area_neurons[cortical_id] = neurons
-                        logger.info(f"Detected power area '{cortical_id}' with {len(neurons)} neurons", emoji1="⚡")
+                        logger.info(f"Detected power area '{cortical_id}' with {len(neurons)} neurons", status="[FAST]")
                     except Exception as e:
                         logger.error(f"Error getting neurons for power area {cortical_id}: {e}")
                         
                 special_count += 1
                 logger.debug(f"Detected special area: {cortical_id} (type: {special_type})")
         
-        logger.info(f"Detected {special_count} special areas ({len(self.power_areas)} power areas)", emoji1="🔍")
+        logger.info(f"Detected {special_count} special areas ({len(self.power_areas)} power areas)", status="[SEARCH]")
     
     def _identify_special_type(self, cortical_id: CorticalId, area: Any) -> Optional[str]:
         """
@@ -304,7 +304,7 @@ class SpecialAreaHandler:
         
         This should be called when the connectome structure changes significantly.
         """
-        logger.info("Refreshing special area caches", emoji1="🔄")
+        logger.info("Refreshing special area caches", status="[PROC]")
         self.detect_special_areas()
     
     def get_statistics(self) -> Dict[str, Any]:

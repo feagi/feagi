@@ -29,7 +29,7 @@ import os
 # This prevents FastAPI modules from being imported in embedded mode
 if '--embedded' in sys.argv:
     os.environ['FEAGI_EMBEDDED_MODE'] = '1'
-    print("🔧 Embedded mode detected - FastAPI imports disabled")
+    print("[CONFIG] Embedded mode detected - FastAPI imports disabled")
 
 import argparse
 import signal
@@ -62,34 +62,41 @@ def check_dependencies():
     Returns:
         bool: True if all dependencies are compatible, False otherwise.
     """
-    logger.info("Checking dependency versions...", emoji1="  ")
-    
+    logger.info("Checking dependency versions...", status="[CHECK]")
     try:
-        # Import here to avoid circular imports
-        from feagi.utils.version_checker import verify_dependencies
-        
         # Check if FEAGI_SKIP_VERSION_CHECK environment variable is set
         skip_check = os.environ.get("FEAGI_SKIP_VERSION_CHECK", "").lower() in ("1", "true", "yes")
         if skip_check:
-            logger.info("Dependency version check skipped (FEAGI_SKIP_VERSION_CHECK is set)", emoji1="✓")
+            logger.info("Dependency version check skipped (FEAGI_SKIP_VERSION_CHECK is set)", status="[OK]")
+            return True
+        
+        # Try to import the version checker - if it doesn't exist, just continue
+        try:
+            from feagi.utils.version_checker import verify_dependencies
+            
+            # Get the path to requirements.txt
+            requirements_path = Path(__file__).parent.parent / "requirements.txt"
+            
+            # Verify dependencies, don't raise an exception but return False if there's a mismatch
+            is_compatible = verify_dependencies(requirements_path, raise_exception=False)
+            
+            if is_compatible:
+                logger.info("All dependencies are compatible with requirements", status="[OK]")
+            else:
+                logger.warning("Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.", status="[WARN]")
+                
+            return is_compatible
+            
+        except ImportError:
+            # Version checker not available - this is okay, just continue
+            logger.info("Version checker not available, skipping dependency check", status="[OK]")
             return True
             
-        # Get the path to requirements.txt
-        requirements_path = Path(__file__).parent.parent / "requirements.txt"
-        
-        # Verify dependencies, don't raise an exception but return False if there's a mismatch
-        is_compatible = verify_dependencies(requirements_path, raise_exception=False)
-        
-        if is_compatible:
-            logger.info("All dependencies are compatible with requirements", emoji1="✓ ")
-        else:
-            logger.warning("Some dependencies have version mismatches. Set FEAGI_SKIP_VERSION_CHECK=1 to bypass this check.", emoji1="⚠ ")
-            
-        return is_compatible
-        
     except Exception as e:
-        logger.error(f"Error checking dependencies: {e}", emoji1="❌")
-        return True  # Continue execution despite the error
+        logger.warning(f"Dependency check failed: {e}")
+        # Don't fail startup due to dependency check issues
+        logger.info("Continuing without dependency check", status="[OK]")
+        return True
 
 def main():
     """
@@ -112,7 +119,7 @@ def main():
             print("🪟 Windows detected: Set SelectorEventLoopPolicy for ZMQ compatibility")
         except AttributeError:
             # Fallback for older Python versions
-            print("⚠️  Warning: WindowsSelectorEventLoopPolicy not available - ZMQ may have issues")
+            print("[WARN]  Warning: WindowsSelectorEventLoopPolicy not available - ZMQ may have issues")
     
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="FEAGI - Framework for Evolutionary Artificial General Intelligence")
@@ -212,7 +219,7 @@ def main():
         if args.debug_npu:
             # Set environment variable for NPU fire queue debugging
             os.environ['FEAGI_DEBUG_NPU'] = '1'
-            logger.info("🔥 NPU fire queue debugging enabled via --debug-npu flag")
+            logger.info("[DEBUG] NPU fire queue debugging enabled via --debug-npu flag")
         
         if args.debug_zmq_outbound:
             # Set environment variable for ZMQ outbound traffic debugging
@@ -226,11 +233,11 @@ def main():
         
         if args.profile:
             cli_overrides['profile'] = True
-            logger.info("📊 System resource profiling enabled via --profile flag")
+            logger.info("[STATS] System resource profiling enabled via --profile flag")
         
         if args.embedded:
             cli_overrides['embedded'] = True
-            logger.info("🔧 Embedded device mode enabled via --embedded flag")
+            logger.info("[CONFIG] Embedded device mode enabled via --embedded flag")
         
         # Handle genome path (support both --genome and --genome-path)
         genome_path = args.genome or args.genome_path
@@ -253,7 +260,7 @@ def main():
                    f"Motor={port_config.get('zmq_motor_port')}")
         
     except FeagiConfigurationError as e:
-        logger.error("❌ CONFIGURATION ERROR ❌")
+        logger.error("[ERR] CONFIGURATION ERROR [ERR]")
         logger.error(str(e))
         logger.error("\nTo fix this:")
         logger.error("1. Check that feagi_configuration.toml exists and is valid")
@@ -262,7 +269,7 @@ def main():
         return 1
         
     except PortConflictError as e:
-        logger.error("❌ PORT CONFLICT ERROR ❌")
+        logger.error("[ERR] PORT CONFLICT ERROR [ERR]")
         logger.error(str(e))
         logger.error("\nTo resolve port conflicts:")
         logger.error("1. Stop the process using the conflicting port, OR")
@@ -271,7 +278,7 @@ def main():
         return 1
         
     except Exception as e:
-        logger.error(f"❌ STARTUP ERROR: {e}")
+        logger.error(f"[ERR] STARTUP ERROR: {e}")
         logger.debug(f"Full error details: {traceback.format_exc()}")
         return 1
     
@@ -290,7 +297,7 @@ def main():
         from feagi.api.rest.dependencies import set_connectome_instance
         set_connectome_instance(connectome)
     else:
-        logger.info("🔧 Embedded mode: Skipping FastAPI dependency injection setup")
+        logger.info("[CONFIG] Embedded mode: Skipping FastAPI dependency injection setup")
     
     # Initialize the ProcessManager with the connectome  
     process_manager = get_process_manager()
@@ -313,7 +320,7 @@ def main():
         def force_exit():
             """Force exit after timeout if graceful shutdown hangs."""
             time.sleep(15.0)  # Wait 15 seconds for graceful shutdown
-            print("⚠️  Force exiting FEAGI after timeout - some services may not have shut down cleanly", file=sys.stderr, flush=True)
+            print("[WARN]  Force exiting FEAGI after timeout - some services may not have shut down cleanly", file=sys.stderr, flush=True)
             os._exit(1)  # Force exit without cleanup
         
         # Start force exit timer in daemon thread
@@ -352,7 +359,7 @@ def main():
     
     # Start all FEAGI processes with the loaded configuration
     if not process_manager.start(config):
-        logger.error("❌ Failed to start FEAGI. See logs for details.")
+        logger.error("[ERR] Failed to start FEAGI. See logs for details.")
         return 1
     
     # If in test mode, run tests AFTER processes are started
@@ -376,17 +383,17 @@ def main():
         
         # Exit with appropriate exit code
         if test_result:
-            logger.info("✓ Tests passed successfully")
+            logger.info("[OK] Tests passed successfully")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 0
         else:
-            logger.error("❌ Tests failed")
+            logger.error("[ERR] Tests failed")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 1
     
-    logger.info("✓ FEAGI started successfully! All services are running.")
+    logger.info("[OK] FEAGI started successfully! All services are running.")
     logger.info("Press Ctrl+C to stop FEAGI")
     
     # Keep the main thread alive to handle signals

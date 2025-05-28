@@ -312,7 +312,7 @@ def verify_dependencies(requirements_path: Optional[str] = None, raise_exception
             except Exception:
                 packages_checked = "all"
                 
-        logger.info(f"✓ {packages_checked} dependencies checked and all are compatible")
+        logger.info(f"[OK] {packages_checked} dependencies checked and all are compatible")
             
     return is_compatible
 

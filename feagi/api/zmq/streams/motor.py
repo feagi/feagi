@@ -17,7 +17,7 @@ limitations under the License.
 """
 FEAGI Motor Stream - For Robot/Agent Motor Control ONLY
 
-⚠️ IMPORTANT: This stream is for MOTOR CONTROL, NOT brain visualization!
+[WARN] IMPORTANT: This stream is for MOTOR CONTROL, NOT brain visualization!
    - Motor data uses Type 10 (NEURON_FLAT) format and should stay that way
    - Do NOT change this to Type 11 for "DPR compatibility" 
    - DPR (Direct Point Rendering) is ONLY for the visualization stream
@@ -634,11 +634,11 @@ class MotorStream:
             
             if self.fq_sampler and hasattr(self.fq_sampler, 'set_motor_subscribers'):
                 if enable:
-                    logger.info("🔔 Enabling FQ sampler for motor - motor clients connected")
+                    logger.info("Enabling FQ sampler for motor - motor clients connected", status="[CONFIG]")
                     self.fq_sampler.set_motor_subscribers(True)
                     self._fq_sampler_enabled = True
                 else:
-                    logger.info("🔕 Disabling FQ sampler for motor - no motor clients")
+                    logger.info("Disabling FQ sampler for motor - no motor clients", status="[CONFIG]")
                     self.fq_sampler.set_motor_subscribers(False)
                     self._fq_sampler_enabled = False
             else:

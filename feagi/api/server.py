@@ -62,13 +62,13 @@ def main():
         os.environ["FEAGI_ZMQ_PUSH_PORT"] = str(args.zmq_push_port)
         os.environ["FEAGI_ZMQ_STREAM_PORT"] = str(args.zmq_stream_port)
     
-    logger.info(f"Starting FEAGI API server on {args.host}:{args.port}", emoji1="🚀")
+    logger.info(f"Starting FEAGI API server on {args.host}:{args.port}", status="[START]")
     if args.zmq:
-        logger.info(f"ZeroMQ client mode enabled, connecting to {args.zmq_host}", emoji1="  ")
-        logger.info(f"  - Request-Reply port: {args.zmq_req_port}", emoji1="  ")
-        logger.info(f"  - Publish-Subscribe port: {args.zmq_pub_port}", emoji1="  ")
-        logger.info(f"  - Push-Pull port: {args.zmq_push_port}", emoji1="  ")
-        logger.info(f"  - Stream port: {args.zmq_stream_port}", emoji1="  ")
+        logger.info(f"ZeroMQ client mode enabled, connecting to {args.zmq_host}", status="[NET]")
+        logger.info(f"  - Request-Reply port: {args.zmq_req_port}", status="[NET]")
+        logger.info(f"  - Publish-Subscribe port: {args.zmq_pub_port}", status="[NET]")
+        logger.info(f"  - Push-Pull port: {args.zmq_push_port}", status="[NET]")
+        logger.info(f"  - Stream port: {args.zmq_stream_port}", status="[NET]")
     
     # Run the API server
     uvicorn.run(

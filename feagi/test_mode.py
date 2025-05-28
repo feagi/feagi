@@ -200,9 +200,9 @@ class FeagiTestRunner:
             
             if valid_areas > 0:
                 self.use_predictable_activations = True
-                logger.info(f"✅ Predictable neuron injection enabled:")
-                logger.info(f"   📊 {valid_areas} cortical areas with {total_neurons} total neurons to activate")
-                logger.info(f"   🎯 Will inject ONLY these neurons (no random selection)")
+                logger.info(f"[OK] Predictable neuron injection enabled:")
+                logger.info(f"   [STATS] {valid_areas} cortical areas with {total_neurons} total neurons to activate")
+                logger.info(f"   [TARGET] Will inject ONLY these neurons (no random selection)")
                 return True
             else:
                 logger.error("No valid cortical areas found in JSON - falling back to random injection")
@@ -377,7 +377,7 @@ class FeagiTestRunner:
             
             # Summary log
             if total_active_neurons > 0:
-                logger.info(f"🎯 Injected {total_active_neurons} PREDICTABLE neurons across {len(active_areas)} areas")
+                logger.info(f"[TARGET] Injected {total_active_neurons} PREDICTABLE neurons across {len(active_areas)} areas")
                 return True
             else:
                 logger.warning("No predictable neurons were successfully injected")

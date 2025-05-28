@@ -232,7 +232,7 @@ class ArrayBackend:
             
             # Check adapter info and ensure we have Metal backend on Mac
             info = self.adapter.info
-            logger.info(f"🔥 wgpu adapter: {info['device']} ({info['backend_type']})")
+            logger.info(f"[DEBUG] wgpu adapter: {info['device']} ({info['backend_type']})")
             
             # Create device
             self.device = self.adapter.request_device_sync()

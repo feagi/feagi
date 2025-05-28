@@ -102,7 +102,7 @@ class FCLInjectionService:
         # Performance optimization: pre-allocate injection data structures
         self._prepare_injection_batches()
         
-        logger.info("FCL Injection Service initialized", emoji1="💉")
+        logger.info("FCL Injection Service initialized", status="[CONFIG]")
     
     def _prepare_injection_batches(self) -> None:
         """
@@ -155,7 +155,7 @@ class FCLInjectionService:
         
         # Log preparation results
         total_batches = sum(len(batches) for batches in self._injection_batches.values())
-        logger.info(f"Prepared {total_batches} injection batches for {len(power_neurons)} power areas", emoji1="📦")
+        logger.info(f"Prepared {total_batches} injection batches for {len(power_neurons)} power areas", status="[SAVE]")
     
     def inject_pre_burst(self, current_timestep: int) -> int:
         """
@@ -282,7 +282,7 @@ class FCLInjectionService:
         This should be called when the connectome structure changes or
         when special areas are added/removed.
         """
-        logger.info("Refreshing injection batches", emoji1="🔄")
+        logger.info("Refreshing injection batches", status="[PROC]")
         self._prepare_injection_batches()
     
     def get_statistics(self) -> Dict[str, Any]:
@@ -321,7 +321,7 @@ class FCLInjectionService:
             config.enabled = enabled
             # Refresh batches to apply the change
             self._prepare_injection_batches()
-            logger.info(f"Injection {'enabled' if enabled else 'disabled'} for area {cortical_id}", emoji1="⚙️")
+            logger.info(f"Injection {'enabled' if enabled else 'disabled'} for area {cortical_id}", status="[SETUP]")
             return True
         return False
     

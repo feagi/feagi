@@ -17,7 +17,7 @@ limitations under the License.
 """
 ZMQ Transport Adapter for FEAGI v1 API
 
-✅ ARCHITECTURAL COMPLIANCE - SINGLE SOURCE OF TRUTH ENFORCED ✅
+[OK] ARCHITECTURAL COMPLIANCE - SINGLE SOURCE OF TRUTH ENFORCED [OK]
 
 This adapter provides ZMQ REST API access to FEAGI's v1 business logic.
 It translates ZMQ REST requests to v1 API calls and returns ZMQ responses.

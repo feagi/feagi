@@ -80,7 +80,7 @@ class ResourceSnapshot:
             gpu_info = f" | {' | '.join(gpu_summaries)}"
         
         return (f"🖥️  System: CPU {self.cpu_cores_used:.2f} cores | RAM {self.memory_mb:.1f}MB{gpu_info} | "
-                f"📊 FEAGI Process: CPU {self.process_cpu_cores_used:.2f} cores | RAM {self.process_memory_mb:.1f}MB")
+                f"[STATS] FEAGI Process: CPU {self.process_cpu_cores_used:.2f} cores | RAM {self.process_memory_mb:.1f}MB")
 
 
 class SystemResourceMonitor:
@@ -132,7 +132,7 @@ class SystemResourceMonitor:
         if self.enable_gpu_monitoring:
             self._initialize_gpu_monitoring()
         
-        logger.info(f"🔧 System Resource Monitor initialized (interval: {monitoring_interval}s, GPU: {self.gpu_available})")
+        logger.info(f"[CONFIG] System Resource Monitor initialized (interval: {monitoring_interval}s, GPU: {self.gpu_available})")
     
     def _initialize_gpu_monitoring(self) -> None:
         """Initialize GPU monitoring capabilities."""
@@ -141,12 +141,12 @@ class SystemResourceMonitor:
                 # Try GPUtil as fallback
                 gpus = GPUtil.getGPUs()
                 if gpus:
-                    logger.info(f"🎮 GPU monitoring enabled via GPUtil ({len(gpus)} devices)")
+                    logger.info(f"[CTRL] GPU monitoring enabled via GPUtil ({len(gpus)} devices)")
                     self.gpu_available = True
             else:
-                logger.debug("🎮 No GPU monitoring libraries available")
+                logger.debug("[CTRL] No GPU monitoring libraries available")
         except Exception as e:
-            logger.warning(f"🎮 GPU monitoring initialization failed: {e}")
+            logger.warning(f"[CTRL] GPU monitoring initialization failed: {e}")
             self.gpu_available = False
     
     def start(self) -> None:
@@ -155,7 +155,7 @@ class SystemResourceMonitor:
             logger.warning("System resource monitor already running")
             return
         
-        logger.info("🚀 Starting system resource monitor...")
+        logger.info("[START] Starting system resource monitor...")
         self.running = True
         self._stop_event.clear()
         
@@ -166,14 +166,14 @@ class SystemResourceMonitor:
         )
         self.monitor_thread.start()
         
-        logger.info("✅ System resource monitor started")
+        logger.info("[OK] System resource monitor started")
     
     def stop(self) -> None:
         """Stop the resource monitoring thread."""
         if not self.running:
             return
         
-        logger.info("🛑 Stopping system resource monitor...")
+        logger.info("[HALT] Stopping system resource monitor...")
         self.running = False
         self._stop_event.set()
         
@@ -185,7 +185,7 @@ class SystemResourceMonitor:
         # Cleanup GPU resources
         # No specific cleanup needed for GPUtil or wgpu
         
-        logger.info("✅ System resource monitor stopped")
+        logger.info("[OK] System resource monitor stopped")
     
     def _monitoring_loop(self) -> None:
         """Main monitoring loop that runs in a separate thread."""
@@ -339,25 +339,25 @@ class SystemResourceMonitor:
     def print_detailed_report(self) -> None:
         """Print a detailed resource usage report to console."""
         if not self.resource_history:
-            print("📊 No resource usage data available")
+            print("[STATS] No resource usage data available")
             return
         
         current = self.get_current_usage()
         summary = self.get_usage_summary()
         
         print("\n" + "="*80)
-        print("📊 FEAGI SYSTEM RESOURCE USAGE REPORT")
+        print("[STATS] FEAGI SYSTEM RESOURCE USAGE REPORT")
         print("="*80)
         
         if current:
             print(f"🕒 Current Time: {current.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"🖥️  System CPU: {current.cpu_cores_used:.2f} cores")
-            print(f"🧠 System Memory: {current.memory_mb:.1f} MB")
-            print(f"⚡ FEAGI Process CPU: {current.process_cpu_cores_used:.2f} cores")
-            print(f"💾 FEAGI Process Memory: {current.process_memory_mb:.1f} MB")
+            print(f"[BRAIN] System Memory: {current.memory_mb:.1f} MB")
+            print(f"[FAST] FEAGI Process CPU: {current.process_cpu_cores_used:.2f} cores")
+            print(f"[SAVE] FEAGI Process Memory: {current.process_memory_mb:.1f} MB")
             
             if current.gpu_usage:
-                print("🎮 GPU Usage:")
+                print("[CTRL] GPU Usage:")
                 for gpu in current.gpu_usage:
                     gpu_text = f"   GPU {gpu['index']}: {gpu['utilization']:.1f}% util, {gpu['memory_used']:.1f}/{gpu['memory_total']:.1f} MB"
                     if gpu.get('temperature'):
@@ -365,7 +365,7 @@ class SystemResourceMonitor:
                     print(gpu_text)
         
         if summary:
-            print(f"\n📈 Recent Performance (last {summary['entries_analyzed']} snapshots, {summary['time_span_minutes']:.1f} min):")
+            print(f"\n[UP] Recent Performance (last {summary['entries_analyzed']} snapshots, {summary['time_span_minutes']:.1f} min):")
             print(f"   System CPU: avg {summary['system']['cpu_avg']:.2f} cores, peak {summary['system']['cpu_peak']:.2f} cores")
             print(f"   System Memory: avg {summary['system']['memory_mb_avg']:.1f} MB, peak {summary['system']['memory_mb_peak']:.1f} MB")
             print(f"   FEAGI CPU: avg {summary['process']['cpu_avg']:.2f} cores, peak {summary['process']['cpu_peak']:.2f} cores")
@@ -434,4 +434,4 @@ def print_resource_report() -> None:
     if _global_monitor:
         _global_monitor.print_detailed_report()
     else:
-        print("📊 System resource monitor not running") 
+        print("[STATS] System resource monitor not running") 

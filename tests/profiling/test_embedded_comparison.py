@@ -82,7 +82,7 @@ class FeagiModeComparator:
             text=True
         )
         
-        logger.info(f"🚀 Started {mode_name} FEAGI process with PID {process.pid}")
+        logger.info(f"[START] Started {mode_name} FEAGI process with PID {process.pid}")
         
         # Monitor resource usage
         snapshots = []
@@ -109,7 +109,7 @@ class FeagiModeComparator:
                 snapshots.append(snapshot)
                 
                 if len(snapshots) % 5 == 0:
-                    logger.info(f"📊 {mode_name}: {snapshot['memory_mb']:.1f}MB, "
+                    logger.info(f"[STATS] {mode_name}: {snapshot['memory_mb']:.1f}MB, "
                               f"{snapshot['cpu_percent']:.1f}% CPU, "
                               f"{snapshot['thread_count']} threads")
                 
@@ -164,13 +164,13 @@ class FeagiModeComparator:
                     'raw_snapshots': snapshots
                 }
                 
-                logger.info(f"✅ {mode_name} completed: "
+                logger.info(f"[OK] {mode_name} completed: "
                           f"{stats['memory']['avg_mb']:.1f}MB avg, "
                           f"{stats['cpu']['avg_percent']:.1f}% CPU avg")
                 
                 return stats
         
-        logger.error(f"❌ No valid data collected for {mode_name}")
+        logger.error(f"[ERR] No valid data collected for {mode_name}")
         return {'mode': mode_name, 'embedded': embedded, 'error': 'No data collected'}
     
     def compare_modes(self) -> Dict[str, Any]:
@@ -225,7 +225,7 @@ class FeagiModeComparator:
                 }
             }
             
-            logger.info(f"📊 COMPARISON RESULTS:")
+            logger.info(f"[STATS] COMPARISON RESULTS:")
             logger.info(f"   Memory: {normal_mem:.1f}MB → {embedded_mem:.1f}MB "
                        f"({memory_savings:+.1f}MB, {memory_savings_percent:+.1f}%)")
             logger.info(f"   CPU: {normal_cpu:.1f}% → {embedded_cpu:.1f}% "
@@ -270,7 +270,7 @@ def test_embedded_mode_comparison(genome_path, logs_dir):
         with open(comparison_file, 'w') as f:
             json.dump(results, indent=2, fp=f)
         
-        logger.info(f"📁 Comparison results saved to {comparison_file}")
+        logger.info(f"[FOLDER] Comparison results saved to {comparison_file}")
         
         # Validate results
         assert 'normal_mode' in results
@@ -281,7 +281,7 @@ def test_embedded_mode_comparison(genome_path, logs_dir):
             improvements = results['improvements']
             summary = improvements['summary']
             
-            logger.info(f"🔍 EMBEDDED MODE EFFECTIVENESS:")
+            logger.info(f"[SEARCH] EMBEDDED MODE EFFECTIVENESS:")
             logger.info(f"   Memory improved: {summary['memory_improved']}")
             logger.info(f"   CPU improved: {summary['cpu_improved']} ")
             logger.info(f"   Threads improved: {summary['threads_improved']}")
@@ -292,14 +292,14 @@ def test_embedded_mode_comparison(genome_path, logs_dir):
                              summary['threads_improved'])
             
             if not any_improvement:
-                logger.warning("⚠️  Embedded mode did not improve any metrics!")
+                logger.warning("[WARN]  Embedded mode did not improve any metrics!")
             else:
-                logger.info("✅ Embedded mode showed some improvements")
+                logger.info("[OK] Embedded mode showed some improvements")
         
-        logger.info("✅ Mode comparison test completed successfully")
+        logger.info("[OK] Mode comparison test completed successfully")
         
     except Exception as e:
-        logger.error(f"❌ Mode comparison test failed: {e}")
+        logger.error(f"[ERR] Mode comparison test failed: {e}")
         raise
 
 

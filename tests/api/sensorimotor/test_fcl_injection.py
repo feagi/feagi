@@ -256,9 +256,9 @@ async def run_test():
         verification_result = await tester.verify_fcl_injection(sent_data)
         
         if verification_result:
-            logger.info("✅ FCL INJECTION TEST PASSED")
+            logger.info("[OK] FCL INJECTION TEST PASSED")
         else:
-            logger.error("❌ FCL INJECTION TEST FAILED")
+            logger.error("[ERR] FCL INJECTION TEST FAILED")
         
         return verification_result
         

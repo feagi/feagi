@@ -53,7 +53,7 @@ def analyze_running_feagi(runtime_seconds: int = 30, output_file: str = None) ->
     Returns:
         str: Analysis report
     """
-    logger.info(f"🔍 Starting FEAGI resource analysis (runtime: {runtime_seconds}s)")
+    logger.info(f"[SEARCH] Starting FEAGI resource analysis (runtime: {runtime_seconds}s)")
     
     profiler = ResourceProfiler()
     profiler.start_profiling()
@@ -69,7 +69,7 @@ def analyze_running_feagi(runtime_seconds: int = 30, output_file: str = None) ->
         for i in range(intervals):
             time.sleep(interval_duration)
             profiler.snapshot_component(f"snapshot_{i+1}")
-            logger.info(f"📊 Snapshot {i+1}/{intervals} taken")
+            logger.info(f"[STATS] Snapshot {i+1}/{intervals} taken")
         
         # Get neuron count from configuration
         config = TomlLoader.get_default_config()
@@ -81,7 +81,7 @@ def analyze_running_feagi(runtime_seconds: int = 30, output_file: str = None) ->
         
         # Add additional analysis
         report += "\n\n"
-        report += "🔍 ADDITIONAL ANALYSIS:\n"
+        report += "[SEARCH] ADDITIONAL ANALYSIS:\n"
         report += "=" * 50 + "\n"
         
         # Analyze growth over time
@@ -91,12 +91,12 @@ def analyze_running_feagi(runtime_seconds: int = 30, output_file: str = None) ->
             end_memory = snapshots[-1].memory_mb
             memory_growth = end_memory - start_memory
             
-            report += f"📈 Memory growth during analysis: {memory_growth:+.1f}MB\n"
+            report += f"[UP] Memory growth during analysis: {memory_growth:+.1f}MB\n"
             if memory_growth > 50:  # > 50MB growth
                 report += "🚨 WARNING: Significant memory growth detected - possible memory leak!\n"
             
             growth_rate = memory_growth / runtime_seconds * 60  # MB per minute
-            report += f"📊 Memory growth rate: {growth_rate:+.1f}MB/minute\n"
+            report += f"[STATS] Memory growth rate: {growth_rate:+.1f}MB/minute\n"
             
             if growth_rate > 10:  # > 10MB/minute
                 report += "🚨 CRITICAL: Memory growth rate too high for embedded devices!\n"
@@ -115,13 +115,13 @@ def analyze_running_feagi(runtime_seconds: int = 30, output_file: str = None) ->
         if output_file:
             with open(output_file, 'w') as f:
                 f.write(report)
-            logger.info(f"📁 Report saved to {output_file}")
+            logger.info(f"[FOLDER] Report saved to {output_file}")
         
         return report
         
     finally:
         profiler.stop_profiling()
-        logger.info("🔍 Analysis completed")
+        logger.info("[SEARCH] Analysis completed")
 
 
 def analyze_feagi_startup(config_file: str = None) -> str:
@@ -134,11 +134,11 @@ def analyze_feagi_startup(config_file: str = None) -> str:
     Returns:
         str: Startup analysis report
     """
-    logger.info("🚀 Analyzing FEAGI startup resource usage")
+    logger.info("[START] Analyzing FEAGI startup resource usage")
     
     # This would start FEAGI with profiling enabled and monitor startup
     # For now, return a placeholder
-    return "🚀 Startup analysis not yet implemented - use --runtime for running analysis"
+    return "[START] Startup analysis not yet implemented - use --runtime for running analysis"
 
 
 def main():
@@ -165,20 +165,20 @@ def main():
         
         # Quick summary for immediate action
         print("\n" + "="*80)
-        print("🎯 IMMEDIATE ACTION ITEMS:")
+        print("[TARGET] IMMEDIATE ACTION ITEMS:")
         print("="*80)
         print("1. 🔴 CRITICAL: 3GB RAM usage is 30x too high for embedded devices")
         print("2. 🔴 CRITICAL: 14+ CPU cores is 28x too high for embedded targets") 
         print("3. 🔴 CRITICAL: Need embedded mode that disables heavy components")
-        print("4. 🔍 INVESTIGATE: FastAPI/Uvicorn may be the primary memory hog")
-        print("5. 🔍 INVESTIGATE: Multiple ZMQ sockets may be causing thread overhead")
-        print("6. 🎯 TARGET: <100MB total, <1KB per neuron, <0.5 CPU cores")
+        print("4. [SEARCH] INVESTIGATE: FastAPI/Uvicorn may be the primary memory hog")
+        print("5. [SEARCH] INVESTIGATE: Multiple ZMQ sockets may be causing thread overhead")
+        print("6. [TARGET] TARGET: <100MB total, <1KB per neuron, <0.5 CPU cores")
         print("="*80)
         
     except KeyboardInterrupt:
-        logger.info("⚠️ Analysis interrupted by user")
+        logger.info("[WARN] Analysis interrupted by user")
     except Exception as e:
-        logger.error(f"❌ Analysis failed: {e}")
+        logger.error(f"[ERR] Analysis failed: {e}")
         sys.exit(1)
 
 

@@ -14,133 +14,183 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Logging utilities for FEAGI."""
+"""Logging utilities for FEAGI with ASCII-safe status indicators."""
 import logging
 import os
 import sys
-import unicodedata
 from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
 
 # -----------------------------------------------------------------------------
-# Width-aware string utilities
+# ASCII Status Indicators for Embedded System Compatibility
 # -----------------------------------------------------------------------------
 
-def debug_emoji_width(emoji):
-    """
-    Debug function to print information about an emoji's Unicode properties.
-    """
-    print(f"Emoji: {emoji}")
-    print(f"Code point: U+{ord(emoji):04X}")
-    print(f"Name: {unicodedata.name(emoji, 'Unknown')}")
-    print(f"Category: {unicodedata.category(emoji)}")
-    print(f"East Asian Width: {unicodedata.east_asian_width(emoji)}")
+# ASCII status indicators optimized for embedded systems and universal compatibility
+ASCII_STATUS_MAP = {
+    # Success/Completion indicators
+    "✅": "[OK]",
+    "☑": "[CHK]", 
+    "✓": "[OK]",
+    "✔": "[OK]",
     
-    # Calculate width using our criteria
-    code_point = ord(emoji)
-    is_emoji_char = (
-        emoji in ('✓', '✔', '✅', '☑', '☒', '☐', '☑️', '❌', '⚠️', '⚡', '🔄', '🔍', '➡️', '⬅️', '⬆️', '⬇️')
-        or (0x1F300 <= code_point <= 0x1F5FF)
-        or (0x1F600 <= code_point <= 0x1F64F)
-        or (0x1F680 <= code_point <= 0x1F6FF)
-        or (0x1F900 <= code_point <= 0x1F9FF)
-        or (0x2700 <= code_point <= 0x27BF)
-        or (0x2600 <= code_point <= 0x26FF)
-        or (0x2300 <= code_point <= 0x23FF and unicodedata.category(emoji).startswith('S'))
-    )
+    # Error/Warning indicators  
+    "❌": "[ERR]",
+    "⚠️": "[WARN]",
+    "⚠ ": "[WARN]",  # Handle with space
+    "❎": "[FAIL]",
+    "⛔": "[STOP]",
+    "☣️": "[TOXIC]",
     
-    if is_emoji_char:
-        width = 2
-    elif unicodedata.east_asian_width(emoji) in ('F', 'W'):
-        width = 2
-    else:
-        width = 1
+    # Process/Action indicators
+    "🚀": "[START]",
+    "🔧": "[CONFIG]",
+    "⚙️": "[SETUP]", 
+    "🔄": "[PROC]",
+    "⚡": "[FAST]",
+    "💥": "[BURST]",
     
-    print(f"Display width (our function): {width}")
-    print(f"Combining: {unicodedata.combining(emoji)}")
-    print("---")
+    # Data/Information indicators
+    "📊": "[STATS]",
+    "📈": "[UP]",
+    "📉": "[DOWN]", 
+    "📝": "[LOG]",
+    "📁": "[FOLDER]",
+    "💾": "[SAVE]",
+    "🗜️": "[COMPRESS]",
+    
+    # Brain/Neural indicators
+    "🧠": "[BRAIN]",
+    "🧬": "[DNA]",
+    "🎯": "[TARGET]",
+    "🔍": "[SEARCH]",
+    "🌐": "[NET]",
+    "📡": "[COMM]",
+    
+    # Status/State indicators
+    "🔥": "[DEBUG]",
+    "💡": "[INFO]",
+    "⭐": "[STAR]",
+    "🎨": "[RENDER]",
+    "🛑": "[HALT]",
+    
+    # System/Hardware indicators
+    "🖥️": "[SYSTEM]",
+    "👁️": "[MONITOR]",
+    
+    # Arrows/Direction indicators
+    "➡️": "[>]",
+    "⬅️": "[<]", 
+    "⬆️": "[^]",
+    "⬇️": "[v]",
+    "🛤️": "[PATH]",
+    
+    # Time/Process indicators
+    "⏱️": "[TIME]",
+    "▶️": "[PLAY]",
+    "⏸️": "[PAUSE]",
+    "⏹️": "[STOP]",
+    
+    # Additional FEAGI-specific indicators
+    "🎮": "[CTRL]",
+    "🔗": "[LINK]",
+    "♻️": "[RELOAD]",
+    "⏭️": "[SKIP]",
+    "🏷️": "[TAG]",
+    "🗺️": "[MAP]",
+    "🎉": "[DONE]",
+    "🕸️": "[WEB]",
+    "↩️": "[BACK]",
+}
 
-# Force all emojis to be treated as exactly 2 columns wide
-EMOJI_WIDTH = 2
 
-def is_emoji(char):
+def get_ascii_status(emoji_or_text: str) -> str:
     """
-    Determine if a character is likely an emoji.
-    """
-    code_point = ord(char)
+    Convert emoji or text to ASCII equivalent for embedded system compatibility.
     
-    # Check common emoji Unicode ranges
-    return (
-        # Specific symbols we want to treat as emojis
-        char in ('✓', '✔', '✅', '☑', '☒', '☐', '☑️', '❌', '⚠️', '⚡', '🔄', '🔍', '➡️', '⬅️', '⬆️', '⬇️')
-        # Emoji & Pictographs
-        or (0x1F300 <= code_point <= 0x1F5FF)
-        # Emoticons
-        or (0x1F600 <= code_point <= 0x1F64F)
-        # Transport & Map Symbols
-        or (0x1F680 <= code_point <= 0x1F6FF)
-        # Supplemental Symbols and Pictographs
-        or (0x1F900 <= code_point <= 0x1F9FF)
-        # Dingbats
-        or (0x2700 <= code_point <= 0x27BF)
-        # Miscellaneous Symbols
-        or (0x2600 <= code_point <= 0x26FF)
-        # Miscellaneous Technical
-        or (0x2300 <= code_point <= 0x23FF and unicodedata.category(char).startswith('S'))
-    )
+    Args:
+        emoji_or_text: Input emoji or text string
+        
+    Returns:
+        ASCII-safe equivalent string
+    """
+    if not emoji_or_text:
+        return ""
+    
+    # Direct mapping for known emojis
+    if emoji_or_text in ASCII_STATUS_MAP:
+        return ASCII_STATUS_MAP[emoji_or_text]
+    
+    # Handle strings that may contain emojis
+    result = emoji_or_text
+    for emoji, ascii_equiv in ASCII_STATUS_MAP.items():
+        result = result.replace(emoji, ascii_equiv)
+    
+    return result
 
-def display_width(text: str) -> int:
-    """
-    Compute the visual width of a string, treating all emoji-like characters consistently.
-    
-    This function ensures all emojis are treated as having the same width (2) for consistent alignment,
-    regardless of how they might be classified by Unicode.
-    """
-    width = 0
-    for char in text:
-        if is_emoji(char):
-            width += EMOJI_WIDTH
-        # Handle CJK and other wide characters
-        elif unicodedata.east_asian_width(char) in ('F', 'W'):
-            width += 2
-        else:
-            width += 1
-    return width
-
-def pad_display(text: str, width: int) -> str:
-    """
-    Pads a string with spaces to match a desired display width.
-    
-    This function ensures consistent padding for all text, including emoji characters,
-    to maintain proper alignment in logs.
-    """
-    # Calculate the actual display width
-    actual_width = display_width(text)
-    
-    # Add padding to reach the desired width
-    pad_len = max(0, width - actual_width)
-    
-    # Return the padded string
-    return text + ' ' * pad_len
 
 # -----------------------------------------------------------------------------
-# Custom LoggerAdapter
+# Custom LoggerAdapter with ASCII Status Indicators
 # -----------------------------------------------------------------------------
 
-class EmojiAdapter(logging.LoggerAdapter):
+class StatusAdapter(logging.LoggerAdapter):
+    """
+    Logger adapter that uses ASCII status indicators for embedded system compatibility.
+    Replaces emojis with performance-optimized ASCII equivalents.
+    """
+    
     def process(self, msg, kwargs):
-        emoji1 = kwargs.pop("emoji1", '')
-        emoji2 = kwargs.pop("emoji2", '')
+        """Process log message with ASCII status indicator handling."""
+        # Handle both old emoji1/emoji2 parameters and new status parameter
+        status1 = kwargs.pop("emoji1", kwargs.pop("status", ''))
+        status2 = kwargs.pop("emoji2", '')
+        
+        # Convert to ASCII equivalents
+        ascii_status1 = get_ascii_status(status1)
+        ascii_status2 = get_ascii_status(status2)
+        
+        # Clean up the main message text as well
+        cleaned_msg = get_ascii_status(str(msg))
+        
         extra = kwargs.setdefault("extra", {})
-        extra["emoji1"] = emoji1
-        extra["emoji2"] = emoji2
+        extra["status1"] = ascii_status1
+        extra["status2"] = ascii_status2
         extra["label"] = self.extra.get("label", "")
-        return msg, kwargs
+        
+        return cleaned_msg, kwargs
+    
+    def info(self, msg, *args, **kwargs):
+        """Log info message with ASCII status indicator."""
+        # Default to [INFO] if no status provided
+        if "emoji1" not in kwargs and "status" not in kwargs:
+            kwargs["status"] = "[INFO]"
+        super().info(msg, *args, **kwargs)
+    
+    def warning(self, msg, *args, **kwargs):
+        """Log warning message with ASCII status indicator."""
+        # Default to [WARN] if no status provided
+        if "emoji1" not in kwargs and "status" not in kwargs:
+            kwargs["status"] = "[WARN]"
+        super().warning(msg, *args, **kwargs)
+    
+    def error(self, msg, *args, **kwargs):
+        """Log error message with ASCII status indicator."""
+        # Default to [ERR] if no status provided
+        if "emoji1" not in kwargs and "status" not in kwargs:
+            kwargs["status"] = "[ERR]"
+        super().error(msg, *args, **kwargs)
+    
+    def debug(self, msg, *args, **kwargs):
+        """Log debug message with ASCII status indicator."""
+        # Default to [DEBUG] if no status provided
+        if "emoji1" not in kwargs and "status" not in kwargs:
+            kwargs["status"] = "[DEBUG]"
+        super().debug(msg, *args, **kwargs)
+
 
 # -----------------------------------------------------------------------------
-# Logger setup with emoji-aligned formatting
+# Logger setup with ASCII-aligned formatting for embedded systems
 # -----------------------------------------------------------------------------
 
 # Global flag to track if we've already shown the main logger setup messages
@@ -152,13 +202,14 @@ def setup_logger(
     log_file: Optional[str] = None,
     console: bool = True,
     tag: Optional[str] = None,
-) -> EmojiAdapter:
+) -> StatusAdapter:
     global _MAIN_LOGGER_SETUP_SHOWN
     
     # Check for CLI-provided log level override
     cli_log_level = os.environ.get('FEAGI_CLI_LOG_LEVEL')
     if cli_log_level:
         level = getattr(logging, cli_log_level, level)
+    
     LEVEL_MAP = {
         "DEBUG":    "DEBUG   ",
         "INFO":     "INFO    ",
@@ -167,63 +218,73 @@ def setup_logger(
         "CRITICAL": "CRITICAL"
     }
 
-    class AlignedFormatter(logging.Formatter):
-        # Define emoji padding based on emoji type
-        EMOJI_PADDING = {
-            # Checkmarks and X marks
-            '✓': '   ',   # 3 spaces after checkmark
-            '✔': '   ',   # 3 spaces after checkmark
-            '✅': '   ',   # 3 spaces after green checkmark
-            '☑': '   ',   # 3 spaces after checkbox
-            '❌': '   ',   # 3 spaces after red X
-            '❎': '   ',   # 3 spaces after green X
-            '⛔': '   ',   # 3 spaces after no entry
-            '⚠️': '   ',   # 3 spaces after warning
-            
-            # Common FEAGI emojis
-            '🧬': '  ',    # 2 spaces after DNA
-            '🧠': '  ',    # 2 spaces after brain
-            '⚡': '   ',   # 3 spaces after lightning
-            '💥': '  ',    # 2 spaces after explosion
-            '🔄': '  ',    # 2 spaces after refresh
-            '⚙️': '  ',    # 2 spaces after gear
-            '🔍': '  ',    # 2 spaces after magnifying glass
-            '📊': '  ',    # 2 spaces after chart
-            '🚀': '  ',    # 2 spaces after rocket
-            '🛑': '  ',    # 2 spaces after stop sign
-            '📝': '  ',    # 2 spaces after memo
-            '🔧': '  ',    # 2 spaces after wrench
-            '📡': '  ',    # 2 spaces after satellite
-            '🌐': '  ',    # 2 spaces after globe
-            
-            # Status indicators
-            'Er': '  ',    # 2 spaces after Error prefix
-            'Br': '  ',    # 2 spaces after Brain prefix
-            '[C': '  ',    # 2 spaces after Corticogenesis prefix
-            '[N': '  ',    # 2 spaces after Neurogenesis prefix
-            '[F': '  ',    # 2 spaces after Failed prefix
+    class ASCIIFormatter(logging.Formatter):
+        """ASCII-optimized formatter for embedded system compatibility."""
+        
+        # Status indicator padding for consistent alignment
+        STATUS_PADDING = {
+            "[OK]": "     ",      # 5 spaces after [OK]
+            "[CHK]": "    ",      # 4 spaces after [CHK]
+            "[ERR]": "    ",      # 4 spaces after [ERR]
+            "[WARN]": "   ",      # 3 spaces after [WARN]
+            "[FAIL]": "   ",      # 3 spaces after [FAIL]
+            "[STOP]": "   ",      # 3 spaces after [STOP]
+            "[START]": "  ",      # 2 spaces after [START]
+            "[CONFIG]": " ",      # 1 space after [CONFIG]
+            "[SETUP]": "  ",      # 2 spaces after [SETUP]
+            "[PROC]": "   ",      # 3 spaces after [PROC]
+            "[FAST]": "   ",      # 3 spaces after [FAST]
+            "[BURST]": "  ",      # 2 spaces after [BURST]
+            "[STATS]": "  ",      # 2 spaces after [STATS]
+            "[UP]": "      ",     # 6 spaces after [UP]
+            "[DOWN]": "   ",      # 3 spaces after [DOWN]
+            "[LOG]": "     ",     # 5 spaces after [LOG]
+            "[FOLDER]": " ",      # 1 space after [FOLDER]
+            "[SAVE]": "   ",      # 3 spaces after [SAVE]
+            "[BRAIN]": "  ",      # 2 spaces after [BRAIN]
+            "[DNA]": "     ",     # 5 spaces after [DNA]
+            "[TARGET]": " ",      # 1 space after [TARGET]
+            "[SEARCH]": " ",      # 1 space after [SEARCH]
+            "[NET]": "     ",     # 5 spaces after [NET]
+            "[COMM]": "   ",      # 3 spaces after [COMM]
+            "[DEBUG]": "  ",      # 2 spaces after [DEBUG]
+            "[INFO]": "   ",      # 3 spaces after [INFO]
+            "[STAR]": "   ",      # 3 spaces after [STAR]
+            "[RENDER]": " ",      # 1 space after [RENDER]
+            "[HALT]": "   ",      # 3 spaces after [HALT]
+            "[>]": "       ",     # 7 spaces after [>]
+            "[<]": "       ",     # 7 spaces after [<]
+            "[^]": "       ",     # 7 spaces after [^]
+            "[v]": "       ",     # 7 spaces after [v]
+            "[TIME]": "   ",      # 3 spaces after [TIME]
+            "[PLAY]": "   ",      # 3 spaces after [PLAY]
+            "[PAUSE]": "  ",      # 2 spaces after [PAUSE]
+            "[CTRL]": "   ",      # 3 spaces after [CTRL]
+            "[LINK]": "   ",      # 3 spaces after [LINK]
+            "[RELOAD]": " ",      # 1 space after [RELOAD]
+            "[SKIP]": "   ",      # 3 spaces after [SKIP]
         }
         
-        # Default padding if emoji not in the map
-        DEFAULT_PADDING = '  '  # 2 spaces
+        # Default padding for unknown status indicators
+        DEFAULT_PADDING = "  "  # 2 spaces
         
         def format(self, record):
-            # Get emojis from record
-            emoji1 = getattr(record, 'emoji1', '')
-            emoji2 = getattr(record, 'emoji2', '')
+            # Get status indicators from record
+            status1 = getattr(record, 'status1', '')
+            status2 = getattr(record, 'status2', '')
             
-            # Combine emojis
-            emoji = f"{emoji1}{emoji2}"
+            # Combine status indicators
+            status = f"{status1}{status2}"
             
-            # Get specific padding for this emoji or use default
-            padding = self.EMOJI_PADDING.get(emoji, self.DEFAULT_PADDING)
+            # Get specific padding for this status or use default
+            padding = self.STATUS_PADDING.get(status, self.DEFAULT_PADDING)
             
-            # Create emoji block with custom padding
-            emoji_block = f"{emoji}{padding}"
+            # Create status block with consistent padding
+            status_block = f"{status}{padding}"
             
-            # If no emoji, use 4 spaces
-            if not emoji:
-                emoji_block = "    "
+            # If no status, use consistent spacing for alignment
+            if not status:
+                status_block = "        "  # 8 spaces for alignment
                 
             # Format the log level with fixed width
             level_str = LEVEL_MAP.get(record.levelname, record.levelname)
@@ -235,18 +296,16 @@ def setup_logger(
             message = record.getMessage()
 
             # Build the final log line with fixed column widths
-            return f"{emoji_block}{level}  {timestamp} {tag_str}{message}"
+            return f"{status_block}{level}  {timestamp} {tag_str}{message}"
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.handlers.clear()
     logger.propagate = False
 
-    formatter = AlignedFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+    formatter = ASCIIFormatter(datefmt="%Y-%m-%d %H:%M:%S")
 
     # ALWAYS create a log file in feagi_core/feagi/logs/run_TIMESTAMP/ directory
-    # This ensures we can always see what's happening during startup/operation
-    # Each run gets its own directory to avoid clutter
     try:
         # Get the feagi_core directory - look for it in the current working directory or parents
         feagi_core_dir = None
@@ -276,15 +335,13 @@ def setup_logger(
         run_dir = base_logs_dir / f"run_{run_timestamp}"
         run_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generate timestamped log filename (shorter since we have run directory)
+        # Generate timestamped log filename
         file_timestamp = datetime.now().strftime("%H%M%S")
         
         # Use provided log_file or generate one based on logger name
         if log_file:
-            # If user provided a specific file, use it but put it in run directory
             log_filename = Path(log_file).name
         else:
-            # Generate filename based on logger name and file timestamp
             safe_name = name.replace(".", "_").replace("/", "_")
             log_filename = f"{safe_name}_{file_timestamp}.log"
         
@@ -292,7 +349,7 @@ def setup_logger(
         full_log_path = run_dir / log_filename
         
         # Create file handler
-        file_handler = logging.FileHandler(full_log_path)
+        file_handler = logging.FileHandler(full_log_path, encoding='utf-8')
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
@@ -317,8 +374,7 @@ def setup_logger(
             # Symlinks might not be supported on all platforms
             pass
         
-        # Log the file location ONLY ONCE for the main logger to avoid spam
-        # Only log setup info for the main "feagi" logger, not every module
+        # Log the file location ONLY ONCE for the main logger
         if console and name == "feagi":
             if not _MAIN_LOGGER_SETUP_SHOWN:
                 temp_console = logging.StreamHandler(sys.stdout)
@@ -326,15 +382,14 @@ def setup_logger(
                 temp_logger = logging.getLogger("temp_setup")
                 temp_logger.addHandler(temp_console)
                 temp_logger.setLevel(logging.INFO)
-                temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
-                temp_adapter.info(f"📁 FEAGI run: {run_dir}", emoji1="📁")
-                temp_adapter.info(f"📝 Log file: {full_log_path}", emoji1="📝")
+                temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
+                temp_adapter.info(f"FEAGI run: {run_dir}", status="[FOLDER]")
+                temp_adapter.info(f"Log file: {full_log_path}", status="[LOG]")
                 temp_logger.removeHandler(temp_console)
                 _MAIN_LOGGER_SETUP_SHOWN = True
             
     except Exception as e:
         # If log file creation fails, just continue with console logging
-        # Only show warning for main logger to avoid spam
         if console and name == "feagi":
             if not _MAIN_LOGGER_SETUP_SHOWN:
                 temp_console = logging.StreamHandler(sys.stdout)
@@ -342,8 +397,8 @@ def setup_logger(
                 temp_logger = logging.getLogger("temp_setup")
                 temp_logger.addHandler(temp_console)
                 temp_logger.setLevel(logging.WARNING)
-                temp_adapter = EmojiAdapter(temp_logger, {"label": "logger_setup"})
-                temp_adapter.warning(f"⚠️  Failed to create log file: {e}", emoji1="⚠️")
+                temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
+                temp_adapter.warning(f"Failed to create log file: {e}", status="[WARN]")
                 temp_logger.removeHandler(temp_console)
                 _MAIN_LOGGER_SETUP_SHOWN = True
 
@@ -354,4 +409,8 @@ def setup_logger(
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
-    return EmojiAdapter(logger, {"label": tag or name})
+    return StatusAdapter(logger, {"label": tag or name})
+
+
+# Backward compatibility alias
+EmojiAdapter = StatusAdapter

@@ -341,26 +341,26 @@ if __name__ == "__main__":
     print("Testing standalone shared memory components...")
     
     if test_shared_memory_manager():
-        print("✅ SharedMemoryManager test passed")
+        print("[OK] SharedMemoryManager test passed")
     else:
-        print("❌ SharedMemoryManager test failed")
+        print("[ERR] SharedMemoryManager test failed")
     
     if test_event_notification_system():
-        print("✅ EventNotificationSystem test passed")
+        print("[OK] EventNotificationSystem test passed")
     else:
-        print("❌ EventNotificationSystem test failed")
+        print("[ERR] EventNotificationSystem test failed")
     
     if test_shared_config_dict():
-        print("✅ SharedConfigDict test passed")
+        print("[OK] SharedConfigDict test passed")
     else:
-        print("❌ SharedConfigDict test failed")
+        print("[ERR] SharedConfigDict test failed")
     
     if test_gateway():
-        print("✅ SharedMemoryFEAGIGateway test passed")
+        print("[OK] SharedMemoryFEAGIGateway test passed")
     else:
-        print("❌ SharedMemoryFEAGIGateway test failed")
+        print("[ERR] SharedMemoryFEAGIGateway test failed")
     
     if test_standalone_shared_memory_integration():
-        print("✅ Standalone shared memory integration test passed")
+        print("[OK] Standalone shared memory integration test passed")
     else:
-        print("❌ Standalone shared memory integration test failed") 
+        print("[ERR] Standalone shared memory integration test failed") 

@@ -131,7 +131,7 @@ class SIMDDetector:
         # Detect cache characteristics
         self._detect_cache_characteristics(capabilities)
         
-        logger.info(f"🎯 SIMD Detection: {machine} with vector width {capabilities.vector_width}")
+        logger.info(f"[TARGET] SIMD Detection: {machine} with vector width {capabilities.vector_width}")
         
         return capabilities
     

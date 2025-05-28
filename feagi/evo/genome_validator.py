@@ -195,9 +195,9 @@ def blueprint_validator(genome):
 
 def print_validity(validity_status):
     if validity_status:
-        logger.info("Genome has been validated.", emoji1="✅")
+        logger.info("Genome has been validated.", status="[OK]")
     else:
-        logger.warning("Genome validation failed.", emoji1="☣️")
+        logger.warning("Genome validation failed.", status="[ERR]")
 
 
 def genome_validator(genome):

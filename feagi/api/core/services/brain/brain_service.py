@@ -66,30 +66,30 @@ class BrainService(BaseService):
         try:
             if not self.state_manager:
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"🔥 BRAIN SERVICE: No state manager available")
+                    print(f"[DEBUG] BRAIN SERVICE: No state manager available")
                 return False
             
             # Get the singleton burst engine instance
             burst_engine = self._get_burst_engine()
             if not burst_engine:
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"🔥 BRAIN SERVICE: No burst engine instance available")
+                    print(f"[DEBUG] BRAIN SERVICE: No burst engine instance available")
                 self.logger.error("No burst engine instance available")
                 return False
             
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: Got burst engine instance {burst_engine._instance_id}")
-                print(f"🔥 BRAIN SERVICE: Current _running state: {burst_engine._running}")
+                print(f"[DEBUG] BRAIN SERVICE: Got burst engine instance {burst_engine._instance_id}")
+                print(f"[DEBUG] BRAIN SERVICE: Current _running state: {burst_engine._running}")
             
             # Check if it's already running
             if burst_engine._running:
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"🔥 BRAIN SERVICE: Burst engine reports _running=True, skipping start")
+                    print(f"[DEBUG] BRAIN SERVICE: Burst engine reports _running=True, skipping start")
                 self.logger.info("Burst engine is already running")
                 return True
             
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: Burst engine _running=False, proceeding to start")
+                print(f"[DEBUG] BRAIN SERVICE: Burst engine _running=False, proceeding to start")
             
             # Clear exit condition to start the burst engine
             self.state_manager.exit_condition = False
@@ -101,28 +101,28 @@ class BrainService(BaseService):
                 """Background thread function to run the burst engine main loop"""
                 try:
                     if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                        print(f"🔥 BRAIN SERVICE: Background thread starting, about to call burst_engine.run()")
-                    self.logger.info("🔥 BRAIN SERVICE: Starting burst engine main loop in background thread")
+                        print(f"[DEBUG] BRAIN SERVICE: Background thread starting, about to call burst_engine.run()")
+                    self.logger.info("[DEBUG] BRAIN SERVICE: Starting burst engine main loop in background thread")
                     burst_engine.run()
                     if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                        print(f"🔥 BRAIN SERVICE: burst_engine.run() returned")
+                        print(f"[DEBUG] BRAIN SERVICE: burst_engine.run() returned")
                 except Exception as e:
                     if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                        print(f"🔥 BRAIN SERVICE: Exception in burst engine main loop: {str(e)}")
-                    self.logger.error(f"🔥 BRAIN SERVICE: Error in burst engine main loop: {str(e)}")
+                        print(f"[DEBUG] BRAIN SERVICE: Exception in burst engine main loop: {str(e)}")
+                    self.logger.error(f"[DEBUG] BRAIN SERVICE: Error in burst engine main loop: {str(e)}")
                     # Set burst engine state to ERROR on exception
                     from feagi.core.state_manager import ServiceState
                     self.state_manager.set_burst_engine_state(ServiceState.ERROR)
             
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: Creating background thread")
+                print(f"[DEBUG] BRAIN SERVICE: Creating background thread")
             
             # Start the burst engine in a daemon thread
             burst_thread = threading.Thread(target=run_burst_engine, daemon=True)
             burst_thread.start()
             
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: Background thread started, using event-based synchronization...")
+                print(f"[DEBUG] BRAIN SERVICE: Background thread started, using event-based synchronization...")
             
             # RTOS-COMPATIBLE: Event-based synchronization instead of sleep polling
             startup_event = threading.Event()
@@ -170,23 +170,23 @@ class BrainService(BaseService):
             event_triggered = startup_event.wait(timeout=3.0)  # Max 3 second timeout
             
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: Event triggered: {event_triggered}, Success: {startup_success}")
+                print(f"[DEBUG] BRAIN SERVICE: Event triggered: {event_triggered}, Success: {startup_success}")
             
             # Verify startup success
             if startup_success and burst_engine._running:
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"🔥 BRAIN SERVICE: Success! Burst engine is now running")
+                    print(f"[DEBUG] BRAIN SERVICE: Success! Burst engine is now running")
                 self.logger.info("Burst engine started successfully in background thread")
                 return True
             else:
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"🔥 BRAIN SERVICE: FAILED! Burst engine _running is still False")
+                    print(f"[DEBUG] BRAIN SERVICE: FAILED! Burst engine _running is still False")
                 self.logger.error("Failed to start burst engine main loop")
                 return False
             
         except Exception as e:
             if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"🔥 BRAIN SERVICE: Exception in start_burst_engine: {str(e)}")
+                print(f"[DEBUG] BRAIN SERVICE: Exception in start_burst_engine: {str(e)}")
             self.logger.error(f"Error starting burst engine: {str(e)}")
             return False
 
@@ -208,7 +208,7 @@ class BrainService(BaseService):
                 return True
             
             # Stop the burst engine main loop
-            self.logger.info("🔥 BRAIN SERVICE: Stopping burst engine main loop")
+            self.logger.info("[DEBUG] BRAIN SERVICE: Stopping burst engine main loop")
             burst_engine.stop()
             
             # Set exit condition to stop the burst engine

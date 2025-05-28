@@ -106,7 +106,7 @@ class GenomeAPI:
             burst_engine = self.core_api_service.get_burst_engine()
             if burst_engine:
                 burst_engine.update_with_genome()
-                logger.info("Burst Engine updated with new genome", emoji1="⚡")
+                logger.info("Burst Engine updated with new genome", status="[FAST]")
             
             return GenomeUploadResponse(
                 success=True,
@@ -115,7 +115,7 @@ class GenomeAPI:
                 loaded=result
             )
         except Exception as e:
-            logger.error(f"Failed to upload barebones genome: {str(e)}", emoji1="❌")
+            logger.error(f"Failed to upload barebones genome: {str(e)}", status="[ERR]")
             raise ValueError(f"Error uploading barebones genome: {str(e)}")
     
     @genome_endpoint('POST', '/upload/essential', response_model=GenomeUploadResponse)
@@ -133,7 +133,7 @@ class GenomeAPI:
             burst_engine = self.core_api_service.get_burst_engine()
             if burst_engine:
                 burst_engine.update_with_genome()
-                logger.info("Burst Engine updated with new genome", emoji1="⚡")
+                logger.info("Burst Engine updated with new genome", status="[FAST]")
             
             return GenomeUploadResponse(
                 success=True,
@@ -143,7 +143,7 @@ class GenomeAPI:
             )
             
         except Exception as e:
-            logger.error(f"Failed to upload essential genome: {str(e)}", emoji1="❌")
+            logger.error(f"Failed to upload essential genome: {str(e)}", status="[ERR]")
             raise ValueError(f"Failed to upload essential genome: {str(e)}")
     
     @genome_endpoint('POST', '/upload/file', response_model=Dict[str, Any])
@@ -171,7 +171,7 @@ class GenomeAPI:
             burst_engine = self.core_api_service.get_burst_engine()
             if burst_engine:
                 burst_engine.update_with_genome()
-                logger.info("Burst Engine updated with new genome", emoji1="⚡")
+                logger.info("Burst Engine updated with new genome", status="[FAST]")
                 
             # Return raw response for v1 compatibility
             return {
@@ -179,7 +179,7 @@ class GenomeAPI:
                 "genome_counter": self.core_api_service.get_genome_counter()
             }
         except Exception as e:
-            logger.error(f"Failed to upload genome file: {str(e)}", emoji1="❌")
+            logger.error(f"Failed to upload genome file: {str(e)}", status="[ERR]")
             raise ValueError(f"Failed to upload genome file: {str(e)}")
     
     @genome_endpoint('POST', '/upload/string', response_model=Dict[str, Any])
