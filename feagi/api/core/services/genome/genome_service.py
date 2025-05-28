@@ -229,6 +229,20 @@ class GenomeService(BaseService):
                 self.state_manager.genome_file_name = filename
                 # Don't set to LOADED yet - wait until brain development succeeds
                 
+            # CRITICAL: Prepare connectome for new genome loading (clear existing brain data)
+            self.logger.info("Preparing connectome for new genome loading...")
+            preparation_result = self._connectome_manager.prepare_for_new_genome(genome_data, save_current_state=True)
+            if not preparation_result.get("success", False):
+                self.logger.error(f"Failed to prepare connectome for new genome")
+                if self.state_manager:
+                    from feagi.core.state_manager import GenomeState
+                    self.state_manager.set_genome_state(GenomeState.ERROR)
+                    self.state_manager.set_brain_readiness(False)
+                    self.state_manager.genome_validity = False
+                return {"success": False, "error": "Failed to prepare connectome for new genome"}
+            
+            self.logger.info(f"✅ Connectome preparation complete: {preparation_result.get('message', 'Ready for genome loading')}")
+                
             # Save genome data to a temporary file
             temp_genome_path = os.path.join(self._temp_dir, "temp_genome.json")
             with open(temp_genome_path, 'w') as f:
@@ -379,6 +393,12 @@ class GenomeService(BaseService):
                 
             # Get cortical area count from connectome manager for return value
             cortical_area_count = len(getattr(self._connectome_manager, 'cortical_areas', {}))
+            
+            # CRITICAL: Increment genome counter ONLY after successful genome load
+            if self.state_manager:
+                self.state_manager.increment_genome_counter()
+                current_genome_number = self.state_manager.get_genome_counter()
+                self.logger.info(f"✅ Genome counter incremented to {current_genome_number}")
             
             # Log success
             self.logger.info(f"Genome loaded successfully: {cortical_area_count} cortical areas created")

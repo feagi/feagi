@@ -473,15 +473,16 @@ class FeagiTestRunner:
                 return False
                 
             # Register a fake visualization agent
-            result = self.core_api.register_agent(
-                agent_id=self.visualization_agent_id,
-                agent_type="visualization",
-                agent_ip="127.0.0.1",
-                agent_data_port=5555,
-                agent_version="1.0.0",
-                controller_version="1.0.0",
-                capabilities={"visualization": True}
-            )
+            agent_data = {
+                "agent_id": self.visualization_agent_id,
+                "agent_type": "visualization",
+                "agent_ip": "127.0.0.1",
+                "agent_data_port": 5555,
+                "agent_version": "1.0.0",
+                "controller_version": "1.0.0",
+                "capabilities": {"visualization": True}
+            }
+            result = self.core_api.register_agent(agent_data)
             
             if result:
                 self.is_visualization_agent_registered = True

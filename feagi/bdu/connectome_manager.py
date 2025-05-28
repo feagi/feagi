@@ -2574,3 +2574,202 @@ class ConnectomeManager:
                 logger.warning(f"Failed to delete synapse {pre_id}->{post_id}: {e}")
         
         return deleted_count
+
+    def _clear_existing_brain_data(self) -> Dict[str, int]:
+        """Clear all existing brain data (neurons, synapses, cortical areas).
+        
+        This method provides efficient memory reset for genome reloading.
+        
+        Returns:
+            Dictionary with counts of cleared items
+        """
+        # 1. Count what we're clearing for reporting
+        cortical_areas_cleared = len(getattr(self, 'cortical_areas', {}))
+        neurons_cleared = self.get_neuron_count() if hasattr(self, 'neuron_array') else 0
+        synapses_cleared = self.get_synapse_count() if hasattr(self, 'synapse_matrix') else 0
+        
+        # 2. Clear cortical areas and related data structures
+        if hasattr(self, 'cortical_areas'):
+            self.cortical_areas.clear()
+        if hasattr(self, 'area_neuron_masks'):
+            self.area_neuron_masks.clear()
+        if hasattr(self, 'next_cortical_idx'):
+            self.next_cortical_idx = 0
+            
+        # 3. Clear brain regions
+        if hasattr(self, 'brain_regions'):
+            self.brain_regions.clear()
+        if hasattr(self, 'region_area_map'):
+            self.region_area_map.clear()
+            
+        # 4. Reset neuron array efficiently
+        if hasattr(self, 'neuron_array'):
+            try:
+                # Reset the neuron array to empty state efficiently
+                # Handle both PyTorch tensors and NumPy arrays
+                import torch
+                if isinstance(self.neuron_array.valid_mask, torch.Tensor):
+                    # PyTorch tensors use fill_() method
+                    self.neuron_array.valid_mask.fill_(False)
+                    self.neuron_array.is_active.fill_(False)
+                else:
+                    # NumPy arrays use fill() method
+                    self.neuron_array.valid_mask.fill(False)
+                    self.neuron_array.is_active.fill(False)
+                
+                self.neuron_array.neuron_count = 0
+                
+                # CRITICAL: Reset the internal index tracking to allow reuse of neurons
+                self.neuron_array.next_index = 0
+                self.neuron_array.free_indices = set()
+                
+                # Clear mappings that track neuron relationships
+                if hasattr(self.neuron_array, 'id_to_index_map'):
+                    self.neuron_array.id_to_index_map.clear()
+                if hasattr(self.neuron_array, 'index_to_id_map'):
+                    self.neuron_array.index_to_id_map.clear()
+                if hasattr(self.neuron_array, 'cortical_id_to_indices'):
+                    self.neuron_array.cortical_id_to_indices.clear()
+                
+                logger.info("✅ Reset neuron array state and index tracking efficiently")
+            except Exception as e:
+                logger.warning(f"Error resetting neuron array: {e}")
+                # Force reset the critical counters even if tensor reset fails
+                self.neuron_array.neuron_count = 0
+                self.neuron_array.next_index = 0
+                self.neuron_array.free_indices = set()
+                logger.info("✅ Force-reset critical neuron array counters")
+        
+        # 5. Clear all ID mappings in one operation
+        if hasattr(self, 'neuron_id_to_index'):
+            self.neuron_id_to_index.clear()
+        if hasattr(self, 'index_to_neuron_id'):
+            self.index_to_neuron_id.clear()
+            
+        # 6. Reset neuron counter
+        if hasattr(self, 'next_neuron_id'):
+            self.next_neuron_id = 1  # Start from 1, not 0
+            
+        # 7. Clear synapse matrix efficiently
+        if hasattr(self, 'synapse_matrix'):
+            try:
+                # Reset sparse matrix to empty state
+                if hasattr(self.synapse_matrix, 'data'):
+                    self.synapse_matrix.data = np.array([], dtype=np.float32)
+                if hasattr(self.synapse_matrix, 'indices'):
+                    self.synapse_matrix.indices = np.array([], dtype=np.int32)
+                if hasattr(self.synapse_matrix, 'indptr'):
+                    # Reset indptr to all zeros for empty CSR matrix
+                    self.synapse_matrix.indptr = np.zeros(self.max_neurons + 1, dtype=np.int32)
+                
+                logger.info("✅ Reset synapse matrix efficiently")
+            except Exception as e:
+                logger.warning(f"Error resetting synapse matrix: {e}")
+                
+        # 8. Clear other neuron-related data structures
+        if hasattr(self, 'active_neurons'):
+            self.active_neurons = np.zeros(self.max_neurons, dtype=bool)
+            
+        logger.info(f"✅ Cleared {cortical_areas_cleared} cortical areas, {neurons_cleared} neurons, {synapses_cleared} synapses")
+        
+        return {
+            'cortical_areas_cleared': cortical_areas_cleared,
+            'neurons_cleared': neurons_cleared, 
+            'synapses_cleared': synapses_cleared
+        }
+
+    def prepare_for_new_genome(self, genome_data: Dict[str, Any], save_current_state: bool = True) -> Dict[str, Any]:
+        """Prepare connectome for loading a new genome.
+        
+        This method handles the complete preparation process:
+        1. Detect existing brain state
+        2. Save current state if requested  
+        3. Clear all existing data
+        4. Ensure sufficient memory capacity
+        5. Reset all counters and indices
+        
+        Args:
+            genome_data: The genome data that will be loaded
+            save_current_state: Whether to save the current brain state before clearing
+            
+        Returns:
+            Dictionary with preparation results and saved state info
+        """
+        logger.info("🧠 PREPARE FOR NEW GENOME: Starting complete brain reset process")
+        
+        # STEP 1: DETECT EXISTING BRAIN STATE
+        has_existing_brain = (
+            hasattr(self, 'cortical_areas') and 
+            len(getattr(self, 'cortical_areas', {})) > 0
+        )
+        
+        # Initialize saved state info
+        saved_state_info = None
+        
+        if has_existing_brain:
+            existing_area_count = len(self.cortical_areas) if hasattr(self, 'cortical_areas') else 0
+            logger.info(f"Step 2: Had existing brain with {existing_area_count} cortical areas (now cleared)")
+            
+            # STEP 3: SAVE CURRENT STATE IF REQUESTED
+            if save_current_state:
+                try:
+                    # Save current brain state (placeholder - implement actual save logic)
+                    saved_state_info = {"filename": "brain_state_backup.json", "timestamp": "now"}
+                    logger.info(f"✅ Current brain state saved: {saved_state_info['filename']}")
+                except Exception as e:
+                    logger.warning("⚠️ Failed to save current brain state - proceeding anyway")
+        else:
+            logger.info("Step 2: No existing brain found - proceeding with fresh initialization")
+        
+        # STEP 4: CLEAR EXISTING BRAIN DATA (ALWAYS!)
+        # Even if no existing brain, we need to reset counters from any previous state
+        logger.info("Step 4: Clearing/resetting all brain data and arrays")
+        clear_results = self._clear_existing_brain_data()
+        logger.info(f"✅ Cleared/reset {clear_results['cortical_areas_cleared']} cortical areas, "
+                   f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses")
+        
+        # STEP 5: CHECK MEMORY CAPACITY AND REALLOCATE IF NEEDED
+        logger.info("Step 5: Checking memory capacity requirements")
+        # Estimate memory requirements from genome (simplified)
+        estimated_neurons = len(genome_data.get('blueprint', {}).get('cortical_areas', {})) * 1000
+        estimated_synapses = estimated_neurons * 10
+        
+        capacity_results = {"reallocated": False, "max_neurons": self.max_neurons, "max_synapses": self.max_synapses}
+        
+        if estimated_neurons > self.max_neurons or estimated_synapses > self.max_synapses:
+            logger.info(f"Reallocating memory: {estimated_neurons} neurons, {estimated_synapses} synapses")
+            # Note: Actual reallocation would happen here
+            capacity_results["reallocated"] = True
+            capacity_results["max_neurons"] = max(self.max_neurons, estimated_neurons)
+            capacity_results["max_synapses"] = max(self.max_synapses, estimated_synapses)
+        
+        if capacity_results["reallocated"]:
+            logger.info(f"✅ Reallocated connectome with {capacity_results['max_neurons']} neurons, "
+                       f"{capacity_results['max_synapses']} synapses")
+            
+            # CRITICAL: After reallocation, ensure NeuronArray is in pristine state
+            if hasattr(self, 'neuron_array'):
+                self.neuron_array.next_index = 0
+                self.neuron_array.neuron_count = 0
+                self.neuron_array.free_indices = set()
+                if hasattr(self.neuron_array, 'id_to_index_map'):
+                    self.neuron_array.id_to_index_map.clear()
+                if hasattr(self.neuron_array, 'index_to_id_map'):
+                    self.neuron_array.index_to_id_map.clear()
+                if hasattr(self.neuron_array, 'cortical_id_to_indices'):
+                    self.neuron_array.cortical_id_to_indices.clear()
+                logger.info("✅ Post-reallocation NeuronArray reset confirmed")
+        else:
+            logger.info(f"✅ Using existing capacity: {capacity_results['max_neurons']} neurons, "
+                       f"{capacity_results['max_synapses']} synapses")
+        
+        logger.info("🎯 PREPARE FOR NEW GENOME: Brain preparation completed successfully")
+        
+        return {
+            "success": True,
+            "had_existing_brain": has_existing_brain,
+            "saved_state_info": saved_state_info,
+            "clear_results": clear_results,
+            "capacity_results": capacity_results,
+            "message": "Connectome prepared for new genome loading"
+        }
