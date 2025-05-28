@@ -354,8 +354,8 @@ def core_api_mock(connectome_manager_mock):
     }
     
     # Genome API specific behaviors
-    mock.get_data_path.return_value = "/tmp/feagi_test"
-    mock.get_temp_path.return_value = "/tmp/feagi_test"
+    mock.get_data_path.return_value = os.path.join(tempfile.gettempdir(), "feagi_test")
+    mock.get_temp_path.return_value = os.path.join(tempfile.gettempdir(), "feagi_test")
     mock.load_genome.return_value = True
     mock.get_genome_filename.return_value = "test_genome.json"
     mock.get_genome_counter.return_value = 1
