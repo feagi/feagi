@@ -182,31 +182,25 @@ class GenomeService(BaseService):
                     
                     # Check current burst engine state
                     current_state = self.state_manager.get_burst_engine_state()
-                    if current_state not in [ServiceState.READY, ServiceState.ON_HOLD]:
-                        # Need to start the burst engine using existing brain service
-                        if self._brain_service:
-                            print(f"[DEBUG] GENOME SERVICE: Using existing brain service to start burst engine")
-                            burst_start_success = self._brain_service.start_burst_engine()
+                    self.logger.info(f"Current burst engine state: {current_state}", status="[CHECK]")
+                    
+                    if current_state != ServiceState.READY:
+                        self.logger.info("Starting burst engine before genome load", status="[START]")
+                        brain_service = BrainService(self._connectome_manager, self.state_manager)
+                        
+                        start_success = brain_service.start_burst_engine()
+                        if start_success:
+                            self.logger.info("Burst engine started successfully", status="[OK]")
                         else:
-                            print(f"[DEBUG] GENOME SERVICE: Creating temporary brain service to start burst engine")
-                            brain_service = BrainService(self._connectome_manager, self.state_manager)
-                            burst_start_success = brain_service.start_burst_engine()
-                        
-                        if not burst_start_success:
-                            self.logger.error("CRITICAL: Failed to start burst engine - aborting genome load")
-                            return {"success": False, "error": "Failed to start burst engine - genome load aborted"}
-                        
-                        self.logger.info("[OK] Burst engine started successfully")
+                            self.logger.error("Failed to start burst engine", status="[ERR]")
+                            # Continue with genome loading even if burst engine fails to start
                     else:
-                        self.logger.info(f"[OK] Burst engine already in acceptable state: {current_state.name}")
+                        self.logger.info("Burst engine already running", status="[OK]")
                         
-                except Exception as engine_error:
-                    self.logger.error(f"CRITICAL: Error starting burst engine: {str(engine_error)}")
-                    return {"success": False, "error": f"Failed to start burst engine: {str(engine_error)}"}
-            
-            # STEP 2: PROCEED WITH GENOME LOADING (existing logic)
-            self.logger.info("Step 2: Proceeding with genome loading")
-            
+                except Exception as burst_start_error:
+                    self.logger.error(f"Error starting burst engine: {str(burst_start_error)}", status="[ERR]")
+                    # Continue with genome loading even if burst engine start fails
+                    
             # Set brain readiness to False while loading
             if self.state_manager:
                 from feagi.core.state_manager import GenomeState
@@ -216,6 +210,10 @@ class GenomeService(BaseService):
                 self.state_manager.brain_stats = {}
                 self.state_manager.cortical_list = []
                 self.state_manager.genome_validity = None
+
+            # CRITICAL: Preserve old genome data BEFORE setting new values for comparison
+            old_genome_data = self._current_genome
+            old_genome_filename = self._genome_filename
             
             # Store genome filename 
             self._genome_filename = filename
@@ -411,18 +409,18 @@ class GenomeService(BaseService):
                 
                 # Check if this is genuinely a NEW genome (different from what we had before)
                 is_new_genome = False
-                if self._current_genome is None or self._genome_filename != filename:
+                if old_genome_data is None or old_genome_filename != filename:
                     # Definitely new - no previous genome or different filename
                     is_new_genome = True
-                    self.logger.info(f"🆕 NEW genome detected: filename changed from '{self._genome_filename}' to '{filename}'")
+                    self.logger.info(f"NEW genome detected: filename changed from '{old_genome_filename}' to '{filename}'")
                 else:
                     # Same filename - check if genome data actually changed
                     import hashlib
                     new_hash = hashlib.md5(json.dumps(genome_data, sort_keys=True).encode()).hexdigest()
-                    old_hash = hashlib.md5(json.dumps(self._current_genome, sort_keys=True).encode()).hexdigest()
+                    old_hash = hashlib.md5(json.dumps(old_genome_data, sort_keys=True).encode()).hexdigest()
                     if new_hash != old_hash:
                         is_new_genome = True
-                        self.logger.info(f"🆕 NEW genome detected: data changed (hash: {old_hash[:8]} → {new_hash[:8]})")
+                        self.logger.info(f"NEW genome detected: data changed (hash: {old_hash[:8]} → {new_hash[:8]})")
                     else:
                         self.logger.info(f"[RELOAD] SAME genome being reloaded: '{filename}' with identical data")
                 

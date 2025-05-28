@@ -194,41 +194,24 @@ class ResourceProfiler:
     def generate_optimization_report(self, neuron_count: int = 0) -> str:
         """Generate a comprehensive optimization report."""
         report = []
-        report.append("=" * 80)
-        report.append("🚨 FEAGI RESOURCE OPTIMIZATION REPORT 🚨")
-        report.append("=" * 80)
+        report.append("FEAGI RESOURCE OPTIMIZATION REPORT")
+        report.append("=" * 50)
         
-        # Current resource usage
-        current_memory = self.process.memory_info().rss / (1024 * 1024)
-        current_cpu = self.process.cpu_percent()
+        # Memory analysis
+        memory_per_neuron = self.baseline_memory / neuron_count if neuron_count > 0 else 0
+        report.append(f"Memory per neuron: {memory_per_neuron:.2f} MB")
+        report.append(f"Target for embedded: <0.1 MB/neuron")
         
-        report.append(f"[STATS] CURRENT USAGE:")
-        report.append(f"   Memory: {current_memory:.1f}MB")
-        report.append(f"   CPU: {current_cpu:.1f}%")
-        
-        if neuron_count > 0:
-            memory_per_neuron = (current_memory * 1024) / neuron_count
-            report.append(f"   Memory per neuron: {memory_per_neuron:.1f}KB")
-            report.append(f"   🚨 CRITICAL: This is {memory_per_neuron/1:.0f}x too high for embedded devices!")
-        
-        report.append("")
-        
-        # Thread analysis
-        thread_analysis = self.analyze_thread_overhead()
-        if "error" not in thread_analysis:
-            report.append(f"🧵 THREAD ANALYSIS:")
-            report.append(f"   Total threads: {thread_analysis['total_threads']}")
-            report.append(f"   Daemon threads: {thread_analysis['daemon_threads']}")
-            report.append(f"   🚨 Each thread costs ~8MB on embedded systems!")
-            report.append("")
+        if memory_per_neuron > 0.5:  # 500KB per neuron is too much
+            report.append(f"   CRITICAL: This is {memory_per_neuron/1:.0f}x too high for embedded devices!")
             
-            # List thread details
-            report.append("   Thread breakdown:")
-            for thread in thread_analysis['threads']:
-                status = "[OK]" if thread['alive'] else "[ERR]"
-                daemon = "[CONFIG]" if thread['daemon'] else "👤"
-                report.append(f"     {status} {daemon} {thread['name']}")
-            report.append("")
+        # Thread analysis  
+        thread_count = len(threading.enumerate())
+        report.append(f"Thread count: {thread_count}")
+        report.append(f"Target for embedded: <10 threads")
+        
+        if thread_count > 20:
+            report.append(f"   Each thread costs ~8MB on embedded systems!")
         
         # Memory breakdown
         memory_breakdown = self.get_memory_breakdown()
@@ -244,7 +227,7 @@ class ResourceProfiler:
         
         # Component comparison
         if self.component_snapshots:
-            report.append("🏗️  COMPONENT RESOURCE USAGE:")
+            report.append("COMPONENT RESOURCE USAGE:")
             components = sorted(self.component_snapshots.values(), 
                               key=lambda x: x.memory_mb, reverse=True)
             
@@ -261,21 +244,21 @@ class ResourceProfiler:
         # Optimization recommendations
         report.append("[TARGET] OPTIMIZATION RECOMMENDATIONS:")
         
-        if current_memory > 1000:  # > 1GB
-            report.append("   🔴 CRITICAL - Memory usage > 1GB:")
+        if self.baseline_memory > 1000:  # > 1GB
+            report.append("   CRITICAL - Memory usage > 1GB:")
             report.append("     • Implement lazy loading for neural data")
             report.append("     • Use memory-mapped files instead of RAM")
             report.append("     • Implement neural data compression")
             report.append("     • Consider embedded-mode that disables heavy components")
         
-        if thread_analysis.get('total_threads', 0) > 10:
-            report.append("   🔴 CRITICAL - Too many threads:")
+        if thread_count > 10:
+            report.append("   CRITICAL - Too many threads:")
             report.append("     • Consolidate background tasks")
             report.append("     • Use async/await instead of threads")
             report.append("     • Implement embedded mode with minimal threads")
         
-        if current_cpu > 5.0:  # > 5 cores equivalent
-            report.append("   🔴 CRITICAL - CPU usage too high:")
+        if self.baseline_cpu > 5.0:  # > 5 cores equivalent
+            report.append("   CRITICAL - CPU usage too high:")
             report.append("     • Profile and optimize hot paths")
             report.append("     • Reduce logging frequency")
             report.append("     • Implement CPU-efficient neural algorithms")

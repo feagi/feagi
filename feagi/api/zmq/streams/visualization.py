@@ -591,7 +591,7 @@ class VisualizationStream:
             
             # If this is a new client, log it and update FQ sampler
             if is_new_client:
-                logger.info(f"📺 New visualization client connected: {client_id}")
+                logger.info(f"New visualization client connected: {client_id}")
                 
                 # Force a subscriber count update and FQ sampler notification
                 current_count = total_clients

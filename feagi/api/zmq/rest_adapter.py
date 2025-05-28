@@ -23,7 +23,7 @@ This module was COMPLETELY REFACTORED on 2025-05-24 after discovering critical
 architectural violations where different transport protocols (HTTP vs ZMQ) were
 returning different responses for the same endpoints.
 
-🚨 BEFORE MODIFYING THIS FILE:
+BEFORE MODIFYING THIS FILE:
 1. Read /docs/arch-api-decorator-architecture.md
 2. ALL endpoints MUST delegate to v1 API modules
 3. NO custom business logic implementations allowed
@@ -235,7 +235,7 @@ class ZMQRestAPIAdapter:
                     import uuid
                     client_id = str(uuid.uuid4())
                 
-                logger.info(f"[CONFIG] Embedded mode: Visualization registration ignored for client {client_id}")
+                logger.info(f"Embedded mode: Visualization registration ignored for client {client_id}")
                 return {
                     "client_id": client_id,
                     "success": False,
@@ -250,7 +250,7 @@ class ZMQRestAPIAdapter:
             if not client_id:
                 client_id = str(uuid.uuid4())
             
-            logger.info(f"🔌 Registering visualization client: {client_id}")
+            logger.info(f"Registering visualization client: {client_id}")
             
             # Get the ZMQ server from the module registry
             zmq_server = getattr(self, '_zmq_server', None)
@@ -271,7 +271,7 @@ class ZMQRestAPIAdapter:
             if viz_stream:
                 # RTOS: VisualizationStream is now synchronous, no await needed
                 viz_stream.register_visualization_client(client_id)
-                logger.info(f"[OK] Visualization client registered: {client_id}")
+                logger.info(f"Visualization client registered: {client_id}")
                 
                 return {
                     "client_id": client_id,
@@ -279,11 +279,11 @@ class ZMQRestAPIAdapter:
                     "message": f"Visualization client {client_id} registered successfully"
                 }
             else:
-                logger.error("[ERR] Visualization stream not available")
+                logger.error("Visualization stream not available")
                 raise ValueError("Visualization stream not available")
                 
         except Exception as e:
-            logger.error(f"[ERR] Error registering visualization client: {str(e)}")
+            logger.error(f"Error registering visualization client: {str(e)}")
             raise ValueError(f"Registration failed: {str(e)}")
     
     async def _handle_visualization_unregister_client(self, params, query, body, headers) -> Any:
@@ -292,7 +292,7 @@ class ZMQRestAPIAdapter:
             # Check if embedded mode is enabled
             if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
                 client_id = body.get('client_id') if body else None
-                logger.info(f"[CONFIG] Embedded mode: Visualization unregistration ignored for client {client_id}")
+                logger.info(f"Embedded mode: Visualization unregistration ignored for client {client_id}")
                 return {
                     "success": False,
                     "message": f"Visualization disabled in embedded mode",
@@ -303,7 +303,7 @@ class ZMQRestAPIAdapter:
             if not client_id:
                 raise ValueError("Client ID is required")
             
-            logger.info(f"🔌 Unregistering visualization client: {client_id}")
+            logger.info(f"Unregistering visualization client: {client_id}")
             
             # Get the ZMQ server from the module registry
             zmq_server = getattr(self, '_zmq_server', None)
@@ -318,17 +318,17 @@ class ZMQRestAPIAdapter:
             if viz_stream:
                 # RTOS: VisualizationStream is now synchronous, no await needed
                 viz_stream.unregister_visualization_client(client_id)
-                logger.info(f"[OK] Visualization client unregistered: {client_id}")
+                logger.info(f"Visualization client unregistered: {client_id}")
                 
                 return {
                     "message": f"Visualization client {client_id} unregistered successfully"
                 }
             else:
-                logger.error("[ERR] Visualization stream not available")
+                logger.error("Visualization stream not available")
                 raise ValueError("Visualization stream not available")
                 
         except Exception as e:
-            logger.error(f"[ERR] Error unregistering visualization client: {str(e)}")
+            logger.error(f"Error unregistering visualization client: {str(e)}")
             raise ValueError(f"Unregistration failed: {str(e)}")
     
     async def _handle_visualization_heartbeat(self, params, query, body, headers) -> Any:
@@ -337,7 +337,7 @@ class ZMQRestAPIAdapter:
             # Check if embedded mode is enabled
             if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
                 client_id = body.get('client_id') if body else None
-                logger.debug(f"[CONFIG] Embedded mode: Visualization heartbeat ignored for client {client_id}")
+                logger.debug(f"Embedded mode: Visualization heartbeat ignored for client {client_id}")
                 return {
                     "success": False,
                     "message": f"Visualization disabled in embedded mode",
@@ -348,7 +348,7 @@ class ZMQRestAPIAdapter:
             if not client_id:
                 raise ValueError("Client ID is required")
             
-            logger.info(f"💗 Heartbeat from visualization client: {client_id}")
+            logger.info(f"Heartbeat from visualization client: {client_id}")
             
             # Get the ZMQ server from the module registry
             zmq_server = getattr(self, '_zmq_server', None)
