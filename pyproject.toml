@@ -58,6 +58,7 @@ dependencies = [
     "psutil>=5.8.0",
     "pyroaring>=1.0.0",
     "feagi-bytes>=0.1.0",
+    "packaging>=21.0.0",
 ]
 
 [project.optional-dependencies]
