@@ -75,7 +75,7 @@ def check_dependencies():
             return True
             
         # Get the path to requirements.txt
-        requirements_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "requirements.txt")
+        requirements_path = Path(__file__).parent.parent / "requirements.txt"
         
         # Verify dependencies, don't raise an exception but return False if there's a mismatch
         is_compatible = verify_dependencies(requirements_path, raise_exception=False)

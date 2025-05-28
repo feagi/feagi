@@ -64,7 +64,9 @@ import json
 import logging
 import time
 import threading
+import random
 from typing import Dict, Any, Optional, List, Set
+from pathlib import Path
 
 from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
 from feagi.utils.logger import setup_logger
@@ -145,17 +147,17 @@ class FeagiTestRunner:
         """
         try:
             # Get the directory where this module is located
-            module_dir = os.path.dirname(os.path.abspath(__file__))
-            json_path = os.path.join(module_dir, "test_mode_activations.json")
+            module_dir = Path(__file__).parent
+            json_path = module_dir / "test_mode_activations.json"
             
-            if not os.path.exists(json_path):
+            if not json_path.exists():
                 logger.info("No test_mode_activations.json found - using random neuron injection")
                 self.use_predictable_activations = False
                 return False
             
             logger.info(f"Loading predictable neuron activations from: {json_path}")
             
-            with open(json_path, 'r') as f:
+            with json_path.open('r') as f:
                 self.test_activations_data = json.load(f)
             
             # Validate the JSON structure
@@ -394,8 +396,6 @@ class FeagiTestRunner:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            import random
-            
             # Get all cortical areas from the loaded connectome
             cortical_areas = list(self.connectome.cortical_areas.keys())
             

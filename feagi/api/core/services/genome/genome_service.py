@@ -20,6 +20,7 @@ import os
 import json
 import tempfile
 from typing import Dict, Any, Optional, List
+from pathlib import Path
 from ..shared.base_service import BaseService
 
 
@@ -47,37 +48,42 @@ class GenomeService(BaseService):
         """Load the essential genome from the default templates."""
         try:
             # Multiple possible locations to look for the essential genome
+            current_file = Path(__file__)
+            current_dir = current_file.parent
+            cwd = Path.cwd()
+            feagi_home = Path(os.environ.get("FEAGI_HOME", ""))
+            
             possible_paths = [
                 # Original path
-                os.path.join(os.path.dirname(__file__), "../../../../evo/defaults/genome/essential_genome.json"),
+                current_dir / "../../../../evo/defaults/genome/essential_genome.json",
                 
-                # Alternative paths relative to current file
-                os.path.join(os.path.dirname(__file__), "../../../../../feagi/evo/defaults/genome/essential_genome.json"),
-                os.path.join(os.path.dirname(__file__), "../../../../../evo/defaults/genome/essential_genome.json"),
+                # Alternative paths relative to current file  
+                current_dir / "../../../../../feagi/evo/defaults/genome/essential_genome.json",
+                current_dir / "../../../../../evo/defaults/genome/essential_genome.json",
                 
                 # Paths relative to working directory
-                os.path.join(os.getcwd(), "feagi/evo/defaults/genome/essential_genome.json"),
-                os.path.join(os.getcwd(), "feagi_core/feagi/evo/defaults/genome/essential_genome.json"),
+                cwd / "feagi/evo/defaults/genome/essential_genome.json",
+                cwd / "feagi_core/feagi/evo/defaults/genome/essential_genome.json",
                 
                 # Check FEAGI_HOME environment variable if set
-                os.path.join(os.environ.get("FEAGI_HOME", ""), "evo/defaults/genome/essential_genome.json"),
+                feagi_home / "evo/defaults/genome/essential_genome.json" if feagi_home.name else None,
             ]
             
             # Find the first existing path
             essential_path = None
             for path in possible_paths:
-                if path and os.path.exists(path):
+                if path and path.exists():
                     essential_path = path
                     break
                     
             if not essential_path:
                 self.logger.error(f"Essential genome template not found in any expected location")
-                self.logger.error(f"Checked paths: {possible_paths}")
+                self.logger.error(f"Checked paths: {[str(p) for p in possible_paths if p]}")
                 return {"success": False, "error": "Essential genome template not found"}
                 
             self.logger.info(f"Loading essential genome from {essential_path}")
                 
-            with open(essential_path, 'r') as f:
+            with essential_path.open('r') as f:
                 genome_data = json.load(f)
             
             # Set the genome file name
@@ -100,37 +106,42 @@ class GenomeService(BaseService):
         """Load the barebones genome from the default templates."""
         try:
             # Multiple possible locations to look for the barebones genome
+            current_file = Path(__file__)
+            current_dir = current_file.parent
+            cwd = Path.cwd()
+            feagi_home = Path(os.environ.get("FEAGI_HOME", ""))
+            
             possible_paths = [
                 # Original path
-                os.path.join(os.path.dirname(__file__), "../../../../evo/defaults/genome/barebones_genome.json"),
+                current_dir / "../../../../evo/defaults/genome/barebones_genome.json",
                 
                 # Alternative paths relative to current file
-                os.path.join(os.path.dirname(__file__), "../../../../../feagi/evo/defaults/genome/barebones_genome.json"),
-                os.path.join(os.path.dirname(__file__), "../../../../../evo/defaults/genome/barebones_genome.json"),
+                current_dir / "../../../../../feagi/evo/defaults/genome/barebones_genome.json", 
+                current_dir / "../../../../../evo/defaults/genome/barebones_genome.json",
                 
                 # Paths relative to working directory
-                os.path.join(os.getcwd(), "feagi/evo/defaults/genome/barebones_genome.json"),
-                os.path.join(os.getcwd(), "feagi_core/feagi/evo/defaults/genome/barebones_genome.json"),
+                cwd / "feagi/evo/defaults/genome/barebones_genome.json",
+                cwd / "feagi_core/feagi/evo/defaults/genome/barebones_genome.json",
                 
                 # Check FEAGI_HOME environment variable if set
-                os.path.join(os.environ.get("FEAGI_HOME", ""), "evo/defaults/genome/barebones_genome.json"),
+                feagi_home / "evo/defaults/genome/barebones_genome.json" if feagi_home.name else None,
             ]
             
             # Find the first existing path
             barebones_path = None
             for path in possible_paths:
-                if path and os.path.exists(path):
+                if path and path.exists():
                     barebones_path = path
                     break
                     
             if not barebones_path:
                 self.logger.error(f"Barebones genome template not found in any expected location")
-                self.logger.error(f"Checked paths: {possible_paths}")
+                self.logger.error(f"Checked paths: {[str(p) for p in possible_paths if p]}")
                 return {"success": False, "error": "Barebones genome template not found"}
                 
             self.logger.info(f"Loading barebones genome from {barebones_path}")
                 
-            with open(barebones_path, 'r') as f:
+            with barebones_path.open('r') as f:
                 genome_data = json.load(f)
             
             # Set the genome file name
@@ -482,31 +493,29 @@ class GenomeService(BaseService):
         """Get a list of default genome files with their contents."""
         try:
             # Get the data path where default genomes are stored
-            defaults_path = os.path.join(self._get_data_path(), "genome")
+            defaults_path = Path(self._get_data_path()) / "genome"
             
             # Check if the directory exists
-            if not os.path.exists(defaults_path):
+            if not defaults_path.exists():
                 self.logger.warning(f"Default genomes directory not found: {defaults_path}")
                 return {}
             
             # Get all .json files in the directory
             default_genomes = {}
             
-            for filename in os.listdir(defaults_path):
-                if filename.endswith(".json"):
-                    file_path = os.path.join(defaults_path, filename)
-                    try:
-                        with open(file_path, 'r') as f:
-                            genome_data = json.load(f)
-                            
-                            # Store basic metadata about the genome
-                            default_genomes[filename] = {
-                                "title": genome_data.get("genome_title", "Untitled Genome"),
-                                "description": genome_data.get("genome_description", ""),
-                                "file_path": file_path
-                            }
-                    except Exception as e:
-                        self.logger.error(f"Error loading default genome {filename}: {str(e)}")
+            for file_path in defaults_path.glob("*.json"):
+                try:
+                    with file_path.open('r') as f:
+                        genome_data = json.load(f)
+                        
+                        # Store basic metadata about the genome
+                        default_genomes[file_path.name] = {
+                            "title": genome_data.get("genome_title", "Untitled Genome"),
+                            "description": genome_data.get("genome_description", ""),
+                            "file_path": str(file_path)
+                        }
+                except Exception as e:
+                    self.logger.error(f"Error loading default genome {file_path.name}: {str(e)}")
             
             return default_genomes
                 
@@ -517,19 +526,22 @@ class GenomeService(BaseService):
     def _get_data_path(self) -> str:
         """Get the data directory path."""
         # Try multiple possible locations
+        current_dir = Path(__file__).parent
+        cwd = Path.cwd()
+        
         possible_paths = [
-            os.path.join(os.path.dirname(__file__), "../../../../data"),
-            os.path.join(os.getcwd(), "data"),
-            os.path.join(os.getcwd(), "feagi_core/data"),
-            os.environ.get("FEAGI_DATA_PATH", "")
+            current_dir / "../../../../data",
+            cwd / "data",
+            cwd / "feagi_core/data",
+            Path(os.environ.get("FEAGI_DATA_PATH", "")) if os.environ.get("FEAGI_DATA_PATH") else None
         ]
         
         for path in possible_paths:
-            if path and os.path.exists(path):
-                return path
+            if path and path.exists():
+                return str(path)
                 
         # If no path exists, return the first one as default
-        return possible_paths[0]
+        return str(possible_paths[0])
 
     def get_genome_counter(self) -> int:
         """Get the current genome counter."""
@@ -575,7 +587,8 @@ class GenomeService(BaseService):
             self.logger.info(f"Deploying genome from {genome_filepath}", emoji1="🧬")
             
             # Ensure the file exists
-            if not os.path.exists(genome_filepath):
+            genome_path = Path(genome_filepath)
+            if not genome_path.exists():
                 self.logger.error(f"Genome file not found: {genome_filepath}", emoji1="❌")
                 return False
                 
@@ -586,11 +599,11 @@ class GenomeService(BaseService):
                 self.state_manager.set_brain_readiness(False)
                 
             # Load the genome data
-            with open(genome_filepath, 'r') as f:
+            with genome_path.open('r') as f:
                 genome_data = json.load(f)
                 
             # Extract the filename for reference
-            filename = os.path.basename(genome_filepath)
+            filename = genome_path.name
                 
             # Load the genome using the service
             result = self.load_genome(genome_data, filename=filename)
