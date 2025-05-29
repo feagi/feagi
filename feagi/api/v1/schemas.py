@@ -70,6 +70,9 @@ class HealthCheckResponse(BaseModel):
     neuron_count: Optional[int] = None
     synapse_count: Optional[int] = None
     estimated_brain_size_in_MB: Optional[float] = None
+    # Genome tracking fields for downstream clients (Bridge/Godot)
+    genome_num: Optional[int] = None
+    genome_timestamp: Optional[int] = None
 
 
 class ConfigurationResponse(BaseModel):

@@ -127,7 +127,9 @@ class SystemAPI:
                 cortical_area_count=health.get('cortical_area_count'),
                 neuron_count=health.get('neuron_count'),
                 synapse_count=health.get('synapse_count'),
-                estimated_brain_size_in_MB=health.get('estimated_brain_size_in_MB')
+                estimated_brain_size_in_MB=health.get('estimated_brain_size_in_MB'),
+                genome_num=health.get('genome_num'),
+                genome_timestamp=health.get('genome_timestamp')
             )
         except Exception as e:
             logger.error(f"Error getting system health: {e}")
