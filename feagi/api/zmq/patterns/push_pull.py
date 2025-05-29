@@ -382,8 +382,24 @@ class PushPullManager:
         await self.push_server.start()
     
     async def stop(self) -> None:
-        """Stop the PushPull manager."""
-        await self.push_server.stop()
+        """Stop the PushPull manager with RTOS-friendly error handling."""
+        try:
+            # Check if we're in an event loop context
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in a loop, proceed normally
+                await self.push_server.stop()
+            except RuntimeError:
+                # No running loop, try to stop gracefully without await
+                if hasattr(self.push_server, 'running'):
+                    self.push_server.running = False
+                if hasattr(self.push_server, 'socket') and self.push_server.socket:
+                    try:
+                        self.push_server.socket.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing push server socket during no-loop shutdown: {e}")
+        except Exception as e:
+            logger.warning(f"Error stopping PushPull manager: {e}")
     
     async def queue_work(
         self, 

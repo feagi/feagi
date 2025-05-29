@@ -315,6 +315,8 @@ class SensoryNeuralStream:
             # Only commit the write slot if we actually processed data
             if data_processed:
                 self.ring_buffer.commit_write(slot)
+            # Clear the slot reference to help with memory cleanup
+            slot = None
             # If no data was processed, the slot will be automatically released
     
     async def _handle_neuron_flat(
