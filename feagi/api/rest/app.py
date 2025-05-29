@@ -594,6 +594,16 @@ def create_rest_app(connectome: ConnectomeManager = None):
         responses=standard_response
     )
     
+    # Add the debug control router
+    from feagi.api.rest.v1.debug import router as debug_router
+    app.include_router(
+        debug_router,
+        prefix="/v1",
+        tags=["DEBUG"],
+        dependencies=[],
+        responses=standard_response
+    )
+    
     logger.info("[OK] All FastAPI routers included successfully")
     
     # Set state in FeagiStateManager
