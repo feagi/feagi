@@ -446,12 +446,10 @@ class ProcessManager:
                     from feagi.core.health_monitor import HealthMonitor
                     
                     health_monitor = HealthMonitor()
-                    if health_monitor.start():
-                        self._processes['health_monitor'] = health_monitor
-                        logger.info("Health monitor started")
-                    else:
-                        logger.warning("Failed to start health monitor - continuing without it")
-                        
+                    health_monitor.start_monitoring()
+                    self._processes['health_monitor'] = health_monitor
+                    logger.info("Health monitor started")
+                    
             except Exception as e:
                 logger.warning(f"Health monitor initialization failed: {e}")
                 # Non-critical - continue without health monitoring
@@ -619,11 +617,9 @@ class ProcessManager:
                     from feagi.core.health_monitor import HealthMonitor
                     
                     health_monitor = HealthMonitor()
-                    if health_monitor.start():
-                        self._processes['health_monitor'] = health_monitor
-                        logger.info("Health monitor started")
-                    else:
-                        logger.warning("Failed to start health monitor - continuing without it")
+                    health_monitor.start_monitoring()
+                    self._processes['health_monitor'] = health_monitor
+                    logger.info("Health monitor started")
                 elif embedded_mode:
                     logger.info("[CONFIG] Embedded mode: Health monitor disabled")
                         

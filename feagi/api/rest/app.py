@@ -410,11 +410,11 @@ def create_rest_app(connectome: ConnectomeManager = None):
         
     else:
         # Standalone mode (development/testing)
-        logger.info("Running in standalone mode, creating new ConnectomeManager", status="[CONFIG]")
+        logger.info("Running in standalone mode, using singleton ConnectomeManager", status="[CONFIG]")
         
         if connectome is None:
             from feagi.bdu.connectome_manager import ConnectomeManager
-            connectome = ConnectomeManager()
+            connectome = ConnectomeManager.instance()  # Use singleton pattern instead of direct instantiation
             
         # Create a basic CoreAPIService for standalone operation
         from feagi.core import create_core_api
