@@ -1217,17 +1217,66 @@ class CoreAPIService:
             raise ValueError(f"Failed to delete morphology: {str(e)}")
     
     def get_detailed_cortical_map(self) -> Dict[str, Any]:
-        """Get detailed cortical map."""
+        """
+        Get detailed cortical mapping information in the expected format.
+        
+        Returns a dictionary where each cortical area ID maps to its connection targets
+        with detailed morphology and plasticity parameters.
+        
+        Returns:
+            Dict[str, Any]: Mapping data in the expected format
+        """
+        logger.info("Getting detailed cortical map...")
+        
         try:
-            areas = self.get_all_cortical_areas()
-            return {
-                "areas": areas,
-                "total_count": len(areas),
-                "connections": self.get_area_to_area_connectivity()
-            }
+            # Get all cortical areas using the correct service method
+            all_areas_list = self._cortical_area_service.get_all_areas()
+            
+            # Build the mapping response
+            mapping_response = {}
+            
+            for area_data in all_areas_list:
+                area_id = area_data.get('id')
+                if not area_id:
+                    continue
+                    
+                # Initialize area entry (empty dict for areas with no outgoing connections)
+                mapping_response[area_id] = {}
+                
+                # Get the area's mapping data from its parameters
+                area_parameters = area_data.get('parameters', {})
+                area_mapping = area_parameters.get('mapping', {})
+                
+                if area_mapping:
+                    # Convert each target area's mapping data to the expected format
+                    for target_area_id, connection_list in area_mapping.items():
+                        if not connection_list:
+                            continue
+                            
+                        # Convert each connection from array format to object format
+                        formatted_connections = []
+                        for connection_data in connection_list:
+                            if isinstance(connection_data, list) and len(connection_data) >= 7:  # Ensure we have all required fields
+                                formatted_connection = {
+                                    "morphology_id": connection_data[0],
+                                    "morphology_scalar": connection_data[1],
+                                    "postSynapticCurrent_multiplier": connection_data[2], 
+                                    "plasticity_flag": connection_data[3],
+                                    "plasticity_constant": connection_data[4],
+                                    "ltp_multiplier": connection_data[5],
+                                    "ltd_multiplier": connection_data[6]
+                                }
+                                formatted_connections.append(formatted_connection)
+                        
+                        if formatted_connections:
+                            mapping_response[area_id][target_area_id] = formatted_connections
+            
+            logger.info(f"Generated detailed cortical map for {len(mapping_response)} areas")
+            return mapping_response
+            
         except Exception as e:
-            self.logger.error(f"Error getting detailed cortical map: {str(e)}")
-            return {}
+            logger.error(f"Error generating detailed cortical map: {e}")
+            raise
     
     def get_data_path(self) -> str:
         """Get data path."""

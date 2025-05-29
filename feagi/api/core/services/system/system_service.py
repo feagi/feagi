@@ -99,6 +99,9 @@ class SystemService(BaseService):
             
             # CRITICAL: Include genome_timestamp for downstream clients (Bridge/Godot)
             health["genome_timestamp"] = self.state_manager.get_genome_timestamp()
+
+            # CRITICAL: Include genome_num for downstream clients (Bridge/Godot) to track genome counter increments
+            health["genome_num"] = self.state_manager.get_genome_counter()
             
             # Use the proper state manager method to check if genome is loaded
             if self.state_manager.is_genome_loaded():
