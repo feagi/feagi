@@ -278,13 +278,13 @@ class ZMQDebugger:
                     topic: str = "", context: str = ""):
         """
         Log outbound ZMQ traffic with minimal performance impact.
-        
-        Args:
+    
+    Args:
             endpoint: ZMQ endpoint
             data: Raw bytes or list of frames
             message_type: Type of message for filtering
-            topic: ZMQ topic (for PUB/SUB)
-            context: Additional context information
+        topic: ZMQ topic (for PUB/SUB)
+        context: Additional context information
         """
         # Fast path: if debugging disabled, return immediately (zero overhead)
         if not self._outbound_enabled:
@@ -302,8 +302,8 @@ class ZMQDebugger:
             # Rate limiting
             if not self._check_rate_limit():
                 self._stats.rate_limited_messages += 1
-                return
             
+                return
             # Prepare data for logging
             frames = data if isinstance(data, list) else [data]
             total_size = sum(len(frame) for frame in frames)
@@ -335,13 +335,13 @@ class ZMQDebugger:
                    context: str = ""):
         """
         Log inbound ZMQ traffic with minimal performance impact.
-        
-        Args:
+    
+    Args:
             endpoint: ZMQ endpoint
-            frames: List of ZMQ frames received
+        frames: List of ZMQ frames received
             message_type: Type of message for filtering
-            context: Additional context information
-        """
+        context: Additional context information  
+    """
         # Fast path: if debugging disabled, return immediately (zero overhead)
         if not self._inbound_enabled:
             return
@@ -442,18 +442,8 @@ class ZMQDebugger:
         
         if self._debug_level == DebugLevel.HEADERS:
             output_logger.info("   " + "─" * 40)
-            return
-        
-        # Summary and full logging - show frame data
-        for i, frame in enumerate(frames):
-            if self._debug_level == DebugLevel.SUMMARY:
-                preview = self._get_data_preview(frame, self._max_data_preview)
-                output_logger.info(f"   📄 Frame {i}: {preview}")
-            elif self._debug_level == DebugLevel.FULL:
-                full_data = self._decode_frame_data(frame)
-                output_logger.info(f"   📄 Frame {i}: {full_data}")
-        
-        output_logger.info("   " + "─" * 40)
+        return
+    
     
     def _get_data_preview(self, data: bytes, max_chars: int) -> str:
         """Get a truncated preview of frame data."""
