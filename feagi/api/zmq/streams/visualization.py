@@ -228,7 +228,7 @@ class VisualizationStream:
         logger.info(f"[OK] Visualization stream started with {len(self.worker_threads)} worker threads")
 
     def stop(self) -> None:
-        """Stop the visualization stream gracefully with improved timeout handling."""
+        """Stop the visualization stream gracefully with improved timeout handling and race condition prevention."""
         if not self.running:
             return
             
@@ -236,20 +236,10 @@ class VisualizationStream:
         self.running = False
         self._stop_event.set()
         
-        # Close socket FIRST to prevent new connections and operations
-        if self.socket:
-            logger.debug("Closing ZMQ socket...")
-            try:
-                self.socket.close(linger=0)  # Don't wait for pending messages
-            except Exception as e:
-                logger.warning(f"Error closing socket: {e}")
-            finally:
-                self.socket = None
-
-        # Wait for worker threads with improved timeout handling
+        # SOLUTION 8: Wait for worker threads BEFORE closing socket to prevent race conditions
         total_threads = len(self.worker_threads)
         if total_threads > 0:
-            logger.debug(f"Waiting for {total_threads} worker threads to stop...")
+            logger.debug(f"Waiting for {total_threads} worker threads to stop before socket cleanup...")
             
             # Use shorter timeout per thread and global maximum
             MAX_TOTAL_WAIT = 3.0  # Maximum 3 seconds total wait
@@ -277,6 +267,17 @@ class VisualizationStream:
                         logger.debug(f"Thread {thread.name} stopped gracefully")
                 else:
                     logger.debug(f"Thread {i}/{total_threads}: {thread.name} already stopped")
+
+        # SOLUTION 9: Close socket AFTER worker threads have stopped to prevent race conditions
+        if self.socket:
+            logger.debug("Closing ZMQ socket after worker threads stopped...")
+            try:
+                self.socket.close(linger=0)  # Don't wait for pending messages
+                logger.debug("Socket closed successfully")
+            except Exception as e:
+                logger.warning(f"Error closing socket: {e}")
+            finally:
+                self.socket = None
 
         # Clear worker thread list regardless of join status
         self.worker_threads.clear()
@@ -341,7 +342,11 @@ class VisualizationStream:
                 # Process and send data based on type (enhanced processing like full version)
                 if isinstance(fq_data, bytes):
                     # Already serialized data
-                    self._publish_data(fq_data)
+                    # SOLUTION 10: Additional safety check before publishing
+                    if self.socket and self.running:
+                        self._publish_data(fq_data)
+                    else:
+                        logger.debug("Skipping data publish: socket or stream not available")
                     
                 elif isinstance(fq_data, dict) and 'target' in fq_data:
                     # Tagged format from enhanced FQ sampler (crucial feature from full version)
@@ -350,25 +355,45 @@ class VisualizationStream:
                             # Area-specific data
                             cortical_id = fq_data['cortical_id']
                             fire_queue_data = fq_data['fire_queue_data']
-                            self._process_tuple_data((cortical_id, fire_queue_data))
+                            # SOLUTION 10: Additional safety check before processing
+                            if self.socket and self.running:
+                                self._process_tuple_data((cortical_id, fire_queue_data))
+                            else:
+                                logger.debug("Skipping tuple data processing: socket or stream not available")
                         elif 'fire_queue_data' in fq_data:
                             # Global data
                             fire_queue_data = fq_data['fire_queue_data']
-                            self._process_dict_data(fire_queue_data)
+                            # SOLUTION 10: Additional safety check before processing
+                            if self.socket and self.running:
+                                self._process_dict_data(fire_queue_data)
+                            else:
+                                logger.debug("Skipping dict data processing: socket or stream not available")
                         elif 'data' in fq_data:
                             # Pre-encoded data
                             data = fq_data.get('data')
                             if isinstance(data, bytes):
-                                self._publish_data(data)
+                                # SOLUTION 10: Additional safety check before publishing
+                                if self.socket and self.running:
+                                    self._publish_data(data)
+                                else:
+                                    logger.debug("Skipping pre-encoded data publish: socket or stream not available")
                 
                 elif isinstance(fq_data, tuple) and len(fq_data) == 2:
                     # Legacy (cortical_id, fire_data) tuple format
                     logger.debug(f"Processing neural data for: {fq_data[0]}")
-                    self._process_tuple_data(fq_data)
+                    # SOLUTION 10: Additional safety check before processing
+                    if self.socket and self.running:
+                        self._process_tuple_data(fq_data)
+                    else:
+                        logger.debug("Skipping legacy tuple processing: socket or stream not available")
                 
                 elif isinstance(fq_data, dict):
                     # Legacy fire queue dict format
-                    self._process_dict_data(fq_data)
+                    # SOLUTION 10: Additional safety check before processing
+                    if self.socket and self.running:
+                        self._process_dict_data(fq_data)
+                    else:
+                        logger.debug("Skipping legacy dict processing: socket or stream not available")
                 
                 elif isinstance(fq_data, str) and fq_data == "STOP":
                     logger.info("Received STOP signal")
@@ -388,13 +413,29 @@ class VisualizationStream:
 
     def _publish_data(self, data: bytes) -> None:
         """
-        Publish data on the 'activity' topic.
-        Use synchronous ZMQ operations with error handling.
+        Publish data on the 'activity' topic with comprehensive error handling.
+        Use synchronous ZMQ operations with race condition protection.
         """
+        # SOLUTION 1: Defensive null check to prevent race condition
+        if not self.socket:
+            logger.debug("Cannot publish data: socket is None (likely during shutdown)")
+            return
+            
+        # SOLUTION 2: Additional running state check
+        if not self.running:
+            logger.debug("Cannot publish data: stream is not running")
+            return
+            
         try:
+            # SOLUTION 3: Atomic socket reference to prevent mid-operation changes
+            socket_ref = self.socket
+            if not socket_ref:
+                logger.debug("Socket became None during operation")
+                return
+                
             # Use basic synchronous send operations
-            self.socket.send(b"activity", zmq.SNDMORE)
-            self.socket.send(data)
+            socket_ref.send(b"activity", zmq.SNDMORE)
+            socket_ref.send(data)
             
             # Update statistics
             self.stats['data_sent'] += 1
@@ -408,30 +449,58 @@ class VisualizationStream:
             if self.stats['data_sent'] <= 3:
                 logger.info(f"Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
             
-        except Exception as e:
-            logger.error(f"Failed to publish data: {e}")
-            
-            # Handle ZMQ state corruption specifically
-            if "Operation cannot be accomplished in current state" in str(e):
+        except AttributeError as e:
+            # SOLUTION 4: Specific handling for socket = None race condition
+            if "'NoneType' object has no attribute 'send'" in str(e):
+                logger.debug("Socket became None during send operation (race condition during shutdown)")
+                return
+            else:
+                logger.error(f"Unexpected AttributeError in publish_data: {e}")
+                
+        except zmq.ZMQError as e:
+            # SOLUTION 5: Enhanced ZMQ-specific error handling
+            if e.errno == zmq.ETERM:
+                logger.debug("ZMQ context terminated - stopping publish operations")
+                return
+            elif e.errno == zmq.EAGAIN:
+                logger.warning("ZMQ socket not ready for sending (EAGAIN) - dropping message")
+                return
+            elif "Operation cannot be accomplished in current state" in str(e):
                 logger.warning("ZMQ socket corrupted, attempting recreation...")
                 try:
                     self._recreate_socket()
-                    # Retry once
-                    self.socket.send(b"activity", zmq.SNDMORE)
-                    self.socket.send(data)
-                    logger.info("Socket recreated and retry successful")
+                    # Retry once with null check
+                    if self.socket and self.running:
+                        self.socket.send(b"activity", zmq.SNDMORE)
+                        self.socket.send(data)
+                        logger.info("Socket recreated and retry successful")
+                    else:
+                        logger.debug("Cannot retry: socket or stream not available after recreation")
                 except Exception as retry_error:
                     logger.error(f"Socket recreation failed: {retry_error}")
             else:
-                # Log error details for non-corruption errors
-                logger.error(f"Publishing error type: {type(e).__name__}")
-                if logger.isEnabledFor(10):  # DEBUG level
-                    import traceback
-                    logger.debug(f"Publishing traceback: {traceback.format_exc()}")
+                logger.error(f"ZMQ error in publish_data: {e} (errno: {e.errno})")
+                
+        except Exception as e:
+            # SOLUTION 6: Generic exception handling with detailed logging
+            logger.error(f"Failed to publish data: {e}")
+            logger.error(f"Publishing error type: {type(e).__name__}")
+            if logger.isEnabledFor(10):  # DEBUG level
+                import traceback
+                logger.debug(f"Publishing traceback: {traceback.format_exc()}")
 
     def _recreate_socket(self):
-        """Recreate the ZMQ socket when it gets corrupted."""
+        """Recreate the ZMQ socket when it gets corrupted with improved error handling."""
         logger.warning("Recreating corrupted ZMQ socket...")
+        
+        # SOLUTION 7: Enhanced socket recreation with state validation
+        if not self.running:
+            logger.debug("Not recreating socket: stream is shutting down")
+            return
+            
+        if not self.context:
+            logger.error("Cannot recreate socket: ZMQ context is None")
+            return
         
         # Close old socket if it exists
         if self.socket:
@@ -439,7 +508,7 @@ class VisualizationStream:
                 self.socket.close(linger=0)
                 logger.debug("Old socket closed")
             except Exception as e:
-                logger.error(f"Error closing old socket: {e}")
+                logger.warning(f"Error closing old socket (continuing): {e}")
         
         # Recreate socket with same settings
         try:
@@ -451,8 +520,13 @@ class VisualizationStream:
             self.socket.bind(bind_addr)
             logger.info(f"Socket recreated and bound to {bind_addr}")
             
+        except zmq.ZMQError as e:
+            logger.error(f"ZMQ error recreating socket: {e} (errno: {e.errno})")
+            self.socket = None
+            raise
         except Exception as e:
             logger.error(f"Failed to recreate socket: {e}")
+            self.socket = None
             raise
 
     def _process_tuple_data(self, fq_data) -> None:
@@ -657,9 +731,15 @@ class VisualizationStream:
                 logger.debug(f"FQ sampler control traceback: {traceback.format_exc()}")
 
     def send_visualization_data(self, data) -> None:
-        """Compatibility method for external data sending."""
-        if isinstance(data, bytes):
-            self._publish_data(data)
+        """
+        Compatibility method for external data sending with improved error handling.
+        """
+        if not isinstance(data, bytes):
+            logger.warning(f"send_visualization_data: expected bytes, got {type(data)}")
+            return
+            
+        # Use the improved _publish_data method
+        self._publish_data(data)
 
     def _client_cleanup_worker(self) -> None:
         """
@@ -741,4 +821,105 @@ class VisualizationStream:
                     if self._stop_event.wait(timeout=0.2):
                         return
         
-        logger.debug("Subscriber monitoring stopped") 
+        logger.debug("Subscriber monitoring stopped")
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """
+        Get comprehensive health status for debugging and monitoring.
+        
+        Returns:
+            Dictionary with detailed health information
+        """
+        import threading
+        
+        # Basic status
+        status = {
+            'running': self.running,
+            'active_mode': self._active_mode,
+            'socket_available': self.socket is not None,
+            'context_available': self.context is not None,
+            'worker_thread_count': len(self.worker_threads),
+            'stop_event_set': self._stop_event.is_set() if hasattr(self, '_stop_event') else None
+        }
+        
+        # Socket details
+        if self.socket:
+            try:
+                status['socket_type'] = self.socket.socket_type
+                status['socket_closed'] = self.socket.closed
+                status['socket_linger'] = self.socket.getsockopt(zmq.LINGER)
+                status['socket_hwm'] = self.socket.getsockopt(zmq.SNDHWM)
+            except Exception as e:
+                status['socket_error'] = str(e)
+        else:
+            status['socket_details'] = 'Socket is None'
+            
+        # Worker thread details
+        thread_status = []
+        for i, thread in enumerate(self.worker_threads):
+            thread_info = {
+                'index': i,
+                'name': thread.name,
+                'alive': thread.is_alive(),
+                'daemon': thread.daemon,
+                'ident': thread.ident
+            }
+            thread_status.append(thread_info)
+        status['worker_threads'] = thread_status
+        
+        # Queue status
+        if self.fq_sampler_queue:
+            try:
+                if hasattr(self.fq_sampler_queue, 'qsize'):
+                    status['queue_size'] = self.fq_sampler_queue.qsize()
+                elif hasattr(self.fq_sampler_queue, '_queue'):
+                    status['queue_size'] = len(self.fq_sampler_queue._queue)
+                else:
+                    status['queue_size'] = 'unknown'
+            except Exception as e:
+                status['queue_error'] = str(e)
+        else:
+            status['queue_status'] = 'No queue provided'
+            
+        # Statistics
+        status['stats'] = self.get_stats()
+        
+        return status
+
+    def validate_socket_state(self) -> bool:
+        """
+        Validate socket state and attempt recovery if needed.
+        
+        Returns:
+            True if socket is healthy, False otherwise
+        """
+        if not self.socket:
+            logger.warning("Socket validation failed: socket is None")
+            return False
+            
+        if not self.running:
+            logger.debug("Socket validation skipped: stream not running")
+            return False
+            
+        try:
+            # Test socket health by checking basic properties
+            socket_type = self.socket.socket_type
+            is_closed = self.socket.closed
+            
+            if is_closed:
+                logger.warning("Socket validation failed: socket is closed")
+                return False
+                
+            if socket_type != zmq.PUB:
+                logger.error(f"Socket validation failed: unexpected socket type {socket_type}")
+                return False
+                
+            logger.debug("Socket validation passed")
+            return True
+            
+        except zmq.ZMQError as e:
+            logger.error(f"Socket validation failed with ZMQ error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Socket validation failed with error: {e}")
+            return False 
