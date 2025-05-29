@@ -48,6 +48,7 @@ import zmq
 import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
+from feagi.utils.zmq_debug import log_outbound, MessageType
 
 # Import the unified CoreAPIService  
 from ...core.services.core_api_service import CoreAPIService
@@ -469,6 +470,16 @@ class MotorStream:
             if not self._active_mode:
                 logger.debug("Motor stream in STANDBY mode, skipping data send")
                 return
+            
+            # Debug logging for outbound motor data (zero-overhead when disabled)
+            debug_endpoint = f"tcp://{self.host}:{self.port}"
+            log_outbound(
+                endpoint=debug_endpoint,
+                data=[channel.encode('utf-8'), binary_data],
+                message_type=MessageType.MOTOR,
+                topic=channel,
+                context=f"motor_cmd"
+            )
                 
             # Send data on specified motor channel
             await self.socket.send_multipart([
@@ -503,6 +514,16 @@ class MotorStream:
             if not self.rate_limiter.check_rate(f"motor_{channel_id}", 0.01):  # Max 100Hz per channel
                 logger.debug(f"Rate limiting motor data on channel {channel_id}")
                 return
+            
+            # Debug logging for outbound motor data (zero-overhead when disabled)
+            debug_endpoint = f"tcp://{self.host}:{self.port}"
+            log_outbound(
+                endpoint=debug_endpoint,
+                data=[channel_id.encode('utf-8'), data],
+                message_type=MessageType.MOTOR,
+                topic=channel_id,
+                context=f"external_motor_cmd"
+            )
                 
             # Send multipart message with topic (channel_id) and data
             await self.socket.send_multipart([
