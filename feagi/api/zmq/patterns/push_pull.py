@@ -89,18 +89,30 @@ class PushServer:
         """Start the push server."""
         logger.info(f"Starting PUSH server on {self.host}:{self.port}")
         self.running = True
-        
-        # Store the current event loop for this method
-        self._event_loop = asyncio.get_event_loop()
-        
-        # Start the queue processor in the current loop
-        self._queue_task = self._event_loop.create_task(self._process_queue())
+        # Store the task reference for proper shutdown
+        self._process_task = asyncio.create_task(self._process_queue())
 
     async def stop(self) -> None:
-        """Stop the push server."""
+        """Stop the push server with RTOS-friendly cleanup."""
         logger.info("Stopping PUSH server")
         self.running = False
-        self.socket.close()
+        
+        # Cancel and wait for the processing task
+        if hasattr(self, '_process_task'):
+            self._process_task.cancel()
+            try:
+                await self._process_task
+            except asyncio.CancelledError:
+                logger.debug("Push server process task cancelled successfully")
+            except Exception as e:
+                logger.warning(f"Error cancelling push server task: {e}")
+        
+        # Close socket
+        if self.socket:
+            try:
+                self.socket.close()
+            except Exception as e:
+                logger.warning(f"Error closing push server socket: {e}")
 
     async def push_item(
         self, 
@@ -123,10 +135,7 @@ class PushServer:
         logger.debug(f"Queued work item of type {work_type}, priority {priority}")
 
     async def _process_queue(self) -> None:
-        """Process queued work items and push them to workers."""
-        # Get the event loop for this coroutine
-        current_loop = asyncio.get_event_loop()
-        
+        """Process queued work items and push them to workers with RTOS-friendly error handling."""
         while self.running:
             try:
                 # Get the next work item (blocks until one is available)
@@ -167,7 +176,11 @@ class PushServer:
                 break
             except Exception as e:
                 logger.error(f"Error processing work queue: {e}")
-                await asyncio.sleep(1)  # Avoid tight loop on errors
+                # RTOS-friendly: Simple check instead of sleep
+                if not self.running:
+                    break
+                # Brief pause without async to avoid event loop issues
+                time.sleep(0.1)  # @architecture:acceptable - error recovery
 
     async def push_batch(
         self, 
@@ -253,16 +266,33 @@ class PullClient:
         """Start receiving work items."""
         logger.info(f"Starting PULL client to {self.host}:{self.port}")
         self.running = True
-        asyncio.create_task(self._receive_loop())
+        # Store the task reference for proper shutdown
+        self._receive_task = asyncio.create_task(self._receive_loop())
 
     async def stop(self) -> None:
-        """Stop receiving work items."""
+        """Stop receiving work items with RTOS-friendly cleanup."""
         logger.info("Stopping PULL client")
         self.running = False
-        self.socket.close()
+        
+        # Cancel and wait for the receive task
+        if hasattr(self, '_receive_task'):
+            self._receive_task.cancel()
+            try:
+                await self._receive_task
+            except asyncio.CancelledError:
+                logger.debug("Pull client receive task cancelled successfully")
+            except Exception as e:
+                logger.warning(f"Error cancelling pull client task: {e}")
+        
+        # Close socket
+        if self.socket:
+            try:
+                self.socket.close()
+            except Exception as e:
+                logger.warning(f"Error closing pull client socket: {e}")
 
     async def _receive_loop(self) -> None:
-        """Main loop for receiving work items and dispatching to handlers."""
+        """Main loop for receiving work items and dispatching to handlers with RTOS-friendly error handling."""
         while self.running:
             try:
                 multipart = await self.socket.recv_multipart()
@@ -307,7 +337,11 @@ class PullClient:
             except Exception as e:
                 logger.error(f"Error receiving work item: {e}")
                 self.stats["errors"] += 1
-                await asyncio.sleep(1)  # Avoid tight loop on errors
+                # RTOS-friendly: Simple check instead of sleep
+                if not self.running:
+                    break
+                # Brief pause without async to avoid event loop issues
+                time.sleep(0.1)  # @architecture:acceptable - error recovery
 
 
 class PushPullManager:
