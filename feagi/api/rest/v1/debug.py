@@ -47,6 +47,19 @@ class ZMQDebugConfig(BaseModel):
     endpoint_filters: Optional[List[str]] = None  # Empty list = all endpoints
     rate_limit_per_second: Optional[int] = None
     console_output: Optional[bool] = None  # Enable console output
+    
+    class Config:
+        # Make the model more permissive for Swagger UI
+        extra = "ignore"  # Ignore extra fields
+        # Add example for Swagger UI
+        json_schema_extra = {
+            "example": {
+                "console_output": True,
+                "debug_level": "summary",
+                "message_filters": ["visualization"],
+                "rate_limit_per_second": 10
+            }
+        }
 
 
 class ZMQDebugResponse(BaseModel):
@@ -101,55 +114,100 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
     Changes take effect immediately without restart.
     """
     try:
+        # Track what we're configuring for better error messages
+        configured_fields = []
+        
         if config.inbound_enabled is not None:
             enable_inbound_debug(config.inbound_enabled)
+            configured_fields.append(f"inbound_enabled={config.inbound_enabled}")
         
         if config.outbound_enabled is not None:
             enable_outbound_debug(config.outbound_enabled)
+            configured_fields.append(f"outbound_enabled={config.outbound_enabled}")
         
         if config.debug_level is not None:
+            if not isinstance(config.debug_level, str):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"debug_level must be a string, got {type(config.debug_level).__name__}"
+                )
             try:
                 level = DebugLevel[config.debug_level.upper()]
                 set_debug_level(level)
+                configured_fields.append(f"debug_level={config.debug_level}")
             except KeyError:
+                valid_levels = [level.name.lower() for level in DebugLevel]
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"Invalid debug level: {config.debug_level}. Valid levels: off, minimal, headers, summary, full"
+                    detail=f"Invalid debug level: '{config.debug_level}'. Valid levels: {valid_levels}"
                 )
         
         if config.message_filters is not None:
+            if not isinstance(config.message_filters, list):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"message_filters must be a list, got {type(config.message_filters).__name__}"
+                )
             try:
                 filters = [MessageType(f.lower()) for f in config.message_filters]
                 set_message_filters(filters)
+                configured_fields.append(f"message_filters={config.message_filters}")
             except ValueError as e:
                 valid_types = [mt.value for mt in MessageType]
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid message type in filters. Valid types: {valid_types}"
+                    detail=f"Invalid message type in filters: {config.message_filters}. Valid types: {valid_types}"
                 )
         
         if config.endpoint_filters is not None:
+            if not isinstance(config.endpoint_filters, list):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"endpoint_filters must be a list, got {type(config.endpoint_filters).__name__}"
+                )
             set_endpoint_filters(config.endpoint_filters)
+            configured_fields.append(f"endpoint_filters={config.endpoint_filters}")
         
         if config.rate_limit_per_second is not None:
+            if not isinstance(config.rate_limit_per_second, int):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rate_limit_per_second must be an integer, got {type(config.rate_limit_per_second).__name__}"
+                )
             if config.rate_limit_per_second < 1 or config.rate_limit_per_second > 10000:
                 raise HTTPException(
                     status_code=400,
-                    detail="Rate limit must be between 1 and 10000 messages per second"
+                    detail=f"Rate limit must be between 1 and 10000 messages per second, got {config.rate_limit_per_second}"
                 )
             set_rate_limit(config.rate_limit_per_second)
+            configured_fields.append(f"rate_limit_per_second={config.rate_limit_per_second}")
         
         if config.console_output is not None:
+            if not isinstance(config.console_output, bool):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"console_output must be a boolean, got {type(config.console_output).__name__}"
+                )
             set_console_output(config.console_output)
+            configured_fields.append(f"console_output={config.console_output}")
         
         # Return updated status
         status = get_debug_status()
-        return {"status": "configured", "current_config": status}
+        return {
+            "status": "configured", 
+            "configured_fields": configured_fields,
+            "current_config": status
+        }
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error configuring debug settings: {str(e)}")
+        # More detailed error for debugging
+        import traceback
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error configuring debug settings: {str(e)}\nTraceback: {traceback.format_exc()}"
+        )
 
 
 @router.post("/zmq/enable")
@@ -455,4 +513,26 @@ async def get_debug_info():
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting debug info: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error getting debug info: {str(e)}")
+
+
+@router.post("/zmq/console")
+async def enable_console_output(enabled: bool = True):
+    """
+    Simple endpoint to enable/disable console output for ZMQ debugging.
+    
+    This is easier to use from Swagger UI than the full configure endpoint.
+    
+    Args:
+        enabled: Whether to enable console output (default: True)
+    """
+    try:
+        set_console_output(enabled)
+        
+        return {
+            "status": "configured",
+            "console_output": enabled,
+            "message": f"Console output {'enabled' if enabled else 'disabled'}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting console output: {str(e)}") 

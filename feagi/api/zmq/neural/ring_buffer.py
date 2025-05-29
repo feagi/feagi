@@ -89,6 +89,9 @@ class ZeroCopyRingBuffer:
         # Statistics
         self.stats = RingBufferStats()
         
+        # State tracking
+        self.closed = False
+        
     def _create_shared_memory(self):
         """Create shared memory segment."""
         # Generate unique name
@@ -127,8 +130,12 @@ class ZeroCopyRingBuffer:
         Get next available write slot without blocking.
         
         Returns:
-            BufferSlot if available, None if buffer is full
+            BufferSlot if available, None if buffer is full or closed
         """
+        # Check if buffer is closed
+        if self.closed:
+            return None
+            
         # Load indices with acquire semantics
         write_idx = self.write_index.value
         read_idx = self.read_index.value
@@ -260,16 +267,30 @@ class ZeroCopyRingBuffer:
         """Close and cleanup resources with RTOS-friendly deterministic cleanup."""
         # RTOS-friendly: Simple, bounded cleanup operations
         
-        # Step 1: Close memory map
+        # Step 1: Mark as closed to prevent new operations
+        self.closed = True
+        
+        # Step 2: Clear any references that might hold memory views
+        # Force garbage collection to release memory views
+        import gc
+        gc.collect()
+        
+        # Step 3: Close memory map (with retry for exported pointers)
         if hasattr(self, 'buffer') and self.buffer:
             try:
                 self.buffer.close()
             except Exception as e:
                 # RTOS-friendly: Log but continue cleanup
                 import logging
-                logging.warning(f"Error closing buffer: {e}")
+                logging.warning(f"Error closing buffer (will retry): {e}")
+                # Try garbage collection and retry once
+                gc.collect()
+                try:
+                    self.buffer.close()
+                except Exception as e2:
+                    logging.warning(f"Buffer close retry failed: {e2}")
         
-        # Step 2: Clean up shared memory if we own it
+        # Step 4: Clean up shared memory if we own it
         if hasattr(self, 'shm') and hasattr(self, '_owns_shm'):
             try:
                 if self._owns_shm and self.shm:
@@ -288,7 +309,7 @@ class ZeroCopyRingBuffer:
                 import logging
                 logging.warning(f"Error cleaning up shared memory {getattr(self, 'shm_name', 'unknown')}: {e}")
         
-        # Step 3: Clear references for deterministic cleanup
+        # Step 5: Clear references for deterministic cleanup
         if hasattr(self, 'buffer'):
             self.buffer = None
         if hasattr(self, 'shm'):
