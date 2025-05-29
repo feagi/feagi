@@ -620,6 +620,59 @@ class NeuralFlowController:
 | CPU Usage | 15-20% | <5% | Optimization needed |
 | Cortical Areas Supported | 10 | 1000+ | Scalability needed |
 
+## Debugging and Performance Analysis
+
+FEAGI 2.0 includes a comprehensive, high-performance debugging system for ZMQ traffic analysis. The debug system provides:
+
+### 🔍 Zero-Overhead Debugging
+- **Runtime control** via REST API
+- **Zero overhead when disabled** (no function calls)
+- **Console or file output** options
+- **Performance impact monitoring**
+
+### 📊 Debug Capabilities
+- **Message filtering** by type (sensory, motor, visualization, control)
+- **Endpoint filtering** for specific connections
+- **Rate limiting** to prevent log spam
+- **Statistics tracking** for performance analysis
+- **Multiple verbosity levels** (off, minimal, headers, summary, full)
+
+### 🚀 Quick Usage Examples
+
+**Enable console debugging for visualization stream:**
+```bash
+curl -X POST http://localhost:8000/v1/debug/zmq/configure \
+  -H "Content-Type: application/json" \
+  -d '{"outbound_enabled": true, "console_output": true, "message_filters": ["visualization"]}'
+```
+
+**Monitor all ZMQ traffic with rate limiting:**
+```bash
+curl -X POST http://localhost:8000/v1/debug/zmq/configure \
+  -d '{"inbound_enabled": true, "outbound_enabled": true, "debug_level": "summary", "rate_limit_per_second": 10, "console_output": true}'
+```
+
+**Check debug system performance:**
+```bash
+curl -s http://localhost:8000/v1/debug/zmq/status | jq '.stats'
+```
+
+### 📚 Complete Documentation
+For comprehensive debugging documentation, see [DEBUG_GUIDE.md](DEBUG_GUIDE.md) which covers:
+- Detailed configuration options
+- Common debugging scenarios
+- Performance considerations
+- Troubleshooting guide
+- API reference
+- Best practices
+
+## Related Documentation
+
+- **[DEBUG_GUIDE.md](DEBUG_GUIDE.md)** - Comprehensive ZMQ debugging guide
+- **[README.md](README.md)** - ZMQ architecture overview
+- **[../rest/README.md](../rest/README.md)** - REST API documentation
+- **[../../config/README.md](../../config/README.md)** - Configuration system
+
 ## License
 
 Copyright 2025 Neuraville Inc. Licensed under Apache 2.0. 
