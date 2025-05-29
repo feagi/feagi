@@ -294,6 +294,17 @@ class ZeroCopyRingBuffer:
         if hasattr(self, 'shm'):
             self.shm = None
     
+    def __del__(self):
+        """Destructor to ensure cleanup even if close() isn't called explicitly."""
+        try:
+            # Only attempt cleanup if we haven't already cleaned up
+            if hasattr(self, 'buffer') and self.buffer is not None:
+                self.close()
+        except Exception:
+            # In destructor, we can't do much about errors
+            # Just ensure we don't raise exceptions from __del__
+            pass
+    
     def __enter__(self):
         """Context manager entry."""
         return self

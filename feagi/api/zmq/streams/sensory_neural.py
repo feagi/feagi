@@ -154,26 +154,71 @@ class SensoryNeuralStream:
         logger.info("Stopping neural sensory stream")
         self.running = False
         
-        # Cancel processing task
+        # Cancel processing task with error handling
         if hasattr(self, '_process_task'):
             self._process_task.cancel()
             try:
                 await self._process_task
             except asyncio.CancelledError:
                 pass
+            except Exception as e:
+                logger.warning(f"Error cancelling process task: {e}")
         
-        # Close socket
+        # Close socket with error handling
         if self.socket:
-            self.socket.close()
+            try:
+                self.socket.close()
+            except Exception as e:
+                logger.warning(f"Error closing socket: {e}")
         
-        # Close ring buffer
-        self.ring_buffer.close()
+        # CRITICAL: Always ensure ring buffer cleanup
+        try:
+            self.ring_buffer.close()
+        except Exception as e:
+            logger.error(f"Error closing ring buffer: {e}")
+            # Still try to cleanup - this is critical for shared memory
+            try:
+                if hasattr(self.ring_buffer, '__del__'):
+                    self.ring_buffer.__del__()
+            except Exception as e2:
+                logger.error(f"Error in ring buffer destructor: {e2}")
         
-        # Close buffer pools
+        # Close buffer pools with error handling
         if self.neural_buffers:
-            self.neural_buffers.close()
+            try:
+                self.neural_buffers.close()
+            except Exception as e:
+                logger.warning(f"Error closing neural buffers: {e}")
         
         logger.info("Neural sensory stream stopped")
+    
+    def __del__(self):
+        """Destructor to ensure cleanup even if stop() isn't called explicitly."""
+        try:
+            # Only attempt cleanup if we haven't already cleaned up and are still running
+            if getattr(self, 'running', False):
+                # Try to stop gracefully but don't await (we're in destructor)
+                if hasattr(self, 'ring_buffer'):
+                    try:
+                        self.ring_buffer.close()
+                    except Exception:
+                        pass
+                        
+                if hasattr(self, 'socket') and self.socket:
+                    try:
+                        self.socket.close()
+                    except Exception:
+                        pass
+                        
+                if hasattr(self, 'neural_buffers') and self.neural_buffers:
+                    try:
+                        self.neural_buffers.close()
+                    except Exception:
+                        pass
+        except Exception:
+            # In destructor, we can't do much about errors
+            # Just ensure we don't raise exceptions from __del__
+            pass
     
     async def _process_loop(self) -> None:
         """Main processing loop for neural data."""
