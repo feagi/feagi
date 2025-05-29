@@ -151,10 +151,11 @@ def main():
     parser.add_argument("--genome", type=str, default=None, help="Path to genome file to load on startup (alias for --genome-path)")
     
     # Test mode arguments
-    parser.add_argument("--test", action="store_true", help="Run FEAGI in test mode")
+    parser.add_argument("--test", action="store_true", help="Run FEAGI in test mode (defaults to mode 1)")
+    parser.add_argument("--test-mode-1", action="store_true", help="Run FEAGI in test mode 1 (JSON-based predictable activations)")
+    parser.add_argument("--test-mode-2", action="store_true", help="Run FEAGI in test mode 2 (numpy-based scalable random generation)")
     parser.add_argument("--test-duration", type=int, default=10, help="Duration of the test in seconds")
     parser.add_argument("--test-frequency", type=int, default=10, help="Frequency of sensory input generation in Hz")
-    parser.add_argument("--test-visualization", action="store_true", help="Test visualization data flow without using ZMQ")
     
     # Debug arguments
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
@@ -347,10 +348,10 @@ def main():
             "genome_path": args.genome_path
         },
         "test": {
-            "enabled": args.test,
+            "enabled": args.test or args.test_mode_1 or args.test_mode_2,
             "duration": args.test_duration,
             "frequency": args.test_frequency,
-            "visualization": args.test_visualization
+            "frequency": args.test_frequency
         }
     }
     
@@ -363,11 +364,18 @@ def main():
         return 1
     
     # If in test mode, run tests AFTER processes are started
-    if args.test:
-        logger.info("Starting FEAGI in test mode")
+    test_mode_enabled = args.test or args.test_mode_1 or args.test_mode_2
+    if test_mode_enabled:
+        # Determine which test mode to use
+        if args.test_mode_2:
+            test_mode = "mode_2"
+            logger.info("Starting FEAGI in test mode 2 (numpy-based scalable random generation)")
+        else:
+            test_mode = "mode_1" 
+            logger.info("Starting FEAGI in test mode 1 (JSON-based predictable activations)")
         
         # Import test module
-        from feagi.test_mode import run_test_mode
+        from feagi.utils.test_mode import run_test_mode
         
         # Get the core API from the process manager
         core_api = process_manager.get_core_api()
@@ -375,20 +383,20 @@ def main():
         # Run tests
         test_result = run_test_mode(
             core_api_service=core_api,
+            test_mode=test_mode,
             genome_path=args.genome_path,
             test_duration=args.test_duration,
             frequency_hz=args.test_frequency,
-            test_visualization=args.test_visualization
         )
         
         # Exit with appropriate exit code
         if test_result:
-            logger.info("[OK] Tests passed successfully")
+            logger.info(f"[OK] Test mode {test_mode} passed successfully")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 0
         else:
-            logger.error("[ERR] Tests failed")
+            logger.error(f"[ERR] Test mode {test_mode} failed")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 1
