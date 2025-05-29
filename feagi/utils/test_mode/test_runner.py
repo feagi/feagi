@@ -1,8 +1,8 @@
 """
 FEAGI Test Runner
 
-This module provides the main TestRunner class for executing FEAGI test modes.
-Supports both mode 1 (JSON-based predictable testing) and mode 2 (numpy-based scalable testing).
+Main test runner that coordinates between different test modes and provides
+the common testing infrastructure.
 """
 
 import os
@@ -14,46 +14,75 @@ from typing import Dict, Any, Optional, List, Set
 from pathlib import Path
 
 from feagi.core.state_manager import FeagiStateManager, ServiceState, GenomeState
+from feagi.utils.logger import setup_logger
+from feagi.evo.genome_processor import process_and_load_genome
+from feagi.config.toml_loader import load_feagi_config, get_host_config
 
-logger = logging.getLogger(__name__)
+logger = setup_logger("feagi.test_mode")
 
-
-class TestRunner:
+class FeagiTestRunner:
     """
-    Main test runner for FEAGI test modes.
+    Test runner for FEAGI sensory input processing.
     
-    Coordinates genome loading, test execution, and result validation
-    for both test mode 1 and test mode 2.
+    This class provides functionality for:
+    1. Loading a test genome
+    2. Coordinating between different test modes
+    3. Monitoring neural activity
+    4. Reporting test results
+    5. Testing visualization data flow (when test_visualization=True)
     """
     
-    def __init__(
-        self,
-        core_api,
-        test_mode: str,
-        test_duration: int = 10,
-        test_frequency: int = 10
-    ):
+    def __init__(self, core_api_service, test_mode="mode_1", sample_genome_path=None, 
+                 test_duration=10, frequency_hz=10):
         """
-        Initialize test runner.
+        Initialize the test runner.
         
         Args:
-            core_api: FEAGI core API service instance
-            test_mode: Test mode ("mode_1" or "mode_2")
-            test_duration: Duration of test in seconds
-            test_frequency: Frequency of stimulation in Hz
+            core_api_service: FEAGI's core API service
+            test_mode: "mode_1" for JSON-based or "mode_2" for numpy-based
+            sample_genome_path: Path to the sample genome to load
+            test_duration: Duration of the test in seconds
+            frequency_hz: Frequency of sensory input generation in Hz
         """
-        self.core_api = core_api
+        self.core_api = core_api_service
+        self.connectome = self.core_api.get_connectome_manager()
+        self.burst_engine = self.core_api.get_burst_engine()
+        self.fcl_manager = self.core_api.get_fcl_manager()
+        self.state_manager = FeagiStateManager.instance()
+        
+        # Test configuration
         self.test_mode = test_mode
         self.test_duration = test_duration
-        self.test_frequency = test_frequency
+        self.frequency_hz = frequency_hz
         
-        # Test state
-        self.test_active = False
-        self.start_time = None
-        self.stimulation_count = 0
+        # If no sample genome path is provided, use the essential genome
+        self.sample_genome_path = sample_genome_path
         
-        logger.info(f"[TEST] Initialized TestRunner for {test_mode}")
-        logger.info(f"[TEST] Duration: {test_duration}s, Frequency: {test_frequency}Hz")
+        # Test state variables
+        self.is_running = False
+        self.test_thread = None
+        self.test_result = None
+        self.initial_fcls = {}
+        self.areas_with_activity = set()
+        
+        # Test mode handlers
+        self.mode_handler = None
+        
+        # Initialize the appropriate test mode handler
+        self._initialize_test_mode_handler()
+    
+    def _initialize_test_mode_handler(self):
+        """Initialize the appropriate test mode handler based on the selected mode."""
+        if self.test_mode == "mode_1":
+            from .test_mode_1 import TestMode1Handler
+            self.mode_handler = TestMode1Handler(self)
+            logger.info("🎯 TEST MODE 1: JSON-based predictable neuron activations")
+        elif self.test_mode == "mode_2":
+            from .test_mode_2 import TestMode2Handler
+            self.mode_handler = TestMode2Handler(self)
+            logger.info("🎲 TEST MODE 2: Numpy-based scalable random neuron generation")
+        else:
+            raise ValueError(f"Unknown test mode: {self.test_mode}")
     
     def load_genome(self):
         """
@@ -63,160 +92,271 @@ class TestRunner:
             bool: True if genome was loaded successfully, False otherwise
         """
         try:
-            if self.test_mode == "mode_2":
-                logger.info("Loading test genome for test mode 2")
-                # Use the specific test genome for mode 2
-                test_genome_path = Path(__file__).parent.parent.parent / "evo" / "defaults" / "genome" / "test_genome.json"
-                if not test_genome_path.exists():
-                    logger.error(f"Test genome not found at: {test_genome_path}")
-                    return False
-                # Use deploy_genome method for loading from file
-                result = self.core_api.deploy_genome(str(test_genome_path))
-                if result:
-                    logger.info(f"[OK] Test genome loaded successfully from: {test_genome_path}")
+            logger.info("Loading essential genome for testing")
+            
+            # Check initial brain readiness state - should be False when starting
+            initial_brain_ready = self.state_manager.get_brain_readiness()
+            logger.info(f"Initial brain readiness state: {initial_brain_ready}")
+            
+            # Use the CoreAPIService method to load the essential genome
+            result = self.core_api.load_essential_genome()
+            
+            # Check if the genome loading was successful
+            if not result.get("success", False):
+                logger.error(f"Failed to load genome: {result.get('error', 'Unknown error')}")
+                return False
+            
+            # Wait for brain readiness to become True (state-driven)
+            logger.info("Waiting for brain readiness state to become True...")
+            
+            # Poll the state manager for brain readiness changes
+            check_interval = 0.1
+            max_wait_time = 30.0
+            elapsed_time = 0.0
+            
+            while elapsed_time < max_wait_time:
+                if self.state_manager.get_brain_readiness():
+                    logger.info(f"Brain is ready after {elapsed_time:.1f}s")
                     return True
-                else:
-                    logger.error("Failed to load test genome")
-                    return False
-            else:
-                # Mode 1: Load essential genome (default behavior)
-                logger.info("Loading essential genome for test mode 1")
-                result = self.core_api.load_essential_genome()
-                if result:
-                    logger.info("[OK] Essential genome loaded successfully")
-                    return True
-                else:
-                    logger.error("Failed to load essential genome")
-                    return False
                     
+                time.sleep(check_interval)
+                elapsed_time += check_interval
+            
+            logger.error(f"Brain did not become ready within {max_wait_time}s")
+            return False
+            
         except Exception as e:
             logger.error(f"Error loading genome: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
-    def wait_for_brain_readiness(self, timeout: int = 30) -> bool:
+    def init_test_mode(self):
         """
-        Wait for the brain to be ready for testing.
-        
-        Args:
-            timeout: Maximum time to wait in seconds
-            
-        Returns:
-            bool: True if brain is ready, False if timeout
-        """
-        logger.info("[TEST] Waiting for brain to be ready...")
-        
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                state_manager = FeagiStateManager.instance()
-                genome_state = state_manager.get_genome_state()
-                
-                if (genome_state == GenomeState.LOADED and 
-                    state_manager.get_service_state() == ServiceState.RUNNING):
-                    logger.info("[OK] Brain is ready for testing")
-                    return True
-                    
-                logger.debug(f"[WAIT] Brain not ready yet: genome={genome_state}, service={state_manager.get_service_state()}")
-                time.sleep(1)
-                
-            except Exception as e:
-                logger.warning(f"Error checking brain readiness: {e}")
-                time.sleep(1)
-        
-        logger.error(f"[ERR] Brain not ready after {timeout}s timeout")
-        return False
-    
-    def run_test_mode_1(self) -> bool:
-        """
-        Execute test mode 1: JSON-based predictable testing.
+        Initialize the selected test mode handler.
         
         Returns:
-            bool: True if test passed, False otherwise
+            bool: True if initialization was successful, False otherwise
         """
-        logger.info("[TEST] Starting test mode 1: JSON-based predictable testing")
-        
         try:
-            from .test_mode_1 import TestMode1Handler
-            
-            handler = TestMode1Handler(
-                core_api=self.core_api,
-                test_duration=self.test_duration,
-                test_frequency=self.test_frequency
-            )
-            
-            return handler.run()
-            
-        except ImportError as e:
-            logger.error(f"Failed to import TestMode1Handler: {e}")
-            return False
+            return self.mode_handler.initialize()
         except Exception as e:
-            logger.error(f"Error in test mode 1: {e}")
+            logger.error(f"Error initializing test mode: {e}")
             return False
     
-    def run_test_mode_2(self) -> bool:
+    def capture_initial_state(self):
+        """Capture the initial state of FCLs for comparison."""
+        self.initial_fcls = {}
+        
+        for cortical_id in self.connectome.cortical_areas:
+            fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
+            self.initial_fcls[cortical_id] = set(fcl) if fcl else set()
+            
+        logger.info(f"Captured initial state of {len(self.initial_fcls)} cortical areas")
+    
+    def inject_test_data(self):
         """
-        Execute test mode 2: numpy-based scalable testing.
+        Inject test data using the selected test mode handler.
         
         Returns:
-            bool: True if test passed, False otherwise
+            bool: True if data was injected successfully, False otherwise
         """
-        logger.info("[TEST] Starting test mode 2: numpy-based scalable testing")
-        
         try:
-            from .test_mode_2 import TestMode2Handler
-            
-            handler = TestMode2Handler(
-                core_api=self.core_api,
-                test_duration=self.test_duration,
-                test_frequency=self.test_frequency
-            )
-            
-            return handler.run()
-            
-        except ImportError as e:
-            logger.error(f"Failed to import TestMode2Handler: {e}")
-            return False
+            return self.mode_handler.inject_data()
         except Exception as e:
-            logger.error(f"Error in test mode 2: {e}")
+            logger.error(f"Error injecting test data: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
-    def run(self) -> bool:
+    def check_neural_activity(self):
         """
-        Execute the test runner.
+        Check if there is any neural activity.
         
         Returns:
-            bool: True if test passed, False otherwise
+            tuple: (activity_detected, list_of_active_areas)
         """
-        logger.info(f"[TEST] Starting FEAGI test runner: {self.test_mode}")
+        changed_fcls = False
+        active_fcls = []
+        total_active_neurons = 0
         
+        for cortical_id in self.connectome.cortical_areas:
+            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
+            current_fcl_set = set(current_fcl) if current_fcl else set()
+            
+            # Skip empty FCLs
+            if not current_fcl_set:
+                continue
+                
+            # Check if the FCL has changed
+            if current_fcl_set != self.initial_fcls.get(cortical_id, set()):
+                changed_fcls = True
+                active_fcls.append(cortical_id)
+                self.areas_with_activity.add(cortical_id)
+                total_active_neurons += len(current_fcl_set)
+                logger.debug(f"FCL for area {cortical_id} changed: {len(current_fcl_set)} neurons active")
+        
+        # Single summary log instead of individual area logs
+        if changed_fcls:
+            logger.info(f"Neural activity: {total_active_neurons} neurons active across {len(active_fcls)} areas")
+        
+        return changed_fcls, active_fcls
+    
+    def run_test(self):
+        """
+        Run the test in a separate thread.
+        
+        Returns:
+            bool: True if test was started successfully, False otherwise
+        """
+        if self.is_running:
+            logger.warning("Test is already running")
+            return False
+            
+        self.test_thread = threading.Thread(target=self._run_test_thread)
+        self.test_thread.daemon = True
+        self.test_thread.start()
+        
+        return True
+    
+    def _run_test_thread(self):
+        """Internal method to run the test in a separate thread."""
         try:
-            # Step 1: Load appropriate genome
+            self.is_running = True
+            self.test_result = None
+            self.areas_with_activity = set()
+            
+            # Load the genome
             if not self.load_genome():
-                logger.error("[ERR] Failed to load genome")
-                return False
-            
-            # Step 2: Wait for brain readiness
-            if not self.wait_for_brain_readiness():
-                logger.error("[ERR] Brain not ready for testing")
-                return False
-            
-            # Step 3: Execute the appropriate test mode
-            if self.test_mode == "mode_1":
-                result = self.run_test_mode_1()
-            elif self.test_mode == "mode_2":
-                result = self.run_test_mode_2()
-            else:
-                logger.error(f"[ERR] Unknown test mode: {self.test_mode}")
-                return False
-            
-            # Step 4: Report results
-            if result:
-                logger.info(f"[OK] Test {self.test_mode} completed successfully")
-                return True
-            else:
-                logger.error(f"[ERR] Test {self.test_mode} failed")
-                return False
+                self.test_result = False
+                self.is_running = False
+                return
                 
+            # Initialize test mode
+            if not self.init_test_mode():
+                self.test_result = False
+                self.is_running = False
+                return
+                
+            # Capture initial state
+            self.capture_initial_state()
+            
+            # Get the IPU (sensory) areas from the connectome
+            ipu_areas = {id: area for id, area in self.connectome.cortical_areas.items() 
+                        if area.properties.get('group') == 'IPU'}
+            if not ipu_areas:
+                logger.error("No IPU areas found in the genome")
+                self.test_result = False
+                self.is_running = False
+                return
+                
+            logger.info(f"Found {len(ipu_areas)} IPU areas: {list(ipu_areas.keys())}")
+            
+            # Start the test loop
+            test_start_time = time.time()
+            end_time = test_start_time + self.test_duration
+            
+            cycle_count = 0
+            last_report_time = test_start_time
+            report_interval = 5.0
+            
+            while time.time() < end_time:
+                cycle_count += 1
+                
+                # Only log cycle numbers every 5 seconds to reduce verbosity
+                current_time = time.time()
+                if current_time - last_report_time >= report_interval:
+                    logger.info(f"Test progress: cycle {cycle_count} ({current_time - test_start_time:.1f}s elapsed)")
+                    last_report_time = current_time
+                
+                # Inject test data
+                if not self.inject_test_data():
+                    logger.warning(f"Failed to inject test data in cycle {cycle_count}")
+                    # Continue with the test even if one cycle fails
+                
+                # Wait for a short time to allow the burst engine to process
+                time.sleep(1.0 / self.frequency_hz)
+                
+                # Check neural activity
+                activity_detected, active_areas = self.check_neural_activity()
+                if activity_detected:
+                    logger.debug(f"Neural activity detected in cycle {cycle_count}")
+            
+            # Test completion
+            test_duration = time.time() - test_start_time
+            
+            # Check test results
+            if self.areas_with_activity:
+                logger.info(f"TEST PASSED: Neural activity detected in {len(self.areas_with_activity)} areas: {list(self.areas_with_activity)}")
+                self.test_result = True
+            else:
+                logger.error("TEST FAILED: No neural activity detected")
+                self.test_result = False
+            
+            logger.info(f"Test completed in {test_duration:.2f} seconds")
+            
         except Exception as e:
-            logger.error(f"[ERR] Test runner failed: {e}")
-            return False 
+            logger.error(f"Error in test thread: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.test_result = False
+        finally:
+            self.is_running = False
+    
+    def get_test_result(self):
+        """
+        Get the test result.
+        
+        Returns:
+            bool or None: True if test passed, False if failed, None if still running
+        """
+        return self.test_result
+    
+    def is_test_running(self):
+        """
+        Check if the test is currently running.
+        
+        Returns:
+            bool: True if test is running, False otherwise
+        """
+        return self.is_running
+
+
+def run_test_mode(core_api_service, test_mode="mode_1", **kwargs):
+    """
+    Run FEAGI in test mode.
+    
+    Args:
+        core_api_service: FEAGI's core API service
+        test_mode: "mode_1" for JSON-based or "mode_2" for numpy-based
+        **kwargs: Additional test configuration options
+            - genome_path: Path to a specific genome to load
+            - test_duration: Duration of the test in seconds (default: 10)
+            - frequency_hz: Frequency of sensory input generation in Hz (default: 10)
+        
+    Returns:
+        bool: True if tests passed, False otherwise
+    """
+    logger.info(f"Starting FEAGI test mode: {test_mode}")
+    
+    # Create and run the test runner
+    test_runner = FeagiTestRunner(
+        core_api_service=core_api_service,
+        test_mode=test_mode,
+        sample_genome_path=kwargs.get('genome_path'),
+        test_duration=kwargs.get('test_duration', 10),
+        frequency_hz=kwargs.get('frequency_hz', 10)
+    )
+    
+    # Run the test synchronously in the current thread
+    test_runner._run_test_thread()
+    
+    # Get the test result
+    result = test_runner.get_test_result()
+    
+    if result:
+        logger.info(f"FEAGI test mode {test_mode} completed successfully")
+    else:
+        logger.error(f"FEAGI test mode {test_mode} failed")
+        
+    return result 
