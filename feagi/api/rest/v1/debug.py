@@ -30,7 +30,7 @@ from feagi.utils.zmq_debug import (
     enable_inbound_debug, enable_outbound_debug, set_debug_level, 
     set_message_filters, set_endpoint_filters, set_rate_limit,
     get_debug_status, get_endpoint_stats, reset_debug_stats,
-    DebugLevel, MessageType
+    set_console_output, DebugLevel, MessageType
 )
 
 router = APIRouter(prefix="/debug", tags=["debug"])
@@ -46,6 +46,7 @@ class ZMQDebugConfig(BaseModel):
     message_filters: Optional[List[str]] = None  # Empty list = all messages
     endpoint_filters: Optional[List[str]] = None  # Empty list = all endpoints
     rate_limit_per_second: Optional[int] = None
+    console_output: Optional[bool] = None  # Enable console output
 
 
 class ZMQDebugResponse(BaseModel):
@@ -56,6 +57,7 @@ class ZMQDebugResponse(BaseModel):
     message_filters: List[str]
     endpoint_filters: List[str]
     rate_limit_per_second: int
+    console_output: bool
     stats: Dict[str, Any]
 
 
@@ -136,6 +138,9 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                     detail="Rate limit must be between 1 and 10000 messages per second"
                 )
             set_rate_limit(config.rate_limit_per_second)
+        
+        if config.console_output is not None:
+            set_console_output(config.console_output)
         
         # Return updated status
         status = get_debug_status()
