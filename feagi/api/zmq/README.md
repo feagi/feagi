@@ -1,61 +1,119 @@
-# FEAGI ZMQ Server
+# FEAGI ZMQ Architecture
 
-This directory contains the ZeroMQ (ZMQ) server implementation for FEAGI. The server provides high-performance, real-time communication channels between FEAGI and external clients.
+This directory contains the high-performance ZeroMQ (ZMQ) implementation for FEAGI 2.0, featuring zero-copy neural data paths, real-time sensor data support, and complete Rust/RTOS migration readiness.
+
+## Architecture Overview
+
+The ZMQ implementation follows a multi-stream architecture optimized for neural data transmission:
+
+```
+FEAGI_Connector → [Neural Data] → FEAGI (via ZMQ)
+```
 
 ## Key Components
 
-- `server.py`: Main ZMQ server implementation with proper event loop and thread management
-- `client.py`: Client implementation for connecting to the ZMQ server
-- `patterns/`: ZMQ communication patterns (req-rep, pub-sub, push-pull)
-- `streams/`: Specialized streams for sensorimotor data and visualization
+### Core Infrastructure
 
-## Implementation Details
+- `neural/`: Neural data structures and protocols
+  - `protocols.py`: Protocol identifiers (NEURON_FLAT, NEURON_SPARSE, etc.)
+  - `headers.py`: Fixed-size 32-byte headers for all neural data
+  - `ring_buffer.py`: Lock-free ring buffer for zero-copy processing
 
-### Proper Event Loop Management
+- `memory/`: Memory management for zero allocation
+  - `buffer_pool.py`: Pre-allocated buffer pools for neural data
 
-The ZMQ server implementation carefully manages asyncio event loops to avoid common issues like:
+- `platform/`: Platform-specific optimizations
+  - `optimizer.py`: Socket optimizations for Linux/macOS/Windows
 
-- "Task got Future attached to a different loop"
-- "ZmqServer object has no attribute 'shutdown'"
-- Thread safety problems with asyncio resources
+### Streams
 
-The server creates a dedicated thread with its own event loop to handle all ZMQ communications, ensuring that:
+- `streams/`: Specialized communication streams
+  - `sensory_neural.py`: Zero-copy neural data ingestion from FEAGI_Connector
+  - `motor.py`: Real-time motor command broadcasting
+  - `visualization.py`: Brain state visualization with adaptive quality
+  - `control.py`: REST/JSON control operations
+  - `rest.py`: Pure REST API operations
 
-1. Each thread has its own independent event loop
-2. Asyncio objects are never shared across threads
-3. Proper shutdown and cleanup are implemented
-4. Coroutines are always run in the correct event loop
+### Server Components
 
-### Communication Patterns
+- `server.py`: Main ZMQ server with all stream management
+- `connection_manager.py`: Connection lifecycle management
+- `rest_adapter.py`: REST API adapter for control stream
 
-The server implements multiple ZMQ communication patterns:
+## Performance Features
 
-- **Request-Reply**: For traditional RPC-style operations
-- **Publish-Subscribe**: For broadcasting events and updates
-- **Push-Pull**: For high-throughput data processing
+1. **Zero-Copy Neural Data Paths**
+   - Ring buffers with memory-mapped I/O
+   - Direct numpy array views into received data
+   - No intermediate copies during processing
 
-### Usage
+2. **Static Memory Allocation**
+   - Pre-allocated buffer pools per cortical area
+   - Fixed-size headers (32 bytes)
+   - No dynamic allocation in critical paths
 
-The ZMQ server is typically started by the FEAGI process manager and provides several methods:
+3. **Platform Optimizations**
+   - Linux: SO_ZEROCOPY, CPU affinity, NUMA awareness
+   - macOS: SO_NOSIGPIPE, optimized buffer sizes
+   - Windows: Enhanced I/O threading, larger buffers
 
-```python
-# Start the server
-zmq_server.start()
+## Neural Data Flow
 
-# Publish an event
-await zmq_server.publish_event("event.type", {"data": "value"})
+1. **Sensory Data** (FEAGI_Connector → FEAGI):
+   ```
+   Camera/Sensors → FEAGI_Connector → [Neural Encoding] → ZMQ → FEAGI
+   ```
 
-# Queue work
-await zmq_server.queue_work("work.type", data, priority=5)
+2. **Motor Commands** (FEAGI → Actuators):
+   ```
+   FEAGI → [Motor Stream] → ZMQ → Motor Controllers
+   ```
 
-# Shutdown the server
-zmq_server.shutdown()
+3. **Visualization** (FEAGI → Brain Visualizer):
+   ```
+   FEAGI → [Adaptive Quality] → ZMQ → Visualization Clients
+   ```
+
+## Protocol Specifications
+
+### Neural Data Header (32 bytes)
+```
+- Magic: 4 bytes (b'FEAG')
+- Protocol ID: 1 byte
+- Version: 1 byte
+- Flags: 2 bytes (compression, precision, priority)
+- Timestamp: 8 bytes (nanoseconds)
+- Cortical Area ID: 4 bytes
+- Neuron Count: 4 bytes
+- Payload Size: 4 bytes
+- Sequence Number: 4 bytes
 ```
 
-## Thread Safety
+## Performance Targets
 
-The server implementation is thread-safe and can be used from any thread in the application. Methods that require asyncio operations are properly scheduled in the server's event loop using `asyncio.run_coroutine_threadsafe()`.
+- Neural data latency: <1ms
+- Throughput: 100M neurons/sec
+- Zero allocation in data paths
+- CPU usage: <5%
 
-## Error Handling
+## Migration Status
 
-Comprehensive error handling and logging are implemented throughout the server to ensure robustness and make it easier to diagnose issues. 
+### ✅ Implemented
+- Basic ZMQ streams
+- Neural data protocols
+- Ring buffer implementation
+- Platform optimizations framework
+
+### 🚧 In Progress
+- Zero-copy sensory stream
+- Lock-free motor stream
+- Adaptive visualization
+
+### ❌ TODO
+- Sparse neural protocols
+- Multi-modal data support
+- Full Rust migration
+
+## Usage
+
+See `arch-zmq.md` for complete architecture documentation and usage examples. 

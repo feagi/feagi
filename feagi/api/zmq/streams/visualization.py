@@ -41,11 +41,18 @@ that had context compatibility issues.
 
 import time
 import threading
-from typing import Dict, Any, Optional
-from queue import Queue, Empty
+import uuid
+import asyncio
+import json
+from typing import Dict, List, Any, Optional, Set, Tuple, Union, Callable
+from collections import defaultdict
+from dataclasses import dataclass, field
 import zmq  # Import standard synchronous ZMQ (not zmq.asyncio)
+import zmq.asyncio
 
 from feagi.utils.logger import setup_logger
+from feagi.utils.zmq_debug import log_outbound, MessageType
+from ...core.services.core_api_service import CoreAPIService
 
 logger = setup_logger(__name__)
 
@@ -236,7 +243,7 @@ class VisualizationStream:
         self.running = False
         self._stop_event.set()
         
-        # SOLUTION 8: Wait for worker threads BEFORE closing socket to prevent race conditions
+        # Wait for worker threads BEFORE closing socket to prevent race conditions
         total_threads = len(self.worker_threads)
         if total_threads > 0:
             logger.debug(f"Waiting for {total_threads} worker threads to stop before socket cleanup...")
@@ -268,7 +275,7 @@ class VisualizationStream:
                 else:
                     logger.debug(f"Thread {i}/{total_threads}: {thread.name} already stopped")
 
-        # SOLUTION 9: Close socket AFTER worker threads have stopped to prevent race conditions
+        # Close socket AFTER worker threads have stopped to prevent race conditions
         if self.socket:
             logger.debug("Closing ZMQ socket after worker threads stopped...")
             try:
@@ -342,7 +349,7 @@ class VisualizationStream:
                 # Process and send data based on type (enhanced processing like full version)
                 if isinstance(fq_data, bytes):
                     # Already serialized data
-                    # SOLUTION 10: Additional safety check before publishing
+                    # Additional safety check before publishing
                     if self.socket and self.running:
                         self._publish_data(fq_data)
                     else:
@@ -355,7 +362,7 @@ class VisualizationStream:
                             # Area-specific data
                             cortical_id = fq_data['cortical_id']
                             fire_queue_data = fq_data['fire_queue_data']
-                            # SOLUTION 10: Additional safety check before processing
+                            # Additional safety check before processing
                             if self.socket and self.running:
                                 self._process_tuple_data((cortical_id, fire_queue_data))
                             else:
@@ -363,7 +370,7 @@ class VisualizationStream:
                         elif 'fire_queue_data' in fq_data:
                             # Global data
                             fire_queue_data = fq_data['fire_queue_data']
-                            # SOLUTION 10: Additional safety check before processing
+                            # Additional safety check before processing
                             if self.socket and self.running:
                                 self._process_dict_data(fire_queue_data)
                             else:
@@ -381,7 +388,7 @@ class VisualizationStream:
                 elif isinstance(fq_data, tuple) and len(fq_data) == 2:
                     # Legacy (cortical_id, fire_data) tuple format
                     logger.debug(f"Processing neural data for: {fq_data[0]}")
-                    # SOLUTION 10: Additional safety check before processing
+                    # Additional safety check before processing
                     if self.socket and self.running:
                         self._process_tuple_data(fq_data)
                     else:
@@ -389,7 +396,7 @@ class VisualizationStream:
                 
                 elif isinstance(fq_data, dict):
                     # Legacy fire queue dict format
-                    # SOLUTION 10: Additional safety check before processing
+                    # Additional safety check before processing
                     if self.socket and self.running:
                         self._process_dict_data(fq_data)
                     else:
@@ -416,22 +423,32 @@ class VisualizationStream:
         Publish data on the 'activity' topic with comprehensive error handling.
         Use synchronous ZMQ operations with race condition protection.
         """
-        # SOLUTION 1: Defensive null check to prevent race condition
+        # Defensive null check to prevent race condition
         if not self.socket:
             logger.debug("Cannot publish data: socket is None (likely during shutdown)")
             return
             
-        # SOLUTION 2: Additional running state check
+        # Additional running state check
         if not self.running:
             logger.debug("Cannot publish data: stream is not running")
             return
             
         try:
-            # SOLUTION 3: Atomic socket reference to prevent mid-operation changes
+            # Atomic socket reference to prevent mid-operation changes
             socket_ref = self.socket
             if not socket_ref:
                 logger.debug("Socket became None during operation")
                 return
+            
+            # Debug logging for outbound visualization data (zero-overhead when disabled)
+            debug_endpoint = f"tcp://{self.host}:{self.port}"
+            log_outbound(
+                endpoint=debug_endpoint,
+                data=[b"activity", data],  # PUB/SUB multipart message
+                message_type=MessageType.VISUALIZATION,
+                topic="activity",
+                context=f"vis_msg_{self.stats['data_sent'] + 1}"
+            )
                 
             # Use basic synchronous send operations
             socket_ref.send(b"activity", zmq.SNDMORE)
@@ -450,7 +467,7 @@ class VisualizationStream:
                 logger.info(f"Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
             
         except AttributeError as e:
-            # SOLUTION 4: Specific handling for socket = None race condition
+            # Specific handling for socket = None race condition
             if "'NoneType' object has no attribute 'send'" in str(e):
                 logger.debug("Socket became None during send operation (race condition during shutdown)")
                 return
@@ -458,7 +475,7 @@ class VisualizationStream:
                 logger.error(f"Unexpected AttributeError in publish_data: {e}")
                 
         except zmq.ZMQError as e:
-            # SOLUTION 5: Enhanced ZMQ-specific error handling
+            # Enhanced ZMQ-specific error handling
             if e.errno == zmq.ETERM:
                 logger.debug("ZMQ context terminated - stopping publish operations")
                 return
@@ -482,7 +499,7 @@ class VisualizationStream:
                 logger.error(f"ZMQ error in publish_data: {e} (errno: {e.errno})")
                 
         except Exception as e:
-            # SOLUTION 6: Generic exception handling with detailed logging
+            # Generic exception handling with detailed logging
             logger.error(f"Failed to publish data: {e}")
             logger.error(f"Publishing error type: {type(e).__name__}")
             if logger.isEnabledFor(10):  # DEBUG level
@@ -493,7 +510,7 @@ class VisualizationStream:
         """Recreate the ZMQ socket when it gets corrupted with improved error handling."""
         logger.warning("Recreating corrupted ZMQ socket...")
         
-        # SOLUTION 7: Enhanced socket recreation with state validation
+        # Enhanced socket recreation with state validation
         if not self.running:
             logger.debug("Not recreating socket: stream is shutting down")
             return

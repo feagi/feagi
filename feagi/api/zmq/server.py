@@ -44,7 +44,7 @@ from feagi.core.state_manager import FeagiStateManager, GenomeState
 from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import all stream handlers
-from .streams.sensory import SensoryStream
+from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
 from .streams.motor import MotorStream  
 from .streams.visualization import VisualizationStream
 from .streams.control import ControlStream
@@ -408,7 +408,7 @@ class ZmqServer:
             from .patterns.req_rep import RequestReplyManager
             from .patterns.pub_sub import PubSubManager
             from .patterns.push_pull import PushPullManager
-            from .streams.sensory import SensoryStream
+            from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
             from .streams.motor import MotorStream
             from .streams.control import ControlStream
             from .streams.rest import RestStream

@@ -353,7 +353,7 @@ class VisualizationStream:
         else:
             payload = encoded
             compression_flag = CompressionType.NONE
-        
+            
         # Topic-based publishing
         topic = f"brain.{detail_level}.{compression_flag}"
         self.socket.send_multipart([topic.encode(), payload])
