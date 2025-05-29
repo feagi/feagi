@@ -218,28 +218,33 @@ class MotorStream:
         logger.info("Stopping Motor Stream server")
         self.running = False
         
-        # Stop tasks
+        # RTOS-friendly: Simple cancellation with bounded wait
         if self._motor_data_task:
             self._motor_data_task.cancel()
+            # RTOS-friendly: Simple cancellation, no complex timeout handling
             try:
                 await self._motor_data_task
             except asyncio.CancelledError:
-                pass
+                pass  # Expected during cancellation
             self._motor_data_task = None
             
         if self._subscriber_monitor_task:
             self._subscriber_monitor_task.cancel()
+            # RTOS-friendly: Simple cancellation, no complex timeout handling
             try:
                 await self._subscriber_monitor_task
             except asyncio.CancelledError:
-                pass
+                pass  # Expected during cancellation
             self._subscriber_monitor_task = None
         
-        # Disable FQ sampler if it was enabled
+        # RTOS-friendly: Simple FQ sampler control, no timeout
         if self._fq_sampler_enabled:
-            await self._control_fq_sampler(False)
+            try:
+                await self._control_fq_sampler(False)
+            except Exception as e:
+                logger.warning(f"Error disabling FQ sampler: {e}")
         
-        # Close the socket
+        # RTOS-friendly: Simple socket cleanup
         if self.socket:
             self.socket.close()
             self.socket = None
@@ -579,6 +584,7 @@ class MotorStream:
         """Monitor ZMQ motor subscribers and automatically enable/disable FQ sampler."""
         logger.info("Starting motor subscriber monitoring for automatic FQ sampler control")
         
+        # RTOS-friendly: Simple loop with small, bounded sleep intervals
         while self.running:
             try:
                 # Check current subscriber count
@@ -595,14 +601,22 @@ class MotorStream:
                     if should_enable != self._fq_sampler_enabled:
                         await self._control_fq_sampler(should_enable)
                 
-                # Wait for next check
-                await asyncio.sleep(self.subscriber_check_interval)
-                
+                # RTOS-friendly: Use small bounded intervals for responsive shutdown
+                # Check running flag more frequently for deterministic cancellation
+                remaining_sleep = self.subscriber_check_interval
+                while remaining_sleep > 0 and self.running:
+                    sleep_chunk = min(0.1, remaining_sleep)  # 100ms chunks maximum
+                    await asyncio.sleep(sleep_chunk)
+                    remaining_sleep -= sleep_chunk
+                    
             except asyncio.CancelledError:
+                # RTOS-friendly: Simple, deterministic cancellation
+                logger.debug("Motor subscriber monitoring cancelled during shutdown")
                 break
             except Exception as e:
                 logger.error(f"Error in motor subscriber monitoring: {e}")
-                await asyncio.sleep(self.subscriber_check_interval)
+                # RTOS-friendly: Fixed, bounded error recovery delay
+                await asyncio.sleep(0.1)  # Fixed 100ms delay
         
         logger.info("Motor subscriber monitoring stopped")
 

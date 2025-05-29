@@ -257,13 +257,42 @@ class ZeroCopyRingBuffer:
         self.read_index.value = 0
     
     def close(self):
-        """Close and cleanup resources."""
-        if hasattr(self, 'buffer'):
-            self.buffer.close()
+        """Close and cleanup resources with RTOS-friendly deterministic cleanup."""
+        # RTOS-friendly: Simple, bounded cleanup operations
         
-        if hasattr(self, 'shm') and self._owns_shm:
-            self.shm.close()
-            self.shm.unlink()
+        # Step 1: Close memory map
+        if hasattr(self, 'buffer') and self.buffer:
+            try:
+                self.buffer.close()
+            except Exception as e:
+                # RTOS-friendly: Log but continue cleanup
+                import logging
+                logging.warning(f"Error closing buffer: {e}")
+        
+        # Step 2: Clean up shared memory if we own it
+        if hasattr(self, 'shm') and hasattr(self, '_owns_shm'):
+            try:
+                if self._owns_shm and self.shm:
+                    # RTOS-friendly: Close first, then unlink
+                    self.shm.close()
+                    try:
+                        self.shm.unlink()  # Remove from system
+                    except FileNotFoundError:
+                        # Already cleaned up, that's fine
+                        pass
+                elif self.shm:
+                    # Just close if we don't own it
+                    self.shm.close()
+            except Exception as e:
+                # RTOS-friendly: Log but don't fail
+                import logging
+                logging.warning(f"Error cleaning up shared memory {getattr(self, 'shm_name', 'unknown')}: {e}")
+        
+        # Step 3: Clear references for deterministic cleanup
+        if hasattr(self, 'buffer'):
+            self.buffer = None
+        if hasattr(self, 'shm'):
+            self.shm = None
     
     def __enter__(self):
         """Context manager entry."""

@@ -43,6 +43,32 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+# Console logger for debug output (when console debugging is enabled)
+_console_logger = None
+
+def _get_console_logger():
+    """Get or create a console logger for ZMQ debug output."""
+    global _console_logger
+    if _console_logger is None:
+        import logging
+        _console_logger = logging.getLogger('zmq_debug_console')
+        _console_logger.setLevel(logging.INFO)
+        
+        # Remove any existing handlers to prevent duplicates
+        _console_logger.handlers.clear()
+        
+        # Create console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        
+        # Create formatter for clean console output
+        formatter = logging.Formatter('%(message)s')
+        console_handler.setFormatter(formatter)
+        
+        _console_logger.addHandler(console_handler)
+        _console_logger.propagate = False  # Don't propagate to root logger
+        
+    return _console_logger
 
 class DebugLevel(Enum):
     """Debug verbosity levels."""
@@ -105,6 +131,7 @@ class ZMQDebugger:
         self._max_data_preview = 200
         self._rate_limit_per_second = 100  # Max messages per second
         self._enable_performance_tracking = True
+        self._console_output = False  # Console output option
         
         # Rate limiting
         self._message_timestamps = deque(maxlen=1000)
@@ -119,7 +146,7 @@ class ZMQDebugger:
         # Initialize from environment (startup only)
         self._init_from_environment()
         
-        logger.debug(f"ZMQDebugger initialized - Inbound: {self._inbound_enabled}, Outbound: {self._outbound_enabled}")
+        logger.debug(f"ZMQDebugger initialized - Inbound: {self._inbound_enabled}, Outbound: {self._outbound_enabled}, Console: {self._console_output}")
     
     def _init_from_environment(self):
         """Initialize from environment variables (called once at startup)."""
@@ -129,6 +156,10 @@ class ZMQDebugger:
         
         self._inbound_enabled = inbound_env in ('1', 'true', 'yes')
         self._outbound_enabled = outbound_env in ('1', 'true', 'yes')
+        
+        # Check for console output option
+        console_env = os.environ.get('FEAGI_DEBUG_ZMQ_CONSOLE', '').lower()
+        self._console_output = console_env in ('1', 'true', 'yes')
         
         # Parse debug level from environment
         level_env = os.environ.get('FEAGI_DEBUG_ZMQ_LEVEL', 'summary').lower()
@@ -194,6 +225,12 @@ class ZMQDebugger:
             self._rate_limit_per_second = messages_per_second
             logger.info(f"ZMQ debug rate limit set to: {messages_per_second} msg/sec")
     
+    def set_console_output(self, enabled: bool = True):
+        """Enable/disable console output for debug messages."""
+        with self._lock:
+            self._console_output = enabled
+            logger.info(f"ZMQ debug console output {'enabled' if enabled else 'disabled'}")
+    
     def get_status(self) -> Dict[str, Any]:
         """Get current debugging status and configuration."""
         with self._lock:
@@ -204,6 +241,7 @@ class ZMQDebugger:
                 'message_filters': [t.value for t in self._message_filters],
                 'endpoint_filters': list(self._endpoint_filters),
                 'rate_limit_per_second': self._rate_limit_per_second,
+                'console_output': self._console_output,
                 'stats': {
                     'messages_logged': self._stats.messages_logged,
                     'messages_filtered': self._stats.messages_filtered,
@@ -383,36 +421,39 @@ class ZMQDebugger:
         total_size = sum(len(frame) for frame in frames)
         arrow = "📤" if direction == "OUTBOUND" else "📥"
         
+        # Choose logger based on console output setting
+        output_logger = _get_console_logger() if self._console_output else logger
+        
         # Minimal logging
         if self._debug_level == DebugLevel.MINIMAL:
-            logger.info(f"{arrow} ZMQ {direction} [{timestamp}] {endpoint} ({total_size}b)")
+            output_logger.info(f"{arrow} ZMQ {direction} [{timestamp}] {endpoint} ({total_size}b)")
             return
         
         # Headers and above
-        logger.info(f"{arrow} ZMQ {direction} [{timestamp}]")
-        logger.info(f"   [TARGET] {endpoint}")
-        logger.info(f"   [TYPE] {message_type.value}")
-        logger.info(f"   [STATS] Frames: {len(frames)}, Size: {total_size}b")
+        output_logger.info(f"{arrow} ZMQ {direction} [{timestamp}]")
+        output_logger.info(f"   [TARGET] {endpoint}")
+        output_logger.info(f"   [TYPE] {message_type.value}")
+        output_logger.info(f"   [STATS] Frames: {len(frames)}, Size: {total_size}b")
         
         if topic:
-            logger.info(f"   [TAG] Topic: '{topic}'")
+            output_logger.info(f"   [TAG] Topic: '{topic}'")
         if context:
-            logger.info(f"   [CONTEXT] {context}")
+            output_logger.info(f"   [CONTEXT] {context}")
         
         if self._debug_level == DebugLevel.HEADERS:
-            logger.info("   " + "─" * 40)
+            output_logger.info("   " + "─" * 40)
             return
         
         # Summary and full logging - show frame data
         for i, frame in enumerate(frames):
             if self._debug_level == DebugLevel.SUMMARY:
                 preview = self._get_data_preview(frame, self._max_data_preview)
-                logger.info(f"   📄 Frame {i}: {preview}")
+                output_logger.info(f"   📄 Frame {i}: {preview}")
             elif self._debug_level == DebugLevel.FULL:
                 full_data = self._decode_frame_data(frame)
-                logger.info(f"   📄 Frame {i}: {full_data}")
+                output_logger.info(f"   📄 Frame {i}: {full_data}")
         
-        logger.info("   " + "─" * 40)
+        output_logger.info("   " + "─" * 40)
     
     def _get_data_preview(self, data: bytes, max_chars: int) -> str:
         """Get a truncated preview of frame data."""
@@ -487,6 +528,10 @@ def set_endpoint_filters(endpoints: List[str]):
 def set_rate_limit(messages_per_second: int):
     """Set rate limiting for debug messages."""
     _debugger.set_rate_limit(messages_per_second)
+
+def set_console_output(enabled: bool = True):
+    """Enable/disable console output for debug messages."""
+    _debugger.set_console_output(enabled)
 
 def get_debug_status() -> Dict[str, Any]:
     """Get current debugging status."""
