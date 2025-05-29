@@ -151,11 +151,12 @@ def main():
     parser.add_argument("--genome", type=str, default=None, help="Path to genome file to load on startup (alias for --genome-path)")
     
     # Test mode arguments
-    parser.add_argument("--test", action="store_true", help="Run FEAGI in test mode (defaults to mode 1)")
-    parser.add_argument("--test-mode-1", action="store_true", help="Run FEAGI in test mode 1 (JSON-based predictable activations)")
-    parser.add_argument("--test-mode-2", action="store_true", help="Run FEAGI in test mode 2 (numpy-based scalable random generation)")
+    parser.add_argument("--test", action="store_true", help="Run FEAGI in test mode (backwards compatibility)")
+    parser.add_argument("--test-mode-1", action="store_true", help="Run FEAGI test mode 1: JSON-based predictable testing")
+    parser.add_argument("--test-mode-2", action="store_true", help="Run FEAGI test mode 2: numpy-based scalable testing with test genome")
     parser.add_argument("--test-duration", type=int, default=10, help="Duration of the test in seconds")
     parser.add_argument("--test-frequency", type=int, default=10, help="Frequency of sensory input generation in Hz")
+    parser.add_argument("--test-visualization", action="store_true", help="Test visualization data flow without using ZMQ")
     
     # Debug arguments
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
@@ -349,9 +350,11 @@ def main():
         },
         "test": {
             "enabled": args.test or args.test_mode_1 or args.test_mode_2,
+            "mode_1": args.test_mode_1,
+            "mode_2": args.test_mode_2,
             "duration": args.test_duration,
             "frequency": args.test_frequency,
-            "frequency": args.test_frequency
+            "visualization": args.test_visualization
         }
     }
     
@@ -364,39 +367,64 @@ def main():
         return 1
     
     # If in test mode, run tests AFTER processes are started
-    test_mode_enabled = args.test or args.test_mode_1 or args.test_mode_2
-    if test_mode_enabled:
-        # Determine which test mode to use
-        if args.test_mode_2:
+    if args.test or args.test_mode_1 or args.test_mode_2:
+        logger.info("Starting FEAGI in test mode")
+        
+        # Determine test mode
+        if args.test_mode_1:
+            test_mode = "mode_1"
+            logger.info("Using test mode 1: JSON-based predictable testing")
+        elif args.test_mode_2:
             test_mode = "mode_2"
-            logger.info("Starting FEAGI in test mode 2 (numpy-based scalable random generation)")
+            logger.info("Using test mode 2: numpy-based scalable testing with test genome")
         else:
-            test_mode = "mode_1" 
-            logger.info("Starting FEAGI in test mode 1 (JSON-based predictable activations)")
+            # Backwards compatibility with --test flag
+            test_mode = "mode_1"
+            logger.info("Using legacy test mode (defaults to mode 1)")
         
-        # Import test module
-        from feagi.utils.test_mode import run_test_mode
-        
-        # Get the core API from the process manager
-        core_api = process_manager.get_core_api()
-        
-        # Run tests
-        test_result = run_test_mode(
-            core_api_service=core_api,
-            test_mode=test_mode,
-            genome_path=args.genome_path,
-            test_duration=args.test_duration,
-            frequency_hz=args.test_frequency,
-        )
+        # Use new test runner for mode 1 and mode 2
+        if args.test_mode_1 or args.test_mode_2:
+            # Import new test runner
+            from feagi.utils.test_mode.test_runner import TestRunner
+            
+            # Get the core API from the process manager
+            core_api = process_manager.get_core_api()
+            
+            # Create and run test runner
+            test_runner = TestRunner(
+                core_api=core_api,
+                test_mode=test_mode,
+                test_duration=args.test_duration,
+                test_frequency=args.test_frequency
+            )
+            
+            # Run tests
+            test_result = test_runner.run()
+            
+        else:
+            # Backwards compatibility: use old test mode for --test flag
+            from feagi.test_mode import run_test_mode
+            
+            # Get the core API from the process manager
+            core_api = process_manager.get_core_api()
+            
+            # Run tests using old test mode
+            test_result = run_test_mode(
+                core_api_service=core_api,
+                genome_path=args.genome_path,
+                test_duration=args.test_duration,
+                frequency_hz=args.test_frequency,
+                test_visualization=args.test_visualization
+            )
         
         # Exit with appropriate exit code
         if test_result:
-            logger.info(f"[OK] Test mode {test_mode} passed successfully")
+            logger.info("[OK] Tests passed successfully")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 0
         else:
-            logger.error(f"[ERR] Test mode {test_mode} failed")
+            logger.error("[ERR] Tests failed")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 1

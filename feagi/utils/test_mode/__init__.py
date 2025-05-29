@@ -10,13 +10,12 @@ Usage:
     --test-mode-2: Uses numpy to generate large random stimulations for scalability testing
 """
 
-from .test_runner import FeagiTestRunner, run_test_mode
+from .test_runner import TestRunner
 from .test_mode_1 import TestMode1Handler
 from .test_mode_2 import TestMode2Handler
 
 __all__ = [
-    'FeagiTestRunner',
-    'run_test_mode', 
+    'TestRunner',
     'TestMode1Handler',
     'TestMode2Handler'
 ] 
