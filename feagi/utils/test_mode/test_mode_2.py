@@ -3,6 +3,9 @@ Test Mode 2: Numpy-based Scalable Random Neuron Generation
 
 This module handles large-scale random neuron stimulation generation using
 numpy for scalability testing and performance evaluation.
+
+Test Mode 2 specifically uses the test_genome.json file instead of the essential
+genome to provide more cortical areas and neurons for testing scalability.
 """
 
 import logging
@@ -57,7 +60,7 @@ class TestMode2Handler:
                 logger.error("Brain is not ready for neuron injection")
                 return False
             
-            # Get the genome data from the core API
+            # Get the genome data from the core API - should be test_genome.json for test mode 2
             genome_data = self.test_runner.core_api.get_genome()
             
             if not genome_data:
@@ -158,7 +161,7 @@ class TestMode2Handler:
     
     def _log_configuration_summary(self):
         """Log a summary of the test configuration."""
-        logger.info("🎲 TEST MODE 2: Numpy-based scalable random neuron generation")
+        logger.info("🎲 TEST MODE 2: Numpy-based scalable random neuron generation (using test_genome.json)")
         logger.info(f"   📊 Available cortical areas: {len(self.cortical_area_info)}")
         logger.info(f"   🧠 Total available neurons: {self.total_available_neurons}")
         logger.info(f"   🎯 Selected areas for testing: {len(self.selected_areas)}")
