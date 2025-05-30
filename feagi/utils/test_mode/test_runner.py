@@ -131,6 +131,53 @@ class FeagiTestRunner:
             logger.error(traceback.format_exc())
             return False
     
+    def load_test_genome(self):
+        """
+        Load the test genome using the core API.
+        
+        Returns:
+            bool: True if genome was loaded successfully, False otherwise
+        """
+        try:
+            logger.info("Loading test genome for testing")
+            
+            # Check initial brain readiness state - should be False when starting
+            initial_brain_ready = self.state_manager.get_brain_readiness()
+            logger.info(f"Initial brain readiness state: {initial_brain_ready}")
+            
+            # Use the CoreAPIService method to load the test genome
+            result = self.core_api.load_test_genome()
+            
+            # Check if the genome loading was successful
+            if not result.get("success", False):
+                logger.error(f"Failed to load test genome: {result.get('error', 'Unknown error')}")
+                return False
+            
+            # Wait for brain readiness to become True (state-driven)
+            logger.info("Waiting for brain readiness state to become True...")
+            
+            # Poll the state manager for brain readiness changes
+            check_interval = 0.1
+            max_wait_time = 30.0
+            elapsed_time = 0.0
+            
+            while elapsed_time < max_wait_time:
+                if self.state_manager.get_brain_readiness():
+                    logger.info(f"Brain is ready after {elapsed_time:.1f}s")
+                    return True
+                    
+                time.sleep(check_interval)
+                elapsed_time += check_interval
+            
+            logger.error(f"Brain did not become ready within {max_wait_time}s")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error loading test genome: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+    
     def init_test_mode(self):
         """
         Initialize the selected test mode handler.
@@ -226,11 +273,19 @@ class FeagiTestRunner:
             self.test_result = None
             self.areas_with_activity = set()
             
-            # Load the genome
-            if not self.load_genome():
-                self.test_result = False
-                self.is_running = False
-                return
+            # Load the appropriate genome based on test mode
+            if self.test_mode == "mode_2":
+                # Test Mode 2 uses test_genome.json
+                if not self.load_test_genome():
+                    self.test_result = False
+                    self.is_running = False
+                    return
+            else:
+                # Default to essential genome for other test modes
+                if not self.load_genome():
+                    self.test_result = False
+                    self.is_running = False
+                    return
                 
             # Initialize test mode
             if not self.init_test_mode():

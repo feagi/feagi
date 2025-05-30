@@ -102,6 +102,64 @@ class GenomeService(BaseService):
             self.logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
+    def load_test_genome(self) -> Dict[str, Any]:
+        """Load the test genome from the default templates."""
+        try:
+            # Multiple possible locations to look for the test genome
+            current_file = Path(__file__)
+            current_dir = current_file.parent
+            cwd = Path.cwd()
+            feagi_home = Path(os.environ.get("FEAGI_HOME", ""))
+            
+            possible_paths = [
+                # Original path
+                current_dir / "../../../../evo/defaults/genome/test_genome.json",
+                
+                # Alternative paths relative to current file  
+                current_dir / "../../../../../feagi/evo/defaults/genome/test_genome.json",
+                current_dir / "../../../../../evo/defaults/genome/test_genome.json",
+                
+                # Paths relative to working directory
+                cwd / "feagi/evo/defaults/genome/test_genome.json",
+                cwd / "feagi_core/feagi/evo/defaults/genome/test_genome.json",
+                
+                # Check FEAGI_HOME environment variable if set
+                feagi_home / "evo/defaults/genome/test_genome.json" if feagi_home.name else None,
+            ]
+            
+            # Find the first existing path
+            test_path = None
+            for path in possible_paths:
+                if path and path.exists():
+                    test_path = path
+                    break
+                    
+            if not test_path:
+                self.logger.error(f"Test genome template not found in any expected location")
+                self.logger.error(f"Checked paths: {[str(p) for p in possible_paths if p]}")
+                return {"success": False, "error": "Test genome template not found"}
+                
+            self.logger.info(f"Loading test genome from {test_path}")
+                
+            with test_path.open('r') as f:
+                genome_data = json.load(f)
+            
+            # Set the genome file name
+            if self.state_manager:
+                self.state_manager.genome_file_name = "test_genome.json"
+            
+            # Call the existing load_genome method
+            self._genome_filename = "test_genome.json"
+            result = self.load_genome(genome_data, "test_genome.json")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load test genome: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return {"success": False, "error": str(e)}
+
     def load_barebones_genome(self) -> Dict[str, Any]:
         """Load the barebones genome from the default templates."""
         try:
