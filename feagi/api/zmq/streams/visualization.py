@@ -620,6 +620,22 @@ class VisualizationStream:
                     
                     binary_data = encoder.encode_neuron_categories(cortical_data)
 
+                    # TEST: Simple logger test to verify logging is working
+                    logger.warning("🧪 LOGGER TEST: This message should definitely appear!")
+                    
+                    # DEBUG: Log the structure ID being generated
+                    if binary_data and len(binary_data) > 0:
+                        structure_id = binary_data[0]
+                        logger.warning(f"🔍 VISUALIZATION STREAM DEBUG: Generated {len(binary_data)} bytes")
+                        logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                        logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
+                        if structure_id == 10:
+                            logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
+                        elif structure_id == 11:
+                            logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
+                        else:
+                            logger.warning(f"   ❓ Unknown structure type: {structure_id}")
+
                     # Publish the binary data
                     self._publish_data(binary_data)
                     logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
@@ -643,7 +659,70 @@ class VisualizationStream:
             if fire_data and 'neuron_ids' in fire_data:
                 neuron_count = len(fire_data.get('neuron_ids', []))
                 logger.debug(f"Received dict data: {neuron_count} neurons")
-                # TODO: Implement proper binary serialization
+                
+                # Extract data from fire queue
+                neuron_ids = fire_data['neuron_ids']
+                membrane_potentials = fire_data.get('membrane_potentials', [])
+                coordinates = fire_data.get('coordinates', [])
+                
+                # Use membrane potentials if available, otherwise default to 1.0
+                if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
+                    potentials = membrane_potentials
+                else:
+                    potentials = [1.0] * len(neuron_ids)
+                
+                # Generate coordinates if not available
+                if coordinates and len(coordinates) == len(neuron_ids):
+                    x_coords = [coord[0] for coord in coordinates]
+                    y_coords = [coord[1] for coord in coordinates]
+                    z_coords = [coord[2] for coord in coordinates]
+                else:
+                    # Fallback to ID-based coordinates
+                    x_coords = [nid % 100 for nid in neuron_ids]
+                    y_coords = [(nid // 100) % 100 for nid in neuron_ids]
+                    z_coords = [nid // 10000 for nid in neuron_ids]
+                
+                # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES) FOR DPR COMPATIBILITY
+                try:
+                    from feagi_bytes import ByteStructureEncoder
+                    encoder = ByteStructureEncoder()
+
+                    # Convert to Type 11 (NEURON_CATEGORIES) format for DPR compatibility
+                    cortical_data = {
+                        'global': {
+                            'x': x_coords,
+                            'y': y_coords,
+                            'z': z_coords,
+                            'potentials': potentials
+                        }
+                    }
+                    
+                    binary_data = encoder.encode_neuron_categories(cortical_data)
+
+                    # TEST: Simple logger test to verify logging is working
+                    logger.warning("🧪 LOGGER TEST: This message should definitely appear!")
+                    
+                    # DEBUG: Log the structure ID being generated
+                    if binary_data and len(binary_data) > 0:
+                        structure_id = binary_data[0]
+                        logger.warning(f"🔍 VISUALIZATION STREAM DEBUG: Generated {len(binary_data)} bytes")
+                        logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                        logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
+                        if structure_id == 10:
+                            logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
+                        elif structure_id == 11:
+                            logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
+                        else:
+                            logger.warning(f"   ❓ Unknown structure type: {structure_id}")
+
+                    # Publish the binary data
+                    self._publish_data(binary_data)
+                    logger.debug(f"Published global data: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
+                    
+                except ImportError:
+                    logger.error("feagi_bytes library not available - cannot encode binary data")
+                except Exception as e:
+                    logger.error(f"Error encoding dict binary data: {e}")
                 
         except Exception as e:
             logger.error(f"Error processing dict data: {e}")

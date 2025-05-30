@@ -373,23 +373,23 @@ class MotorStream:
                 'timestamp': time.time()
             }
                         
-            # Encode using feagi_bytes for motor data - USE TYPE 11 FOR DPR CONSISTENCY
+            # Encode using feagi_bytes for motor data - USE TYPE 10 FOR MOTOR CONTROL (NOT brain visualization)
             try:
                 from feagi_bytes import ByteStructureEncoder
                 encoder = ByteStructureEncoder()
                             
-                # Use Type 11 (NEURON_CATEGORIES) format for consistency with DPR system
+                # Use Type 11 (NEURON_CATEGORIES) format - same as visualization stream
                 if coordinates and len(coordinates) == len(neuron_ids):
                     x_values = [coord[0] for coord in coordinates]
                     y_values = [coord[1] for coord in coordinates]
                     z_values = [coord[2] for coord in coordinates]
                 else:
                     # Fallback to ID-based coordinates
-                    x_values = [(nid % 100) if nid > 0 else 1 for nid in neuron_ids]
-                    y_values = [((nid // 100) % 100) if nid > 0 else 1 for nid in neuron_ids]
-                    z_values = [(nid // 10000) if nid > 0 else 0 for nid in neuron_ids]
+                    x_values = [nid % 100 for nid in neuron_ids]
+                    y_values = [(nid // 100) % 100 for nid in neuron_ids]
+                    z_values = [nid // 10000 for nid in neuron_ids]
                 
-                # Convert to Type 11 (NEURON_CATEGORIES) format
+                # Convert to Type 11 (NEURON_CATEGORIES) format - same as visualization
                 cortical_data = {
                     cortical_id: {
                         'x': x_values,
@@ -400,6 +400,19 @@ class MotorStream:
                 }
                 
                 binary_data = encoder.encode_neuron_categories(cortical_data)
+                
+                # DEBUG: Log the structure ID being generated
+                if binary_data and len(binary_data) > 0:
+                    structure_id = binary_data[0]
+                    logger.warning(f"🔍 MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes")
+                    logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                    logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
+                    if structure_id == 10:
+                        logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
+                    elif structure_id == 11:
+                        logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
+                    else:
+                        logger.warning(f"   ❓ Unknown structure type: {structure_id}")
                 
                 await self._send_motor_binary_data(binary_data, channel=cortical_id)
                 
@@ -436,12 +449,12 @@ class MotorStream:
             # Use default cortical ID for motor
             cortical_ids = ['motor'] * len(neuron_ids)
             
-            # Encode using feagi_bytes for motor data - USE TYPE 11 FOR DPR CONSISTENCY
+            # Encode using feagi_bytes for motor data - USE TYPE 10 FOR MOTOR CONTROL (NOT brain visualization)
             try:
                 from feagi_bytes import ByteStructureEncoder
                 encoder = ByteStructureEncoder()
                 
-                # Use Type 11 (NEURON_CATEGORIES) format for consistency with DPR system
+                # Use Type 11 (NEURON_CATEGORIES) format - same as visualization stream
                 if coordinates and len(coordinates) == len(neuron_ids):
                     x_values = [coord[0] for coord in coordinates]
                     y_values = [coord[1] for coord in coordinates]
@@ -452,13 +465,26 @@ class MotorStream:
                     y_values = [(nid // 100) % 100 for nid in neuron_ids]
                     z_values = [nid // 10000 for nid in neuron_ids]
                             
-                binary_data = encoder.encode_neuron_flat(
+                binary_data = encoder.encode_neuron_categories(
                     cortical_ids=cortical_ids,
                     x_coords=x_values,
                     y_coords=y_values,
                     z_coords=z_values,
                     potentials=potentials
                 )
+                
+                # DEBUG: Log the structure ID being generated
+                if binary_data and len(binary_data) > 0:
+                    structure_id = binary_data[0]
+                    logger.warning(f"🔍 MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes")
+                    logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                    logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
+                    if structure_id == 10:
+                        logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
+                    elif structure_id == 11:
+                        logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
+                    else:
+                        logger.warning(f"   ❓ Unknown structure type: {structure_id}")
                 
                 await self._send_motor_binary_data(binary_data, channel="motor")
                 
