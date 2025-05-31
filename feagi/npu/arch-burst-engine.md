@@ -992,11 +992,13 @@ Area 500 (Hippocampus, window_size=100):
 
 Area 501 (Working Memory, window_size=50):
 ┌───┬───┬───┬───┬───┬─────┬─────┐
-│ 0 │ 1 │ 2 │...│ 48│ 49  │     │
+│ 0 │ 1 │ 2 │...│ 48  │ 49  │
 └───┴───┴───┴───┴───┴─────┴─────┘
-      │   ▲
+      │   │   ▲
+      │   │   │
+      │   │   └── Contains: [601, 603]
       │   │
-      │   └── Contains: [601, 603]
+      │   └── Still contains: [601, 602]
       │
       └── Still contains: [601, 602]
 ```
@@ -1166,84 +1168,120 @@ At the heart of the burst engine lies the FCL manager that is responsible for:
 
 The FCL Manager interfaces with the Hierarchical FCL implementation to manage the flow of neuron activations throughout the simulation.
 
-## FQ Sampler: Design and Integration (RTOS/Rust-Friendly)
+## FQ Sampler: Unified Architecture with Separate Instances (RTOS/Rust-Friendly)
 
 ## Overview
 
-The **FQSampler** is a dedicated component responsible for sampling fire queue data from the neural simulation at a configurable rate for purposes such as visualization and motor command extraction. This design follows Option A: a separate sampler task/thread, which is the most RTOS/Rust-friendly approach.
+The **UnifiedFQSampler** provides high-performance fire queue sampling through separate optimized instances for different use cases. This architecture replaces the previous single-sampler approach with dedicated motor and visualization samplers for optimal performance isolation.
+
+## Architecture Evolution
+- **Previous**: Single FQSampler with subscriber differentiation  
+- **Current**: Separate UnifiedFQSampler instances for motor and visualization
+- **Benefit**: Complete performance isolation and specialized optimization
 
 ## Rationale
-- **Separation of Concerns:** The BurstEngine runs at high simulation frequency, while the FQSampler operates at a lower, independently scheduled frequency.
-- **RTOS/Rust Compatibility:** Each component can be mapped to a periodic task/thread, using RTOS primitives (queues, mutexes) for communication.
-- **Determinism:** Both the burst engine and sampler have predictable, bounded execution times.
-- **Extensibility:** Multiple samplers or consumers (visualization, motor, logging) can be added without modifying the core burst engine.
+- **Performance Isolation:** Motor control runs at 100Hz with OPU-only sampling while visualization runs at 30Hz with global sampling
+- **RTOS/Rust Compatibility:** Each sampler maps to a dedicated periodic task/thread with deterministic timing
+- **Specialized Optimization:** Motor sampler optimized for latency, visualization sampler optimized for completeness
+- **Resource Efficiency:** Only samples relevant cortical areas for each use case
 
-## Architecture
+## Unified Architecture
 
 ```
-[BurstEngine] --updates--> [Fire Queue] <--read-- [FQSampler] --+--> [Visualization]
-                                                               |
-                                                               +--> [Motor Command Extraction]
+[BurstEngine] --updates--> [Fire Queue] <--read-- [Motor FQSampler (100Hz)] ---> [Motor Control]
+                                      \
+                                       <--read-- [Viz FQSampler (30Hz)] ---> [Visualization]
 ```
-- **BurstEngine:** Updates the fire queue at the simulation frequency.
-- **Fire Queue:** Maintains current neuron firing data with rich information.
-- **FQSampler:** Periodically samples the latest fire queue data and forwards it to consumers.
 
-## Sampling Strategies
-- **Ratio-based:** Sample a random X% of bursts (e.g., 10%).
-- **Frequency-based:** Sample at most N bursts per second (e.g., 30 Hz max).
-- **Nth-burst:** Sample every Nth burst (e.g., every 5th burst).
+### Motor FQSampler
+- **Frequency:** 100Hz for minimal control latency
+- **Scope:** OPU areas only (1-10% of total brain)
+- **Threading:** `MotorFQSampler` thread with high priority
+- **Data:** Streamlined format (coordinates + activation levels)
+- **Buffer:** 50,000 neurons (optimized for motor areas)
 
-## Integration Points
-- **Where to sample:** The FQSampler runs in its own thread or async task, reading the latest fire queue from the fire queue provider at its configured interval.
-- **How to access fire queue:** Direct reference (if in the same process/thread) or via a thread-safe queue or lock if needed.
-- **How to forward data:**
-  - Direct function call for motor command extraction
-  - Publish to a queue, websocket, or other IPC for visualization
+### Visualization FQSampler  
+- **Frequency:** 30Hz for smooth visualization
+- **Scope:** All cortical areas (complete brain state)
+- **Threading:** `VizFQSampler` thread with normal priority
+- **Data:** Rich format (coordinates, potentials, thresholds, history)
+- **Buffer:** 100,000 neurons (sized for global sampling)
 
-## RTOS/Rust-Friendly Design Notes
-- Each component (BurstEngine, FQSampler) is a periodic task/thread.
-- All buffers and queues are pre-allocated; no dynamic allocation in the main loop.
-- Communication uses RTOS primitives (queues, mutexes) or Python equivalents (Queue, threading.Lock).
-- Deterministic, bounded execution for real-time guarantees.
+## Performance Features
 
-## Example Usage
+### SIMD Acceleration
+- **Centralized Configuration:** Single hardware detection during startup (54x faster than redundant detection)
+- **Shared State:** Both samplers use same SIMD backend from FeagiStateManager
+- **Vector Operations:** Optimized membrane potential processing and coordinate transformations
+
+### Zero-Copy Optimizations
+- **Direct SoA Access:** Direct access to Structure of Arrays (fcl_manager, membrane_processor)
+- **Pre-allocated Buffers:** No dynamic allocation during sampling
+- **Memory Efficiency:** Reduced memory bandwidth and improved cache locality
+
+## Implementation
 
 ```python
-from feagi.npu.burst_engine import BurstEngine, FQSampler
-from queue import Queue
+# ProcessManager creates separate instances automatically
+from feagi.npu.burst_engine import UnifiedFQSampler
 import threading
+from queue import Queue
 
-# Assume connectome_manager is an instance of ConnectomeManager
-burst_engine = BurstEngine(connectome_manager, desired_frequency_hz=100)
-visualization_queue = Queue(maxsize=10)
-
-# FQSampler samples at 20 Hz for visualization
-fq_sampler = FQSampler(
-    fire_queue_provider=burst_engine,
-    sample_frequency_hz=20,
-    output_queue=visualization_queue
+# Motor Sampler (high-frequency, OPU-only)
+motor_queue = Queue(maxsize=200)
+motor_sampler = UnifiedFQSampler(
+    fire_queue_provider=core_api,
+    sample_frequency_hz=100.0,        # High frequency for control
+    output_queue=motor_queue,
+    sampling_mode='motor_only',       # OPU areas only
+    enable_simd=True,
+    enable_zero_copy=True,
+    buffer_size=50_000               # Smaller buffer for motor areas
 )
 
-# Start both components in separate threads
-burst_thread = threading.Thread(target=burst_engine.run)
-sampler_thread = threading.Thread(target=fq_sampler.run)
-burst_thread.start()
-sampler_thread.start()
+# Visualization Sampler (moderate frequency, global)
+viz_queue = Queue(maxsize=100)
+viz_sampler = UnifiedFQSampler(
+    fire_queue_provider=core_api,
+    sample_frequency_hz=30.0,         # Moderate frequency for display
+    output_queue=viz_queue,
+    sampling_mode='global',           # All areas
+    enable_simd=True,
+    enable_zero_copy=True,
+    buffer_size=100_000              # Larger buffer for global sampling
+)
 
-# Visualization or motor module reads from visualization_queue
+# Start both in separate threads
+motor_thread = threading.Thread(target=motor_sampler.run, name="MotorFQSampler")
+viz_thread = threading.Thread(target=viz_sampler.run, name="VizFQSampler")
+motor_thread.start()
+viz_thread.start()
 ```
 
-## Implementation Details
-- The FQSampler maintains its own timing and can be stopped gracefully.
-- It supports different sampling strategies (frequency, ratio, Nth-burst).
-- It is easy to extend for multiple output queues or consumers.
+## RTOS/Rust-Friendly Design Notes
+- **Dedicated Tasks:** Each sampler is a separate periodic task/thread
+- **Pre-allocated Buffers:** No dynamic allocation in sampling loops
+- **Deterministic Timing:** RTOS-compatible busy-wait for precise intervals
+- **Isolated State:** No shared mutable state between samplers
+- **Thread Safety:** Communication via thread-safe queues only
+
+## Backward Compatibility
+```python
+# Legacy code continues to work
+from feagi.npu.burst_engine import FQSampler, OptimizedFQSampler
+
+# Both aliases point to UnifiedFQSampler
+sampler = FQSampler(fire_queue_provider, 30.0, output_queue)
+optimized = OptimizedFQSampler(fire_queue_provider, 50.0, output_queue)
+```
 
 ## Benefits
-- **Modular:** Easy to add/remove samplers or consumers.
-- **Deterministic:** Each task has a predictable schedule.
-- **RTOS/Rust-ready:** Direct mapping to RTOS tasks/threads and message queues.
-- **Scalable:** Supports multiple visualization or motor output modules.
+- **54x Faster Initialization:** Centralized SIMD detection vs redundant per-component detection
+- **Performance Isolation:** Motor control unaffected by visualization load  
+- **Resource Efficiency:** Only sample relevant areas for each use case
+- **RTOS-Ready:** Direct mapping to periodic tasks with deterministic timing
+- **Scalable:** Easy to add specialized samplers (logging, research, etc.)
+- **Maintainable:** Single unified implementation vs multiple class variants
 
 ## State Manager Integration and Observability
 
