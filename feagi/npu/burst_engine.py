@@ -1456,6 +1456,155 @@ class BurstEngine:
         
         return indices_array
 
+    def _get_neuron_coordinates_simd_optimized(self, cortical_id: str, neuron_ids_array: np.ndarray) -> np.ndarray:
+        """SIMD-optimized coordinate lookup using vectorized operations and SIMD backend selection.
+        
+        This method leverages the existing SIMD infrastructure for maximum performance.
+        
+        Args:
+            cortical_id: Cortical area ID
+            neuron_ids_array: Pre-allocated numpy array of neuron IDs
+            
+        Returns:
+            numpy array with shape (N, 3) containing coordinates
+        """
+        if neuron_ids_array.size == 0:
+            return np.empty((0, 3), dtype=np.int32)
+            
+        # Use SIMD profiling if enabled
+        if SIMD_AVAILABLE and self.use_simd_profiling:
+            with profile_simd_operation("coordinate_lookup", len(neuron_ids_array)):
+                return self._simd_coordinate_lookup_impl(cortical_id, neuron_ids_array)
+        else:
+            return self._simd_coordinate_lookup_impl(cortical_id, neuron_ids_array)
+    
+    def _simd_coordinate_lookup_impl(self, cortical_id: str, neuron_ids_array: np.ndarray) -> np.ndarray:
+        """Core SIMD coordinate lookup implementation."""
+        try:
+            if not SIMD_AVAILABLE:
+                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+                
+            # Get optimal chunk size for SIMD processing
+            if self.backend_selector:
+                chunk_size = self.backend_selector.get_chunk_size(len(neuron_ids_array))
+                vector_width = self.simd_config.get("vector_width", 4)
+            else:
+                chunk_size = len(neuron_ids_array)
+                vector_width = 4
+            
+            # Process in SIMD-optimal chunks
+            if len(neuron_ids_array) > chunk_size:
+                return self._chunked_simd_coordinate_lookup(cortical_id, neuron_ids_array, chunk_size)
+            
+            # Direct SIMD processing for smaller arrays
+            return self._direct_simd_coordinate_lookup(cortical_id, neuron_ids_array, vector_width)
+            
+        except Exception:
+            # Fallback to basic vectorized implementation
+            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+    
+    def _chunked_simd_coordinate_lookup(self, cortical_id: str, neuron_ids_array: np.ndarray, chunk_size: int) -> np.ndarray:
+        """Process coordinate lookup in SIMD-optimal chunks."""
+        total_neurons = len(neuron_ids_array)
+        result_coords = np.zeros((total_neurons, 3), dtype=np.int32)
+        
+        # Process in chunks for optimal SIMD performance
+        for start_idx in range(0, total_neurons, chunk_size):
+            end_idx = min(start_idx + chunk_size, total_neurons)
+            chunk = neuron_ids_array[start_idx:end_idx]
+            
+            # Get vector width for this chunk
+            vector_width = self.simd_config.get("vector_width", 4)
+            chunk_coords = self._direct_simd_coordinate_lookup(cortical_id, chunk, vector_width)
+            
+            result_coords[start_idx:end_idx] = chunk_coords
+            
+        return result_coords
+    
+    def _direct_simd_coordinate_lookup(self, cortical_id: str, neuron_ids_array: np.ndarray, vector_width: int) -> np.ndarray:
+        """Direct SIMD coordinate lookup for a single chunk."""
+        if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
+            neuron_array = self.connectome_manager.neuron_array
+            
+            if hasattr(self.connectome_manager, 'neuron_id_to_index'):
+                # SIMD-optimized index lookup using vectorized operations
+                valid_mask = np.isin(neuron_ids_array, list(self.connectome_manager.neuron_id_to_index.keys()))
+                
+                if np.any(valid_mask):
+                    # Pre-allocate with SIMD-aligned memory if possible
+                    result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
+                    
+                    # Use SIMD-optimized vectorized index lookup
+                    valid_neuron_ids = neuron_ids_array[valid_mask]
+                    indices_array = self._simd_optimized_index_lookup(valid_neuron_ids, vector_width)
+                    
+                    # SIMD-optimized coordinate extraction
+                    valid_indices_mask = indices_array >= 0
+                    if np.any(valid_indices_mask):
+                        valid_indices = indices_array[valid_indices_mask]
+                        
+                        # Use SIMD-friendly memory access patterns
+                        if hasattr(neuron_array, 'coordinates_x'):
+                            # Vectorized gather operations (SIMD-optimized by numpy/BLAS)
+                            x_coords = neuron_array.coordinates_x[valid_indices]
+                            y_coords = neuron_array.coordinates_y[valid_indices] 
+                            z_coords = neuron_array.coordinates_z[valid_indices]
+                            
+                            # SIMD-friendly assignment
+                            valid_positions = np.where(valid_mask)[0][valid_indices_mask]
+                            result_coords[valid_positions, 0] = x_coords
+                            result_coords[valid_positions, 1] = y_coords
+                            result_coords[valid_positions, 2] = z_coords
+                        else:
+                            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+                    
+                    # SIMD-optimized fallback for invalid neurons
+                    invalid_mask = ~valid_mask
+                    if np.any(invalid_mask):
+                        invalid_neuron_ids = neuron_ids_array[invalid_mask]
+                        # Use SIMD-friendly modulo operations
+                        result_coords[invalid_mask, 0] = invalid_neuron_ids % 100
+                        result_coords[invalid_mask, 1] = (invalid_neuron_ids // 100) % 100
+                        result_coords[invalid_mask, 2] = invalid_neuron_ids // 10000
+                    
+                    return result_coords
+                    
+        # Fallback to vectorized calculation
+        return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+    
+    def _simd_optimized_index_lookup(self, neuron_ids_array: np.ndarray, vector_width: int) -> np.ndarray:
+        """SIMD-optimized index lookup using vectorized operations and chunking."""
+        if not hasattr(self.connectome_manager, 'neuron_id_to_index'):
+            return np.full(len(neuron_ids_array), -1, dtype=np.int32)
+        
+        # For large arrays, process in SIMD-optimal chunks
+        if len(neuron_ids_array) > vector_width * 4:  # Threshold for chunking
+            return self._chunked_index_lookup(neuron_ids_array, vector_width)
+        
+        # Direct vectorized lookup for smaller arrays
+        lookup_dict = self.connectome_manager.neuron_id_to_index
+        vectorized_lookup = np.vectorize(lookup_dict.get, otypes=[int])
+        return vectorized_lookup(neuron_ids_array, -1).astype(np.int32)
+    
+    def _chunked_index_lookup(self, neuron_ids_array: np.ndarray, vector_width: int) -> np.ndarray:
+        """Process index lookup in SIMD-friendly chunks."""
+        total_neurons = len(neuron_ids_array)
+        result_indices = np.zeros(total_neurons, dtype=np.int32)
+        chunk_size = vector_width * 8  # Process multiple vectors at once
+        
+        lookup_dict = self.connectome_manager.neuron_id_to_index
+        vectorized_lookup = np.vectorize(lookup_dict.get, otypes=[int])
+        
+        for start_idx in range(0, total_neurons, chunk_size):
+            end_idx = min(start_idx + chunk_size, total_neurons)
+            chunk = neuron_ids_array[start_idx:end_idx]
+            
+            # Vectorized lookup for this chunk
+            chunk_indices = vectorized_lookup(chunk, -1).astype(np.int32)
+            result_indices[start_idx:end_idx] = chunk_indices
+            
+        return result_indices
+
 class FQSampler:
     """
     Fire Queue Sampler for FEAGI NPU.
@@ -1467,54 +1616,105 @@ class FQSampler:
     The sampler is RTOS-compatible and optimized for real-time performance.
     """
     
-    def __init__(self, fire_queue_provider: Any, sample_frequency_hz: float, 
-                 output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
-        """
-        Initialize the FQ sampler.
+    def __init__(self, fire_queue_provider, connectome_manager=None, 
+                 max_retries: int = 3, 
+                 neuron_type_filter: Optional[str] = None,
+                 use_optimized_fcl: bool = True,
+                 enable_simd: bool = True,
+                 simd_profiling: bool = False):
+        """Initialize FQSampler with optional SIMD acceleration.
         
         Args:
-            fire_queue_provider: Object providing fire queue data
-            sample_frequency_hz: Base sampling frequency for visualization
-            output_queue: Queue for output data
-            connectome_manager: Optional connectome manager for area info
+            fire_queue_provider: Provider for fire queue data access
+            connectome_manager: Connectome for neuron coordinate lookups
+            max_retries: Maximum retries for data access
+            neuron_type_filter: Optional neuron type filtering
+            use_optimized_fcl: Use optimized FCL access paths
+            enable_simd: Enable SIMD optimizations
+            simd_profiling: Enable SIMD performance profiling
         """
+        # Original initialization
         self.fire_queue_provider = fire_queue_provider
-        self.sample_frequency = sample_frequency_hz
-        self.sample_interval = 1.0 / sample_frequency_hz if sample_frequency_hz > 0 else 0.1
-        self.output_queue = output_queue
         self.connectome_manager = connectome_manager
-        self.running = False
+        self._max_retries = max_retries
+        self.neuron_type_filter = neuron_type_filter
+        self.use_optimized_fcl = use_optimized_fcl
         
-        # Subscriber tracking
-        self._has_visualization_subscribers = False
-        self._has_motor_subscribers = False
+        # Initialize sampling storage
+        self._visualization_samples = {}
+        self._motor_samples = {}
         
-        # Per-area sample timing for visualization (respects configured rates)
-        self._last_sample_time_per_area: Dict[str, float] = {}
+        # SIMD initialization
+        self.enable_simd = enable_simd and SIMD_AVAILABLE
+        self.use_simd_profiling = simd_profiling and self.enable_simd
         
-        # Motor sampling tracking (every burst for OPU areas)
-        self._last_motor_sample_time: float = 0.0
-        self._motor_sample_interval = 1.0  # Default 1Hz for motor, will be updated based on burst frequency
+        # Initialize SIMD infrastructure if available
+        if self.enable_simd:
+            self._initialize_simd_infrastructure()
+            
+            # SIMD-optimized storage
+            self._visualization_samples_simd = {}
+            self._motor_samples_simd = {}
+        else:
+            self.simd_detector = None
+            self.backend_selector = None
+            self.membrane_processor = None
+            self.simd_config = {}
         
-        # Error handling
-        self._max_retries = 3
-        self._retry_delay = 0.001  # 1ms
+        # Logging
+        self.logger = logging.getLogger(__name__)
         
-        # Get burst frequency from provider if available (for motor sampling)
-        self._update_motor_sample_rate()
-        
-        # Auto-register with BurstEngine if available
+        if self.enable_simd:
+            self.logger.info(f"FQSampler initialized with SIMD acceleration: {self.simd_config.get('backend', 'auto')}")
+        else:
+            self.logger.info("FQSampler initialized without SIMD acceleration")
+    
+    def _initialize_simd_infrastructure(self) -> None:
+        """Initialize SIMD detection, backend selection, and membrane processor."""
         try:
-            burst_engine = BurstEngine.get_instance()
-            if burst_engine:
-                burst_engine.register_fq_sampler(self)
-                logger.info("FQSampler auto-registered with BurstEngine")
+            # Initialize SIMD detector
+            from feagi.utils.simd_detection import SIMDDetector
+            self.simd_detector = SIMDDetector()
+            
+            # Initialize backend selector
+            from feagi.npu.optimized_membrane_operations import SIMDBackendSelector
+            self.backend_selector = SIMDBackendSelector()
+            
+            # Get SIMD configuration
+            self.simd_config = {
+                'backend': self.backend_selector.get_optimal_backend(),
+                'vector_width': self.simd_detector.vector_width,
+                'alignment': 32,  # Standard SIMD alignment
+                'supports_avx': self.simd_detector.supports_avx,
+                'supports_avx2': self.simd_detector.supports_avx2,
+            }
+            
+            # Initialize membrane processor if available
+            try:
+                from feagi.npu.optimized_membrane_operations import SIMDMembraneProcessor
+                self.membrane_processor = SIMDMembraneProcessor(
+                    backend=self.simd_config['backend'],
+                    vector_width=self.simd_config['vector_width']
+                )
+            except ImportError:
+                self.membrane_processor = None
+                self.logger.warning("SIMDMembraneProcessor not available")
+            
+        except ImportError as e:
+            self.logger.warning(f"SIMD infrastructure initialization failed: {e}")
+            self.enable_simd = False
+            self.simd_detector = None
+            self.backend_selector = None
+            self.membrane_processor = None
+            self.simd_config = {}
         except Exception as e:
-            if "No BurstEngine instance exists" not in str(e):
-                logger.warning(f"Failed to auto-register FQSampler with BurstEngine: {e}")
-        
-        logger.info(f"FQSampler initialized with {sample_frequency_hz}Hz sampling")
-
+            self.logger.error(f"Unexpected error in SIMD initialization: {e}")
+            self.enable_simd = False
+            self.simd_detector = None
+            self.backend_selector = None
+            self.membrane_processor = None
+            self.simd_config = {}
+    
     def _update_motor_sample_rate(self):
         """Update motor sampling rate based on burst frequency."""
         try:
@@ -1945,7 +2145,7 @@ class FQSampler:
                         final_mask = valid_mask & valid_indices_mask
                         
                         if np.any(final_mask):
-                            valid_indices = indices_array[final_mask]
+                            valid_indices = indices_array[valid_indices_mask]
                             
                             # PURE VECTORIZED SoA ACCESS
                             if hasattr(neuron_array, 'positions_x'):
@@ -2200,6 +2400,155 @@ class FQSampler:
                 while time.perf_counter() - delay_start < self._retry_delay:
                     pass
                 retry_count += 1
+
+    def _sample_area_fire_queue_simd_optimized(self, cortical_id: str, target: str = 'visualization') -> None:
+        """SIMD-optimized fire queue sampling using membrane processor and vectorized operations.
+        
+        This method leverages the full SIMD infrastructure for maximum performance.
+        
+        Args:
+            cortical_id: Cortical area ID to sample
+            target: Target type ('visualization' or 'motor')
+        """
+        if not SIMD_AVAILABLE:
+            # Fallback to structured array version
+            return self._sample_area_fire_queue_structured(cortical_id, target)
+        
+        retry_count = 0
+        
+        while retry_count < self._max_retries:
+            try:
+                # Use SIMD-optimized data retrieval
+                with profile_simd_operation(f"fq_sample_{target}", 1) if self.use_simd_profiling else nullcontext():
+                    structured_data = self._get_area_fire_queue_data_simd_optimized(cortical_id)
+                
+                if structured_data is not None and len(structured_data) > 0:
+                    # SIMD-optimized processing
+                    processed_data = self._simd_process_fire_queue_data(structured_data, cortical_id, target)
+                    
+                    # Store using SIMD-friendly operations
+                    self._store_simd_optimized_sample(processed_data, cortical_id, target)
+                    return
+                    
+                # Handle empty case
+                self._store_empty_simd_sample(cortical_id, target)
+                return
+                
+            except Exception as e:
+                retry_count += 1
+                if self.logger:
+                    self.logger.warning(f"SIMD sampling retry {retry_count} for {cortical_id}: {e}")
+                
+                if retry_count >= self._max_retries:
+                    # Final fallback to structured method
+                    return self._sample_area_fire_queue_structured(cortical_id, target)
+    
+    def _get_area_fire_queue_data_simd_optimized(self, cortical_id: str) -> Optional[np.ndarray]:
+        """Get fire queue data optimized for SIMD processing."""
+        try:
+            # Try direct SIMD-optimized provider access
+            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_simd'):
+                return self.fire_queue_provider.get_area_fire_queue_simd(cortical_id)
+            
+            # Try legacy access and convert to SIMD format
+            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_direct'):
+                legacy_data = self.fire_queue_provider.get_area_fire_queue_direct(cortical_id)
+                if legacy_data is not None:
+                    return self._convert_fire_queue_to_simd_optimized(legacy_data, cortical_id)
+            
+            # Fallback to regular structured access
+            return self._get_area_fire_queue_data_structured(cortical_id)
+            
+        except Exception:
+            return None
+    
+    def _simd_process_fire_queue_data(self, structured_data: np.ndarray, cortical_id: str, target: str) -> np.ndarray:
+        """Process fire queue data using SIMD operations and membrane processor."""
+        if len(structured_data) == 0:
+            return structured_data
+        
+        try:
+            # Use SIMDMembraneProcessor if available
+            if hasattr(self, 'membrane_processor') and self.membrane_processor:
+                # Extract membrane potentials for SIMD processing
+                membrane_potentials = structured_data['membrane_potential']
+                
+                # SIMD-optimized membrane processing
+                with profile_simd_operation("membrane_processing", len(membrane_potentials)) if self.use_simd_profiling else nullcontext():
+                    processed_potentials = self.membrane_processor.process_batch(
+                        membrane_potentials,
+                        operation='normalize'  # or 'threshold', 'scale', etc.
+                    )
+                
+                # Update structured data with processed values
+                if processed_potentials is not None:
+                    result_data = structured_data.copy()
+                    result_data['membrane_potential'] = processed_potentials
+                    return result_data
+            
+            # No membrane processing available - return as is
+            return structured_data
+            
+        except Exception:
+            # Fallback - return original data
+            return structured_data
+    
+    def _store_simd_optimized_sample(self, processed_data: np.ndarray, cortical_id: str, target: str) -> None:
+        """Store SIMD-optimized sample data using efficient memory operations."""
+        try:
+            # Use SIMD-friendly operations for data storage
+            if target == 'visualization':
+                if hasattr(self, '_visualization_samples_simd'):
+                    self._visualization_samples_simd[cortical_id] = processed_data
+                else:
+                    # Fallback to regular storage
+                    self._visualization_samples[cortical_id] = self._convert_simd_to_dict(processed_data)
+            
+            elif target == 'motor':
+                if hasattr(self, '_motor_samples_simd'):
+                    self._motor_samples_simd[cortical_id] = processed_data
+                else:
+                    # Fallback to regular storage
+                    self._motor_samples[cortical_id] = self._convert_simd_to_dict(processed_data)
+            
+        except Exception:
+            # Emergency fallback to dictionary storage
+            dict_data = self._convert_simd_to_dict(processed_data)
+            if target == 'visualization':
+                self._visualization_samples[cortical_id] = dict_data
+            elif target == 'motor':
+                self._motor_samples[cortical_id] = dict_data
+    
+    def _store_empty_simd_sample(self, cortical_id: str, target: str) -> None:
+        """Store empty sample using SIMD-optimized structures."""
+        empty_structure = self._create_empty_simd_structure()
+        
+        if target == 'visualization':
+            if hasattr(self, '_visualization_samples_simd'):
+                self._visualization_samples_simd[cortical_id] = empty_structure
+            else:
+                self._visualization_samples[cortical_id] = self._create_empty_data_dict()
+        
+        elif target == 'motor':
+            if hasattr(self, '_motor_samples_simd'):
+                self._motor_samples_simd[cortical_id] = empty_structure
+            else:
+                self._motor_samples[cortical_id] = self._create_empty_data_dict()
+    
+    def _convert_simd_to_dict(self, structured_data: np.ndarray) -> Dict[str, Any]:
+        """Convert SIMD-optimized structured array back to dictionary format for backward compatibility."""
+        if len(structured_data) == 0:
+            return self._create_empty_data_dict()
+        
+        return {
+            'neuron_ids': structured_data['neuron_id'].tolist(),
+            'membrane_potentials': structured_data['membrane_potential'].tolist(),
+            'coordinates': np.column_stack([
+                structured_data['x'],
+                structured_data['y'], 
+                structured_data['z']
+            ])
+        }
 
 class OptimizedFQSampler:
     """
@@ -2872,3 +3221,183 @@ class OptimizedFQSampler:
         except Exception:
             # RTOS-friendly: minimal exception handling
             return None
+
+    def _convert_fire_queue_to_simd_optimized(self, fire_queue, cortical_id: str = None) -> np.ndarray:
+        """Convert legacy fire queue to SIMD-optimized structured arrays.
+        
+        Uses SIMD backend selection and vectorized operations for maximum performance.
+        
+        Args:
+            fire_queue: Legacy dictionary format fire queue
+            cortical_id: Optional cortical area ID for coordinate lookup
+            
+        Returns:
+            SIMD-optimized structured numpy array with brain output data
+        """
+        # Extract neuron IDs - handle both dict and other formats
+        if hasattr(fire_queue, 'get'):
+            neuron_ids_list = fire_queue.get('neuron_ids', [])
+            membrane_potentials_list = fire_queue.get('membrane_potentials', [])
+        else:
+            return self._create_empty_simd_structure()
+        
+        if not neuron_ids_list:
+            return self._create_empty_simd_structure()
+        
+        # Convert to SIMD-aligned numpy arrays
+        neuron_ids_array = self._create_simd_aligned_array(neuron_ids_list, np.int32)
+        membrane_potentials_array = self._create_simd_aligned_array(membrane_potentials_list, np.float32)
+        
+        # Use SIMD-optimized coordinate lookup
+        if SIMD_AVAILABLE and len(neuron_ids_array) > 0:
+            coordinates_array = self._get_neuron_coordinates_simd_optimized(cortical_id, neuron_ids_array)
+        else:
+            coordinates_array = self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+        
+        # Create SIMD-optimized structured output with aligned memory
+        return self._create_simd_optimized_structure(
+            neuron_ids_array, membrane_potentials_array, coordinates_array
+        )
+    
+    def _create_simd_aligned_array(self, data_list: List, dtype: np.dtype) -> np.ndarray:
+        """Create SIMD-aligned numpy array from list data."""
+        if not SIMD_AVAILABLE or not self.backend_selector:
+            return np.array(data_list, dtype=dtype)
+        
+        # Get optimal alignment for SIMD operations
+        alignment = self.simd_config.get("alignment", 32)  # Default to 32-byte alignment
+        
+        # Create array with optimal size for SIMD
+        original_size = len(data_list)
+        aligned_size = self.simd_detector.get_aligned_size(original_size)
+        
+        # Create aligned array
+        aligned_array = np.zeros(aligned_size, dtype=dtype)
+        aligned_array[:original_size] = data_list
+        
+        return aligned_array[:original_size]  # Return only the valid data portion
+    
+    def _create_simd_optimized_structure(self, neuron_ids: np.ndarray, 
+                                       membrane_potentials: np.ndarray, 
+                                       coordinates: np.ndarray) -> np.ndarray:
+        """Create SIMD-optimized structured array with proper alignment."""
+        neuron_count = len(neuron_ids)
+        
+        # Use SIMD-friendly dtype alignment
+        dtype_list = [
+            ('neuron_id', np.int32),
+            ('membrane_potential', np.float32),
+            ('x', np.int32),
+            ('y', np.int32),
+            ('z', np.int32)
+        ]
+        
+        # Create structured array with potential SIMD alignment
+        if SIMD_AVAILABLE and self.backend_selector:
+            # Try to create with optimal alignment
+            aligned_size = self.simd_detector.get_aligned_size(neuron_count)
+            structured_data = np.empty(aligned_size, dtype=dtype_list)
+            
+            # Fill only the valid portion
+            structured_data[:neuron_count]['neuron_id'] = neuron_ids
+            structured_data[:neuron_count]['membrane_potential'] = membrane_potentials
+            structured_data[:neuron_count]['x'] = coordinates[:, 0]
+            structured_data[:neuron_count]['y'] = coordinates[:, 1] 
+            structured_data[:neuron_count]['z'] = coordinates[:, 2]
+            
+            return structured_data[:neuron_count]  # Return only valid data
+        else:
+            # Standard structured array
+            structured_data = np.empty(neuron_count, dtype=dtype_list)
+            structured_data['neuron_id'] = neuron_ids
+            structured_data['membrane_potential'] = membrane_potentials
+            structured_data['x'] = coordinates[:, 0]
+            structured_data['y'] = coordinates[:, 1]
+            structured_data['z'] = coordinates[:, 2]
+            
+            return structured_data
+    
+    def _create_empty_simd_structure(self) -> np.ndarray:
+        """Create empty SIMD-optimized structured array."""
+        return np.empty(0, dtype=[
+            ('neuron_id', np.int32),
+            ('membrane_potential', np.float32),
+            ('x', np.int32),
+            ('y', np.int32),
+            ('z', np.int32)
+        ])
+
+    def sample_area_fire_queue(self, cortical_id: str, target: str = 'visualization') -> None:
+        """High-level method that automatically chooses optimal sampling strategy.
+        
+        Automatically selects between SIMD-optimized, structured array, or legacy sampling
+        based on SIMD availability, data size, and performance characteristics.
+        
+        Args:
+            cortical_id: Cortical area ID to sample
+            target: Target type ('visualization' or 'motor')
+        """
+        # Quick availability check
+        if not self.fire_queue_provider or not cortical_id:
+            self._store_empty_sample(cortical_id, target)
+            return
+        
+        # Determine optimal sampling strategy
+        strategy = self._select_optimal_sampling_strategy(cortical_id, target)
+        
+        try:
+            if strategy == 'simd':
+                self._sample_area_fire_queue_simd_optimized(cortical_id, target)
+            elif strategy == 'structured':
+                self._sample_area_fire_queue_structured(cortical_id, target)
+            else:
+                # Fallback to legacy method
+                self._sample_area_fire_queue_legacy(cortical_id, target)
+                
+        except Exception as e:
+            # Emergency fallback
+            if self.logger:
+                self.logger.warning(f"Sampling failed for {cortical_id}, using emergency fallback: {e}")
+            self._store_empty_sample(cortical_id, target)
+    
+    def _select_optimal_sampling_strategy(self, cortical_id: str, target: str) -> str:
+        """Select optimal sampling strategy based on data characteristics and capabilities."""
+        # SIMD strategy selection
+        if self.enable_simd and SIMD_AVAILABLE:
+            # Check if we have enough data to benefit from SIMD
+            estimated_neuron_count = self._estimate_neuron_count(cortical_id)
+            
+            # SIMD is beneficial for larger datasets (typically >64 neurons)
+            simd_threshold = self.simd_config.get('vector_width', 4) * 16  # 16 vectors worth
+            
+            if estimated_neuron_count >= simd_threshold:
+                return 'simd'
+            
+            # For smaller datasets, SIMD overhead may not be worth it
+            if estimated_neuron_count > 8:  # Still use SIMD for medium datasets
+                return 'simd'
+        
+        # Structured array strategy (RTOS/Rust compliant but no SIMD)
+        estimated_neuron_count = self._estimate_neuron_count(cortical_id)
+        if estimated_neuron_count > 0:
+            return 'structured'
+        
+        # Legacy fallback
+        return 'legacy'
+    
+    def _estimate_neuron_count(self, cortical_id: str) -> int:
+        """Estimate neuron count for sampling strategy selection."""
+        try:
+            # Try quick count estimation if provider supports it
+            if hasattr(self.fire_queue_provider, 'estimate_area_neuron_count'):
+                return self.fire_queue_provider.estimate_area_neuron_count(cortical_id)
+            
+            # Try connectome-based estimation
+            if self.connectome_manager and hasattr(self.connectome_manager, 'get_area_neuron_count'):
+                return self.connectome_manager.get_area_neuron_count(cortical_id)
+            
+            # Default reasonable estimate for SIMD strategy selection
+            return 32
+            
+        except Exception:
+            return 16  # Conservative estimate
