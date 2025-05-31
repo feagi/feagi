@@ -128,20 +128,6 @@ class UnifiedFQSampler:
         logger.info(f"UnifiedFQSampler initialized: mode={self.sampling_mode}, "
                    f"frequency={self.sample_frequency}Hz, simd={self.simd_config['available']}, "
                    f"zero_copy={self.enable_zero_copy}")
-        
-        # Initialize backward compatibility attributes
-        self._has_visualization_subscribers = False
-        self._has_motor_subscribers = False
-        self._area_sample_rates = {}
-        self._last_sample_time_per_area = {}
-        
-        # Additional backward compatibility attributes
-        self._max_retries = self.max_retries  # Alias for tests
-        self._retry_delay = 0.001  # Default retry delay (match test expectation)
-        self._last_global_sample_time = 0.0
-        self._current_area_index = 0  # For cycling through areas
-        
-        # Call this at the end of __init__ in the main constructor
 
     def _initialize_simd_configuration(self) -> None:
         """Initialize SIMD configuration from centralized state manager."""
@@ -433,25 +419,20 @@ class UnifiedFQSampler:
             while self.running:
                 start_time = time.perf_counter()
                 
-                # Check if we should sample (backward compatibility)
-                should_sample = (hasattr(self, '_has_visualization_subscribers') and self._has_visualization_subscribers) or \
-                               (hasattr(self, '_has_motor_subscribers') and self._has_motor_subscribers)
-                
-                if should_sample:
-                    try:
-                        # Use the old-style sampling for backward compatibility
-                        sample_data = self._backward_compatible_sample()
-                        
-                        if sample_data and self.output_queue:
-                            try:
-                                self.output_queue.put_nowait(sample_data)
-                                self._performance_stats['samples_generated'] += 1
-                            except Exception as e:
-                                logger.debug(f"UnifiedFQSampler: Output queue full or error: {e}")
-                                
-                    except Exception as e:
-                        logger.error(f"UnifiedFQSampler: Sampling error: {e}")
-                        # Continue running even if sampling fails
+                # Sample data if sampler is running
+                try:
+                    sample_data = self._backward_compatible_sample()
+                    
+                    if sample_data and self.output_queue:
+                        try:
+                            self.output_queue.put_nowait(sample_data)
+                            self._performance_stats['samples_generated'] += 1
+                        except Exception as e:
+                            logger.debug(f"UnifiedFQSampler: Output queue full or error: {e}")
+                            
+                except Exception as e:
+                    logger.error(f"UnifiedFQSampler: Sampling error: {e}")
+                    # Continue running even if sampling fails
                 
                 # Sleep for the remainder of the sample interval
                 elapsed = time.perf_counter() - start_time
@@ -474,17 +455,14 @@ class UnifiedFQSampler:
             if self.connectome_manager and hasattr(self.connectome_manager, 'cortical_areas'):
                 area_ids = list(self.connectome_manager.cortical_areas.keys())
                 if area_ids:
-                    # Cycle through areas to ensure all get sampled
-                    area_id = area_ids[self._current_area_index % len(area_ids)]
-                    self._current_area_index += 1
-                    
+                    # Use first area for sampling
+                    area_id = area_ids[0]
                     area_data = self._sample_area_fire_queue(area_id)
                     if area_data:
                         # Return tuple format for connectome-based sampling
                         return (area_id, area_data)
             
             # Try to get fire queue data from the provider (for non-connectome cases)
-            provider_failed = False
             if hasattr(self.fire_queue_provider, 'get_fire_queue'):
                 try:
                     # Old-style fire queue provider
@@ -493,7 +471,6 @@ class UnifiedFQSampler:
                         return fire_data
                 except Exception as e:
                     logger.debug(f"UnifiedFQSampler: Fire queue provider failed: {e}")
-                    provider_failed = True
             elif hasattr(self.fire_queue_provider, 'get_global_fire_queue_data'):
                 try:
                     # New-style fire queue provider
@@ -502,95 +479,15 @@ class UnifiedFQSampler:
                         return fire_data
                 except Exception as e:
                     logger.debug(f"UnifiedFQSampler: Fire queue provider failed: {e}")
-                    provider_failed = True
             
-            # If the provider failed, don't return fallback data for exception tests
-            if provider_failed:
-                return None
-            
-            # Fallback: return empty sample to keep tests happy (only if provider didn't fail)
-            fallback_data = {
-                'neuron_ids': [1, 2, 3],  # Dummy data for tests
-                'coordinates': [(0, 0, 0), (1, 1, 1), (2, 2, 2)],
-                'membrane_potentials': [0.8, 1.2, 0.9],
-                'thresholds': [1.0, 1.0, 1.0],
-                'consecutive_fire_counts': [1, 2, 1],
-                'refractory_counters': [0, 0, 0]
-            }
-            
-            # If we have connectome manager, return as tuple
-            if self.connectome_manager and hasattr(self.connectome_manager, 'cortical_areas'):
-                area_ids = list(self.connectome_manager.cortical_areas.keys())
-                if area_ids:
-                    area_id = area_ids[self._current_area_index % len(area_ids)]
-                    self._current_area_index += 1
-                    return (area_id, fallback_data)  # Return cycling area with fallback data
-            
-            return fallback_data
+            return None
             
         except Exception as e:
             logger.error(f"UnifiedFQSampler: Error in backward compatible sampling: {e}")
             return None
 
-    def stop(self) -> None:
-        """Stop the sampler."""
-        self.running = False
-        logger.info(f"UnifiedFQSampler stopped. Performance stats: {self._performance_stats}")
-
-    def get_performance_stats(self) -> Dict[str, Any]:
-        """Get performance statistics."""
-        stats = self._performance_stats.copy()
-        stats['sample_frequency'] = self.sample_frequency
-        stats['sampling_mode'] = self.sampling_mode
-        stats['simd_enabled'] = self.simd_config['available']
-        stats['zero_copy_enabled'] = self.enable_zero_copy and self.fcl_manager is not None
-        return stats
-
-    def set_sample_frequency(self, frequency_hz: float) -> None:
-        """Set new sampling frequency."""
-        if frequency_hz > 0:
-            self.sample_frequency = frequency_hz
-            self.sample_interval = 1.0 / frequency_hz
-            logger.info(f"UnifiedFQSampler frequency updated to {frequency_hz}Hz")
-
-    def set_target_areas(self, area_ids: List[str]) -> None:
-        """Set specific areas to target for sampling."""
-        self.target_areas = area_ids
-        logger.info(f"UnifiedFQSampler target areas updated: {area_ids}")
-
-    # =================================================================
-    # BACKWARD COMPATIBILITY METHODS FOR EXISTING TESTS
-    # =================================================================
-    
-    def set_visualization_subscribers(self, enabled: bool) -> None:
-        """Backward compatibility: Set visualization subscriber flag."""
-        self._has_visualization_subscribers = enabled
-        if enabled:
-            logger.debug("UnifiedFQSampler: Visualization subscribers enabled")
-        else:
-            logger.debug("UnifiedFQSampler: Visualization subscribers disabled")
-    
-    def set_motor_subscribers(self, enabled: bool) -> None:
-        """Backward compatibility: Set motor subscriber flag."""
-        self._has_motor_subscribers = enabled
-        if enabled:
-            logger.debug("UnifiedFQSampler: Motor subscribers enabled")
-        else:
-            logger.debug("UnifiedFQSampler: Motor subscribers disabled")
-    
-    def update_area_sample_rate(self, area_id: str, rate_hz: float) -> None:
-        """Backward compatibility: Update sample rate for specific area."""
-        if not hasattr(self, '_area_sample_rates'):
-            self._area_sample_rates = {}
-        if not hasattr(self, '_last_sample_time_per_area'):
-            self._last_sample_time_per_area = {}
-            
-        self._area_sample_rates[area_id] = rate_hz
-        self._last_sample_time_per_area[area_id] = 0.0  # Initialize timing
-        logger.debug(f"UnifiedFQSampler: Area {area_id} sample rate set to {rate_hz}Hz")
-    
     def _sample_area_fire_queue(self, area_id: str) -> Optional[Dict[str, Any]]:
-        """Backward compatibility: Sample fire queue for specific area."""
+        """Sample fire queue for specific area."""
         try:
             # If the fire queue provider is configured to raise exceptions, 
             # we should try to call it and let the exception propagate
@@ -621,69 +518,40 @@ class UnifiedFQSampler:
                     return self.fire_queue_provider.get_area_fire_queue(area_id)
                 except Exception as e:
                     logger.debug(f"UnifiedFQSampler: Fire queue provider failed for area {area_id}: {e}")
-                    # If provider fails, don't return fallback data
                     return None
             
-            # Fallback for tests only when no provider failure - return dummy data for the area
-            return {
-                'neuron_ids': [1, 2, 3],  # Dummy data for tests
-                'coordinates': [(0, 0, 0), (1, 1, 1), (2, 2, 2)],
-                'membrane_potentials': [0.8, 1.2, 0.9],
-                'thresholds': [1.0, 1.0, 1.0],
-                'consecutive_fire_counts': [1, 2, 1],
-                'refractory_counters': [0, 0, 0]
-            }
+            return None
             
         except Exception as e:
             logger.debug(f"UnifiedFQSampler: Error sampling area {area_id}: {e}")
-            # Don't return fallback data when exceptions occur - this preserves the test expectation
             return None
-    
-    def _sample_global_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Backward compatibility: Sample global fire queue."""
-        try:
-            if self.fcl_manager and hasattr(self.fcl_manager, 'get_global_fcl'):
-                global_fcl = self.fcl_manager.get_global_fcl()
-                if global_fcl:
-                    neuron_ids = list(global_fcl)
-                    return {
-                        'neuron_ids': neuron_ids,
-                        'coordinates': [(0, 0, 0)] * len(neuron_ids),  # Placeholder
-                        'membrane_potentials': [1.0] * len(neuron_ids)  # Placeholder
-                    }
-            return None
-        except Exception as e:
-            logger.error(f"UnifiedFQSampler: Error sampling global fire queue: {e}")
-            return None
-    
-    def _get_global_fire_queue_data(self) -> Optional[Dict[str, Any]]:
-        """Backward compatibility: Get global fire queue data."""
-        return self._sample_global_fire_queue()
-    
-    def _get_area_fire_queue_data(self, area_id: str) -> Optional[Dict[str, Any]]:
-        """Backward compatibility: Get area fire queue data."""
-        return self._sample_area_fire_queue(area_id)
-    
-    # Initialize backward compatibility attributes
-    def __post_init__(self):
-        """Initialize backward compatibility attributes after main init."""
-        self._has_visualization_subscribers = False
-        self._has_motor_subscribers = False
-        self._area_sample_rates = {}
-        self._last_sample_time_per_area = {}
-        
-        # Additional backward compatibility attributes
-        self._max_retries = self.max_retries  # Alias for tests
-        self._retry_delay = 0.001  # Default retry delay (match test expectation)
-        self._last_global_sample_time = 0.0
-        self._current_area_index = 0  # For cycling through areas
-        
-        # Call this at the end of __init__ in the main constructor
 
+    def stop(self) -> None:
+        """Stop the sampler."""
+        self.running = False
+        logger.info(f"UnifiedFQSampler stopped. Performance stats: {self._performance_stats}")
 
-# Backward compatibility aliases
-FQSampler = UnifiedFQSampler
-OptimizedFQSampler = UnifiedFQSampler
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """Get performance statistics."""
+        stats = self._performance_stats.copy()
+        stats['sample_frequency'] = self.sample_frequency
+        stats['sampling_mode'] = self.sampling_mode
+        stats['simd_enabled'] = self.simd_config['available']
+        stats['zero_copy_enabled'] = self.enable_zero_copy and self.fcl_manager is not None
+        return stats
+
+    def set_sample_frequency(self, frequency_hz: float) -> None:
+        """Set new sampling frequency."""
+        if frequency_hz > 0:
+            self.sample_frequency = frequency_hz
+            self.sample_interval = 1.0 / frequency_hz
+            logger.info(f"UnifiedFQSampler frequency updated to {frequency_hz}Hz")
+
+    def set_target_areas(self, area_ids: List[str]) -> None:
+        """Set specific areas to target for sampling."""
+        self.target_areas = area_ids
+        logger.info(f"UnifiedFQSampler target areas updated: {area_ids}")
+
 
 # Public API
-__all__ = ['UnifiedFQSampler', 'FQSampler', 'OptimizedFQSampler'] 
+__all__ = ['UnifiedFQSampler'] 

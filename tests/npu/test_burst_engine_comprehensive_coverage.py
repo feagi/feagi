@@ -289,8 +289,19 @@ def test_burst_engine_frequency_measurement_no_data():
     """Test frequency measurement when no timing data is collected."""
     mock_state_manager = MockStateManager()
     
+    # Create a cycling time generator that never runs out
+    def time_generator():
+        yield 0.0  # Start time
+        yield 0.1  # Initial check
+        t = 0.1
+        while True:  # Infinite generator to prevent StopIteration
+            t += 0.001
+            yield t
+    
+    time_gen = time_generator()
+    
     with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager), \
-         patch('time.perf_counter', side_effect=[0.0, 0.1, 0.1, 0.1]), \
+         patch('time.perf_counter', side_effect=lambda: next(time_gen)), \
          patch('time.sleep'):
 
         cm = MockConnectomeManager()
