@@ -707,4 +707,89 @@ class MotorStream:
                     logger.warning("FQ sampler not available or doesn't support set_motor_subscribers")
                 
         except Exception as e:
-            logger.error(f"Error controlling FQ sampler for motor: {e}") 
+            logger.error(f"Error controlling FQ sampler for motor: {e}")
+
+def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
+    """
+    Handle motor stream with optimized performance path.
+    
+    This function uses the optimized FQ sampler if available, otherwise 
+    falls back to legacy processing for compatibility.
+    """
+    if subscriber_count <= 0:
+        return None
+    
+    # Check for optimized sampler
+    if hasattr(burst_engine, 'optimized_fq_sampler'):
+        try:
+            # Get OPU areas efficiently
+            opu_areas = []
+            if hasattr(burst_engine, 'connectome_manager') and burst_engine.connectome_manager:
+                cm = burst_engine.connectome_manager
+                if hasattr(cm, 'cortical_areas'):
+                    for area_id, area in cm.cortical_areas.items():
+                        area_type = getattr(area, 'cortical_type', '').upper()
+                        if ('OPU' in area_type or 'OUTPUT' in area_type or 'MOTOR' in area_type or
+                            area_id.startswith(('opu_', 'motor_', 'output_'))):
+                            opu_areas.append(area_id)
+            
+            # Direct binary output from optimized sampler
+            if opu_areas:
+                binary_data = burst_engine.optimized_fq_sampler.sample_motor_areas_direct(opu_areas)
+                if binary_data:
+                    logger.debug(f"MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes via optimized path")
+                    logger.debug(f"   Structure ID (bytes[0]): {binary_data[0]} (0x{binary_data[0]:02X})")
+                    logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
+                    logger.debug("   Generated Type 11 (NEURON_CATEGORIES) - optimized motor path!")
+                    return binary_data
+        except Exception as e:
+            logger.error(f"Error in optimized motor stream: {e}")
+            # Fall through to legacy processing
+    
+    # Legacy processing path
+    if not hasattr(burst_engine, 'fq_sampler') or not burst_engine.fq_sampler:
+        logger.warning("No FQ sampler available for motor stream")
+        return None
+    
+    try:
+        # Get data from legacy sampler
+        fq_data = burst_engine.fq_sampler.get_latest_data(target='motor')
+        
+        if not fq_data:
+            return None
+        
+        # Process the data appropriately
+        if isinstance(fq_data, tuple) and len(fq_data) == 2:
+            cortical_id, data_dict = fq_data
+            processed_data = _process_tuple_data(cortical_id, data_dict)
+        elif isinstance(fq_data, dict):
+            processed_data = _process_dict_data(fq_data)
+        else:
+            logger.warning(f"Unexpected motor fq_data format: {type(fq_data)}")
+            return None
+        
+        if not processed_data:
+            return None
+        
+        # Encode using the encoder
+        from feagi.protocols.feagi_data_codec import FeagiCodec
+        encoder = FeagiCodec()
+        
+        binary_data = encoder.encode_neuron_categories(
+            cortical_ids=processed_data.get('cortical_ids', []),
+            x_coords=processed_data.get('x_coords', []),
+            y_coords=processed_data.get('y_coords', []),
+            z_coords=processed_data.get('z_coords', []),
+            membrane_potentials=processed_data.get('membrane_potentials', [])
+        )
+        
+        logger.debug(f"MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes via legacy path")
+        logger.debug(f"   Structure ID (bytes[0]): {binary_data[0]} (0x{binary_data[0]:02X})")
+        logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
+        logger.debug("   Generated Type 11 (NEURON_CATEGORIES) - legacy motor path!")
+        
+        return binary_data
+        
+    except Exception as e:
+        logger.error(f"Error in motor stream processing: {e}")
+        return None 

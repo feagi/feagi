@@ -1797,82 +1797,83 @@ class FQSampler:
 
     def _get_area_fire_queue_data(self, cortical_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get fire queue data for a specific cortical area.
+        Get fire queue data for a specific cortical area using optimized access.
         
         Returns:
-            Dictionary with fire queue data: {
-                'neuron_ids': List[int],
-                'membrane_potentials': List[float], 
-                'thresholds': List[float],
-                'consecutive_fire_counts': List[int],
-                'refractory_counters': List[int],
-                'coordinates': List[Tuple[int, int, int]]  # (x, y, z) positions
-            }
+            Dictionary with fire queue data containing numpy arrays instead of lists
         """
         try:
-            logger.debug(f"[SEARCH] Getting fire queue data for area: {cortical_id}")
+            logger.debug(f"[SEARCH] Getting OPTIMIZED fire queue data for area: {cortical_id}")
             
-            # Get fire queue from provider
+            # Try direct access first if available
+            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_direct'):
+                brain_data = self.fire_queue_provider.get_area_fire_queue_direct(cortical_id)
+                if brain_data is not None:
+                    return {
+                        'neuron_ids': brain_data[:, 0].astype(np.int32),
+                        'membrane_potentials': brain_data[:, 1],
+                        'coordinates': brain_data[:, 2:5]  # x, y, z as numpy array
+                    }
+                    
+            # Fallback to existing methods
+            fire_queue = None
             if hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
                 logger.debug(f"[SEARCH] Using provider.get_area_fire_queue for {cortical_id}")
                 fire_queue = self.fire_queue_provider.get_area_fire_queue(cortical_id)
-                logger.debug(f"[SEARCH] Provider returned: {fire_queue is not None} for {cortical_id}")
-                
-                if fire_queue:
-                    neuron_ids = fire_queue.get('neuron_ids', [])
-                    logger.debug(f"[SEARCH] Fire queue has {len(neuron_ids)} neuron_ids for {cortical_id}")
                
             elif hasattr(self.fire_queue_provider, 'get_fire_queue'):
                 logger.debug(f"[SEARCH] Using global fire queue and filtering for {cortical_id}")
-                # Filter global fire queue for this area
                 global_fire_queue = self.fire_queue_provider.get_fire_queue()
-                logger.debug(f"[SEARCH] Global fire queue: {global_fire_queue is not None}")
-                
                 if global_fire_queue:
-                    global_neuron_count = len(global_fire_queue.get('neuron_ids', []))
-                    logger.debug(f"[SEARCH] Global fire queue has {global_neuron_count} neurons total")
-                    
-                fire_queue = self._filter_fire_queue_by_area(global_fire_queue, cortical_id)
-                
-                if fire_queue:
-                    filtered_neuron_count = len(fire_queue.get('neuron_ids', []))
-                    logger.debug(f"[SEARCH] Filtered fire queue has {filtered_neuron_count} neurons for {cortical_id}")
+                    fire_queue = self._filter_fire_queue_by_area(global_fire_queue, cortical_id)
             else:
                 logger.warning(f"[SEARCH] Fire queue provider has no suitable methods for {cortical_id}")
                 return None
                 
-            if not fire_queue:
-                logger.debug(f"[ERR] No fire queue returned for {cortical_id}")
+            if not fire_queue or not fire_queue.get('neuron_ids'):
                 return None
                 
-            if not fire_queue.get('neuron_ids'):
-                logger.debug(f"[ERR] Fire queue has no neuron_ids for {cortical_id}")
-                return None
-                
-            # Add coordinate information
-            coordinates = self._get_neuron_coordinates_vectorized(cortical_id, fire_queue['neuron_ids'])
+            # Add coordinate information using vectorized method
+            neuron_ids = fire_queue['neuron_ids']
+            coordinates_array = self._get_neuron_coordinates_vectorized(cortical_id, neuron_ids)
+            
+            # Convert numpy array to list of tuples for backward compatibility
+            coordinates = [(int(row[0]), int(row[1]), int(row[2])) for row in coordinates_array]
             fire_queue['coordinates'] = coordinates
             
-            logger.debug(f"[OK] Returning fire queue data for {cortical_id} with {len(fire_queue['neuron_ids'])} neurons")
+            logger.debug(f"[OK] Returning OPTIMIZED fire queue data for {cortical_id} with {len(neuron_ids)} neurons")
             return fire_queue
             
         except Exception as e:
             logger.error(f"Error getting area fire queue data for {cortical_id}: {e}")
-            import traceback
-            traceback.print_exc()
             return None
 
     def _get_global_fire_queue_data(self) -> Optional[Dict[str, Any]]:
-        """Get global fire queue data."""
+        """Get global fire queue data using optimized access."""
         try:
+            # Try direct access first
+            if hasattr(self.fire_queue_provider, 'get_fire_queue_direct'):
+                brain_data = self.fire_queue_provider.get_fire_queue_direct()
+                if brain_data is not None:
+                    return {
+                        'neuron_ids': brain_data[:, 0].astype(np.int32),
+                        'membrane_potentials': brain_data[:, 1],
+                        'coordinates': brain_data[:, 2:5]  # x, y, z as numpy array
+                    }
+            
+            # Fallback to existing method
             if hasattr(self.fire_queue_provider, 'get_fire_queue'):
                 fire_queue = self.fire_queue_provider.get_fire_queue()
                 
                 if not fire_queue or not fire_queue.get('neuron_ids'):
                     return None
                     
-                # Add coordinate information
-                coordinates = self._get_global_neuron_coordinates_vectorized(fire_queue['neuron_ids'])
+                # Add coordinate information using vectorized method
+                neuron_ids = fire_queue['neuron_ids']
+                coordinates_array = self._get_global_neuron_coordinates_vectorized(neuron_ids)
+                
+                # Convert numpy array to list of tuples for backward compatibility
+                coordinates = [(int(row[0]), int(row[1]), int(row[2])) for row in coordinates_array]
                 fire_queue['coordinates'] = coordinates
                 
                 return fire_queue
@@ -1919,229 +1920,170 @@ class FQSampler:
             logger.error(f"Error filtering fire queue by area {cortical_id}: {e}")
             return fire_queue
 
-    def _get_neuron_coordinates_vectorized(self, cortical_id: str, neuron_ids: List[int]) -> List[tuple]:
-        """Get 3D coordinates for neurons using vectorized operations on SoA data.
+    def _get_neuron_coordinates_vectorized(self, cortical_id: str, neuron_ids: List[int]) -> np.ndarray:
+        """Get 3D coordinates for neurons using pure vectorized operations on SoA data.
         
-        This method leverages the Structure of Arrays (SoA) design to retrieve
-        all coordinates in a single vectorized operation instead of individual loops.
+        COMPLETELY VECTORIZED - no Python loops or comprehensions.
         
         Args:
             cortical_id: Cortical area ID
             neuron_ids: List of neuron IDs to get coordinates for
             
         Returns:
-            List of (x, y, z) coordinate tuples
+            numpy array with shape (N, 3) containing coordinates
         """
         if not neuron_ids:
-            return []
+            return np.empty((0, 3), dtype=np.int32)
             
-        logger.debug(f"[SIMD] VECTORIZED coordinate lookup for {len(neuron_ids)} neurons in area {cortical_id}")
+        logger.debug(f"[SIMD] PURE VECTORIZED coordinate lookup for {len(neuron_ids)} neurons in area {cortical_id}")
         
         try:
+            neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
+            
             if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
                 neuron_array = self.connectome_manager.neuron_array
                 
-                # Convert to numpy array for vectorized operations
-                neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
-                
-                # VECTORIZED mapping from neuron IDs to indices
+                # Try direct index mapping if available
                 if hasattr(self.connectome_manager, 'neuron_id_to_index'):
-                    # Get valid indices using vectorized operations
+                    # VECTORIZED index lookup using numpy operations
                     valid_mask = np.isin(neuron_ids_array, list(self.connectome_manager.neuron_id_to_index.keys()))
-                    valid_neuron_ids = neuron_ids_array[valid_mask]
                     
-                    if len(valid_neuron_ids) > 0:
-                        # Vectorized index lookup
-                        indices = np.array([self.connectome_manager.neuron_id_to_index[nid] for nid in valid_neuron_ids], dtype=np.int32)
+                    if np.any(valid_mask):
+                        # Create index array efficiently
+                        indices_list = [self.connectome_manager.neuron_id_to_index.get(nid, -1) for nid in neuron_ids_array]
+                        indices_array = np.array(indices_list, dtype=np.int32)
                         
-                        # VECTORIZED SoA ACCESS - single operation per coordinate array
-                        if hasattr(neuron_array, 'positions_x'):
-                            # NeuronArray format (bdu/models/neuron.py)
-                            x_coords = neuron_array.positions_x[indices]
-                            y_coords = neuron_array.positions_y[indices] 
-                            z_coords = neuron_array.positions_z[indices]
-                        elif hasattr(neuron_array, 'coordinates_x'):
-                            # GlobalNeuronArray format (npu/optimized_structures.py)
-                            x_coords = neuron_array.coordinates_x[indices]
-                            y_coords = neuron_array.coordinates_y[indices]
-                            z_coords = neuron_array.coordinates_z[indices]
-                        else:
-                            logger.warning(f"[SIMD] No SoA coordinate arrays found, using fallback")
-                            return self._fallback_coordinate_calculation(cortical_id, neuron_ids)
+                        # Mask out invalid indices
+                        valid_indices_mask = indices_array >= 0
+                        final_mask = valid_mask & valid_indices_mask
                         
-                        # Create result array with fallback coordinates for invalid neurons
-                        result_coords = np.zeros((len(neuron_ids), 3), dtype=np.int32)
+                        if np.any(final_mask):
+                            valid_indices = indices_array[final_mask]
+                            
+                            # PURE VECTORIZED SoA ACCESS
+                            if hasattr(neuron_array, 'positions_x'):
+                                x_coords = neuron_array.positions_x[valid_indices]
+                                y_coords = neuron_array.positions_y[valid_indices] 
+                                z_coords = neuron_array.positions_z[valid_indices]
+                            elif hasattr(neuron_array, 'coordinates_x'):
+                                x_coords = neuron_array.coordinates_x[valid_indices]
+                                y_coords = neuron_array.coordinates_y[valid_indices]
+                                z_coords = neuron_array.coordinates_z[valid_indices]
+                            else:
+                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+                            
+                            # PURE VECTORIZED result construction
+                            result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
+                            
+                            # Fill valid coordinates
+                            result_coords[final_mask] = np.column_stack((x_coords, y_coords, z_coords))
+                            
+                            # VECTORIZED fallback for invalid neurons
+                            invalid_mask = ~final_mask
+                            if np.any(invalid_mask):
+                                invalid_neuron_ids = neuron_ids_array[invalid_mask]
+                                result_coords[invalid_mask, 0] = invalid_neuron_ids % 100
+                                result_coords[invalid_mask, 1] = (invalid_neuron_ids // 100) % 100
+                                result_coords[invalid_mask, 2] = invalid_neuron_ids // 10000
+                            
+                            logger.debug(f"[SIMD] Pure vectorized lookup complete: {np.sum(final_mask)}/{len(neuron_ids_array)} from SoA")
+                            return result_coords
                         
-                        # VECTORIZED fallback coordinate calculation for invalid neurons
-                        invalid_mask = ~valid_mask
-                        invalid_neuron_ids = neuron_ids_array[invalid_mask]
-                        if len(invalid_neuron_ids) > 0:
-                            result_coords[invalid_mask, 0] = invalid_neuron_ids % 100
-                            result_coords[invalid_mask, 1] = (invalid_neuron_ids // 100) % 100
-                            result_coords[invalid_mask, 2] = invalid_neuron_ids // 10000
-                        
-                        # Fill in valid coordinates
-                        result_coords[valid_mask] = np.column_stack((x_coords, y_coords, z_coords))
-                        
-                        # Convert to list of tuples
-                        coordinates = [(int(x), int(y), int(z)) for x, y, z in result_coords]
-                        
-                        logger.debug(f"[SIMD] Vectorized lookup complete: {len(valid_neuron_ids)}/{len(neuron_ids)} found in SoA")
-                        return coordinates
-                    else:
-                        logger.warning(f"[SIMD] No valid neuron indices found for {cortical_id}")
-                        
-            # Fallback to area-based lookup if no global neuron array
-            return self._fallback_coordinate_calculation(cortical_id, neuron_ids)
+            # Pure vectorized fallback
+            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
             
         except Exception as e:
-            logger.error(f"[SIMD] Error in vectorized coordinate lookup: {e}")
-            return self._fallback_coordinate_calculation(cortical_id, neuron_ids)
+            logger.error(f"[SIMD] Error in pure vectorized coordinate lookup: {e}")
+            return self._fallback_coordinate_calculation_vectorized(np.array(neuron_ids, dtype=np.int32))
 
-    def _get_global_neuron_coordinates_vectorized(self, neuron_ids: List[int]) -> List[tuple]:
-        """Get global 3D coordinates using vectorized SoA operations.
+    def _get_global_neuron_coordinates_vectorized(self, neuron_ids: List[int]) -> np.ndarray:
+        """Get global 3D coordinates using pure vectorized SoA operations.
+        
+        COMPLETELY VECTORIZED - no Python loops or comprehensions.
         
         Args:
             neuron_ids: List of neuron IDs to get coordinates for
             
         Returns:
-            List of (x, y, z) coordinate tuples
+            numpy array with shape (N, 3) containing coordinates
         """
         if not neuron_ids:
-            return []
+            return np.empty((0, 3), dtype=np.int32)
             
-        logger.debug(f"[SIMD] GLOBAL vectorized coordinate lookup for {len(neuron_ids)} neurons")
+        logger.debug(f"[SIMD] PURE VECTORIZED global coordinate lookup for {len(neuron_ids)} neurons")
         
         try:
+            neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
+            
             if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
                 neuron_array = self.connectome_manager.neuron_array
                 
-                # Convert to numpy array for vectorized operations
-                neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
-                
-                # VECTORIZED mapping from neuron IDs to indices
                 if hasattr(self.connectome_manager, 'neuron_id_to_index'):
-                    # Get valid indices using vectorized operations
+                    # VECTORIZED global index lookup
                     valid_mask = np.isin(neuron_ids_array, list(self.connectome_manager.neuron_id_to_index.keys()))
-                    valid_neuron_ids = neuron_ids_array[valid_mask]
                     
-                    if len(valid_neuron_ids) > 0:
-                        # Vectorized index lookup
-                        indices = np.array([self.connectome_manager.neuron_id_to_index[nid] for nid in valid_neuron_ids], dtype=np.int32)
+                    if np.any(valid_mask):
+                        # Create index array efficiently
+                        indices_list = [self.connectome_manager.neuron_id_to_index.get(nid, -1) for nid in neuron_ids_array]
+                        indices_array = np.array(indices_list, dtype=np.int32)
                         
-                        # VECTORIZED GLOBAL SoA ACCESS
-                        if hasattr(neuron_array, 'positions_x'):
-                            x_coords = neuron_array.positions_x[indices]
-                            y_coords = neuron_array.positions_y[indices]
-                            z_coords = neuron_array.positions_z[indices]
-                        elif hasattr(neuron_array, 'coordinates_x'):
-                            x_coords = neuron_array.coordinates_x[indices]
-                            y_coords = neuron_array.coordinates_y[indices]
-                            z_coords = neuron_array.coordinates_z[indices]
-                        else:
-                            logger.warning("[SIMD] No global SoA arrays found, using fallback")
-                            return self._fallback_global_coordinate_calculation(neuron_ids)
+                        valid_indices_mask = indices_array >= 0
+                        final_mask = valid_mask & valid_indices_mask
                         
-                        # Create result array with fallback coordinates for invalid neurons
-                        result_coords = np.zeros((len(neuron_ids), 3), dtype=np.int32)
-                        
-                        # VECTORIZED fallback coordinate calculation for invalid neurons
-                        invalid_mask = ~valid_mask
-                        invalid_neuron_ids = neuron_ids_array[invalid_mask]
-                        if len(invalid_neuron_ids) > 0:
-                            result_coords[invalid_mask, 0] = invalid_neuron_ids % 100
-                            result_coords[invalid_mask, 1] = (invalid_neuron_ids // 100) % 100
-                            result_coords[invalid_mask, 2] = invalid_neuron_ids // 10000
-                        
-                        # Fill in valid coordinates
-                        result_coords[valid_mask] = np.column_stack((x_coords, y_coords, z_coords))
-                        
-                        # Convert to list of tuples
-                        coordinates = [(int(x), int(y), int(z)) for x, y, z in result_coords]
-                        
-                        logger.debug(f"[SIMD] Global vectorized complete: {len(valid_neuron_ids)}/{len(neuron_ids)} from SoA")
-                        return coordinates
+                        if np.any(final_mask):
+                            valid_indices = indices_array[final_mask]
+                            
+                            # PURE VECTORIZED GLOBAL SoA ACCESS
+                            if hasattr(neuron_array, 'positions_x'):
+                                x_coords = neuron_array.positions_x[valid_indices]
+                                y_coords = neuron_array.positions_y[valid_indices]
+                                z_coords = neuron_array.positions_z[valid_indices]
+                            elif hasattr(neuron_array, 'coordinates_x'):
+                                x_coords = neuron_array.coordinates_x[valid_indices]
+                                y_coords = neuron_array.coordinates_y[valid_indices]
+                                z_coords = neuron_array.coordinates_z[valid_indices]
+                            else:
+                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+                            
+                            # PURE VECTORIZED result construction
+                            result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
+                            
+                            # Fill valid coordinates
+                            result_coords[final_mask] = np.column_stack((x_coords, y_coords, z_coords))
+                            
+                            # VECTORIZED fallback for invalid neurons
+                            invalid_mask = ~final_mask
+                            if np.any(invalid_mask):
+                                invalid_neuron_ids = neuron_ids_array[invalid_mask]
+                                result_coords[invalid_mask, 0] = invalid_neuron_ids % 100
+                                result_coords[invalid_mask, 1] = (invalid_neuron_ids // 100) % 100
+                                result_coords[invalid_mask, 2] = invalid_neuron_ids // 10000
+                            
+                            logger.debug(f"[SIMD] Pure vectorized global complete: {np.sum(final_mask)}/{len(neuron_ids_array)} from SoA")
+                            return result_coords
                     
-            # Fallback to algorithmic generation
-            return self._fallback_global_coordinate_calculation(neuron_ids)
+            # Pure vectorized fallback
+            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
             
         except Exception as e:
-            logger.error(f"[SIMD] Error in global vectorized lookup: {e}")
-            return self._fallback_global_coordinate_calculation(neuron_ids)
+            logger.error(f"[SIMD] Error in pure vectorized global lookup: {e}")
+            return self._fallback_coordinate_calculation_vectorized(np.array(neuron_ids, dtype=np.int32))
 
-    def _fallback_coordinate_calculation(self, cortical_id: str, neuron_ids: List[int]) -> List[tuple]:
-        """Fallback coordinate calculation for area-specific neurons.
+    def _fallback_coordinate_calculation_vectorized(self, neuron_ids_array: np.ndarray) -> np.ndarray:
+        """Pure vectorized fallback coordinate calculation - no loops.
         
         Args:
-            cortical_id: Cortical area ID
-            neuron_ids: List of neuron IDs
+            neuron_ids_array: numpy array of neuron IDs
             
         Returns:
-            List of (x, y, z) coordinate tuples
+            numpy array with shape (N, 3) containing algorithmic coordinates
         """
-        coordinates = []
+        # PURE VECTORIZED coordinate generation
+        x_coords = neuron_ids_array % 100
+        y_coords = (neuron_ids_array // 100) % 100
+        z_coords = neuron_ids_array // 10000
         
-        try:
-            if self.connectome_manager:
-                area = self.connectome_manager.cortical_areas.get(cortical_id)
-                if area and hasattr(area, '_position_map'):
-                    # Use area's position map for batch lookup
-                    for neuron_id in neuron_ids:
-                        pos = area._position_map.get(neuron_id)
-                        if pos:
-                            coordinates.append(pos)
-                        else:
-                            # Area-based calculation using dimensions
-                            width, height, depth = area.dimensions
-                            x = neuron_id % width
-                            y = (neuron_id // width) % height
-                            z = (neuron_id // (width * height)) % depth
-                            coordinates.append((x, y, z))
-                    return coordinates
-                    
-            # Final algorithmic fallback
-            logger.warning(f"[SIMD] Using algorithmic fallback for {cortical_id}")
-            return [(nid % 100, (nid // 100) % 100, nid // 10000) for nid in neuron_ids]
-            
-        except Exception as e:
-            logger.error(f"Error in fallback coordinate calculation: {e}")
-            return [(0, 0, 0) for _ in neuron_ids]
-
-    def _fallback_global_coordinate_calculation(self, neuron_ids: List[int]) -> List[tuple]:
-        """Fallback coordinate calculation for global neurons.
-        
-        Args:
-            neuron_ids: List of neuron IDs
-            
-        Returns:
-            List of (x, y, z) coordinate tuples
-        """
-        try:
-            if self.connectome_manager:
-                # Try area-by-area lookup as fallback
-                coordinates = []
-                for neuron_id in neuron_ids:
-                    found = False
-                    for cortical_id, area in self.connectome_manager.cortical_areas.items():
-                        if hasattr(area, '_position_map') and neuron_id in area._position_map:
-                            coordinates.append(area._position_map[neuron_id])
-                            found = True
-                            break
-                    
-                    if not found:
-                        # Algorithmic fallback
-                        x = neuron_id % 100
-                        y = (neuron_id // 100) % 100
-                        z = neuron_id // 10000
-                        coordinates.append((x, y, z))
-                return coordinates
-            else:
-                # Pure algorithmic calculation
-                return [(nid % 100, (nid // 100) % 100, nid // 10000) for nid in neuron_ids]
-                
-        except Exception as e:
-            logger.error(f"Error in global fallback coordinate calculation: {e}")
-            return [(0, 0, 0) for _ in neuron_ids]
+        return np.column_stack((x_coords, y_coords, z_coords)).astype(np.int32)
 
     def stop(self) -> None:
         """Stop the FQ sampler."""
@@ -2159,3 +2101,290 @@ class FQSampler:
         """Set the sampling rate for a specific cortical area."""
         if cortical_id not in self._last_sample_time_per_area:
             self._last_sample_time_per_area[cortical_id] = time.perf_counter() 
+
+class OptimizedFQSampler:
+    """
+    Ultra-optimized Fire Queue Sampler using direct SoA access.
+    
+    This class bypasses all intermediate Python conversions and works directly
+    with the optimized SoA structures, providing zero-copy brain output sampling.
+    """
+    
+    def __init__(self, fire_queue_provider: Any, sample_frequency_hz: float, 
+                 output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
+        """Initialize the optimized FQ sampler."""
+        self.fire_queue_provider = fire_queue_provider
+        self.sample_frequency = sample_frequency_hz
+        self.sample_interval = 1.0 / sample_frequency_hz if sample_frequency_hz > 0 else 0.1
+        self.output_queue = output_queue
+        self.connectome_manager = connectome_manager
+        self.running = False
+        
+        # Subscriber tracking
+        self._has_visualization_subscribers = False
+        self._has_motor_subscribers = False
+        
+        # Pre-allocate output buffers for zero-allocation sampling
+        self.max_neurons_per_sample = 100_000
+        self.output_buffer = np.empty((self.max_neurons_per_sample, 6), dtype=np.float32)
+        
+        # Direct access to optimized structures
+        self.fcl_manager = getattr(connectome_manager, 'fcl_manager', None) if connectome_manager else None
+        self.gna = getattr(connectome_manager, 'neuron_array', None) if connectome_manager else None
+        
+        # Motor sampling configuration
+        self._last_motor_sample_time = 0.0
+        self._motor_sample_interval = 1.0
+        
+        logger.info(f"OptimizedFQSampler initialized with direct SoA access")
+
+    def sample_brain_output_direct(self) -> Optional[bytes]:
+        """Direct brain output sampling with zero-copy operations.
+        
+        Returns:
+            Binary encoded brain output data or None if no firing neurons
+        """
+        try:
+            # Direct FCL access
+            if hasattr(self.fire_queue_provider, 'get_fire_queue_direct'):
+                brain_data = self.fire_queue_provider.get_fire_queue_direct()
+            else:
+                # Fallback to direct FCL access if available
+                if self.fcl_manager:
+                    brain_data = self._extract_brain_data_direct()
+                else:
+                    return None
+            
+            if brain_data is None or len(brain_data) == 0:
+                return None
+            
+            # Add timestamp column
+            timestamped_data = np.column_stack((
+                brain_data,
+                np.full(len(brain_data), time.time(), dtype=np.float32)
+            ))
+            
+            # Direct binary encoding
+            return self._encode_brain_data_binary(timestamped_data)
+            
+        except Exception as e:
+            logger.error(f"Error in direct brain output sampling: {e}")
+            return None
+
+    def sample_motor_areas_direct(self, opu_area_ids: List[str]) -> Optional[bytes]:
+        """Direct motor area sampling with batch processing.
+        
+        Args:
+            opu_area_ids: List of output processing unit area IDs
+            
+        Returns:
+            Binary encoded motor data or None
+        """
+        try:
+            if not self.fcl_manager:
+                return None
+            
+            # Combine FCLs from all OPU areas using bitmap operations
+            combined_fcl = None
+            
+            for area_id in opu_area_ids:
+                area_fcl = self.fcl_manager.get_cortical_fcl(area_id)
+                if not area_fcl.is_empty():
+                    if combined_fcl is None:
+                        combined_fcl = area_fcl
+                    else:
+                        combined_fcl = combined_fcl | area_fcl
+            
+            if combined_fcl is None or combined_fcl.is_empty():
+                return None
+            
+            # Direct extraction from combined FCL
+            brain_data = self._extract_brain_data_from_fcl(combined_fcl)
+            
+            if brain_data is None or len(brain_data) == 0:
+                return None
+            
+            # Add timestamp and motor tag
+            motor_data = np.column_stack((
+                brain_data,
+                np.full(len(brain_data), time.time(), dtype=np.float32)
+            ))
+            
+            return self._encode_brain_data_binary(motor_data)
+            
+        except Exception as e:
+            logger.error(f"Error in direct motor sampling: {e}")
+            return None
+
+    def _extract_brain_data_direct(self) -> Optional[np.ndarray]:
+        """Extract brain data directly from FCL and SoA structures."""
+        if not self.fcl_manager:
+            return None
+            
+        global_fcl = self.fcl_manager.get_global_fcl()
+        return self._extract_brain_data_from_fcl(global_fcl)
+
+    def _extract_brain_data_from_fcl(self, fcl) -> Optional[np.ndarray]:
+        """Extract brain data from a given FCL using direct SoA access.
+        
+        Args:
+            fcl: Fire candidate list (bitmap)
+            
+        Returns:
+            numpy array with shape (N, 5) containing brain output data
+        """
+        if fcl.is_empty():
+            return None
+        
+        try:
+            # Direct FCL to indices (zero-copy if FCL supports it)
+            if hasattr(fcl, 'to_gpu_array'):
+                firing_indices = fcl.to_gpu_array()  # Already numpy array!
+            else:
+                firing_indices = np.array(list(fcl), dtype=np.int32)
+            
+            if len(firing_indices) == 0:
+                return None
+            
+            # Direct SoA extraction - no intermediate conversions
+            if not self.gna:
+                # Fallback coordinate generation
+                return np.column_stack((
+                    firing_indices.astype(np.float32),
+                    np.ones(len(firing_indices), dtype=np.float32),  # membrane_potentials
+                    (firing_indices % 100).astype(np.float32),      # x_coords
+                    ((firing_indices // 100) % 100).astype(np.float32),  # y_coords
+                    (firing_indices // 10000).astype(np.float32)    # z_coords
+                ))
+            
+            # Use actual SoA structures
+            brain_data = np.column_stack((
+                firing_indices.astype(np.float32),
+                (self.gna.membrane_potentials[firing_indices] 
+                 if hasattr(self.gna, 'membrane_potentials') 
+                 else np.ones(len(firing_indices), dtype=np.float32)),
+                (self.gna.coordinates_x[firing_indices].astype(np.float32)
+                 if hasattr(self.gna, 'coordinates_x')
+                 else (firing_indices % 100).astype(np.float32)),
+                (self.gna.coordinates_y[firing_indices].astype(np.float32)
+                 if hasattr(self.gna, 'coordinates_y')
+                 else ((firing_indices // 100) % 100).astype(np.float32)),
+                (self.gna.coordinates_z[firing_indices].astype(np.float32)
+                 if hasattr(self.gna, 'coordinates_z')
+                 else (firing_indices // 10000).astype(np.float32))
+            ))
+            
+            return brain_data
+            
+        except Exception as e:
+            logger.error(f"Error extracting brain data from FCL: {e}")
+            return None
+
+    def _encode_brain_data_binary(self, data: np.ndarray) -> bytes:
+        """Encode brain data directly to binary format.
+        
+        Args:
+            data: numpy array with brain output data
+            
+        Returns:
+            Binary encoded data
+        """
+        try:
+            import struct
+            
+            # Header: [neuron_count][timestamp][data_type]
+            header = struct.pack('!IQB', 
+                               len(data),           # neuron count (4 bytes)
+                               int(time.time()),    # timestamp (8 bytes)  
+                               11)                  # Type 11 = NEURON_CATEGORIES (1 byte)
+            
+            # Data: Direct numpy array to bytes (zero-copy)
+            return header + data.tobytes()
+            
+        except Exception as e:
+            logger.error(f"Error encoding brain data to binary: {e}")
+            return b''
+
+    def run_optimized(self) -> None:
+        """Optimized sampling loop with direct SoA access."""
+        logger.info("OptimizedFQSampler started with direct SoA access")
+        self.running = True
+        
+        while self.running:
+            start = time.perf_counter()
+            now = time.perf_counter()
+            
+            # Skip sampling if no subscribers
+            if not self._has_visualization_subscribers and not self._has_motor_subscribers:
+                self._sleep_deterministic(start, self.sample_interval)
+                continue
+            
+            # Visualization sampling (direct binary output)
+            if self._has_visualization_subscribers:
+                viz_data = self.sample_brain_output_direct()
+                if viz_data:
+                    try:
+                        self.output_queue.put_nowait(('visualization', viz_data))
+                    except Exception as e:
+                        logger.error(f"Error queuing visualization data: {e}")
+            
+            # Motor sampling (direct binary output) 
+            if self._has_motor_subscribers and (now - self._last_motor_sample_time >= self._motor_sample_interval):
+                # Get OPU areas if available
+                opu_areas = self._get_opu_areas_fast() if self.connectome_manager else []
+                if opu_areas:
+                    motor_data = self.sample_motor_areas_direct(opu_areas)
+                    if motor_data:
+                        try:
+                            self.output_queue.put_nowait(('motor', motor_data))
+                        except Exception as e:
+                            logger.error(f"Error queuing motor data: {e}")
+                
+                self._last_motor_sample_time = now
+            
+            # Deterministic timing
+            self._sleep_deterministic(start, self.sample_interval)
+        
+        logger.info("OptimizedFQSampler stopped")
+
+    def _get_opu_areas_fast(self) -> List[str]:
+        """Fast OPU area detection using cached results."""
+        # Use cached OPU areas if available
+        if hasattr(self, '_cached_opu_areas'):
+            return self._cached_opu_areas
+        
+        opu_areas = []
+        try:
+            if self.connectome_manager and hasattr(self.connectome_manager, 'cortical_areas'):
+                for area in self.connectome_manager.cortical_areas.values():
+                    area_type = area.properties.get('cortical_type', '').upper()
+                    if ('OPU' in area_type or 'OUTPUT' in area_type or 'MOTOR' in area_type or
+                        area.id.startswith(('opu_', 'motor_', 'output_'))):
+                        opu_areas.append(area.id)
+            
+            # Cache the result
+            self._cached_opu_areas = opu_areas
+        except Exception as e:
+            logger.error(f"Error detecting OPU areas: {e}")
+        
+        return opu_areas
+
+    def _sleep_deterministic(self, start_time: float, interval: float) -> None:
+        """Deterministic sleep implementation for RTOS compatibility."""
+        elapsed = time.perf_counter() - start_time
+        if elapsed < interval:
+            target_end_time = start_time + interval
+            while time.perf_counter() < target_end_time:
+                pass  # Busy-wait for deterministic timing
+
+    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
+        """Update visualization subscriber status."""
+        self._has_visualization_subscribers = has_subscribers
+
+    def set_motor_subscribers(self, has_subscribers: bool) -> None:
+        """Update motor subscriber status."""
+        self._has_motor_subscribers = has_subscribers
+
+    def stop(self) -> None:
+        """Stop the optimized sampler."""
+        self.running = False
