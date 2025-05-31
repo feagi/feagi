@@ -341,7 +341,9 @@ class VisualizationStream:
                 
                 if fq_data is None:
                     continue
-                    
+
+                print("fq_data:", fq_data)
+
                 # Additional stop check before processing data
                 if self._stop_event.is_set():
                     logger.debug("Data worker stopping before data processing")
@@ -550,23 +552,24 @@ class VisualizationStream:
     def _process_tuple_data(self, fq_data) -> None:
         """Process legacy tuple format data."""
         try:
+            print("Processing legacy tuple format data")
             cortical_id, fire_data = fq_data
-            
+
             if fire_data and 'neuron_ids' in fire_data:
                 neuron_ids = fire_data.get('neuron_ids', [])
                 neuron_count = len(neuron_ids)
-                
+
                 # Handle coordinates
                 coordinates = fire_data.get('coordinates', [])
                 x_coords = []
                 y_coords = []
                 z_coords = []
-                
+
                 if isinstance(coordinates, list) and len(coordinates) > 0:
                     # If coordinates is a list of [x, y, z] triplets
                     if isinstance(coordinates[0], (list, tuple)) and len(coordinates[0]) >= 3:
                         x_coords = [coord[0] for coord in coordinates]
-                        y_coords = [coord[1] for coord in coordinates]  
+                        y_coords = [coord[1] for coord in coordinates]
                         z_coords = [coord[2] for coord in coordinates]
                     else:
                         # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
@@ -582,26 +585,26 @@ class VisualizationStream:
                 else:
                     logger.error(f"Missing coordinates for {cortical_id}")
                     return
-                
+
                 # Handle membrane potentials
                 membrane_potentials = fire_data.get('membrane_potentials', [])
-                
+
                 if not membrane_potentials:
                     logger.error(f"Missing membrane potentials for {cortical_id}")
                     return
-                
+
                 if len(membrane_potentials) != neuron_count:
                     logger.error(f"Membrane potential count mismatch for {cortical_id}: {len(membrane_potentials)} vs {neuron_count}")
                     return
-                
+
                 # Validate coordinate arrays
                 if len(x_coords) != neuron_count or len(y_coords) != neuron_count or len(z_coords) != neuron_count:
                     logger.error(f"Coordinate count mismatch for {cortical_id}: x={len(x_coords)}, y={len(y_coords)}, z={len(z_coords)}, neurons={neuron_count}")
                     return
-                
+
                 # Create cortical IDs list (same cortical ID for all neurons)
                 cortical_ids = [cortical_id] * neuron_count
-                
+
                 # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES) FOR DPR COMPATIBILITY
                 try:
                     from feagi_bytes import ByteStructureEncoder
@@ -617,12 +620,12 @@ class VisualizationStream:
                             'potentials': membrane_potentials
                         }
                     }
-                    
+
                     binary_data = encoder.encode_neuron_categories(cortical_data)
 
                     # TEST: Simple logger test to verify logging is working
                     logger.warning("🧪 LOGGER TEST: This message should definitely appear!")
-                    
+
                     # DEBUG: Log the structure ID being generated
                     if binary_data and len(binary_data) > 0:
                         structure_id = binary_data[0]
@@ -639,14 +642,14 @@ class VisualizationStream:
                     # Publish the binary data
                     self._publish_data(binary_data)
                     logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
-                    
+
                 except ImportError:
                     logger.error("feagi_bytes library not available - cannot encode binary data")
                 except Exception as e:
                     logger.error(f"Error encoding binary data: {e}")
             else:
                 logger.error(f"Invalid fire_data for {cortical_id} - missing neuron_ids")
-                
+
         except Exception as e:
             logger.error(f"Error processing {fq_data[0] if len(fq_data) > 0 else 'unknown'}: {e}")
             if logger.isEnabledFor(10):  # DEBUG level
@@ -656,6 +659,7 @@ class VisualizationStream:
     def _process_dict_data(self, fire_data) -> None:
         """Process legacy dict format data."""
         try:
+            print("Processing legacy dict data")
             if fire_data and 'neuron_ids' in fire_data:
                 neuron_count = len(fire_data.get('neuron_ids', []))
                 logger.debug(f"Received dict data: {neuron_count} neurons")
@@ -827,16 +831,16 @@ class VisualizationStream:
                 import traceback
                 logger.debug(f"FQ sampler control traceback: {traceback.format_exc()}")
 
-    def send_visualization_data(self, data) -> None:
-        """
-        Compatibility method for external data sending with improved error handling.
-        """
-        if not isinstance(data, bytes):
-            logger.warning(f"send_visualization_data: expected bytes, got {type(data)}")
-            return
-            
-        # Use the improved _publish_data method
-        self._publish_data(data)
+    # def send_visualization_data(self, data) -> None:
+    #     """
+    #     Compatibility method for external data sending with improved error handling.
+    #     """
+    #     if not isinstance(data, bytes):
+    #         logger.warning(f"send_visualization_data: expected bytes, got {type(data)}")
+    #         return
+    #
+    #     # Use the improved _publish_data method
+    #     self._publish_data(data)
 
     def _client_cleanup_worker(self) -> None:
         """

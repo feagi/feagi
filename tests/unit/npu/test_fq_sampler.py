@@ -227,13 +227,13 @@ class TestFQSampler(unittest.TestCase):
         neuron_ids = [1, 2, 3]
         
         # Test global coordinate generation
-        coords = self.fq_sampler._get_global_neuron_coordinates(neuron_ids)
+        coords = self.fq_sampler._get_global_neuron_coordinates_vectorized(neuron_ids)
         self.assertEqual(len(coords), len(neuron_ids))
         for coord in coords:
             self.assertEqual(len(coord), 3)  # Should be (x, y, z)
             
         # Test cortical area coordinate generation
-        coords = self.fq_sampler._get_neuron_coordinates('cortex1', neuron_ids)
+        coords = self.fq_sampler._get_neuron_coordinates_vectorized('cortex1', neuron_ids)
         self.assertEqual(len(coords), len(neuron_ids))
         for coord in coords:
             self.assertEqual(len(coord), 3)  # Should be (x, y, z)

@@ -25,6 +25,7 @@ from typing import Dict, Any, Optional, List, Tuple, Set
 import tempfile
 import os
 from pathlib import Path
+import numpy as np
 
 # Import all domain services
 from .system.system_service import SystemService
@@ -205,10 +206,6 @@ class CoreAPIService:
     def load_essential_genome(self) -> Dict[str, Any]:
         """Load the essential genome from the default templates."""
         return self._genome_service.load_essential_genome()
-    
-    def load_test_genome(self) -> Dict[str, Any]:
-        """Load the test genome from the default templates."""
-        return self._genome_service.load_test_genome()
     
     def load_barebones_genome(self) -> Dict[str, Any]:
         """Load the barebones genome from the default templates."""
@@ -1577,4 +1574,86 @@ class CoreAPIService:
         Returns:
             Dictionary with frequency status and latest measurement
         """
-        return self.state_manager.get_frequency_status_summary() 
+        return self.state_manager.get_frequency_status_summary()
+
+    def get_fire_queue_direct(self) -> Optional[np.ndarray]:
+        """Get fire queue data directly from SoA structures - zero-copy access.
+        
+        Returns:
+            numpy array with shape (N, 5) containing:
+            [neuron_ids, membrane_potentials, coordinates_x, coordinates_y, coordinates_z]
+            or None if no firing neurons
+        """
+        try:
+            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
+                global_fcl = self._connectome_manager.fcl_manager.get_global_fcl()
+                
+                if global_fcl.is_empty():
+                    return None
+                
+                # Direct FCL to numpy array (already optimized!)
+                firing_indices = np.array(list(global_fcl), dtype=np.int32)
+                
+                if len(firing_indices) == 0:
+                    return None
+                
+                # Direct SoA access - use existing optimized structures
+                gna = self._connectome_manager.neuron_array
+                
+                # Vectorized extraction in single operation
+                brain_data = np.column_stack((
+                    firing_indices.astype(np.float32),
+                    gna.membrane_potentials[firing_indices] if hasattr(gna, 'membrane_potentials') else np.ones(len(firing_indices), dtype=np.float32),
+                    gna.coordinates_x[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_x') else (firing_indices % 100).astype(np.float32),
+                    gna.coordinates_y[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_y') else ((firing_indices // 100) % 100).astype(np.float32),
+                    gna.coordinates_z[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_z') else (firing_indices // 10000).astype(np.float32)
+                ))
+                
+                return brain_data
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting direct fire queue: {str(e)}")
+            return None
+    
+    def get_area_fire_queue_direct(self, cortical_id: str) -> Optional[np.ndarray]:
+        """Get fire queue data for specific area directly from SoA structures.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            
+        Returns:
+            numpy array with shape (N, 5) or None if no firing neurons
+        """
+        try:
+            if not self._validate_genome_loaded():
+                return None
+                
+            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
+                area_fcl = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_id)
+                
+                if area_fcl.is_empty():
+                    return None
+                
+                # Direct FCL to numpy array
+                firing_indices = np.array(list(area_fcl), dtype=np.int32)
+                
+                if len(firing_indices) == 0:
+                    return None
+                
+                # Direct SoA access
+                gna = self._connectome_manager.neuron_array
+                
+                # Vectorized extraction
+                brain_data = np.column_stack((
+                    firing_indices.astype(np.float32),
+                    gna.membrane_potentials[firing_indices] if hasattr(gna, 'membrane_potentials') else np.ones(len(firing_indices), dtype=np.float32),
+                    gna.coordinates_x[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_x') else (firing_indices % 100).astype(np.float32),
+                    gna.coordinates_y[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_y') else ((firing_indices // 100) % 100).astype(np.float32),
+                    gna.coordinates_z[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_z') else (firing_indices // 10000).astype(np.float32)
+                ))
+                
+                return brain_data
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting direct area fire queue for {cortical_id}: {str(e)}")
+            return None 
