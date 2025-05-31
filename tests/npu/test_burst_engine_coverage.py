@@ -28,7 +28,7 @@ import signal
 import sys
 from unittest.mock import Mock, patch, MagicMock, call
 from queue import Queue, Empty
-from feagi.npu.burst_engine import BurstEngine, FQSampler, FQSampler, ServiceState
+from feagi.npu.burst_engine import BurstEngine, UnifiedFQSampler, ServiceState
 from feagi.core.state_manager import SimulationState
 
 
@@ -195,7 +195,7 @@ def test_fcl_sampler_full_queue_handling():
     output_queue = Queue(maxsize=1)
     output_queue.put("full")
     
-    sampler = FQSampler(fcl_manager, 50, output_queue)
+    sampler = UnifiedFQSampler(fcl_manager, 50, output_queue)
     sampler.set_visualization_subscribers(True)
     
     # Run for a brief moment with full queue - should handle gracefully
@@ -214,7 +214,7 @@ def test_fq_sampler_subscriber_management():
     """Test FQSampler subscriber management."""
     fire_queue_provider = Mock()
     output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 50, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 50, output_queue)
     
     # Test initial state
     assert not sampler._has_visualization_subscribers

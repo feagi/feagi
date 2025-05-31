@@ -10,27 +10,96 @@ The Neural Processing Unit (NPU) is responsible for simulating neuron dynamics, 
 
 ### Burst Engine
 
-The Burst Engine manages the neuron firing dynamics and coordinates simulation timing. Key features:
+The Burst Engine manages the neuron firing dynamics and coordinates simulation timing using a **modular mixin architecture**. Key features:
 
+- **Modular Design**: Uses specialized mixins for debug and performance functionality
 - **Standby Mode**: Initializes without requiring a genome, breaking circular dependencies
-- **State Management**: Uses explicit state transitions with emoji-based logging
+- **State Management**: Uses explicit state transitions with comprehensive logging
 - **Dependency Injection**: No global state, all dependencies are passed explicitly
 - **RTOS-Friendly**: Deterministic timing and no dynamic allocations in the main loop
 - **Load Shedding**: Areas marked with `__shed` have their FCL content dropped when the system can't maintain target frequency
 - **Special Area Support**: Handles special cortical areas like power areas with automatic neuron injection
+- **SIMD Acceleration**: Automatic vectorization support for high-performance neural processing
+- **Debug Integration**: Comprehensive debugging with FQ sampler monitoring and detailed burst analysis
+
+#### Modular Architecture
+
+The burst engine uses a mixin-based architecture for clean separation of concerns:
 
 ```python
-# Create and initialize
-engine = BurstEngine(connectome_manager, fcl_manager)
+class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
+    """
+    Main burst engine with modular functionality:
+    - Core neural simulation logic
+    - Debug mixin: NPU debugging, FQ sampler monitoring, state validation
+    - Performance mixin: SIMD acceleration, frequency measurement, profiling
+    """
+```
 
-# Start the engine
+#### Core Usage
+
+```python
+# Create and initialize with modular architecture
+engine = BurstEngine(connectome_manager, fcl_manager, config={
+    'debug_npu': True,               # Enable debug mixin features
+    'enable_power_injection': True,  # Enable special area support
+    'desired_frequency_hz': 10.0,    # Target simulation frequency
+    'simd_profiling': True,         # Enable performance profiling
+    'performance_monitoring': True   # Enable performance mixin features
+})
+
+# Start the engine with automatic mixin initialization
 engine.run()
 
-# When genome is loaded
+# When genome is loaded, update all components
 engine.update_with_genome()
 
-# Graceful shutdown
+# Graceful shutdown with proper cleanup
 engine.stop()
+```
+
+#### Debug Features (BurstEngineDebugMixin)
+
+The debug mixin provides comprehensive debugging capabilities:
+
+```python
+# Register FQ samplers for monitoring
+engine.register_fq_sampler(motor_sampler)
+engine.register_fq_sampler(visualization_sampler)
+
+# Enable detailed burst debugging with --debug-npu flag
+# Shows per-area breakdowns, sampler status, and performance metrics
+
+# Get debug statistics
+debug_stats = engine.get_debug_statistics()
+print(f"FQ Samplers: {debug_stats['fq_samplers_registered']}")
+print(f"Debug Mode: {debug_stats['debug_mode_enabled']}")
+
+# Validate internal state consistency
+validation = engine.debug_validate_state()
+print(f"All validations passed: {all(validation.values())}")
+```
+
+#### Performance Features (BurstEnginePerformanceMixin)
+
+The performance mixin provides SIMD acceleration and monitoring:
+
+```python
+# Automatic SIMD detection and configuration
+# Supports AVX512, AVX2, AVX, SSE2, NEON, and scalar fallback
+
+# Real-time frequency measurement
+engine.enable_frequency_measurement(True)
+results = engine.measure_actual_frequency(duration_seconds=5.0)
+print(f"Actual: {results['actual_frequency_hz']:.1f}Hz")
+print(f"Potential: {results['potential_frequency_hz']:.1f}Hz")
+print(f"Efficiency: {results['efficiency_ratio']:.2f}")
+
+# Get comprehensive performance metrics
+metrics = engine.get_performance_metrics()
+print(f"SIMD Backend: {metrics['simd_backend']}")
+print(f"Vector Width: {metrics['simd_vector_width']}")
+print(f"Total Neurons Processed: {metrics['total_neurons_processed']}")
 ```
 
 ### Special Area Handler

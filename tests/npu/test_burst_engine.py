@@ -18,7 +18,7 @@ import time
 import threading
 import types
 from queue import Queue, Empty
-from feagi.npu.burst_engine import BurstEngine, FQSampler
+from feagi.npu.burst_engine import BurstEngine, UnifiedFQSampler
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 
@@ -150,7 +150,7 @@ def test_burst_engine_runs_and_stops():
 def test_fq_sampler_samples_and_stops():
     fire_queue_provider = MockFCLManager()  # Using same mock but treating as fire queue provider
     output_queue = Queue(maxsize=10)
-    sampler = FQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue)
     sampler.set_visualization_subscribers(True)  # Enable sampling
     t = threading.Thread(target=sampler.run)
     t.start()
@@ -179,7 +179,7 @@ def test_fq_sampler_with_connectome_manager():
     connectome_manager.cortical_areas = {'cortex1': cortical1, 'cortex2': cortical2}
     
     # Create sampler with connectome manager
-    sampler = FQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue, 
+    sampler = UnifiedFQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue, 
                         connectome_manager=connectome_manager)
     sampler.set_visualization_subscribers(True)  # Enable sampling
     
@@ -209,7 +209,7 @@ def test_fq_sampler_update_area_sample_rate():
     """Test updating cortical area sample rate in FQ sampler."""
     fire_queue_provider = MockFCLManager()  # Using same mock but treating as fire queue provider
     output_queue = Queue(maxsize=10)
-    sampler = FQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, sample_frequency_hz=10, output_queue=output_queue)
     
     # Update cortical area sample rate
     sampler.update_area_sample_rate('cortex1', 20.0)

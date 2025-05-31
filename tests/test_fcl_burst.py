@@ -36,7 +36,7 @@ import zmq
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import FEAGI components
-from feagi.npu.burst_engine import BurstEngine, FQSampler
+from feagi.npu.burst_engine import BurstEngine, UnifiedFQSampler
 from feagi.npu.fcl_manager import FCLManager, BitMap
 from feagi.api.zmq.streams.visualization import VisualizationStream
 from feagi.api.core.service import CoreApiService
@@ -159,7 +159,7 @@ async def run_test():
     )
     
     # Create the FCL sampler
-    fcl_sampler = FQSampler(
+    fcl_sampler = UnifiedFQSampler(
         fcl_manager=connectome_manager.fcl_manager,
         sample_frequency_hz=10.0,
         output_queue=fcl_queue,
