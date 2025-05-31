@@ -211,6 +211,10 @@ class CoreAPIService:
         """Load the barebones genome from the default templates."""
         return self._genome_service.load_barebones_genome()
     
+    def load_test_genome(self) -> Dict[str, Any]:
+        """Load the test genome from the default templates."""
+        return self._genome_service.load_test_genome()
+    
     def load_genome(self, genome_data: Dict[str, Any], filename: str = "genome.json") -> Dict[str, Any]:
         """Load a genome and prepare it for use."""
         return self._genome_service.load_genome(genome_data, filename)
