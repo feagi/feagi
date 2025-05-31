@@ -105,88 +105,61 @@ fcl_manager.add_to_current_fcl([neuron_id1, neuron_id2, neuron_id3])
 
 ### FQ Sampler
 
-The FQ Sampler extracts burst data with **differentiated behavior** based on subscriber types for optimal performance:
+The FQ Sampler extracts burst data with **separate optimized instances** for different purposes to maximize performance:
 
-#### Differentiated Sampling Behavior
+#### Unified Architecture with Separate Instances
 
-**Visualization Subscribers:**
-- **Scope**: Samples ALL cortical areas for comprehensive brain state monitoring
-- **Frequency**: Respects per-area `fq_sample_rate` properties (defaults to global rate)
-- **Data Format**: Rich format with coordinates, membrane potentials, thresholds, and firing history
-- **Use Case**: Real-time brain visualization, research analysis, monitoring dashboards
-
-**Motor Subscribers:**
-- **Scope**: Samples ONLY OPU (Output Processing Unit) cortical areas
-- **Frequency**: Samples at burst frequency (every burst) for minimal control latency
+**Motor FQ Sampler:**
+- **Instance**: Dedicated `UnifiedFQSampler` for motor control
+- **Scope**: Samples ONLY OPU (Output Processing Unit) cortical areas  
+- **Frequency**: High-frequency sampling (100Hz) for minimal control latency
 - **Data Format**: Streamlined format optimized for real-time motor control
+- **Threading**: Independent thread (`MotorFQSampler`) for deterministic timing
 - **Use Case**: Robotic control, real-time motor output, actuator commands
 
-#### Automatic Subscriber Detection
+**Visualization FQ Sampler:**
+- **Instance**: Dedicated `UnifiedFQSampler` for visualization
+- **Scope**: Samples ALL cortical areas for comprehensive brain state monitoring
+- **Frequency**: Configurable rate (30Hz default) optimized for display
+- **Data Format**: Rich format with coordinates, membrane potentials, thresholds, and firing history
+- **Threading**: Independent thread (`VizFQSampler`) for consistent data flow
+- **Use Case**: Real-time brain visualization, research analysis, monitoring dashboards
 
-- **Subscriber-Aware**: Only samples when there are active visualization or motor consumers
-- **Connection Monitoring**: Tracks subscriber heartbeats and automatically enables/disables sampling
-- **Resource Conservation**: No unnecessary sampling when no consumers are connected
-- **Type-Specific Control**: Separate enable/disable for visualization vs. motor subscribers
+#### Performance Optimizations
 
-#### Enhanced Configuration
+- **Zero-Copy Operations**: Direct SoA (Structure of Arrays) access for memory efficiency
+- **SIMD Acceleration**: Vectorized operations using centralized SIMD configuration
+- **Pre-allocated Buffers**: Real-time performance with deterministic memory usage
+- **Backward Compatibility**: `FQSampler` and `OptimizedFQSampler` aliases for existing code
+
+#### Configuration and Control
 
 ```python
-# Create enhanced sampler with differentiated behavior
-sampler = FQSampler(
-    fire_queue_provider=fire_queue_provider, 
-    sample_frequency_hz=30,  # Default for visualization
-    output_queue=viz_queue, 
-    connectome_manager=connectome_manager
+# Separate instances created automatically by ProcessManager
+# Motor: 100Hz sampling of OPU areas only
+motor_sampler = UnifiedFQSampler(
+    sampling_mode='motor_only',
+    sample_frequency_hz=100.0,
+    enable_simd=True,
+    enable_zero_copy=True
 )
 
-# Automatic subscriber control (handled by stream managers)
-sampler.set_visualization_subscribers(True)  # Enable visualization sampling
-sampler.set_motor_subscribers(True)          # Enable motor sampling
-
-# Per-area sampling rates (visualization only)
-area.properties['fq_sample_rate'] = 60  # Sample this area at 60Hz for visualization
-area.properties['fq_sample_rate'] = 0   # Disable sampling for this area
-
-# OPU area configuration (motor sampling)
-motor_area = {
-    "id": "motor_cortex",
-    "properties": {
-        "cortical_type": "OPU",  # Automatically detected for motor sampling
-        # Uses burst frequency automatically - no fq_sample_rate needed
-    }
-}
+# Visualization: 30Hz sampling of all areas  
+viz_sampler = UnifiedFQSampler(
+    sampling_mode='global',
+    sample_frequency_hz=30.0,
+    enable_simd=True,
+    enable_zero_copy=True
+)
 ```
 
-#### Stream Integration
+#### Architecture Benefits
 
-**Visualization Stream (Port 5562):**
-- Processes visualization-targeted data from FQ sampler
-- Automatic subscriber detection via heartbeat monitoring
-- Rich data format with all neural activity information
-
-**Motor Stream (Port 5564):**
-- Processes motor-targeted data from FQ sampler  
-- Fast subscriber detection with shorter timeouts
-- Optimized data format for real-time motor control
-
-```python
-# Visualization client example
-viz_socket = zmq_context.socket(zmq.SUB)
-viz_socket.connect("tcp://localhost:5562")
-viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-
-# Motor client example
-motor_socket = zmq_context.socket(zmq.SUB) 
-motor_socket.connect("tcp://localhost:5564")
-motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
-
-# Both clients should send heartbeats for subscriber detection
-heartbeat = {
-    "message_type": "heartbeat",
-    "agent_id": "client_001",
-    "timestamp": time.time() * 1000
-}
-```
+- **Independent Frequencies**: Motor and visualization can run at optimal rates
+- **Isolation**: Motor control not affected by visualization load
+- **Scalability**: Easy to add specialized samplers for other purposes
+- **RTOS-Compatible**: Each sampler is a separate deterministic task
+- **Resource Efficiency**: Only samples relevant areas for each use case
 
 ## Power Area Implementation
 
