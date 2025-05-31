@@ -356,7 +356,12 @@ def test_run_test_function(mock_logger, mock_time, engine):
     # Setup mocks - provide enough values for the method calls
     mock_time.perf_counter.side_effect = [0.0, 0.005, 0.01, 0.015, 0.02]  # Multiple time readings
     engine.connectome_manager.update_membrane_potentials = MagicMock(return_value=[1, 2, 3])
-    engine.state_manager.set_burst_frequency = MagicMock()  # Replace with a proper mock
+    
+    # Replace the state manager's set_burst_frequency with a proper MagicMock
+    engine.state_manager.set_burst_frequency = MagicMock()
+    
+    # Mark genome as loaded so the test can proceed
+    engine.genome_loaded = True
     
     # Call the run_test method
     result = engine.run_test()
