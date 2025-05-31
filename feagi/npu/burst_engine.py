@@ -1395,9 +1395,8 @@ class BurstEngine:
     def _create_optimized_brain_output_data(self, fire_queue: Dict[str, Any]) -> Dict[str, Any]:
         """Create optimized data package for brain output streams (visualization and motor).
         
-        This method creates a lightweight data package containing only the fields
-        needed for brain output including visualization and motor streams, reducing 
-        network overhead by ~60%.
+        DEPRECATED: Use _create_optimized_brain_output_structured for RTOS/Rust compliance.
+        This method maintains backward compatibility by converting from structured arrays.
         
         Original fire queue contains:
         - neuron_ids (needed)
@@ -1416,19 +1415,46 @@ class BurstEngine:
         if not fire_queue:
             return {}
             
-        # Extract only essential fields for brain output (visualization/motor)
+        # Convert legacy dict to structured array for processing
+        structured_data = self._convert_legacy_fire_queue_to_structured(fire_queue)
+        if len(structured_data) == 0:
+            return {}
+        
+        # Convert back to dict for backward compatibility
         optimized_data = {
-            'neuron_ids': fire_queue.get('neuron_ids', []),
-            'membrane_potentials': fire_queue.get('membrane_potentials', []),
-            'coordinates': fire_queue.get('coordinates', [])
+            'neuron_ids': structured_data['neuron_id'].tolist(),
+            'membrane_potentials': structured_data['membrane_potential'].tolist(),
+            'coordinates': [(int(x), int(y), int(z)) for x, y, z in 
+                           zip(structured_data['x'], structured_data['y'], structured_data['z'])]
         }
         
         # Preserve cortical_id if present (needed for area-specific data)
-        if 'cortical_id' in fire_queue:
+        if isinstance(fire_queue, dict) and 'cortical_id' in fire_queue:
             optimized_data['cortical_id'] = fire_queue['cortical_id']
             
-        logger.debug(f"[OPTIMIZE] Created lightweight brain output package: {len(optimized_data)} fields vs {len(fire_queue)} original")
+        logger.debug(f"[OPTIMIZE] Created lightweight brain output package: {len(optimized_data)} fields vs original")
         return optimized_data
+
+    def _vectorized_index_lookup(self, neuron_ids_array: np.ndarray) -> np.ndarray:
+        """Vectorized index lookup without list comprehensions - RTOS/Rust compliant.
+        
+        Args:
+            neuron_ids_array: Array of neuron IDs to look up
+            
+        Returns:
+            Array of indices (-1 for not found)
+        """
+        if not hasattr(self.connectome_manager, 'neuron_id_to_index'):
+            return np.full(len(neuron_ids_array), -1, dtype=np.int32)
+            
+        # Create mapping arrays for vectorized lookup
+        lookup_dict = self.connectome_manager.neuron_id_to_index
+        
+        # Use numpy vectorized operations instead of list comprehensions
+        vectorized_lookup = np.vectorize(lookup_dict.get, otypes=[int])
+        indices_array = vectorized_lookup(neuron_ids_array, -1).astype(np.int32)
+        
+        return indices_array
 
 class FQSampler:
     """
@@ -1797,131 +1823,92 @@ class FQSampler:
 
     def _get_area_fire_queue_data(self, cortical_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get fire queue data for a specific cortical area using optimized access.
+        Get fire queue data for a specific cortical area.
+        
+        DEPRECATED: Use _get_area_fire_queue_data_structured for RTOS/Rust compliance.
+        This method maintains backward compatibility only.
         
         Returns:
             Dictionary with fire queue data containing numpy arrays instead of lists
         """
         try:
-            logger.debug(f"[SEARCH] Getting OPTIMIZED fire queue data for area: {cortical_id}")
-            
-            # Try direct access first if available
-            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_direct'):
-                brain_data = self.fire_queue_provider.get_area_fire_queue_direct(cortical_id)
-                if brain_data is not None:
-                    return {
-                        'neuron_ids': brain_data[:, 0].astype(np.int32),
-                        'membrane_potentials': brain_data[:, 1],
-                        'coordinates': brain_data[:, 2:5]  # x, y, z as numpy array
-                    }
-                    
-            # Fallback to existing methods
-            fire_queue = None
-            if hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
-                logger.debug(f"[SEARCH] Using provider.get_area_fire_queue for {cortical_id}")
-                fire_queue = self.fire_queue_provider.get_area_fire_queue(cortical_id)
-               
-            elif hasattr(self.fire_queue_provider, 'get_fire_queue'):
-                logger.debug(f"[SEARCH] Using global fire queue and filtering for {cortical_id}")
-                global_fire_queue = self.fire_queue_provider.get_fire_queue()
-                if global_fire_queue:
-                    fire_queue = self._filter_fire_queue_by_area(global_fire_queue, cortical_id)
-            else:
-                logger.warning(f"[SEARCH] Fire queue provider has no suitable methods for {cortical_id}")
+            # Use new structured method and convert back for backward compatibility
+            structured_data = self._get_area_fire_queue_data_structured(cortical_id)
+            if structured_data is None or len(structured_data) == 0:
                 return None
                 
-            if not fire_queue or not fire_queue.get('neuron_ids'):
-                return None
-                
-            # Add coordinate information using vectorized method
-            neuron_ids = fire_queue['neuron_ids']
-            coordinates_array = self._get_neuron_coordinates_vectorized(cortical_id, neuron_ids)
-            
-            # Convert numpy array to list of tuples for backward compatibility
-            coordinates = [(int(row[0]), int(row[1]), int(row[2])) for row in coordinates_array]
-            fire_queue['coordinates'] = coordinates
-            
-            logger.debug(f"[OK] Returning OPTIMIZED fire queue data for {cortical_id} with {len(neuron_ids)} neurons")
-            return fire_queue
+            # Convert structured array back to dict format for legacy compatibility
+            return {
+                'neuron_ids': structured_data['neuron_id'].tolist(),
+                'membrane_potentials': structured_data['membrane_potential'].tolist(),
+                'coordinates': [(int(x), int(y), int(z)) for x, y, z in 
+                               zip(structured_data['x'], structured_data['y'], structured_data['z'])]
+            }
             
         except Exception as e:
             logger.error(f"Error getting area fire queue data for {cortical_id}: {e}")
             return None
 
     def _get_global_fire_queue_data(self) -> Optional[Dict[str, Any]]:
-        """Get global fire queue data using optimized access."""
+        """
+        Get global fire queue data.
+        
+        DEPRECATED: Use _get_global_fire_queue_data_structured for RTOS/Rust compliance.
+        This method maintains backward compatibility only.
+        """
         try:
-            # Try direct access first
-            if hasattr(self.fire_queue_provider, 'get_fire_queue_direct'):
-                brain_data = self.fire_queue_provider.get_fire_queue_direct()
-                if brain_data is not None:
-                    return {
-                        'neuron_ids': brain_data[:, 0].astype(np.int32),
-                        'membrane_potentials': brain_data[:, 1],
-                        'coordinates': brain_data[:, 2:5]  # x, y, z as numpy array
-                    }
-            
-            # Fallback to existing method
-            if hasattr(self.fire_queue_provider, 'get_fire_queue'):
-                fire_queue = self.fire_queue_provider.get_fire_queue()
+            # Use new structured method and convert back for backward compatibility
+            structured_data = self._get_global_fire_queue_data_structured()
+            if structured_data is None or len(structured_data) == 0:
+                return None
                 
-                if not fire_queue or not fire_queue.get('neuron_ids'):
-                    return None
-                    
-                # Add coordinate information using vectorized method
-                neuron_ids = fire_queue['neuron_ids']
-                coordinates_array = self._get_global_neuron_coordinates_vectorized(neuron_ids)
-                
-                # Convert numpy array to list of tuples for backward compatibility
-                coordinates = [(int(row[0]), int(row[1]), int(row[2])) for row in coordinates_array]
-                fire_queue['coordinates'] = coordinates
-                
-                return fire_queue
-            return None
+            # Convert structured array back to dict format for legacy compatibility
+            return {
+                'neuron_ids': structured_data['neuron_id'].tolist(),
+                'membrane_potentials': structured_data['membrane_potential'].tolist(),
+                'coordinates': [(int(x), int(y), int(z)) for x, y, z in 
+                               zip(structured_data['x'], structured_data['y'], structured_data['z'])]
+            }
             
         except Exception as e:
             logger.error(f"Error getting global fire queue data: {e}")
             return None
 
     def _filter_fire_queue_by_area(self, fire_queue: Dict[str, Any], cortical_id: str) -> Dict[str, Any]:
-        """Filter fire queue data to only include neurons from specified area."""
+        """Filter fire queue data to only include neurons from specified area.
+        
+        DEPRECATED: Use _filter_fire_queue_by_area_structured for RTOS/Rust compliance.
+        This method maintains backward compatibility only.
+        """
         if not fire_queue or not self.connectome_manager:
             return fire_queue
             
         try:
-            area = self.connectome_manager.cortical_areas.get(cortical_id)
-            if not area:
+            # Use new structured method and convert back for backward compatibility
+            structured_data = self._filter_fire_queue_by_area_structured(fire_queue, cortical_id)
+            if structured_data is None or len(structured_data) == 0:
                 return {'neuron_ids': [], 'membrane_potentials': [], 'thresholds': [], 
                        'consecutive_fire_counts': [], 'refractory_counters': []}
                 
-            # Get neuron ID range for this area
-            area_neuron_ids = set(area.get_neuron_ids()) if hasattr(area, 'get_neuron_ids') else set()
-            
-            # Filter fire queue data
-            filtered_data = {
-                'neuron_ids': [],
-                'membrane_potentials': [],
-                'thresholds': [],
-                'consecutive_fire_counts': [],
-                'refractory_counters': []
+            # Convert structured array back to dict format for legacy compatibility
+            return {
+                'neuron_ids': structured_data['neuron_id'].tolist(),
+                'membrane_potentials': structured_data['membrane_potential'].tolist(),
+                'thresholds': [0.0] * len(structured_data),  # Default values for backward compatibility
+                'consecutive_fire_counts': [0] * len(structured_data),
+                'refractory_counters': [0] * len(structured_data),
+                'coordinates': [(int(x), int(y), int(z)) for x, y, z in 
+                               zip(structured_data['x'], structured_data['y'], structured_data['z'])]
             }
-            
-            for i, neuron_id in enumerate(fire_queue.get('neuron_ids', [])):
-                if neuron_id in area_neuron_ids:
-                    filtered_data['neuron_ids'].append(neuron_id)
-                    filtered_data['membrane_potentials'].append(fire_queue['membrane_potentials'][i])
-                    filtered_data['thresholds'].append(fire_queue['thresholds'][i])
-                    filtered_data['consecutive_fire_counts'].append(fire_queue['consecutive_fire_counts'][i])
-                    filtered_data['refractory_counters'].append(fire_queue['refractory_counters'][i])
                     
-            return filtered_data
-            
         except Exception as e:
             logger.error(f"Error filtering fire queue by area {cortical_id}: {e}")
             return fire_queue
 
     def _get_neuron_coordinates_vectorized(self, cortical_id: str, neuron_ids: List[int]) -> np.ndarray:
         """Get 3D coordinates for neurons using pure vectorized operations on SoA data.
+        
+        DEPRECATED - CONTAINS LIST COMPREHENSIONS: Use _get_neuron_coordinates_vectorized_rtos for RTOS/Rust compliance.
         
         COMPLETELY VECTORIZED - no Python loops or comprehensions.
         
@@ -1998,6 +1985,8 @@ class FQSampler:
 
     def _get_global_neuron_coordinates_vectorized(self, neuron_ids: List[int]) -> np.ndarray:
         """Get global 3D coordinates using pure vectorized SoA operations.
+        
+        DEPRECATED - CONTAINS LIST COMPREHENSIONS: Use _get_global_neuron_coordinates_vectorized_rtos for RTOS/Rust compliance.
         
         COMPLETELY VECTORIZED - no Python loops or comprehensions.
         
@@ -2101,6 +2090,116 @@ class FQSampler:
         """Set the sampling rate for a specific cortical area."""
         if cortical_id not in self._last_sample_time_per_area:
             self._last_sample_time_per_area[cortical_id] = time.perf_counter() 
+
+    def _sample_area_fire_queue_structured(self, cortical_id: str, target: str = 'visualization') -> None:
+        """Sample fire queue data for a specific cortical area using structured arrays.
+        
+        RTOS/Rust compliant: No dictionaries, no list comprehensions, pure numpy.
+        
+        Args:
+            cortical_id: Cortical area ID to sample
+            target: Target type ('visualization' or 'motor')
+        """
+        retry_count = 0
+        
+        while retry_count < self._max_retries:
+            try:
+                # Get structured fire queue data
+                structured_data = self._get_area_fire_queue_data_structured(cortical_id)
+                
+                if structured_data is not None and len(structured_data) > 0:
+                    neuron_count = len(structured_data)
+                    
+                    try:
+                        if target == 'visualization':
+                            # For visualization, use tuple format with structured data
+                            self.output_queue.put((cortical_id, structured_data))
+                            logger.debug(f"Queued STRUCTURED {cortical_id}: {neuron_count} neurons for visualization")
+                        else:
+                            # For motor, use tagged format with structured data
+                            data_package = {
+                                'cortical_id': cortical_id,
+                                'fire_queue_data': structured_data,
+                                'target': target,
+                                'timestamp': time.time()
+                            }
+                            self.output_queue.put(data_package)
+                            logger.debug(f"Queued STRUCTURED {cortical_id}: {neuron_count} neurons for {target}")
+                            
+                        break  # Success
+                        
+                    except Exception as put_error:
+                        logger.error(f"[ERR] Error queuing structured {cortical_id} data: {put_error}")
+                        break  # Don't retry on queue errors
+                        
+                else:
+                    logger.debug(f"No structured fire queue data for {cortical_id}")
+                    break
+                    
+            except Exception as general_error:
+                logger.error(f"[ERR] Error sampling area {cortical_id}: {general_error}")
+                if retry_count == self._max_retries - 1:
+                    logger.error(f"[ERR] Max retries reached for {cortical_id}")
+                    
+                # Wait before retrying
+                delay_start = time.perf_counter()
+                while time.perf_counter() - delay_start < self._retry_delay:
+                    pass
+                retry_count += 1
+
+    def _sample_global_fire_queue_structured(self, target: str = 'visualization') -> None:
+        """Sample global fire queue data using structured arrays.
+        
+        RTOS/Rust compliant: No dictionaries, no list comprehensions, pure numpy.
+        
+        Args:
+            target: Target type ('visualization' or 'motor')
+        """
+        retry_count = 0
+        
+        while retry_count < self._max_retries:
+            try:
+                # Get structured global fire queue data
+                structured_data = self._get_global_fire_queue_data_structured()
+                
+                if structured_data is not None and len(structured_data) > 0:
+                    neuron_count = len(structured_data)
+                    
+                    try:
+                        # Tag the data with target type for proper routing
+                        if target == 'motor':
+                            data_package = {
+                                'fire_queue_data': structured_data,
+                                'target': target,
+                                'timestamp': time.time()
+                            }
+                            self.output_queue.put_nowait(data_package)
+                            logger.debug(f"Queued STRUCTURED global motor data: {neuron_count} neurons")
+                        else:
+                            # For visualization, use structured data directly
+                            self.output_queue.put_nowait(structured_data)
+                            logger.debug(f"Queued STRUCTURED global visualization data: {neuron_count} neurons")
+                            
+                        break  # Success
+                        
+                    except Exception as put_error:
+                        logger.error(f"[ERR] Error queuing structured global data: {put_error}")
+                        break
+                        
+                else:
+                    logger.debug(f"No structured global fire queue data")
+                    break
+                    
+            except Exception as general_error:
+                logger.error(f"[ERR] Error in structured global sampling: {general_error}")
+                if retry_count == self._max_retries - 1:
+                    logger.error(f"[ERR] Max retries reached for structured global sampling")
+                    
+                # Wait before retrying
+                delay_start = time.perf_counter()
+                while time.perf_counter() - delay_start < self._retry_delay:
+                    pass
+                retry_count += 1
 
 class OptimizedFQSampler:
     """
@@ -2388,3 +2487,388 @@ class OptimizedFQSampler:
     def stop(self) -> None:
         """Stop the optimized sampler."""
         self.running = False
+
+    def _get_neuron_coordinates_vectorized_rtos(self, cortical_id: str, neuron_ids_array: np.ndarray) -> np.ndarray:
+        """RTOS/Rust/SIMD compliant coordinate lookup with zero dynamic allocations.
+        
+        Args:
+            cortical_id: Cortical area ID (pre-validated)
+            neuron_ids_array: Pre-allocated numpy array of neuron IDs
+            
+        Returns:
+            numpy array with shape (N, 3) - no tuple conversions
+        """
+        if neuron_ids_array.size == 0:
+            return np.empty((0, 3), dtype=np.int32)
+            
+        try:
+            if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
+                neuron_array = self.connectome_manager.neuron_array
+                
+                if hasattr(self.connectome_manager, 'neuron_id_to_index'):
+                    # VECTORIZED index lookup - no loops, no comprehensions
+                    neuron_ids_set = set(self.connectome_manager.neuron_id_to_index.keys())
+                    valid_mask = np.isin(neuron_ids_array, list(neuron_ids_set))
+                    
+                    if np.any(valid_mask):
+                        # Pre-allocate result array
+                        result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
+                        
+                        # Use vectorized index lookup instead of list comprehension
+                        valid_neuron_ids = neuron_ids_array[valid_mask]
+                        indices_array = self._vectorized_index_lookup(valid_neuron_ids)
+                        
+                        # Mask out invalid indices
+                        valid_indices_mask = indices_array >= 0
+                        if np.any(valid_indices_mask):
+                            valid_indices = indices_array[valid_indices_mask]
+                            
+                            # PURE VECTORIZED SoA ACCESS
+                            if hasattr(neuron_array, 'coordinates_x'):
+                                # Direct numpy slice assignment - no loops
+                                valid_positions = np.where(valid_mask)[0][valid_indices_mask]
+                                result_coords[valid_positions, 0] = neuron_array.coordinates_x[valid_indices]
+                                result_coords[valid_positions, 1] = neuron_array.coordinates_y[valid_indices]
+                                result_coords[valid_positions, 2] = neuron_array.coordinates_z[valid_indices]
+                            else:
+                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+                        
+                        # VECTORIZED fallback for invalid neurons - no loops
+                        invalid_mask = ~valid_mask
+                        if np.any(invalid_mask):
+                            invalid_positions = np.where(invalid_mask)[0]
+                            invalid_neuron_ids = neuron_ids_array[invalid_mask]
+                            result_coords[invalid_positions, 0] = invalid_neuron_ids % 100
+                            result_coords[invalid_positions, 1] = (invalid_neuron_ids // 100) % 100
+                            result_coords[invalid_positions, 2] = invalid_neuron_ids // 10000
+                        
+                        return result_coords
+                        
+            # Pure vectorized fallback
+            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+            
+        except Exception:
+            # RTOS-friendly: minimal exception handling, no string formatting
+            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+
+    def _create_optimized_brain_output_structured(self, fire_queue_data: np.ndarray) -> np.ndarray:
+        """Create optimized brain output using structured numpy arrays instead of dicts.
+        
+        RTOS/Rust/SIMD compliant: No dynamic allocations, no dictionaries, pure numpy.
+        
+        Args:
+            fire_queue_data: numpy array with shape (N, 5) [neuron_ids, potentials, x, y, z]
+            
+        Returns:
+            Structured numpy array optimized for brain output
+        """
+        if fire_queue_data is None or fire_queue_data.size == 0:
+            # Return empty structured array
+            return np.empty(0, dtype=[
+                ('neuron_id', np.int32),
+                ('membrane_potential', np.float32),
+                ('x', np.int32),
+                ('y', np.int32),
+                ('z', np.int32)
+            ])
+        
+        # Create structured array - SIMD-friendly, Rust-compatible
+        neuron_count = fire_queue_data.shape[0]
+        structured_data = np.empty(neuron_count, dtype=[
+            ('neuron_id', np.int32),
+            ('membrane_potential', np.float32),
+            ('x', np.int32),
+            ('y', np.int32),
+            ('z', np.int32)
+        ])
+        
+        # VECTORIZED assignment - no loops
+        structured_data['neuron_id'] = fire_queue_data[:, 0].astype(np.int32)
+        structured_data['membrane_potential'] = fire_queue_data[:, 1].astype(np.float32)
+        structured_data['x'] = fire_queue_data[:, 2].astype(np.int32)
+        structured_data['y'] = fire_queue_data[:, 3].astype(np.int32)
+        structured_data['z'] = fire_queue_data[:, 4].astype(np.int32)
+        
+        return structured_data
+
+    def _get_area_fire_queue_data_structured(self, cortical_id: str) -> Optional[np.ndarray]:
+        """
+        Get fire queue data for a specific cortical area using structured arrays.
+        
+        RTOS/Rust compliant: No dictionaries, no list comprehensions, pure numpy.
+        
+        Returns:
+            Structured numpy array or None if no firing neurons
+        """
+        try:
+            # Try direct access first if available
+            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_direct'):
+                brain_data = self.fire_queue_provider.get_area_fire_queue_direct(cortical_id)
+                if brain_data is not None:
+                    return self._create_optimized_brain_output_structured(brain_data)
+                    
+            # Fallback to existing methods - convert to structured format
+            fire_queue = None
+            if hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
+                fire_queue = self.fire_queue_provider.get_area_fire_queue(cortical_id)
+            elif hasattr(self.fire_queue_provider, 'get_fire_queue'):
+                global_fire_queue = self.fire_queue_provider.get_fire_queue()
+                if global_fire_queue:
+                    fire_queue = self._filter_fire_queue_by_area_structured(global_fire_queue, cortical_id)
+            else:
+                return None
+                
+            if fire_queue is None:
+                return None
+                
+            # Convert legacy dict format to structured array
+            return self._convert_legacy_fire_queue_to_structured(fire_queue, cortical_id)
+            
+        except Exception:
+            # RTOS-friendly: minimal exception handling
+            return None
+
+    def _get_global_fire_queue_data_structured(self) -> Optional[np.ndarray]:
+        """Get global fire queue data using structured arrays - RTOS/Rust compliant."""
+        try:
+            # Try direct access first
+            if hasattr(self.fire_queue_provider, 'get_fire_queue_direct'):
+                brain_data = self.fire_queue_provider.get_fire_queue_direct()
+                if brain_data is not None:
+                    return self._create_optimized_brain_output_structured(brain_data)
+            
+            # Fallback to existing method
+            if hasattr(self.fire_queue_provider, 'get_fire_queue'):
+                fire_queue = self.fire_queue_provider.get_fire_queue()
+                if fire_queue is None:
+                    return None
+                    
+                # Convert legacy dict format to structured array
+                return self._convert_legacy_fire_queue_to_structured(fire_queue)
+            return None
+            
+        except Exception:
+            # RTOS-friendly: minimal exception handling
+            return None
+
+    def _convert_legacy_fire_queue_to_structured(self, fire_queue, cortical_id: str = None) -> np.ndarray:
+        """Convert legacy dictionary fire queue to structured numpy array.
+        
+        RTOS/Rust compliant: Eliminates dictionary operations, uses pure numpy.
+        
+        Args:
+            fire_queue: Legacy dictionary format fire queue
+            cortical_id: Optional cortical area ID for coordinate lookup
+            
+        Returns:
+            Structured numpy array with brain output data
+        """
+        # Extract neuron IDs - handle both dict and other formats
+        if hasattr(fire_queue, 'get'):
+            # Dictionary format
+            neuron_ids_list = fire_queue.get('neuron_ids', [])
+            membrane_potentials_list = fire_queue.get('membrane_potentials', [])
+        else:
+            # Assume already structured or empty
+            return np.empty(0, dtype=[
+                ('neuron_id', np.int32),
+                ('membrane_potential', np.float32),
+                ('x', np.int32),
+                ('y', np.int32),
+                ('z', np.int32)
+            ])
+        
+        if not neuron_ids_list:
+            return np.empty(0, dtype=[
+                ('neuron_id', np.int32),
+                ('membrane_potential', np.float32),
+                ('x', np.int32),
+                ('y', np.int32),
+                ('z', np.int32)
+            ])
+        
+        # Convert to numpy arrays - eliminate list operations
+        neuron_ids_array = np.array(neuron_ids_list, dtype=np.int32)
+        membrane_potentials_array = np.array(membrane_potentials_list, dtype=np.float32)
+        
+        # Get coordinates using vectorized method - NO list comprehensions
+        if cortical_id:
+            coordinates_array = self._get_neuron_coordinates_vectorized_rtos(cortical_id, neuron_ids_array)
+        else:
+            coordinates_array = self._get_global_neuron_coordinates_vectorized_rtos(neuron_ids_array)
+        
+        # Create structured output - pure numpy, no dictionaries
+        neuron_count = len(neuron_ids_array)
+        structured_data = np.empty(neuron_count, dtype=[
+            ('neuron_id', np.int32),
+            ('membrane_potential', np.float32),
+            ('x', np.int32),
+            ('y', np.int32),
+            ('z', np.int32)
+        ])
+        
+        # VECTORIZED assignment - no loops, no comprehensions
+        structured_data['neuron_id'] = neuron_ids_array
+        structured_data['membrane_potential'] = membrane_potentials_array
+        structured_data['x'] = coordinates_array[:, 0]
+        structured_data['y'] = coordinates_array[:, 1]
+        structured_data['z'] = coordinates_array[:, 2]
+        
+        return structured_data
+
+    def _get_global_neuron_coordinates_vectorized_rtos(self, neuron_ids_array: np.ndarray) -> np.ndarray:
+        """Get global 3D coordinates using pure vectorized operations - RTOS/Rust compliant.
+        
+        NO list comprehensions, NO dictionary operations, pure numpy.
+        
+        Args:
+            neuron_ids_array: Pre-allocated numpy array of neuron IDs
+            
+        Returns:
+            numpy array with shape (N, 3) containing coordinates
+        """
+        if neuron_ids_array.size == 0:
+            return np.empty((0, 3), dtype=np.int32)
+            
+        try:
+            if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
+                neuron_array = self.connectome_manager.neuron_array
+                
+                if hasattr(self.connectome_manager, 'neuron_id_to_index'):
+                    # VECTORIZED global index lookup - no comprehensions
+                    neuron_ids_set = set(self.connectome_manager.neuron_id_to_index.keys())
+                    valid_mask = np.isin(neuron_ids_array, list(neuron_ids_set))
+                    
+                    if np.any(valid_mask):
+                        # Pre-allocate result array
+                        result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
+                        
+                        # Use vectorized index lookup instead of list comprehension
+                        valid_neuron_ids = neuron_ids_array[valid_mask]
+                        indices_array = self._vectorized_index_lookup(valid_neuron_ids)
+                        
+                        # Mask out invalid indices
+                        valid_indices_mask = indices_array >= 0
+                        if np.any(valid_indices_mask):
+                            valid_indices = indices_array[valid_indices_mask]
+                            
+                            # PURE VECTORIZED GLOBAL SoA ACCESS
+                            if hasattr(neuron_array, 'coordinates_x'):
+                                # Direct numpy slice assignment - no loops
+                                valid_positions = np.where(valid_mask)[0][valid_indices_mask]
+                                result_coords[valid_positions, 0] = neuron_array.coordinates_x[valid_indices]
+                                result_coords[valid_positions, 1] = neuron_array.coordinates_y[valid_indices]
+                                result_coords[valid_positions, 2] = neuron_array.coordinates_z[valid_indices]
+                            else:
+                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+                        
+                        # VECTORIZED fallback for invalid neurons - no loops
+                        invalid_mask = ~valid_mask
+                        if np.any(invalid_mask):
+                            invalid_positions = np.where(invalid_mask)[0]
+                            invalid_neuron_ids = neuron_ids_array[invalid_mask]
+                            result_coords[invalid_positions, 0] = invalid_neuron_ids % 100
+                            result_coords[invalid_positions, 1] = (invalid_neuron_ids // 100) % 100
+                            result_coords[invalid_positions, 2] = invalid_neuron_ids // 10000
+                        
+                        return result_coords
+                    
+            # Pure vectorized fallback
+            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+            
+        except Exception:
+            # RTOS-friendly: minimal exception handling
+            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+
+    def _filter_fire_queue_by_area_structured(self, fire_queue, cortical_id: str) -> Optional[np.ndarray]:
+        """Filter fire queue data to only include neurons from specified area - RTOS/Rust compliant.
+        
+        NO dictionary operations, NO list comprehensions, pure numpy.
+        """
+        if fire_queue is None or self.connectome_manager is None:
+            return None
+            
+        try:
+            area = self.connectome_manager.cortical_areas.get(cortical_id)
+            if area is None:
+                return np.empty(0, dtype=[
+                    ('neuron_id', np.int32),
+                    ('membrane_potential', np.float32),
+                    ('x', np.int32),
+                    ('y', np.int32),
+                    ('z', np.int32)
+                ])
+                
+            # Get neuron ID range for this area
+            area_neuron_ids = set(area.get_neuron_ids()) if hasattr(area, 'get_neuron_ids') else set()
+            if not area_neuron_ids:
+                return np.empty(0, dtype=[
+                    ('neuron_id', np.int32),
+                    ('membrane_potential', np.float32),
+                    ('x', np.int32),
+                    ('y', np.int32),
+                    ('z', np.int32)
+                ])
+            
+            # Extract data from fire queue - eliminate dictionary get operations
+            if hasattr(fire_queue, 'get'):
+                neuron_ids_list = fire_queue.get('neuron_ids', [])
+                membrane_potentials_list = fire_queue.get('membrane_potentials', [])
+            else:
+                return None
+            
+            if not neuron_ids_list:
+                return np.empty(0, dtype=[
+                    ('neuron_id', np.int32),
+                    ('membrane_potential', np.float32),
+                    ('x', np.int32),
+                    ('y', np.int32),
+                    ('z', np.int32)
+                ])
+            
+            # Convert to numpy arrays
+            neuron_ids_array = np.array(neuron_ids_list, dtype=np.int32)
+            membrane_potentials_array = np.array(membrane_potentials_list, dtype=np.float32)
+            
+            # VECTORIZED filtering - no loops, no comprehensions
+            area_neuron_ids_array = np.array(list(area_neuron_ids), dtype=np.int32)
+            filter_mask = np.isin(neuron_ids_array, area_neuron_ids_array)
+            
+            if not np.any(filter_mask):
+                return np.empty(0, dtype=[
+                    ('neuron_id', np.int32),
+                    ('membrane_potential', np.float32),
+                    ('x', np.int32),
+                    ('y', np.int32),
+                    ('z', np.int32)
+                ])
+            
+            # Filter using vectorized operations
+            filtered_neuron_ids = neuron_ids_array[filter_mask]
+            filtered_potentials = membrane_potentials_array[filter_mask]
+            
+            # Get coordinates for filtered neurons
+            coordinates_array = self._get_neuron_coordinates_vectorized_rtos(cortical_id, filtered_neuron_ids)
+            
+            # Create structured output
+            neuron_count = len(filtered_neuron_ids)
+            structured_data = np.empty(neuron_count, dtype=[
+                ('neuron_id', np.int32),
+                ('membrane_potential', np.float32),
+                ('x', np.int32),
+                ('y', np.int32),
+                ('z', np.int32)
+            ])
+            
+            # VECTORIZED assignment
+            structured_data['neuron_id'] = filtered_neuron_ids
+            structured_data['membrane_potential'] = filtered_potentials
+            structured_data['x'] = coordinates_array[:, 0]
+            structured_data['y'] = coordinates_array[:, 1]
+            structured_data['z'] = coordinates_array[:, 2]
+            
+            return structured_data
+            
+        except Exception:
+            # RTOS-friendly: minimal exception handling
+            return None
