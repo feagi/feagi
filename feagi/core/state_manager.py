@@ -374,7 +374,7 @@ class FeagiStateManager:
         old = GenomeState(self.state_ptr.contents.genome_state)
         self.state_ptr.contents.genome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Genome state changed: {old.name} → {state.name}", status="[DNA]")
+        self._log_state_change("[DNA]", "Genome state changed", old.name, state.name)
         self._notify_state_change("genome", old, state)
     
     # ===== Connectome State =====
@@ -388,7 +388,7 @@ class FeagiStateManager:
         old = ConnectomeState(self.state_ptr.contents.connectome_state)
         self.state_ptr.contents.connectome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Connectome state changed: {old.name} → {state.name}", status="[WEB]")
+        self._log_state_change("[WEB]", "Connectome state changed", old.name, state.name)
         self._notify_state_change("connectome", old, state)
 
     # ===== API State =====
@@ -403,7 +403,7 @@ class FeagiStateManager:
         old_state = self.get_api_state()
         self.state_ptr.contents.api_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"REST API state changed: {old_state.name} → {state.name}", status="[NET]")
+        self._log_state_change("[NET]", "REST API state changed", old_state.name, state.name)
         self._notify_state_change("API", old_state, state)
 
     # ===== ZMQ State =====
@@ -418,7 +418,7 @@ class FeagiStateManager:
         old_state = self.get_zmq_state()
         self.state_ptr.contents.zmq_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"ZMQ state changed: {old_state.name} → {state.name}", status="[NET]")
+        self._log_state_change("[NET]", "ZMQ state changed", old_state.name, state.name)
         self._notify_state_change("ZMQ", old_state, state)
 
     # ===== Agent Count =====
@@ -428,8 +428,10 @@ class FeagiStateManager:
     
     def set_agent_count(self, count: int) -> None:
         """Set current number of registered agents"""
+        old_count = self.state_ptr.contents.agent_count
         self.state_ptr.contents.agent_count = count
         self.state_ptr.contents.state_version += 1
+        self._log_state_change("[AGENT]", "Agent count changed", old_count, count)
 
     # ===== Burst Engine State =====
     def get_burst_engine_state(self) -> ServiceState:
@@ -450,7 +452,7 @@ class FeagiStateManager:
         
         self.state_ptr.contents.burst_engine_state = int_value
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Burst Engine state changed: {old_state.name} → {state.name}", status="[BURST]")
+        self._log_state_change("[BURST]", "Burst Engine state changed", old_state.name, state.name)
         # Use the category key from the notification callbacks dict
         self._notify_state_change("burst_engine", old_state, state)
 
@@ -461,12 +463,12 @@ class FeagiStateManager:
     
     def set_burst_frequency(self, frequency: float) -> None:
         """Set target/assigned burst frequency in Hz (from genome/user settings)"""
+        old_frequency = self.state_ptr.contents.burst_frequency
         self.state_ptr.contents.burst_frequency = frequency
         self.state_ptr.contents.state_version += 1
         
-        # Only log frequency changes when debugging NPU
-        if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-            logger.info(f"Target burst frequency set to {frequency:.1f}Hz", status="[FAST]")
+        # Always log frequency changes since this is important for monitoring
+        self._log_state_change("[FREQ]", f"Target burst frequency changed", f"{old_frequency:.1f}Hz", f"{frequency:.1f}Hz")
 
     # ===== Simulation State =====
     def get_simulation_state(self) -> SimulationState:
@@ -479,8 +481,9 @@ class FeagiStateManager:
         old = SimulationState(self.state_ptr.contents.simulation_state)
         self.state_ptr.contents.simulation_state = int(state)
         self.state_ptr.contents.state_version += 1
-        _log_state_change("🧪", f"Simulation state changed: {old.name} → {state.name}")
-        
+        self._log_state_change("[SIM]", "Simulation state changed", old.name, state.name)
+        self._notify_state_change("simulation", old, state)
+
     # ===== FQSampler State =====
     def get_fq_sampler_state(self) -> ServiceState:
         """Get the current FQ sampler state."""
@@ -493,7 +496,7 @@ class FeagiStateManager:
         old_state = self.get_fq_sampler_state()
         self.state_ptr.contents.fq_sampler_state = int(state)
         self.state_ptr.contents.state_version += 1
-        logger.info(f"FQSampler state changed: {old_state.name} → {state.name}", status="[TARGET]")
+        self._log_state_change("[TARGET]", "FQSampler state changed", old_state.name, state.name)
         self._notify_state_change("FQ Sampler", old_state, state)
 
     # ===== FQSampler Frequency =====
@@ -502,8 +505,10 @@ class FeagiStateManager:
         return self.state_ptr.contents.fq_sampler_frequency
     def set_fq_sampler_frequency(self, frequency: float) -> None:
         """Set FQSampler frequency in Hz"""
+        old_frequency = self.state_ptr.contents.fq_sampler_frequency
         self.state_ptr.contents.fq_sampler_frequency = frequency
         self.state_ptr.contents.state_version += 1
+        self._log_state_change("[TARGET]", "FQSampler frequency changed", f"{old_frequency:.1f}Hz", f"{frequency:.1f}Hz")
 
     # ===== FQSampler Consumer =====
     def get_fq_sampler_consumer(self) -> int:
@@ -511,8 +516,13 @@ class FeagiStateManager:
         return self.state_ptr.contents.fq_sampler_consumer
     def set_fq_sampler_consumer(self, consumer: int) -> None:
         """Set FQSampler consumer code (1=Visualization, 2=Motor, 3=Both, etc.)"""
+        old_consumer = self.state_ptr.contents.fq_sampler_consumer
         self.state_ptr.contents.fq_sampler_consumer = consumer
         self.state_ptr.contents.state_version += 1
+        consumer_names = {1: "Visualization", 2: "Motor", 3: "Both", 0: "None"}
+        old_name = consumer_names.get(old_consumer, f"Code{old_consumer}")
+        new_name = consumer_names.get(consumer, f"Code{consumer}")
+        self._log_state_change("[TARGET]", "FQSampler consumer changed", old_name, new_name)
 
     # ===== State Version =====
     def get_state_version(self) -> int:
@@ -547,9 +557,10 @@ class FeagiStateManager:
 
     def increment_genome_counter(self) -> None:
         """Increment the genome counter by 1"""
+        old_counter = self.state_ptr.contents.genome_counter
         self.state_ptr.contents.genome_counter += 1
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Genome counter incremented to {self.state_ptr.contents.genome_counter}")
+        self._log_state_change("[DNA]", "Genome counter incremented", old_counter, self.state_ptr.contents.genome_counter)
         self.sync_to_disk()
 
     def get_brain_readiness(self) -> bool:
@@ -561,7 +572,7 @@ class FeagiStateManager:
         old = bool(self.state_ptr.contents.brain_readiness)
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Brain readiness changed: {old} → {ready}", status="[BRAIN]")
+        self._log_state_change("[BRAIN]", "Brain readiness changed", old, ready)
 
     def get_genome_timestamp(self) -> int:
         """Get the genome timestamp (milliseconds since epoch when genome was last loaded/changed)"""
@@ -572,7 +583,10 @@ class FeagiStateManager:
         old = self.state_ptr.contents.genome_timestamp
         self.state_ptr.contents.genome_timestamp = timestamp
         self.state_ptr.contents.state_version += 1
-        logger.info(f"Genome timestamp changed: {old} → {timestamp}", status="[TIME]")
+        # Convert timestamps to readable format for logging
+        old_readable = datetime.datetime.fromtimestamp(old/1000).strftime('%Y-%m-%d %H:%M:%S') if old > 0 else "None"
+        new_readable = datetime.datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%d %H:%M:%S')
+        self._log_state_change("[TIME]", "Genome timestamp changed", old_readable, new_readable)
 
     def get_test_visualization_mode(self) -> bool:
         """Get the test visualization mode flag (True if test visualization is enabled)"""
@@ -592,7 +606,7 @@ class FeagiStateManager:
         self.state_ptr.contents.test_visualization_mode = 1 if enabled else 0
         self.state_ptr.contents.state_version += 1
         if old != enabled:
-            logger.info(f"Test visualization mode changed: {old} → {enabled}", status="[TEST]")
+            self._log_state_change("[TEST]", "Test visualization mode changed", old, enabled)
 
     def get_connectome(self):
         """Get the current connectome instance"""
@@ -915,6 +929,8 @@ class FeagiStateManager:
         
         RTOS/Rust Compatible: Single detection, cached results.
         """
+        self._log_state_change("[INIT]", "Starting SIMD/GPU backend detection...")
+        
         try:
             # Import SIMD detection (may fail in SIMD-less environments)
             from feagi.utils.simd_detection import get_simd_detector
@@ -939,10 +955,52 @@ class FeagiStateManager:
             self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
             
             self.state_ptr.contents.state_version += 1
-            logger.info(f"[SIMD] Backend: {backend_name}, Vector Width: {caps.vector_width}")
             
-            logger.info(f"[SIMD] Centralized configuration initialized: {backend_name} "
-                       f"(vector_width={caps.vector_width}, alignment={self.state_ptr.contents.simd_alignment})")
+            # Comprehensive backend logging
+            self._log_state_change("[BACKEND]", f"🚀 SIMD/GPU Detection Complete")
+            self._log_state_change("[BACKEND]", f"├─ Platform: {caps.platform} ({caps.architecture})")
+            self._log_state_change("[BACKEND]", f"├─ Optimal Backend: {backend_name}")
+            self._log_state_change("[BACKEND]", f"├─ Vector Width: {caps.vector_width} (SIMD parallelism)")
+            self._log_state_change("[BACKEND]", f"├─ Memory Alignment: {self.state_ptr.contents.simd_alignment} bytes")
+            
+            # CPU SIMD capabilities
+            simd_features = []
+            if caps.sse2: simd_features.append("SSE2")
+            if caps.avx: simd_features.append("AVX")
+            if caps.avx2: simd_features.append("AVX2")
+            if caps.avx512f: simd_features.append("AVX512F")
+            if caps.neon: simd_features.append("NEON")
+            if caps.sve: simd_features.append("SVE")
+            
+            if simd_features:
+                self._log_state_change("[BACKEND]", f"├─ CPU SIMD Features: {', '.join(simd_features)}")
+            else:
+                self._log_state_change("[BACKEND]", f"├─ CPU SIMD Features: None (scalar only)")
+            
+            # GPU capabilities
+            gpu_features = []
+            if caps.cuda_available: gpu_features.append("CUDA")
+            if caps.webgpu_available: gpu_features.append("WebGPU")
+            
+            if gpu_features:
+                self._log_state_change("[BACKEND]", f"├─ GPU Features: {', '.join(gpu_features)}")
+            else:
+                self._log_state_change("[BACKEND]", f"├─ GPU Features: None detected")
+            
+            # Performance expectations
+            if caps.vector_width >= 16:
+                perf_tier = "High-Performance"
+            elif caps.vector_width >= 8:
+                perf_tier = "Standard"
+            elif caps.vector_width >= 4:
+                perf_tier = "Basic SIMD"
+            else:
+                perf_tier = "Scalar (No SIMD)"
+                
+            self._log_state_change("[BACKEND]", f"└─ Performance Tier: {perf_tier}")
+            
+            # Final summary
+            self._log_state_change("[SIMD]", f"✅ Acceleration enabled: {backend_name} backend ready for neural processing")
             return True
             
         except ImportError:
@@ -957,7 +1015,11 @@ class FeagiStateManager:
             self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
             
             self.state_ptr.contents.state_version += 1
-            logger.info("[SIMD] Centralized configuration: SIMD not available, using scalar fallback")
+            self._log_state_change("[BACKEND]", "⚠️ SIMD/GPU acceleration not available")
+            self._log_state_change("[BACKEND]", "├─ Backend: SCALAR (CPU-only)")
+            self._log_state_change("[BACKEND]", "├─ Reason: SIMD detection module not found")
+            self._log_state_change("[BACKEND]", "└─ Performance: Basic CPU processing")
+            self._log_state_change("[SIMD]", "❌ Using scalar fallback for neural processing")
             return False
             
         except Exception as e:
@@ -972,7 +1034,11 @@ class FeagiStateManager:
             self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
             
             self.state_ptr.contents.state_version += 1
-            logger.warning(f"[SIMD] Detection failed, using scalar fallback: {e}")
+            self._log_state_change("[BACKEND]", f"❌ SIMD/GPU detection failed: {e}")
+            self._log_state_change("[BACKEND]", "├─ Backend: SCALAR (CPU-only)")
+            self._log_state_change("[BACKEND]", "├─ Reason: Hardware detection error")
+            self._log_state_change("[BACKEND]", "└─ Performance: Basic CPU processing")
+            self._log_state_change("[SIMD]", "❌ Using scalar fallback for neural processing")
             return False
 
     def get_simd_configuration(self) -> dict:
@@ -1009,6 +1075,82 @@ class FeagiStateManager:
     def get_simd_alignment(self) -> int:
         """Get required memory alignment for SIMD operations."""
         return self.state_ptr.contents.simd_alignment
+
+    def log_startup_summary(self) -> None:
+        """
+        Log a comprehensive startup summary of all FEAGI states.
+        
+        Call this after FEAGI initialization is complete to provide
+        a complete overview of the system configuration.
+        """
+        self._log_state_change("[STARTUP]", "🏁 FEAGI Initialization Summary")
+        self._log_state_change("[STARTUP]", "=" * 50)
+        
+        # Core states
+        genome_state = self.get_genome_state()
+        connectome_state = self.get_connectome_state()
+        simulation_state = self.get_simulation_state()
+        
+        self._log_state_change("[STARTUP]", f"🧬 Genome State: {genome_state.name}")
+        self._log_state_change("[STARTUP]", f"🕸️  Connectome State: {connectome_state.name}")
+        self._log_state_change("[STARTUP]", f"🧪 Simulation State: {simulation_state.name}")
+        self._log_state_change("[STARTUP]", f"🧠 Brain Ready: {self.get_brain_readiness()}")
+        
+        # Service states
+        api_state = self.get_api_state()
+        zmq_state = self.get_zmq_state()
+        burst_state = self.get_burst_engine_state()
+        fq_state = self.get_fq_sampler_state()
+        
+        self._log_state_change("[STARTUP]", f"🌐 REST API: {api_state.name}")
+        self._log_state_change("[STARTUP]", f"⚡ ZMQ Service: {zmq_state.name}")
+        self._log_state_change("[STARTUP]", f"💥 Burst Engine: {burst_state.name}")
+        self._log_state_change("[STARTUP]", f"🎯 FQ Sampler: {fq_state.name}")
+        
+        # Performance configuration
+        burst_freq = self.get_burst_frequency()
+        fq_freq = self.get_fq_sampler_frequency()
+        agent_count = self.get_agent_count()
+        
+        self._log_state_change("[STARTUP]", f"⚡ Burst Frequency: {burst_freq:.1f}Hz")
+        self._log_state_change("[STARTUP]", f"🎯 FQ Frequency: {fq_freq:.1f}Hz")
+        self._log_state_change("[STARTUP]", f"🤖 Connected Agents: {agent_count}")
+        
+        # SIMD/GPU summary
+        simd_config = self.get_simd_configuration()
+        if simd_config['available']:
+            self._log_state_change("[STARTUP]", f"🚀 Acceleration: {simd_config['backend']} (Vector Width: {simd_config['vector_width']})")
+        else:
+            self._log_state_change("[STARTUP]", f"🐌 Acceleration: SCALAR (No SIMD/GPU)")
+        
+        # Test modes
+        test_viz = self.get_test_visualization_mode()
+        if test_viz:
+            self._log_state_change("[STARTUP]", f"🧪 Test Visualization: ENABLED")
+        
+        # State version for debugging
+        version = self.get_state_version()
+        self._log_state_change("[STARTUP]", f"📊 State Version: {version}")
+        
+        self._log_state_change("[STARTUP]", "=" * 50)
+        self._log_state_change("[STARTUP]", "✅ FEAGI is ready for neural simulation!")
+
+    def _log_state_change(self, category: str, message: str, old_value=None, new_value=None):
+        """
+        Centralized state change logging with consistent formatting.
+        
+        Args:
+            category: Category tag like "[DNA]", "[NET]", "[SIMD]"
+            message: The main log message
+            old_value: Optional old value for transitions
+            new_value: Optional new value for transitions
+        """
+        if old_value is not None and new_value is not None:
+            full_message = f"{message}: {old_value} → {new_value}"
+        else:
+            full_message = message
+            
+        logger.info(f"{category} {full_message}")
 
 def get_state_manager():
     """Get the singleton instance of FeagiStateManager"""

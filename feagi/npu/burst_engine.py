@@ -1201,25 +1201,32 @@ class BurstEngine:
         """Initialize SIMD detection and configuration."""
         if SIMD_AVAILABLE:
             try:
-                self.simd_detector = get_simd_detector()
-                self.backend_selector = get_backend_selector()
-                self.simd_config = get_simd_config()
-                self.simd_profiler = get_profiler()
+                # Use centralized SIMD configuration from State Manager
+                from feagi.core.state_manager import get_state_manager
+                state_manager = get_state_manager()
+                self.simd_config = state_manager.get_simd_configuration()
                 
-                # Log SIMD capabilities
-                caps = self.simd_detector.capabilities
-                self.logger.info(f"[SIMD] Backend: {self.simd_config['recommended_backend']}")
-                self.logger.info(f"[TARGET] Vector Width: {caps.vector_width}, Cache Line: {caps.cache_line_size}B")
-                
+                if self.simd_config['available']:
+                    # Initialize SIMD components with centralized config
+                    self.simd_detector = get_simd_detector()
+                    self.simd_profiler = get_profiler()
+                    
+                    # Log using centralized configuration
+                    logger.info(f"[BURST] Using centralized SIMD: {self.simd_config['backend']} "
+                               f"(vector_width={self.simd_config['vector_width']}, "
+                               f"alignment={self.simd_config['alignment']})")
+                else:
+                    logger.info("[BURST] Centralized SIMD reports: acceleration not available")
+                    self.simd_detector = None
+                    self.simd_profiler = None
+                    
             except Exception as e:
-                self.logger.warning(f"Failed to initialize SIMD support: {e}")
+                logger.warning(f"Failed to access centralized SIMD configuration: {e}")
                 self.simd_detector = None
-                self.backend_selector = None
-                self.simd_config = {}
+                self.simd_config = {'available': False, 'backend': 'SCALAR', 'vector_width': 1}
         else:
             self.simd_detector = None
-            self.backend_selector = None
-            self.simd_config = {}
+            self.simd_config = {'available': False, 'backend': 'SCALAR', 'vector_width': 1}
 
     def initialize_membrane_processor(self, capacity: int):
         """Initialize SIMD-optimized membrane processor with given capacity."""
@@ -1605,41 +1612,95 @@ class BurstEngine:
             
         return result_indices
 
-class FQSampler:
+class UnifiedFQSampler:
     """
-    Fire Queue Sampler for FEAGI NPU.
+    High-performance Fire Queue Sampler for FEAGI NPU.
     
-    This class implements differentiated sampling behavior based on subscriber types:
-    - Visualization subscribers: Sample all cortical areas at configured rate
-    - Motor subscribers: Sample only OPU cortical areas at burst frequency
+    This unified sampler combines zero-copy optimizations with SIMD acceleration and
+    centralized configuration. Can be instantiated independently for different purposes:
+    - Motor sampling: High-frequency OPU area sampling
+    - Visualization sampling: Configurable-rate full brain sampling
+    - Custom sampling: Application-specific sampling patterns
     
-    The sampler is RTOS-compatible and optimized for real-time performance.
+    Features:
+    - Zero-copy operations with direct SoA access
+    - SIMD acceleration via centralized configuration  
+    - Pre-allocated buffers for real-time performance
+    - RTOS-compatible deterministic timing
+    - Independent frequency configuration per instance
     """
     
-    def __init__(self, fire_queue_provider, connectome_manager=None, 
-                 max_retries: int = 3, 
+    def __init__(self, 
+                 fire_queue_provider,
+                 sample_frequency_hz: float,
+                 output_queue=None,
+                 connectome_manager=None,
+                 sampling_mode: str = 'global',  # 'global', 'motor_only', 'areas_only', 'custom'
+                 target_areas: Optional[List[str]] = None,
+                 max_retries: int = 3,
                  neuron_type_filter: Optional[str] = None,
-                 use_optimized_fcl: bool = True,
                  enable_simd: bool = True,
-                 simd_profiling: bool = False):
+                 enable_zero_copy: bool = True,
+                 buffer_size: int = 100_000):
+        """
+        Initialize the unified FQ sampler.
+        
+        Args:
+            fire_queue_provider: Source for fire queue data
+            sample_frequency_hz: Sampling frequency in Hz
+            output_queue: Optional output queue for samples
+            connectome_manager: Optional connectome manager for area info
+            sampling_mode: 'global' (all areas), 'motor_only' (OPU areas), 'areas_only' (specific areas), 'custom'
+            target_areas: Specific areas to sample (for 'areas_only' or 'custom' modes)
+            max_retries: Maximum retry attempts for failed operations
+            neuron_type_filter: Optional filter for specific neuron types
+            enable_simd: Enable SIMD acceleration if available
+            enable_zero_copy: Enable zero-copy optimizations
+            buffer_size: Pre-allocated buffer size for neurons
+        """
         self.fire_queue_provider = fire_queue_provider
+        self.sample_frequency = sample_frequency_hz
+        self.sample_interval = 1.0 / sample_frequency_hz if sample_frequency_hz > 0 else 0.1
+        self.output_queue = output_queue
         self.connectome_manager = connectome_manager
-        self.sample_frequency = 100  # Default frequency
-        self.sample_interval = 1.0 / self.sample_frequency
-        self._last_sample_time_per_area = {}
-        self._last_motor_sample_time = 0.0
-        self._motor_sample_interval = 1.0  # Default 1Hz motor sampling
-        self.running = False
+        self.sampling_mode = sampling_mode.lower()
+        self.target_areas = target_areas or []
         self.max_retries = max_retries
         self.neuron_type_filter = neuron_type_filter
-        self.use_optimized_fcl = use_optimized_fcl
         self.enable_simd = enable_simd
-        self.simd_profiling = simd_profiling
+        self.enable_zero_copy = enable_zero_copy
+        self.running = False
         
-        # Visualization and motor subscriber tracking
-        self._has_visualization_subscribers = False
-        self._has_motor_subscribers = False
+        # Performance tracking
+        self._last_sample_time = 0.0
+        self._sample_count = 0
+        self._performance_stats = {
+            'samples_generated': 0,
+            'zero_copy_hits': 0,
+            'simd_operations': 0,
+            'average_sample_time': 0.0
+        }
         
+        # Pre-allocate buffers for zero-copy operations
+        self.max_neurons_per_sample = buffer_size
+        self.output_buffer = np.empty((self.max_neurons_per_sample, 6), dtype=np.float32)
+        
+        # Initialize SIMD configuration from centralized state manager
+        self._initialize_simd_configuration()
+        
+        # Initialize direct access to optimized structures
+        self._initialize_optimized_access()
+        
+        # Cache OPU areas for motor sampling
+        self._cached_opu_areas = None
+        self._opu_cache_timestamp = 0.0
+        
+        logger.info(f"UnifiedFQSampler initialized: mode={self.sampling_mode}, "
+                   f"frequency={self.sample_frequency}Hz, simd={self.simd_config['available']}, "
+                   f"zero_copy={self.enable_zero_copy}")
+
+    def _initialize_simd_configuration(self) -> None:
+        """Initialize SIMD configuration from centralized state manager."""
         try:
             # Use centralized SIMD configuration from State Manager
             from feagi.core.state_manager import get_state_manager
@@ -1647,963 +1708,59 @@ class FQSampler:
             self.simd_config = state_manager.get_simd_configuration()
             
             # Initialize membrane processor if SIMD is available
-            if self.simd_config['available'] and enable_simd:
+            if self.simd_config['available'] and self.enable_simd:
                 from feagi.npu.optimized_membrane_operations import SIMDMembraneProcessor
                 self.membrane_processor = SIMDMembraneProcessor(
                     backend=self.simd_config['backend'],
                     vector_width=self.simd_config['vector_width']
                 )
-                logger.info(f"FQSampler using centralized SIMD: {self.simd_config['backend']} "
+                logger.info(f"UnifiedFQSampler using centralized SIMD: {self.simd_config['backend']} "
                            f"(vector_width={self.simd_config['vector_width']})")
             else:
                 self.membrane_processor = None
-                if enable_simd:
-                    logger.info("FQSampler: SIMD not available, using scalar operations")
+                if self.enable_simd:
+                    logger.info("UnifiedFQSampler: SIMD not available, using scalar operations")
                 else:
-                    logger.info("FQSampler: SIMD disabled by configuration")
+                    logger.info("UnifiedFQSampler: SIMD disabled by configuration")
                     
         except ImportError:
-            logger.warning("FQSampler: State Manager not available, SIMD disabled")
+            logger.warning("UnifiedFQSampler: State Manager not available, SIMD disabled")
             self.simd_config = {'available': False, 'backend': 'SCALAR', 'vector_width': 1}
             self.membrane_processor = None
         except Exception as e:
-            logger.error(f"FQSampler: Error accessing SIMD configuration: {e}")
+            logger.error(f"UnifiedFQSampler: Error accessing SIMD configuration: {e}")
             self.simd_config = {'available': False, 'backend': 'SCALAR', 'vector_width': 1}
             self.membrane_processor = None
-    
-    def _initialize_simd_infrastructure(self) -> None:
-        """Initialize SIMD detection, backend selection, and membrane processor."""
+
+    def _initialize_optimized_access(self) -> None:
+        """Initialize direct access to optimized SoA structures."""
         try:
-            # Initialize SIMD detector
-            from feagi.utils.simd_detection import SIMDDetector
-            self.simd_detector = SIMDDetector()
+            # Get direct access to FCL manager and neuron arrays
+            self.fcl_manager = getattr(self.connectome_manager, 'fcl_manager', None) if self.connectome_manager else None
+            self.gna = getattr(self.connectome_manager, 'neuron_array', None) if self.connectome_manager else None
             
-            # Initialize backend selector
-            from feagi.npu.optimized_membrane_operations import SIMDBackendSelector
-            self.backend_selector = SIMDBackendSelector()
-            
-            # Get SIMD configuration
-            self.simd_config = {
-                'backend': self.backend_selector.get_optimal_backend(),
-                'vector_width': self.simd_detector.vector_width,
-                'alignment': 32,  # Standard SIMD alignment
-                'supports_avx': self.simd_detector.supports_avx,
-                'supports_avx2': self.simd_detector.supports_avx2,
-            }
-            
-            # Initialize membrane processor if available
-            try:
-                from feagi.npu.optimized_membrane_operations import SIMDMembraneProcessor
-                self.membrane_processor = SIMDMembraneProcessor(
-                    backend=self.simd_config['backend'],
-                    vector_width=self.simd_config['vector_width']
-                )
-            except ImportError:
-                self.membrane_processor = None
-                self.logger.warning("SIMDMembraneProcessor not available")
-            
-        except ImportError as e:
-            self.logger.warning(f"SIMD infrastructure initialization failed: {e}")
-            self.enable_simd = False
-            self.simd_detector = None
-            self.backend_selector = None
-            self.membrane_processor = None
-            self.simd_config = {}
-        except Exception as e:
-            self.logger.error(f"Unexpected error in SIMD initialization: {e}")
-            self.enable_simd = False
-            self.simd_detector = None
-            self.backend_selector = None
-            self.membrane_processor = None
-            self.simd_config = {}
-    
-    def _update_motor_sample_rate(self):
-        """Update motor sampling rate based on burst frequency."""
-        try:
-            # Try to get burst frequency from fire queue provider
-            if hasattr(self.fire_queue_provider, 'get_burst_frequency'):
-                burst_freq = self.fire_queue_provider.get_burst_frequency()
-                if burst_freq and burst_freq > 0:
-                    self._motor_sample_interval = 1.0 / burst_freq
-                    logger.info(f"Motor sampling set to burst frequency: {burst_freq}Hz")
-                    return
-            
-            # Try to get from BurstEngine
-            try:
-                burst_engine = BurstEngine.get_instance()
-                if burst_engine and hasattr(burst_engine, '_configuration'):
-                    burst_freq = burst_engine._configuration.get('burst_frequency', 1)
-                    self._motor_sample_interval = 1.0 / burst_freq
-                    logger.info(f"Motor sampling set to burst frequency from BurstEngine: {burst_freq}Hz")
-                    return
-            except Exception:
-                pass
-                
-            # Default fallback
-            logger.info("Using default motor sampling rate: 1Hz")
-            
-        except Exception as e:
-            logger.warning(f"Error updating motor sample rate: {e}")
-
-    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
-        """
-        Update whether there are visualization subscribers.
-        
-        Args:
-            has_subscribers: Whether there are visualization subscribers
-        """
-        if has_subscribers != self._has_visualization_subscribers:
-            logger.info(f"FQSampler visualization subscribers changed: {has_subscribers}")
-            self._has_visualization_subscribers = has_subscribers
-
-    def set_motor_subscribers(self, has_subscribers: bool) -> None:
-        """
-        Update whether there are motor subscribers.
-        
-        Args:
-            has_subscribers: Whether there are motor subscribers
-        """
-        if has_subscribers != self._has_motor_subscribers:
-            logger.info(f"FQSampler motor subscribers changed: {has_subscribers}")
-            self._has_motor_subscribers = has_subscribers
-            # Update motor sample rate when motor subscribers change
-            if has_subscribers:
-                self._update_motor_sample_rate()
-
-    def run(self) -> None:
-        """Main sampling loop with differentiated behavior for visualization and motor."""
-        logger.info("FQSampler started")
-        self.running = True
-        
-        while self.running:
-            start = time.perf_counter()
-            now = time.perf_counter()
-            
-            # Skip sampling if no subscribers
-            if not self._has_visualization_subscribers and not self._has_motor_subscribers:
-                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
-                target_time = start + self.sample_interval
-                while time.perf_counter() < target_time:
-                    pass  # Busy-wait for sample interval
-                continue
-            
-            # Process visualization sampling (all areas at configured rates)
-            if self._has_visualization_subscribers:
-                self._process_visualization_sampling(now)
-            
-            # Process motor sampling (OPU areas at burst frequency)
-            if self._has_motor_subscribers:
-                self._process_motor_sampling(now)
-                    
-            # Sleep for the remainder of the sample interval
-            elapsed = time.perf_counter() - start
-            sleep_time = min(self.sample_interval, self._motor_sample_interval)
-            if elapsed < sleep_time:
-                # RTOS-COMPATIBLE: Replace time.sleep with deterministic timing
-                target_end_time = start + sleep_time
-                while time.perf_counter() < target_end_time:
-                    pass  # Busy-wait for remainder of sample interval
-                
-        logger.info("FQSampler stopped.")
-
-    def _process_visualization_sampling(self, now: float) -> None:
-        """Process sampling for visualization subscribers (all areas at configured rates)."""
-        try:
-            if self.connectome_manager is not None:
-                # Per-area sampling for visualization
-                areas_processed = 0
-                areas_with_data = 0
-                
-                for area in self.connectome_manager.cortical_areas.values():
-                    cortical_id = area.id
-                    areas_processed += 1
-                    
-                    # Get per-area sample rate if set, else use global
-                    rate = area.properties.get('fq_sample_rate', self.sample_frequency)
-                    
-                    # Skip sampling if rate is zero
-                    if rate <= 0:
-                        continue
-                        
-                    interval = 1.0 / rate
-                    last_time = self._last_sample_time_per_area.get(cortical_id, 0)
-                    
-                    if now - last_time >= interval:
-                        # Debug: Log what we're trying to sample
-                        logger.debug(f"FQ Sampler: Attempting to sample area {cortical_id} (type: {area.area_type})")
-                        
-                        # Try to get area fire queue data first for debugging
-                        test_data = self._get_area_fire_queue_data(cortical_id)
-                        if test_data and test_data.get('neuron_ids'):
-                            neuron_count = len(test_data['neuron_ids'])
-                            logger.debug(f"[TARGET] FQ Sampler: Area {cortical_id} has {neuron_count} firing neurons")
-                            areas_with_data += 1
-                        else:
-                            logger.debug(f"[ERR] FQ Sampler: Area {cortical_id} has no fire queue data")
-                           
-                        self._sample_area_fire_queue(cortical_id, target='visualization')
-                        self._last_sample_time_per_area[cortical_id] = now
-                        
-                # Log summary every 100 samples
-                if hasattr(self, '_debug_sample_count'):
-                    self._debug_sample_count += 1
-                else:
-                    self._debug_sample_count = 1
-                    
-                if self._debug_sample_count % 100 == 0:
-                    logger.info(f"FQ Sampler Debug: Processed {areas_processed} areas, {areas_with_data} had data")
+            if self.fcl_manager and self.enable_zero_copy:
+                logger.info("UnifiedFQSampler: Zero-copy mode enabled with direct SoA access")
             else:
-                # Global sampling for visualization
-                logger.debug("FQ Sampler: Using global sampling (no connectome manager)")
-                self._sample_global_fire_queue(target='visualization')
+                logger.info("UnifiedFQSampler: Using standard fire queue access")
                 
         except Exception as e:
-            logger.error(f"Error in visualization sampling: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.warning(f"UnifiedFQSampler: Could not initialize optimized access: {e}")
+            self.fcl_manager = None
+            self.gna = None
 
-    def _process_motor_sampling(self, now: float) -> None:
-        """Process sampling for motor subscribers (OPU areas at burst frequency)."""
-        try:
-            # Check if it's time for motor sampling
-            if now - self._last_motor_sample_time < self._motor_sample_interval:
-                return
-                
-            self._last_motor_sample_time = now
-            
-            if self.connectome_manager is not None:
-                # Sample only OPU (Output Processing Unit) areas for motor
-                opu_areas = self._get_opu_cortical_areas()
-                
-                for cortical_id in opu_areas:
-                    self._sample_area_fire_queue(cortical_id, target='motor')
-            else:
-                # Global sampling for motor (will be filtered by motor stream)
-                self._sample_global_fire_queue(target='motor')
-                
-        except Exception as e:
-            logger.error(f"Error in motor sampling: {e}")
-
-    def _get_opu_cortical_areas(self) -> List[str]:
-        """Get list of OPU (Output Processing Unit) cortical area IDs."""
-        opu_areas = []
-        
-        try:
-            if not self.connectome_manager:
-                return opu_areas
-                
-            for area in self.connectome_manager.cortical_areas.values():
-                # Check if area is of type OPU
-                area_type = area.properties.get('cortical_type', '').upper()
-                
-                # Multiple ways to identify OPU areas
-                is_opu = (
-                    area_type == 'OPU' or
-                    area_type == 'OUTPUT' or
-                    area_type == 'MOTOR' or
-                    'OPU' in area_type or
-                    'OUTPUT' in area_type or
-                    'MOTOR' in area_type or
-                    area.id.startswith('opu_') or
-                    area.id.startswith('motor_') or
-                    area.id.startswith('output_')
-                )
-                
-                if is_opu:
-                    opu_areas.append(area.id)
-                    logger.debug(f"Found OPU area for motor sampling: {area.id} (type: {area_type})")
-                    
-        except Exception as e:
-            logger.error(f"Error identifying OPU areas: {e}")
-            
-        if not opu_areas:
-            logger.warning("No OPU areas found for motor sampling. Motor subscribers may not receive data.")
-            
-        return opu_areas
-
-    def _sample_area_fire_queue(self, cortical_id: str, target: str = 'visualization') -> None:
-        """Sample fire queue data for a specific cortical area."""
-        retry_count = 0
-        
-        while retry_count < self._max_retries:
-            try:
-                # Get fire queue data for this area
-                area_fire_data = self._get_area_fire_queue_data(cortical_id)
-                
-                if area_fire_data:
-                    # Create optimized data package for visualization/motor streams
-                    optimized_data = self._create_optimized_brain_output_data(area_fire_data)
-                    neuron_count = len(optimized_data.get('neuron_ids', []))
-                    
-                    try:
-                        # For backward compatibility, also support tuple format
-                        if target == 'visualization':
-                            # THE CRITICAL PUT OPERATION - now with optimized data
-                            self.output_queue.put((cortical_id, optimized_data))
-                            logger.debug(f"Queued OPTIMIZED {cortical_id}: {neuron_count} neurons for visualization")
-                        else:
-                            # For motor, use tagged format with optimized data
-                            data_package = {
-                                'cortical_id': cortical_id,
-                                'fire_queue_data': optimized_data,  # Optimized data here
-                                'target': target,
-                                'timestamp': time.time()
-                            }
-                            self.output_queue.put(data_package)
-                            logger.debug(f"Queued OPTIMIZED {cortical_id}: {neuron_count} neurons for {target}")
-                            
-                        break  # Success
-                        
-                    except Exception as put_error:
-                        logger.error(f"[ERR] Error queuing {cortical_id} data: {put_error}")
-                        break  # Don't retry on queue errors
-                        
-                else:
-                    logger.debug(f"No fire queue data for {cortical_id}")
-                    break
-                    
-            except Exception as general_error:
-                logger.error(f"[ERR] Error sampling area {cortical_id}: {general_error}")
-                if retry_count == self._max_retries - 1:
-                    logger.error(f"[ERR] Max retries reached for {cortical_id}")
-                    
-                # Wait before retrying
-                delay_start = time.perf_counter()
-                while time.perf_counter() - delay_start < self._retry_delay:
-                    pass
-                retry_count += 1
-
-    def _sample_global_fire_queue(self, target: str = 'visualization') -> None:
-        """Sample global fire queue data."""
-        retry_count = 0
-        
-        while retry_count < self._max_retries:
-            try:
-                # Get global fire queue data
-                fire_data = self._get_global_fire_queue_data()
-                
-                if fire_data:
-                    # Create optimized data package for visualization/motor streams
-                    optimized_data = self._create_optimized_brain_output_data(fire_data)
-                    neuron_count = len(optimized_data.get('neuron_ids', []))
-                    
-                    try:
-                        # Tag the data with target type for proper routing
-                        if target == 'motor':
-                            data_package = {
-                                'fire_queue_data': optimized_data,  # Optimized data
-                                'target': target,
-                                'timestamp': time.time()
-                            }
-                            self.output_queue.put_nowait(data_package)
-                            logger.debug(f"Queued OPTIMIZED global motor data: {neuron_count} neurons")
-                        else:
-                            # For visualization, use existing format with optimized data
-                            self.output_queue.put_nowait(optimized_data)
-                            logger.debug(f"Queued OPTIMIZED global visualization data: {neuron_count} neurons")
-                            
-                        break  # Success
-                        
-                    except Exception as put_error:
-                        logger.error(f"[ERR] Error queuing global data: {put_error}")
-                        break
-                        
-                else:
-                    logger.debug(f"No global fire queue data")
-                    break
-                    
-            except Exception as general_error:
-                logger.error(f"[ERR] Error in global sampling: {general_error}")
-                if retry_count == self._max_retries - 1:
-                    logger.error(f"[ERR] Max retries reached for global sampling")
-                    
-                # Wait before retrying
-                delay_start = time.perf_counter()
-                while time.perf_counter() - delay_start < self._retry_delay:
-                    pass
-                retry_count += 1
-
-    def _get_area_fire_queue_data(self, cortical_id: str) -> Optional[Dict[str, Any]]:
+    def sample_direct(self) -> Optional[bytes]:
         """
-        Get fire queue data for a specific cortical area.
-        
-        DEPRECATED: Use _get_area_fire_queue_data_structured for RTOS/Rust compliance.
-        This method maintains backward compatibility only.
+        High-performance direct sampling with zero-copy optimizations.
         
         Returns:
-            Dictionary with fire queue data containing numpy arrays instead of lists
+            Binary encoded sample data or None if no firing neurons
         """
-        try:
-            # Use new structured method and convert back for backward compatibility
-            structured_data = self._get_area_fire_queue_data_structured(cortical_id)
-            if structured_data is None or len(structured_data) == 0:
-                return None
-                
-            # Convert structured array back to dict format for legacy compatibility
-            return {
-                'neuron_ids': structured_data['neuron_id'].tolist(),
-                'membrane_potentials': structured_data['membrane_potential'].tolist(),
-                'coordinates': [(int(x), int(y), int(z)) for x, y, z in 
-                               zip(structured_data['x'], structured_data['y'], structured_data['z'])]
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting area fire queue data for {cortical_id}: {e}")
-            return None
-
-    def _get_global_fire_queue_data(self) -> Optional[Dict[str, Any]]:
-        """
-        Get global fire queue data.
-        
-        DEPRECATED: Use _get_global_fire_queue_data_structured for RTOS/Rust compliance.
-        This method maintains backward compatibility only.
-        """
-        try:
-            # Use new structured method and convert back for backward compatibility
-            structured_data = self._get_global_fire_queue_data_structured()
-            if structured_data is None or len(structured_data) == 0:
-                return None
-                
-            # Convert structured array back to dict format for legacy compatibility
-            return {
-                'neuron_ids': structured_data['neuron_id'].tolist(),
-                'membrane_potentials': structured_data['membrane_potential'].tolist(),
-                'coordinates': [(int(x), int(y), int(z)) for x, y, z in 
-                               zip(structured_data['x'], structured_data['y'], structured_data['z'])]
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting global fire queue data: {e}")
-            return None
-
-    def _filter_fire_queue_by_area(self, fire_queue: Dict[str, Any], cortical_id: str) -> Dict[str, Any]:
-        """Filter fire queue data to only include neurons from specified area.
-        
-        DEPRECATED: Use _filter_fire_queue_by_area_structured for RTOS/Rust compliance.
-        This method maintains backward compatibility only.
-        """
-        if not fire_queue or not self.connectome_manager:
-            return fire_queue
-            
-        try:
-            # Use new structured method and convert back for backward compatibility
-            structured_data = self._filter_fire_queue_by_area_structured(fire_queue, cortical_id)
-            if structured_data is None or len(structured_data) == 0:
-                return {'neuron_ids': [], 'membrane_potentials': [], 'thresholds': [], 
-                       'consecutive_fire_counts': [], 'refractory_counters': []}
-                
-            # Convert structured array back to dict format for legacy compatibility
-            return {
-                'neuron_ids': structured_data['neuron_id'].tolist(),
-                'membrane_potentials': structured_data['membrane_potential'].tolist(),
-                'thresholds': [0.0] * len(structured_data),  # Default values for backward compatibility
-                'consecutive_fire_counts': [0] * len(structured_data),
-                'refractory_counters': [0] * len(structured_data),
-                'coordinates': [(int(x), int(y), int(z)) for x, y, z in 
-                               zip(structured_data['x'], structured_data['y'], structured_data['z'])]
-            }
-                    
-        except Exception as e:
-            logger.error(f"Error filtering fire queue by area {cortical_id}: {e}")
-            return fire_queue
-
-    def _get_neuron_coordinates_vectorized(self, cortical_id: str, neuron_ids: List[int]) -> np.ndarray:
-        """Get 3D coordinates for neurons using pure vectorized operations on SoA data.
-        
-        DEPRECATED - CONTAINS LIST COMPREHENSIONS: Use _get_neuron_coordinates_vectorized_rtos for RTOS/Rust compliance.
-        
-        COMPLETELY VECTORIZED - no Python loops or comprehensions.
-        
-        Args:
-            cortical_id: Cortical area ID
-            neuron_ids: List of neuron IDs to get coordinates for
-            
-        Returns:
-            numpy array with shape (N, 3) containing coordinates
-        """
-        if not neuron_ids:
-            return np.empty((0, 3), dtype=np.int32)
-            
-        logger.debug(f"[SIMD] PURE VECTORIZED coordinate lookup for {len(neuron_ids)} neurons in area {cortical_id}")
+        start_time = time.perf_counter()
         
         try:
-            neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
-            
-            if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
-                neuron_array = self.connectome_manager.neuron_array
-                
-                # Try direct index mapping if available
-                if hasattr(self.connectome_manager, 'neuron_id_to_index'):
-                    # VECTORIZED index lookup using numpy operations
-                    valid_mask = np.isin(neuron_ids_array, list(self.connectome_manager.neuron_id_to_index.keys()))
-                    
-                    if np.any(valid_mask):
-                        # Create index array efficiently
-                        indices_list = [self.connectome_manager.neuron_id_to_index.get(nid, -1) for nid in neuron_ids_array]
-                        indices_array = np.array(indices_list, dtype=np.int32)
-                        
-                        # Mask out invalid indices
-                        valid_indices_mask = indices_array >= 0
-                        final_mask = valid_mask & valid_indices_mask
-                        
-                        if np.any(final_mask):
-                            valid_indices = indices_array[valid_indices_mask]
-                            
-                            # PURE VECTORIZED SoA ACCESS
-                            if hasattr(neuron_array, 'positions_x'):
-                                x_coords = neuron_array.positions_x[valid_indices]
-                                y_coords = neuron_array.positions_y[valid_indices] 
-                                z_coords = neuron_array.positions_z[valid_indices]
-                            elif hasattr(neuron_array, 'coordinates_x'):
-                                x_coords = neuron_array.coordinates_x[valid_indices]
-                                y_coords = neuron_array.coordinates_y[valid_indices]
-                                z_coords = neuron_array.coordinates_z[valid_indices]
-                            else:
-                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-                            
-                            # PURE VECTORIZED result construction
-                            result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
-                            
-                            # Fill valid coordinates
-                            result_coords[final_mask] = np.column_stack((x_coords, y_coords, z_coords))
-                            
-                            # VECTORIZED fallback for invalid neurons
-                            invalid_mask = ~final_mask
-                            if np.any(invalid_mask):
-                                invalid_neuron_ids = neuron_ids_array[invalid_mask]
-                                result_coords[invalid_mask, 0] = invalid_neuron_ids % 100
-                                result_coords[invalid_mask, 1] = (invalid_neuron_ids // 100) % 100
-                                result_coords[invalid_mask, 2] = invalid_neuron_ids // 10000
-                            
-                            logger.debug(f"[SIMD] Pure vectorized lookup complete: {np.sum(final_mask)}/{len(neuron_ids_array)} from SoA")
-                            return result_coords
-                        
-            # Pure vectorized fallback
-            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-            
-        except Exception as e:
-            logger.error(f"[SIMD] Error in pure vectorized coordinate lookup: {e}")
-            return self._fallback_coordinate_calculation_vectorized(np.array(neuron_ids, dtype=np.int32))
-
-    def _get_global_neuron_coordinates_vectorized(self, neuron_ids: List[int]) -> np.ndarray:
-        """Get global 3D coordinates using pure vectorized SoA operations.
-        
-        DEPRECATED - CONTAINS LIST COMPREHENSIONS: Use _get_global_neuron_coordinates_vectorized_rtos for RTOS/Rust compliance.
-        
-        COMPLETELY VECTORIZED - no Python loops or comprehensions.
-        
-        Args:
-            neuron_ids: List of neuron IDs to get coordinates for
-            
-        Returns:
-            numpy array with shape (N, 3) containing coordinates
-        """
-        if not neuron_ids:
-            return np.empty((0, 3), dtype=np.int32)
-            
-        logger.debug(f"[SIMD] PURE VECTORIZED global coordinate lookup for {len(neuron_ids)} neurons")
-        
-        try:
-            neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
-            
-            if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
-                neuron_array = self.connectome_manager.neuron_array
-                
-                if hasattr(self.connectome_manager, 'neuron_id_to_index'):
-                    # VECTORIZED global index lookup
-                    valid_mask = np.isin(neuron_ids_array, list(self.connectome_manager.neuron_id_to_index.keys()))
-                    
-                    if np.any(valid_mask):
-                        # Create index array efficiently
-                        indices_list = [self.connectome_manager.neuron_id_to_index.get(nid, -1) for nid in neuron_ids_array]
-                        indices_array = np.array(indices_list, dtype=np.int32)
-                        
-                        valid_indices_mask = indices_array >= 0
-                        final_mask = valid_mask & valid_indices_mask
-                        
-                        if np.any(final_mask):
-                            valid_indices = indices_array[final_mask]
-                            
-                            # PURE VECTORIZED GLOBAL SoA ACCESS
-                            if hasattr(neuron_array, 'positions_x'):
-                                x_coords = neuron_array.positions_x[valid_indices]
-                                y_coords = neuron_array.positions_y[valid_indices]
-                                z_coords = neuron_array.positions_z[valid_indices]
-                            elif hasattr(neuron_array, 'coordinates_x'):
-                                x_coords = neuron_array.coordinates_x[valid_indices]
-                                y_coords = neuron_array.coordinates_y[valid_indices]
-                                z_coords = neuron_array.coordinates_z[valid_indices]
-                            else:
-                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-                            
-                            # PURE VECTORIZED result construction
-                            result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
-                            
-                            # Fill valid coordinates
-                            result_coords[final_mask] = np.column_stack((x_coords, y_coords, z_coords))
-                            
-                            # VECTORIZED fallback for invalid neurons
-                            invalid_mask = ~final_mask
-                            if np.any(invalid_mask):
-                                invalid_neuron_ids = neuron_ids_array[invalid_mask]
-                                result_coords[invalid_mask, 0] = invalid_neuron_ids % 100
-                                result_coords[invalid_mask, 1] = (invalid_neuron_ids // 100) % 100
-                                result_coords[invalid_mask, 2] = invalid_neuron_ids // 10000
-                            
-                            logger.debug(f"[SIMD] Pure vectorized global complete: {np.sum(final_mask)}/{len(neuron_ids_array)} from SoA")
-                            return result_coords
-                    
-            # Pure vectorized fallback
-            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-            
-        except Exception as e:
-            logger.error(f"[SIMD] Error in pure vectorized global lookup: {e}")
-            return self._fallback_coordinate_calculation_vectorized(np.array(neuron_ids, dtype=np.int32))
-
-    def _fallback_coordinate_calculation_vectorized(self, neuron_ids_array: np.ndarray) -> np.ndarray:
-        """Pure vectorized fallback coordinate calculation - no loops.
-        
-        Args:
-            neuron_ids_array: numpy array of neuron IDs
-            
-        Returns:
-            numpy array with shape (N, 3) containing algorithmic coordinates
-        """
-        # PURE VECTORIZED coordinate generation
-        x_coords = neuron_ids_array % 100
-        y_coords = (neuron_ids_array // 100) % 100
-        z_coords = neuron_ids_array // 10000
-        
-        return np.column_stack((x_coords, y_coords, z_coords)).astype(np.int32)
-
-    def stop(self) -> None:
-        """Stop the FQ sampler."""
-        self.running = False
-        
-        # Auto-unregister from burst engine if it was registered
-        if hasattr(self.fire_queue_provider, 'unregister_fq_sampler'):
-            try:
-                self.fire_queue_provider.unregister_fq_sampler(self)
-                logger.info(f"[DEBUG] NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
-            except Exception as e:
-                logger.warning(f"Failed to auto-unregister FQSampler from BurstEngine: {e}")
-        
-    def update_area_sample_rate(self, cortical_id: str, rate: float) -> None:
-        """Set the sampling rate for a specific cortical area."""
-        if cortical_id not in self._last_sample_time_per_area:
-            self._last_sample_time_per_area[cortical_id] = time.perf_counter() 
-
-    def _sample_area_fire_queue_structured(self, cortical_id: str, target: str = 'visualization') -> None:
-        """Sample fire queue data for a specific cortical area using structured arrays.
-        
-        RTOS/Rust compliant: No dictionaries, no list comprehensions, pure numpy.
-        
-        Args:
-            cortical_id: Cortical area ID to sample
-            target: Target type ('visualization' or 'motor')
-        """
-        retry_count = 0
-        
-        while retry_count < self._max_retries:
-            try:
-                # Get structured fire queue data
-                structured_data = self._get_area_fire_queue_data_structured(cortical_id)
-                
-                if structured_data is not None and len(structured_data) > 0:
-                    neuron_count = len(structured_data)
-                    
-                    try:
-                        if target == 'visualization':
-                            # For visualization, use tuple format with structured data
-                            self.output_queue.put((cortical_id, structured_data))
-                            logger.debug(f"Queued STRUCTURED {cortical_id}: {neuron_count} neurons for visualization")
-                        else:
-                            # For motor, use tagged format with structured data
-                            data_package = {
-                                'cortical_id': cortical_id,
-                                'fire_queue_data': structured_data,
-                                'target': target,
-                                'timestamp': time.time()
-                            }
-                            self.output_queue.put(data_package)
-                            logger.debug(f"Queued STRUCTURED {cortical_id}: {neuron_count} neurons for {target}")
-                            
-                        break  # Success
-                        
-                    except Exception as put_error:
-                        logger.error(f"[ERR] Error queuing structured {cortical_id} data: {put_error}")
-                        break  # Don't retry on queue errors
-                        
-                else:
-                    logger.debug(f"No structured fire queue data for {cortical_id}")
-                    break
-                    
-            except Exception as general_error:
-                logger.error(f"[ERR] Error sampling area {cortical_id}: {general_error}")
-                if retry_count == self._max_retries - 1:
-                    logger.error(f"[ERR] Max retries reached for {cortical_id}")
-                    
-                # Wait before retrying
-                delay_start = time.perf_counter()
-                while time.perf_counter() - delay_start < self._retry_delay:
-                    pass
-                retry_count += 1
-
-    def _sample_global_fire_queue_structured(self, target: str = 'visualization') -> None:
-        """Sample global fire queue data using structured arrays.
-        
-        RTOS/Rust compliant: No dictionaries, no list comprehensions, pure numpy.
-        
-        Args:
-            target: Target type ('visualization' or 'motor')
-        """
-        retry_count = 0
-        
-        while retry_count < self._max_retries:
-            try:
-                # Get structured global fire queue data
-                structured_data = self._get_global_fire_queue_data_structured()
-                
-                if structured_data is not None and len(structured_data) > 0:
-                    neuron_count = len(structured_data)
-                    
-                    try:
-                        # Tag the data with target type for proper routing
-                        if target == 'motor':
-                            data_package = {
-                                'fire_queue_data': structured_data,
-                                'target': target,
-                                'timestamp': time.time()
-                            }
-                            self.output_queue.put_nowait(data_package)
-                            logger.debug(f"Queued STRUCTURED global motor data: {neuron_count} neurons")
-                        else:
-                            # For visualization, use structured data directly
-                            self.output_queue.put_nowait(structured_data)
-                            logger.debug(f"Queued STRUCTURED global visualization data: {neuron_count} neurons")
-                            
-                        break  # Success
-                        
-                    except Exception as put_error:
-                        logger.error(f"[ERR] Error queuing structured global data: {put_error}")
-                        break
-                        
-                else:
-                    logger.debug(f"No structured global fire queue data")
-                    break
-                    
-            except Exception as general_error:
-                logger.error(f"[ERR] Error in structured global sampling: {general_error}")
-                if retry_count == self._max_retries - 1:
-                    logger.error(f"[ERR] Max retries reached for structured global sampling")
-                    
-                # Wait before retrying
-                delay_start = time.perf_counter()
-                while time.perf_counter() - delay_start < self._retry_delay:
-                    pass
-                retry_count += 1
-
-    def _sample_area_fire_queue_simd_optimized(self, cortical_id: str, target: str = 'visualization') -> None:
-        """SIMD-optimized fire queue sampling using membrane processor and vectorized operations.
-        
-        This method leverages the full SIMD infrastructure for maximum performance.
-        
-        Args:
-            cortical_id: Cortical area ID to sample
-            target: Target type ('visualization' or 'motor')
-        """
-        if not SIMD_AVAILABLE:
-            # Fallback to structured array version
-            return self._sample_area_fire_queue_structured(cortical_id, target)
-        
-        retry_count = 0
-        
-        while retry_count < self._max_retries:
-            try:
-                # Use SIMD-optimized data retrieval
-                with profile_simd_operation(f"fq_sample_{target}", 1) if self.use_simd_profiling else nullcontext():
-                    structured_data = self._get_area_fire_queue_data_simd_optimized(cortical_id)
-                
-                if structured_data is not None and len(structured_data) > 0:
-                    # SIMD-optimized processing
-                    processed_data = self._simd_process_fire_queue_data(structured_data, cortical_id, target)
-                    
-                    # Store using SIMD-friendly operations
-                    self._store_simd_optimized_sample(processed_data, cortical_id, target)
-                    return
-                    
-                # Handle empty case
-                self._store_empty_simd_sample(cortical_id, target)
-                return
-                
-            except Exception as e:
-                retry_count += 1
-                if self.logger:
-                    self.logger.warning(f"SIMD sampling retry {retry_count} for {cortical_id}: {e}")
-                
-                if retry_count >= self._max_retries:
-                    # Final fallback to structured method
-                    return self._sample_area_fire_queue_structured(cortical_id, target)
-    
-    def _get_area_fire_queue_data_simd_optimized(self, cortical_id: str) -> Optional[np.ndarray]:
-        """Get fire queue data optimized for SIMD processing."""
-        try:
-            # Try direct SIMD-optimized provider access
-            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_simd'):
-                return self.fire_queue_provider.get_area_fire_queue_simd(cortical_id)
-            
-            # Try legacy access and convert to SIMD format
-            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_direct'):
-                legacy_data = self.fire_queue_provider.get_area_fire_queue_direct(cortical_id)
-                if legacy_data is not None:
-                    return self._convert_fire_queue_to_simd_optimized(legacy_data, cortical_id)
-            
-            # Fallback to regular structured access
-            return self._get_area_fire_queue_data_structured(cortical_id)
-            
-        except Exception:
-            return None
-    
-    def _simd_process_fire_queue_data(self, structured_data: np.ndarray, cortical_id: str, target: str) -> np.ndarray:
-        """Process fire queue data using SIMD operations and membrane processor."""
-        if len(structured_data) == 0:
-            return structured_data
-        
-        try:
-            # Use SIMDMembraneProcessor if available
-            if hasattr(self, 'membrane_processor') and self.membrane_processor:
-                # Extract membrane potentials for SIMD processing
-                membrane_potentials = structured_data['membrane_potential']
-                
-                # SIMD-optimized membrane processing
-                with profile_simd_operation("membrane_processing", len(membrane_potentials)) if self.use_simd_profiling else nullcontext():
-                    processed_potentials = self.membrane_processor.process_batch(
-                        membrane_potentials,
-                        operation='normalize'  # or 'threshold', 'scale', etc.
-                    )
-                
-                # Update structured data with processed values
-                if processed_potentials is not None:
-                    result_data = structured_data.copy()
-                    result_data['membrane_potential'] = processed_potentials
-                    return result_data
-            
-            # No membrane processing available - return as is
-            return structured_data
-            
-        except Exception:
-            # Fallback - return original data
-            return structured_data
-    
-    def _store_simd_optimized_sample(self, processed_data: np.ndarray, cortical_id: str, target: str) -> None:
-        """Store SIMD-optimized sample data using efficient memory operations."""
-        try:
-            # Use SIMD-friendly operations for data storage
-            if target == 'visualization':
-                if hasattr(self, '_visualization_samples_simd'):
-                    self._visualization_samples_simd[cortical_id] = processed_data
-                else:
-                    # Fallback to regular storage
-                    self._visualization_samples[cortical_id] = self._convert_simd_to_dict(processed_data)
-            
-            elif target == 'motor':
-                if hasattr(self, '_motor_samples_simd'):
-                    self._motor_samples_simd[cortical_id] = processed_data
-                else:
-                    # Fallback to regular storage
-                    self._motor_samples[cortical_id] = self._convert_simd_to_dict(processed_data)
-            
-        except Exception:
-            # Emergency fallback to dictionary storage
-            dict_data = self._convert_simd_to_dict(processed_data)
-            if target == 'visualization':
-                self._visualization_samples[cortical_id] = dict_data
-            elif target == 'motor':
-                self._motor_samples[cortical_id] = dict_data
-    
-    def _store_empty_simd_sample(self, cortical_id: str, target: str) -> None:
-        """Store empty sample using SIMD-optimized structures."""
-        empty_structure = self._create_empty_simd_structure()
-        
-        if target == 'visualization':
-            if hasattr(self, '_visualization_samples_simd'):
-                self._visualization_samples_simd[cortical_id] = empty_structure
-            else:
-                self._visualization_samples[cortical_id] = self._create_empty_data_dict()
-        
-        elif target == 'motor':
-            if hasattr(self, '_motor_samples_simd'):
-                self._motor_samples_simd[cortical_id] = empty_structure
-            else:
-                self._motor_samples[cortical_id] = self._create_empty_data_dict()
-    
-    def _convert_simd_to_dict(self, structured_data: np.ndarray) -> Dict[str, Any]:
-        """Convert SIMD-optimized structured array back to dictionary format for backward compatibility."""
-        if len(structured_data) == 0:
-            return self._create_empty_data_dict()
-        
-        return {
-            'neuron_ids': structured_data['neuron_id'].tolist(),
-            'membrane_potentials': structured_data['membrane_potential'].tolist(),
-            'coordinates': np.column_stack([
-                structured_data['x'],
-                structured_data['y'], 
-                structured_data['z']
-            ])
-        }
-
-class OptimizedFQSampler:
-    """
-    Ultra-optimized Fire Queue Sampler using direct SoA access.
-    
-    This class bypasses all intermediate Python conversions and works directly
-    with the optimized SoA structures, providing zero-copy brain output sampling.
-    """
-    
-    def __init__(self, fire_queue_provider: Any, sample_frequency_hz: float, 
-                 output_queue: Any, connectome_manager: Optional[Any] = None) -> None:
-        """Initialize the optimized FQ sampler."""
-        self.fire_queue_provider = fire_queue_provider
-        self.sample_frequency = sample_frequency_hz
-        self.sample_interval = 1.0 / sample_frequency_hz if sample_frequency_hz > 0 else 0.1
-        self.output_queue = output_queue
-        self.connectome_manager = connectome_manager
-        self.running = False
-        
-        # Subscriber tracking
-        self._has_visualization_subscribers = False
-        self._has_motor_subscribers = False
-        
-        # Pre-allocate output buffers for zero-allocation sampling
-        self.max_neurons_per_sample = 100_000
-        self.output_buffer = np.empty((self.max_neurons_per_sample, 6), dtype=np.float32)
-        
-        # Direct access to optimized structures
-        self.fcl_manager = getattr(connectome_manager, 'fcl_manager', None) if connectome_manager else None
-        self.gna = getattr(connectome_manager, 'neuron_array', None) if connectome_manager else None
-        
-        # Motor sampling configuration
-        self._last_motor_sample_time = 0.0
-        self._motor_sample_interval = 1.0
-        
-        logger.info(f"OptimizedFQSampler initialized with direct SoA access")
-
-    def sample_brain_output_direct(self) -> Optional[bytes]:
-        """Direct brain output sampling with zero-copy operations.
-        
-        Returns:
-            Binary encoded brain output data or None if no firing neurons
-        """
-        try:
-            # Direct FCL access
-            if hasattr(self.fire_queue_provider, 'get_fire_queue_direct'):
-                brain_data = self.fire_queue_provider.get_fire_queue_direct()
-            else:
-                # Fallback to direct FCL access if available
-                if self.fcl_manager:
-                    brain_data = self._extract_brain_data_direct()
-                else:
-                    return None
+            # Get fire queue data based on sampling mode
+            brain_data = self._extract_brain_data_by_mode()
             
             if brain_data is None or len(brain_data) == 0:
                 return None
@@ -2614,75 +1771,113 @@ class OptimizedFQSampler:
                 np.full(len(brain_data), time.time(), dtype=np.float32)
             ))
             
+            # Update performance stats
+            self._performance_stats['samples_generated'] += 1
+            if self.enable_zero_copy and self.fcl_manager:
+                self._performance_stats['zero_copy_hits'] += 1
+            if self.simd_config['available'] and self.membrane_processor:
+                self._performance_stats['simd_operations'] += 1
+            
+            # Track timing
+            sample_time = time.perf_counter() - start_time
+            self._performance_stats['average_sample_time'] = (
+                (self._performance_stats['average_sample_time'] * self._sample_count + sample_time) / 
+                (self._sample_count + 1)
+            )
+            self._sample_count += 1
+            
             # Direct binary encoding
             return self._encode_brain_data_binary(timestamped_data)
             
         except Exception as e:
-            logger.error(f"Error in direct brain output sampling: {e}")
+            logger.error(f"Error in direct sampling: {e}")
             return None
 
-    def sample_motor_areas_direct(self, opu_area_ids: List[str]) -> Optional[bytes]:
-        """Direct motor area sampling with batch processing.
-        
-        Args:
-            opu_area_ids: List of output processing unit area IDs
-            
-        Returns:
-            Binary encoded motor data or None
-        """
-        try:
-            if not self.fcl_manager:
-                return None
-            
-            # Combine FCLs from all OPU areas using bitmap operations
-            combined_fcl = None
-            
-            for area_id in opu_area_ids:
-                area_fcl = self.fcl_manager.get_cortical_fcl(area_id)
-                if not area_fcl.is_empty():
-                    if combined_fcl is None:
-                        combined_fcl = area_fcl
-                    else:
-                        combined_fcl = combined_fcl | area_fcl
-            
-            if combined_fcl is None or combined_fcl.is_empty():
-                return None
-            
-            # Direct extraction from combined FCL
-            brain_data = self._extract_brain_data_from_fcl(combined_fcl)
-            
-            if brain_data is None or len(brain_data) == 0:
-                return None
-            
-            # Add timestamp and motor tag
-            motor_data = np.column_stack((
-                brain_data,
-                np.full(len(brain_data), time.time(), dtype=np.float32)
-            ))
-            
-            return self._encode_brain_data_binary(motor_data)
-            
-        except Exception as e:
-            logger.error(f"Error in direct motor sampling: {e}")
+    def _extract_brain_data_by_mode(self) -> Optional[np.ndarray]:
+        """Extract brain data based on the configured sampling mode."""
+        if self.sampling_mode == 'global':
+            return self._extract_global_brain_data()
+        elif self.sampling_mode == 'motor_only':
+            return self._extract_motor_brain_data()
+        elif self.sampling_mode == 'areas_only':
+            return self._extract_areas_brain_data(self.target_areas)
+        elif self.sampling_mode == 'custom':
+            return self._extract_custom_brain_data()
+        else:
+            logger.error(f"Unknown sampling mode: {self.sampling_mode}")
             return None
 
-    def _extract_brain_data_direct(self) -> Optional[np.ndarray]:
-        """Extract brain data directly from FCL and SoA structures."""
+    def _extract_global_brain_data(self) -> Optional[np.ndarray]:
+        """Extract brain data from global fire queue."""
         if not self.fcl_manager:
             return None
             
         global_fcl = self.fcl_manager.get_global_fcl()
         return self._extract_brain_data_from_fcl(global_fcl)
 
-    def _extract_brain_data_from_fcl(self, fcl) -> Optional[np.ndarray]:
-        """Extract brain data from a given FCL using direct SoA access.
+    def _extract_motor_brain_data(self) -> Optional[np.ndarray]:
+        """Extract brain data from motor/OPU areas only."""
+        if not self.fcl_manager:
+            return None
         
-        Args:
-            fcl: Fire candidate list (bitmap)
-            
-        Returns:
-            numpy array with shape (N, 5) containing brain output data
-        """
+        # Cache OPU areas with timeout to avoid repeated lookups
+        current_time = time.time()
+        if (self._cached_opu_areas is None or 
+            current_time - self._opu_cache_timestamp > 5.0):  # 5 second cache
+            self._cached_opu_areas = self._get_opu_areas_fast()
+            self._opu_cache_timestamp = current_time
+        
+        if not self._cached_opu_areas:
+            return None
+        
+        # Combine FCLs from all OPU areas using bitmap operations
+        combined_fcl = None
+        
+        for area_id in self._cached_opu_areas:
+            area_fcl = self.fcl_manager.get_cortical_fcl(area_id)
+            if not area_fcl.is_empty():
+                if combined_fcl is None:
+                    combined_fcl = area_fcl
+                else:
+                    combined_fcl = combined_fcl | area_fcl
+        
+        if combined_fcl is None or combined_fcl.is_empty():
+            return None
+        
+        return self._extract_brain_data_from_fcl(combined_fcl)
+
+    def _extract_areas_brain_data(self, area_ids: List[str]) -> Optional[np.ndarray]:
+        """Extract brain data from specific cortical areas."""
+        if not self.fcl_manager or not area_ids:
+            return None
+        
+        # Combine FCLs from specified areas
+        combined_fcl = None
+        
+        for area_id in area_ids:
+            try:
+                area_fcl = self.fcl_manager.get_cortical_fcl(area_id)
+                if not area_fcl.is_empty():
+                    if combined_fcl is None:
+                        combined_fcl = area_fcl
+                    else:
+                        combined_fcl = combined_fcl | area_fcl
+            except Exception as e:
+                logger.warning(f"Error accessing FCL for area {area_id}: {e}")
+                continue
+        
+        if combined_fcl is None or combined_fcl.is_empty():
+            return None
+        
+        return self._extract_brain_data_from_fcl(combined_fcl)
+
+    def _extract_custom_brain_data(self) -> Optional[np.ndarray]:
+        """Extract brain data using custom sampling logic."""
+        # Default implementation - can be overridden by subclasses
+        return self._extract_global_brain_data()
+
+    def _extract_brain_data_from_fcl(self, fcl) -> Optional[np.ndarray]:
+        """Extract brain data from a given FCL using direct SoA access."""
         if fcl.is_empty():
             return None
         
@@ -2730,15 +1925,36 @@ class OptimizedFQSampler:
             logger.error(f"Error extracting brain data from FCL: {e}")
             return None
 
-    def _encode_brain_data_binary(self, data: np.ndarray) -> bytes:
-        """Encode brain data directly to binary format.
-        
-        Args:
-            data: numpy array with brain output data
+    def _get_opu_areas_fast(self) -> List[str]:
+        """Fast lookup of OPU (Output Processing Unit) cortical areas."""
+        try:
+            if not self.connectome_manager:
+                return []
             
-        Returns:
-            Binary encoded data
-        """
+            # Fast lookup using cached connectome structure
+            if hasattr(self.connectome_manager, 'get_areas_by_type'):
+                return self.connectome_manager.get_areas_by_type('OPU')
+            
+            # Fallback: scan all areas for OPU type
+            opu_areas = []
+            all_areas = getattr(self.connectome_manager, 'get_cortical_areas', lambda: [])()
+            
+            for area_id in all_areas:
+                try:
+                    area_info = self.connectome_manager.get_area_info(area_id)
+                    if area_info and area_info.get('type') == 'OPU':
+                        opu_areas.append(area_id)
+                except Exception:
+                    continue  # Skip areas we can't access
+            
+            return opu_areas
+            
+        except Exception as e:
+            logger.warning(f"Error getting OPU areas: {e}")
+            return []
+
+    def _encode_brain_data_binary(self, data: np.ndarray) -> bytes:
+        """Encode brain data directly to binary format."""
         try:
             import struct
             
@@ -2755,651 +1971,57 @@ class OptimizedFQSampler:
             logger.error(f"Error encoding brain data to binary: {e}")
             return b''
 
-    def run_optimized(self) -> None:
-        """Optimized sampling loop with direct SoA access."""
-        logger.info("OptimizedFQSampler started with direct SoA access")
+    def run(self) -> None:
+        """Main sampling loop with deterministic timing."""
+        logger.info(f"UnifiedFQSampler started: mode={self.sampling_mode}, frequency={self.sample_frequency}Hz")
         self.running = True
         
         while self.running:
             start = time.perf_counter()
-            now = time.perf_counter()
             
-            # Skip sampling if no subscribers
-            if not self._has_visualization_subscribers and not self._has_motor_subscribers:
-                self._sleep_deterministic(start, self.sample_interval)
-                continue
+            # Generate sample
+            sample_data = self.sample_direct()
             
-            # Visualization sampling (direct binary output)
-            if self._has_visualization_subscribers:
-                viz_data = self.sample_brain_output_direct()
-                if viz_data:
-                    try:
-                        self.output_queue.put_nowait(('visualization', viz_data))
-                    except Exception as e:
-                        logger.error(f"Error queuing visualization data: {e}")
+            # Store sample in output queue if available
+            if sample_data and self.output_queue:
+                try:
+                    self.output_queue.put_nowait(sample_data)
+                except Exception as e:
+                    logger.warning(f"Failed to queue sample: {e}")
             
-            # Motor sampling (direct binary output) 
-            if self._has_motor_subscribers and (now - self._last_motor_sample_time >= self._motor_sample_interval):
-                # Get OPU areas if available
-                opu_areas = self._get_opu_areas_fast() if self.connectome_manager else []
-                if opu_areas:
-                    motor_data = self.sample_motor_areas_direct(opu_areas)
-                    if motor_data:
-                        try:
-                            self.output_queue.put_nowait(('motor', motor_data))
-                        except Exception as e:
-                            logger.error(f"Error queuing motor data: {e}")
-                
-                self._last_motor_sample_time = now
-            
-            # Deterministic timing
-            self._sleep_deterministic(start, self.sample_interval)
-        
-        logger.info("OptimizedFQSampler stopped")
-
-    def _get_opu_areas_fast(self) -> List[str]:
-        """Fast OPU area detection using cached results."""
-        # Use cached OPU areas if available
-        if hasattr(self, '_cached_opu_areas'):
-            return self._cached_opu_areas
-        
-        opu_areas = []
-        try:
-            if self.connectome_manager and hasattr(self.connectome_manager, 'cortical_areas'):
-                for area in self.connectome_manager.cortical_areas.values():
-                    area_type = area.properties.get('cortical_type', '').upper()
-                    if ('OPU' in area_type or 'OUTPUT' in area_type or 'MOTOR' in area_type or
-                        area.id.startswith(('opu_', 'motor_', 'output_'))):
-                        opu_areas.append(area.id)
-            
-            # Cache the result
-            self._cached_opu_areas = opu_areas
-        except Exception as e:
-            logger.error(f"Error detecting OPU areas: {e}")
-        
-        return opu_areas
-
-    def _sleep_deterministic(self, start_time: float, interval: float) -> None:
-        """Deterministic sleep implementation for RTOS compatibility."""
-        elapsed = time.perf_counter() - start_time
-        if elapsed < interval:
-            target_end_time = start_time + interval
-            while time.perf_counter() < target_end_time:
-                pass  # Busy-wait for deterministic timing
-
-    def set_visualization_subscribers(self, has_subscribers: bool) -> None:
-        """Update visualization subscriber status."""
-        self._has_visualization_subscribers = has_subscribers
-
-    def set_motor_subscribers(self, has_subscribers: bool) -> None:
-        """Update motor subscriber status."""
-        self._has_motor_subscribers = has_subscribers
+            # RTOS-compatible deterministic timing
+            elapsed = time.perf_counter() - start
+            if elapsed < self.sample_interval:
+                target_end_time = start + self.sample_interval
+                while time.perf_counter() < target_end_time:
+                    pass  # Busy-wait for remainder of sample interval
 
     def stop(self) -> None:
-        """Stop the optimized sampler."""
+        """Stop the sampler."""
         self.running = False
+        logger.info(f"UnifiedFQSampler stopped. Performance stats: {self._performance_stats}")
 
-    def _get_neuron_coordinates_vectorized_rtos(self, cortical_id: str, neuron_ids_array: np.ndarray) -> np.ndarray:
-        """RTOS/Rust/SIMD compliant coordinate lookup with zero dynamic allocations.
-        
-        Args:
-            cortical_id: Cortical area ID (pre-validated)
-            neuron_ids_array: Pre-allocated numpy array of neuron IDs
-            
-        Returns:
-            numpy array with shape (N, 3) - no tuple conversions
-        """
-        if neuron_ids_array.size == 0:
-            return np.empty((0, 3), dtype=np.int32)
-            
-        try:
-            if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
-                neuron_array = self.connectome_manager.neuron_array
-                
-                if hasattr(self.connectome_manager, 'neuron_id_to_index'):
-                    # VECTORIZED index lookup - no loops, no comprehensions
-                    neuron_ids_set = set(self.connectome_manager.neuron_id_to_index.keys())
-                    valid_mask = np.isin(neuron_ids_array, list(neuron_ids_set))
-                    
-                    if np.any(valid_mask):
-                        # Pre-allocate result array
-                        result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
-                        
-                        # Use vectorized index lookup instead of list comprehension
-                        valid_neuron_ids = neuron_ids_array[valid_mask]
-                        indices_array = self._vectorized_index_lookup(valid_neuron_ids)
-                        
-                        # Mask out invalid indices
-                        valid_indices_mask = indices_array >= 0
-                        if np.any(valid_indices_mask):
-                            valid_indices = indices_array[valid_indices_mask]
-                            
-                            # PURE VECTORIZED SoA ACCESS
-                            if hasattr(neuron_array, 'coordinates_x'):
-                                # Direct numpy slice assignment - no loops
-                                valid_positions = np.where(valid_mask)[0][valid_indices_mask]
-                                result_coords[valid_positions, 0] = neuron_array.coordinates_x[valid_indices]
-                                result_coords[valid_positions, 1] = neuron_array.coordinates_y[valid_indices]
-                                result_coords[valid_positions, 2] = neuron_array.coordinates_z[valid_indices]
-                            else:
-                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-                        
-                        # VECTORIZED fallback for invalid neurons - no loops
-                        invalid_mask = ~valid_mask
-                        if np.any(invalid_mask):
-                            invalid_positions = np.where(invalid_mask)[0]
-                            invalid_neuron_ids = neuron_ids_array[invalid_mask]
-                            result_coords[invalid_positions, 0] = invalid_neuron_ids % 100
-                            result_coords[invalid_positions, 1] = (invalid_neuron_ids // 100) % 100
-                            result_coords[invalid_positions, 2] = invalid_neuron_ids // 10000
-                        
-                        return result_coords
-                        
-            # Pure vectorized fallback
-            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-            
-        except Exception:
-            # RTOS-friendly: minimal exception handling, no string formatting
-            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """Get performance statistics."""
+        stats = self._performance_stats.copy()
+        stats['sample_frequency'] = self.sample_frequency
+        stats['sampling_mode'] = self.sampling_mode
+        stats['simd_enabled'] = self.simd_config['available']
+        stats['zero_copy_enabled'] = self.enable_zero_copy and self.fcl_manager is not None
+        return stats
 
-    def _create_optimized_brain_output_structured(self, fire_queue_data: np.ndarray) -> np.ndarray:
-        """Create optimized brain output using structured numpy arrays instead of dicts.
-        
-        RTOS/Rust/SIMD compliant: No dynamic allocations, no dictionaries, pure numpy.
-        
-        Args:
-            fire_queue_data: numpy array with shape (N, 5) [neuron_ids, potentials, x, y, z]
-            
-        Returns:
-            Structured numpy array optimized for brain output
-        """
-        if fire_queue_data is None or fire_queue_data.size == 0:
-            # Return empty structured array
-            return np.empty(0, dtype=[
-                ('neuron_id', np.int32),
-                ('membrane_potential', np.float32),
-                ('x', np.int32),
-                ('y', np.int32),
-                ('z', np.int32)
-            ])
-        
-        # Create structured array - SIMD-friendly, Rust-compatible
-        neuron_count = fire_queue_data.shape[0]
-        structured_data = np.empty(neuron_count, dtype=[
-            ('neuron_id', np.int32),
-            ('membrane_potential', np.float32),
-            ('x', np.int32),
-            ('y', np.int32),
-            ('z', np.int32)
-        ])
-        
-        # VECTORIZED assignment - no loops
-        structured_data['neuron_id'] = fire_queue_data[:, 0].astype(np.int32)
-        structured_data['membrane_potential'] = fire_queue_data[:, 1].astype(np.float32)
-        structured_data['x'] = fire_queue_data[:, 2].astype(np.int32)
-        structured_data['y'] = fire_queue_data[:, 3].astype(np.int32)
-        structured_data['z'] = fire_queue_data[:, 4].astype(np.int32)
-        
-        return structured_data
+    def set_sample_frequency(self, frequency_hz: float) -> None:
+        """Update sampling frequency."""
+        if frequency_hz > 0:
+            self.sample_frequency = frequency_hz
+            self.sample_interval = 1.0 / frequency_hz
+            logger.info(f"UnifiedFQSampler frequency updated to {frequency_hz}Hz")
 
-    def _get_area_fire_queue_data_structured(self, cortical_id: str) -> Optional[np.ndarray]:
-        """
-        Get fire queue data for a specific cortical area using structured arrays.
-        
-        RTOS/Rust compliant: No dictionaries, no list comprehensions, pure numpy.
-        
-        Returns:
-            Structured numpy array or None if no firing neurons
-        """
-        try:
-            # Try direct access first if available
-            if hasattr(self.fire_queue_provider, 'get_area_fire_queue_direct'):
-                brain_data = self.fire_queue_provider.get_area_fire_queue_direct(cortical_id)
-                if brain_data is not None:
-                    return self._create_optimized_brain_output_structured(brain_data)
-                    
-            # Fallback to existing methods - convert to structured format
-            fire_queue = None
-            if hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
-                fire_queue = self.fire_queue_provider.get_area_fire_queue(cortical_id)
-            elif hasattr(self.fire_queue_provider, 'get_fire_queue'):
-                global_fire_queue = self.fire_queue_provider.get_fire_queue()
-                if global_fire_queue:
-                    fire_queue = self._filter_fire_queue_by_area_structured(global_fire_queue, cortical_id)
-            else:
-                return None
-                
-            if fire_queue is None:
-                return None
-                
-            # Convert legacy dict format to structured array
-            return self._convert_legacy_fire_queue_to_structured(fire_queue, cortical_id)
-            
-        except Exception:
-            # RTOS-friendly: minimal exception handling
-            return None
+    def set_target_areas(self, area_ids: List[str]) -> None:
+        """Update target areas for area-specific sampling."""
+        self.target_areas = area_ids
+        logger.info(f"UnifiedFQSampler target areas updated: {area_ids}")
 
-    def _get_global_fire_queue_data_structured(self) -> Optional[np.ndarray]:
-        """Get global fire queue data using structured arrays - RTOS/Rust compliant."""
-        try:
-            # Try direct access first
-            if hasattr(self.fire_queue_provider, 'get_fire_queue_direct'):
-                brain_data = self.fire_queue_provider.get_fire_queue_direct()
-                if brain_data is not None:
-                    return self._create_optimized_brain_output_structured(brain_data)
-            
-            # Fallback to existing method
-            if hasattr(self.fire_queue_provider, 'get_fire_queue'):
-                fire_queue = self.fire_queue_provider.get_fire_queue()
-                if fire_queue is None:
-                    return None
-                    
-                # Convert legacy dict format to structured array
-                return self._convert_legacy_fire_queue_to_structured(fire_queue)
-            return None
-            
-        except Exception:
-            # RTOS-friendly: minimal exception handling
-            return None
-
-    def _convert_legacy_fire_queue_to_structured(self, fire_queue, cortical_id: str = None) -> np.ndarray:
-        """Convert legacy dictionary fire queue to structured numpy array.
-        
-        RTOS/Rust compliant: Eliminates dictionary operations, uses pure numpy.
-        
-        Args:
-            fire_queue: Legacy dictionary format fire queue
-            cortical_id: Optional cortical area ID for coordinate lookup
-            
-        Returns:
-            Structured numpy array with brain output data
-        """
-        # Extract neuron IDs - handle both dict and other formats
-        if hasattr(fire_queue, 'get'):
-            # Dictionary format
-            neuron_ids_list = fire_queue.get('neuron_ids', [])
-            membrane_potentials_list = fire_queue.get('membrane_potentials', [])
-        else:
-            # Assume already structured or empty
-            return np.empty(0, dtype=[
-                ('neuron_id', np.int32),
-                ('membrane_potential', np.float32),
-                ('x', np.int32),
-                ('y', np.int32),
-                ('z', np.int32)
-            ])
-        
-        if not neuron_ids_list:
-            return np.empty(0, dtype=[
-                ('neuron_id', np.int32),
-                ('membrane_potential', np.float32),
-                ('x', np.int32),
-                ('y', np.int32),
-                ('z', np.int32)
-            ])
-        
-        # Convert to numpy arrays - eliminate list operations
-        neuron_ids_array = np.array(neuron_ids_list, dtype=np.int32)
-        membrane_potentials_array = np.array(membrane_potentials_list, dtype=np.float32)
-        
-        # Get coordinates using vectorized method - NO list comprehensions
-        if cortical_id:
-            coordinates_array = self._get_neuron_coordinates_vectorized_rtos(cortical_id, neuron_ids_array)
-        else:
-            coordinates_array = self._get_global_neuron_coordinates_vectorized_rtos(neuron_ids_array)
-        
-        # Create structured output - pure numpy, no dictionaries
-        neuron_count = len(neuron_ids_array)
-        structured_data = np.empty(neuron_count, dtype=[
-            ('neuron_id', np.int32),
-            ('membrane_potential', np.float32),
-            ('x', np.int32),
-            ('y', np.int32),
-            ('z', np.int32)
-        ])
-        
-        # VECTORIZED assignment - no loops, no comprehensions
-        structured_data['neuron_id'] = neuron_ids_array
-        structured_data['membrane_potential'] = membrane_potentials_array
-        structured_data['x'] = coordinates_array[:, 0]
-        structured_data['y'] = coordinates_array[:, 1]
-        structured_data['z'] = coordinates_array[:, 2]
-        
-        return structured_data
-
-    def _get_global_neuron_coordinates_vectorized_rtos(self, neuron_ids_array: np.ndarray) -> np.ndarray:
-        """Get global 3D coordinates using pure vectorized operations - RTOS/Rust compliant.
-        
-        NO list comprehensions, NO dictionary operations, pure numpy.
-        
-        Args:
-            neuron_ids_array: Pre-allocated numpy array of neuron IDs
-            
-        Returns:
-            numpy array with shape (N, 3) containing coordinates
-        """
-        if neuron_ids_array.size == 0:
-            return np.empty((0, 3), dtype=np.int32)
-            
-        try:
-            if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
-                neuron_array = self.connectome_manager.neuron_array
-                
-                if hasattr(self.connectome_manager, 'neuron_id_to_index'):
-                    # VECTORIZED global index lookup - no comprehensions
-                    neuron_ids_set = set(self.connectome_manager.neuron_id_to_index.keys())
-                    valid_mask = np.isin(neuron_ids_array, list(neuron_ids_set))
-                    
-                    if np.any(valid_mask):
-                        # Pre-allocate result array
-                        result_coords = np.zeros((len(neuron_ids_array), 3), dtype=np.int32)
-                        
-                        # Use vectorized index lookup instead of list comprehension
-                        valid_neuron_ids = neuron_ids_array[valid_mask]
-                        indices_array = self._vectorized_index_lookup(valid_neuron_ids)
-                        
-                        # Mask out invalid indices
-                        valid_indices_mask = indices_array >= 0
-                        if np.any(valid_indices_mask):
-                            valid_indices = indices_array[valid_indices_mask]
-                            
-                            # PURE VECTORIZED GLOBAL SoA ACCESS
-                            if hasattr(neuron_array, 'coordinates_x'):
-                                # Direct numpy slice assignment - no loops
-                                valid_positions = np.where(valid_mask)[0][valid_indices_mask]
-                                result_coords[valid_positions, 0] = neuron_array.coordinates_x[valid_indices]
-                                result_coords[valid_positions, 1] = neuron_array.coordinates_y[valid_indices]
-                                result_coords[valid_positions, 2] = neuron_array.coordinates_z[valid_indices]
-                            else:
-                                return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-                        
-                        # VECTORIZED fallback for invalid neurons - no loops
-                        invalid_mask = ~valid_mask
-                        if np.any(invalid_mask):
-                            invalid_positions = np.where(invalid_mask)[0]
-                            invalid_neuron_ids = neuron_ids_array[invalid_mask]
-                            result_coords[invalid_positions, 0] = invalid_neuron_ids % 100
-                            result_coords[invalid_positions, 1] = (invalid_neuron_ids // 100) % 100
-                            result_coords[invalid_positions, 2] = invalid_neuron_ids // 10000
-                        
-                        return result_coords
-                    
-            # Pure vectorized fallback
-            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-            
-        except Exception:
-            # RTOS-friendly: minimal exception handling
-            return self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-
-    def _filter_fire_queue_by_area_structured(self, fire_queue, cortical_id: str) -> Optional[np.ndarray]:
-        """Filter fire queue data to only include neurons from specified area - RTOS/Rust compliant.
-        
-        NO dictionary operations, NO list comprehensions, pure numpy.
-        """
-        if fire_queue is None or self.connectome_manager is None:
-            return None
-            
-        try:
-            area = self.connectome_manager.cortical_areas.get(cortical_id)
-            if area is None:
-                return np.empty(0, dtype=[
-                    ('neuron_id', np.int32),
-                    ('membrane_potential', np.float32),
-                    ('x', np.int32),
-                    ('y', np.int32),
-                    ('z', np.int32)
-                ])
-                
-            # Get neuron ID range for this area
-            area_neuron_ids = set(area.get_neuron_ids()) if hasattr(area, 'get_neuron_ids') else set()
-            if not area_neuron_ids:
-                return np.empty(0, dtype=[
-                    ('neuron_id', np.int32),
-                    ('membrane_potential', np.float32),
-                    ('x', np.int32),
-                    ('y', np.int32),
-                    ('z', np.int32)
-                ])
-            
-            # Extract data from fire queue - eliminate dictionary get operations
-            if hasattr(fire_queue, 'get'):
-                neuron_ids_list = fire_queue.get('neuron_ids', [])
-                membrane_potentials_list = fire_queue.get('membrane_potentials', [])
-            else:
-                return None
-            
-            if not neuron_ids_list:
-                return np.empty(0, dtype=[
-                    ('neuron_id', np.int32),
-                    ('membrane_potential', np.float32),
-                    ('x', np.int32),
-                    ('y', np.int32),
-                    ('z', np.int32)
-                ])
-            
-            # Convert to numpy arrays
-            neuron_ids_array = np.array(neuron_ids_list, dtype=np.int32)
-            membrane_potentials_array = np.array(membrane_potentials_list, dtype=np.float32)
-            
-            # VECTORIZED filtering - no loops, no comprehensions
-            area_neuron_ids_array = np.array(list(area_neuron_ids), dtype=np.int32)
-            filter_mask = np.isin(neuron_ids_array, area_neuron_ids_array)
-            
-            if not np.any(filter_mask):
-                return np.empty(0, dtype=[
-                    ('neuron_id', np.int32),
-                    ('membrane_potential', np.float32),
-                    ('x', np.int32),
-                    ('y', np.int32),
-                    ('z', np.int32)
-                ])
-            
-            # Filter using vectorized operations
-            filtered_neuron_ids = neuron_ids_array[filter_mask]
-            filtered_potentials = membrane_potentials_array[filter_mask]
-            
-            # Get coordinates for filtered neurons
-            coordinates_array = self._get_neuron_coordinates_vectorized_rtos(cortical_id, filtered_neuron_ids)
-            
-            # Create structured output
-            neuron_count = len(filtered_neuron_ids)
-            structured_data = np.empty(neuron_count, dtype=[
-                ('neuron_id', np.int32),
-                ('membrane_potential', np.float32),
-                ('x', np.int32),
-                ('y', np.int32),
-                ('z', np.int32)
-            ])
-            
-            # VECTORIZED assignment
-            structured_data['neuron_id'] = filtered_neuron_ids
-            structured_data['membrane_potential'] = filtered_potentials
-            structured_data['x'] = coordinates_array[:, 0]
-            structured_data['y'] = coordinates_array[:, 1]
-            structured_data['z'] = coordinates_array[:, 2]
-            
-            return structured_data
-            
-        except Exception:
-            # RTOS-friendly: minimal exception handling
-            return None
-
-    def _convert_fire_queue_to_simd_optimized(self, fire_queue, cortical_id: str = None) -> np.ndarray:
-        """Convert legacy fire queue to SIMD-optimized structured arrays.
-        
-        Uses SIMD backend selection and vectorized operations for maximum performance.
-        
-        Args:
-            fire_queue: Legacy dictionary format fire queue
-            cortical_id: Optional cortical area ID for coordinate lookup
-            
-        Returns:
-            SIMD-optimized structured numpy array with brain output data
-        """
-        # Extract neuron IDs - handle both dict and other formats
-        if hasattr(fire_queue, 'get'):
-            neuron_ids_list = fire_queue.get('neuron_ids', [])
-            membrane_potentials_list = fire_queue.get('membrane_potentials', [])
-        else:
-            return self._create_empty_simd_structure()
-        
-        if not neuron_ids_list:
-            return self._create_empty_simd_structure()
-        
-        # Convert to SIMD-aligned numpy arrays
-        neuron_ids_array = self._create_simd_aligned_array(neuron_ids_list, np.int32)
-        membrane_potentials_array = self._create_simd_aligned_array(membrane_potentials_list, np.float32)
-        
-        # Use SIMD-optimized coordinate lookup
-        if SIMD_AVAILABLE and len(neuron_ids_array) > 0:
-            coordinates_array = self._get_neuron_coordinates_simd_optimized(cortical_id, neuron_ids_array)
-        else:
-            coordinates_array = self._fallback_coordinate_calculation_vectorized(neuron_ids_array)
-        
-        # Create SIMD-optimized structured output with aligned memory
-        return self._create_simd_optimized_structure(
-            neuron_ids_array, membrane_potentials_array, coordinates_array
-        )
-    
-    def _create_simd_aligned_array(self, data_list: List, dtype: np.dtype) -> np.ndarray:
-        """Create SIMD-aligned numpy array from list data."""
-        if not SIMD_AVAILABLE or not self.backend_selector:
-            return np.array(data_list, dtype=dtype)
-        
-        # Get optimal alignment for SIMD operations
-        alignment = self.simd_config.get("alignment", 32)  # Default to 32-byte alignment
-        
-        # Create array with optimal size for SIMD
-        original_size = len(data_list)
-        aligned_size = self.simd_detector.get_aligned_size(original_size)
-        
-        # Create aligned array
-        aligned_array = np.zeros(aligned_size, dtype=dtype)
-        aligned_array[:original_size] = data_list
-        
-        return aligned_array[:original_size]  # Return only the valid data portion
-    
-    def _create_simd_optimized_structure(self, neuron_ids: np.ndarray, 
-                                       membrane_potentials: np.ndarray, 
-                                       coordinates: np.ndarray) -> np.ndarray:
-        """Create SIMD-optimized structured array with proper alignment."""
-        neuron_count = len(neuron_ids)
-        
-        # Use SIMD-friendly dtype alignment
-        dtype_list = [
-            ('neuron_id', np.int32),
-            ('membrane_potential', np.float32),
-            ('x', np.int32),
-            ('y', np.int32),
-            ('z', np.int32)
-        ]
-        
-        # Create structured array with potential SIMD alignment
-        if SIMD_AVAILABLE and self.backend_selector:
-            # Try to create with optimal alignment
-            aligned_size = self.simd_detector.get_aligned_size(neuron_count)
-            structured_data = np.empty(aligned_size, dtype=dtype_list)
-            
-            # Fill only the valid portion
-            structured_data[:neuron_count]['neuron_id'] = neuron_ids
-            structured_data[:neuron_count]['membrane_potential'] = membrane_potentials
-            structured_data[:neuron_count]['x'] = coordinates[:, 0]
-            structured_data[:neuron_count]['y'] = coordinates[:, 1] 
-            structured_data[:neuron_count]['z'] = coordinates[:, 2]
-            
-            return structured_data[:neuron_count]  # Return only valid data
-        else:
-            # Standard structured array
-            structured_data = np.empty(neuron_count, dtype=dtype_list)
-            structured_data['neuron_id'] = neuron_ids
-            structured_data['membrane_potential'] = membrane_potentials
-            structured_data['x'] = coordinates[:, 0]
-            structured_data['y'] = coordinates[:, 1]
-            structured_data['z'] = coordinates[:, 2]
-            
-            return structured_data
-    
-    def _create_empty_simd_structure(self) -> np.ndarray:
-        """Create empty SIMD-optimized structured array."""
-        return np.empty(0, dtype=[
-            ('neuron_id', np.int32),
-            ('membrane_potential', np.float32),
-            ('x', np.int32),
-            ('y', np.int32),
-            ('z', np.int32)
-        ])
-
-    def sample_area_fire_queue(self, cortical_id: str, target: str = 'visualization') -> None:
-        """High-level method that automatically chooses optimal sampling strategy.
-        
-        Automatically selects between SIMD-optimized, structured array, or legacy sampling
-        based on SIMD availability, data size, and performance characteristics.
-        
-        Args:
-            cortical_id: Cortical area ID to sample
-            target: Target type ('visualization' or 'motor')
-        """
-        # Quick availability check
-        if not self.fire_queue_provider or not cortical_id:
-            self._store_empty_sample(cortical_id, target)
-            return
-        
-        # Determine optimal sampling strategy
-        strategy = self._select_optimal_sampling_strategy(cortical_id, target)
-        
-        try:
-            if strategy == 'simd':
-                self._sample_area_fire_queue_simd_optimized(cortical_id, target)
-            elif strategy == 'structured':
-                self._sample_area_fire_queue_structured(cortical_id, target)
-            else:
-                # Fallback to legacy method
-                self._sample_area_fire_queue_legacy(cortical_id, target)
-                
-        except Exception as e:
-            # Emergency fallback
-            if self.logger:
-                self.logger.warning(f"Sampling failed for {cortical_id}, using emergency fallback: {e}")
-            self._store_empty_sample(cortical_id, target)
-    
-    def _select_optimal_sampling_strategy(self, cortical_id: str, target: str) -> str:
-        """Select optimal sampling strategy based on data characteristics and capabilities."""
-        # SIMD strategy selection
-        if self.enable_simd and SIMD_AVAILABLE:
-            # Check if we have enough data to benefit from SIMD
-            estimated_neuron_count = self._estimate_neuron_count(cortical_id)
-            
-            # SIMD is beneficial for larger datasets (typically >64 neurons)
-            simd_threshold = self.simd_config.get('vector_width', 4) * 16  # 16 vectors worth
-            
-            if estimated_neuron_count >= simd_threshold:
-                return 'simd'
-            
-            # For smaller datasets, SIMD overhead may not be worth it
-            if estimated_neuron_count > 8:  # Still use SIMD for medium datasets
-                return 'simd'
-        
-        # Structured array strategy (RTOS/Rust compliant but no SIMD)
-        estimated_neuron_count = self._estimate_neuron_count(cortical_id)
-        if estimated_neuron_count > 0:
-            return 'structured'
-        
-        # Legacy fallback
-        return 'legacy'
-    
-    def _estimate_neuron_count(self, cortical_id: str) -> int:
-        """Estimate neuron count for sampling strategy selection."""
-        try:
-            # Try quick count estimation if provider supports it
-            if hasattr(self.fire_queue_provider, 'estimate_area_neuron_count'):
-                return self.fire_queue_provider.estimate_area_neuron_count(cortical_id)
-            
-            # Try connectome-based estimation
-            if self.connectome_manager and hasattr(self.connectome_manager, 'get_area_neuron_count'):
-                return self.connectome_manager.get_area_neuron_count(cortical_id)
-            
-            # Default reasonable estimate for SIMD strategy selection
-            return 32
-            
-        except Exception:
-            return 16  # Conservative estimate
+# Backward compatibility aliases
+FQSampler = UnifiedFQSampler
+OptimizedFQSampler = UnifiedFQSampler
