@@ -342,7 +342,7 @@ class VisualizationStream:
                 if fq_data is None:
                     continue
                     
-                print("fq_data:", fq_data)
+                print("fq_data:", len(fq_data["neuron_ids"]))
 
                 # Additional stop check before processing data
                 if self._stop_event.is_set():
@@ -350,53 +350,6 @@ class VisualizationStream:
                     break
                 
                 # Process and send data based on type (enhanced processing like full version)
-                if isinstance(fq_data, bytes):
-                    # Already serialized data
-                    # Additional safety check before publishing
-                    if self.socket and self.running:
-                        self._publish_data(fq_data)
-                    else:
-                        logger.debug("Skipping data publish: socket or stream not available")
-                    
-                elif isinstance(fq_data, dict) and 'target' in fq_data:
-                    # Tagged format from enhanced FQ sampler (crucial feature from full version)
-                    if fq_data.get('target') == 'visualization':
-                        if 'cortical_id' in fq_data and 'fire_queue_data' in fq_data:
-                            # Area-specific data
-                            cortical_id = fq_data['cortical_id']
-                            fire_queue_data = fq_data['fire_queue_data']
-                            # Additional safety check before processing
-                            if self.socket and self.running:
-                                self._process_tuple_data((cortical_id, fire_queue_data))
-                            else:
-                                logger.debug("Skipping tuple data processing: socket or stream not available")
-                        elif 'fire_queue_data' in fq_data:
-                            # Global data
-                            fire_queue_data = fq_data['fire_queue_data']
-                            # Additional safety check before processing
-                            if self.socket and self.running:
-                                self._process_dict_data(fire_queue_data)
-                            else:
-                                logger.debug("Skipping dict data processing: socket or stream not available")
-                        elif 'data' in fq_data:
-                            # Pre-encoded data
-                            data = fq_data.get('data')
-                            if isinstance(data, bytes):
-                                # SOLUTION 10: Additional safety check before publishing
-                                if self.socket and self.running:
-                                    self._publish_data(data)
-                                else:
-                                    logger.debug("Skipping pre-encoded data publish: socket or stream not available")
-                
-                elif isinstance(fq_data, tuple) and len(fq_data) == 2:
-                    # Legacy (cortical_id, fire_data) tuple format
-                    logger.debug(f"Processing neural data for: {fq_data[0]}")
-                    # Additional safety check before processing
-                    if self.socket and self.running:
-                        self._process_tuple_data(fq_data)
-                    else:
-                        logger.debug("Skipping legacy tuple processing: socket or stream not available")
-                
                 elif isinstance(fq_data, dict):
                     # Legacy fire queue dict format
                     # Additional safety check before processing
@@ -404,10 +357,6 @@ class VisualizationStream:
                         self._process_dict_data(fq_data)
                     else:
                         logger.debug("Skipping legacy dict processing: socket or stream not available")
-                
-                elif isinstance(fq_data, str) and fq_data == "STOP":
-                    logger.info("Received STOP signal")
-                    break 
                 
                 else:
                     logger.debug(f"Ignoring unsupported data type: {type(fq_data)}")
@@ -549,112 +498,6 @@ class VisualizationStream:
             self.socket = None
             raise
 
-    def _process_tuple_data(self, fq_data) -> None:
-        """Process legacy tuple format data."""
-        try:
-            print("Processing legacy tuple format data")
-            cortical_id, fire_data = fq_data
-            
-            if fire_data and 'neuron_ids' in fire_data:
-                neuron_ids = fire_data.get('neuron_ids', [])
-                neuron_count = len(neuron_ids)
-                
-                # Handle coordinates
-                coordinates = fire_data.get('coordinates', [])
-                x_coords = []
-                y_coords = []
-                z_coords = []
-                
-                if isinstance(coordinates, list) and len(coordinates) > 0:
-                    # If coordinates is a list of [x, y, z] triplets
-                    if isinstance(coordinates[0], (list, tuple)) and len(coordinates[0]) >= 3:
-                        x_coords = [coord[0] for coord in coordinates]
-                        y_coords = [coord[1] for coord in coordinates]  
-                        z_coords = [coord[2] for coord in coordinates]
-                    else:
-                        # If coordinates is a flat list, assume it's organized as [x1,y1,z1,x2,y2,z2,...]
-                        coords_per_neuron = 3
-                        x_coords = coordinates[0::coords_per_neuron]
-                        y_coords = coordinates[1::coords_per_neuron]
-                        z_coords = coordinates[2::coords_per_neuron]
-                elif isinstance(coordinates, dict):
-                    # If coordinates is a dict with x, y, z keys
-                    x_coords = coordinates.get('x', [])
-                    y_coords = coordinates.get('y', [])
-                    z_coords = coordinates.get('z', [])
-                else:
-                    logger.error(f"Missing coordinates for {cortical_id}")
-                    return
-                
-                # Handle membrane potentials
-                membrane_potentials = fire_data.get('membrane_potentials', [])
-                
-                if not membrane_potentials:
-                    logger.error(f"Missing membrane potentials for {cortical_id}")
-                    return
-                
-                if len(membrane_potentials) != neuron_count:
-                    logger.error(f"Membrane potential count mismatch for {cortical_id}: {len(membrane_potentials)} vs {neuron_count}")
-                    return
-                
-                # Validate coordinate arrays
-                if len(x_coords) != neuron_count or len(y_coords) != neuron_count or len(z_coords) != neuron_count:
-                    logger.error(f"Coordinate count mismatch for {cortical_id}: x={len(x_coords)}, y={len(y_coords)}, z={len(z_coords)}, neurons={neuron_count}")
-                    return
-                
-                # Create cortical IDs list (same cortical ID for all neurons)
-                cortical_ids = [cortical_id] * neuron_count
-                
-                # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES) FOR DPR COMPATIBILITY
-                try:
-                    from feagi_bytes import ByteStructureEncoder
-                    encoder = ByteStructureEncoder()
-
-                    # Convert to Type 11 (NEURON_CATEGORIES) format for DPR compatibility
-                    # Instead of using encode_neuron_flat (Type 10), use encode_neuron_categories (Type 11)
-                    cortical_data = {
-                        cortical_id: {
-                            'x': x_coords,
-                            'y': y_coords,
-                            'z': z_coords,
-                            'potentials': membrane_potentials
-                        }
-                    }
-                    
-                    binary_data = encoder.encode_neuron_categories(cortical_data)
-
-                    # TEST: Simple logger test to verify logging is working
-                    logger.warning("🧪 LOGGER TEST: This message should definitely appear!")
-
-                    # DEBUG: Log the structure ID being generated
-                    if binary_data and len(binary_data) > 0:
-                        structure_id = binary_data[0]
-                        logger.warning(f"🔍 VISUALIZATION STREAM DEBUG: Generated {len(binary_data)} bytes")
-                        logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
-                        logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
-                        if structure_id == 10:
-                            logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
-                        elif structure_id == 11:
-                            logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
-                        else:
-                            logger.warning(f"   ❓ Unknown structure type: {structure_id}")
-
-                    # Publish the binary data
-                    self._publish_data(binary_data)
-                    logger.debug(f"Published {cortical_id}: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
-                    
-                except ImportError:
-                    logger.error("feagi_bytes library not available - cannot encode binary data")
-                except Exception as e:
-                    logger.error(f"Error encoding binary data: {e}")
-            else:
-                logger.error(f"Invalid fire_data for {cortical_id} - missing neuron_ids")
-                
-        except Exception as e:
-            logger.error(f"Error processing {fq_data[0] if len(fq_data) > 0 else 'unknown'}: {e}")
-            if logger.isEnabledFor(10):  # DEBUG level
-                import traceback
-                logger.debug(f"Processing traceback: {traceback.format_exc()}")
 
     def _process_dict_data(self, fire_data) -> None:
         """Process legacy dict format data."""
@@ -712,9 +555,8 @@ class VisualizationStream:
                         logger.warning(f"🔍 VISUALIZATION STREAM DEBUG: Generated {len(binary_data)} bytes")
                         logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
                         logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
-                        if structure_id == 10:
-                            logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
-                        elif structure_id == 11:
+
+                        if structure_id == 11:
                             logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
                         else:
                             logger.warning(f"   ❓ Unknown structure type: {structure_id}")
