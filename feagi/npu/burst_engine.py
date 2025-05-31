@@ -1622,52 +1622,54 @@ class FQSampler:
                  use_optimized_fcl: bool = True,
                  enable_simd: bool = True,
                  simd_profiling: bool = False):
-        """Initialize FQSampler with optional SIMD acceleration.
-        
-        Args:
-            fire_queue_provider: Provider for fire queue data access
-            connectome_manager: Connectome for neuron coordinate lookups
-            max_retries: Maximum retries for data access
-            neuron_type_filter: Optional neuron type filtering
-            use_optimized_fcl: Use optimized FCL access paths
-            enable_simd: Enable SIMD optimizations
-            simd_profiling: Enable SIMD performance profiling
-        """
-        # Original initialization
         self.fire_queue_provider = fire_queue_provider
         self.connectome_manager = connectome_manager
-        self._max_retries = max_retries
+        self.sample_frequency = 100  # Default frequency
+        self.sample_interval = 1.0 / self.sample_frequency
+        self._last_sample_time_per_area = {}
+        self._last_motor_sample_time = 0.0
+        self._motor_sample_interval = 1.0  # Default 1Hz motor sampling
+        self.running = False
+        self.max_retries = max_retries
         self.neuron_type_filter = neuron_type_filter
         self.use_optimized_fcl = use_optimized_fcl
+        self.enable_simd = enable_simd
+        self.simd_profiling = simd_profiling
         
-        # Initialize sampling storage
-        self._visualization_samples = {}
-        self._motor_samples = {}
+        # Visualization and motor subscriber tracking
+        self._has_visualization_subscribers = False
+        self._has_motor_subscribers = False
         
-        # SIMD initialization
-        self.enable_simd = enable_simd and SIMD_AVAILABLE
-        self.use_simd_profiling = simd_profiling and self.enable_simd
-        
-        # Initialize SIMD infrastructure if available
-        if self.enable_simd:
-            self._initialize_simd_infrastructure()
+        try:
+            # Use centralized SIMD configuration from State Manager
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            self.simd_config = state_manager.get_simd_configuration()
             
-            # SIMD-optimized storage
-            self._visualization_samples_simd = {}
-            self._motor_samples_simd = {}
-        else:
-            self.simd_detector = None
-            self.backend_selector = None
+            # Initialize membrane processor if SIMD is available
+            if self.simd_config['available'] and enable_simd:
+                from feagi.npu.optimized_membrane_operations import SIMDMembraneProcessor
+                self.membrane_processor = SIMDMembraneProcessor(
+                    backend=self.simd_config['backend'],
+                    vector_width=self.simd_config['vector_width']
+                )
+                logger.info(f"FQSampler using centralized SIMD: {self.simd_config['backend']} "
+                           f"(vector_width={self.simd_config['vector_width']})")
+            else:
+                self.membrane_processor = None
+                if enable_simd:
+                    logger.info("FQSampler: SIMD not available, using scalar operations")
+                else:
+                    logger.info("FQSampler: SIMD disabled by configuration")
+                    
+        except ImportError:
+            logger.warning("FQSampler: State Manager not available, SIMD disabled")
+            self.simd_config = {'available': False, 'backend': 'SCALAR', 'vector_width': 1}
             self.membrane_processor = None
-            self.simd_config = {}
-        
-        # Logging
-        self.logger = logging.getLogger(__name__)
-        
-        if self.enable_simd:
-            self.logger.info(f"FQSampler initialized with SIMD acceleration: {self.simd_config.get('backend', 'auto')}")
-        else:
-            self.logger.info("FQSampler initialized without SIMD acceleration")
+        except Exception as e:
+            logger.error(f"FQSampler: Error accessing SIMD configuration: {e}")
+            self.simd_config = {'available': False, 'backend': 'SCALAR', 'vector_width': 1}
+            self.membrane_processor = None
     
     def _initialize_simd_infrastructure(self) -> None:
         """Initialize SIMD detection, backend selection, and membrane processor."""
