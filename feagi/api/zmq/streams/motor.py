@@ -707,7 +707,7 @@ class MotorStream:
                     logger.warning("FQ sampler not available or doesn't support set_motor_subscribers")
                 
         except Exception as e:
-            logger.error(f"Error controlling FQ sampler for motor: {e}")
+            logger.error(f"Error controlling FQ sampler for motor: {e}") 
 
 def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
     """

@@ -483,7 +483,7 @@ class FeagiStateManager:
         self.state_ptr.contents.state_version += 1
         self._log_state_change("[SIM]", "Simulation state changed", old.name, state.name)
         self._notify_state_change("simulation", old, state)
-
+        
     # ===== FQSampler State =====
     def get_fq_sampler_state(self) -> ServiceState:
         """Get the current FQ sampler state."""
