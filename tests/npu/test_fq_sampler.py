@@ -29,7 +29,7 @@ from unittest.mock import Mock, patch, MagicMock, call
 import logging
 import unittest
 
-from feagi.npu.burst_engine import FQSampler
+from feagi.npu.burst_engine import UnifiedFQSampler
 
 class MockFireQueueProvider:
     """Mock fire queue provider for testing FQSampler."""
@@ -110,7 +110,7 @@ def mock_connectome_manager():
 def test_fq_sampler_init(mock_fire_queue_provider, output_queue, mock_connectome_manager):
     """Test initialization of FQSampler with different parameters."""
     # Test with only required parameters
-    sampler1 = FQSampler(mock_fire_queue_provider, 10, output_queue)
+    sampler1 = UnifiedFQSampler(mock_fire_queue_provider, 10, output_queue)
     assert sampler1.fire_queue_provider == mock_fire_queue_provider
     assert sampler1.sample_frequency == 10
     assert sampler1.sample_interval == 0.1
@@ -120,7 +120,7 @@ def test_fq_sampler_init(mock_fire_queue_provider, output_queue, mock_connectome
     assert len(sampler1._last_sample_time_per_area) == 0
     
     # Test with connectome manager
-    sampler2 = FQSampler(mock_fire_queue_provider, 5, output_queue, mock_connectome_manager)
+    sampler2 = UnifiedFQSampler(mock_fire_queue_provider, 5, output_queue, mock_connectome_manager)
     assert sampler2.connectome_manager == mock_connectome_manager
     assert sampler2.sample_frequency == 5
     assert sampler2.sample_interval == 0.2
@@ -129,7 +129,7 @@ def test_fq_sampler_init(mock_fire_queue_provider, output_queue, mock_connectome
 def test_fq_sampler_run_without_connectome(mock_fire_queue_provider, output_queue):
     """Test FQSampler.run without a connectome manager (global mode)."""
     # Create sampler with high frequency for faster testing
-    sampler = FQSampler(mock_fire_queue_provider, 50, output_queue)
+    sampler = UnifiedFQSampler(mock_fire_queue_provider, 50, output_queue)
     
     # Set retry parameters for faster testing
     sampler._max_retries = 1
@@ -176,7 +176,7 @@ def test_fq_sampler_run_without_connectome(mock_fire_queue_provider, output_queu
 
 def test_fq_sampler_run_with_connectome(mock_fire_queue_provider, output_queue, mock_connectome_manager):
     """Test FQSampler.run with a connectome manager (per-area mode)."""
-    sampler = FQSampler(mock_fire_queue_provider, 50, output_queue, mock_connectome_manager)
+    sampler = UnifiedFQSampler(mock_fire_queue_provider, 50, output_queue, mock_connectome_manager)
     
     # Enable subscribers for testing
     sampler.set_visualization_subscribers(True)
@@ -225,7 +225,7 @@ def test_fq_sampler_run_with_connectome(mock_fire_queue_provider, output_queue, 
 
 def test_update_area_sample_rate(mock_fire_queue_provider, output_queue, mock_connectome_manager):
     """Test updating the sample rate for a specific area."""
-    sampler = FQSampler(mock_fire_queue_provider, 10, output_queue, mock_connectome_manager)
+    sampler = UnifiedFQSampler(mock_fire_queue_provider, 10, output_queue, mock_connectome_manager)
     
     # Update rate for cortex1
     sampler.update_area_sample_rate('cortex1', 50.0)
@@ -238,7 +238,7 @@ def test_update_area_sample_rate(mock_fire_queue_provider, output_queue, mock_co
     sampler.update_area_sample_rate('cortex999', 30.0)
     
     # Test updating without connectome manager (should not throw exception)
-    sampler2 = FQSampler(mock_fire_queue_provider, 10, output_queue)
+    sampler2 = UnifiedFQSampler(mock_fire_queue_provider, 10, output_queue)
     sampler2.update_area_sample_rate('cortex1', 25.0)
 
 
@@ -250,7 +250,7 @@ def test_fq_sampler_with_full_queue(mock_fire_queue_provider, mock_connectome_ma
     # Fill the queue
     small_queue.put("blocking_item")
     
-    sampler = FQSampler(mock_fire_queue_provider, 100, small_queue, mock_connectome_manager)
+    sampler = UnifiedFQSampler(mock_fire_queue_provider, 100, small_queue, mock_connectome_manager)
     sampler.set_visualization_subscribers(True)
     
     # Run in a separate thread
@@ -274,7 +274,7 @@ def test_fq_sampler_with_exception(output_queue, mock_connectome_manager):
     # Create a provider that raises exceptions
     error_provider = MockFireQueueProvider(should_raise_exception=True)
     
-    sampler = FQSampler(error_provider, 50, output_queue, mock_connectome_manager)
+    sampler = UnifiedFQSampler(error_provider, 50, output_queue, mock_connectome_manager)
     sampler.set_visualization_subscribers(True)
     
     # Run in a separate thread
@@ -307,7 +307,7 @@ def test_fq_sampler_zero_rate(mock_fire_queue_provider, output_queue, mock_conne
     mock_connectome_manager.cortical_areas['cortex2'].properties['fq_sample_rate'] = 0
     mock_connectome_manager.cortical_areas['cortex3'].properties['fq_sample_rate'] = 0
     
-    sampler = FQSampler(mock_fire_queue_provider, 50, output_queue, mock_connectome_manager)
+    sampler = UnifiedFQSampler(mock_fire_queue_provider, 50, output_queue, mock_connectome_manager)
     sampler.set_visualization_subscribers(True)
     
     # Run in a separate thread
@@ -335,7 +335,7 @@ def test_fq_sampler_zero_rate(mock_fire_queue_provider, output_queue, mock_conne
 
 def test_fq_sampler_subscriber_flags(mock_fire_queue_provider, output_queue):
     """Test FQSampler subscriber flag functionality."""
-    sampler = FQSampler(mock_fire_queue_provider, 50, output_queue)
+    sampler = UnifiedFQSampler(mock_fire_queue_provider, 50, output_queue)
     
     # Test initial state
     assert not sampler._has_visualization_subscribers
@@ -358,7 +358,7 @@ def test_fq_sampler_subscriber_flags(mock_fire_queue_provider, output_queue):
 
 def test_fq_sampler_no_subscribers_skip(mock_fire_queue_provider, output_queue):
     """Test that FQSampler skips sampling when no subscribers."""
-    sampler = FQSampler(mock_fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(mock_fire_queue_provider, 100, output_queue)
     
     # Don't set any subscribers (both should be False)
     assert not sampler._has_visualization_subscribers
@@ -389,7 +389,7 @@ class TestFQSampler(unittest.TestCase):
     def setUp(self):
         self.mock_provider = MockFireQueueProvider()
         self.output_queue = Queue(maxsize=10)
-        self.sampler = FQSampler(
+        self.sampler = UnifiedFQSampler(
             self.mock_provider, 
             10.0, 
             self.output_queue
@@ -447,7 +447,7 @@ class TestFQSampler(unittest.TestCase):
         cortical2 = types.SimpleNamespace(id='cortex2', properties={'fq_sample_rate': 30})
         cm.cortical_areas = {'cortex1': cortical1, 'cortex2': cortical2}
         
-        sampler = FQSampler(
+        sampler = UnifiedFQSampler(
             self.mock_provider,
             10.0,
             self.output_queue,
@@ -483,7 +483,7 @@ class TestFQSampler(unittest.TestCase):
         # Create a provider that raises exceptions
         error_provider = MockFireQueueProvider(should_raise_exception=True)
         
-        sampler = FQSampler(error_provider, 50, self.output_queue)
+        sampler = UnifiedFQSampler(error_provider, 50, self.output_queue)
         sampler.set_visualization_subscribers(True)
         
         # Start the sampler

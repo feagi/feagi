@@ -28,7 +28,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from queue import Queue, Full
 
-from feagi.npu.burst_engine import FQSampler
+from feagi.npu.burst_engine import UnifiedFQSampler
 
 
 class MockConnectomeManager:
@@ -97,7 +97,7 @@ def test_fq_sampler_init_with_connectome():
     connectome_manager = MockConnectomeManager()
     output_queue = Queue()
     
-    sampler = FQSampler(
+    sampler = UnifiedFQSampler(
         fire_queue_provider=fire_queue_provider,
         sample_frequency_hz=20,
         output_queue=output_queue,
@@ -126,7 +126,7 @@ def test_fcl_sampler_area_sampling():
         # Mock time.perf_counter to return incremental values
         mock_time.side_effect = [0.0, 0.1, 0.2, 0.3, 0.4]
         
-        sampler = FQSampler(
+        sampler = UnifiedFQSampler(
             fcl_manager=fcl_manager,
             sample_frequency_hz=20,
             output_queue=output_queue,
@@ -166,7 +166,7 @@ def test_fcl_sampler_update_area_sample_rate():
     connectome_manager = MockConnectomeManager()
     output_queue = Queue()
     
-    sampler = FQSampler(
+    sampler = UnifiedFQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue,
@@ -206,7 +206,7 @@ def test_fcl_sampler_queue_full():
     output_queue = Queue(maxsize=1)
     output_queue.put("fill_queue")  # Fill the queue
     
-    sampler = FQSampler(
+    sampler = UnifiedFQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue
@@ -239,7 +239,7 @@ def test_fcl_sampler_global_exception_handling():
     fcl_manager = MockFCLManager(should_raise_exception=True)
     output_queue = Queue()
     
-    sampler = FQSampler(
+    sampler = UnifiedFQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue
@@ -266,7 +266,7 @@ def test_fcl_sampler_area_exception_handling():
     connectome_manager = MockConnectomeManager()
     output_queue = Queue()
     
-    sampler = FQSampler(
+    sampler = UnifiedFQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue,
@@ -303,7 +303,7 @@ def test_fcl_sampler_run_with_stop_flag():
     with patch('feagi.npu.burst_engine.time.sleep') as mock_sleep, \
          patch('feagi.npu.burst_engine.time.perf_counter', return_value=0.0):
         
-        sampler = FQSampler(
+        sampler = UnifiedFQSampler(
             fcl_manager=fcl_manager,
             sample_frequency_hz=20,
             output_queue=output_queue
@@ -344,7 +344,7 @@ def test_fcl_sampler_fallback_to_global():
     fcl_manager = MockFCLManager()
     output_queue = Queue()
     
-    sampler = FQSampler(
+    sampler = UnifiedFQSampler(
         fcl_manager=fcl_manager,
         sample_frequency_hz=20,
         output_queue=output_queue,

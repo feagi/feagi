@@ -29,7 +29,7 @@ import pytest
 import signal
 from unittest.mock import Mock, patch, MagicMock, call
 from queue import Queue, Empty, Full
-from feagi.npu.burst_engine import BurstEngine, FCLSampler, FQSampler, ServiceState
+from feagi.npu.burst_engine import BurstEngine, UnifiedFQSampler, ServiceState
 from feagi.core.state_manager import SimulationState
 
 
@@ -556,7 +556,7 @@ def test_fq_sampler_run_global_mode():
     
     output_queue = Queue()
     
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)  # No connectome manager
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)  # No connectome manager
     sampler.set_visualization_subscribers(True)
     
     # Run for a short time
@@ -575,7 +575,7 @@ def test_fq_sampler_run_no_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
     
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
     # Don't set any subscribers
     
     # Run for a short time
@@ -604,7 +604,7 @@ def test_fq_sampler_queue_full_handling():
     output_queue = Queue(maxsize=1)
     output_queue.put("blocking_item")
     
-    sampler = FQSampler(fire_queue_provider, 1000, output_queue)  # High frequency
+    sampler = UnifiedFQSampler(fire_queue_provider, 1000, output_queue)  # High frequency
     sampler.set_visualization_subscribers(True)
     
     # Run for a short time - should handle full queue gracefully
@@ -623,7 +623,7 @@ def test_fq_sampler_update_area_sample_rate():
     fire_queue_provider = Mock()
     output_queue = Queue()
     
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
     
     # Test updating sample rate
     sampler.update_area_sample_rate('test_area', 75.0)
@@ -636,7 +636,7 @@ def test_fq_sampler_set_motor_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
     
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
     
     # Test setting motor subscribers
     sampler.set_motor_subscribers(True)
@@ -652,7 +652,7 @@ def test_fq_sampler_sample_area_fire_queue():
     fire_queue_provider.get_area_fire_queue.return_value = {'area_data': [1, 2, 3]}
     
     output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
     
     # Test area sampling
     sampler._sample_area_fire_queue('test_area')
@@ -667,7 +667,7 @@ def test_fq_sampler_sample_global_fire_queue():
     fire_queue_provider.get_global_fire_queue.return_value = {'global_data': [1, 2, 3]}
     
     output_queue = Queue()
-    sampler = FQSampler(fire_queue_provider, 100, output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
     
     # Test global sampling
     sampler._sample_global_fire_queue()

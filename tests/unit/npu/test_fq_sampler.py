@@ -20,7 +20,7 @@ import time
 import threading
 from queue import Queue, Empty
 
-from feagi.npu.burst_engine import FQSampler
+from feagi.npu.burst_engine import UnifiedFQSampler
 
 
 class TestFQSampler(unittest.TestCase):
@@ -47,7 +47,7 @@ class TestFQSampler(unittest.TestCase):
         self.output_queue = Queue(maxsize=10)
         
         # Create FQ sampler
-        self.fq_sampler = FQSampler(
+        self.fq_sampler = UnifiedFQSampler(
             self.mock_provider, 
             10.0, 
             self.output_queue
@@ -179,7 +179,7 @@ class TestFQSampler(unittest.TestCase):
         mock_cm.cortical_areas = {'cortex1': cortical1, 'cortex2': cortical2}
         
         # Create sampler with connectome manager
-        sampler = FQSampler(self.mock_provider, 10.0, self.output_queue, mock_cm)
+        sampler = UnifiedFQSampler(self.mock_provider, 10.0, self.output_queue, mock_cm)
         sampler.set_visualization_subscribers(True)
         
         # Set the sampler to stop after a short time

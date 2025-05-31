@@ -26,10 +26,12 @@ import time
 import threading
 from unittest.mock import Mock, patch, MagicMock, call, ANY
 import signal
+from queue import Queue
 
 from feagi.npu.burst_engine import BurstEngine, ServiceState
 from feagi.core.state_manager import FeagiStateManager, SimulationState
 from feagi.utils.logger import setup_logger
+from feagi.npu.burst_engine import UnifiedFQSampler
 
 logger = setup_logger()
 
@@ -466,69 +468,52 @@ def test_error_handling(mock_connectome_manager, mock_state_manager):
 
 def test_fq_sampler_initialization():
     """Test FQSampler initialization."""
-    from feagi.npu.burst_engine import FQSampler
-    from queue import Queue
+    from feagi.npu.burst_engine import UnifiedFQSampler
     
-    # Mock fire queue provider
-    fire_queue_provider = MagicMock()
-    output_queue = Queue()
-    
-    # Basic initialization
-    sampler = FQSampler(
-        fire_queue_provider=fire_queue_provider,
-        sample_frequency_hz=20,
-        output_queue=output_queue
-    )
-    
-    assert sampler.fire_queue_provider == fire_queue_provider
-    assert sampler.sample_frequency == 20
-    assert sampler.output_queue == output_queue
-    assert not sampler.running
-    
-
-def test_fq_sampler_run_and_stop():
-    """Test running and stopping the FQ sampler."""
-    from feagi.npu.burst_engine import FQSampler
-    from queue import Queue
-    
-    fire_queue_provider = MagicMock()
-    # Mock the get_fire_queue method instead
-    fire_queue_provider.get_fire_queue = MagicMock(return_value={
+    mock_fire_queue_provider = Mock()
+    mock_fire_queue_provider.get_global_fire_queue_data.return_value = {
         'neuron_ids': [1, 2, 3],
-        'membrane_potentials': [0.8, 1.2, 0.9],
-        'thresholds': [1.0, 1.0, 1.0],
-        'consecutive_fire_counts': [1, 2, 1],
-        'refractory_counters': [0, 0, 0]
-    })
+        'coordinates': [(0, 0, 0), (1, 1, 1), (2, 2, 2)],
+        'membrane_potentials': [0.5, 0.6, 0.7]
+    }
     
     output_queue = Queue()
     
-    sampler = FQSampler(
-        fire_queue_provider=fire_queue_provider,
-        sample_frequency_hz=100,  # High frequency for faster testing
+    sampler = UnifiedFQSampler(
+        fire_queue_provider=mock_fire_queue_provider,
+        sample_frequency_hz=10,
         output_queue=output_queue
     )
     
-    # Set visualization subscribers to enable sampling
+    assert sampler.sample_frequency == 10
+    assert sampler.output_queue is output_queue
+
+
+def test_fq_sampler_connectivity():
+    """Test FQSampler connectivity features."""
+    from feagi.npu.burst_engine import UnifiedFQSampler
+    
+    mock_fire_queue_provider = Mock()
+    mock_fire_queue_provider.get_global_fire_queue_data.return_value = {
+        'neuron_ids': [1, 2, 3],
+        'coordinates': [(0, 0, 0), (1, 1, 1), (2, 2, 2)],
+        'membrane_potentials': [0.5, 0.6, 0.7]
+    }
+    
+    output_queue = Queue()
+    
+    sampler = UnifiedFQSampler(
+        fire_queue_provider=mock_fire_queue_provider,
+        sample_frequency_hz=10,
+        output_queue=output_queue
+    )
+    
+    # Test subscriber management
     sampler.set_visualization_subscribers(True)
+    assert sampler._has_visualization_subscribers
     
-    # Run in a separate thread
-    t = threading.Thread(target=sampler.run)
-    t.daemon = True
-    t.start()
-    
-    # Let it run briefly
-    time.sleep(0.05)
-    
-    # Stop it
-    sampler.stop()
-    t.join(timeout=1)
-    
-    # Check that it stopped
-    assert not sampler.running
-    
-    # It should have called get_fire_queue at least once
-    assert fire_queue_provider.get_fire_queue.called
+    sampler.set_motor_subscribers(True)  
+    assert sampler._has_motor_subscribers
 
 
 def test_process_burst_method(mock_connectome_manager, mock_state_manager):
