@@ -143,6 +143,15 @@ class FeagiStateStruct(ctypes.Structure):
         ("brain_readiness", ctypes.c_uint8),  # 0 = False, 1 = True
         ("test_visualization_mode", ctypes.c_uint8),  # 0 = False, 1 = True
         ("genome_timestamp", ctypes.c_uint64),  # Timestamp (milliseconds) when genome was last loaded/changed
+        # SIMD Configuration (centralized detection results)
+        ("simd_available", ctypes.c_uint8),  # 0 = False, 1 = True
+        ("simd_backend", ctypes.c_uint8),    # Backend enum value (0=scalar, 1=SSE2, 2=AVX, etc.)
+        ("simd_vector_width", ctypes.c_uint8),  # Vector width (4, 8, 16, 32)
+        ("simd_supports_avx", ctypes.c_uint8),   # 0 = False, 1 = True
+        ("simd_supports_avx2", ctypes.c_uint8),  # 0 = False, 1 = True
+        ("simd_supports_avx512", ctypes.c_uint8),  # 0 = False, 1 = True
+        ("simd_alignment", ctypes.c_uint8),  # Memory alignment requirement (16, 32, 64)
+        ("simd_initialization_timestamp", ctypes.c_uint64),  # When SIMD was detected
     ]
 
 
@@ -164,6 +173,22 @@ _SERVICE_STATE_VALUES = {
 
 # And the reverse mapping
 _SERVICE_STATE_INTS = {v: k for k, v in _SERVICE_STATE_VALUES.items()}
+
+# SIMD Backend mappings for centralized state management
+_SIMD_BACKEND_VALUES = {
+    0: "SCALAR",
+    1: "SSE2", 
+    2: "AVX",
+    3: "AVX2",
+    4: "AVX512",
+    5: "NEON",
+    6: "SVE",
+    7: "GPU_CUDA",
+    8: "GPU_WEBGPU",
+    9: "GPU_OPENCL"
+}
+
+_SIMD_BACKEND_INTS = {v: k for k, v in _SIMD_BACKEND_VALUES.items()}
 
 class ServiceState(Enum):
     UNAVAILABLE = "UNAVAILABLE"
@@ -879,6 +904,111 @@ class FeagiStateManager:
                     summary["recent_avg_potential_frequency_hz"] = sum(recent_potential_frequencies) / len(recent_potential_frequencies)
         
         return summary
+
+    # ===== SIMD Configuration Management =====
+    def initialize_simd_configuration(self) -> bool:
+        """
+        Initialize centralized SIMD configuration during FEAGI startup.
+        
+        Performs hardware detection once and stores results in shared state.
+        Returns True if SIMD is available, False otherwise.
+        
+        RTOS/Rust Compatible: Single detection, cached results.
+        """
+        try:
+            # Import SIMD detection (may fail in SIMD-less environments)
+            from feagi.utils.simd_detection import get_simd_detector
+            
+            detector = get_simd_detector()
+            caps = detector.capabilities
+            backend = detector.get_optimal_backend()
+            
+            # Store SIMD availability
+            self.state_ptr.contents.simd_available = 1
+            
+            # Map backend to integer
+            backend_name = backend.value if hasattr(backend, 'value') else str(backend)
+            self.state_ptr.contents.simd_backend = _SIMD_BACKEND_INTS.get(backend_name, 0)
+            
+            # Store capabilities
+            self.state_ptr.contents.simd_vector_width = caps.vector_width
+            self.state_ptr.contents.simd_supports_avx = 1 if caps.avx else 0
+            self.state_ptr.contents.simd_supports_avx2 = 1 if caps.avx2 else 0
+            self.state_ptr.contents.simd_supports_avx512 = 1 if caps.avx512f else 0
+            self.state_ptr.contents.simd_alignment = detector.get_memory_alignment()
+            self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
+            
+            self.state_ptr.contents.state_version += 1
+            logger.info(f"[SIMD] Backend: {backend_name}, Vector Width: {caps.vector_width}")
+            
+            logger.info(f"[SIMD] Centralized configuration initialized: {backend_name} "
+                       f"(vector_width={caps.vector_width}, alignment={self.state_ptr.contents.simd_alignment})")
+            return True
+            
+        except ImportError:
+            # SIMD not available - set defaults
+            self.state_ptr.contents.simd_available = 0
+            self.state_ptr.contents.simd_backend = 0  # SCALAR
+            self.state_ptr.contents.simd_vector_width = 1
+            self.state_ptr.contents.simd_supports_avx = 0
+            self.state_ptr.contents.simd_supports_avx2 = 0 
+            self.state_ptr.contents.simd_supports_avx512 = 0
+            self.state_ptr.contents.simd_alignment = 8  # Standard alignment
+            self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
+            
+            self.state_ptr.contents.state_version += 1
+            logger.info("[SIMD] Centralized configuration: SIMD not available, using scalar fallback")
+            return False
+            
+        except Exception as e:
+            # Error during detection - safe fallback
+            self.state_ptr.contents.simd_available = 0
+            self.state_ptr.contents.simd_backend = 0
+            self.state_ptr.contents.simd_vector_width = 1
+            self.state_ptr.contents.simd_supports_avx = 0
+            self.state_ptr.contents.simd_supports_avx2 = 0
+            self.state_ptr.contents.simd_supports_avx512 = 0
+            self.state_ptr.contents.simd_alignment = 8
+            self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
+            
+            self.state_ptr.contents.state_version += 1
+            logger.warning(f"[SIMD] Detection failed, using scalar fallback: {e}")
+            return False
+
+    def get_simd_configuration(self) -> dict:
+        """
+        Get centralized SIMD configuration.
+        
+        Returns dictionary with SIMD capabilities for component use.
+        Components should use this instead of doing their own detection.
+        """
+        return {
+            'available': bool(self.state_ptr.contents.simd_available),
+            'backend': _SIMD_BACKEND_VALUES.get(self.state_ptr.contents.simd_backend, "SCALAR"),
+            'vector_width': self.state_ptr.contents.simd_vector_width,
+            'supports_avx': bool(self.state_ptr.contents.simd_supports_avx),
+            'supports_avx2': bool(self.state_ptr.contents.simd_supports_avx2),
+            'supports_avx512': bool(self.state_ptr.contents.simd_supports_avx512),
+            'alignment': self.state_ptr.contents.simd_alignment,
+            'initialization_timestamp': self.state_ptr.contents.simd_initialization_timestamp,
+            'backend_int': self.state_ptr.contents.simd_backend  # For compatibility
+        }
+
+    def is_simd_available(self) -> bool:
+        """Check if SIMD acceleration is available."""
+        return bool(self.state_ptr.contents.simd_available)
+
+    def get_simd_backend(self) -> str:
+        """Get the optimal SIMD backend name."""
+        return _SIMD_BACKEND_VALUES.get(self.state_ptr.contents.simd_backend, "SCALAR")
+
+    def get_simd_vector_width(self) -> int:
+        """Get SIMD vector width."""
+        return self.state_ptr.contents.simd_vector_width
+
+    def get_simd_alignment(self) -> int:
+        """Get required memory alignment for SIMD operations."""
+        return self.state_ptr.contents.simd_alignment
 
 def get_state_manager():
     """Get the singleton instance of FeagiStateManager"""
