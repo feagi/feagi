@@ -39,12 +39,12 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 #### Core Usage
 
 ```python
-# Create and initialize with modular architecture
+# Create and initialize with clean generic architecture
 engine = BurstEngine(connectome_manager, fcl_manager, config={
     'debug_npu': True,               # Enable debug mixin features
-    'enable_power_injection': True,  # Enable special area support
+    'enable_injection': True,        # Enable FCL injection service for special areas
     'desired_frequency_hz': 10.0,    # Target simulation frequency
-    'simd_profiling': True,         # Enable performance profiling
+    'simd_profiling': True,          # Enable performance profiling
     'performance_monitoring': True   # Enable performance mixin features
 })
 
@@ -104,13 +104,15 @@ print(f"Total Neurons Processed: {metrics['total_neurons_processed']}")
 
 ### Special Area Handler
 
-The Special Area Handler detects and manages cortical areas with unique behaviors:
+The Special Area Handler detects and manages cortical areas with unique behaviors using a clean, extensible architecture:
 
-- **Power Areas**: Areas ending with "_pwr" or named "___pwr" that inject all their neurons into the FCL on every burst
-- **Modulator Areas**: Areas ending with "_mod" that affect other areas' firing patterns
+- **Power Areas**: Areas ending with "_pwr" or named "___pwr" that add all their neurons to the FCL on every burst for foundational activity
+- **Modulator Areas**: Areas ending with "_mod" that affect other areas' firing patterns through during-burst injection
 - **Enhanced Memory Areas**: Areas with extended temporal windows and specialized processing
+- **Sensory Input Areas**: Areas that receive external sensor data injection
+- **Custom Special Areas**: Any area type can be defined with custom injection timing and behavior
 
-**Power Area Usage:**
+**Special Area Configuration:**
 ```python
 # Create a power area in your genome
 cortical_area = {
@@ -120,32 +122,46 @@ cortical_area = {
     "neurons_per_voxel": 1,
     "properties": {
         "__power_injection": True,  # Alternative property-based detection
-        "injection_timing": "pre_burst",  # When to inject: pre_burst, during_burst, post_burst
+        "injection_timing": "pre_burst",  # When to add candidates: pre_burst, during_burst, post_burst
         "injection_probability": 1.0  # Always inject (1.0) or probabilistic (0.0-1.0)
+    }
+}
+
+# Create a modulator area
+modulator_area = {
+    "id": "dopamine_mod",
+    "properties": {
+        "__modulator": True,
+        "injection_timing": "during_burst",  # Affect ongoing computation
+        "injection_probability": 0.8
     }
 }
 ```
 
 ### FCL Injection Service
 
-The FCL Injection Service coordinates the injection of neurons from special areas into the Fire Candidate List:
+The FCL Injection Service coordinates the addition of neuron candidates from special areas to the Fire Candidate List using the unified FCL candidate model:
 
+- **Unified Processing**: All candidates (internal synaptic + external special areas) processed together in one sweep
+- **Extensible Architecture**: Supports any special area type (power, modulator, sensory, custom)
 - **Batch Processing**: Efficiently processes large numbers of neurons in batches
 - **Timing Control**: Supports pre-burst, during-burst, and post-burst injection phases
 - **Probabilistic Injection**: Supports probabilistic neuron injection for stochastic effects
 - **Performance Monitoring**: Tracks injection statistics and performance metrics
+- **Area-Agnostic**: Service handles all area-specific logic internally
 
 ```python
-# Configure injection service
+# Configure injection service (handles all special area types)
 config = {
     'batch_injection_size': 1000,
     'enable_probabilistic_injection': True,
     'enable_timing_optimization': True
 }
 
-# Service is automatically initialized by BurstEngine when power areas are detected
-stats = engine.get_power_injection_statistics()
-engine.set_power_injection_enabled("___pwr", True)
+# Service is automatically initialized by BurstEngine when special areas are detected
+stats = engine.get_injection_statistics()  # Generic statistics for all special areas
+engine.set_injection_enabled("___pwr", True)  # Enable/disable any special area
+engine.set_injection_enabled("dopamine_mod", False)  # Works for any area type
 ```
 
 ### FCL Manager
@@ -174,69 +190,72 @@ fcl_manager.add_to_current_fcl([neuron_id1, neuron_id2, neuron_id3])
 
 ### FQ Sampler
 
-The FQ Sampler extracts burst data with **differentiated behavior** based on subscriber types for optimal performance:
+The FQ Sampler extracts burst data using a **cortical area-based sampling architecture** with **differentiated behavior** based on subscriber types for optimal performance:
 
-#### Differentiated Sampling Behavior
+#### Cortical Area-Based Architecture
 
-**Visualization Subscribers:**
+**Always Organized by Cortical Areas:**
+- **Data Format**: All sampling returns data organized by cortical areas as keys
+- **Consistent Structure**: `{area_id: [neuron_ids], area_id2: [neuron_ids], ...}`
+- **Strategy Pattern**: Extensible architecture for different sampling modes
+- **Zero-Copy Operations**: Maintains performance characteristics for real-time processing
+
+#### Differentiated Sampling Modes
+
+**Visualization Mode:**
 - **Scope**: Samples ALL cortical areas for comprehensive brain state monitoring
 - **Frequency**: Respects per-area `fq_sample_rate` properties (defaults to global rate)
 - **Data Format**: Rich format with coordinates, membrane potentials, thresholds, and firing history
 - **Use Case**: Real-time brain visualization, research analysis, monitoring dashboards
 
-**Motor Subscribers:**
+**OPU (Motor) Mode:**
 - **Scope**: Samples ONLY OPU (Output Processing Unit) cortical areas
 - **Frequency**: Samples at burst frequency (every burst) for minimal control latency
 - **Data Format**: Streamlined format optimized for real-time motor control
 - **Use Case**: Robotic control, real-time motor output, actuator commands
 
-#### Automatic Subscriber Detection
-
-- **Subscriber-Aware**: Only samples when there are active visualization or motor consumers
-- **Connection Monitoring**: Tracks subscriber heartbeats and automatically enables/disables sampling
-- **Resource Conservation**: No unnecessary sampling when no consumers are connected
-- **Type-Specific Control**: Separate enable/disable for visualization vs. motor subscribers
+**Custom Mode:**
+- **Scope**: Samples specific cortical area IDs provided by user
+- **Frequency**: Configurable per sampling request
+- **Data Format**: Flexible format based on requirements
+- **Use Case**: Targeted monitoring, specific area analysis, custom applications
 
 #### Enhanced Configuration
 
 ```python
-# Create enhanced sampler with differentiated behavior
-sampler = FQSampler(
-    fire_queue_provider=fire_queue_provider, 
-    sample_frequency_hz=30,  # Default for visualization
-    output_queue=viz_queue, 
-    connectome_manager=connectome_manager
+# Create unified sampler with cortical area-based architecture
+sampler = UnifiedFQSampler(
+    fire_queue_provider=fire_queue_provider,
+    connectome_manager=connectome_manager,
+    config={
+        'sampling_strategy': 'visualization',  # or 'opu' or 'custom'
+        'default_sample_rate': 30.0,          # Default sampling frequency
+        'enable_zero_copy': True,             # Performance optimization
+        'custom_area_ids': ['motor_ctx', 'visual_ctx']  # For custom mode
+    }
 )
 
-# Automatic subscriber control (handled by stream managers)
-sampler.set_visualization_subscribers(True)  # Enable visualization sampling
-sampler.set_motor_subscribers(True)          # Enable motor sampling
+# Strategy-based sampling
+viz_data = sampler.sample_visualization_areas()    # All areas, rich format
+motor_data = sampler.sample_opu_areas()           # Motor areas only, fast format
+custom_data = sampler.sample_custom_areas(['area1', 'area2'])  # Specific areas
 
-# Per-area sampling rates (visualization only)
-area.properties['fq_sample_rate'] = 60  # Sample this area at 60Hz for visualization
-area.properties['fq_sample_rate'] = 0   # Disable sampling for this area
-
-# OPU area configuration (motor sampling)
-motor_area = {
-    "id": "motor_cortex",
-    "properties": {
-        "cortical_type": "OPU",  # Automatically detected for motor sampling
-        # Uses burst frequency automatically - no fq_sample_rate needed
-    }
-}
+# All methods return: {area_id: [neuron_ids], ...}
 ```
 
 #### Stream Integration
 
 **Visualization Stream (Port 5562):**
-- Processes visualization-targeted data from FQ sampler
-- Automatic subscriber detection via heartbeat monitoring
-- Rich data format with all neural activity information
+- Processes cortical area-organized data from FQ sampler
+- Data format: `{area_id: [neuron_ids], area_id2: [neuron_ids], ...}`
+- Rich neural activity information for comprehensive brain monitoring
+- Automatic heartbeat-based subscriber detection
 
 **Motor Stream (Port 5564):**
-- Processes motor-targeted data from FQ sampler  
+- Processes OPU area-organized data from FQ sampler  
+- Data format: `{motor_area_id: [neuron_ids], ...}` (only OPU areas)
+- Optimized format for real-time motor control with minimal latency
 - Fast subscriber detection with shorter timeouts
-- Optimized data format for real-time motor control
 
 ```python
 # Visualization client example
@@ -244,10 +263,25 @@ viz_socket = zmq_context.socket(zmq.SUB)
 viz_socket.connect("tcp://localhost:5562")
 viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
 
+# Receive cortical area-organized data
+data = viz_socket.recv_json()
+# data = {
+#     "iv00_C": [1, 4, 17, 26, ...],
+#     "___pwr": [101, 102, 103, ...],
+#     "motor_ctx": [201, 205, 210, ...]
+# }
+
 # Motor client example
 motor_socket = zmq_context.socket(zmq.SUB) 
 motor_socket.connect("tcp://localhost:5564")
 motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
+
+# Receive OPU area-organized data only
+motor_data = motor_socket.recv_json()
+# motor_data = {
+#     "motor_ctx": [201, 205, 210, ...],
+#     "actuator_ctrl": [301, 305, ...]
+# }
 
 # Both clients should send heartbeats for subscriber detection
 heartbeat = {
@@ -257,37 +291,45 @@ heartbeat = {
 }
 ```
 
-## Power Area Implementation
+## Special Area Implementation
 
 ### Naming Conventions
 
-Power areas are automatically detected using these patterns:
+Special areas are automatically detected using these patterns:
 
-1. **Suffix Pattern**: Any cortical area ID ending with "_pwr" (e.g., "motor_pwr", "visual_pwr")
-2. **Exact Match**: Area ID exactly equals "___pwr"
-3. **Property Flag**: Area has `"__power_injection": true` in its properties
+1. **Power Areas**:
+   - **Suffix Pattern**: Any cortical area ID ending with "_pwr" (e.g., "motor_pwr", "visual_pwr")
+   - **Exact Match**: Area ID exactly equals "___pwr"
+   - **Property Flag**: Area has `"__power_injection": true` in its properties
+
+2. **Modulator Areas**:
+   - **Suffix Pattern**: Any cortical area ID ending with "_mod" (e.g., "dopamine_mod", "attention_mod")
+   - **Property Flag**: Area has `"__modulator": true` in its properties
+
+3. **Custom Special Areas**:
+   - **Property Flag**: Any area with special behavior properties gets custom handling
 
 ### Injection Timing
 
-Power areas can inject neurons at different phases of the burst cycle:
+Special areas can add candidates to FCL at different phases of the burst cycle:
 
-- **pre_burst** (default): Inject before regular neuron firing - ensures power neurons are available for synaptic propagation
-- **during_burst**: Inject during membrane potential updates - for modulation effects
-- **post_burst**: Inject after regular processing - for cleanup or special effects
+- **pre_burst** (default for power areas): Add candidates before regular neuron firing - ensures special neurons are available for synaptic propagation
+- **during_burst** (default for modulators): Add candidates during membrane potential updates - for modulation effects
+- **post_burst**: Add candidates after regular processing - for cleanup or special effects
 
 ### Configuration Options
 
-Power injection behavior can be configured at multiple levels:
+Special area behavior can be configured at multiple levels using the clean generic architecture:
 
 ```python
-# Burst engine configuration
+# Burst engine configuration (generic, area-agnostic)
 config = {
-    'enable_power_injection': True,  # Global enable/disable
-    'power_injection_timing': 'pre_burst',  # Default timing
+    'enable_injection': True,  # Global enable/disable for all special areas
+    'desired_frequency_hz': 10.0,  # Target burst frequency
     'special_area_config': {
         'batch_injection_threshold': 100
     },
-    'fcl_injection_config': {
+    'injection_config': {
         'batch_injection_size': 1000,
         'enable_probabilistic_injection': True
     }
@@ -295,7 +337,7 @@ config = {
 
 engine = BurstEngine(connectome_manager, fcl_manager, config)
 
-# Per-area configuration through properties
+# Per-area configuration through properties (handled by injection service internally)
 power_area = {
     "id": "reward_pwr",
     "properties": {
@@ -304,110 +346,16 @@ power_area = {
         "injection_probability": 1.0  # Always inject (0.0-1.0 for probabilistic)
     }
 }
-```
 
-### Usage Examples
-
-#### Global Attention System
-```python
-attention_area = {
-    "id": "attn_pwr",
-    "dimensions": [10, 10, 1],  # 100 attention neurons
+modulator_area = {
+    "id": "dopamine_mod", 
     "properties": {
-        "__power_injection": True,
-        "injection_timing": "pre_burst",
-        "injection_probability": 0.8  # Variable attention level
+        "__modulator": True,
+        "injection_timing": "during_burst",  # Affect ongoing neural computation
+        "injection_probability": 0.8
     }
 }
 ```
-
-#### Learning Signal Injection
-```python
-reward_area = {
-    "id": "reward_pwr", 
-    "properties": {
-        "__power_injection": True,
-        "injection_timing": "during_burst",  # Modulate ongoing activity
-        "injection_probability": 1.0
-    }
-}
-```
-
-#### Debug/Test Area
-```python
-test_area = {
-    "id": "test_pwr",
-    "properties": {
-        "__power_injection": True
-    }
-}
-
-# Runtime control
-engine.set_power_injection_enabled("test_pwr", True)   # Enable
-engine.set_power_injection_enabled("test_pwr", False)  # Disable
-```
-
-### Monitoring and Statistics
-
-Monitor power injection performance:
-
-```python
-# Get comprehensive statistics
-stats = engine.get_power_injection_statistics()
-print(f"Power areas: {stats['special_areas']['power_areas_count']}")
-print(f"Total injections: {stats['injection']['total_injections']}")
-
-# Preview next injection
-preview = engine.fcl_injection_service.get_power_injection_preview()
-print(f"Pre-burst neurons: {preview['pre_burst_neurons']}")
-
-# Enable debug logging
-import logging
-logging.getLogger('feagi.npu.special_area_handler').setLevel(logging.DEBUG)
-```
-
-### Troubleshooting
-
-For comprehensive debugging information, see the [FEAGI Debugging Guide](../../docs/guide-how-to-debug.md).
-
-**Power Areas Not Detected**:
-- Check naming patterns (must end with "_pwr" or be "___pwr")
-- Verify `__power_injection: true` property
-- Check debug logs for detection messages
-
-**Performance Impact**:
-- Reduce power area size or batch injection size
-- Use probabilistic injection (`injection_probability < 1.0`)
-- Monitor burst frequency and injection statistics
-
-**NPU Debug Mode**:
-Launch FEAGI with `--debug-npu` to see detailed fire queue contents every burst:
-```bash
-python3 -m feagi.main --debug-npu
-```
-This displays:
-- Total firing neurons per burst
-- Per-cortical area breakdown with neuron IDs  
-- Power injection statistics
-- Recent firing activity trends
-
-### Performance Considerations
-
-Power area injection is optimized for high-frequency operation:
-
-- **Pre-cached Neuron Lists**: Power area neurons are cached on genome load
-- **Batch Processing**: Large neuron lists are processed in configurable batches
-- **Minimal Runtime Allocation**: All data structures pre-allocated during initialization
-- **Statistics Tracking**: Comprehensive performance monitoring
-
-### Use Cases
-
-Power areas enable several advanced neural simulation patterns:
-
-1. **Global Attention Mechanisms**: A power area can provide persistent background activation
-2. **Learning Signals**: Inject reward/punishment signals across the entire brain
-3. **Synchronization**: Provide timing signals for coordinated activity
-4. **Debugging**: Force specific neurons to fire for testing and validation
 
 ## Neural Processing Architecture
 
@@ -499,9 +447,16 @@ def _process_burst(self) -> List[int]:
 **Burst Engine Configuration**:
 ```python
 config = {
-    'enable_injection': True,  # Generic enable/disable for all special areas
-    'debug_npu': False,        # Debug logging
-    'desired_frequency_hz': 1.0
+    'desired_frequency_hz': 100.0,           # Target burst frequency
+    'enable_injection': True,                # Enable special area processing (all types)
+    'special_area_config': {
+        'batch_injection_threshold': 100      # Threshold for batch processing
+    },
+    'injection_config': {
+        'batch_injection_size': 1000,         # Neurons per injection batch
+        'enable_probabilistic_injection': True,# Support probabilistic injection
+        'enable_timing_optimization': True     # Enable timing optimizations
+    }
 }
 ```
 
@@ -567,12 +522,11 @@ Design patterns support future RTOS/embedded deployment:
 ```python
 {
     'desired_frequency_hz': 100.0,           # Target burst frequency
-    'enable_power_injection': True,          # Enable special area processing
-    'power_injection_timing': 'pre_burst',   # Default injection timing
+    'enable_injection': True,                # Enable special area processing (all types)
     'special_area_config': {
         'batch_injection_threshold': 100      # Threshold for batch processing
     },
-    'fcl_injection_config': {
+    'injection_config': {
         'batch_injection_size': 1000,         # Neurons per injection batch
         'enable_probabilistic_injection': True,# Support probabilistic injection
         'enable_timing_optimization': True     # Enable timing optimizations
@@ -585,11 +539,11 @@ Design patterns support future RTOS/embedded deployment:
 ```python
 {
     '__power_injection': True,               # Mark as power area
-    '__modulator': False,                    # Mark as modulator area
+    '__modulator': True,                     # Mark as modulator area
     '__shed': False,                         # Enable for load shedding
-    'injection_timing': 'pre_burst',         # Injection phase
-    'injection_probability': 1.0,            # Injection probability
-    'fcl_sample_rate': 30.0                 # Sampling rate for this area
+    'injection_timing': 'pre_burst',         # Injection phase (pre_burst, during_burst, post_burst)
+    'injection_probability': 1.0,            # Injection probability (0.0-1.0)
+    'fq_sample_rate': 30.0                  # Sampling rate for this area
 }
 ```
 
@@ -639,14 +593,15 @@ python -m pytest tests/performance/npu/test_injection_performance.py --benchmark
 
 When migrating from legacy FEAGI systems:
 
-1. **Identify Power Areas**: Look for areas that manually inject neurons into the FCL
-2. **Update Naming**: Rename areas to use "_pwr" suffix or add `__power_injection` property
+1. **Identify Special Areas**: Look for areas that manually inject neurons into the FCL
+2. **Update Naming**: Rename areas to use appropriate suffixes ("_pwr", "_mod") or add special area properties
 3. **Configure Timing**: Set appropriate injection timing based on previous behavior
-4. **Test Performance**: Validate that injection doesn't impact target burst frequency
+4. **Generic Configuration**: Update burst engine config to use `enable_injection` instead of area-specific flags
+5. **Test Performance**: Validate that injection doesn't impact target burst frequency
 
 ### Configuration Updates
 
-Update your genome configuration to use the new power area features:
+Update your genome configuration to use the new special area features:
 
 ```python
 # Before (manual injection)
@@ -654,10 +609,27 @@ def manual_power_injection():
     for neuron_id in power_neurons:
         fcl_manager.add_neuron(neuron_id)
 
-# After (automatic injection)
+# After (automatic injection via unified architecture)
 power_area = {
     'id': 'attention_pwr',
     'properties': {'__power_injection': True}
+}
+
+modulator_area = {
+    'id': 'dopamine_mod',
+    'properties': {
+        '__modulator': True,
+        'injection_timing': 'during_burst'
+    }
+}
+
+# Burst engine config update
+config = {
+    'enable_injection': True,  # Generic injection for all special areas
+    'injection_config': {
+        'batch_injection_size': 1000,
+        'enable_probabilistic_injection': True
+    }
 }
 ```
 
@@ -665,13 +637,13 @@ power_area = {
 
 ### Common Issues
 
-1. **Power Areas Not Detected**: Check naming patterns and property flags
-2. **Performance Impact**: Reduce batch size or disable probabilistic injection
+1. **Special Areas Not Detected**: Check naming patterns and property flags for all area types
+2. **Performance Impact**: Reduce batch size or adjust probabilistic injection settings
 3. **Timing Issues**: Adjust injection timing phase or enable optimizations
 
 ### Debug Logging
 
-Enable detailed logging for power injection debugging:
+Enable detailed logging for injection debugging:
 
 ```python
 import logging
@@ -681,15 +653,49 @@ logging.getLogger('feagi.npu.fcl_injection_service').setLevel(logging.DEBUG)
 
 ### Statistics and Monitoring
 
-Monitor power injection performance:
+Monitor injection performance for all special area types:
 
 ```python
-# Get detailed statistics
-stats = engine.get_power_injection_statistics()
-print(f"Total injections: {stats['injection']['total_injections']}")
-print(f"Power areas: {stats['special_areas']['power_areas']}")
+# Get detailed statistics (all special areas)
+stats = engine.get_injection_statistics()
+print(f"Total injections: {stats['total_injections']}")
+print(f"Special areas: {stats['prepared_batches']}")
 
 # Get injection preview
-preview = engine.fcl_injection_service.get_power_injection_preview()
-print(f"Neurons to inject: {preview['pre_burst_neurons']}")
-``` 
+preview = engine.injection_service.get_power_injection_preview() if engine.injection_service else {}
+print(f"Neurons to inject: {preview.get('pre_burst_neurons', 0)}")
+
+# Enable/disable specific areas
+engine.set_injection_enabled("___pwr", True)      # Enable power area
+engine.set_injection_enabled("dopamine_mod", False)  # Disable modulator area
+```
+
+### NPU Debug Mode
+
+Launch FEAGI with `--debug-npu` to see detailed fire queue contents every burst:
+```bash
+python3 -m feagi.main --debug-npu
+```
+This displays:
+- Total firing neurons per burst
+- Per-cortical area breakdown with neuron IDs  
+- Special area injection statistics (all types)
+- Recent firing activity trends
+
+### Performance Considerations
+
+Special area injection is optimized for high-frequency operation:
+
+- **Pre-cached Neuron Lists**: Special area neurons are cached on genome load
+- **Batch Processing**: Large neuron lists are processed in configurable batches
+- **Minimal Runtime Allocation**: All data structures pre-allocated during initialization
+- **Statistics Tracking**: Comprehensive performance monitoring
+
+### Use Cases
+
+Special areas enable several advanced neural simulation patterns:
+
+1. **Global Attention Mechanisms**: Power areas can provide persistent background activation
+2. **Learning Signals**: Modulator areas inject reward/punishment signals across the brain
+3. **Synchronization**: Provide timing signals for coordinated activity
+4. **Debugging**: Force specific neurons to fire for testing and validation 

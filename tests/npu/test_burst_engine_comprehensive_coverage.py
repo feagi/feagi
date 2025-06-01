@@ -121,14 +121,13 @@ def test_burst_engine_debug_process_burst():
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
         
         # Mock injection service
-        engine.fcl_injection_service = Mock()
-        engine.power_injection_timing = 'pre_burst'
+        engine.injection_service = Mock()
         
         # Test _process_burst with debug output
         result = engine._process_burst()
         
         # Should have called injection service
-        engine.fcl_injection_service.inject_pre_burst.assert_called_once()
+        engine.injection_service.inject_pre_burst.assert_called_once()
         
         # Should return fired neurons
         assert result == [1, 2, 3]
@@ -153,20 +152,20 @@ def test_burst_engine_special_area_initialization():
         
         cm = MockConnectomeManager()
         
-        # Test initialization with power injection enabled
+        # Test initialization with injection enabled
         engine = BurstEngine(
             connectome_manager=cm,
             config={
                 "target_frequency": 100,
-                "enable_power_injection": True,
+                "enable_injection": True,
                 "special_area_config": {"test": "config"},
-                "fcl_injection_config": {"injection": "config"}
+                "injection_config": {"injection": "config"}
             }
         )
         
         # Verify services were initialized
         assert engine.special_area_handler is not None
-        assert engine.fcl_injection_service is not None
+        assert engine.injection_service is not None
         
         # Verify initialization calls
         mock_special_handler_class.assert_called_once()
@@ -181,18 +180,18 @@ def test_burst_engine_special_area_initialization_disabled():
     with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
         cm = MockConnectomeManager()
         
-        # Test initialization with power injection disabled
+        # Test initialization with injection disabled
         engine = BurstEngine(
             connectome_manager=cm,
             config={
                 "target_frequency": 100,
-                "enable_power_injection": False
+                "enable_injection": False
             }
         )
         
         # Verify services were not initialized
         assert engine.special_area_handler is None
-        assert engine.fcl_injection_service is None
+        assert engine.injection_service is None
 
 
 def test_burst_engine_special_area_initialization_error():
@@ -209,13 +208,13 @@ def test_burst_engine_special_area_initialization_error():
             connectome_manager=cm,
             config={
                 "target_frequency": 100,
-                "enable_power_injection": True
+                "enable_injection": True
             }
         )
         
         # Should handle error gracefully
         assert engine.special_area_handler is None
-        assert engine.fcl_injection_service is None
+        assert engine.injection_service is None
 
 
 def test_burst_engine_special_area_initialization_no_power_areas():
@@ -237,13 +236,13 @@ def test_burst_engine_special_area_initialization_no_power_areas():
             connectome_manager=cm,
             config={
                 "target_frequency": 100,
-                "enable_power_injection": True
+                "enable_injection": True
             }
         )
         
         # Special area handler should be initialized but not injection service
         assert engine.special_area_handler is not None
-        assert engine.fcl_injection_service is None
+        assert engine.injection_service is None
 
 
 def test_burst_engine_frequency_measurement():
@@ -410,44 +409,46 @@ def test_burst_engine_singleton_reinitialization():
         assert engine2.test_attribute == "first_instance"
 
 
-def test_burst_engine_power_injection_timing_variants():
-    """Test different power injection timing configurations."""
+def test_burst_engine_injection_timing_variants():
+    """Test different injection timing configurations through injection service."""
     mock_state_manager = MockStateManager()
     
     with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
         cm = MockConnectomeManager()
         
-        # Test during-burst timing
+        # Test unified injection service calls all timing phases
         BurstEngine.reset_singleton()
         engine = BurstEngine(
             connectome_manager=cm, 
             config={
                 "target_frequency": 100,
-                "power_injection_timing": "during_burst"
+                "enable_injection": True
             }
         )
         
-        engine.fcl_injection_service = Mock()
+        engine.injection_service = Mock()
         result = engine._process_burst()
         
-        # Should call during-burst injection
-        engine.fcl_injection_service.inject_during_burst.assert_called_once()
+        # Should call all injection phases (unified architecture)
+        engine.injection_service.inject_pre_burst.assert_called_once()
+        engine.injection_service.inject_during_burst.assert_called_once()
+        engine.injection_service.inject_post_burst.assert_called_once()
         
-        # Test post-burst timing
+        # Test without injection service
         BurstEngine.reset_singleton()
         engine = BurstEngine(
             connectome_manager=cm,
             config={
                 "target_frequency": 100,
-                "power_injection_timing": "post_burst"
+                "enable_injection": False
             }
         )
         
-        engine.fcl_injection_service = Mock()
+        engine.injection_service = None
         result = engine._process_burst()
         
-        # Should call post-burst injection
-        engine.fcl_injection_service.inject_post_burst.assert_called_once()
+        # Should not crash without injection service
+        assert result == [1, 2, 3]
 
 
 def test_burst_engine_update_with_genome():
@@ -462,7 +463,7 @@ def test_burst_engine_update_with_genome():
         assert not engine.genome_loaded
         
         # Mock the special area initialization
-        with patch.object(engine, '_initialize_special_area_services') as mock_init:
+        with patch.object(engine, '_initialize_injection_service') as mock_init:
             engine.update_with_genome()
             
             # Should mark genome as loaded and initialize special areas
@@ -503,34 +504,8 @@ def test_burst_engine_refresh_special_areas_no_handler():
         engine.refresh_special_areas()
 
 
-def test_burst_engine_power_injection_statistics():
-    """Test get_power_injection_statistics method."""
-    mock_state_manager = MockStateManager()
-    
-    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
-        cm = MockConnectomeManager()
-        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
-        
-        # Mock special area handler
-        mock_stats = {"test": "data"}
-        engine.special_area_handler = Mock()
-        engine.special_area_handler.get_statistics.return_value = mock_stats
-        
-        # Test with handler
-        result = engine.get_power_injection_statistics()
-        
-        # The method wraps the statistics in additional fields
-        assert isinstance(result, dict)
-        # Accept whatever the actual implementation returns
-        
-        # Test without handler
-        engine.special_area_handler = None
-        result = engine.get_power_injection_statistics()
-        assert isinstance(result, dict)  # Should return some dict, not necessarily empty
-
-
-def test_burst_engine_set_power_injection_enabled():
-    """Test set_power_injection_enabled method."""
+def test_burst_engine_injection_statistics():
+    """Test get_injection_statistics method."""
     mock_state_manager = MockStateManager()
     
     with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
@@ -538,19 +513,45 @@ def test_burst_engine_set_power_injection_enabled():
         engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
         
         # Mock injection service
-        engine.fcl_injection_service = Mock()
-        mock_method = Mock(return_value=True)
-        # Find the correct method name from the actual implementation
-        engine.fcl_injection_service.set_injection_enabled = mock_method
+        mock_stats = {"test": "data"}
+        engine.injection_service = Mock()
+        engine.injection_service.get_statistics.return_value = mock_stats
         
         # Test with service
-        result = engine.set_power_injection_enabled("test_area", True)
+        result = engine.get_injection_statistics()
+        
+        # The method returns statistics from injection service
+        assert isinstance(result, dict)
+        # Accept whatever the actual implementation returns
+        
+        # Test without service
+        engine.injection_service = None
+        result = engine.get_injection_statistics()
+        assert isinstance(result, dict)  # Should return error dict
+
+
+def test_burst_engine_set_injection_enabled():
+    """Test set_injection_enabled method."""
+    mock_state_manager = MockStateManager()
+    
+    with patch('feagi.npu.burst_engine.FeagiStateManager.instance', return_value=mock_state_manager):
+        cm = MockConnectomeManager()
+        engine = BurstEngine(connectome_manager=cm, config={"target_frequency": 100})
+        
+        # Mock injection service
+        engine.injection_service = Mock()
+        mock_method = Mock(return_value=True)
+        # Find the correct method name from the actual implementation
+        engine.injection_service.set_injection_enabled = mock_method
+        
+        # Test with service
+        result = engine.set_injection_enabled("test_area", True)
         # Just check it returns something (implementation may vary)
         assert result is not None
         
         # Test without service
-        engine.fcl_injection_service = None
-        result = engine.set_power_injection_enabled("test_area", True)
+        engine.injection_service = None
+        result = engine.set_injection_enabled("test_area", True)
         assert result is False
 
 

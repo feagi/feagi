@@ -141,12 +141,13 @@ class BurstEngineDebugMixin:
                         neuron_sample = sorted(list(area_fcl))[:5]
                         logger.info(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_sample}... (+{area_count-5} more)")
                 
-                # Show power area injection info if available
-                if hasattr(self, 'fcl_injection_service') and self.fcl_injection_service:
-                    stats = self.get_power_injection_statistics()
-                    if 'injection' in stats and stats['injection'].get('total_injections', 0) > 0:
-                        power_neurons = stats['special_areas'].get('total_power_neurons', 0)
-                        logger.info(f"[FAST] Power Injection: {power_neurons} neurons from {stats['special_areas'].get('power_areas_count', 0)} power areas")
+                # Show special area injection info if available (all area types)
+                if hasattr(self, 'injection_service') and self.injection_service:
+                    stats = self.get_injection_statistics()
+                    if 'total_injections' in stats and stats.get('total_injections', 0) > 0:
+                        total_neurons = stats.get('total_neurons_injected', 0)
+                        total_batches = sum(stats.get('prepared_batches', {}).values())
+                        logger.info(f"[FAST] Special Area Injection: {total_neurons} neurons from {total_batches} batches (all area types)")
             else:
                 logger.info("   No neurons firing this burst")
                 
@@ -305,12 +306,12 @@ class BurstEngineDebugMixin:
                 sampler_stats.append(sampler_info)
             stats['fq_samplers'] = sampler_stats
         
-        # Power injection statistics if available
-        if hasattr(self, 'get_power_injection_statistics'):
+        # Special area injection statistics if available (all area types)
+        if hasattr(self, 'get_injection_statistics'):
             try:
-                stats['power_injection'] = self.get_power_injection_statistics()
+                stats['injection_statistics'] = self.get_injection_statistics()
             except Exception as e:
-                stats['power_injection_error'] = str(e)
+                stats['injection_statistics_error'] = str(e)
         
         return stats
 
