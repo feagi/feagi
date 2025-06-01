@@ -1,6 +1,6 @@
-# Burst Engine - Modular Architecture
+# Burst Engine - Clean Generic Architecture
 
-The Burst Engine is the central component of the NPU (Neural Processing Unit) in FEAGI. It manages neural dynamics and coordinates the simulation of neural activity using a modern modular architecture with specialized mixins.
+The Burst Engine is the central component of the NPU (Neural Processing Unit) in FEAGI. It manages neural dynamics and coordinates the simulation of neural activity using a clean, area-agnostic architecture with specialized mixins.
 
 ## Architecture Overview
 
@@ -12,12 +12,13 @@ The Burst Engine uses a **modular mixin architecture** that separates concerns a
 class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
     """
     Main burst engine with modular functionality through mixins.
+    Completely area-agnostic - handles all special area types through injection service.
     """
 ```
 
 ### Modular Components
 
-1. **BurstEngine** (main class): Core neural simulation logic
+1. **BurstEngine** (main class): Core neural simulation logic, area-agnostic
 2. **BurstEngineDebugMixin**: Debug and diagnostics functionality  
 3. **BurstEnginePerformanceMixin**: SIMD acceleration and performance monitoring
 
@@ -36,7 +37,7 @@ The Burst Engine follows a state machine architecture with the following states:
 
 ### Main BurstEngine Class
 
-Handles core neural simulation functionality:
+Handles core neural simulation functionality with clean separation of concerns:
 
 ```python
 class BurstEngine:
@@ -45,23 +46,28 @@ class BurstEngine:
         self.connectome_manager = connectome_manager
         self.fcl_manager = fcl_manager
         
-        # Initialize special area services
-        self._initialize_special_area_services()
+        # Initialize generic injection service (area-agnostic)
+        self._initialize_injection_service()
         
         # Manually initialize mixins (avoids multiple inheritance issues)
         BurstEnginePerformanceMixin.__init__(self)
         BurstEngineDebugMixin.__init__(self)
     
     def _process_burst(self):
-        """Core burst processing with power injection support."""
-        # Pre-burst power injection
-        if self.fcl_injection_service:
-            self.fcl_injection_service.inject_pre_burst(self.burst_count)
+        """Core burst processing with unified FCL candidate model."""
+        # 1. External candidates injection (all special area types)
+        if self.injection_service:
+            self.injection_service.inject_pre_burst(self.burst_count)
         
-        # Standard membrane potential updates
+        # 2. Unified neural computation (internal + external candidates)
         fired_neurons = self.connectome_manager.update_membrane_potentials()
         
-        # Post-burst processing and debug output
+        # 3. Additional injection phases if needed
+        if self.injection_service:
+            self.injection_service.inject_during_burst(self.burst_count)
+            self.injection_service.inject_post_burst(self.burst_count)
+        
+        # 4. Debug output if enabled
         if self.debug_npu:
             self._debug_fire_queue_output()
         
@@ -119,29 +125,41 @@ class BurstEnginePerformanceMixin:
 
 ## Special Area Support
 
-### Power Area Integration
+### Generic Injection Architecture
 
-The burst engine automatically detects and handles power areas:
+The burst engine uses a clean, area-agnostic architecture for all special areas:
 
 ```python
-# Power areas inject all neurons into FCL every burst
-power_areas = ["___pwr", "motor_pwr", "sensory_pwr"]
+# All special areas handled through unified injection service
+special_areas = {
+    "power_areas": ["___pwr", "motor_pwr", "sensory_pwr"],
+    "modulator_areas": ["dopamine_mod", "attention_mod"],
+    "custom_areas": ["memory_enhanced", "learning_signal"]
+}
 
 # Automatic detection and injection service initialization
-if power_areas:
-    self.fcl_injection_service = FCLInjectionService(
+if any_special_areas_detected:
+    self.injection_service = FCLInjectionService(
         fcl_manager=self.fcl_manager,
         special_area_handler=self.special_area_handler
     )
 ```
 
+### Unified FCL Candidate Model
+
+All special areas add candidates to FCL using the same unified model:
+
+- **External Candidates**: Special areas add candidates to FCL (don't fire directly)
+- **Unified Processing**: All candidates (internal synaptic + external special) processed together
+- **Clean Separation**: Burst engine remains completely area-agnostic
+
 ### Injection Timing
 
-Power injection supports three timing modes:
+Special area injection supports three timing phases:
 
-- **pre_burst**: Inject before membrane potential updates
-- **during_burst**: Inject during processing (for modulators)
-- **post_burst**: Inject after standard processing
+- **pre_burst**: Add candidates before membrane potential updates (power areas, sensory input)
+- **during_burst**: Add candidates during processing (modulators, attention)
+- **post_burst**: Add candidates after standard processing (cleanup, memory consolidation)
 
 ## Performance Features
 
@@ -246,7 +264,7 @@ engine.register_fq_sampler(process_manager._viz_fq_sampler)
 # Create burst engine with modular architecture
 engine = BurstEngine(connectome_manager, fcl_manager, config={
     'debug_npu': True,           # Enable debug output
-    'enable_power_injection': True,  # Enable power areas
+    'enable_injection': True,    # Enable special areas (all types)
     'desired_frequency_hz': 10.0     # Target frequency
 })
 
@@ -278,6 +296,24 @@ print(f"Debug Mode: {debug_info['debug_mode_enabled']}")
 # Validate state consistency
 validation = engine.debug_validate_state()
 print(f"All validations passed: {all(validation.values())}")
+```
+
+### Configuration Example
+
+```python
+config = {
+    'enable_injection': True,  # Enable special areas (all types)
+    'desired_frequency_hz': 10.0,
+    'special_area_config': {
+        'batch_injection_threshold': 100
+    },
+    'injection_config': {
+        'batch_injection_size': 1000,
+        'enable_probabilistic_injection': True
+    }
+}
+
+engine = BurstEngine(connectome_manager, fcl_manager, config)
 ```
 
 This modular architecture provides clean separation of concerns while maintaining high performance and comprehensive debugging capabilities for neural simulation research and development. 
