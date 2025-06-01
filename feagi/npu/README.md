@@ -409,6 +409,129 @@ Power areas enable several advanced neural simulation patterns:
 3. **Synchronization**: Provide timing signals for coordinated activity
 4. **Debugging**: Force specific neurons to fire for testing and validation
 
+## Neural Processing Architecture
+
+FEAGI 2.0 implements a clean separation between two fundamental neural processing streams:
+
+### 1. Synaptic Propagation (Core Neural Computation)
+**Handled by**: `ConnectomeManager.update_membrane_potentials()`
+**Purpose**: Standard neural computation with synaptic transmission
+**Characteristics**:
+- High-performance GPU/SIMD optimized
+- Millions of operations per burst
+- Membrane potential updates → threshold detection → FCL addition
+- This is the **core neural algorithm**
+
+**Process Flow**:
+```
+Active neurons → Synaptic weights → Membrane potential updates → 
+Threshold detection → New fired neurons → Added to FCL
+```
+
+### 2. Special Area Injection (External Behaviors)
+**Handled by**: `FCLInjectionService`  
+**Purpose**: External/special behaviors that bypass normal neural computation
+**Characteristics**:
+- Relatively few operations per burst
+- Direct FCL candidate addition (bypasses membrane potentials)
+- Extensible to multiple special area types
+- **Area-agnostic** implementation
+
+**Supported Special Area Types**:
+- **Power Areas** (`___pwr`): Inject all neurons every burst for foundational activity
+- **Sensory Input**: External sensor data injection
+- **Modulator Areas**: Behavioral modification (dopamine, attention, etc.)
+- **Memory Areas**: Enhanced temporal processing
+- **Future Extensions**: Any special area type
+
+### 3. Unified FCL Candidate Model
+
+Both streams add candidates to the **Fire Candidate List (FCL)**:
+
+```python
+def _process_burst(self) -> List[int]:
+    # 1. External candidates → FCL (special areas)
+    if self.injection_service:
+        self.injection_service.inject_pre_burst(self.burst_count)
+    
+    # 2. Process ALL candidates (internal + external) in unified sweep
+    fired_neurons = self.connectome_manager.update_membrane_potentials()
+    
+    # 3. Additional external candidates if needed
+    if self.injection_service:
+        self.injection_service.inject_during_burst(self.burst_count)
+        self.injection_service.inject_post_burst(self.burst_count)
+    
+    return fired_neurons  # All neurons that actually fired
+```
+
+### 4. Clean Component Responsibilities
+
+**Burst Engine**:
+- **Completely area-agnostic** - no knowledge of specific area types
+- Orchestrates the sequence: external injection → synaptic processing → additional injection
+- Always calls all injection phases, lets service decide what to do internally
+- Returns unified list of fired neurons from all sources
+
+**FCL Injection Service**:
+- **Autonomous and extensible** - handles all special area logic internally
+- Manages timing decisions (which areas inject when)
+- Supports probabilistic injection, batch processing, performance optimization
+- Can be extended for new special area types without touching burst engine
+
+**Connectome Manager**:
+- **Pure neural computation** - processes FCL candidates through synaptic propagation
+- GPU/SIMD optimized for performance
+- Determines actual firing based on membrane potentials and thresholds
+- Handles the unified processing of all candidates (internal + external)
+
+### 5. Key Architectural Benefits
+
+✅ **Single Source of Truth**: FCL is the unified pool for all firing candidates
+✅ **Clean Separation**: External injection vs. synaptic propagation clearly separated  
+✅ **Performance**: Core synaptic computation remains GPU-optimized
+✅ **Extensibility**: New special area types can be added without touching core components
+✅ **Area-Agnostic**: Burst engine has no knowledge of specific area types
+✅ **Unified Processing**: All candidates processed together in single efficient sweep
+
+### 6. Configuration
+
+**Burst Engine Configuration**:
+```python
+config = {
+    'enable_injection': True,  # Generic enable/disable for all special areas
+    'debug_npu': False,        # Debug logging
+    'desired_frequency_hz': 1.0
+}
+```
+
+**Injection Service Configuration** (handles area-specific logic internally):
+```python
+injection_config = {
+    'batch_injection_size': 1000,
+    'enable_probabilistic_injection': True,
+    'enable_timing_optimization': True
+}
+
+special_area_config = {
+    'batch_injection_threshold': 100
+}
+```
+
+**Per-Area Configuration** (through area properties):
+```python
+power_area = {
+    "id": "reward_pwr",
+    "properties": {
+        "__power_injection": True,
+        "injection_timing": "pre_burst",      # When to add candidates
+        "injection_probability": 1.0          # Probability of injection (0.0-1.0)
+    }
+}
+```
+
+This architecture ensures that the burst engine remains a pure neural processing engine while the injection service handles all special area behaviors autonomously.
+
 ## Architecture Guidelines
 
 ### Thread Safety

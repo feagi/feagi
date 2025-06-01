@@ -17,9 +17,14 @@ limitations under the License.
 """
 FCL Injection Service for FEAGI Neural Processing Unit.
 
-Handles injection of neurons from special areas (particularly power areas) into the
-Fire Candidate List (FCL) during burst processing. Provides optimized batch injection
-and proper timing coordination with the burst engine.
+Handles injection of neuron candidates from special areas (power areas, sensory input,
+modulators, etc.) into the Fire Candidate List (FCL) during burst processing. Provides
+optimized batch injection and proper timing coordination with the burst engine.
+
+This service implements the unified FCL candidate model:
+- Special areas add candidates to FCL (rather than firing directly)
+- All candidates (internal synaptic + external special areas) processed together
+- Burst engine remains completely area-agnostic
 
 @cursor:critical-path FCL injection affects every burst cycle - performance critical
 @cursor:ffi-safe Uses static types and no dynamic allocation in main loops for Rust compatibility
@@ -54,17 +59,24 @@ class InjectionBatch:
 
 class FCLInjectionService:
     """
-    Service for injecting neurons from special areas into the FCL.
+    Service for injecting neuron candidates from special areas into the FCL.
     
-    This service coordinates with the SpecialAreaHandler to identify power areas
-    and other special areas, then injects their neurons into the FCL at the
-    appropriate timing during burst processing.
+    This service coordinates with the SpecialAreaHandler to identify special areas
+    (power areas, sensory inputs, modulators, etc.) and adds their neurons as
+    candidates to the FCL at appropriate timing during burst processing.
+    
+    Implements the unified FCL candidate model:
+    - External candidates are added to FCL (not fired directly)
+    - All FCL candidates processed together by connectome manager
+    - Supports extensible special area types through timing phases
+    - Burst engine remains completely area-agnostic
     
     Key features:
     - Batch injection for performance
     - Configurable timing (pre/during/post burst)
     - Probabilistic injection support
     - Performance monitoring and statistics
+    - Extensible to any special area type
     """
     
     def __init__(self, fcl_manager: Any, special_area_handler: SpecialAreaHandler, 
@@ -178,37 +190,46 @@ class FCLInjectionService:
     
     def inject_pre_burst(self, current_timestep: int) -> int:
         """
-        Inject neurons from power areas before burst processing.
+        Add neuron candidates from special areas to FCL before burst processing.
+        
+        This phase typically handles power areas, sensory input, and other external
+        sources that should be available as firing candidates during the burst.
         
         Args:
             current_timestep: Current simulation timestep
             
         Returns:
-            Number of neurons injected
+            Number of candidates added to FCL
         """
         return self._execute_injection_phase(InjectionTiming.PRE_BURST, current_timestep)
     
     def inject_during_burst(self, current_timestep: int) -> int:
         """
-        Inject neurons from modulator areas during burst processing.
+        Add neuron candidates from modulator areas during burst processing.
+        
+        This phase typically handles modulatory influences that should affect
+        ongoing neural computation within the same burst.
         
         Args:
             current_timestep: Current simulation timestep
             
         Returns:
-            Number of neurons injected
+            Number of candidates added to FCL
         """
         return self._execute_injection_phase(InjectionTiming.DURING_BURST, current_timestep)
     
     def inject_post_burst(self, current_timestep: int) -> int:
         """
-        Inject neurons from special areas after burst processing.
+        Add neuron candidates from special areas after burst processing.
+        
+        This phase typically handles cleanup, memory consolidation, or other
+        post-processing special behaviors.
         
         Args:
             current_timestep: Current simulation timestep
             
         Returns:
-            Number of neurons injected
+            Number of candidates added to FCL
         """
         return self._execute_injection_phase(InjectionTiming.POST_BURST, current_timestep)
     
@@ -235,10 +256,10 @@ class FCLInjectionService:
         # Process all batches for this timing
         for batch in self._injection_batches[timing]:
             logger.debug(f"Processing batch for {batch.cortical_id} with {len(batch.neuron_ids)} neurons")
-            injected = self._inject_batch(batch, current_timestep)
-            total_injected += injected
-            if injected > 0:
-                logger.info(f"Successfully injected {injected} neurons from {batch.cortical_id}")
+            candidates_added = self._inject_batch(batch, current_timestep)
+            total_injected += candidates_added
+            if candidates_added > 0:
+                logger.info(f"Successfully added {candidates_added} candidates to FCL from {batch.cortical_id}")
         
         # Update statistics
         end_time = time.perf_counter()
@@ -248,22 +269,26 @@ class FCLInjectionService:
         self.total_neurons_injected += total_injected
         
         if total_injected > 0:
-            logger.info(f"POWER INJECTION: Injected {total_injected} neurons in {timing.value} phase ({self.last_injection_duration:.4f}s)")
+            logger.info(f"FCL INJECTION: Added {total_injected} candidates to FCL in {timing.value} phase ({self.last_injection_duration:.4f}s)")
         else:
-            logger.debug(f"No neurons injected in {timing.value} phase")
+            logger.debug(f"No candidates added to FCL in {timing.value} phase")
         
         return total_injected
     
     def _inject_batch(self, batch: InjectionBatch, current_timestep: int) -> int:
         """
-        Inject a batch of neurons into the FCL.
+        Add a batch of neuron candidates to the FCL.
+        
+        This method handles the actual addition of candidates from special areas
+        to the Fire Candidate List. The candidates will be processed along with
+        other FCL entries during the unified burst processing sweep.
         
         Args:
             batch: The injection batch to process
             current_timestep: Current simulation timestep
             
         Returns:
-            Number of neurons injected
+            Number of candidates added to FCL
         """
         if not batch.neuron_ids:
             return 0
@@ -281,23 +306,23 @@ class FCLInjectionService:
             # Extract cortical_id (remove batch suffix if present)
             cortical_id = batch.cortical_id.split('_batch_')[0]
             
-            # CRITICAL FIX: Power areas should be injected DIRECTLY into FCL
-            # They should NOT go through normal membrane potential processing
-            # This is foundational - power areas inject unconditionally every burst
+            # Add candidates directly to FCL - bypasses membrane potential checks
+            # This is the unified FCL candidate model: external sources add candidates
+            # that get processed together with internal synaptic propagation
             
             if hasattr(self.fcl_manager, 'add_neurons_to_fcl'):
                 # Direct injection - bypasses membrane potential checks
                 self.fcl_manager.add_neurons_to_fcl(cortical_id, neurons_to_inject, current_timestep)
-                logger.debug(f"Power injection: Added {len(neurons_to_inject)} neurons from {cortical_id} to FCL")
+                logger.debug(f"FCL candidate addition: Added {len(neurons_to_inject)} candidates from {cortical_id} to FCL")
             elif hasattr(self.fcl_manager, 'add_to_current_fcl'):
                 # Fallback: Direct injection into current FCL
                 self.fcl_manager.add_to_current_fcl(neurons_to_inject)
-                logger.debug(f"Power injection (fallback): Added {len(neurons_to_inject)} neurons to FCL")
+                logger.debug(f"FCL candidate addition (fallback): Added {len(neurons_to_inject)} candidates to FCL")
             elif hasattr(self.fcl_manager, 'update_fcl'):
                 # Last resort: Force through update_fcl but mark as injected
                 neurons_by_cortical = {cortical_id: neurons_to_inject}
                 self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
-                logger.debug(f"Power injection (forced): Updated FCL with {len(neurons_to_inject)} neurons from {cortical_id}")
+                logger.debug(f"FCL candidate addition (forced): Updated FCL with {len(neurons_to_inject)} candidates from {cortical_id}")
             else:
                 logger.error("FCL manager does not support any known injection method")
                 return 0
