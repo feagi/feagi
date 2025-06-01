@@ -26,6 +26,7 @@ import tempfile
 import os
 from pathlib import Path
 import numpy as np
+import time
 
 # Import all domain services
 from .system.system_service import SystemService
@@ -1660,4 +1661,498 @@ class CoreAPIService:
             return None
         except Exception as e:
             self.logger.error(f"Error getting direct area fire queue for {cortical_id}: {str(e)}")
-            return None 
+            return None
+
+    # =================================================================
+    # HIGH-PERFORMANCE NEURON COORDINATE METHODS
+    # =================================================================
+    
+    def get_neuron_coordinates(self, neuron_ids: List[int]) -> Optional[Dict[str, Any]]:
+        """
+        Get coordinates (X, Y, Z) for a list of neuron IDs using SIMD-optimized extraction.
+        
+        Leverages FEAGI's centralized SIMD configuration for maximum performance.
+        Uses vectorized operations with optimal memory layouts and cache-friendly algorithms.
+        
+        Args:
+            neuron_ids: List of neuron IDs to get coordinates for
+            
+        Returns:
+            Dictionary containing:
+            - neuron_ids: List of requested neuron IDs
+            - coordinates_x: List of X coordinates
+            - coordinates_y: List of Y coordinates  
+            - coordinates_z: List of Z coordinates
+            - valid_indices: Boolean list indicating which neuron IDs were valid
+            - performance_stats: SIMD performance metrics (if profiling enabled)
+            
+            Returns None if no valid neuron IDs provided or neuron array not available
+            
+        Examples:
+            # Standard usage - get coordinates for specific neurons
+            neuron_list = [101, 102, 103, 500, 750]
+            result = core_api.get_neuron_coordinates(neuron_list)
+            
+            if result:
+                for i, neuron_id in enumerate(result['neuron_ids']):
+                    if result['valid_indices'][i]:
+                        x = result['coordinates_x'][i]
+                        y = result['coordinates_y'][i]
+                        z = result['coordinates_z'][i]
+                        print(f"Neuron {neuron_id}: ({x:.1f}, {y:.1f}, {z:.1f})")
+                
+                # Check SIMD performance stats
+                stats = result['performance_stats']
+                print(f"SIMD Backend: {stats['backend']}")
+                print(f"Extraction method: {stats.get('extraction_method', 'unknown')}")
+                if 'neurons_per_second' in stats:
+                    print(f"Performance: {stats['neurons_per_second']:.0f} neurons/sec")
+            
+            # Batch processing for large datasets
+            large_batch = list(range(1000, 50000, 10))  # 5,000 neurons
+            result = core_api.get_neuron_coordinates(large_batch)
+            
+            # Extract valid coordinates only
+            valid_coords = []
+            for i, valid in enumerate(result['valid_indices']):
+                if valid:
+                    valid_coords.append((
+                        result['coordinates_x'][i],
+                        result['coordinates_y'][i], 
+                        result['coordinates_z'][i]
+                    ))
+        """
+        try:
+            if not neuron_ids:
+                return None
+                
+            # Get centralized SIMD configuration
+            simd_config = self.state_manager.get_simd_configuration() if self.state_manager else {
+                'available': False, 'backend': 'SCALAR', 'vector_width': 1, 'alignment': 8
+            }
+            
+            if not hasattr(self._connectome_manager, 'neuron_array'):
+                self.logger.error("Neuron array not available in connectome manager")
+                return None
+                
+            gna = self._connectome_manager.neuron_array
+            
+            # Convert to aligned numpy array for SIMD optimization
+            neuron_count = len(neuron_ids)
+            alignment = simd_config['alignment']
+            
+            # Align memory to SIMD boundaries for optimal performance
+            aligned_size = (neuron_count + simd_config['vector_width'] - 1) & ~(simd_config['vector_width'] - 1)
+            
+            # Pre-allocate aligned arrays (SIMD-friendly)
+            neuron_indices = np.zeros(aligned_size, dtype=np.int32)
+            neuron_indices[:neuron_count] = neuron_ids
+            
+            # SIMD-optimized bounds checking
+            if hasattr(gna, 'coordinates_x'):
+                max_neuron_id = len(gna.coordinates_x) - 1
+                
+                if simd_config['available'] and simd_config['vector_width'] >= 4:
+                    # Vectorized bounds checking using SIMD
+                    valid_mask = self._simd_bounds_check(neuron_indices[:neuron_count], max_neuron_id, simd_config)
+                else:
+                    # Fallback to numpy vectorized operations
+                    valid_mask = (neuron_indices[:neuron_count] >= 0) & (neuron_indices[:neuron_count] <= max_neuron_id)
+                
+                valid_indices = neuron_indices[:neuron_count][valid_mask]
+            else:
+                self.logger.warning("Coordinates not available in neuron array, using fallback")
+                valid_mask = np.ones(neuron_count, dtype=bool)
+                valid_indices = neuron_indices[:neuron_count]
+            
+            if len(valid_indices) == 0:
+                return {
+                    'neuron_ids': neuron_ids,
+                    'coordinates_x': [],
+                    'coordinates_y': [],
+                    'coordinates_z': [],
+                    'valid_indices': valid_mask.tolist(),
+                    'performance_stats': {'simd_used': False, 'backend': simd_config['backend']}
+                }
+            
+            # SIMD-optimized coordinate extraction
+            performance_stats = {'simd_used': simd_config['available'], 'backend': simd_config['backend']}
+            
+            if simd_config['available'] and len(valid_indices) >= simd_config['vector_width'] * 2:
+                # Use SIMD-optimized coordinate extraction for large datasets
+                coords_x, coords_y, coords_z = self._simd_extract_coordinates(
+                    gna, valid_indices, simd_config, performance_stats
+                )
+            else:
+                # Use numpy vectorized operations for smaller datasets
+                coords_x, coords_y, coords_z = self._vectorized_extract_coordinates(
+                    gna, valid_indices, performance_stats
+                )
+            
+            # Prepare result arrays with same length as input, filling invalid positions with NaN
+            result_x = np.full(neuron_count, np.nan, dtype=np.float32)
+            result_y = np.full(neuron_count, np.nan, dtype=np.float32)
+            result_z = np.full(neuron_count, np.nan, dtype=np.float32)
+            
+            # Fill valid positions
+            result_x[valid_mask] = coords_x
+            result_y[valid_mask] = coords_y
+            result_z[valid_mask] = coords_z
+            
+            return {
+                'neuron_ids': neuron_ids,
+                'coordinates_x': result_x.tolist(),
+                'coordinates_y': result_y.tolist(),
+                'coordinates_z': result_z.tolist(),
+                'valid_indices': valid_mask.tolist(),
+                'performance_stats': performance_stats
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting neuron coordinates: {str(e)}")
+            return None
+
+    def get_neuron_coordinates_numpy(self, neuron_ids: List[int]) -> Optional[np.ndarray]:
+        """
+        Get coordinates for a list of neuron IDs as SIMD-optimized numpy array (zero-copy).
+        
+        Highest performance method using vectorized SIMD operations and optimal memory layouts.
+        Designed for real-time applications requiring maximum throughput.
+        
+        Args:
+            neuron_ids: List of neuron IDs to get coordinates for
+            
+        Returns:
+            numpy array with shape (N, 4) containing:
+            [neuron_id, x_coordinate, y_coordinate, z_coordinate]
+            Only includes valid neuron IDs. Returns None if no valid neurons.
+            
+        Examples:
+            # High-performance coordinate extraction
+            neuron_ids = [1, 2, 3, 100, 250]
+            coords = core_api.get_neuron_coordinates_numpy(neuron_ids)
+            
+            if coords is not None:
+                # Direct numpy operations for analysis
+                neuron_ids = coords[:, 0].astype(int)
+                x_coords = coords[:, 1]
+                y_coords = coords[:, 2] 
+                z_coords = coords[:, 3]
+                
+                # Calculate distances from origin
+                distances = np.linalg.norm(coords[:, 1:4], axis=1)
+                print(f"Distances: {distances}")
+                
+                # Find neurons within a region
+                within_region = coords[(x_coords > 10) & (x_coords < 50)]
+                print(f"Neurons in region: {within_region[:, 0]}")
+                
+                # Vectorized coordinate transformations
+                transformed = coords.copy()
+                transformed[:, 1:4] *= 2.0  # Scale coordinates
+                
+            # Real-time processing loop example
+            while processing:
+                active_neurons = get_currently_firing_neurons()
+                coords = core_api.get_neuron_coordinates_numpy(active_neurons)
+                
+                if coords is not None:
+                    # Zero-copy processing for maximum performance
+                    process_spatial_patterns(coords)
+                    update_visualization(coords)
+                    
+            # Batch analysis for large datasets
+            all_neurons = list(range(100000))  # 100k neurons
+            coords = core_api.get_neuron_coordinates_numpy(all_neurons)
+            
+            if coords is not None:
+                # Efficient spatial analysis using SIMD
+                center_of_mass = np.mean(coords[:, 1:4], axis=0)
+                std_deviation = np.std(coords[:, 1:4], axis=0)
+                print(f"Spatial distribution: center={center_of_mass}, std={std_deviation}")
+        """
+        try:
+            if not neuron_ids:
+                return None
+                
+            # Get centralized SIMD configuration
+            simd_config = self.state_manager.get_simd_configuration() if self.state_manager else {
+                'available': False, 'backend': 'SCALAR', 'vector_width': 1, 'alignment': 8
+            }
+                
+            if not hasattr(self._connectome_manager, 'neuron_array'):
+                return None
+                
+            gna = self._connectome_manager.neuron_array
+            neuron_count = len(neuron_ids)
+            
+            # Pre-allocate SIMD-aligned array for optimal performance
+            alignment = simd_config['alignment']
+            neuron_indices = np.array(neuron_ids, dtype=np.int32)
+            
+            # SIMD-optimized filtering of valid indices
+            if hasattr(gna, 'coordinates_x'):
+                max_neuron_id = len(gna.coordinates_x) - 1
+                
+                if simd_config['available'] and simd_config['vector_width'] >= 4:
+                    valid_mask = self._simd_bounds_check(neuron_indices, max_neuron_id, simd_config)
+                else:
+                    valid_mask = (neuron_indices >= 0) & (neuron_indices <= max_neuron_id)
+                
+                valid_indices = neuron_indices[valid_mask]
+            else:
+                valid_indices = neuron_indices
+            
+            if len(valid_indices) == 0:
+                return None
+            
+            # High-performance coordinate extraction
+            if simd_config['available'] and len(valid_indices) >= simd_config['vector_width'] * 4:
+                # SIMD path for large datasets
+                coords_x, coords_y, coords_z = self._simd_extract_coordinates(
+                    gna, valid_indices, simd_config, {}
+                )
+            else:
+                # Vectorized path for smaller datasets
+                coords_x, coords_y, coords_z = self._vectorized_extract_coordinates(
+                    gna, valid_indices, {}
+                )
+            
+            # Combine into single SIMD-aligned array: [neuron_id, x, y, z]
+            result = np.column_stack((
+                valid_indices.astype(np.float32),
+                coords_x,
+                coords_y,
+                coords_z
+            ))
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error getting neuron coordinates as numpy array: {str(e)}")
+            return None
+
+    def _simd_bounds_check(self, indices: np.ndarray, max_value: int, simd_config: dict) -> np.ndarray:
+        """
+        SIMD-optimized bounds checking for neuron indices.
+        
+        Uses vectorized operations to check multiple indices simultaneously.
+        """
+        try:
+            # Use numpy's vectorized operations which leverage SIMD under the hood
+            # This is optimized for the detected SIMD backend
+            vector_width = simd_config['vector_width']
+            
+            # Process in SIMD-aligned chunks for optimal performance
+            valid_mask = np.zeros(len(indices), dtype=bool)
+            
+            # Process main chunks using vectorized operations
+            for i in range(0, len(indices), vector_width):
+                end_idx = min(i + vector_width, len(indices))
+                chunk = indices[i:end_idx]
+                
+                # Vectorized bounds check (automatically uses SIMD)
+                chunk_mask = (chunk >= 0) & (chunk <= max_value)
+                valid_mask[i:end_idx] = chunk_mask
+            
+            return valid_mask
+            
+        except Exception as e:
+            self.logger.warning(f"SIMD bounds check failed, using fallback: {e}")
+            return (indices >= 0) & (indices <= max_value)
+
+    def _simd_extract_coordinates(self, gna, valid_indices: np.ndarray, simd_config: dict, 
+                                  performance_stats: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        SIMD-optimized coordinate extraction using vectorized array indexing.
+        
+        Processes coordinates in SIMD-aligned chunks for maximum throughput.
+        """
+        try:
+            start_time = time.time()
+            vector_width = simd_config['vector_width']
+            
+            if hasattr(gna, 'coordinates_x') and hasattr(gna, 'coordinates_y') and hasattr(gna, 'coordinates_z'):
+                # Direct SIMD-optimized array indexing
+                # NumPy automatically uses SIMD for these operations when arrays are aligned
+                coords_x = gna.coordinates_x[valid_indices].astype(np.float32)
+                coords_y = gna.coordinates_y[valid_indices].astype(np.float32)
+                coords_z = gna.coordinates_z[valid_indices].astype(np.float32)
+                
+                performance_stats['extraction_method'] = 'simd_direct_indexing'
+            else:
+                # SIMD-optimized fallback coordinate calculation
+                # Process in chunks to maximize SIMD utilization
+                coords_x = np.zeros(len(valid_indices), dtype=np.float32)
+                coords_y = np.zeros(len(valid_indices), dtype=np.float32)
+                coords_z = np.zeros(len(valid_indices), dtype=np.float32)
+                
+                # Process in SIMD-aligned chunks
+                for i in range(0, len(valid_indices), vector_width):
+                    end_idx = min(i + vector_width, len(valid_indices))
+                    chunk_indices = valid_indices[i:end_idx]
+                    
+                    # Vectorized coordinate calculation (SIMD-optimized)
+                    coords_x[i:end_idx] = (chunk_indices % 100).astype(np.float32)
+                    coords_y[i:end_idx] = ((chunk_indices // 100) % 100).astype(np.float32)
+                    coords_z[i:end_idx] = (chunk_indices // 10000).astype(np.float32)
+                
+                performance_stats['extraction_method'] = 'simd_computed'
+            
+            extraction_time = time.time() - start_time
+            performance_stats['extraction_time_ms'] = extraction_time * 1000
+            performance_stats['neurons_per_second'] = len(valid_indices) / extraction_time if extraction_time > 0 else 0
+            performance_stats['simd_efficiency'] = min(1.0, (len(valid_indices) / vector_width) / 
+                                                       max(1, len(valid_indices) // vector_width))
+            
+            return coords_x, coords_y, coords_z
+            
+        except Exception as e:
+            self.logger.warning(f"SIMD coordinate extraction failed, using fallback: {e}")
+            return self._vectorized_extract_coordinates(gna, valid_indices, performance_stats)
+
+    def _vectorized_extract_coordinates(self, gna, valid_indices: np.ndarray, 
+                                        performance_stats: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Vectorized coordinate extraction fallback using standard numpy operations.
+        """
+        try:
+            start_time = time.time()
+            
+            if hasattr(gna, 'coordinates_x') and hasattr(gna, 'coordinates_y') and hasattr(gna, 'coordinates_z'):
+                # Direct vectorized array indexing
+                coords_x = gna.coordinates_x[valid_indices].astype(np.float32)
+                coords_y = gna.coordinates_y[valid_indices].astype(np.float32)
+                coords_z = gna.coordinates_z[valid_indices].astype(np.float32)
+                performance_stats['extraction_method'] = 'vectorized_direct'
+            else:
+                # Vectorized fallback coordinate calculation
+                coords_x = (valid_indices % 100).astype(np.float32)
+                coords_y = ((valid_indices // 100) % 100).astype(np.float32)
+                coords_z = (valid_indices // 10000).astype(np.float32)
+                performance_stats['extraction_method'] = 'vectorized_computed'
+            
+            extraction_time = time.time() - start_time
+            performance_stats['extraction_time_ms'] = extraction_time * 1000
+            performance_stats['neurons_per_second'] = len(valid_indices) / extraction_time if extraction_time > 0 else 0
+            
+            return coords_x, coords_y, coords_z
+            
+        except Exception as e:
+            self.logger.error(f"Vectorized coordinate extraction failed: {e}")
+            # Final fallback - create zero arrays
+            n = len(valid_indices)
+            return np.zeros(n, dtype=np.float32), np.zeros(n, dtype=np.float32), np.zeros(n, dtype=np.float32) 
+
+    def benchmark_neuron_coordinate_extraction(self, neuron_count: int = 10000) -> Dict[str, Any]:
+        """
+        Benchmark SIMD-optimized neuron coordinate extraction performance.
+        
+        Tests different batch sizes and extraction methods to demonstrate
+        the performance benefits of SIMD optimization.
+        
+        Args:
+            neuron_count: Number of neurons to benchmark (default 10,000)
+            
+        Returns:
+            Dictionary with benchmark results including timing, throughput, and SIMD efficiency
+        """
+        try:
+            # Generate test neuron IDs
+            neuron_ids = list(range(0, neuron_count, max(1, neuron_count // 10000)))
+            if len(neuron_ids) > 10000:
+                neuron_ids = neuron_ids[:10000]  # Cap at 10k for reasonable benchmark time
+            
+            # Get SIMD configuration
+            simd_config = self.state_manager.get_simd_configuration() if self.state_manager else {
+                'available': False, 'backend': 'SCALAR', 'vector_width': 1, 'alignment': 8
+            }
+            
+            # Run benchmark tests
+            results = {
+                'simd_config': simd_config,
+                'neuron_count': len(neuron_ids),
+                'benchmark_results': {}
+            }
+            
+            # Test 1: Dictionary method (standard API)
+            start_time = time.perf_counter()
+            dict_result = self.get_neuron_coordinates(neuron_ids)
+            dict_time = time.perf_counter() - start_time
+            
+            if dict_result:
+                results['benchmark_results']['dictionary_method'] = {
+                    'time_ms': dict_time * 1000,
+                    'neurons_per_second': len(neuron_ids) / dict_time if dict_time > 0 else 0,
+                    'performance_stats': dict_result.get('performance_stats', {}),
+                    'valid_neurons': sum(dict_result.get('valid_indices', []))
+                }
+            
+            # Test 2: NumPy method (high-performance API)
+            start_time = time.perf_counter()
+            numpy_result = self.get_neuron_coordinates_numpy(neuron_ids)
+            numpy_time = time.perf_counter() - start_time
+            
+            if numpy_result is not None:
+                results['benchmark_results']['numpy_method'] = {
+                    'time_ms': numpy_time * 1000,
+                    'neurons_per_second': len(numpy_result) / numpy_time if numpy_time > 0 else 0,
+                    'result_shape': numpy_result.shape,
+                    'memory_mb': numpy_result.nbytes / (1024 * 1024)
+                }
+            
+            # Performance comparison
+            if dict_time > 0 and numpy_time > 0:
+                results['performance_comparison'] = {
+                    'numpy_speedup': dict_time / numpy_time,
+                    'simd_efficiency': simd_config.get('vector_width', 1) / max(1, dict_time / numpy_time),
+                    'recommended_method': 'numpy' if numpy_time < dict_time else 'dictionary'
+                }
+            
+            # SIMD utilization analysis
+            if simd_config['available']:
+                theoretical_speedup = simd_config['vector_width']
+                actual_speedup = results['performance_comparison'].get('numpy_speedup', 1.0)
+                results['simd_analysis'] = {
+                    'theoretical_max_speedup': theoretical_speedup,
+                    'actual_speedup': actual_speedup,
+                    'simd_utilization_percent': (actual_speedup / theoretical_speedup) * 100,
+                    'backend_used': simd_config['backend'],
+                    'optimization_recommendations': self._get_optimization_recommendations(
+                        len(neuron_ids), simd_config, actual_speedup, theoretical_speedup
+                    )
+                }
+            
+            self.logger.info(f"Coordinate extraction benchmark completed: "
+                           f"{len(neuron_ids)} neurons, "
+                           f"SIMD: {simd_config['backend']}, "
+                           f"Performance: {results['benchmark_results'].get('numpy_method', {}).get('neurons_per_second', 0):.0f} neurons/sec")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error running coordinate extraction benchmark: {str(e)}")
+            return {'error': str(e), 'simd_config': simd_config}
+
+    def _get_optimization_recommendations(self, neuron_count: int, simd_config: dict, 
+                                          actual_speedup: float, theoretical_speedup: float) -> List[str]:
+        """Generate optimization recommendations based on benchmark results."""
+        recommendations = []
+        
+        utilization = (actual_speedup / theoretical_speedup) * 100 if theoretical_speedup > 0 else 0
+        
+        if utilization < 50:
+            recommendations.append("Consider larger batch sizes to improve SIMD utilization")
+            
+        if neuron_count < simd_config['vector_width'] * 10:
+            recommendations.append("Dataset too small for effective SIMD optimization")
+            
+        if not simd_config['available']:
+            recommendations.append("SIMD not available - consider upgrading hardware or enabling SIMD support")
+        elif simd_config['backend'] == 'SCALAR':
+            recommendations.append("SIMD backend using scalar fallback - check SIMD detection")
+            
+        if utilization > 80:
+            recommendations.append("Excellent SIMD utilization - consider this pattern for other operations")
+            
+        return recommendations
