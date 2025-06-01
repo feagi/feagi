@@ -153,6 +153,19 @@ class FeagiTestRunner:
                 logger.error(f"Failed to load test genome: {result.get('error', 'Unknown error')}")
                 return False
             
+            # CRITICAL: Update burst engine with new genome to initialize special area services
+            # This ensures power areas like "___pwr" get properly configured for injection
+            try:
+                burst_engine = self.core_api.get_burst_engine()
+                if burst_engine:
+                    burst_engine.update_with_genome()
+                    logger.info("Burst engine updated with test genome - special area services initialized")
+                else:
+                    logger.warning("No burst engine available for genome update")
+            except Exception as e:
+                logger.error(f"Failed to update burst engine with genome: {e}")
+                # Continue anyway as this might not be critical for basic test functionality
+            
             # Wait for brain readiness to become True (state-driven)
             logger.info("Waiting for brain readiness state to become True...")
             

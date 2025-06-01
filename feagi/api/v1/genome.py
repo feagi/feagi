@@ -28,7 +28,7 @@ import os
 import json
 import tempfile
 from typing import Dict, Any, Optional, List
-from fastapi import UploadFile
+from fastapi import UploadFile, HTTPException
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 from .schemas import (
@@ -93,58 +93,37 @@ class GenomeAPI:
     
     @genome_endpoint('POST', '/upload/barebones', response_model=GenomeUploadResponse)
     async def upload_barebones_genome(self) -> GenomeUploadResponse:
-        """Upload the barebones genome template."""
-        try:
-            # Use CoreAPIService to handle barebones genome loading
-            result = self.core_api_service.load_barebones_genome()
-            
-            if not result.get("success", False):
-                error_msg = result.get("error", "Unknown error occurred")
-                raise ValueError(f"Failed to upload barebones genome: {error_msg}")
-            
-            # Update the burst engine
-            burst_engine = self.core_api_service.get_burst_engine()
-            if burst_engine:
-                burst_engine.update_with_genome()
-                logger.info("Burst Engine updated with new genome", status="[FAST]")
-            
+        """Upload/load the barebones genome."""
+        logger.info("Loading barebones genome")
+        result = self.core_api_service.load_barebones_genome()
+        
+        if result.get("success", False):
             return GenomeUploadResponse(
-                success=True,
-                message="Barebones genome uploaded successfully",
-                genome_number=self.core_api_service.get_genome_counter(),
-                loaded=result
+                message="Barebones genome loaded successfully",
+                cortical_area_count=result.get("cortical_area_count", 0)
             )
-        except Exception as e:
-            logger.error(f"Failed to upload barebones genome: {str(e)}", status="[ERR]")
-            raise ValueError(f"Error uploading barebones genome: {str(e)}")
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to load barebones genome: {result.get('error', 'Unknown error')}"
+            )
     
     @genome_endpoint('POST', '/upload/essential', response_model=GenomeUploadResponse)
     async def upload_essential_genome(self) -> GenomeUploadResponse:
-        """Upload the essential genome template."""
-        try:
-            # Use CoreAPIService to handle essential genome loading
-            result = self.core_api_service.load_essential_genome()
-            
-            if not result.get("success", False):
-                error_msg = result.get("error", "Unknown error occurred")
-                raise ValueError(f"Failed to upload essential genome: {error_msg}")
-            
-            # Update burst engine with new genome
-            burst_engine = self.core_api_service.get_burst_engine()
-            if burst_engine:
-                burst_engine.update_with_genome()
-                logger.info("Burst Engine updated with new genome", status="[FAST]")
-            
+        """Upload/load the essential genome."""
+        logger.info("Loading essential genome")
+        result = self.core_api_service.load_essential_genome()
+        
+        if result.get("success", False):
             return GenomeUploadResponse(
-                success=True,
-                message="Essential genome uploaded successfully",
-                genome_number=self.core_api_service.get_genome_counter(),
-                loaded=result
+                message="Essential genome loaded successfully",
+                cortical_area_count=result.get("cortical_area_count", 0)
             )
-            
-        except Exception as e:
-            logger.error(f"Failed to upload essential genome: {str(e)}", status="[ERR]")
-            raise ValueError(f"Failed to upload essential genome: {str(e)}")
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to load essential genome: {result.get('error', 'Unknown error')}"
+            )
     
     @genome_endpoint('POST', '/upload/file', response_model=Dict[str, Any])
     async def upload_genome_file(self, file_data: Dict[str, Any]) -> Dict[str, Any]:

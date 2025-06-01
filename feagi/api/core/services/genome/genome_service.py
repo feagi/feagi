@@ -44,180 +44,6 @@ class GenomeService(BaseService):
         else:
             self.logger.info("[DEBUG] GENOME SERVICE: No brain service provided, will create when needed")
 
-    def load_essential_genome(self) -> Dict[str, Any]:
-        """Load the essential genome from the default templates."""
-        try:
-            # Multiple possible locations to look for the essential genome
-            current_file = Path(__file__)
-            current_dir = current_file.parent
-            cwd = Path.cwd()
-            feagi_home = Path(os.environ.get("FEAGI_HOME", ""))
-            
-            possible_paths = [
-                # Original path
-                current_dir / "../../../../evo/defaults/genome/essential_genome.json",
-                
-                # Alternative paths relative to current file  
-                current_dir / "../../../../../feagi/evo/defaults/genome/essential_genome.json",
-                current_dir / "../../../../../evo/defaults/genome/essential_genome.json",
-                
-                # Paths relative to working directory
-                cwd / "feagi/evo/defaults/genome/essential_genome.json",
-                cwd / "feagi_core/feagi/evo/defaults/genome/essential_genome.json",
-                
-                # Check FEAGI_HOME environment variable if set
-                feagi_home / "evo/defaults/genome/essential_genome.json" if feagi_home.name else None,
-            ]
-            
-            # Find the first existing path
-            essential_path = None
-            for path in possible_paths:
-                if path and path.exists():
-                    essential_path = path
-                    break
-                    
-            if not essential_path:
-                self.logger.error(f"Essential genome template not found in any expected location")
-                self.logger.error(f"Checked paths: {[str(p) for p in possible_paths if p]}")
-                return {"success": False, "error": "Essential genome template not found"}
-                
-            self.logger.info(f"Loading essential genome from {essential_path}")
-                
-            with essential_path.open('r') as f:
-                genome_data = json.load(f)
-            
-            # Set the genome file name
-            if self.state_manager:
-                self.state_manager.genome_file_name = "essential_genome.json"
-            
-            # Call the existing load_genome method
-            self._genome_filename = "essential_genome.json"
-            result = self.load_genome(genome_data, "essential_genome.json")
-            
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Failed to load essential genome: {str(e)}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            return {"success": False, "error": str(e)}
-
-    def load_test_genome(self) -> Dict[str, Any]:
-        """Load the test genome from the default templates."""
-        try:
-            # Multiple possible locations to look for the test genome
-            current_file = Path(__file__)
-            current_dir = current_file.parent
-            cwd = Path.cwd()
-            feagi_home = Path(os.environ.get("FEAGI_HOME", ""))
-            
-            possible_paths = [
-                # Original path
-                current_dir / "../../../../evo/defaults/genome/test_genome.json",
-                
-                # Alternative paths relative to current file  
-                current_dir / "../../../../../feagi/evo/defaults/genome/test_genome.json",
-                current_dir / "../../../../../evo/defaults/genome/test_genome.json",
-                
-                # Paths relative to working directory
-                cwd / "feagi/evo/defaults/genome/test_genome.json",
-                cwd / "feagi_core/feagi/evo/defaults/genome/test_genome.json",
-                
-                # Check FEAGI_HOME environment variable if set
-                feagi_home / "evo/defaults/genome/test_genome.json" if feagi_home.name else None,
-            ]
-            
-            # Find the first existing path
-            test_path = None
-            for path in possible_paths:
-                if path and path.exists():
-                    test_path = path
-                    break
-                    
-            if not test_path:
-                self.logger.error(f"Test genome template not found in any expected location")
-                self.logger.error(f"Checked paths: {[str(p) for p in possible_paths if p]}")
-                return {"success": False, "error": "Test genome template not found"}
-                
-            self.logger.info(f"Loading test genome from {test_path}")
-                
-            with test_path.open('r') as f:
-                genome_data = json.load(f)
-            
-            # Set the genome file name
-            if self.state_manager:
-                self.state_manager.genome_file_name = "test_genome.json"
-            
-            # Call the existing load_genome method
-            self._genome_filename = "test_genome.json"
-            result = self.load_genome(genome_data, "test_genome.json")
-            
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Failed to load test genome: {str(e)}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            return {"success": False, "error": str(e)}
-
-    def load_barebones_genome(self) -> Dict[str, Any]:
-        """Load the barebones genome from the default templates."""
-        try:
-            # Multiple possible locations to look for the barebones genome
-            current_file = Path(__file__)
-            current_dir = current_file.parent
-            cwd = Path.cwd()
-            feagi_home = Path(os.environ.get("FEAGI_HOME", ""))
-            
-            possible_paths = [
-                # Original path
-                current_dir / "../../../../evo/defaults/genome/barebones_genome.json",
-                
-                # Alternative paths relative to current file
-                current_dir / "../../../../../feagi/evo/defaults/genome/barebones_genome.json", 
-                current_dir / "../../../../../evo/defaults/genome/barebones_genome.json",
-                
-                # Paths relative to working directory
-                cwd / "feagi/evo/defaults/genome/barebones_genome.json",
-                cwd / "feagi_core/feagi/evo/defaults/genome/barebones_genome.json",
-                
-                # Check FEAGI_HOME environment variable if set
-                feagi_home / "evo/defaults/genome/barebones_genome.json" if feagi_home.name else None,
-            ]
-            
-            # Find the first existing path
-            barebones_path = None
-            for path in possible_paths:
-                if path and path.exists():
-                    barebones_path = path
-                    break
-                    
-            if not barebones_path:
-                self.logger.error(f"Barebones genome template not found in any expected location")
-                self.logger.error(f"Checked paths: {[str(p) for p in possible_paths if p]}")
-                return {"success": False, "error": "Barebones genome template not found"}
-                
-            self.logger.info(f"Loading barebones genome from {barebones_path}")
-                
-            with barebones_path.open('r') as f:
-                genome_data = json.load(f)
-            
-            # Set the genome file name
-            if self.state_manager:
-                self.state_manager.genome_file_name = "barebones_genome.json"
-            
-            # Call the existing load_genome method
-            self._genome_filename = "barebones_genome.json"
-            result = self.load_genome(genome_data, "barebones_genome.json")
-            
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Failed to load barebones genome: {str(e)}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            return {"success": False, "error": str(e)}
-
     def load_genome(self, genome_data: Dict[str, Any], filename: str = "genome.json") -> Dict[str, Any]:
         """Load a genome and prepare it for use."""
         try:
@@ -716,3 +542,70 @@ class GenomeService(BaseService):
             return self.state_manager.is_genome_loaded()
         
         return False 
+
+    def load_default_genome(self, genome_name: str) -> Dict[str, Any]:
+        """
+        Load a genome from the default templates directory.
+        
+        Args:
+            genome_name: Name of the genome (e.g., 'essential', 'test', 'barebones')
+        
+        Returns:
+            Dict containing success status and error information
+        """
+        try:
+            # Normalize genome name
+            genome_name = genome_name.replace('.json', '')
+            genome_filename = f"{genome_name}_genome.json"
+            
+            # Find genome file using clean path resolution
+            genome_path = self._find_default_genome_path(genome_filename)
+            if not genome_path:
+                return {"success": False, "error": f"Default genome '{genome_name}' not found"}
+                
+            self.logger.info(f"Loading {genome_name} genome from {genome_path}")
+                
+            # Load and process genome
+            with genome_path.open('r') as f:
+                genome_data = json.load(f)
+            
+            # Update state manager
+            if self.state_manager:
+                self.state_manager.genome_file_name = genome_filename
+            
+            # Load genome through the main pipeline
+            self._genome_filename = genome_filename
+            return self.load_genome(genome_data, genome_filename)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load {genome_name} genome: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return {"success": False, "error": str(e)}
+
+    def _find_default_genome_path(self, filename: str) -> Optional[Path]:
+        """Clean path resolution for default genome files."""
+        current_file = Path(__file__)
+        current_dir = current_file.parent
+        cwd = Path.cwd()
+        
+        # Search paths in order of preference
+        search_paths = [
+            current_dir / "../../../../evo/defaults/genome",  # Relative to this file
+            cwd / "feagi/evo/defaults/genome",                # From working directory  
+            cwd / "feagi_core/feagi/evo/defaults/genome",     # From project root
+        ]
+        
+        # Add FEAGI_HOME if set
+        feagi_home = os.getenv("FEAGI_HOME")
+        if feagi_home:
+            search_paths.append(Path(feagi_home) / "evo/defaults/genome")
+        
+        # Return first existing file
+        for path in search_paths:
+            if path.exists():
+                genome_file = path / filename
+                if genome_file.exists():
+                    return genome_file
+                    
+        return None 
