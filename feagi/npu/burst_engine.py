@@ -284,14 +284,25 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             # Check injection service availability
             if self.fcl_injection_service:
                 logger.debug(f"[DEBUG] BURST ENGINE: Injection service AVAILABLE")
+                # Check if it has any batches prepared
+                try:
+                    preview = self.fcl_injection_service.get_power_injection_preview()
+                    logger.debug(f"[DEBUG] BURST ENGINE: Injection preview: {preview}")
+                except Exception as e:
+                    logger.debug(f"[DEBUG] BURST ENGINE: Error getting injection preview: {e}")
             else:
                 logger.debug(f"[DEBUG] BURST ENGINE: NO INJECTION SERVICE!")
         
         # 1. Pre-burst power injection
         if self.fcl_injection_service and self.power_injection_timing == 'pre_burst':
             if self.debug_npu:
-                logger.debug(f"[DEBUG] BURST ENGINE: Calling pre-burst injection")
-            self.fcl_injection_service.inject_pre_burst(self.burst_count)
+                logger.debug(f"[DEBUG] BURST ENGINE: Calling pre-burst injection with timing {self.power_injection_timing}")
+            injected = self.fcl_injection_service.inject_pre_burst(self.burst_count)
+            if self.debug_npu:
+                logger.info(f"[DEBUG] BURST ENGINE: Pre-burst injection returned {injected} neurons")
+        elif self.fcl_injection_service:
+            if self.debug_npu:
+                logger.debug(f"[DEBUG] BURST ENGINE: Skipping pre-burst injection - timing is {self.power_injection_timing}")
         
         # 2. Update membrane potentials and get fired neurons
         if self.debug_npu:
@@ -309,13 +320,17 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         if self.fcl_injection_service and self.power_injection_timing == 'during_burst':
             if self.debug_npu:
                 logger.debug(f"[DEBUG] BURST ENGINE: Calling during-burst injection")
-            self.fcl_injection_service.inject_during_burst(self.burst_count)
+            injected = self.fcl_injection_service.inject_during_burst(self.burst_count)
+            if self.debug_npu:
+                logger.info(f"[DEBUG] BURST ENGINE: During-burst injection returned {injected} neurons")
         
         # 4. Post-burst injection  
         if self.fcl_injection_service and self.power_injection_timing == 'post_burst':
             if self.debug_npu:
                 logger.debug(f"[DEBUG] BURST ENGINE: Calling post-burst injection")
-            self.fcl_injection_service.inject_post_burst(self.burst_count)
+            injected = self.fcl_injection_service.inject_post_burst(self.burst_count)
+            if self.debug_npu:
+                logger.info(f"[DEBUG] BURST ENGINE: Post-burst injection returned {injected} neurons")
         
         # 5. Debug fire queue output if --debug-npu flag is enabled
         if self.debug_npu:
