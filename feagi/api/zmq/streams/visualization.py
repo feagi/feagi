@@ -406,32 +406,20 @@ class VisualizationStream:
                 encoder_data = {}
                 for area_id, area_data in cortical_data.items():
                     if area_data and area_data.get('neuron_ids'):
-                        neuron_ids = area_data['neuron_ids']
+                        neuron_ids = area_data.get('neuron_ids', [])
                         membrane_potentials = area_data.get('membrane_potentials', [])
-                        coordinates = area_data.get('coordinates', [])
-                        
-                        # Use membrane potentials if available, otherwise default to 1.0
-                        if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
-                            potentials = membrane_potentials
-                        else:
-                            potentials = [1.0] * len(neuron_ids)
-                        
-                        # Generate coordinates if not available
-                        if coordinates and len(coordinates) == len(neuron_ids):
-                            x_coords = [coord[0] for coord in coordinates]
-                            y_coords = [coord[1] for coord in coordinates]
-                            z_coords = [coord[2] for coord in coordinates]
-                        else:
-                            # Fallback to ID-based coordinates
-                            x_coords = [nid % 100 for nid in neuron_ids]
-                            y_coords = [(nid // 100) % 100 for nid in neuron_ids]
-                            z_coords = [nid // 10000 for nid in neuron_ids]
-                        
+
+                        # Use high-performance coordinate extraction - real data only
+                        coords_result = self.core_api.get_neuron_coordinates_numpy(neuron_ids)
+                        x_coords = coords_result[:, 1].tolist()
+                        y_coords = coords_result[:, 2].tolist()
+                        z_coords = coords_result[:, 3].tolist()
+
                         encoder_data[area_id] = {
                             'x': x_coords,
                             'y': y_coords,
                             'z': z_coords,
-                            'potentials': potentials
+                            'potentials': membrane_potentials
                         }
                 
                 if encoder_data:
