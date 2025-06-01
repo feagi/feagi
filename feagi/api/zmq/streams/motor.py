@@ -79,8 +79,9 @@ class MotorStream:
         port: int = 5564,
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
-        fq_sampler_queue: Optional[Any] = None,
-        stream_config: Optional[Dict[str, Any]] = None
+        fire_queue_provider = None,
+        stream_config: Optional[Dict[str, Any]] = None,
+        connectome_manager = None
     ):
         """
         Initialize the Motor Stream.
@@ -91,8 +92,9 @@ class MotorStream:
             port: Port for sending motor data
             context: Optional existing ZMQ context to use
             fq_sampler: Optional FQ sampler instance for motor data sampling
-            fq_sampler_queue: Optional queue for receiving motor data from FQ sampler
+            fire_queue_provider: Fire queue provider for creating UnifiedFQSampler
             stream_config: Optional stream configuration
+            connectome_manager: Optional connectome manager for area info
         """
         self.core_api = core_api
         self.host = host
@@ -109,9 +111,22 @@ class MotorStream:
         # Rate limiter for throttling high-frequency data
         self.rate_limiter = RateLimiter()
         
-        # Motor subscriber management
-        self.fq_sampler = fq_sampler
-        self.fq_sampler_queue = fq_sampler_queue
+        # Motor subscriber management and FQ Sampler integration - ONLY use UnifiedFQSampler
+        if fq_sampler:
+            self.fq_sampler = fq_sampler
+        elif fire_queue_provider:
+            # Create new UnifiedFQSampler for motor control (OPU mode)
+            from feagi.npu.fq_sampler import UnifiedFQSampler
+            self.fq_sampler = UnifiedFQSampler(
+                fire_queue_provider=fire_queue_provider,
+                sample_frequency_hz=100.0,  # 100Hz for motor control (higher frequency)
+                sampling_mode='opu',  # Only sample OPU (motor) areas
+                connectome_manager=connectome_manager or getattr(core_api, '_connectome_manager', None)
+            )
+            logger.info("Created UnifiedFQSampler for motor with 'opu' mode")
+        else:
+            raise ValueError("Either fq_sampler or fire_queue_provider must be provided")
+        
         self.client_last_heartbeat: Dict[str, float] = {}
         self.client_heartbeat_timeout = 30.0  # 30 seconds timeout
         self.subscriber_check_interval = 2.0  # Check every 2 seconds
@@ -202,7 +217,7 @@ class MotorStream:
         self.running = True
         
         # Start motor data processing if FQ sampler queue is available
-        if self.fq_sampler_queue:
+        if self.fq_sampler:
             self._motor_data_task = asyncio.create_task(self._process_motor_data())
             
         # Start subscriber monitoring
@@ -252,247 +267,117 @@ class MotorStream:
         logger.info("Motor Stream server stopped")
 
     async def _process_motor_data(self) -> None:
-        """Process motor data from FQ sampler queue."""
-        if not self.fq_sampler_queue:
-            logger.warning("No FQ sampler queue available for motor data processing")
+        """Process motor data using only the new UnifiedFQSampler format."""
+        if not self.fq_sampler:
+            logger.warning("No FQ sampler available for motor data processing")
             return
             
         logger.debug("Starting motor data processing")
             
         while self.running:
             try:
-                # Get data from queue (non-blocking)
+                # Get motor data from UnifiedFQSampler only
                 motor_data = None
                 try:
-                    if hasattr(self.fq_sampler_queue, 'get'):
-                        motor_data = self.fq_sampler_queue.get(block=False)
-                    elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
-                        motor_data = self.fq_sampler_queue._queue.pop(0)
-                    else:
-                        await asyncio.sleep(0.01)
-                        continue
-                except Exception:
+                    motor_data = self.fq_sampler.sample()
+                    if motor_data:
+                        logger.debug(f"Got motor data from UnifiedFQSampler: {len(motor_data)} cortical areas")
+                except Exception as e:
+                    logger.debug(f"UnifiedFQSampler motor sampling error: {e}")
                     await asyncio.sleep(0.01)
-                    continue 
+                    continue
                 
                 if motor_data is None:
                     await asyncio.sleep(0.01)
                     continue
                     
-                # Handle different data types for motor processing
-                if isinstance(motor_data, bytes):
-                    # Already encoded binary data
-                    if self.get_connected_client_count() > 0:
-                        await self._send_motor_binary_data(motor_data)
-                
-                elif isinstance(motor_data, dict) and 'target' in motor_data:
-                    # Handle new tagged format from enhanced FQ sampler
-                    await self._process_tagged_motor_data(motor_data)
-                
-                elif isinstance(motor_data, tuple) and len(motor_data) == 2:
-                    # Handle (cortical_id, fire_queue_data) tuple format
-                    await self._process_motor_tuple(motor_data)
-                
-                elif isinstance(motor_data, dict):
-                    # Handle fire queue dict directly
-                    await self._process_motor_dict(motor_data)
-                
-                elif isinstance(motor_data, str) and motor_data == "STOP":
-                    logger.info("Received STOP signal")
-                    break 
-                
+                # Handle cortical area format data
+                if isinstance(motor_data, dict):
+                    logger.debug(f"Processing cortical area format: {len(motor_data)} areas")
+                    await self._process_cortical_area_motor_data(motor_data)
                 else:
-                    logger.debug(f"Unsupported motor data type: {type(motor_data)}")
+                    logger.warning(f"Unexpected data type from UnifiedFQSampler: {type(motor_data)}")
                 
             except asyncio.CancelledError:
                 break 
             except Exception as e: 
                 logger.error(f"Error in motor data processing: {e}")
-                await asyncio.sleep(0.1) 
+                await asyncio.sleep(0.1)
 
-    async def _process_tagged_motor_data(self, motor_data):
-        """Process tagged data from enhanced FQ sampler for motor streams."""
+    async def _process_cortical_area_motor_data(self, cortical_data: Dict[str, Any]) -> None:
+        """Process motor data in the cortical area format from UnifiedFQSampler."""
         try:
-            target = motor_data.get('target', 'motor')
-            
-            # Only process motor-targeted data in motor stream
-            if target != 'motor':
-                logger.debug(f"Skipping non-motor data (target: {target})")
-                return
-                
-            # Extract the actual fire queue data
-            if 'cortical_id' in motor_data and 'fire_queue_data' in motor_data:
-                # Area-specific data (OPU areas)
-                cortical_id = motor_data['cortical_id']
-                fire_queue_data = motor_data['fire_queue_data']
-                await self._process_motor_tuple((cortical_id, fire_queue_data))
-                
-            elif 'fire_queue_data' in motor_data:
-                # Global data (filtered for motor)
-                fire_queue_data = motor_data['fire_queue_data']
-                await self._process_motor_dict(fire_queue_data)
-                
-            else:
-                logger.warning(f"Invalid tagged motor data format: {motor_data.keys()}")
-                
-        except Exception as e:
-            logger.error(f"Error processing tagged motor data: {e}")
-
-    async def _process_motor_tuple(self, motor_data):
-        """Process a 2-element motor tuple and convert to motor data."""
-        try:
-            cortical_id, fire_queue_data = motor_data
-            
-            if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
-                return
-                
             # Check if we have connected clients
             client_count = self.get_connected_client_count()
             
             if client_count == 0:
-                logger.debug(f"No motor clients connected, skipping data for {cortical_id}")
+                logger.debug("No motor clients connected, skipping cortical area data")
                 return
+            
+            logger.debug(f"Processing new cortical area format for motor: {len(cortical_data)} areas")
+            
+            # Process each cortical area separately for motor control
+            for area_id, area_data in cortical_data.items():
+                if not area_data or not area_data.get('neuron_ids'):
+                    continue
                 
-            # Extract data from fire queue
-            neuron_ids = fire_queue_data['neuron_ids']
-            membrane_potentials = fire_queue_data.get('membrane_potentials', [])
-            coordinates = fire_queue_data.get('coordinates', [])
-            
-            # Use membrane potentials if available, otherwise default to 1.0
-            if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
-                potentials = membrane_potentials
-            else:
-                potentials = [1.0] * len(neuron_ids)
-            
-            # Create motor data structure
-            motor_data_dict = {
-                'cortical_id': cortical_id,
-                'neuron_ids': neuron_ids,
-                'potentials': potentials,
-                'coordinates': coordinates,
-                'timestamp': time.time()
-            }
-                        
-            # Encode using feagi_bytes for motor data - USE TYPE 10 FOR MOTOR CONTROL (NOT brain visualization)
-            try:
-                from feagi_bytes import ByteStructureEncoder
-                encoder = ByteStructureEncoder()
-                            
-                # Use Type 11 (NEURON_CATEGORIES) format - same as visualization stream
-                if coordinates and len(coordinates) == len(neuron_ids):
-                    x_values = [coord[0] for coord in coordinates]
-                    y_values = [coord[1] for coord in coordinates]
-                    z_values = [coord[2] for coord in coordinates]
+                # Extract data from area
+                neuron_ids = area_data['neuron_ids']
+                membrane_potentials = area_data.get('membrane_potentials', [])
+                coordinates = area_data.get('coordinates', [])
+                
+                # Use membrane potentials if available, otherwise default to 1.0
+                if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
+                    potentials = membrane_potentials
                 else:
-                    # Fallback to ID-based coordinates
-                    x_values = [nid % 100 for nid in neuron_ids]
-                    y_values = [(nid // 100) % 100 for nid in neuron_ids]
-                    z_values = [nid // 10000 for nid in neuron_ids]
+                    potentials = [1.0] * len(neuron_ids)
                 
-                # Convert to Type 11 (NEURON_CATEGORIES) format - same as visualization
-                cortical_data = {
-                    cortical_id: {
-                        'x': x_values,
-                        'y': y_values,
-                        'z': z_values,
-                        'potentials': potentials
+                # Encode using feagi_bytes for motor data - USE TYPE 11 (NEURON_CATEGORIES)
+                try:
+                    from feagi_bytes import ByteStructureEncoder
+                    encoder = ByteStructureEncoder()
+                    
+                    # Generate coordinates if not available
+                    if coordinates and len(coordinates) == len(neuron_ids):
+                        x_values = [coord[0] for coord in coordinates]
+                        y_values = [coord[1] for coord in coordinates]
+                        z_values = [coord[2] for coord in coordinates]
+                    else:
+                        # Fallback to ID-based coordinates
+                        x_values = [nid % 100 for nid in neuron_ids]
+                        y_values = [(nid // 100) % 100 for nid in neuron_ids]
+                        z_values = [nid // 10000 for nid in neuron_ids]
+                    
+                    # Convert to Type 11 (NEURON_CATEGORIES) format
+                    motor_cortical_data = {
+                        area_id: {
+                            'x': x_values,
+                            'y': y_values,
+                            'z': z_values,
+                            'potentials': potentials
+                        }
                     }
-                }
-                
-                binary_data = encoder.encode_neuron_categories(cortical_data)
-                
-                # DEBUG: Log the structure ID being generated
-                if binary_data and len(binary_data) > 0:
-                    structure_id = binary_data[0]
-                    logger.warning(f"🔍 MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes")
-                    logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
-                    logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
-                    if structure_id == 10:
-                        logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
-                    elif structure_id == 11:
-                        logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
-                    else:
-                        logger.warning(f"   ❓ Unknown structure type: {structure_id}")
-                
-                await self._send_motor_binary_data(binary_data, channel=cortical_id)
-                
-            except Exception as e:
-                logger.error(f"Error encoding motor data: {e}")
+                    
+                    binary_data = encoder.encode_neuron_categories(motor_cortical_data)
+                    
+                    # DEBUG: Log the structure ID being generated
+                    if binary_data and len(binary_data) > 0:
+                        structure_id = binary_data[0]
+                        logger.debug(f"MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes for area {area_id}")
+                        logger.debug(f"   Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                        logger.debug(f"   First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
+                        if structure_id == 11:
+                            logger.debug(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
+                        else:
+                            logger.debug(f"   ❓ Unknown structure type: {structure_id}")
+                    
+                    await self._send_motor_binary_data(binary_data, channel=area_id)
+                    
+                except Exception as e:
+                    logger.error(f"Error encoding motor data for area {area_id}: {e}")
                         
         except Exception as e:
-            logger.error(f"Error processing motor tuple: {e}")
-
-    async def _process_motor_dict(self, fire_queue_data):
-        """Process a fire queue dictionary directly for motor data."""
-        try:
-            if not fire_queue_data or not fire_queue_data.get('neuron_ids'):
-                return
-                
-            # Check if we have connected clients
-            client_count = self.get_connected_client_count()
-            
-            if client_count == 0:
-                logger.debug("No motor clients connected, skipping dict data")
-                return
-                
-            # Extract data from fire queue
-            neuron_ids = fire_queue_data['neuron_ids']
-            membrane_potentials = fire_queue_data.get('membrane_potentials', [])
-            coordinates = fire_queue_data.get('coordinates', [])
-            
-            # Use membrane potentials if available, otherwise default to 1.0
-            if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
-                potentials = membrane_potentials
-            else:
-                potentials = [1.0] * len(neuron_ids)
-            
-            # Use default cortical ID for motor
-            cortical_ids = ['motor'] * len(neuron_ids)
-            
-            # Encode using feagi_bytes for motor data - USE TYPE 10 FOR MOTOR CONTROL (NOT brain visualization)
-            try:
-                from feagi_bytes import ByteStructureEncoder
-                encoder = ByteStructureEncoder()
-                
-                # Use Type 11 (NEURON_CATEGORIES) format - same as visualization stream
-                if coordinates and len(coordinates) == len(neuron_ids):
-                    x_values = [coord[0] for coord in coordinates]
-                    y_values = [coord[1] for coord in coordinates]
-                    z_values = [coord[2] for coord in coordinates]
-                else:
-                    # Fallback to ID-based coordinates
-                    x_values = [nid % 100 for nid in neuron_ids]
-                    y_values = [(nid // 100) % 100 for nid in neuron_ids]
-                    z_values = [nid // 10000 for nid in neuron_ids]
-                            
-                binary_data = encoder.encode_neuron_categories(
-                    cortical_ids=cortical_ids,
-                    x_coords=x_values,
-                    y_coords=y_values,
-                    z_coords=z_values,
-                    potentials=potentials
-                )
-                
-                # DEBUG: Log the structure ID being generated
-                if binary_data and len(binary_data) > 0:
-                    structure_id = binary_data[0]
-                    logger.warning(f"🔍 MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes")
-                    logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
-                    logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
-                    if structure_id == 10:
-                        logger.warning(f"   ⚠️  Generated Type 10 (NEURON_FLAT) - should be Type 11!")
-                    elif structure_id == 11:
-                        logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
-                    else:
-                        logger.warning(f"   ❓ Unknown structure type: {structure_id}")
-                
-                await self._send_motor_binary_data(binary_data, channel="motor")
-                
-            except Exception as e:
-                logger.error(f"Error encoding motor data: {e}")
-                
-        except Exception as e:
-            logger.error(f"Error processing motor dict: {e}")
+            logger.error(f"Error processing cortical area motor data: {e}")
 
     async def _send_motor_binary_data(self, binary_data: bytes, channel: str = "motor"):
         """Send binary motor data to motor clients."""

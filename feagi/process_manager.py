@@ -104,14 +104,10 @@ class ProcessManager:
         # Track which ports are in use
         self._used_ports = set()
         
-        self._fcl_sampler = None
-        self._fcl_sampler_thread = None
-        self._fcl_sampler_queue = None
-        
-        # FQ Sampler (Fire Queue Sampler) - replacement for FCL sampler
+        # FQ Sampler references
         self._fq_sampler = None
-        self._fq_sampler_thread = None
-        self._fq_sampler_queue = None
+        self._motor_fq_sampler = None
+        self._viz_fq_sampler = None
         
     def load_and_validate_ports(self, cli_args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -342,68 +338,33 @@ class ProcessManager:
                 # --- FQ Sampler Setup (separate instances for motor and visualization) ---
                 if visualization_enabled or motor_enabled:
                     try:
-                        from feagi.npu.burst_engine import UnifiedFQSampler
-                        from queue import Queue
+                        from feagi.npu.fq_sampler import UnifiedFQSampler
                         
-                        # Create separate queues for motor and visualization
+                        # Initialize FQ Sampler references
                         self._motor_fq_sampler = None
-                        self._motor_fq_sampler_thread = None
-                        self._motor_fq_sampler_queue = None
-                        
                         self._viz_fq_sampler = None
-                        self._viz_fq_sampler_thread = None
-                        self._viz_fq_sampler_queue = None
                         
                         # --- Motor FQ Sampler (High-frequency OPU sampling) ---
                         if motor_enabled:
-                            self._motor_fq_sampler_queue = Queue(maxsize=200)  # Larger queue for motor
-                            
                             self._motor_fq_sampler = UnifiedFQSampler(
                                 fire_queue_provider=self._core_api,
                                 sample_frequency_hz=100.0,  # High-frequency motor sampling
-                                output_queue=self._motor_fq_sampler_queue,
                                 connectome_manager=self._connectome_manager,
-                                sampling_mode='motor_only',  # Only sample OPU areas
-                                enable_simd=True,
-                                enable_zero_copy=True,
-                                buffer_size=50_000  # Smaller buffer for motor areas
+                                sampling_mode='opu'  # Only sample OPU areas
                             )
-                            
-                            # Start motor sampler in dedicated thread
-                            import threading
-                            self._motor_fq_sampler_thread = threading.Thread(
-                                target=self._motor_fq_sampler.run,
-                                daemon=True,
-                                name="MotorFQSampler"
-                            )
-                            self._motor_fq_sampler_thread.start()
                             
                             logger.info("[OK] Motor FQ Sampler initialized (100Hz OPU sampling)")
                         
                         # --- Visualization FQ Sampler (Configurable-rate global sampling) ---
                         if visualization_enabled:
-                            self._viz_fq_sampler_queue = Queue(maxsize=100)
-                            
                             self._viz_fq_sampler = UnifiedFQSampler(
                                 fire_queue_provider=self._core_api,
                                 sample_frequency_hz=30.0,  # Moderate frequency for visualization
-                                output_queue=self._viz_fq_sampler_queue,
                                 connectome_manager=self._connectome_manager,
-                                sampling_mode='global',  # Sample all areas
-                                enable_simd=True,
-                                enable_zero_copy=True,
-                                buffer_size=100_000  # Larger buffer for global sampling
+                                sampling_mode='visualization'  # Sample all areas for visualization
                             )
                             
-                            # Start visualization sampler in dedicated thread
-                            self._viz_fq_sampler_thread = threading.Thread(
-                                target=self._viz_fq_sampler.run,
-                                daemon=True,
-                                name="VizFQSampler"
-                            )
-                            self._viz_fq_sampler_thread.start()
-                            
-                            logger.info("[OK] Visualization FQ Sampler initialized (30Hz global sampling)")
+                            logger.info("[OK] Visualization FQ Sampler initialized (30Hz visualization sampling)")
                         
                         logger.info(f"[OK] Independent FQ Samplers created: motor={motor_enabled}, viz={visualization_enabled}")
                         
@@ -411,10 +372,6 @@ class ProcessManager:
                         logger.error(f"Failed to initialize FQ Samplers: {e}")
                         self._motor_fq_sampler = None
                         self._viz_fq_sampler = None
-                        self._motor_fq_sampler_queue = None
-                        self._viz_fq_sampler_queue = None
-                        self._motor_fq_sampler_thread = None
-                        self._viz_fq_sampler_thread = None
                 else:
                     logger.info("Both motor and visualization disabled, skipping FQ Sampler initialization")
                 
@@ -445,14 +402,13 @@ class ProcessManager:
                     rest_port=port_config.zmq_rest_port,
                     vis_port=port_config.zmq_visualization_port if visualization_enabled else None,
                     fq_sampler=self._viz_fq_sampler,  # Visualization sampler for existing interface
-                    fq_sampler_queue=self._viz_fq_sampler_queue,  # Visualization queue for existing interface
+                    fire_queue_provider=self._core_api,  # Use core_api as fire_queue_provider
                     stream_config=stream_config  # Pass stream configuration to ZMQ server
                 )
                 
                 # Store motor sampler references in ZMQ server for motor stream
                 if motor_enabled and self._motor_fq_sampler:
                     zmq_server._motor_fq_sampler = self._motor_fq_sampler
-                    zmq_server._motor_fq_sampler_queue = self._motor_fq_sampler_queue
                     logger.info("[OK] Motor FQ Sampler attached to ZMQ server")
                 
                 # Start ZMQ server
@@ -575,6 +531,12 @@ class ProcessManager:
             host_config = get_host_config(config)
             api_host = host_config.api_host
             api_port = api_config.get('port', 8000)
+            
+            # Also get ZMQ host for embedded mode logging
+            zmq_host = host_config.zmq_host
+            
+            # Get port configuration for embedded mode logging
+            port_config = get_port_config(config)
             
             if not embedded_mode:
                 try:
@@ -937,11 +899,7 @@ class ProcessManager:
                 print("Stopping Motor FQSampler...", file=sys.stderr, flush=True)
                 try:
                     self._motor_fq_sampler.stop()
-                    if hasattr(self, '_motor_fq_sampler_thread') and self._motor_fq_sampler_thread:
-                        self._motor_fq_sampler_thread.join(timeout=fq_sampler_timeout)
                     self._motor_fq_sampler = None
-                    self._motor_fq_sampler_thread = None
-                    self._motor_fq_sampler_queue = None
                 except Exception as e:
                     print(f"Error stopping Motor FQSampler: {e}", file=sys.stderr, flush=True)
             
@@ -950,11 +908,7 @@ class ProcessManager:
                 print("Stopping Visualization FQSampler...", file=sys.stderr, flush=True)
                 try:
                     self._viz_fq_sampler.stop()
-                    if hasattr(self, '_viz_fq_sampler_thread') and self._viz_fq_sampler_thread:
-                        self._viz_fq_sampler_thread.join(timeout=fq_sampler_timeout)
                     self._viz_fq_sampler = None
-                    self._viz_fq_sampler_thread = None
-                    self._viz_fq_sampler_queue = None
                 except Exception as e:
                     print(f"Error stopping Visualization FQSampler: {e}", file=sys.stderr, flush=True)
             
