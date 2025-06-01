@@ -44,6 +44,7 @@ class TestVisualizationStream:
         mock = Mock()
         mock.genome_is_loaded.return_value = True
         mock.register_genome_change_listener = Mock()
+        mock.connectome_manager = None
         return mock
     
     @pytest.fixture
@@ -51,12 +52,33 @@ class TestVisualizationStream:
         """Create a mock FQ sampler."""
         mock = Mock()
         mock.set_visualization_subscribers = Mock()
+        mock.sample.return_value = {
+            'test_area_1': {
+                'neuron_ids': [1, 2, 3],
+                'membrane_potentials': [0.5, 0.7, 0.9],
+                'coordinates': [[0, 0, 0], [1, 1, 1], [2, 2, 2]],
+                'timestamp': time.time()
+            },
+            'test_area_2': {
+                'neuron_ids': [4, 5],
+                'membrane_potentials': [0.6, 0.8],
+                'coordinates': [[3, 3, 3], [4, 4, 4]],
+                'timestamp': time.time()
+            }
+        }
         return mock
     
     @pytest.fixture
-    def mock_fq_queue(self):
-        """Create a mock FQ sampler queue."""
-        return Queue()
+    def mock_fire_queue_provider(self):
+        """Create a mock fire queue provider."""
+        mock = Mock()
+        mock.get_latest_fire_queue.return_value = {
+            'test_area': {
+                'neuron_ids': [1, 2, 3],
+                'membrane_potentials': [0.5, 0.7, 0.9]
+            }
+        }
+        return mock
     
     @pytest.fixture
     def stream_config(self):
@@ -67,7 +89,7 @@ class TestVisualizationStream:
         }
     
     @pytest.fixture
-    def viz_stream(self, mock_core_api, mock_fq_sampler, mock_fq_queue, stream_config):
+    def viz_stream(self, mock_core_api, mock_fq_sampler, stream_config):
         """Create a VisualizationStream instance for testing."""
         # Use a different port to avoid conflicts
         stream = VisualizationStream(
@@ -75,7 +97,6 @@ class TestVisualizationStream:
             port=5570,  # Test port
             core_api=mock_core_api,
             fq_sampler=mock_fq_sampler,
-            fq_sampler_queue=mock_fq_queue,
             stream_config=stream_config
         )
         yield stream
@@ -243,53 +264,17 @@ class TestVisualizationStream:
         viz_stream._update_active_mode()
         assert viz_stream._active_mode is True
     
-    def test_data_processing_with_tagged_format(self, viz_stream, mock_fq_queue):
-        """Test processing of tagged format data from enhanced FQ sampler."""
+    def test_data_processing_with_cortical_areas(self, viz_stream, mock_fq_sampler):
+        """Test processing of new cortical area format data from UnifiedFQSampler."""
         viz_stream.start()
         
-        # Create tagged format data
-        tagged_data = {
-            'target': 'visualization',
-            'cortical_id': 'test_area',
-            'fire_queue_data': {
-                'neuron_ids': [1, 2, 3],
-                'coordinates': [[0, 0, 0], [1, 1, 1], [2, 2, 2]],
-                'membrane_potentials': [0.5, 0.7, 0.9]
-            }
-        }
+        # Wait for data processing
+        time.sleep(0.2)
         
-        # Put data in queue
-        mock_fq_queue.put(tagged_data)
-        
-        # Wait for processing
-        time.sleep(0.1)
+        # Verify mock sampler was called
+        mock_fq_sampler.sample.assert_called()
         
         # Verify stats were updated (data was processed)
-        assert viz_stream.stats['data_sent'] >= 0
-        
-        viz_stream.stop()
-    
-    def test_data_processing_with_legacy_tuple(self, viz_stream, mock_fq_queue):
-        """Test processing of legacy tuple format data."""
-        viz_stream.start()
-        
-        # Create legacy tuple format data
-        legacy_data = (
-            'test_area',
-            {
-                'neuron_ids': [1, 2],
-                'coordinates': [[0, 0, 0], [1, 1, 1]],
-                'membrane_potentials': [0.5, 0.7]
-            }
-        )
-        
-        # Put data in queue
-        mock_fq_queue.put(legacy_data)
-        
-        # Wait for processing
-        time.sleep(0.1)
-        
-        # Verify processing occurred
         assert viz_stream.stats['data_sent'] >= 0
         
         viz_stream.stop()
@@ -373,84 +358,96 @@ class TestVisualizationStream:
         viz_stream.stop()
     
     def test_compatibility_methods(self, viz_stream):
-        """Test compatibility methods for legacy code."""
-        # These should not raise exceptions
+        """Test that compatibility methods work."""
+        # These should not raise errors
         viz_stream.register_visualization_client("test_client")
         viz_stream.unregister_visualization_client("test_client")
-        viz_stream.send_visualization_data(b"test_data")
         
-        # Should always succeed without errors
-        assert True
-    
+        # Heartbeat should work normally
+        viz_stream.heartbeat_visualization_client("test_client")
+        assert viz_stream.get_connected_client_count() == 1
+
     @patch('feagi.process_manager.get_process_manager')
     def test_fq_sampler_from_process_manager(self, mock_get_pm, viz_stream):
-        """Test getting FQ sampler from process manager when not provided."""
-        # Set up mock process manager
+        """Test fallback to process manager for FQ sampler."""
+        # Setup mock process manager
         mock_pm = Mock()
-        mock_fq_sampler = Mock()
-        mock_pm._fq_sampler = mock_fq_sampler
+        mock_pm._fq_sampler = Mock()
+        mock_pm._fq_sampler.set_visualization_subscribers = Mock()
         mock_get_pm.return_value = mock_pm
         
-        # Clear the existing fq_sampler
+        # Clear the existing fq_sampler to test fallback
         viz_stream.fq_sampler = None
         
-        # Call the control method which should find the FQ sampler
+        # Try to control FQ sampler
         viz_stream._control_fq_sampler(True)
         
-        # Verify it found and used the FQ sampler
-        assert viz_stream.fq_sampler is mock_fq_sampler
-        mock_fq_sampler.set_visualization_subscribers.assert_called_with(True)
+        # Should have found and used the process manager's sampler
+        mock_pm._fq_sampler.set_visualization_subscribers.assert_called_with(True)
+
+    def test_initialization_with_fire_queue_provider(self, mock_fire_queue_provider):
+        """Test initialization with fire_queue_provider instead of fq_sampler."""
+        with patch('feagi.npu.fq_sampler.UnifiedFQSampler') as mock_unified_sampler:
+            stream = VisualizationStream(
+                port=5571, 
+                fire_queue_provider=mock_fire_queue_provider
+            )
+            
+            # Should have created UnifiedFQSampler
+            mock_unified_sampler.assert_called_once()
+            call_args = mock_unified_sampler.call_args[1]
+            assert call_args['fire_queue_provider'] is mock_fire_queue_provider
+            assert call_args['sampling_mode'] == 'visualization'
+            assert call_args['sample_frequency_hz'] == 30.0
+            
+            stream.stop()
+
+    def test_no_sampler_or_provider_raises_error(self):
+        """Test that missing both fq_sampler and fire_queue_provider raises error."""
+        with pytest.raises(ValueError, match="Either fq_sampler or fire_queue_provider must be provided"):
+            VisualizationStream(port=5572)
+
+    def test_no_data_handling(self, mock_core_api):
+        """Test handling when UnifiedFQSampler returns no data."""
+        mock_sampler = Mock()
+        mock_sampler.sample.return_value = None
+        mock_sampler.set_visualization_subscribers = Mock()
+        
+        stream = VisualizationStream(
+            port=5573, 
+            fq_sampler=mock_sampler,
+            core_api=mock_core_api
+        )
+        
+        stream.start()
+        time.sleep(0.1)  # Let it process
+        
+        # Should handle None data gracefully
+        assert stream.stats['data_sent'] == 0
+        
+        stream.stop()
+
+    def test_malformed_data_handling(self, mock_core_api):
+        """Test handling of unexpected data types from UnifiedFQSampler."""
+        mock_sampler = Mock()
+        mock_sampler.sample.return_value = "unexpected_string_data"
+        mock_sampler.set_visualization_subscribers = Mock()
+        
+        stream = VisualizationStream(
+            port=5574, 
+            fq_sampler=mock_sampler,
+            core_api=mock_core_api
+        )
+        
+        stream.start()
+        time.sleep(0.1)  # Let it process
+        
+        # Should handle malformed data gracefully
+        assert stream.stats['data_sent'] == 0
+        
+        stream.stop()
 
 
 class TestVisualizationStreamEdgeCases:
-    """Test edge cases and error conditions."""
-    
-    def test_no_core_api(self):
-        """Test initialization without core API (backward compatibility)."""
-        stream = VisualizationStream(port=5571)  # Different port
-        assert stream.core_api is None
-        assert stream._active_mode is True  # Should default to active
-        stream.stop()  # Cleanup
-    
-    def test_no_fq_sampler_queue(self):
-        """Test operation without FQ sampler queue."""
-        stream = VisualizationStream(port=5572, fq_sampler_queue=None)
-        stream.start()
-        
-        # Should start but warn about no data processing
-        assert stream.running is True
-        
-        stream.stop()
-    
-    def test_empty_queue_handling(self):
-        """Test handling of empty FQ sampler queue."""
-        queue = Queue()
-        stream = VisualizationStream(port=5573, fq_sampler_queue=queue)
-        stream.start()
-        
-        # Let it run for a moment with empty queue
-        time.sleep(0.1)
-        
-        # Should handle empty queue gracefully
-        assert stream.running is True
-        
-        stream.stop()
-    
-    def test_malformed_data_handling(self):
-        """Test handling of malformed data in queue."""
-        queue = Queue()
-        stream = VisualizationStream(port=5574, fq_sampler_queue=queue)
-        stream.start()
-        
-        # Put malformed data in queue
-        queue.put("invalid_data")
-        queue.put({"invalid": "structure"})
-        queue.put(None)
-        
-        # Let it process
-        time.sleep(0.1)
-        
-        # Should handle gracefully without crashing
-        assert stream.running is True
-        
-        stream.stop() 
+    """Test edge cases and error conditions - deprecated, tests moved to main class."""
+    pass 

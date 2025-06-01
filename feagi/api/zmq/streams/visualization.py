@@ -79,9 +79,10 @@ class VisualizationStream:
         port: int = 5562,
         context: Optional[zmq.Context] = None,
         fq_sampler: Optional[Any] = None,
-        fq_sampler_queue: Optional[Any] = None,
+        fire_queue_provider = None,
         stream_config: Optional[Dict[str, Any]] = None,
-        core_api: Optional[Any] = None  # Made optional and moved to end for compatibility
+        core_api: Optional[Any] = None,
+        connectome_manager = None
     ):
         """Initialize the primary FEAGI visualization stream."""
         # Core API integration (crucial for genome state management) - optional for compatibility
@@ -95,9 +96,21 @@ class VisualizationStream:
         # ALWAYS create a NEW sync context - NEVER use shared contexts that might be async
         self.context = zmq.Context()
         
-        # FQ Sampler integration
-        self.fq_sampler = fq_sampler
-        self.fq_sampler_queue = fq_sampler_queue
+        # FQ Sampler integration - ONLY use UnifiedFQSampler, no backward compatibility
+        if fq_sampler:
+            self.fq_sampler = fq_sampler
+        elif fire_queue_provider:
+            # Create new UnifiedFQSampler for visualization
+            from feagi.npu.fq_sampler import UnifiedFQSampler
+            self.fq_sampler = UnifiedFQSampler(
+                fire_queue_provider=fire_queue_provider,
+                sample_frequency_hz=30.0,  # 30Hz for visualization
+                sampling_mode='visualization',
+                connectome_manager=connectome_manager or getattr(core_api, '_connectome_manager', None)
+            )
+            logger.info("Created UnifiedFQSampler for visualization with 'visualization' mode")
+        else:
+            raise ValueError("Either fq_sampler or fire_queue_provider must be provided")
         
         # Stream configuration
         self.stream_config = stream_config or {}
@@ -200,7 +213,7 @@ class VisualizationStream:
         # Start multiple worker threads for different responsibilities
         
         # Thread 1: FQ data processing (main data processing)
-        if self.fq_sampler_queue:
+        if self.fq_sampler:
             fq_thread = threading.Thread(
                 target=self._data_worker,
                 name="VisualizationFQ",
@@ -210,7 +223,7 @@ class VisualizationStream:
             self.worker_threads.append(fq_thread)
             logger.debug("FQ data processing thread started")
         else:
-            logger.warning("No FQ sampler queue provided - no data will be processed")
+            logger.warning("No FQ sampler provided - no data will be processed")
             
         # Thread 2: Client cleanup and monitoring (crucial feature from full version)
         cleanup_thread = threading.Thread(
@@ -294,8 +307,8 @@ class VisualizationStream:
 
     def _data_worker(self) -> None:
         """
-        Enhanced data processing worker with standby mode support.
-        Includes crucial features from full version while keeping threading approach.
+        Data processing worker using only the new UnifiedFQSampler format.
+        Handles data organized by cortical areas from the strategy-based architecture.
         """
         logger.debug("Visualization data worker started")
         
@@ -306,7 +319,7 @@ class VisualizationStream:
                     logger.debug("Data worker received stop signal")
                     break
                 
-                # Skip processing if in standby mode (crucial feature from full version)
+                # Skip processing if in standby mode
                 if not self._active_mode:
                     # Update genome state and continue
                     self._update_active_mode()
@@ -317,58 +330,116 @@ class VisualizationStream:
                             break
                         continue
                 
-                # Try to get data from queue (non-blocking with shorter timeout)
-                fq_data = None
+                # Get data from UnifiedFQSampler only
+                vis_data = None
                 try:
-                    if hasattr(self.fq_sampler_queue, 'get'):
-                        # Reduced timeout from 0.1 to 0.05 for faster shutdown response
-                        fq_data = self.fq_sampler_queue.get(timeout=0.05)
-                    elif hasattr(self.fq_sampler_queue, '_queue') and len(self.fq_sampler_queue._queue) > 0:
-                        fq_data = self.fq_sampler_queue._queue.pop(0)
-                except Empty:
-                    # Check stop signal more frequently during empty queue periods
-                    if self._stop_event.is_set():
-                        logger.debug("Data worker stopping during empty queue")
-                        break
-                        continue
+                    vis_data = self.fq_sampler.sample()
+                    if vis_data:
+                        logger.debug(f"Got data from UnifiedFQSampler: {len(vis_data)} cortical areas")
                 except Exception as e:
-                    logger.debug(f"Queue access error: {e}")
+                    logger.debug(f"UnifiedFQSampler sampling error: {e}")
                     # Use wait() instead of sleep() for faster shutdown response
                     if self._stop_event.wait(timeout=0.01):  # Brief pause on error
-                        logger.debug("Data worker stopping after queue error")
+                        logger.debug("Data worker stopping after sampling error")
                         break
-                    continue 
-                
-                if fq_data is None:
                     continue
-                    
-                print("fq_data:", len(fq_data["neuron_ids"]))
-
+                
+                if vis_data is None:
+                    continue
+                
                 # Additional stop check before processing data
                 if self._stop_event.is_set():
                     logger.debug("Data worker stopping before data processing")
                     break
                 
-                # Process and send data based on type (enhanced processing like full version)
-                elif isinstance(fq_data, dict):
-                    # Legacy fire queue dict format
-                    # Additional safety check before processing
+                # Process cortical area format data
+                if isinstance(vis_data, dict):
+                    logger.debug(f"Processing cortical area format: {len(vis_data)} areas")
                     if self.socket and self.running:
-                        self._process_dict_data(fq_data)
+                        self._process_cortical_area_data(vis_data)
                     else:
-                        logger.debug("Skipping legacy dict processing: socket or stream not available")
-                
+                        logger.debug("Skipping cortical area processing: socket or stream not available")
                 else:
-                    logger.debug(f"Ignoring unsupported data type: {type(fq_data)}")
+                    logger.warning(f"Unexpected data type from UnifiedFQSampler: {type(vis_data)}")
                 
             except Exception as e:
                 logger.error(f"Error in data worker: {e}")
                 # Use wait() instead of sleep() for faster shutdown response
                 if self._stop_event.wait(timeout=0.1):  # Brief pause on error
                     logger.debug("Data worker stopping after error")
-                break 
+                    break 
                 
         logger.debug("Visualization data worker stopped")
+
+    def _process_cortical_area_data(self, cortical_data: Dict[str, Any]) -> None:
+        """Process data in the cortical area format from UnifiedFQSampler."""
+        try:
+            logger.debug(f"Processing cortical area format: {len(cortical_data)} areas")
+            
+            # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES) FOR DPR COMPATIBILITY
+            try:
+                from feagi_bytes import ByteStructureEncoder
+                encoder = ByteStructureEncoder()
+
+                # Convert cortical area data to the format expected by encoder
+                encoder_data = {}
+                for area_id, area_data in cortical_data.items():
+                    if area_data and area_data.get('neuron_ids'):
+                        neuron_ids = area_data['neuron_ids']
+                        membrane_potentials = area_data.get('membrane_potentials', [])
+                        coordinates = area_data.get('coordinates', [])
+                        
+                        # Use membrane potentials if available, otherwise default to 1.0
+                        if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
+                            potentials = membrane_potentials
+                        else:
+                            potentials = [1.0] * len(neuron_ids)
+                        
+                        # Generate coordinates if not available
+                        if coordinates and len(coordinates) == len(neuron_ids):
+                            x_coords = [coord[0] for coord in coordinates]
+                            y_coords = [coord[1] for coord in coordinates]
+                            z_coords = [coord[2] for coord in coordinates]
+                        else:
+                            # Fallback to ID-based coordinates
+                            x_coords = [nid % 100 for nid in neuron_ids]
+                            y_coords = [(nid // 100) % 100 for nid in neuron_ids]
+                            z_coords = [nid // 10000 for nid in neuron_ids]
+                        
+                        encoder_data[area_id] = {
+                            'x': x_coords,
+                            'y': y_coords,
+                            'z': z_coords,
+                            'potentials': potentials
+                        }
+                
+                if encoder_data:
+                    binary_data = encoder.encode_neuron_categories(encoder_data)
+
+                    # DEBUG: Log the structure ID being generated
+                    if binary_data and len(binary_data) > 0:
+                        structure_id = binary_data[0]
+                        logger.debug(f"VISUALIZATION STREAM DEBUG: Generated {len(binary_data)} bytes")
+                        logger.debug(f"   Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                        logger.debug(f"   First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
+
+                        if structure_id == 11:
+                            logger.debug(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
+                        else:
+                            logger.debug(f"   ❓ Unknown structure type: {structure_id}")
+
+                    # Publish the binary data
+                    total_neurons = sum(len(area_data.get('neuron_ids', [])) for area_data in cortical_data.values())
+                    self._publish_data(binary_data)
+                    logger.debug(f"Published cortical area data: {len(cortical_data)} areas, {total_neurons} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
+                    
+            except ImportError:
+                logger.error("feagi_bytes library not available - cannot encode binary data")
+            except Exception as e:
+                logger.error(f"Error encoding cortical area binary data: {e}")
+                
+        except Exception as e:
+            logger.error(f"Error processing cortical area data: {e}")
 
     def _publish_data(self, data: bytes) -> None:
         """
@@ -497,81 +568,6 @@ class VisualizationStream:
             logger.error(f"Failed to recreate socket: {e}")
             self.socket = None
             raise
-
-
-    def _process_dict_data(self, fire_data) -> None:
-        """Process legacy dict format data."""
-        try:
-            print("Processing legacy dict data")
-            if fire_data and 'neuron_ids' in fire_data:
-                neuron_count = len(fire_data.get('neuron_ids', []))
-                logger.debug(f"Received dict data: {neuron_count} neurons")
-                
-                # Extract data from fire queue
-                neuron_ids = fire_data['neuron_ids']
-                membrane_potentials = fire_data.get('membrane_potentials', [])
-                coordinates = fire_data.get('coordinates', [])
-                
-                # Use membrane potentials if available, otherwise default to 1.0
-                if membrane_potentials and len(membrane_potentials) == len(neuron_ids):
-                    potentials = membrane_potentials
-                else:
-                    potentials = [1.0] * len(neuron_ids)
-                
-                # Generate coordinates if not available
-                if coordinates and len(coordinates) == len(neuron_ids):
-                    x_coords = [coord[0] for coord in coordinates]
-                    y_coords = [coord[1] for coord in coordinates]
-                    z_coords = [coord[2] for coord in coordinates]
-                else:
-                    # Fallback to ID-based coordinates
-                    x_coords = [nid % 100 for nid in neuron_ids]
-                    y_coords = [(nid // 100) % 100 for nid in neuron_ids]
-                    z_coords = [nid // 10000 for nid in neuron_ids]
-                
-                # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES) FOR DPR COMPATIBILITY
-                try:
-                    from feagi_bytes import ByteStructureEncoder
-                    encoder = ByteStructureEncoder()
-
-                    # Convert to Type 11 (NEURON_CATEGORIES) format for DPR compatibility
-                    cortical_data = {
-                        'global': {
-                            'x': x_coords,
-                            'y': y_coords,
-                            'z': z_coords,
-                            'potentials': potentials
-                        }
-                    }
-                    
-                    binary_data = encoder.encode_neuron_categories(cortical_data)
-
-                    # TEST: Simple logger test to verify logging is working
-                    logger.warning("🧪 LOGGER TEST: This message should definitely appear!")
-                    
-                    # DEBUG: Log the structure ID being generated
-                    if binary_data and len(binary_data) > 0:
-                        structure_id = binary_data[0]
-                        logger.warning(f"🔍 VISUALIZATION STREAM DEBUG: Generated {len(binary_data)} bytes")
-                        logger.warning(f"   📊 Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
-                        logger.warning(f"   📋 First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
-
-                        if structure_id == 11:
-                            logger.warning(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
-                        else:
-                            logger.warning(f"   ❓ Unknown structure type: {structure_id}")
-
-                    # Publish the binary data
-                    self._publish_data(binary_data)
-                    logger.debug(f"Published global data: {neuron_count} neurons, {len(binary_data)} bytes (Type 11 DPR format)")
-                    
-                except ImportError:
-                    logger.error("feagi_bytes library not available - cannot encode binary data")
-                except Exception as e:
-                    logger.error(f"Error encoding dict binary data: {e}")
-                
-        except Exception as e:
-            logger.error(f"Error processing dict data: {e}")
 
     def get_stats(self) -> Dict[str, Any]:
         """Get simple statistics."""

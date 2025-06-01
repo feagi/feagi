@@ -211,7 +211,7 @@ class ZmqServer:
         vis_port: Optional[int] = None,
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
-        fq_sampler_queue: Optional[Any] = None,
+        fire_queue_provider: Optional[Any] = None,
         stream_config: Optional[Dict[str, Any]] = None
     ):
         """
@@ -230,7 +230,7 @@ class ZmqServer:
             vis_port: Port for visualization data (from config), None to disable
             context: Optional ZeroMQ context to use
             fq_sampler: Optional FQ sampler instance for visualization data
-            fq_sampler_queue: Optional queue for FQ data from the sampler
+            fire_queue_provider: Optional fire queue provider for visualization data
             stream_config: Optional stream configuration from TOML
         """
         self.core_api = core_api
@@ -266,7 +266,7 @@ class ZmqServer:
         
         # FQ Sampler integration
         self._fq_sampler = fq_sampler
-        self._fq_sampler_queue = fq_sampler_queue
+        self._fire_queue_provider = fire_queue_provider
         
         # Thread and event loop management
         self._thread = None
@@ -455,7 +455,7 @@ class ZmqServer:
                     port=self.motor_port,
                     context=self._context,
                     fq_sampler=self._fq_sampler,
-                    fq_sampler_queue=self._fq_sampler_queue,
+                    fire_queue_provider=self._fire_queue_provider,
                     stream_config=self.stream_config.get('motor', {})
                 )
                 logger.info(f"Motor stream enabled on port {self.motor_port}")
@@ -486,7 +486,7 @@ class ZmqServer:
                     host=self.host,
                     port=self.vis_port,
                     context=None,  # VisualizationStream creates its own sync context
-                    fq_sampler_queue=self._fq_sampler_queue
+                    fire_queue_provider=self._fire_queue_provider
                 )
                 logger.info(f"Primary visualization stream enabled on port {self.vis_port}")
             else:
