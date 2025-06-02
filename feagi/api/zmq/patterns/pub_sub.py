@@ -145,10 +145,18 @@ class PublisherServer:
             try:
                 status = await self.core_api.get_simulation_status()
                 await self.publish("simulation.status", status)
+            except asyncio.CancelledError:
+                logger.debug("Simulation status broadcast cancelled")
+                break
             except Exception as e:
                 logger.error(f"Error broadcasting simulation status: {e}")
             
-            await asyncio.sleep(1.0)  # Update every second
+            # RTOS-friendly: Use cancellable sleep
+            try:
+                await asyncio.sleep(1.0)  # Update every second
+            except asyncio.CancelledError:
+                logger.debug("Simulation status broadcast cancelled during sleep")
+                break
 
     async def _broadcast_performance_stats(self) -> None:
         """Periodically broadcast performance statistics."""
@@ -156,10 +164,18 @@ class PublisherServer:
             try:
                 stats = await self.core_api.get_performance_stats()
                 await self.publish("stats.performance", stats)
+            except asyncio.CancelledError:
+                logger.debug("Performance stats broadcast cancelled")
+                break
             except Exception as e:
                 logger.error(f"Error broadcasting performance stats: {e}")
             
-            await asyncio.sleep(5.0)  # Update every 5 seconds
+            # RTOS-friendly: Use cancellable sleep
+            try:
+                await asyncio.sleep(5.0)  # Update every 5 seconds
+            except asyncio.CancelledError:
+                logger.debug("Performance stats broadcast cancelled during sleep")
+                break
 
     async def _handle_brain_activity(self) -> Dict:
         """Get current brain activity data for broadcasting."""
@@ -308,7 +324,12 @@ class SubscriberClient:
                 break
             except Exception as e:
                 logger.error(f"Error receiving message: {e}")
-                await asyncio.sleep(1)  # Avoid tight loop on errors
+                # RTOS-friendly: Use cancellable sleep for error recovery
+                try:
+                    await asyncio.sleep(1)  # Avoid tight loop on errors
+                except asyncio.CancelledError:
+                    logger.debug("Receive loop cancelled during error recovery")
+                    break
 
 
 class PubSubManager:

@@ -614,10 +614,24 @@ class ZmqServer:
     
     async def _stop_services(self):
         """
-        Stop all ZMQ services gracefully with improved timeout handling.
+        Stop all ZMQ services gracefully with proper asyncio task cancellation.
         """
         try:
             print("Stopping ZMQ services...", file=sys.stderr, flush=True)
+            
+            # First, cancel the cleanup task if it exists
+            if hasattr(self, 'cleanup_task') and self.cleanup_task and not self.cleanup_task.done():
+                print("Cancelling cleanup task...", file=sys.stderr, flush=True)
+                self.cleanup_task.cancel()
+                try:
+                    await asyncio.wait_for(self.cleanup_task, timeout=2.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass  # Expected for cancelled task
+                except Exception as e:
+                    logger.warning(f"Error waiting for cleanup task cancellation: {e}")
+            
+            # Cancel all running tasks in the current event loop (except this one)
+            await self._cancel_all_tasks()
             
             # Stop services in parallel where possible
             stop_tasks = []
@@ -633,7 +647,8 @@ class ZmqServer:
             if self._motor:
                 stop_tasks.append(self._motor.stop())
             
-            await self._rest.stop()
+            if self._rest:
+                await self._rest.stop()
             
             # Handle visualization stream separately with timeout
             if self._visualization:
@@ -668,14 +683,21 @@ class ZmqServer:
             # Wait for all other services with timeout
             if stop_tasks:
                 try:
-                    await asyncio.wait_for(
+                    results = await asyncio.wait_for(
                         asyncio.gather(*stop_tasks, return_exceptions=True),
-                        timeout=10.0  # 10 second timeout for other services
+                        timeout=8.0  # 8 second timeout for other services
                     )
+                    # Check for exceptions in results
+                    for i, result in enumerate(results):
+                        if isinstance(result, Exception):
+                            logger.warning(f"Service {i} stop returned exception: {result}")
                 except asyncio.TimeoutError:
                     logger.error("[WARN]  Some services didn't stop within timeout - forcing cleanup")
 
             print("All ZMQ services stopped", file=sys.stderr, flush=True)
+            
+            # Final task cancellation to catch any stragglers
+            await self._cancel_all_tasks(wait_time=1.0)
             
             # Close sockets with error handling
             for socket_name, socket in [
@@ -699,6 +721,50 @@ class ZmqServer:
             logger.error(f"Critical error in service shutdown: {e}")
             # Force cleanup even if there were errors
             self._visualization = None
+
+    async def _cancel_all_tasks(self, wait_time: float = 2.0):
+        """
+        Cancel all running asyncio tasks except the current one.
+        
+        Args:
+            wait_time: Maximum time to wait for tasks to complete cancellation
+        """
+        try:
+            # Get all tasks in the current event loop
+            current_task = asyncio.current_task()
+            all_tasks = [task for task in asyncio.all_tasks() if task != current_task and not task.done()]
+            
+            if not all_tasks:
+                print("No tasks to cancel", file=sys.stderr, flush=True)
+                return
+                
+            print(f"Cancelling {len(all_tasks)} running tasks...", file=sys.stderr, flush=True)
+            
+            # Cancel all tasks
+            for task in all_tasks:
+                if not task.done():
+                    task.cancel()
+                    
+            # Wait for tasks to complete cancellation
+            if all_tasks:
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*all_tasks, return_exceptions=True),
+                        timeout=wait_time
+                    )
+                    print("All tasks cancelled successfully", file=sys.stderr, flush=True)
+                except asyncio.TimeoutError:
+                    remaining_tasks = [task for task in all_tasks if not task.done()]
+                    print(f"[WARN]  {len(remaining_tasks)} tasks didn't cancel within {wait_time}s - forcing shutdown", 
+                          file=sys.stderr, flush=True)
+                    
+                    # Log which tasks are still running for debugging
+                    for task in remaining_tasks:
+                        task_info = getattr(task, '_coro', 'unknown')
+                        print(f"  - Stuck task: {task_info}", file=sys.stderr, flush=True)
+                        
+        except Exception as e:
+            print(f"Error cancelling tasks: {e}", file=sys.stderr, flush=True)
     
     def _cleanup(self):
         """
@@ -709,12 +775,35 @@ class ZmqServer:
         try:
             # Ensure services are stopped
             if self._loop and self._running:
+                # Run the async shutdown process
                 self._loop.run_until_complete(self._stop_services())
                 
             # Close the event loop
             if self._loop:
-                self._loop.close()
-                self._loop = None
+                try:
+                    # Cancel any remaining tasks before closing the loop
+                    pending_tasks = [task for task in asyncio.all_tasks(self._loop) if not task.done()]
+                    if pending_tasks:
+                        print(f"Force-cancelling {len(pending_tasks)} remaining tasks before loop close", 
+                              file=sys.stderr, flush=True)
+                        for task in pending_tasks:
+                            task.cancel()
+                        
+                        # Give tasks a brief moment to cancel
+                        if not self._loop.is_closed():
+                            try:
+                                self._loop.run_until_complete(
+                                    asyncio.gather(*pending_tasks, return_exceptions=True)
+                                )
+                            except Exception as e:
+                                print(f"Error during final task cleanup: {e}", file=sys.stderr, flush=True)
+                    
+                    self._loop.close()
+                    print("Event loop closed", file=sys.stderr, flush=True)
+                except Exception as e:
+                    print(f"Error closing event loop: {e}", file=sys.stderr, flush=True)
+                finally:
+                    self._loop = None
                 
             # Clear service references
             self._req_rep = None
@@ -734,13 +823,16 @@ class ZmqServer:
             
             # Close connection manager
             if self.connection_manager:
-                self.connection_manager.close()
+                try:
+                    self.connection_manager.close()
+                except Exception as e:
+                    print(f"Error closing connection manager: {e}", file=sys.stderr, flush=True)
             
             # @cursor:critical-path - Signal-safe cleanup should minimize logging
             print("ZMQ server resources cleaned up", file=sys.stderr, flush=True)
         except Exception as e:
             print(f"Error during ZMQ server cleanup: {e}", file=sys.stderr, flush=True)
-    
+
     async def publish_event(self, event_type: str, event_data: Dict) -> None:
         """
         Publish an event to subscribers.
