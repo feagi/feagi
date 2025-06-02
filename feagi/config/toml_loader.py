@@ -62,7 +62,6 @@ class PortConfiguration:
     zmq_pub_sub_port: int  
     zmq_push_pull_port: int
     zmq_sensory_port: int
-    zmq_control_port: int
     zmq_visualization_port: int
     zmq_rest_port: int
     zmq_motor_port: int
@@ -74,7 +73,6 @@ class PortConfiguration:
             'zmq_pub_sub': self.zmq_pub_sub_port,
             'zmq_push_pull': self.zmq_push_pull_port,
             'zmq_sensory': self.zmq_sensory_port,
-            'zmq_control': self.zmq_control_port,
             'zmq_visualization': self.zmq_visualization_port,
             'zmq_rest': self.zmq_rest_port,
             'zmq_motor': self.zmq_motor_port
@@ -262,7 +260,6 @@ def apply_cli_overrides(config: Dict[str, Any], cli_args: Optional[Dict[str, Any
         'zmq_pub_port': ('ports', 'zmq_pub_sub_port'),
         'zmq_push_port': ('ports', 'zmq_push_pull_port'),
         'zmq_sensory_port': ('ports', 'zmq_sensory_port'),
-        'zmq_control_port': ('ports', 'zmq_control_port'),
         'zmq_visualization_port': ('ports', 'zmq_visualization_port'),
         'zmq_rest_port': ('ports', 'zmq_rest_port'),
         'zmq_motor_port': ('ports', 'zmq_motor_port'),
@@ -360,8 +357,8 @@ def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
     # Validate all required ports are present
     required_ports = [
         'zmq_req_rep_port', 'zmq_pub_sub_port', 'zmq_push_pull_port',
-        'zmq_sensory_port', 'zmq_control_port', 'zmq_visualization_port', 
-        'zmq_rest_port', 'zmq_motor_port'
+        'zmq_sensory_port', 'zmq_visualization_port', 'zmq_rest_port', 
+        'zmq_motor_port'
     ]
     
     for port_name in required_ports:
@@ -376,7 +373,6 @@ def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
         zmq_pub_sub_port=ports['zmq_pub_sub_port'],
         zmq_push_pull_port=ports['zmq_push_pull_port'],
         zmq_sensory_port=ports['zmq_sensory_port'],
-        zmq_control_port=ports['zmq_control_port'],
         zmq_visualization_port=ports['zmq_visualization_port'],
         zmq_rest_port=ports['zmq_rest_port'],
         zmq_motor_port=ports['zmq_motor_port']

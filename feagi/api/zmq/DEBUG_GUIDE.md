@@ -120,13 +120,12 @@ curl -X POST http://localhost:8000/v1/debug/zmq/filter/messages \
 
 **Available Message Types:**
 
-| Type | Description | Common Endpoints |
-|------|-------------|------------------|
-| `sensory` | Neural data from sensors/agents to FEAGI | Port 5558 |
-| `motor` | Motor commands from FEAGI to agents | Port 9050 |
-| `visualization` | Brain activity for visualization clients | Port 5562 |
-| `control` | System control and management | Port 5561 |
-| `rest` | REST API over ZMQ | Various |
+| Stream | Purpose | Default Port |
+|--------|---------|--------------|
+| `sensory` | Incoming sensory data | Port 5558 |
+| `motor` | Outgoing motor commands | Port 5564 |
+| `visualization` | Neural activity broadcasting | Port 5562 |
+| `rest` | REST API over ZMQ (primary interface) | Port 5563 |
 | `heartbeat` | Client keepalive messages | Various |
 
 ### Endpoint Filtering

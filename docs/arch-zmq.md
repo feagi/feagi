@@ -77,41 +77,16 @@ socket.send_string('{"command": "get_status"}')
 response = socket.recv_string()
 ```
 
-### **Control Stream (Port 5561)**
+### **REST Stream (Port 5563) - Primary API Interface**
 
-**Purpose**: Legacy control protocol for agent management and heartbeat monitoring.
-
-**Characteristics**:
-- **Socket Type**: ROUTER/DEALER
-- **Pattern**: Asynchronous message routing
-- **Protocol**: Legacy control message format (FCP - FEAGI Control Protocol)
-- **Use Cases**: Agent registration, heartbeat monitoring, legacy control systems
-
-**Message Format**:
-```json
-{
-  "message_type": "hello|heartbeat|status|goodbye",
-  "agent_id": "unique_agent_identifier",
-  "timestamp": 1621234567890,
-  "data": {...}
-}
-```
-
-**Supported Message Types**:
-- `hello`: Agent registration
-- `heartbeat`: Periodic health check
-- `status`: Status query
-- `goodbye`: Agent disconnection
-
-### **REST Stream (Port 5563) - Dedicated REST API**
-
-**Purpose**: Pure REST API operations with HTTP-like semantics over ZMQ.
+**Purpose**: Modern REST API operations with HTTP-like semantics over ZMQ. This is the primary interface for all API communication, replacing legacy control protocols.
 
 **Characteristics**:
 - **Socket Type**: ROUTER/DEALER
 - **Pattern**: Asynchronous request-reply with HTTP semantics
 - **Protocol**: REST API format only
-- **Use Cases**: Modern applications, web interfaces, API clients
+- **Use Cases**: Modern applications, web interfaces, API clients, agent management
+- **Scope**: Handles all API operations including agent registration, heartbeats, system status, and data operations
 
 #### REST Message Format
 
@@ -166,6 +141,57 @@ response = socket.recv_string()
   "status": 200,
   "headers": {"content-type": "application/json"},
   "body": {"status": "healthy"},
+  "timestamp": 1621234567890
+}
+```
+
+**Agent Registration** (replaces legacy control protocol):
+```json
+// Request
+{
+  "route": "/v1/agents/register",
+  "method": "POST",
+  "body": {
+    "agent_id": "my_godot_client",
+    "agent_type": "godot_bridge",
+    "capabilities": ["sensory", "motor"],
+    "protocol_versions": {
+      "rest": "1.0",
+      "visualization": "1.0"
+    }
+  },
+  "timestamp": 1621234567890
+}
+
+// Response
+{
+  "status": 200,
+  "headers": {"content-type": "application/json"},
+  "body": {
+    "message": "Agent registered successfully",
+    "agent_id": "my_godot_client"
+  },
+  "timestamp": 1621234567890
+}
+```
+
+**Agent Heartbeat** (replaces legacy control protocol):
+```json
+// Request
+{
+  "route": "/v1/agents/heartbeat",
+  "method": "POST",
+  "body": {
+    "agent_id": "my_godot_client"
+  },
+  "timestamp": 1621234567890
+}
+
+// Response
+{
+  "status": 200,
+  "headers": {"content-type": "application/json"},
+  "body": {"status": "ok"},
   "timestamp": 1621234567890
 }
 ```

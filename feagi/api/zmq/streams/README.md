@@ -1,8 +1,70 @@
-# ZMQ Streams for FEAGI 2.0
+# ZMQ Streams
 
-## Overview
+ZMQ Streams provide specialized communication channels for different types of data and protocols in FEAGI.
 
-This package contains production-ready ZMQ stream implementations for FEAGI 2.0, designed with clean architecture principles, thread safety, and high performance.
+## Available Streams
+
+### Core Streams
+- **SensoryStream**: Receives sensory data from agents/sensors
+- **MotorStream**: Sends motor commands to agents/actuators  
+- **VisualizationStream**: Broadcasts neural activity data
+- **RestStream**: Provides REST API interface over ZMQ (primary API interface)
+
+### Stream Architecture
+
+Each stream is implemented as a separate class that:
+1. Manages its own ZMQ socket and context
+2. Handles protocol-specific message formatting
+3. Integrates with FEAGI core services
+4. Provides proper error handling and logging
+
+## Usage Examples
+
+### Basic Stream Setup
+
+```python
+from feagi.api.zmq.streams import (
+    SensoryStream, MotorStream, 
+    VisualizationStream, RestStream
+)
+
+# Create core streams
+streams = {
+    'sensory': SensoryStream(host="*", port=5558),
+    'motor': MotorStream(host="*", port=5564),
+    'visualization': VisualizationStream(host="*", port=5562),
+    'rest': RestStream(host="*", port=5563)
+}
+
+# Start all streams
+for name, stream in streams.items():
+    try:
+        stream.start()
+        print(f"{name} stream started on port {stream.port}")
+    except Exception as e:
+        print(f"Failed to start {name} stream: {e}")
+```
+
+### Stream Manager
+
+```python
+from feagi.api.zmq.streams import create_stream_manager
+
+# Create all streams with configuration
+config = {
+    'sensory': {'port': 5558},
+    'motor': {'port': 5564},
+    'visualization': {'port': 5562},
+    'rest': {'port': 5563}
+}
+
+streams = create_stream_manager(
+    host="*",
+    stream_configs=config
+)
+
+print(f"Created {len(streams)} streams")
+```
 
 ## Key Features
 

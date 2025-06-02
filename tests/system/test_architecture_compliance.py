@@ -318,7 +318,6 @@ zmq_req_rep_port = 5555
 zmq_pub_sub_port = 5556
 zmq_push_pull_port = 5557
 zmq_sensory_port = 5558
-zmq_control_port = 5559
 zmq_visualization_port = 5562
 zmq_rest_port = 5563
 zmq_motor_port = 5564
@@ -441,7 +440,6 @@ class TestRealConfigurationIntegration:
                     'zmq_pub_sub_port': 5556,
                     'zmq_push_pull_port': 5557,
                     'zmq_sensory_port': 5558,
-                    'zmq_control_port': 5559,
                     'zmq_visualization_port': 5562,
                     'zmq_rest_port': 5563,
                     'zmq_motor_port': 5564

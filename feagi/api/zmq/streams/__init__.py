@@ -16,10 +16,9 @@ Architecture:
 """
 
 # Import actual streams from their files
-from .sensory_neural import SensoryNeuralStream as SensoryStream
-from .motor import MotorStream  
+from .sensory import SensoryStream
+from .motor import MotorStream
 from .visualization import VisualizationStream
-from .control import ControlStream
 from .rest import RestStream
 
 # Import base classes for extending streams
@@ -37,7 +36,6 @@ __all__ = [
     'SensoryStream',
     'MotorStream',
     'VisualizationStream', 
-    'ControlStream',
     'RestStream',
     
     # Base classes for extending
@@ -74,7 +72,6 @@ def create_stream_manager(core_api=None, host="*", stream_configs=None):
             'sensory': {'port': 5558},
             'motor': {'port': 9050}, 
             'visualization': {'port': 5562},
-            'control': {'port': 5561},
             'rest': {'port': 5563}
         }
     
@@ -104,15 +101,6 @@ def create_stream_manager(core_api=None, host="*", stream_configs=None):
         streams['visualization'] = VisualizationStream(
             host=host,
             port=config.get('port', 5562),
-            core_api=core_api
-        )
-    
-    # Create control stream
-    if 'control' in stream_configs:
-        config = stream_configs['control']
-        streams['control'] = ControlStream(
-            host=host,
-            port=config.get('port', 5561),
             core_api=core_api
         )
     

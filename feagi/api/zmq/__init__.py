@@ -30,7 +30,7 @@ from .streams import (
     SensoryStream,
     MotorStream,
     VisualizationStream,
-    ControlStream
+    RestStream
 )
 
 # Export top-level classes
@@ -57,7 +57,7 @@ __all__ = [
     'SensoryStream',
     'MotorStream',
     'VisualizationStream',
-    'ControlStream',
+    'RestStream',
 ]
 
 def create_zmq_server(

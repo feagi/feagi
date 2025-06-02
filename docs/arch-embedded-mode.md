@@ -136,7 +136,7 @@ api_thread.start()
 # Complete elimination - no HTTP server
 logger.info("🔧 Embedded mode: REST API completely disabled")
 logger.info("🔧 Control interface available only via ZMQ streams")
-logger.info("🔧 Status available via ZMQ control stream: tcp://127.0.0.1:5559")
+logger.info("🔧 Status available via ZMQ REST stream: tcp://127.0.0.1:5563")
 ```
 
 ### 5. Stub Implementation Strategy
@@ -186,7 +186,7 @@ if EMBEDDED_MODE:
 6. **Contradictory Minimal Server**
    - Originally included a "minimal TCP status server"
    - Removed after user feedback as it contradicted embedded goals
-   - Status now available only via ZMQ control stream
+   - Status now available only via ZMQ REST stream
 
 ### ✅ Retained in Embedded Mode
 
@@ -242,6 +242,33 @@ tcp4  127.0.0.1.5564  *.*  LISTEN  # Motor output
 
 ## Control Interface in Embedded Mode
 
+### ZMQ REST Stream
+
+In embedded mode, all API communication goes through the ZMQ REST stream (port 5563), which provides the same functionality as the HTTP REST API but over efficient ZMQ transport.
+
+```python
+# Agent registration in embedded mode
+import zmq
+import json
+
+context = zmq.Context()
+socket = context.socket(zmq.DEALER)
+socket.connect("tcp://localhost:5563")
+
+# Register agent via ZMQ REST
+request = {
+    "method": "POST",
+    "route": "/v1/agents/register", 
+    "body": {
+        "agent_id": "embedded_agent",
+        "agent_type": "embedded_device"
+    }
+}
+socket.send_multipart([b"", json.dumps(request).encode()])
+response = socket.recv_multipart()
+print(json.loads(response[1]))
+```
+
 ### ZMQ Control Stream
 
 **Primary Interface:** `tcp://127.0.0.1:5559`
@@ -268,17 +295,11 @@ tcp4  127.0.0.1.5564  *.*  LISTEN  # Motor output
   "data": {
     "mode": "embedded",
     "brain_state": "READY",
-    "features": ["zmq_control", "zmq_sensory", "zmq_motor"],
+    "features": ["zmq_rest", "zmq_sensory", "zmq_motor"],
     "disabled": ["rest_api", "visualization", "web_interface"]
   }
 }
 ```
-
-### ZMQ REST Adapter
-
-**Endpoint:** `tcp://127.0.0.1:5563`
-
-Provides REST-like API access via ZMQ for compatibility with existing clients while maintaining the resource benefits of ZMQ transport.
 
 ## Testing and Validation
 
