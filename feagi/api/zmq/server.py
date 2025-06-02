@@ -44,7 +44,7 @@ from feagi.core.state_manager import FeagiStateManager, GenomeState
 from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import all stream handlers
-from .streams.sensory import SensoryStream
+from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
 from .streams.motor import MotorStream
 from .streams.visualization import VisualizationStream
 from .streams.rest import RestStream
@@ -402,7 +402,7 @@ class ZmqServer:
             from .patterns.req_rep import RequestReplyManager
             from .patterns.pub_sub import PubSubManager
             from .patterns.push_pull import PushPullManager
-            from .streams.sensory import SensoryStream
+            from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
             from .streams.motor import MotorStream
             from .streams.rest import RestStream
             # VisualizationStream imported conditionally at module level
@@ -509,8 +509,8 @@ class ZmqServer:
                 self.vis_socket = self._visualization.socket
             
             # Start message handling tasks
-            # Note: Control messages are handled by ControlStream on port 5559
-            self.tasks.append(asyncio.create_task(self._sensory_data_loop()))
+            # Note: Each stream handles its own message processing
+            # No central data loop needed since streams are autonomous
             
             # Start message handlers
             if self.connection_manager:

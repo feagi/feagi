@@ -16,7 +16,7 @@ Architecture:
 """
 
 # Import actual streams from their files
-from .sensory import SensoryStream
+from .sensory_neural import SensoryNeuralStream as SensoryStream
 from .motor import MotorStream
 from .visualization import VisualizationStream
 from .rest import RestStream
