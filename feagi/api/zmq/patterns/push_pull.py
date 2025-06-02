@@ -179,8 +179,13 @@ class PushServer:
                 # RTOS-friendly: Simple check instead of sleep
                 if not self.running:
                     break
-                # Brief pause without async to avoid event loop issues
-                time.sleep(0.1)  # @architecture:acceptable - error recovery
+                # Use asyncio.sleep for proper async error recovery
+                try:
+                    await asyncio.sleep(0.1)  # @architecture:acceptable - error recovery
+                except asyncio.CancelledError:
+                    # Handle cancellation during error recovery
+                    logger.debug("Process queue cancelled during error recovery")
+                    break
 
     async def push_batch(
         self, 
@@ -337,11 +342,16 @@ class PullClient:
             except Exception as e:
                 logger.error(f"Error receiving work item: {e}")
                 self.stats["errors"] += 1
-                # RTOS-friendly: Simple check instead of sleep
+                # RTOS-friendly: Check running state and use async sleep
                 if not self.running:
                     break
-                # Brief pause without async to avoid event loop issues
-                time.sleep(0.1)  # @architecture:acceptable - error recovery
+                # Use asyncio.sleep for proper async error recovery
+                try:
+                    await asyncio.sleep(0.1)  # @architecture:acceptable - error recovery
+                except asyncio.CancelledError:
+                    # Handle cancellation during error recovery
+                    logger.debug("Receive loop cancelled during error recovery")
+                    break
 
 
 class PushPullManager:
