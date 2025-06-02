@@ -40,7 +40,6 @@ zmq_push_pull_port = 5557    # Push-Pull pattern
 
 # Specialized Data Streams
 zmq_sensory_port = 5558      # Sensory data input
-zmq_control_port = 5559      # Legacy control protocol
 zmq_visualization_port = 5562 # Neural activity visualization
 zmq_rest_port = 5563         # REST API over ZMQ
 zmq_motor_port = 5564        # Motor data output

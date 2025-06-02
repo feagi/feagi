@@ -27,11 +27,12 @@ python -m feagi.main
 
 This starts the unified FEAGI system with:
 - **FastAPI REST Server**: Port 8001 (direct dependency injection)
-- **ZMQ Control Stream**: Port 5561 (legacy agent management)
-- **ZMQ REST Stream**: Port 5563 (modern REST-over-ZMQ)
+- **ZMQ REST Stream**: Port 5563 (modern REST-over-ZMQ - primary API interface)
 - **ZMQ Visualization Stream**: Port 5562 (neural data broadcasting - all areas)
 - **ZMQ Motor Stream**: Port 5564 (real-time motor control - OPU areas only)
-- **ZMQ REQ/REP Stream**: Port 5555 (legacy commands)
+- **ZMQ Sensory Stream**: Port 5558 (sensory data input)
+- **ZMQ REQ/REP Stream**: Port 5555 (general purpose request-reply)
+- **ZMQ PUB/SUB Stream**: Port 5556 (publish-subscribe messaging)
 
 ### Command-Line Options
 
@@ -58,11 +59,12 @@ python -m feagi.main [OPTIONS]
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--zmq-control-port PORT` | Control stream port | 5561 |
-| `--zmq-rest-port PORT` | REST stream port | 5563 |
+| `--zmq-rest-port PORT` | REST API stream port | 5563 |
 | `--zmq-vis-port PORT` | Visualization stream port | 5562 |
 | `--zmq-motor-port PORT` | Motor stream port | 5564 |
+| `--zmq-sensory-port PORT` | Sensory stream port | 5558 |
 | `--zmq-req-port PORT` | REQ/REP stream port | 5555 |
+| `--zmq-pub-port PORT` | PUB/SUB stream port | 5556 |
 
 #### System Configuration
 
@@ -159,8 +161,8 @@ if state_manager.get_genome_state() == GenomeState.LOADED:
 
 FEAGI uses **dedicated streams** for different protocols and purposes:
 
-### REST Stream (Port 5563)
-Modern REST API operations over ZMQ:
+### REST Stream (Port 5563) - Primary API Interface
+Modern REST API operations over ZMQ (replaces legacy control protocol):
 
 ```python
 import zmq
@@ -185,15 +187,29 @@ response = json.loads(response_parts[1])
 print(f"Status: {response['status']}")
 ```
 
-### Control Stream (Port 5561)
-Legacy agent management and heartbeats:
+### Agent Management via REST Protocol
+All agent management now uses the REST protocol instead of legacy control messages:
 
 ```python
-# Agent registration
-control_message = {
-    "message_type": "hello",
-    "agent_id": "my_agent",
-    "agent_type": "godot_bridge",
+# Agent registration via REST API
+registration_request = {
+    "method": "POST",
+    "route": "/v1/agents/register",
+    "body": {
+        "agent_id": "my_agent",
+        "agent_type": "godot_bridge",
+        "capabilities": ["sensory", "motor"]
+    },
+    "timestamp": int(time.time() * 1000)
+}
+
+# Agent heartbeat via REST API
+heartbeat_request = {
+    "method": "POST", 
+    "route": "/v1/agents/heartbeat",
+    "body": {
+        "agent_id": "my_agent"
+    },
     "timestamp": int(time.time() * 1000)
 }
 ```

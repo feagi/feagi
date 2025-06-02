@@ -327,13 +327,13 @@ class ProcessManager:
                 visualization_enabled = stream_config.get('visualization', {}).get('enabled', True) and not embedded_mode
                 sensory_enabled = stream_config.get('sensory', {}).get('enabled', True)
                 motor_enabled = stream_config.get('motor', {}).get('enabled', True)
-                control_enabled = stream_config.get('control', {}).get('enabled', True)
+                rest_enabled = stream_config.get('rest', {}).get('enabled', True)  # REST API always enabled by default
                 
                 if embedded_mode:
                     logger.info("[CONFIG] Embedded mode: Visualization stream disabled")
                 
                 logger.info(f"Stream configuration: visualization={visualization_enabled}, "
-                           f"sensory={sensory_enabled}, motor={motor_enabled}, control={control_enabled}")
+                           f"sensory={sensory_enabled}, motor={motor_enabled}, rest={rest_enabled}")
                 
                 # --- FQ Sampler Setup (separate instances for motor and visualization) ---
                 if visualization_enabled or motor_enabled:
@@ -382,9 +382,8 @@ class ProcessManager:
                     'push_pull': port_config.zmq_push_pull_port,
                     'sensory': port_config.zmq_sensory_port if sensory_enabled else None,
                     'motor': port_config.zmq_motor_port if motor_enabled else None,
-                    'control': port_config.zmq_control_port if control_enabled else None,
                     'visualization': port_config.zmq_visualization_port if visualization_enabled else None,
-                    'rest': port_config.zmq_rest_port,
+                    'rest': port_config.zmq_rest_port if rest_enabled else None,
                 }
                 
                 logger.info(f"Starting ZMQ server with ports: {zmq_ports}")
@@ -398,8 +397,7 @@ class ProcessManager:
                     push_pull_port=port_config.zmq_push_pull_port,
                     sensory_port=port_config.zmq_sensory_port if sensory_enabled else None,
                     motor_port=port_config.zmq_motor_port if motor_enabled else None,
-                    control_port=port_config.zmq_control_port if control_enabled else None,
-                    rest_port=port_config.zmq_rest_port,
+                    rest_port=port_config.zmq_rest_port if rest_enabled else None,
                     vis_port=port_config.zmq_visualization_port if visualization_enabled else None,
                     fq_sampler=self._viz_fq_sampler,  # Visualization sampler for existing interface
                     fire_queue_provider=self._core_api,  # Use core_api as fire_queue_provider
@@ -593,9 +591,8 @@ class ProcessManager:
             else:
                 # Embedded mode: No HTTP interface at all
                 logger.info("[CONFIG] Embedded mode: REST API completely disabled for minimal resource usage")
-                logger.info("[CONFIG] Control interface available only via ZMQ streams (control, sensory, motor)")
+                logger.info("[CONFIG] Control interface available only via ZMQ REST stream (port 5563)")
                 logger.info("[CONFIG] No web interface, no FastAPI imports, no uvicorn server")
-                logger.info(f"[CONFIG] Status available via ZMQ control stream: tcp://{zmq_host}:{port_config.zmq_control_port}")
             
             # --- WebSocket Server (Optional) ---
             try:

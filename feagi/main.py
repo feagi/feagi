@@ -136,8 +136,7 @@ def main():
     parser.add_argument("--zmq-push-port", type=int, help="Port for PUSH/PULL ZMQ pattern (overrides config)")
     parser.add_argument("--zmq-sensory-port", type=int, help="Port for sensory ZMQ stream (overrides config)")
     parser.add_argument("--zmq-motor-port", type=int, help="Port for motor ZMQ stream (overrides config)")
-    parser.add_argument("--zmq-control-port", type=int, help="Port for control ZMQ stream (overrides config)")
-    parser.add_argument("--zmq-rest-port", type=int, help="Port for REST API ZMQ stream (overrides config)")
+    parser.add_argument("--zmq-rest-port", type=int, help="Port for REST ZMQ stream (overrides config)")
     parser.add_argument("--zmq-visualization-port", type=int, help="Port for visualization ZMQ stream (overrides config)")
     
     # Configuration file argument
@@ -201,8 +200,6 @@ def main():
             cli_overrides['zmq_sensory_port'] = args.zmq_sensory_port
         if args.zmq_motor_port is not None:
             cli_overrides['zmq_motor_port'] = args.zmq_motor_port
-        if args.zmq_control_port is not None:
-            cli_overrides['zmq_control_port'] = args.zmq_control_port
         if args.zmq_rest_port is not None:
             cli_overrides['zmq_rest_port'] = args.zmq_rest_port
         if args.zmq_visualization_port is not None:

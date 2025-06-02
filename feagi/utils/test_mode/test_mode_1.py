@@ -257,8 +257,12 @@ class TestMode1Handler:
                         if len(bitmap) > 0:
                             total_active_neurons += len(bitmap)
                             active_areas.append(cortical_id)
-                            self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
-                            logger.debug(f"Injected {len(bitmap)} predictable neurons in {cortical_id}")
+                            
+                            # FIXED: Use timestep 0 for current burst (post-refactor FCL semantics)
+                            current_timestep = 0
+                            self.fcl_manager.update_fcl(current_timestep, {cortical_id: bitmap})
+                            
+                            logger.debug(f"Injected {len(bitmap)} predictable neurons in {cortical_id} at timestep {current_timestep}")
                     else:
                         logger.warning(f"No valid neurons found for coordinates in {cortical_id}")
                         
@@ -330,7 +334,10 @@ class TestMode1Handler:
                     if len(bitmap) > 0:
                         total_active_neurons += len(bitmap)
                         active_areas.append(cortical_id)
-                        self.fcl_manager.update_fcl(self.fcl_manager.current_timestep, {cortical_id: bitmap})
+                        
+                        # FIXED: Use timestep 0 for current burst (post-refactor FCL semantics)
+                        current_timestep = 0
+                        self.fcl_manager.update_fcl(current_timestep, {cortical_id: bitmap})
                         
                 except Exception as e:
                     logger.error(f"Error processing cortical area {cortical_id}: {e}")

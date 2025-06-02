@@ -179,8 +179,8 @@ DEFAULT_CONFIG = {
             "motor": {
                 "enabled": True,  # Enable motor stream
             },
-            "control": {
-                "enabled": True,  # Enable control stream
+            "rest": {
+                "enabled": True,  # Enable REST API stream (primary API interface)
             },
         },
     },

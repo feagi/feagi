@@ -78,24 +78,30 @@ async def register_visualization_client(
         logger.info(f"🔌 Registering visualization client: {client_id}")
         
         # Get the process manager to access the visualization stream
-        from feagi.process_manager import ProcessManager
-        pm = ProcessManager.get_instance()
+        from feagi.process_manager import get_process_manager
+        pm = get_process_manager()
         
-        if pm and hasattr(pm, '_zmq_server') and pm._zmq_server:
-            # Get visualization stream from ZMQ server
-            viz_stream = pm._zmq_server.get_visualization_stream()
-            if viz_stream:
-                viz_stream.register_visualization_client(client_id)
-                logger.info(f"[OK] Visualization client registered: {client_id}")
-                
-                return VisualizationClientResponse(
-                    client_id=client_id,
-                    success=True,
-                    message=f"Visualization client {client_id} registered successfully"
-                )
+        if pm and hasattr(pm, '_processes') and 'zmq_server' in pm._processes:
+            # Get ZMQ server from _processes dictionary where it's actually stored
+            zmq_server = pm._processes['zmq_server']
+            if zmq_server:
+                # Get visualization stream from ZMQ server
+                viz_stream = zmq_server.get_visualization_stream()
+                if viz_stream:
+                    viz_stream.register_visualization_client(client_id)
+                    logger.info(f"[OK] Visualization client registered: {client_id}")
+                    
+                    return VisualizationClientResponse(
+                        client_id=client_id,
+                        success=True,
+                        message=f"Visualization client {client_id} registered successfully"
+                    )
+                else:
+                    logger.error("[ERR] Visualization stream not available")
+                    raise HTTPException(status_code=503, detail="Visualization stream not available")
             else:
-                logger.error("[ERR] Visualization stream not available")
-                raise HTTPException(status_code=503, detail="Visualization stream not available")
+                logger.error("[ERR] ZMQ server not available in processes")
+                raise HTTPException(status_code=503, detail="ZMQ server not available")
         else:
             logger.error("[ERR] Process manager or ZMQ server not available")
             raise HTTPException(status_code=503, detail="FEAGI services not available")
@@ -123,22 +129,28 @@ async def unregister_visualization_client(
         logger.info(f"🔌 Unregistering visualization client: {client_id}")
         
         # Get the process manager to access the visualization stream
-        from feagi.process_manager import ProcessManager
-        pm = ProcessManager.get_instance()
+        from feagi.process_manager import get_process_manager
+        pm = get_process_manager()
         
-        if pm and hasattr(pm, '_zmq_server') and pm._zmq_server:
-            # Get visualization stream from ZMQ server
-            viz_stream = pm._zmq_server.get_visualization_stream()
-            if viz_stream:
-                viz_stream.unregister_visualization_client(client_id)
-                logger.info(f"[OK] Visualization client unregistered: {client_id}")
-                
-                return SuccessResponse(
-                    message=f"Visualization client {client_id} unregistered successfully"
-                )
+        if pm and hasattr(pm, '_processes') and 'zmq_server' in pm._processes:
+            # Get ZMQ server from _processes dictionary where it's actually stored
+            zmq_server = pm._processes['zmq_server']
+            if zmq_server:
+                # Get visualization stream from ZMQ server
+                viz_stream = zmq_server.get_visualization_stream()
+                if viz_stream:
+                    viz_stream.unregister_visualization_client(client_id)
+                    logger.info(f"[OK] Visualization client unregistered: {client_id}")
+                    
+                    return SuccessResponse(
+                        message=f"Visualization client {client_id} unregistered successfully"
+                    )
+                else:
+                    logger.error("[ERR] Visualization stream not available")
+                    raise HTTPException(status_code=503, detail="Visualization stream not available")
             else:
-                logger.error("[ERR] Visualization stream not available")
-                raise HTTPException(status_code=503, detail="Visualization stream not available")
+                logger.error("[ERR] ZMQ server not available in processes")
+                raise HTTPException(status_code=503, detail="ZMQ server not available")
         else:
             logger.error("[ERR] Process manager or ZMQ server not available")
             raise HTTPException(status_code=503, detail="FEAGI services not available")
@@ -164,21 +176,27 @@ async def visualization_client_heartbeat(
         logger.debug(f"💗 Heartbeat from visualization client: {client_id}")
         
         # Get the process manager to access the visualization stream
-        from feagi.process_manager import ProcessManager
-        pm = ProcessManager.get_instance()
+        from feagi.process_manager import get_process_manager
+        pm = get_process_manager()
         
-        if pm and hasattr(pm, '_zmq_server') and pm._zmq_server:
-            # Get visualization stream from ZMQ server
-            viz_stream = pm._zmq_server.get_visualization_stream()
-            if viz_stream:
-                viz_stream.heartbeat_visualization_client(client_id)
-                
-                return SuccessResponse(
-                    message=f"Heartbeat received from client {client_id}"
-                )
+        if pm and hasattr(pm, '_processes') and 'zmq_server' in pm._processes:
+            # Get ZMQ server from _processes dictionary where it's actually stored
+            zmq_server = pm._processes['zmq_server']
+            if zmq_server:
+                # Get visualization stream from ZMQ server
+                viz_stream = zmq_server.get_visualization_stream()
+                if viz_stream:
+                    viz_stream.heartbeat_visualization_client(client_id)
+                    
+                    return SuccessResponse(
+                        message=f"Heartbeat received from client {client_id}"
+                    )
+                else:
+                    logger.error("[ERR] Visualization stream not available")
+                    raise HTTPException(status_code=503, detail="Visualization stream not available")
             else:
-                logger.error("[ERR] Visualization stream not available")
-                raise HTTPException(status_code=503, detail="Visualization stream not available")
+                logger.error("[ERR] ZMQ server not available in processes")
+                raise HTTPException(status_code=503, detail="ZMQ server not available")
         else:
             logger.error("[ERR] Process manager or ZMQ server not available")
             raise HTTPException(status_code=503, detail="FEAGI services not available")
@@ -201,33 +219,43 @@ async def get_visualization_status(
         logger.debug("[STATS] Getting visualization status")
         
         # Get the process manager to access the visualization stream
-        from feagi.process_manager import ProcessManager
-        pm = ProcessManager.get_instance()
+        from feagi.process_manager import get_process_manager
+        pm = get_process_manager()
         
-        if pm and hasattr(pm, '_zmq_server') and pm._zmq_server:
-            # Get visualization stream from ZMQ server
-            viz_stream = pm._zmq_server.get_visualization_stream()
-            if viz_stream:
-                # Get status from visualization stream
-                active_clients = len(getattr(viz_stream, '_active_clients', {}))
-                
-                # Check FQ sampler status
-                fq_sampler_enabled = False
-                if hasattr(pm, '_fq_sampler') and pm._fq_sampler:
-                    fq_sampler_enabled = getattr(pm._fq_sampler, '_has_visualization_subscribers', False)
-                
-                return VisualizationStatusResponse(
-                    enabled=True,
-                    active_clients=active_clients,
-                    fq_sampler_enabled=fq_sampler_enabled,
-                    message=f"Visualization system active with {active_clients} clients"
-                )
+        if pm and hasattr(pm, '_processes') and 'zmq_server' in pm._processes:
+            # Get ZMQ server from _processes dictionary where it's actually stored
+            zmq_server = pm._processes['zmq_server']
+            if zmq_server:
+                # Get visualization stream from ZMQ server
+                viz_stream = zmq_server.get_visualization_stream()
+                if viz_stream:
+                    # Get status from visualization stream
+                    active_clients = len(getattr(viz_stream, '_active_clients', {}))
+                    
+                    # Check FQ sampler status
+                    fq_sampler_enabled = False
+                    if hasattr(pm, '_fq_sampler') and pm._fq_sampler:
+                        fq_sampler_enabled = getattr(pm._fq_sampler, '_has_visualization_subscribers', False)
+                    
+                    return VisualizationStatusResponse(
+                        enabled=True,
+                        active_clients=active_clients,
+                        fq_sampler_enabled=fq_sampler_enabled,
+                        message=f"Visualization system active with {active_clients} clients"
+                    )
+                else:
+                    return VisualizationStatusResponse(
+                        enabled=False,
+                        active_clients=0,
+                        fq_sampler_enabled=False,
+                        message="Visualization stream not available"
+                    )
             else:
                 return VisualizationStatusResponse(
                     enabled=False,
                     active_clients=0,
                     fq_sampler_enabled=False,
-                    message="Visualization stream not available"
+                    message="ZMQ server not available"
                 )
         else:
             return VisualizationStatusResponse(

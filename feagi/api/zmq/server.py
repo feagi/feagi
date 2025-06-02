@@ -44,10 +44,9 @@ from feagi.core.state_manager import FeagiStateManager, GenomeState
 from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import all stream handlers
-from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
-from .streams.motor import MotorStream  
+from .streams.sensory import SensoryStream
+from .streams.motor import MotorStream
 from .streams.visualization import VisualizationStream
-from .streams.control import ControlStream
 from .streams.rest import RestStream
 
 # Import pattern handlers
@@ -207,7 +206,6 @@ class ZmqServer:
         host: str,
         sensory_port: Optional[int] = None,
         motor_port: Optional[int] = None,
-        control_port: Optional[int] = None,
         vis_port: Optional[int] = None,
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
@@ -226,7 +224,6 @@ class ZmqServer:
             host: Host address to bind to
             sensory_port: Port for sensory data (from config), None to disable
             motor_port: Port for motor data (from config), None to disable
-            control_port: Port for control interface (from config), None to disable
             vis_port: Port for visualization data (from config), None to disable
             context: Optional ZeroMQ context to use
             fq_sampler: Optional FQ sampler instance for visualization data
@@ -240,7 +237,6 @@ class ZmqServer:
         self.push_pull_port = push_pull_port
         self.sensory_port = sensory_port
         self.motor_port = motor_port
-        self.control_port = control_port
         self.rest_port = rest_port
         self.vis_port = vis_port
         
@@ -260,7 +256,6 @@ class ZmqServer:
         self._push_pull = None
         self._sensory = None
         self._motor = None
-        self._control = None
         self._visualization = None
         self._rest = None
         
@@ -274,7 +269,6 @@ class ZmqServer:
         self._shutdown_event = threading.Event()
         
         # Initialize sockets (will be created on start, may be None if stream disabled)
-        self.control_socket = None
         self.sensory_socket = None
         self.motor_socket = None
         self.vis_socket = None
@@ -408,9 +402,8 @@ class ZmqServer:
             from .patterns.req_rep import RequestReplyManager
             from .patterns.pub_sub import PubSubManager
             from .patterns.push_pull import PushPullManager
-            from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
+            from .streams.sensory import SensoryStream
             from .streams.motor import MotorStream
-            from .streams.control import ControlStream
             from .streams.rest import RestStream
             # VisualizationStream imported conditionally at module level
             
@@ -462,17 +455,6 @@ class ZmqServer:
             else:
                 logger.info("Motor stream disabled")
             
-            if self.control_port is not None:
-                self._control = ControlStream(
-                    core_api=self.core_api,
-                    host=self.host,
-                    port=self.control_port,
-                    context=self._context
-                )
-                logger.info(f"Control stream enabled on port {self.control_port}")
-            else:
-                logger.info("Control stream disabled")
-            
             self._rest = RestStream(
                 core_api=self.core_api,
                 host=self.host,
@@ -486,7 +468,9 @@ class ZmqServer:
                     host=self.host,
                     port=self.vis_port,
                     context=None,  # VisualizationStream creates its own sync context
-                    fire_queue_provider=self._fire_queue_provider
+                    fire_queue_provider=self._fire_queue_provider,
+                    core_api=self.core_api,  # Pass core_api for coordinate extraction and genome state
+                    connectome_manager=self.core_api.get_connectome_manager()  # Pass connectome_manager for cortical areas
                 )
                 logger.info(f"Primary visualization stream enabled on port {self.vis_port}")
             else:
@@ -507,8 +491,6 @@ class ZmqServer:
                 await self._sensory.start()
             if self._motor:
                 await self._motor.start()
-            if self._control:
-                await self._control.start()
             
             await self._rest.start()
             
@@ -517,9 +499,6 @@ class ZmqServer:
                 self._visualization.start()  # No await - synchronous method
             
             # Create sockets only for enabled streams
-            if self._control:
-                self.control_socket = self._control.router_socket
-            
             if self._sensory:
                 self.sensory_socket = self._sensory.socket
             
@@ -649,11 +628,9 @@ class ZmqServer:
                 stop_tasks.append(self._sensory.stop())
             if self._motor:
                 stop_tasks.append(self._motor.stop())
-            if self._control:
-                stop_tasks.append(self._control.stop())
-            if self._rest:
-                stop_tasks.append(self._rest.stop())
-
+            
+            await self._rest.stop()
+            
             # Handle visualization stream separately with timeout
             if self._visualization:
                 import asyncio
@@ -698,7 +675,6 @@ class ZmqServer:
             
             # Close sockets with error handling
             for socket_name, socket in [
-                ("control", self.control_socket),
                 ("sensory", self.sensory_socket), 
                 ("motor", self.motor_socket),
                 ("visualization", self.vis_socket)
@@ -710,7 +686,6 @@ class ZmqServer:
                     except Exception as e:
                         logger.warning(f"Error closing {socket_name} socket: {e}")
                 
-            self.control_socket = None
             self.sensory_socket = None
             self.motor_socket = None
             self.vis_socket = None
@@ -743,7 +718,6 @@ class ZmqServer:
             self._push_pull = None
             self._sensory = None
             self._motor = None
-            self._control = None
             self._visualization = None
             
             # Reset state
@@ -797,243 +771,6 @@ class ZmqServer:
             await self._push_pull.push_data(work_type, data, priority)
         except Exception as e:
             logger.error(f"Error queueing work: {e}")
-    
-    async def send_control_message(self, agent_id: str, message_type: str, data: Dict[str, Any] = None) -> bool:
-        """
-        Send a control message to an agent.
-        
-        Args:
-            agent_id: Agent ID
-            message_type: Message type
-            data: Message data
-            
-        Returns:
-            True if sent successfully, False otherwise
-        """
-        if not self._running or not self._control:
-            logger.warning("Cannot send control message: ZMQ server not running")
-            return False
-            
-        try:
-            return await self._control.send_control_message(agent_id, message_type, data)
-        except Exception as e:
-            logger.error(f"Error sending control message: {e}")
-            return False
-    
-    async def _sensory_data_loop(self):
-        """Handle incoming sensory data."""
-        try:
-            while self._running and self.sensory_socket:
-                try:
-                    # Receive message
-                    frames = await self.sensory_socket.recv_multipart()
-                    if len(frames) != 2:  # [topic, message]
-                        logger.warning(f"Invalid sensory frame count: {len(frames)}")
-                        continue
-                    
-                    topic, message_data = frames
-                    
-                    # Handle based on topic
-                    if topic == b"sensory":
-                        await self._handle_sensory_data(message_data)
-                    else:
-                        logger.warning(f"Unknown sensory topic: {topic}")
-                    
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.error(f"Error handling sensory message: {e}")
-        except asyncio.CancelledError:
-            logger.debug("Sensory message handler cancelled")
-    
-    async def _handle_register(self, identity: bytes, request: RegisterRequest) -> bytes:
-        """
-        Handle an agent registration request.
-        
-        Args:
-            identity: Client identity
-            request: Registration request
-            
-        Returns:
-            Registration response as binary data
-        """
-        # Extract agent information
-        agent_id = request.agent_id
-        agent_type = request.agent_type
-        
-        logger.info(f"Registering agent: {agent_id} (type: {agent_type})")
-        
-        # Register the agent
-        timestamp_ms = int(time.time() * 1000)
-        
-        # Add to agents dictionary
-        self.agents[agent_id] = {
-            "id": agent_id,
-            "type": agent_type,
-            "identity": identity,
-            "registered_at": timestamp_ms,
-            "last_heartbeat": timestamp_ms,
-            "capabilities": {},
-        }
-        
-        # Create response as dictionary
-        response_dict = {
-            "type": "register_response",
-            "status": "success",
-            "message": f"Agent {agent_id} registered successfully",
-            "timestamp": {"time_ms": timestamp_ms}
-        }
-        
-        # Encode as binary using ByteStructureTranslator
-        return self.translator.create_message(response_dict)
-    
-    async def _handle_deregister(self, identity: bytes, request: DeregisterRequest) -> bytes:
-        """
-        Handle an agent deregistration request.
-        
-        Args:
-            identity: Client identity
-            request: Deregistration request
-            
-        Returns:
-            Deregistration response as binary data
-        """
-        agent_id = request.agent_id
-        
-        logger.info(f"Deregistering agent: {agent_id}")
-        
-        # Remove agent if it exists
-        if agent_id in self.agents:
-            del self.agents[agent_id]
-            status = "success"
-            message = f"Agent {agent_id} deregistered successfully"
-        else:
-            status = "error"
-            message = f"Agent {agent_id} not found"
-        
-        # Create response
-        response = DeregisterResponse()
-        response.status = status
-        response.message = message
-        response.timestamp.time_ms = int(time.time() * 1000)
-        
-        # Create JSON response for compatibility
-        response_dict = {
-            "status": response.status,
-            "message": response.message,
-            "timestamp": {"time_ms": response.timestamp.time_ms}
-        }
-        
-        return json.dumps(response_dict).encode('utf-8')
-    
-    async def _handle_heartbeat(self, identity: bytes, request: HeartbeatRequest) -> bytes:
-        """
-        Handle an agent heartbeat request.
-        
-        Args:
-            identity: Client identity
-            request: Heartbeat request
-            
-        Returns:
-            Heartbeat response
-        """
-        agent_id = request.agent_id
-        
-        # Update last heartbeat time if agent exists
-        if agent_id in self.agents:
-            self.agents[agent_id]["last_heartbeat"] = int(time.time() * 1000)
-            status = "success"
-        else:
-            status = "error"
-        
-        # Create response
-        response = HeartbeatResponse()
-        response.status = status
-        response.timestamp.time_ms = int(time.time() * 1000)
-        
-        # Create JSON response for compatibility
-        response_dict = {
-            "status": response.status,
-            "timestamp": {"time_ms": response.timestamp.time_ms}
-        }
-        
-        return json.dumps(response_dict).encode('utf-8')
-    
-    async def _handle_status_request(self, identity: bytes, request: StatusRequest) -> bytes:
-        """
-        Handle a status request.
-        
-        Args:
-            identity: Client identity
-            request: Status request
-            
-        Returns:
-            Status response
-        """
-        # Get system stats
-        stats = self.get_server_stats()
-        
-        # Create response with properly formatted timestamp
-        response = StatusResponse()
-        response.status = "ok"
-        response.runtime.cpu_usage = stats["cpu_usage"]
-        response.runtime.memory_usage = stats["memory_usage"]
-        response.runtime.uptime_seconds = stats["uptime_seconds"]
-        response.agent_count = len(self.agents)
-        response.timestamp.time_ms = int(time.time() * 1000)
-        
-        # Check if we're dealing with an actual StatusRequest object from byte structure
-        if isinstance(request, StatusRequest):
-            # Create a JSON representation of the response
-            response_dict = {
-                "status": response.status,
-                "runtime": {
-                    "cpu_usage": response.runtime.cpu_usage,
-                    "memory_usage": response.runtime.memory_usage,
-                    "uptime_seconds": response.runtime.uptime_seconds
-                },
-                "agent_count": response.agent_count,
-                "timestamp": {"time_ms": response.timestamp.time_ms}
-            }
-            
-            # Return JSON-encoded response for compatibility
-            return json.dumps(response_dict).encode('utf-8')
-        else:
-            # For real byte structure messages, need to implement proper serialization
-            # This is a placeholder for future implementation
-            response_dict = {
-                "status": response.status,
-                "runtime": {
-                    "cpu_usage": response.runtime.cpu_usage,
-                    "memory_usage": response.runtime.memory_usage,
-                    "uptime_seconds": response.runtime.uptime_seconds
-                },
-                "agent_count": response.agent_count,
-                "timestamp": {"time_ms": response.timestamp.time_ms}
-            }
-            return json.dumps(response_dict).encode('utf-8')
-    
-    async def _handle_sensory_data(self, message_data: bytes):
-        """Handle incoming sensory data."""
-        # Parse the message
-        fsmp_message = self.translator.fsmp_schema.FSMPMessage.new_message()
-        fsmp_message.ParseFromString(message_data)
-        
-        # Verify it's a sensory message
-        if fsmp_message.type != FSMPChannelType.FSMP_SENSORY:
-            logger.warning(f"Received non-sensory message type: {fsmp_message.type}")
-            return
-            
-        # Extract data
-        channel_id = fsmp_message.sensory_data.channel_id
-        data = fsmp_message.sensory_data.data
-        timestamp = fsmp_message.sensory_data.timestamp.time_ms / 1000
-        
-        logger.debug(f"Received sensory data on channel {channel_id}: {len(data)} bytes")
-        
-        # Process the data if callback is registered
-        if self.sensory_callback:
-            await self.sensory_callback(channel_id, data)
     
     async def send_motor_data(self, channel_id: int, data: bytes):
         """
@@ -1327,7 +1064,6 @@ class ZmqServer:
             'req_rep_port': self.req_rep_port,
             'pub_sub_port': self.pub_sub_port,
             'push_pull_port': self.push_pull_port,
-            'control_port': self.control_port,
             'sensory_port': self.sensory_port,
             'motor_port': self.motor_port,
             'rest_port': self.rest_port,
@@ -1335,7 +1071,6 @@ class ZmqServer:
             'enabled_streams': {
                 'sensory': self._sensory is not None,
                 'motor': self._motor is not None,
-                'control': self._control is not None,
                 'visualization': self._visualization is not None,
             }
         }
