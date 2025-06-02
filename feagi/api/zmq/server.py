@@ -210,7 +210,8 @@ class ZmqServer:
         context: Optional[zmq.asyncio.Context] = None,
         fq_sampler: Optional[Any] = None,
         fire_queue_provider: Optional[Any] = None,
-        stream_config: Optional[Dict[str, Any]] = None
+        stream_config: Optional[Dict[str, Any]] = None,
+        process_manager: Optional[Any] = None  # Accept process manager for on-demand FQ sampler creation
     ):
         """
         Initialize the ZeroMQ server for FEAGI.
@@ -229,6 +230,7 @@ class ZmqServer:
             fq_sampler: Optional FQ sampler instance for visualization data
             fire_queue_provider: Optional fire queue provider for visualization data
             stream_config: Optional stream configuration from TOML
+            process_manager: Optional process manager for on-demand FQ sampler creation
         """
         self.core_api = core_api
         self.host = host
@@ -262,6 +264,7 @@ class ZmqServer:
         # FQ Sampler integration
         self._fq_sampler = fq_sampler
         self._fire_queue_provider = fire_queue_provider
+        self._process_manager = process_manager  # Store process manager reference
         
         # Thread and event loop management
         self._thread = None
@@ -463,16 +466,17 @@ class ZmqServer:
             )
             
             if self.vis_port is not None:
-                # Use working visualization stream interface (EXACTLY as before)
+                # Use existing FQ sampler from process manager (created at startup)
                 self._visualization = VisualizationStream(
                     host=self.host,
                     port=self.vis_port,
                     context=None,  # VisualizationStream creates its own sync context
-                    fire_queue_provider=self._fire_queue_provider,
+                    fq_sampler=self._process_manager.get_viz_fq_sampler() if self._process_manager else None,  # Use existing FQ sampler
                     core_api=self.core_api,  # Pass core_api for coordinate extraction and genome state
-                    connectome_manager=self.core_api.get_connectome_manager()  # Pass connectome_manager for cortical areas
+                    connectome_manager=self.core_api.get_connectome_manager(),  # Pass connectome_manager for cortical areas
+                    process_manager=self._process_manager  # Pass process manager for enable/disable control
                 )
-                logger.info(f"Primary visualization stream enabled on port {self.vis_port}")
+                logger.info(f"Primary visualization stream enabled on port {self.vis_port} using existing FQ sampler")
             else:
                 logger.info("Visualization stream disabled")
             

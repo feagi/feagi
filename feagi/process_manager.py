@@ -290,90 +290,107 @@ class ProcessManager:
             logger.info("[CONFIG] Embedded device mode enabled - disabling non-essential components")
         
         try:
-            # --- FQSampler Integration ---
-            from feagi.core.state_manager import FeagiStateManager, ServiceState
-            state_manager = FeagiStateManager.instance()
+            # --- Get Stream Configuration Early ---
+            zmq_config = config.get('zmq', {})
+            stream_config = zmq_config.get('streams', {})
             
-            # Get port configuration from TOML config
-            port_config = get_port_config(config)
+            # Check which streams are enabled (disable visualization in embedded mode)
+            visualization_enabled = stream_config.get('visualization', {}).get('enabled', True) and not embedded_mode
+            sensory_enabled = stream_config.get('sensory', {}).get('enabled', True)
+            motor_enabled = stream_config.get('motor', {}).get('enabled', True)
+            rest_enabled = stream_config.get('rest', {}).get('enabled', True)  # REST API always enabled by default
             
-            # Get host configuration with validation (no hardcoded fallbacks)
-            host_config = get_host_config(config)
-            zmq_host = host_config.zmq_host
+            if embedded_mode:
+                logger.info("[CONFIG] Embedded mode: Visualization stream disabled")
             
-            # Windows-specific ZMQ binding fix: normalize host for binding
-            # On Windows, binding to 127.0.0.1 can cause permission issues
-            # Use "*" (all interfaces) for binding when host is loopback on Windows
-            import platform
-            if platform.system() == "Windows" and zmq_host in ["127.0.0.1", "localhost"]:  # @architecture:acceptable - Windows compatibility fix
-                logger.info(f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding")
-                zmq_bind_host = "*"
+            logger.info(f"Stream configuration: visualization={visualization_enabled}, "
+                       f"sensory={sensory_enabled}, motor={motor_enabled}, rest={rest_enabled}")
+            
+            # --- FQ Sampler Setup (Rust/RTOS Compatible: Static allocation at startup) ---
+            if visualization_enabled or motor_enabled:
+                try:
+                    from feagi.npu.fq_sampler import UnifiedFQSampler
+                    
+                    # RUST/RTOS COMPATIBLE: Create ALL samplers at startup (static allocation)
+                    # Use enable/disable for runtime control instead of create/destroy
+                    
+                    # --- Motor FQ Sampler (High-frequency OPU sampling) ---
+                    if motor_enabled:
+                        self._motor_fq_sampler = UnifiedFQSampler(
+                            fire_queue_provider=self._core_api,
+                            sample_frequency_hz=100.0,  # High-frequency motor sampling
+                            connectome_manager=self._connectome_manager,
+                            sampling_mode='opu'  # Only sample OPU areas
+                        )
+                        
+                        # IMPORTANT: Start in DISABLED state until motor clients connect
+                        if hasattr(self._motor_fq_sampler, 'set_motor_subscribers'):
+                            self._motor_fq_sampler.set_motor_subscribers(False)
+                            logger.info("[OK] Motor FQ Sampler created in DISABLED state (100Hz OPU sampling)")
+                        else:
+                            logger.warning("[WARN] Motor FQ Sampler missing set_motor_subscribers method")
+                            logger.info("[OK] Motor FQ Sampler created (100Hz OPU sampling)")
+                    else:
+                        self._motor_fq_sampler = None
+                    
+                    # --- Visualization FQ Sampler (Configurable-rate global sampling) ---
+                    if visualization_enabled:
+                        self._viz_fq_sampler = UnifiedFQSampler(
+                            fire_queue_provider=self._core_api,
+                            sample_frequency_hz=30.0,  # Moderate frequency for visualization
+                            connectome_manager=self._connectome_manager,
+                            sampling_mode='visualization'  # Sample all areas for visualization
+                        )
+                        
+                        # IMPORTANT: Start in DISABLED state until visualization clients connect
+                        if hasattr(self._viz_fq_sampler, 'set_visualization_subscribers'):
+                            self._viz_fq_sampler.set_visualization_subscribers(False)
+                            logger.info("[OK] Visualization FQ Sampler created in DISABLED state (30Hz visualization sampling)")
+                        else:
+                            logger.warning("[WARN] Visualization FQ Sampler missing set_visualization_subscribers method")
+                            logger.info("[OK] Visualization FQ Sampler created (30Hz visualization sampling)")
+                    else:
+                        self._viz_fq_sampler = None
+                        logger.info("[CONFIG] Visualization stream disabled - no FQ sampler created")
+                    
+                    logger.info(f"[OK] Rust/RTOS compatible FQ Samplers created: motor={motor_enabled}, viz={visualization_enabled}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to initialize FQ Samplers: {e}")
+                    self._motor_fq_sampler = None
+                    self._viz_fq_sampler = None
             else:
-                # On non-Windows platforms, use the configured host directly
-                # ZMQ will handle 0.0.0.0 appropriately on each platform
-                zmq_bind_host = zmq_host
-            
-            logger.info(f"ZMQ server will bind to: {zmq_bind_host} (configured host: {zmq_host})")
+                # Both disabled - set references to None for clarity
+                self._motor_fq_sampler = None
+                self._viz_fq_sampler = None
+                logger.info("Both motor and visualization disabled, no FQ samplers created")
             
             # --- ZMQ Message Broker Setup ---
             try:
                 from feagi.api.zmq.server import ZmqServer
+                from feagi.core.state_manager import FeagiStateManager, ServiceState
+                state_manager = FeagiStateManager.instance()
                 
-                # Get stream configuration
-                zmq_config = config.get('zmq', {})
-                stream_config = zmq_config.get('streams', {})
+                # Get port configuration from TOML config
+                port_config = get_port_config(config)
                 
-                # Check which streams are enabled (disable visualization in embedded mode)
-                visualization_enabled = stream_config.get('visualization', {}).get('enabled', True) and not embedded_mode
-                sensory_enabled = stream_config.get('sensory', {}).get('enabled', True)
-                motor_enabled = stream_config.get('motor', {}).get('enabled', True)
-                rest_enabled = stream_config.get('rest', {}).get('enabled', True)  # REST API always enabled by default
+                # Get host configuration with validation (no hardcoded fallbacks)
+                host_config = get_host_config(config)
+                zmq_host = host_config.zmq_host
                 
-                if embedded_mode:
-                    logger.info("[CONFIG] Embedded mode: Visualization stream disabled")
-                
-                logger.info(f"Stream configuration: visualization={visualization_enabled}, "
-                           f"sensory={sensory_enabled}, motor={motor_enabled}, rest={rest_enabled}")
-                
-                # --- FQ Sampler Setup (separate instances for motor and visualization) ---
-                if visualization_enabled or motor_enabled:
-                    try:
-                        from feagi.npu.fq_sampler import UnifiedFQSampler
-                        
-                        # Initialize FQ Sampler references
-                        self._motor_fq_sampler = None
-                        self._viz_fq_sampler = None
-                        
-                        # --- Motor FQ Sampler (High-frequency OPU sampling) ---
-                        if motor_enabled:
-                            self._motor_fq_sampler = UnifiedFQSampler(
-                                fire_queue_provider=self._core_api,
-                                sample_frequency_hz=100.0,  # High-frequency motor sampling
-                                connectome_manager=self._connectome_manager,
-                                sampling_mode='opu'  # Only sample OPU areas
-                            )
-                            
-                            logger.info("[OK] Motor FQ Sampler initialized (100Hz OPU sampling)")
-                        
-                        # --- Visualization FQ Sampler (Configurable-rate global sampling) ---
-                        if visualization_enabled:
-                            self._viz_fq_sampler = UnifiedFQSampler(
-                                fire_queue_provider=self._core_api,
-                                sample_frequency_hz=30.0,  # Moderate frequency for visualization
-                                connectome_manager=self._connectome_manager,
-                                sampling_mode='visualization'  # Sample all areas for visualization
-                            )
-                            
-                            logger.info("[OK] Visualization FQ Sampler initialized (30Hz visualization sampling)")
-                        
-                        logger.info(f"[OK] Independent FQ Samplers created: motor={motor_enabled}, viz={visualization_enabled}")
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to initialize FQ Samplers: {e}")
-                        self._motor_fq_sampler = None
-                        self._viz_fq_sampler = None
+                # Windows-specific ZMQ binding fix: normalize host for binding
+                # On Windows, binding to 127.0.0.1 can cause permission issues
+                # Use "*" (all interfaces) for binding when host is loopback on Windows
+                import platform
+                if platform.system() == "Windows" and zmq_host in ["127.0.0.1", "localhost"]:  # @architecture:acceptable - Windows compatibility fix
+                    logger.info(f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding")
+                    zmq_bind_host = "*"
                 else:
-                    logger.info("Both motor and visualization disabled, skipping FQ Sampler initialization")
+                    # On non-Windows platforms, use the configured host directly
+                    # ZMQ will handle 0.0.0.0 appropriately on each platform
+                    zmq_bind_host = zmq_host
+                
+                logger.info(f"ZMQ server will bind to: {zmq_bind_host} (configured host: {zmq_host})")
                 
                 # Use hardcoded ports from configuration
                 zmq_ports = {
@@ -399,15 +416,11 @@ class ProcessManager:
                     motor_port=port_config.zmq_motor_port if motor_enabled else None,
                     rest_port=port_config.zmq_rest_port if rest_enabled else None,
                     vis_port=port_config.zmq_visualization_port if visualization_enabled else None,
-                    fq_sampler=self._viz_fq_sampler,  # Visualization sampler for existing interface
+                    fq_sampler=None,  # No FQ sampler at startup - will be created on-demand
                     fire_queue_provider=self._core_api,  # Use core_api as fire_queue_provider
-                    stream_config=stream_config  # Pass stream configuration to ZMQ server
+                    stream_config=stream_config,  # Pass stream configuration to ZMQ server
+                    process_manager=self  # Pass process manager reference for on-demand FQ sampler creation
                 )
-                
-                # Store motor sampler references in ZMQ server for motor stream
-                if motor_enabled and self._motor_fq_sampler:
-                    zmq_server._motor_fq_sampler = self._motor_fq_sampler
-                    logger.info("[OK] Motor FQ Sampler attached to ZMQ server")
                 
                 # Start ZMQ server
                 if zmq_server.start():
@@ -969,6 +982,94 @@ class ProcessManager:
             stats['visualization'] = self._viz_fq_sampler.get_performance_stats()
         
         return stats
+
+    def enable_viz_fq_sampler(self):
+        """
+        Enable visualization FQ sampler when first visualization client connects.
+        RUST/RTOS COMPATIBLE: Uses enable/disable instead of create/destroy.
+        
+        Returns:
+            True if enabled successfully, False otherwise
+        """
+        if self._viz_fq_sampler is None:
+            logger.warning("Visualization FQ sampler not available - visualization stream may be disabled")
+            return False
+            
+        try:
+            if hasattr(self._viz_fq_sampler, 'set_visualization_subscribers'):
+                self._viz_fq_sampler.set_visualization_subscribers(True)
+                logger.info("[ENABLED] Visualization FQ Sampler enabled for connected clients")
+                return True
+            else:
+                logger.warning("Visualization FQ sampler missing set_visualization_subscribers method")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to enable visualization FQ sampler: {e}")
+            return False
+
+    def disable_viz_fq_sampler(self):
+        """
+        Disable visualization FQ sampler when last visualization client disconnects.
+        RUST/RTOS COMPATIBLE: Uses enable/disable instead of create/destroy.
+        """
+        if self._viz_fq_sampler is None:
+            logger.debug("Visualization FQ sampler already disabled or not available")
+            return
+            
+        try:
+            if hasattr(self._viz_fq_sampler, 'set_visualization_subscribers'):
+                self._viz_fq_sampler.set_visualization_subscribers(False)
+                logger.info("[DISABLED] Visualization FQ Sampler disabled - no clients connected")
+            else:
+                logger.warning("Visualization FQ sampler missing set_visualization_subscribers method")
+                
+        except Exception as e:
+            logger.error(f"Error disabling visualization FQ sampler: {e}")
+
+    def enable_motor_fq_sampler(self):
+        """
+        Enable motor FQ sampler when first motor client connects.
+        RUST/RTOS COMPATIBLE: Uses enable/disable instead of create/destroy.
+        
+        Returns:
+            True if enabled successfully, False otherwise
+        """
+        if self._motor_fq_sampler is None:
+            logger.warning("Motor FQ sampler not available - motor stream may be disabled")
+            return False
+            
+        try:
+            if hasattr(self._motor_fq_sampler, 'set_motor_subscribers'):
+                self._motor_fq_sampler.set_motor_subscribers(True)
+                logger.info("[ENABLED] Motor FQ Sampler enabled for connected clients")
+                return True
+            else:
+                logger.warning("Motor FQ sampler missing set_motor_subscribers method")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to enable motor FQ sampler: {e}")
+            return False
+
+    def disable_motor_fq_sampler(self):
+        """
+        Disable motor FQ sampler when last motor client disconnects.
+        RUST/RTOS COMPATIBLE: Uses enable/disable instead of create/destroy.
+        """
+        if self._motor_fq_sampler is None:
+            logger.debug("Motor FQ sampler already disabled or not available")
+            return
+            
+        try:
+            if hasattr(self._motor_fq_sampler, 'set_motor_subscribers'):
+                self._motor_fq_sampler.set_motor_subscribers(False)
+                logger.info("[DISABLED] Motor FQ Sampler disabled - no clients connected")
+            else:
+                logger.warning("Motor FQ sampler missing set_motor_subscribers method")
+                
+        except Exception as e:
+            logger.error(f"Error disabling motor FQ sampler: {e}")
 
 # Global instance for the process manager
 _process_manager = None
