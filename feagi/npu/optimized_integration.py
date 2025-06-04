@@ -28,12 +28,12 @@ from typing import Dict, List, Optional, Set, Tuple, Union, Any
 # Try to import optimized structures
 try:
     from feagi.npu.optimized_structures import (
-        GlobalNeuronArray,
         FireCandidateList,
         Connectome,
         OptimizedFeagiCore,
         RUST_AVAILABLE,
     )
+    from feagi.bdu.models.neuron import NeuronArray
 except ImportError:
     RUST_AVAILABLE = False
     logging.warning("Optimized structures not available. Using standard implementations.")
@@ -57,15 +57,9 @@ def create_optimized_core(
     if RUST_AVAILABLE and use_optimized:
         return OptimizedFeagiCore(neuron_count, estimated_connections)
     
-    # Fallback to standard Python structures that mimic the optimized API
-    from feagi.npu.optimized_structures import (
-        GlobalNeuronArray,
-        FireCandidateList,
-        Connectome,
-    )
-    
+    # Fallback to unified NeuronArray with enhanced optimizations
     return {
-        "gna": GlobalNeuronArray(neuron_count),
+        "gna": NeuronArray(neuron_count),  # ✅ Use unified enhanced NeuronArray
         "fcl": FireCandidateList(),
         "connectome": Connectome(neuron_count, estimated_connections),
         "current_timestep": 0,
@@ -133,21 +127,23 @@ def step_simulation(
         gna = core["gna"]
         fcl = core["fcl"]
         
-        # 1. Decay membrane potentials
-        gna.update_membrane_potentials(0.95)
+        # 1. Decay membrane potentials using SIMD-optimized method
+        gna.simd_optimized_update_membrane_potentials(0.95)
         
-        # 2. Update refractory counters
-        gna.update_refractory_counters()
+        # 2. Update refractory counters (if available)
+        if hasattr(gna, 'update_refractory_counters'):
+            gna.update_refractory_counters()
         
-        # 3. Find neurons ready to fire
-        fire_candidates = gna.find_fire_candidates(core["current_timestep"])
+        # 3. Find neurons ready to fire using SIMD-optimized method
+        fire_candidates = gna.simd_optimized_find_fire_candidates(core["current_timestep"])
         
         # 4. Update FCL
         fcl.clear()
         fcl.add_multiple(fire_candidates)
         
-        # 5. Process fired neurons
-        gna.process_fired_neurons(fire_candidates, core["current_timestep"])
+        # 5. Process fired neurons (use decay_and_check_firing if available)
+        if hasattr(gna, 'decay_and_check_firing'):
+            gna.decay_and_check_firing()
         
         # Increment timestep
         core["current_timestep"] += 1
@@ -354,16 +350,18 @@ def get_membrane_potential(
     Get the membrane potential of a neuron.
     
     Args:
-        core: The core object
+        core: The core object (optimized or dict-based)
         neuron_id: ID of the neuron
         
     Returns:
-        Membrane potential value
+        The membrane potential value
     """
     if RUST_AVAILABLE and not isinstance(core, dict):
-        return core._rust_core.get_gna().get_membrane_potential(neuron_id)
+        return core.get_membrane_potential(neuron_id)
     else:
-        return core["gna"].get_membrane_potential(neuron_id)
+        gna = core["gna"]
+        # Use NeuronArray API
+        return gna.get_neuron_property(neuron_id, "membrane_potential")
 
 def set_membrane_potential(
     core: Union["OptimizedFeagiCore", Dict[str, Any]],
@@ -374,11 +372,13 @@ def set_membrane_potential(
     Set the membrane potential of a neuron.
     
     Args:
-        core: The core object
+        core: The core object (optimized or dict-based)
         neuron_id: ID of the neuron
-        value: Membrane potential value to set
+        value: New membrane potential value
     """
     if RUST_AVAILABLE and not isinstance(core, dict):
-        core._rust_core.get_gna().set_membrane_potential(neuron_id, value)
+        core.set_membrane_potential(neuron_id, value)
     else:
-        core["gna"].set_membrane_potential(neuron_id, value) 
+        gna = core["gna"]
+        # Use NeuronArray API
+        gna.set_neuron_property(neuron_id, "membrane_potential", value) 

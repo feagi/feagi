@@ -275,32 +275,48 @@ class ArrayBackend:
         else:
             return base_dtype
     
-    def zeros(self, shape: Tuple[int, ...], dtype: Any = None) -> Any:
+    def zeros(self, shape: Tuple[int, ...], dtype: Any) -> Any:
         """Create array of zeros with specified shape and type.
         
         Args:
             shape: Shape of the array
-            dtype: Data type (default: adjusted based on precision setting)
+            dtype: Data type (REQUIRED - no fallbacks for Rust compatibility)
             
         Returns:
             Array of zeros with backend-specific type
+            
+        Raises:
+            ValueError: If dtype is None or not specified
         """
         if dtype is None:
-            dtype = np.float32
+            raise ValueError("dtype must be explicitly specified - no fallbacks allowed for Rust compatibility")
             
-        # Adjust dtype based on precision setting
-        adjusted_dtype = self._get_dtype_for_precision(dtype)
+        # For uint32, preserve it exactly (don't apply precision adjustments)
+        if dtype == np.uint32:
+            adjusted_dtype = np.uint32
+        else:
+            # Adjust dtype based on precision setting for other types
+            adjusted_dtype = self._get_dtype_for_precision(dtype)
             
         if self.backend_type == BackendType.NUMPY:
             return np.zeros(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.PYTORCH:
-            torch_dtype = self._numpy_to_torch_dtype(adjusted_dtype)
+            # For uint32, we need special handling since PyTorch doesn't support it
+            if adjusted_dtype == np.uint32:
+                # Use int64 in PyTorch but preserve uint32 semantics
+                torch_dtype = torch.int64
+            else:
+                torch_dtype = self._numpy_to_torch_dtype(adjusted_dtype)
             # Convert shape to tuple if it's a single integer
             if isinstance(shape, int):
                 shape = (shape,)
             # Convert string device to torch.device
             device = torch.device(self.device) if hasattr(self, 'device') else None
-            return torch.zeros(shape, dtype=torch_dtype, device=device)
+            tensor = torch.zeros(shape, dtype=torch_dtype, device=device)
+            # Mark it as uint32 for tracking purposes
+            if adjusted_dtype == np.uint32:
+                tensor._feagi_dtype = np.uint32
+            return tensor
         elif self.backend_type == BackendType.CUPY:
             return cp.zeros(shape, dtype=adjusted_dtype)
         elif self.backend_type == BackendType.WGPU:
@@ -308,18 +324,21 @@ class ArrayBackend:
             cpu_array = np.zeros(shape, dtype=adjusted_dtype)
             return self._numpy_to_wgpu(cpu_array)
     
-    def ones(self, shape: Tuple[int, ...], dtype: Any = None) -> Any:
+    def ones(self, shape: Tuple[int, ...], dtype: Any) -> Any:
         """Create array of ones with specified shape and type.
         
         Args:
             shape: Shape of the array
-            dtype: Data type (default: adjusted based on precision setting)
+            dtype: Data type (REQUIRED - no fallbacks for Rust compatibility)
             
         Returns:
             Array of ones with backend-specific type
+            
+        Raises:
+            ValueError: If dtype is None or not specified
         """
         if dtype is None:
-            dtype = np.float32
+            raise ValueError("dtype must be explicitly specified - no fallbacks allowed for Rust compatibility")
             
         # Adjust dtype based on precision setting
         adjusted_dtype = self._get_dtype_for_precision(dtype)
@@ -341,19 +360,22 @@ class ArrayBackend:
             cpu_array = np.ones(shape, dtype=adjusted_dtype)
             return self._numpy_to_wgpu(cpu_array)
     
-    def full(self, shape: Tuple[int, ...], fill_value: Union[float, int], dtype: Any = None) -> Any:
+    def full(self, shape: Tuple[int, ...], fill_value: Union[float, int], dtype: Any) -> Any:
         """Create array filled with specified value.
         
         Args:
             shape: Shape of the array
             fill_value: Value to fill array with
-            dtype: Data type (default: adjusted based on precision setting)
+            dtype: Data type (REQUIRED - no fallbacks for Rust compatibility)
             
         Returns:
             Array filled with specified value
+            
+        Raises:
+            ValueError: If dtype is None or not specified
         """
         if dtype is None:
-            dtype = np.float32 if isinstance(fill_value, float) else np.int32
+            raise ValueError("dtype must be explicitly specified - no fallbacks allowed for Rust compatibility")
             
         # Adjust dtype based on precision setting
         adjusted_dtype = self._get_dtype_for_precision(dtype)
@@ -380,34 +402,24 @@ class ArrayBackend:
         
         Args:
             data: Data to create array from (list, tuple, NumPy array, etc.)
-            dtype: Data type (default: inferred from data, then adjusted for precision)
+            dtype: Data type (optional - if None, infers from data but no fallbacks applied)
             
         Returns:
             Array with backend-specific type
+            
+        Note:
+            When dtype=None, the type is inferred from input data without fallbacks.
+            For explicit type conversion, always specify dtype parameter.
         """
-        # Adjust dtype based on precision setting if provided
+        # Only apply precision adjustments if dtype is explicitly provided
         adjusted_dtype = None if dtype is None else self._get_dtype_for_precision(dtype)
         
         if self.backend_type == BackendType.NUMPY:
-            # For NumPy, explicitly convert to the adjusted dtype
-            if self.precision == PrecisionType.MIXED and dtype is None:
-                # Use FP32 for mixed precision when no dtype is explicitly provided
-                result = np.array(data, dtype=np.float32)
+            # For NumPy, let it infer the type naturally if no dtype specified
+            if dtype is None:
+                result = np.array(data)  # Natural type inference
             else:
-                result = np.array(data, dtype=adjusted_dtype)
-            
-            # If no dtype was specified but we have a precision setting, apply it
-            if dtype is None and adjusted_dtype is None:
-                if self.precision == PrecisionType.FP16 and np.issubdtype(result.dtype, np.floating):
-                    result = result.astype(np.float16)
-                elif self.precision == PrecisionType.INT8 and np.issubdtype(result.dtype, np.integer):
-                    result = result.astype(np.int8)
-                elif self.precision == PrecisionType.INT8 and np.issubdtype(result.dtype, np.floating):
-                    # For floating-point data with INT8 precision, use FP16 instead
-                    result = result.astype(np.float16)
-                elif self.precision == PrecisionType.FP32 and np.issubdtype(result.dtype, np.floating):
-                    result = result.astype(np.float32)
-            
+                result = np.array(data, dtype=adjusted_dtype)  # Explicit conversion
             return result
         elif self.backend_type == BackendType.PYTORCH:
             # Convert data to NumPy first if it's not already a tensor
@@ -619,14 +631,21 @@ class ArrayBackend:
             np.int16: torch.int16,
             np.int8: torch.int8,
             np.uint8: torch.uint8,
+            np.uint32: torch.int64,
             np.bool_: torch.bool
         }
         
         np_dtype = np.dtype(dtype)
         torch_dtype = dtype_map.get(np_dtype.type)
         if torch_dtype is None:
-            logger.warning(f"No matching PyTorch dtype for {np_dtype}, using float32")
-            torch_dtype = torch.float32
+            logger.warning(f"No matching PyTorch dtype for {np_dtype}, using int32 for integer types or float32 for others")
+            # Better fallback logic for unsupported types
+            if np.issubdtype(np_dtype, np.integer):
+                torch_dtype = torch.int32
+            elif np.issubdtype(np_dtype, np.floating):
+                torch_dtype = torch.float32
+            else:
+                torch_dtype = torch.float32
             
         return torch_dtype
     
@@ -793,7 +812,14 @@ class ArrayBackend:
         # Handle half-precision tensors by converting to float32
         if array.dtype == torch.float16:
             array = array.float()  # Convert to float32 for CPU
-        return array.detach().cpu().numpy()
+        
+        numpy_array = array.detach().cpu().numpy()
+        
+        # If this was originally uint32, convert it back
+        if hasattr(array, '_feagi_dtype') and array._feagi_dtype == np.uint32:
+            numpy_array = numpy_array.astype(np.uint32)
+            
+        return numpy_array
     
     def _cupy_to_numpy(self, array: Any) -> np.ndarray:
         """Convert CuPy array to NumPy array.

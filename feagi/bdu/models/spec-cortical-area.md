@@ -113,9 +113,9 @@ The implementation uses the following data structures:
 # Core neuron properties using Structure of Arrays pattern
 membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
 thresholds = np.zeros(max_neurons, dtype=np.float32)
-positions_x = np.zeros(max_neurons, dtype=np.uint32)
-positions_y = np.zeros(max_neurons, dtype=np.uint32)
-positions_z = np.zeros(max_neurons, dtype=np.uint32)
+coordinates_x = np.zeros(max_neurons, dtype=np.uint32)
+coordinates_y = np.zeros(max_neurons, dtype=np.uint32)
+coordinates_z = np.zeros(max_neurons, dtype=np.uint32)
 neuron_indices = np.zeros(max_neurons, dtype=np.uint32)  # Index within voxel
 area_ids = np.zeros(max_neurons, dtype=np.uint32)
 is_active = np.zeros(max_neurons, dtype=bool)
@@ -259,7 +259,7 @@ Let's analyze the memory requirements for a 1000×1000×1000 cortical area with 
 For 1 billion neurons:
 - `membrane_potentials`: 1B × 4 bytes = 4GB
 - `thresholds`: 1B × 4 bytes = 4GB
-- `positions_x/y/z`: 3 × 1B × 4 bytes = 12GB
+- `coordinates_x/y/z`: 3 × 1B × 4 bytes = 12GB
 - `neuron_indices`: 1B × 4 bytes = 4GB
 - `area_ids`: 1B × 4 bytes = 4GB
 - `is_active`: 1B × 1 byte = 1GB

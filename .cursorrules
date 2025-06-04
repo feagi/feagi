@@ -445,3 +445,109 @@ When Cursor suggests patterns like:
 
 **Remember: Every hardcoded value is a potential deployment failure!**
 **Use @architecture:acceptable annotation ONLY for legitimate emergency cases!** 
+
+
+
+DO NOT IMPLEMENT FALLBACKS unless you are asked for it. if you are compeled that fallbacks are necessary ask for permission to implement first.
+
+# Code Quality & Structure
+- All code must be clean, modular, and optimized for performance.
+- Use inline comments and descriptive docstrings for all functions, explaining their purpose and usage.
+- Maintain separation of concerns between compute logic, I/O, and state management.
+- Always favor clarity over cleverness.
+- Python code should be written in a way that facilitates future migration to Rust (e.g., static typing, minimal dynamic behavior).
+- Avoid dependencies that are incompatible with WebAssembly, WebGPU, embedded systems, or RTOS environments.
+- All developers and AI tools must follow the structure, naming, and documentation conventions defined in /docs/coding_guidelines.md.
+- Module folders should not duplicate templates. Cursor should use the central guideline for structure and style.
+- Any temporary file during development should be named as *--temp.* and placed under /tmp folder. When done, they have to be deleted when done
+- Do not introduce new files or folder under the project root unless absolutely necessary and with prior pemission.
+- The use of mocking is only allowed when the topic under test depends on an objec that is outside the domain of testing. Use of mocking is prohibited if the object is under test. Cannot use mocking for the purpose of making the test pass. Should never mock the components that are the actual subject of the test.
+- no environmental variable should be hardcoded for example network port numbers.
+- design should be operating system/platform agnostic. Do not assume and hardcode OS speficic notations such as paths.
+
+
+# Documentation
+- Every major module must contain its own `README.md` or `.md` file in the same folder, describing its functionality, design rationale, and dependencies.
+- The `/docs` folder must contain all high-level system design documentation, including architecture overviews, Rust/RTOS migration plans, and internal tooling notes.
+- Keep documentation up to date with significant changes and include diagrams when helpful.
+- System level design and architecture docs along with project level documents intended for developers will be captured in either `/docs` folder
+- Detailed module level documentation will coexist inside module folders all in markdown format
+- Docusaurus will be only used for documents that will be end-user facing such as tutorials, blogs, etc. and will be part of the `/website folder`
+- The naming convention for each newly created document has to be compliant with the agreed format outlined under /docs/README.md
+- before creating any new document, ensure the content cannot be added to an existing document. only in the case that none of the existing documents can accomodate the new topic then proceed with the creation of a new document file.
+
+
+# Testing
+- All project tests must be placed under the `/tests` directory.
+- Tests should mirror the main project structure (e.g., `/feagi/npu/...` has corresponding `/tests/npu/...`).
+- All tests must use `pytest`.
+- Tests should be meaningful, concise, and target edge cases as well as expected flows.
+- Include performance benchmarks or profiling tests for critical components when appropriate.
+- Tests should not be skipped for the purpose of overcoming an error. A true fix has to be implemented.
+- Everytime you fix a bug, go back to the test suite covering the related issue and enhance test coverage to catch similar bugs in the future.
+
+# Style & Linting
+- Use `black` for code formatting, `flake8` or `ruff` for linting, and `mypy` for type checking.
+- CI should block merges on failing formatting, linting, or tests.
+
+# Build & Portability
+- Design with cross-platform compatibility in mind (Linux, macOS, embedded targets).
+- Avoid system-dependent behavior unless properly abstracted.
+
+# Security & Resilience
+- Handle input sanitization and edge case validation explicitly.
+- Prefer fail-safe defaults and meaningful error messages in case of unexpected failures.
+
+
+# Cursor-specific guidance
+- Code files should remain modular and ideally under 300–500 lines for better readability and AI-assisted navigation.
+- Use descriptive folder and file names to help AI infer intent (e.g., /gpu_accel, /neuron_pool).
+- Inline comments before blocks (e.g., "# GPU-compatible", "# Critical path") should describe constraints to guide Cursor when generating or editing code.
+- AI usage should assume Rust/RTOS interoperability: favor static types, minimal global state, and minimal runtime reflection.
+- Include `@cursor:` tags such as `@cursor:gpu`, `@cursor:critical-path`, or `@cursor:ffi-safe` in comments to mark critical sections or design constraints.
+- Maintain example patterns in each module’s README.md or scaffold files to help guide consistent AI output.
+- Reference `.rules` explicitly in code review prompts (e.g., "Conform this to .rules").
+- When modifying code, always read beware of requirements outlined with in system level and module level documentation. If there is a major discrepancy, ask for clarification or approval
+- if there is a design change, ensure documentation is updated to reflect the change
+- no not complecate code with backward compatibility cases unless explicitly asked
+- no python package should be installed using pip unless in an activated virtual environment 
+- your disgreements is more important than agreements. do not just take everything you are told unless you analyze and assedd pros and cons. if you see what you are told or asked is detrimental to project goals and values or violates any of the rules defined here, speak up!
+- every single new feature or design change has to be discussed. You do not have the authority to make changes in how the software behave. Design decisions shoudl come from either the chat prompt or from the architecture/design documentation only.
+- DO NOT add emojis
+- Any file or folder found under /archive should not be modifled. you should only have read-only access
+- Do not take the liberty of implementing something I did not asked for. Only stick to the ask and to the plan. if you have suggestions to make improvements, make a proposal.
+- "Before adding ANY backward compatibility, ask me first"
+- "Before implementing fallbacks, get approval"
+- "Only fix the specific failing tests - no additional features"
+- "Only fix the test failures by making tests work with existing code"
+- "Do not modify the core implementation - only fix test setup/mocking"
+- "If tests expect methods that don't exist, ask me before adding them"
+
+1. Explicit Permission Gates
+When giving me tasks, include clear instructions like:
+"Before adding ANY backward compatibility, ask me first"
+"Before implementing fallbacks, get approval"
+"Only fix the specific failing tests - no additional features"
+2. Scope Limitation
+Be very specific about what I'm allowed to do:
+"Only fix the test failures by making tests work with existing code"
+"Do not modify the core implementation - only fix test setup/mocking"
+"If tests expect methods that don't exist, ask me before adding them"
+3. Stop-and-Ask Protocol
+Include this instruction:
+"If you need to add new methods or change behavior to make tests pass, STOP and ask me which approach to take"
+4. Code Review Checkpoints
+"After each significant change, summarize what you added and why before continuing"
+"If you're about to add more than 10 lines of new functionality, ask first"
+5. Clarify Test Strategy
+Tell me explicitly:
+Should I modify tests to work with new architecture?
+Should I add missing methods to new classes?
+Should I create adapters/wrappers?
+Should I skip broken tests entirely?
+
+# Misc
+- Do not install any python package on the system unless within an activated virtual environment.
+- Always look for the availability of a virtual environment first prior to installing any new package
+
+

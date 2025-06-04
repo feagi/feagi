@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Neuron model implementation optimized for GPU processing.
+"""Neuron model implementation optimized for GPU processing, SIMD, and Rust.
 
 This module provides a high-performance implementation of neuron storage 
-using Structure of Arrays (SoA) format compatible with SIMD and GPU acceleration.
+using Structure of Arrays (SoA) format compatible with SIMD, GPU acceleration,
+and Rust backend processing. This is the unified neuron array implementation
+that replaces GlobalNeuronArray for maximum performance.
 """
 
 import numpy as np
@@ -26,20 +28,28 @@ import torch
 import logging
 from feagi.bdu.models.array_backend import ArrayBackend, BackendType
 
+# Try to import Rust backend
+try:
+    from feagi_rust import create_gna
+    RUST_AVAILABLE = True
+except (ImportError, AttributeError):
+    RUST_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Ensure 64-byte alignment for AVX-512 compatibility (512 bits = 64 bytes)
 MEMORY_ALIGNMENT = 64
 
 class NeuronArray:
-    """GPU-optimized neuron storage using contiguous memory arrays.
+    """GPU-optimized neuron storage using contiguous memory arrays with SIMD and Rust support.
     
-    This implementation uses an array backend (NumPy, PyTorch, CuPy, or WebGPU)
+    This implementation uses an array backend (NumPy, PyTorch, CuPy, WebGPU, or Rust)
     for neuron property storage, which can be efficiently processed with SIMD 
     or transferred to GPU memory for parallel computation.
     
     Instead of storing individual Neuron objects, we store properties in columnar
-    format for vectorized operations.
+    format for vectorized operations. This unified implementation replaces
+    GlobalNeuronArray for maximum performance.
     """
     
     def __init__(self, max_neurons: int = 10_000_000, backend: Optional[str] = None):
@@ -47,49 +57,278 @@ class NeuronArray:
         
         Args:
             max_neurons: Maximum number of neurons to support
-            backend: Backend type to use (numpy, pytorch, cupy, webgpu, or auto)
+            backend: Backend type to use (numpy, pytorch, cupy, webgpu, rust, or auto)
         """
-        # Set backend
-        self.backend = ArrayBackend(backend)
+        self.max_neurons = max_neurons
         
-        # Initialize storage arrays with zeros - this creates a big block of memory
-        self.membrane_potentials = self.backend.zeros(max_neurons, dtype="float32")
-        self.resting_potentials = self.backend.zeros(max_neurons, dtype="float32")
-        self.thresholds = self.backend.ones(max_neurons, dtype="float32")  # Default threshold is 1.0
-        self.decay_rates = self.backend.full(max_neurons, 0.5, dtype="float32")  # Default decay rate is 0.5
-        self.refractory_periods = self.backend.ones(max_neurons, dtype="int32")  # Default period is 1
-        self.refractory_counters = self.backend.zeros(max_neurons, dtype="int32")
+        # Import SIMD detection for alignment
+        try:
+            from feagi.utils.simd_detection import get_simd_detector
+            simd_detector = get_simd_detector()
+            self.alignment = simd_detector.get_memory_alignment()
+            self.vector_width = simd_detector.capabilities.vector_width
+            
+            # Align capacity to SIMD vector boundaries for optimal performance
+            self.aligned_capacity = simd_detector.get_aligned_size(max_neurons)
+        except ImportError:
+            self.alignment = 64  # Default to 64-byte alignment for AVX-512
+            self.vector_width = 16  # 16 float32 values in AVX-512
+            self.aligned_capacity = (max_neurons + 15) & ~15  # 16-element alignment
         
-        # Position coordinates
-        self.positions_x = self.backend.zeros(max_neurons, dtype="int32")
-        self.positions_y = self.backend.zeros(max_neurons, dtype="int32")
-        self.positions_z = self.backend.zeros(max_neurons, dtype="int32")
+        # Initialize Rust backend if available and requested
+        if backend == "rust" or (backend is None and RUST_AVAILABLE):
+            try:
+                self._rust_backend = create_gna(self.aligned_capacity)
+                self._use_rust = True
+                self.backend_type = "rust"
+                logger.info(f"Initialized NeuronArray with Rust backend, capacity: {self.aligned_capacity}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Rust backend: {e}, falling back to NumPy")
+                self._use_rust = False
+                self._init_numpy_backend(backend)
+        else:
+            self._use_rust = False
+            self._init_numpy_backend(backend)
         
-        # Area mapping and activation
-        self.cortical_idxs = self.backend.zeros(max_neurons, dtype="int32")
-        self.is_active = self.backend.zeros(max_neurons, dtype="bool")
-        
-        # Valid mask (indicates which elements in the arrays correspond to active neurons)
-        self.valid_mask = self.backend.zeros(max_neurons, dtype="bool")
-        
-        # Maps neuron IDs to indices in the arrays
+        # Common tracking regardless of backend
         self.id_to_index_map: Dict[int, int] = {}
         self.index_to_id_map: Dict[int, int] = {}
-        
-        # For quickly accessing neurons by area
         self.cortical_id_to_indices: Dict[int, List[int]] = {}
+        self.next_index = 0
+        self.free_indices: Set[int] = set()
+        self.neuron_count = 0
+        
+    def _init_numpy_backend(self, backend: Optional[str]):
+        """Initialize NumPy/GPU backend with SIMD optimization."""
+        # Set backend
+        self.backend = ArrayBackend(backend)
+        self.backend_type = self.backend.backend_type
+        
+        # Initialize storage arrays with SIMD-aligned memory
+        self.membrane_potentials = self._create_aligned_array(self.aligned_capacity, "float32")
+        self.resting_potentials = self._create_aligned_array(self.aligned_capacity, "float32")
+        self.thresholds = self.backend.full((self.aligned_capacity,), 1.0, dtype=np.float32)
+        self.decay_rates = self.backend.full((self.aligned_capacity,), 0.95, dtype=np.float32)
+        self.refractory_periods = self.backend.full((self.aligned_capacity,), 1, dtype=np.int32)
+        self.refractory_counters = self._create_aligned_array(self.aligned_capacity, "int32")
+        
+        # Coordinate arrays - SIMD-optimized SoA layout (explicitly uint32)
+        self.coordinates_x = self.backend.zeros((self.aligned_capacity,), dtype=np.uint32)
+        self.coordinates_y = self.backend.zeros((self.aligned_capacity,), dtype=np.uint32)
+        self.coordinates_z = self.backend.zeros((self.aligned_capacity,), dtype=np.uint32)
+        
+        # Area mapping and activation
+        self.cortical_idxs = self._create_aligned_array(self.aligned_capacity, "int32")
+        self.is_active = self._create_aligned_array(self.aligned_capacity, "bool")
+        
+        # Valid mask (indicates which elements correspond to active neurons)
+        self.valid_mask = self._create_aligned_array(self.aligned_capacity, "bool")
+        
+        # Additional optimization arrays
+        self.last_fired = self._create_aligned_array(self.aligned_capacity, "int32")
+        self.neuron_types = self._create_aligned_array(self.aligned_capacity, "int32")
+        self.enabled_flags = self.backend.full((self.aligned_capacity,), 1, dtype=np.int32)
+        
+        # Working arrays for SIMD vectorized operations
+        self._temp_potentials = self._create_aligned_array(self.aligned_capacity, "float32")
+        self._temp_mask = self._create_aligned_array(self.aligned_capacity, "bool")
         
         # Device tracking for GPU support
         self.device = getattr(self.backend, 'device', 'cpu')
         
-        # Capacity tracking
-        self.max_neurons = max_neurons
-        self.next_index = 0
-        self.free_indices: Set[int] = set()
-        self.neuron_count = 0  # Track actual number of active neurons
+        logger.info(f"Initialized NeuronArray with {self.backend_type} backend, "
+                   f"capacity: {self.aligned_capacity}, alignment: {self.alignment}")
+    
+    def _create_aligned_array(self, size: int, dtype: str) -> Any:
+        """Create a SIMD-aligned array for optimal performance.
+        
+        Args:
+            size: Number of elements
+            dtype: Data type string
+            
+        Returns:
+            Aligned array using the current backend
+        """
+        # Create array using backend
+        array = self.backend.zeros(size, dtype=dtype)
+        
+        # For NumPy backend, try to ensure SIMD alignment
+        if self.backend_type == "numpy":
+            np_array = self.backend.to_numpy(array)
+            
+            # Check if we have proper alignment
+            element_size = np_array.dtype.itemsize
+            total_bytes = size * element_size
+            aligned_bytes = (total_bytes + self.alignment - 1) & ~(self.alignment - 1)
+            
+            # If alignment is off, create a new aligned array
+            if np_array.ctypes.data % self.alignment != 0:
+                # Create oversized array and slice to get alignment
+                oversized = np.zeros(aligned_bytes // element_size + self.alignment, dtype=np_array.dtype)
+                offset = self.alignment - (oversized.ctypes.data % self.alignment)
+                if offset == self.alignment:
+                    offset = 0
+                
+                aligned_start = offset // element_size
+                aligned_array = oversized[aligned_start:aligned_start + size]
+                
+                # Verify alignment achieved
+                if aligned_array.ctypes.data % self.alignment == 0:
+                    array = self.backend.array(aligned_array)
+                # If still not aligned, keep original (still functional, just not optimized)
+        
+        return array
+
+    def get_coordinates(self, neuron_id: int) -> Tuple[int, int, int]:
+        """Get 3D coordinates for a neuron.
+        
+        Args:
+            neuron_id: ID of the neuron
+            
+        Returns:
+            Tuple of (x, y, z) coordinates
+        """
+        if self._use_rust:
+            return self._rust_backend.get_coordinates(neuron_id)
+        else:
+            if neuron_id not in self.id_to_index_map:
+                raise ValueError(f"Neuron ID {neuron_id} not found")
+            
+            index = self.id_to_index_map[neuron_id]
+            return (
+                int(self.backend.to_numpy(self.coordinates_x)[index]),
+                int(self.backend.to_numpy(self.coordinates_y)[index]),
+                int(self.backend.to_numpy(self.coordinates_z)[index])
+            )
+    
+    def set_coordinates(self, neuron_id: int, x: int, y: int, z: int) -> None:
+        """Set 3D coordinates for a neuron.
+        
+        Args:
+            neuron_id: ID of the neuron
+            x: X coordinate (will be converted to uint32)
+            y: Y coordinate (will be converted to uint32) 
+            z: Z coordinate (will be converted to uint32)
+        """
+        if self._use_rust:
+            self._rust_backend.set_coordinates(neuron_id, x, y, z)
+        else:
+            if neuron_id not in self.id_to_index_map:
+                raise ValueError(f"Neuron ID {neuron_id} not found")
+            
+            index = self.id_to_index_map[neuron_id]
+            
+            # Convert to numpy for indexing, ensuring uint32 type
+            coords_x = self.backend.to_numpy(self.coordinates_x)
+            coords_y = self.backend.to_numpy(self.coordinates_y)
+            coords_z = self.backend.to_numpy(self.coordinates_z)
+            
+            # Ensure non-negative and convert to uint32
+            coords_x[index] = np.uint32(max(0, x))
+            coords_y[index] = np.uint32(max(0, y))
+            coords_z[index] = np.uint32(max(0, z))
+            
+            # Convert back to backend arrays, preserving uint32 type
+            self.coordinates_x = self.backend.array(coords_x.astype(np.uint32))
+            self.coordinates_y = self.backend.array(coords_y.astype(np.uint32))
+            self.coordinates_z = self.backend.array(coords_z.astype(np.uint32))
+
+    def batch_update_coordinates(self, neuron_ids: List[int], 
+                               coordinates: List[Tuple[int, int, int]]) -> None:
+        """Batch update coordinates for multiple neurons - SIMD optimized.
+        
+        Args:
+            neuron_ids: List of neuron IDs
+            coordinates: List of (x, y, z) coordinate tuples
+        """
+        if len(neuron_ids) != len(coordinates):
+            raise ValueError("neuron_ids and coordinates must have same length")
+        
+        if self._use_rust:
+            for neuron_id, (x, y, z) in zip(neuron_ids, coordinates):
+                self._rust_backend.set_coordinates(neuron_id, x, y, z)
+        else:
+            # Convert to indices
+            indices = [self.id_to_index_map[nid] for nid in neuron_ids if nid in self.id_to_index_map]
+            if not indices:
+                return
+            
+            # Vectorized batch update
+            coords_x = self.backend.to_numpy(self.coordinates_x)
+            coords_y = self.backend.to_numpy(self.coordinates_y)
+            coords_z = self.backend.to_numpy(self.coordinates_z)
+            
+            # Extract coordinates into separate arrays for vectorized assignment
+            x_vals = np.array([max(0, coord[0]) for coord in coordinates], dtype=np.uint32)
+            y_vals = np.array([max(0, coord[1]) for coord in coordinates], dtype=np.uint32)
+            z_vals = np.array([max(0, coord[2]) for coord in coordinates], dtype=np.uint32)
+            
+            # Vectorized assignment - SIMD friendly, preserving uint32 type
+            coords_x[indices] = x_vals
+            coords_y[indices] = y_vals
+            coords_z[indices] = z_vals
+            
+            # Update backend arrays, ensuring uint32 type is preserved
+            self.coordinates_x = self.backend.array(coords_x.astype(np.uint32))
+            self.coordinates_y = self.backend.array(coords_y.astype(np.uint32))
+            self.coordinates_z = self.backend.array(coords_z.astype(np.uint32))
+
+    def simd_optimized_update_membrane_potentials(self, decay_factor: float) -> None:
+        """SIMD-optimized membrane potential update with vectorization.
+        
+        Args:
+            decay_factor: Global decay factor to apply
+        """
+        if self._use_rust:
+            self._rust_backend.decay_membrane_potentials(decay_factor)
+        else:
+            # Use SIMD-friendly vectorized operations
+            # Process in chunks for optimal cache utilization
+            chunk_size = max(self.vector_width * 8, 64)  # Process 8 SIMD vectors at a time
+            
+            potentials = self.backend.to_numpy(self.membrane_potentials)
+            
+            for i in range(0, self.aligned_capacity, chunk_size):
+                end_idx = min(i + chunk_size, self.aligned_capacity)
+                # Vectorized decay operation on chunk - SIMD optimized
+                potentials[i:end_idx] *= decay_factor
+            
+            self.membrane_potentials = self.backend.array(potentials)
+
+    def simd_optimized_find_fire_candidates(self, timestep: int) -> List[int]:
+        """SIMD-optimized fire candidate detection with vectorization.
+        
+        Args:
+            timestep: Current simulation timestep
+            
+        Returns:
+            List of neuron IDs ready to fire
+        """
+        if self._use_rust:
+            return self._rust_backend.find_fire_candidates(timestep)
+        else:
+            # Vectorized comparison operations - SIMD friendly
+            potentials = self.backend.to_numpy(self.membrane_potentials)
+            thresholds = self.backend.to_numpy(self.thresholds)
+            refractory = self.backend.to_numpy(self.refractory_counters)
+            valid = self.backend.to_numpy(self.valid_mask)
+            enabled = self.backend.to_numpy(self.enabled_flags)
+            
+            # SIMD-optimized boolean mask operations
+            fire_mask = (potentials >= thresholds) & (refractory == 0) & valid & (enabled > 0)
+            
+            # Get indices of firing neurons
+            fire_indices = np.where(fire_mask)[0]
+            
+            # Convert indices to neuron IDs
+            return [self.index_to_id_map[idx] for idx in fire_indices if idx in self.index_to_id_map]
 
     def to_gpu(self):
         """Transfer neuron arrays to GPU for accelerated computation."""
+        if self._use_rust:
+            logger.info("Rust backend handles GPU operations internally")
+            return True
+            
         if self.device == "gpu":
             logger.info("Arrays are already on GPU")
             return True
@@ -107,9 +346,12 @@ class NeuronArray:
             self.is_active = self.backend.to_device(self.is_active)
             self.valid_mask = self.backend.to_device(self.valid_mask)
             self.cortical_idxs = self.backend.to_device(self.cortical_idxs)
-            self.positions_x = self.backend.to_device(self.positions_x)
-            self.positions_y = self.backend.to_device(self.positions_y)
-            self.positions_z = self.backend.to_device(self.positions_z)
+            self.coordinates_x = self.backend.to_device(self.coordinates_x)
+            self.coordinates_y = self.backend.to_device(self.coordinates_y)
+            self.coordinates_z = self.backend.to_device(self.coordinates_z)
+            self.last_fired = self.backend.to_device(self.last_fired)
+            self.neuron_types = self.backend.to_device(self.neuron_types)
+            self.enabled_flags = self.backend.to_device(self.enabled_flags)
             
             self.device = "gpu"
             logger.info("Neuron arrays successfully transferred to GPU")
@@ -117,7 +359,7 @@ class NeuronArray:
         except Exception as e:
             logger.error(f"Failed to transfer arrays to GPU: {e}")
             return False
-            
+
     def to_cpu(self):
         """Transfer neuron arrays back to CPU."""
         if self.device == "cpu":
@@ -137,9 +379,12 @@ class NeuronArray:
             self.is_active = self.backend.to_cpu(self.is_active)
             self.valid_mask = self.backend.to_cpu(self.valid_mask)
             self.cortical_idxs = self.backend.to_cpu(self.cortical_idxs)
-            self.positions_x = self.backend.to_cpu(self.positions_x)
-            self.positions_y = self.backend.to_cpu(self.positions_y)
-            self.positions_z = self.backend.to_cpu(self.positions_z)
+            self.coordinates_x = self.backend.to_cpu(self.coordinates_x)
+            self.coordinates_y = self.backend.to_cpu(self.coordinates_y)
+            self.coordinates_z = self.backend.to_cpu(self.coordinates_z)
+            self.last_fired = self.backend.to_cpu(self.last_fired)
+            self.neuron_types = self.backend.to_cpu(self.neuron_types)
+            self.enabled_flags = self.backend.to_cpu(self.enabled_flags)
             
             self.device = "cpu"
             logger.info("Neuron arrays successfully transferred to CPU")
@@ -165,19 +410,22 @@ class NeuronArray:
         if self.free_indices:
             index = self.free_indices.pop()
         else:
-            if self.next_index >= self.max_neurons:
-                raise ValueError(f"Maximum neuron capacity ({self.max_neurons}) reached")
+            if self.next_index >= self.aligned_capacity:
+                raise ValueError(f"Maximum neuron capacity ({self.aligned_capacity}) reached")
             index = self.next_index
             self.next_index += 1
             
-        # Mark this index as valid and store the ID mapping
-        # Convert to numpy arrays first if they're backend-specific types
-        # This ensures we can use boolean indexing
-        valid_mask_np = self.backend.to_numpy(self.valid_mask)
-        valid_mask_np[index] = True
-        self.valid_mask = self.backend.array(valid_mask_np)
+        if not self._use_rust:
+            # Mark this index as valid and store the ID mapping
+            valid_mask_np = self.backend.to_numpy(self.valid_mask)
+            valid_mask_np[index] = True
+            self.valid_mask = self.backend.array(valid_mask_np)
         
+        # Store bidirectional mapping
         self.id_to_index_map[neuron_id] = index
+        self.index_to_id_map[index] = neuron_id
+        self.neuron_count += 1
+        
         return index
 
     def delete_neuron(self, neuron_id: int) -> bool:
@@ -194,17 +442,26 @@ class NeuronArray:
             
         index = self.id_to_index_map[neuron_id]
         
-        # Mark as invalid and reset values
-        valid_mask_np = self.backend.to_numpy(self.valid_mask)
-        valid_mask_np[index] = False
-        self.valid_mask = self.backend.array(valid_mask_np)
+        if not self._use_rust:
+            # Mark as invalid and reset values
+            valid_mask_np = self.backend.to_numpy(self.valid_mask)
+            valid_mask_np[index] = False
+            self.valid_mask = self.backend.array(valid_mask_np)
+            
+            # Reset neuron properties to defaults
+            potentials = self.backend.to_numpy(self.membrane_potentials)
+            potentials[index] = 0.0
+            self.membrane_potentials = self.backend.array(potentials)
         
         # Add to free indices for reuse
         self.free_indices.add(index)
         
-        # Remove from ID mapping
+        # Remove from bidirectional mapping
         del self.id_to_index_map[neuron_id]
+        if index in self.index_to_id_map:
+            del self.index_to_id_map[index]
         
+        self.neuron_count -= 1
         return True
 
     def create_neuron(
@@ -270,9 +527,10 @@ class NeuronArray:
         self.refractory_periods[idx] = refractory_period
         self.refractory_counters[idx] = 0  # Start with no refractory state
         
-        self.positions_x[idx] = position[0]
-        self.positions_y[idx] = position[1]
-        self.positions_z[idx] = position[2]
+        # Initialize coordinates as uint32
+        self.coordinates_x[idx] = np.uint32(max(0, position[0]))
+        self.coordinates_y[idx] = np.uint32(max(0, position[1]))
+        self.coordinates_z[idx] = np.uint32(max(0, position[2]))
         
         self.cortical_idxs[idx] = cortical_idx
         self.is_active[idx] = is_active
@@ -317,9 +575,9 @@ class NeuronArray:
         elif property_name == "cortical_idx":
             return int(self.cortical_idxs[index])
         elif property_name == "position":
-            return (int(self.positions_x[index]),
-                    int(self.positions_y[index]),
-                    int(self.positions_z[index]))
+            return (int(np.uint32(self.coordinates_x[index])),
+                    int(np.uint32(self.coordinates_y[index])),
+                    int(np.uint32(self.coordinates_z[index])))
         elif property_name == "is_active":
             return bool(self.is_active[index])
         else:
@@ -359,9 +617,9 @@ class NeuronArray:
         elif property_name == "position":
             if not isinstance(value, tuple) or len(value) != 3:
                 raise ValueError("Position must be a tuple of (x, y, z)")
-            self.positions_x[index] = int(value[0])
-            self.positions_y[index] = int(value[1])
-            self.positions_z[index] = int(value[2])
+            self.coordinates_x[index] = np.uint32(max(0, int(value[0])))
+            self.coordinates_y[index] = np.uint32(max(0, int(value[1])))
+            self.coordinates_z[index] = np.uint32(max(0, int(value[2])))
         elif property_name == "is_active":
             self.is_active[index] = bool(value)
         else:
@@ -602,9 +860,9 @@ class NeuronArray:
         return {
             "id": neuron_id,
             "cortical_idx": int(self.cortical_idxs[index]),
-            "position": (int(self.positions_x[index]), 
-                         int(self.positions_y[index]), 
-                         int(self.positions_z[index])),
+            "position": (int(self.coordinates_x[index]), 
+                         int(self.coordinates_y[index]), 
+                         int(self.coordinates_z[index])),
             "threshold": float(self.thresholds[index]),
             "membrane_potential": float(self.membrane_potentials[index]),
             "resting_potential": float(self.resting_potentials[index]),
@@ -706,10 +964,10 @@ class NeuronArray:
         else:
             refractory_periods = self.backend.array(refractory_periods)
         
-        # Extract position components
-        positions_x = self.backend.array([pos[0] for pos in positions])
-        positions_y = self.backend.array([pos[1] for pos in positions])
-        positions_z = self.backend.array([pos[2] for pos in positions])
+        # Extract position components as uint32
+        coordinates_x = self.backend.array([np.uint32(max(0, pos[0])) for pos in positions])
+        coordinates_y = self.backend.array([np.uint32(max(0, pos[1])) for pos in positions])
+        coordinates_z = self.backend.array([np.uint32(max(0, pos[2])) for pos in positions])
         
         # Get numpy array of indices for indexing
         idx_array = indices
@@ -733,12 +991,12 @@ class NeuronArray:
             # Convert integer tensors to the appropriate type
             self.refractory_periods.index_copy_(0, idx_tensor, 
                                               refractory_periods.to(dtype=self.refractory_periods.dtype))
-            self.positions_x.index_copy_(0, idx_tensor, 
-                                       positions_x.to(dtype=self.positions_x.dtype))
-            self.positions_y.index_copy_(0, idx_tensor, 
-                                       positions_y.to(dtype=self.positions_y.dtype))
-            self.positions_z.index_copy_(0, idx_tensor, 
-                                       positions_z.to(dtype=self.positions_z.dtype))
+            self.coordinates_x.index_copy_(0, idx_tensor, 
+                                       coordinates_x.to(dtype=self.coordinates_x.dtype))
+            self.coordinates_y.index_copy_(0, idx_tensor, 
+                                       coordinates_y.to(dtype=self.coordinates_y.dtype))
+            self.coordinates_z.index_copy_(0, idx_tensor, 
+                                       coordinates_z.to(dtype=self.coordinates_z.dtype))
             self.cortical_idxs.index_copy_(0, idx_tensor, 
                                         torch.full_like(idx_tensor, cortical_idx, 
                                                      dtype=self.cortical_idxs.dtype))
@@ -754,9 +1012,9 @@ class NeuronArray:
             self.thresholds[idx_array] = thresholds
             self.decay_rates[idx_array] = decay_rates
             self.refractory_periods[idx_array] = refractory_periods
-            self.positions_x[idx_array] = positions_x
-            self.positions_y[idx_array] = positions_y
-            self.positions_z[idx_array] = positions_z
+            self.coordinates_x[idx_array] = coordinates_x
+            self.coordinates_y[idx_array] = coordinates_y
+            self.coordinates_z[idx_array] = coordinates_z
             self.cortical_idxs[idx_array] = cortical_idx
             self.valid_mask[idx_array] = True
         
@@ -895,7 +1153,7 @@ class NeuronArray:
             float_arrays_count = 4  # membrane_potentials, resting_potentials, thresholds, decay_rates
             int_arrays_count = 4    # refractory_periods, refractory_counters, cortical_idxs
             bool_arrays_count = 2   # is_active, valid_mask
-            positions_count = 3     # positions_x, positions_y, positions_z
+            positions_count = 3     # coordinates_x, coordinates_y, coordinates_z
             
             bytes_per_neuron = (float_arrays_count * 4) + (int_arrays_count * 4) + \
                              (bool_arrays_count * 1) + (positions_count * 4)
@@ -958,9 +1216,9 @@ class NeuronArray:
             self.refractory_periods,
             self.refractory_counters,
             self.cortical_idxs,
-            self.positions_x,
-            self.positions_y,
-            self.positions_z
+            self.coordinates_x,
+            self.coordinates_y,
+            self.coordinates_z
         ]
         
         # Each bool array

@@ -483,9 +483,9 @@ class ConnectomeManager:
         
         # Convert neuron array data to dictionary
         position = (
-            int(self.neuron_array.positions_x[index]),
-            int(self.neuron_array.positions_y[index]),
-            int(self.neuron_array.positions_z[index])
+            int(self.neuron_array.coordinates_x[index]),
+            int(self.neuron_array.coordinates_y[index]),
+            int(self.neuron_array.coordinates_z[index])
         )
         
         # Get the cortical_idx from the neuron array
@@ -722,9 +722,9 @@ class ConnectomeManager:
         
         # Get position from neuron array
         return (
-            int(self.neuron_array.positions_x[index]),
-            int(self.neuron_array.positions_y[index]),
-            int(self.neuron_array.positions_z[index])
+            int(self.neuron_array.coordinates_x[index]),
+            int(self.neuron_array.coordinates_y[index]),
+            int(self.neuron_array.coordinates_z[index])
         )
     
     #----------------------------------------------------------------------
@@ -1531,9 +1531,9 @@ class ConnectomeManager:
             raise ValueError(f"Position {new_position} is outside the bounds of area {area.name}")
         
         # Update position in neuron array
-        self.neuron_array.positions_x[index] = new_position[0]
-        self.neuron_array.positions_y[index] = new_position[1]
-        self.neuron_array.positions_z[index] = new_position[2]
+        self.neuron_array.coordinates_x[index] = new_position[0]  # ✅ FIXED: Use coordinates_x
+        self.neuron_array.coordinates_y[index] = new_position[1]  # ✅ FIXED: Use coordinates_y
+        self.neuron_array.coordinates_z[index] = new_position[2]  # ✅ FIXED: Use coordinates_z
         
         # Update position tracking
         if hasattr(self, '_neuron_to_position'):
@@ -1841,9 +1841,9 @@ class ConnectomeManager:
                     
                     removed_neuron_ids = []
                     for idx in indices:
-                        x = self.neuron_array.positions_x[idx]
-                        y = self.neuron_array.positions_y[idx]
-                        z = self.neuron_array.positions_z[idx]
+                        x = self.neuron_array.coordinates_x[idx]  # ✅ FIXED: Use coordinates_x
+                        y = self.neuron_array.coordinates_y[idx]  # ✅ FIXED: Use coordinates_y
+                        z = self.neuron_array.coordinates_z[idx]  # ✅ FIXED: Use coordinates_z
                         
                         if (x >= new_dimensions[0] or y >= new_dimensions[1] or z >= new_dimensions[2]):
                             # This neuron is now outside bounds - get its ID and delete it
@@ -2003,17 +2003,17 @@ class ConnectomeManager:
             source_positions = []
             for neuron_id in source_neurons[:max_connections]:
                 idx = self.neuron_id_to_index[neuron_id]
-                pos = (self.neuron_array.positions_x[idx], 
-                      self.neuron_array.positions_y[idx], 
-                      self.neuron_array.positions_z[idx])
+                pos = (self.neuron_array.coordinates_x[idx],   # ✅ FIXED: Use coordinates_x
+                      self.neuron_array.coordinates_y[idx],   # ✅ FIXED: Use coordinates_y
+                      self.neuron_array.coordinates_z[idx])   # ✅ FIXED: Use coordinates_z
                 source_positions.append((neuron_id, pos))
             
             target_positions = []
             for neuron_id in target_neurons[:max_connections]:
                 idx = self.neuron_id_to_index[neuron_id]
-                pos = (self.neuron_array.positions_x[idx], 
-                      self.neuron_array.positions_y[idx], 
-                      self.neuron_array.positions_z[idx])
+                pos = (self.neuron_array.coordinates_x[idx],   # ✅ FIXED: Use coordinates_x
+                      self.neuron_array.coordinates_y[idx],   # ✅ FIXED: Use coordinates_y
+                      self.neuron_array.coordinates_z[idx])   # ✅ FIXED: Use coordinates_z
                 target_positions.append((neuron_id, pos))
             
             # Sort by position
@@ -2148,18 +2148,18 @@ class ConnectomeManager:
             source_global_positions = {}
             for neuron_id in source_neurons:
                 idx = self.neuron_id_to_index[neuron_id]
-                local_pos = (self.neuron_array.positions_x[idx], 
-                            self.neuron_array.positions_y[idx], 
-                            self.neuron_array.positions_z[idx])
+                local_pos = (self.neuron_array.coordinates_x[idx],   # ✅ FIXED: Use coordinates_x
+                            self.neuron_array.coordinates_y[idx],   # ✅ FIXED: Use coordinates_y
+                            self.neuron_array.coordinates_z[idx])   # ✅ FIXED: Use coordinates_z
                 global_pos = tuple(lp + ap for lp, ap in zip(local_pos, source_area.position))
                 source_global_positions[neuron_id] = global_pos
             
             target_global_positions = {}
             for neuron_id in target_neurons:
                 idx = self.neuron_id_to_index[neuron_id]
-                local_pos = (self.neuron_array.positions_x[idx], 
-                            self.neuron_array.positions_y[idx], 
-                            self.neuron_array.positions_z[idx])
+                local_pos = (self.neuron_array.coordinates_x[idx],   # ✅ FIXED: Use coordinates_x
+                            self.neuron_array.coordinates_y[idx],   # ✅ FIXED: Use coordinates_y
+                            self.neuron_array.coordinates_z[idx])   # ✅ FIXED: Use coordinates_z
                 global_pos = tuple(lp + ap for lp, ap in zip(local_pos, target_area.position))
                 target_global_positions[neuron_id] = global_pos
             

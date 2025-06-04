@@ -108,35 +108,32 @@ class Neuron:
 
 
 class NeuronArray:
-    """Efficient storage and operations for large numbers of neurons."""
+    """
+    Standalone test version of NeuronArray for isolated testing.
+    Uses coordinates_x/y/z naming convention for consistency.
+    """
     
-    def __init__(self, max_neurons=1000):
-        """
-        Initialize the neuron array with the specified capacity.
-        
-        Args:
-            max_neurons: Maximum number of neurons to store
-        """
-        # Allocate storage arrays
+    def __init__(self, max_neurons: int):
+        """Initialize the NeuronArray with specified capacity."""
         self.max_neurons = max_neurons
+        self.neuron_count = 0
+        
+        # Initialize arrays - using coordinates_x/y/z for consistency
+        self.valid_mask = np.zeros(max_neurons, dtype=bool)
+        self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
+        self.thresholds = np.zeros(max_neurons, dtype=np.float32)
+        self.cortical_idxs = np.zeros(max_neurons, dtype=np.int32)
+        self.coordinates_x = np.zeros(max_neurons, dtype=np.int32)  # ✅ FIXED: Use coordinates_x
+        self.coordinates_y = np.zeros(max_neurons, dtype=np.int32)  # ✅ FIXED: Use coordinates_y
+        self.coordinates_z = np.zeros(max_neurons, dtype=np.int32)  # ✅ FIXED: Use coordinates_z
         
         # Core neuron properties (numeric)
-        self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
-        self.thresholds = np.ones(max_neurons, dtype=np.float32)
         self.decay_rates = np.ones(max_neurons, dtype=np.float32) * 0.5
         self.refractory_periods = np.ones(max_neurons, dtype=np.int32)
         self.refractory_counters = np.zeros(max_neurons, dtype=np.int32)
         
-        # Position information
-        self.positions_x = np.zeros(max_neurons, dtype=np.int32)
-        self.positions_y = np.zeros(max_neurons, dtype=np.int32)
-        self.positions_z = np.zeros(max_neurons, dtype=np.int32)
-        
         # Area IDs
         self.area_ids = np.zeros(max_neurons, dtype=object)
-        
-        # Neuron validity mask
-        self.valid_mask = np.zeros(max_neurons, dtype=bool)
         
         # Next available index
         self.next_index = 0
@@ -169,9 +166,9 @@ class NeuronArray:
         
         # Set values
         self.area_ids[neuron_id] = area_id
-        self.positions_x[neuron_id] = position[0]
-        self.positions_y[neuron_id] = position[1]
-        self.positions_z[neuron_id] = position[2]
+        self.coordinates_x[neuron_id] = position[0]
+        self.coordinates_y[neuron_id] = position[1]
+        self.coordinates_z[neuron_id] = position[2]
         self.thresholds[neuron_id] = threshold
         self.membrane_potentials[neuron_id] = membrane_potential
         self.decay_rates[neuron_id] = decay_rate
@@ -206,9 +203,9 @@ class NeuronArray:
             return self.area_ids[neuron_id]
         elif property_name == "position":
             return (
-                self.positions_x[neuron_id],
-                self.positions_y[neuron_id],
-                self.positions_z[neuron_id]
+                self.coordinates_x[neuron_id],
+                self.coordinates_y[neuron_id],
+                self.coordinates_z[neuron_id]
             )
         elif property_name == "threshold":
             return self.thresholds[neuron_id]
@@ -246,9 +243,9 @@ class NeuronArray:
         elif property_name == "position":
             if not isinstance(value, tuple) or len(value) != 3:
                 raise ValueError("Position must be a 3-tuple (x, y, z)")
-            self.positions_x[neuron_id] = value[0]
-            self.positions_y[neuron_id] = value[1]
-            self.positions_z[neuron_id] = value[2]
+            self.coordinates_x[neuron_id] = value[0]
+            self.coordinates_y[neuron_id] = value[1]
+            self.coordinates_z[neuron_id] = value[2]
         elif property_name == "threshold":
             self.thresholds[neuron_id] = value
         elif property_name == "membrane_potential":
@@ -348,18 +345,18 @@ class NeuronArray:
                 device="cuda", 
                 dtype=torch.int32
             )
-            self.positions_x = torch.tensor(
-                self.positions_x, 
+            self.coordinates_x = torch.tensor(
+                self.coordinates_x, 
                 device="cuda", 
                 dtype=torch.int32
             )
-            self.positions_y = torch.tensor(
-                self.positions_y, 
+            self.coordinates_y = torch.tensor(
+                self.coordinates_y, 
                 device="cuda", 
                 dtype=torch.int32
             )
-            self.positions_z = torch.tensor(
-                self.positions_z, 
+            self.coordinates_z = torch.tensor(
+                self.coordinates_z, 
                 device="cuda", 
                 dtype=torch.int32
             )
@@ -392,9 +389,9 @@ class NeuronArray:
             self.decay_rates = self.decay_rates.cpu().numpy()
             self.refractory_periods = self.refractory_periods.cpu().numpy()
             self.refractory_counters = self.refractory_counters.cpu().numpy()
-            self.positions_x = self.positions_x.cpu().numpy()
-            self.positions_y = self.positions_y.cpu().numpy()
-            self.positions_z = self.positions_z.cpu().numpy()
+            self.coordinates_x = self.coordinates_x.cpu().numpy()
+            self.coordinates_y = self.coordinates_y.cpu().numpy()
+            self.coordinates_z = self.coordinates_z.cpu().numpy()
             self.valid_mask = self.valid_mask.cpu().numpy()
             
             # Update device flag
@@ -455,9 +452,9 @@ def test_create_neuron(neuron_array):
     
     # Check if properties were set correctly
     assert na.area_ids[0] == 1
-    assert na.positions_x[0] == 1
-    assert na.positions_y[0] == 2
-    assert na.positions_z[0] == 3
+    assert na.coordinates_x[0] == 1
+    assert na.coordinates_y[0] == 2
+    assert na.coordinates_z[0] == 3
     assert na.thresholds[0] == 0.7
     assert na.membrane_potentials[0] == 0.2
     assert na.decay_rates[0] == 0.4
