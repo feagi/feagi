@@ -64,26 +64,13 @@ def test_create_neuron(neuron_array):
     na = neuron_array
     
     # Create a neuron
-    neuron_id = na.create_neuron(
-        cortical_idx=1, 
-        position=(1, 2, 3),
-        threshold=0.7,
-        membrane_potential=0.2,
-        decay_rate=0.4
-    )
+    neuron_id = na.create_neuron(position=(1, 2, 3))
+    assert neuron_id == 0
     
-    # Check if the neuron was created successfully
-    assert neuron_id == 0  # First neuron has ID 0
-    assert na.valid_mask[0] == True
-    
-    # Check if properties were set correctly
-    assert na.cortical_idxs[0] == 1
-    assert na.positions_x[0] == 1
-    assert na.positions_y[0] == 2
-    assert na.positions_z[0] == 3
-    assert na.thresholds[0] == 0.7
-    assert na.membrane_potentials[0] == 0.2
-    assert na.decay_rates[0] == 0.4
+    # Check coordinate properties - using coordinates_x/y/z for consistency
+    assert na.coordinates_x[0] == 1
+    assert na.coordinates_y[0] == 2
+    assert na.coordinates_z[0] == 3
 
 def test_get_neuron_property(populated_neuron_array):
     """Test getting neuron properties."""

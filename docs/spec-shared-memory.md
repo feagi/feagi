@@ -174,12 +174,13 @@ ConnectomeManager Memory Map (feagi_connectome.mmap):
 │ - Cortical Area Count: uint32                               │
 │ - Array Offsets: uint64[N]                                  │
 └─────────────────────────────────────────────────────────────┘
-│ Neuron Properties (SoA Layout)                              │
+│ Neuron Array Optimized Structure of Arrays (SoA)           │
+│ ─────────────────────────────────────────────────────────── │
 │ - membrane_potentials: float32[max_neurons]                 │
-│ - firing_states: uint8[max_neurons]                         │
-│ - positions_x: uint32[max_neurons]                          │
-│ - positions_y: uint32[max_neurons]                          │
-│ - positions_z: uint32[max_neurons]                          │
+│ - thresholds: float32[max_neurons]                          │
+│ - coordinates_x: uint32[max_neurons]                        │
+│ - coordinates_y: uint32[max_neurons]                        │
+│ - coordinates_z: uint32[max_neurons]                        │
 └─────────────────────────────────────────────────────────────┘
 │ Cortical Area Metadata (JSON)                               │
 │ - Area definitions, types, parameters                       │

@@ -371,10 +371,14 @@ class VisualizationStream:
                         membrane_potentials = area_data.get('membrane_potentials', [])
 
                         # Use high-performance coordinate extraction - real data only
-                        coords_result = self.core_api.get_neuron_coordinates_numpy(neuron_ids)
-                        x_coords = coords_result[:, 1].tolist()
-                        y_coords = coords_result[:, 2].tolist()
-                        z_coords = coords_result[:, 3].tolist()
+                        coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
+                        if coords_result and 'coordinates_x' in coords_result:
+                            x_coords = coords_result['coordinates_x']
+                            y_coords = coords_result['coordinates_y']
+                            z_coords = coords_result['coordinates_z']
+                        else:
+                            # ❌ NO FALLBACKS - Coordinates must exist
+                            raise ValueError(f"Failed to get coordinates for {len(neuron_ids)} neurons in area {area_id}")
 
                         encoder_data[area_id] = {
                             'x': x_coords,
@@ -730,10 +734,14 @@ class VisualizationStream:
                     membrane_potentials = area_data.get('membrane_potentials', [])
 
                     # Use high-performance coordinate extraction - real data only
-                    coords_result = self.core_api.get_neuron_coordinates_numpy(neuron_ids)
-                    x_coords = coords_result[:, 1].tolist()
-                    y_coords = coords_result[:, 2].tolist()
-                    z_coords = coords_result[:, 3].tolist()
+                    coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
+                    if coords_result and 'coordinates_x' in coords_result:
+                        x_coords = coords_result['coordinates_x']
+                        y_coords = coords_result['coordinates_y']
+                        z_coords = coords_result['coordinates_z']
+                    else:
+                        # ❌ NO FALLBACKS - Coordinates must exist
+                        raise ValueError(f"Failed to get coordinates for {len(neuron_ids)} neurons in area {area_id}")
 
                     encoder_data[area_id] = {
                         'x': x_coords,
@@ -741,6 +749,7 @@ class VisualizationStream:
                         'z': z_coords,
                         'potentials': membrane_potentials
                     }
+                    print(f">>>>>>>> {area_id} Encoder data:\n", encoder_data)
             
             if encoder_data:
                 binary_data = encoder.encode_neuron_categories(encoder_data)

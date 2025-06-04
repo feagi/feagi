@@ -1603,18 +1603,27 @@ class CoreAPIService:
                     return None
                 
                 # Direct SoA access - use existing optimized structures
-                gna = self._connectome_manager.neuron_array
+                neuron_array = self._connectome_manager.neuron_array
                 
-                # Vectorized extraction in single operation
-                brain_data = np.column_stack((
-                    firing_indices.astype(np.float32),
-                    gna.membrane_potentials[firing_indices] if hasattr(gna, 'membrane_potentials') else np.ones(len(firing_indices), dtype=np.float32),
-                    gna.coordinates_x[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_x') else (firing_indices % 100).astype(np.float32),
-                    gna.coordinates_y[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_y') else ((firing_indices // 100) % 100).astype(np.float32),
-                    gna.coordinates_z[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_z') else (firing_indices // 10000).astype(np.float32)
-                ))
-                
-                return brain_data
+                # Vectorized extraction in single operation - NO FALLBACKS
+                if (hasattr(neuron_array, 'membrane_potentials') and 
+                    hasattr(neuron_array, 'coordinates_x') and 
+                    hasattr(neuron_array, 'coordinates_y') and 
+                    hasattr(neuron_array, 'coordinates_z')):
+                    
+                    brain_data = np.column_stack((
+                        firing_indices.astype(np.float32),
+                        neuron_array.membrane_potentials[firing_indices],
+                        neuron_array.coordinates_x[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_x
+                        neuron_array.coordinates_y[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_y
+                        neuron_array.coordinates_z[firing_indices].astype(np.float32)   # ✅ FIXED: Use coordinates_z
+                    ))
+                    
+                    return brain_data
+                else:
+                    # ❌ NO FALLBACK - Neuron array must have all required properties
+                    self.logger.error("Neuron array missing required properties (membrane_potentials, coordinates_x/y/z)")
+                    return None
             return None
         except Exception as e:
             self.logger.error(f"Error getting direct fire queue: {str(e)}")
@@ -1645,19 +1654,28 @@ class CoreAPIService:
                 if len(firing_indices) == 0:
                     return None
                 
-                # Direct SoA access
-                gna = self._connectome_manager.neuron_array
+                # Direct SoA access - NO FALLBACKS
+                neuron_array = self._connectome_manager.neuron_array
                 
-                # Vectorized extraction
-                brain_data = np.column_stack((
-                    firing_indices.astype(np.float32),
-                    gna.membrane_potentials[firing_indices] if hasattr(gna, 'membrane_potentials') else np.ones(len(firing_indices), dtype=np.float32),
-                    gna.coordinates_x[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_x') else (firing_indices % 100).astype(np.float32),
-                    gna.coordinates_y[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_y') else ((firing_indices // 100) % 100).astype(np.float32),
-                    gna.coordinates_z[firing_indices].astype(np.float32) if hasattr(gna, 'coordinates_z') else (firing_indices // 10000).astype(np.float32)
-                ))
-                
-                return brain_data
+                # Vectorized extraction - all properties must exist
+                if (hasattr(neuron_array, 'membrane_potentials') and 
+                    hasattr(neuron_array, 'coordinates_x') and 
+                    hasattr(neuron_array, 'coordinates_y') and 
+                    hasattr(neuron_array, 'coordinates_z')):
+                    
+                    brain_data = np.column_stack((
+                        firing_indices.astype(np.float32),
+                        neuron_array.membrane_potentials[firing_indices],
+                        neuron_array.coordinates_x[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_x
+                        neuron_array.coordinates_y[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_y
+                        neuron_array.coordinates_z[firing_indices].astype(np.float32)   # ✅ FIXED: Use coordinates_z
+                    ))
+                    
+                    return brain_data
+                else:
+                    # ❌ NO FALLBACK - Neuron array must have all required properties
+                    self.logger.error(f"Neuron array missing required properties for area {cortical_id}")
+                    return None
             return None
         except Exception as e:
             self.logger.error(f"Error getting direct area fire queue for {cortical_id}: {str(e)}")
@@ -1731,26 +1749,34 @@ class CoreAPIService:
                 'available': False, 'backend': 'SCALAR', 'vector_width': 1, 'alignment': 8
             }
             
+            # ✅ CRITICAL FIX: Ensure minimum valid SIMD configuration values
+            # Prevent zero values that cause empty arrays and coordinate extraction failure
+            if simd_config.get('vector_width', 0) <= 0:
+                simd_config['vector_width'] = 1  # Minimum vector width
+            if simd_config.get('alignment', 0) <= 0:
+                simd_config['alignment'] = 8  # Minimum alignment for performance
+            
             if not hasattr(self._connectome_manager, 'neuron_array'):
                 self.logger.error("Neuron array not available in connectome manager")
                 return None
                 
-            gna = self._connectome_manager.neuron_array
+            neuron_array = self._connectome_manager.neuron_array
             
             # Convert to aligned numpy array for SIMD optimization
             neuron_count = len(neuron_ids)
             alignment = simd_config['alignment']
             
             # Align memory to SIMD boundaries for optimal performance
-            aligned_size = (neuron_count + simd_config['vector_width'] - 1) & ~(simd_config['vector_width'] - 1)
+            # ✅ CRITICAL FIX: Ensure aligned_size is never zero
+            aligned_size = max(neuron_count, (neuron_count + simd_config['vector_width'] - 1) & ~(simd_config['vector_width'] - 1))
             
             # Pre-allocate aligned arrays (SIMD-friendly)
             neuron_indices = np.zeros(aligned_size, dtype=np.int32)
             neuron_indices[:neuron_count] = neuron_ids
             
             # SIMD-optimized bounds checking
-            if hasattr(gna, 'coordinates_x'):
-                max_neuron_id = len(gna.coordinates_x) - 1
+            if hasattr(neuron_array, 'coordinates_x'):
+                max_neuron_id = len(neuron_array.coordinates_x) - 1
                 
                 if simd_config['available'] and simd_config['vector_width'] >= 4:
                     # Vectorized bounds checking using SIMD
@@ -1781,29 +1807,33 @@ class CoreAPIService:
             if simd_config['available'] and len(valid_indices) >= simd_config['vector_width'] * 2:
                 # Use SIMD-optimized coordinate extraction for large datasets
                 coords_x, coords_y, coords_z = self._simd_extract_coordinates(
-                    gna, valid_indices, simd_config, performance_stats
+                    neuron_array, valid_indices, simd_config, performance_stats
                 )
             else:
                 # Use numpy vectorized operations for smaller datasets
                 coords_x, coords_y, coords_z = self._vectorized_extract_coordinates(
-                    gna, valid_indices, performance_stats
+                    neuron_array, valid_indices, performance_stats
                 )
             
-            # Prepare result arrays with same length as input, filling invalid positions with NaN
-            result_x = np.full(neuron_count, np.nan, dtype=np.float32)
-            result_y = np.full(neuron_count, np.nan, dtype=np.float32)
-            result_z = np.full(neuron_count, np.nan, dtype=np.float32)
+            # Prepare result arrays with same length as input, filling invalid positions with -1 for uint32
+            # Using -1 (max uint32) as sentinel value instead of NaN for integer coordinates
+            result_x = np.full(neuron_count, np.iinfo(np.uint32).max, dtype=np.uint32)  # ✅ FIXED: Keep uint32
+            result_y = np.full(neuron_count, np.iinfo(np.uint32).max, dtype=np.uint32)  # ✅ FIXED: Keep uint32  
+            result_z = np.full(neuron_count, np.iinfo(np.uint32).max, dtype=np.uint32)  # ✅ FIXED: Keep uint32
             
-            # Fill valid positions
-            result_x[valid_mask] = coords_x
-            result_y[valid_mask] = coords_y
-            result_z[valid_mask] = coords_z
+            # Fill valid positions - coords arrays only contain valid coordinates
+            # We need to map them back to the original neuron_ids positions
+            valid_positions = np.where(valid_mask)[0]  # Get indices where valid_mask is True
+            
+            result_x[valid_positions] = coords_x.astype(np.uint32)  # ✅ FIXED: Ensure uint32
+            result_y[valid_positions] = coords_y.astype(np.uint32)  # ✅ FIXED: Ensure uint32
+            result_z[valid_positions] = coords_z.astype(np.uint32)  # ✅ FIXED: Ensure uint32
             
             return {
                 'neuron_ids': neuron_ids,
-                'coordinates_x': result_x.tolist(),
-                'coordinates_y': result_y.tolist(),
-                'coordinates_z': result_z.tolist(),
+                'coordinates_x': result_x.tolist(),  # ✅ Will now be integers, not floats
+                'coordinates_y': result_y.tolist(),  # ✅ Will now be integers, not floats
+                'coordinates_z': result_z.tolist(),  # ✅ Will now be integers, not floats
                 'valid_indices': valid_mask.tolist(),
                 'performance_stats': performance_stats
             }
@@ -1879,11 +1909,18 @@ class CoreAPIService:
             simd_config = self.state_manager.get_simd_configuration() if self.state_manager else {
                 'available': False, 'backend': 'SCALAR', 'vector_width': 1, 'alignment': 8
             }
+            
+            # ✅ CRITICAL FIX: Ensure minimum valid SIMD configuration values
+            # Prevent zero values that cause empty arrays and coordinate extraction failure
+            if simd_config.get('vector_width', 0) <= 0:
+                simd_config['vector_width'] = 1  # Minimum vector width
+            if simd_config.get('alignment', 0) <= 0:
+                simd_config['alignment'] = 8  # Minimum alignment for performance
                 
             if not hasattr(self._connectome_manager, 'neuron_array'):
                 return None
                 
-            gna = self._connectome_manager.neuron_array
+            neuron_array = self._connectome_manager.neuron_array
             neuron_count = len(neuron_ids)
             
             # Pre-allocate SIMD-aligned array for optimal performance
@@ -1891,8 +1928,8 @@ class CoreAPIService:
             neuron_indices = np.array(neuron_ids, dtype=np.int32)
             
             # SIMD-optimized filtering of valid indices
-            if hasattr(gna, 'coordinates_x'):
-                max_neuron_id = len(gna.coordinates_x) - 1
+            if hasattr(neuron_array, 'coordinates_x'):
+                max_neuron_id = len(neuron_array.coordinates_x) - 1
                 
                 if simd_config['available'] and simd_config['vector_width'] >= 4:
                     valid_mask = self._simd_bounds_check(neuron_indices, max_neuron_id, simd_config)
@@ -1910,17 +1947,17 @@ class CoreAPIService:
             if simd_config['available'] and len(valid_indices) >= simd_config['vector_width'] * 4:
                 # SIMD path for large datasets
                 coords_x, coords_y, coords_z = self._simd_extract_coordinates(
-                    gna, valid_indices, simd_config, {}
+                    neuron_array, valid_indices, simd_config, {}
                 )
             else:
                 # Vectorized path for smaller datasets
                 coords_x, coords_y, coords_z = self._vectorized_extract_coordinates(
-                    gna, valid_indices, {}
+                    neuron_array, valid_indices, {}
                 )
             
             # Combine into single SIMD-aligned array: [neuron_id, x, y, z]
             result = np.column_stack((
-                valid_indices.astype(np.float32),
+                valid_indices.astype(np.int32),
                 coords_x,
                 coords_y,
                 coords_z
@@ -1961,43 +1998,46 @@ class CoreAPIService:
             self.logger.warning(f"SIMD bounds check failed, using fallback: {e}")
             return (indices >= 0) & (indices <= max_value)
 
-    def _simd_extract_coordinates(self, gna, valid_indices: np.ndarray, simd_config: dict, 
+    def _simd_extract_coordinates(self, neuron_array, valid_indices: np.ndarray, simd_config: dict, 
                                   performance_stats: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         SIMD-optimized coordinate extraction using vectorized array indexing.
         
         Processes coordinates in SIMD-aligned chunks for maximum throughput.
+        Handles both NumPy arrays and PyTorch tensors properly.
         """
         try:
             start_time = time.time()
             vector_width = simd_config['vector_width']
             
-            if hasattr(gna, 'coordinates_x') and hasattr(gna, 'coordinates_y') and hasattr(gna, 'coordinates_z'):
-                # Direct SIMD-optimized array indexing
-                # NumPy automatically uses SIMD for these operations when arrays are aligned
-                coords_x = gna.coordinates_x[valid_indices].astype(np.float32)
-                coords_y = gna.coordinates_y[valid_indices].astype(np.float32)
-                coords_z = gna.coordinates_z[valid_indices].astype(np.float32)
+            if hasattr(neuron_array, 'coordinates_x') and hasattr(neuron_array, 'coordinates_y') and hasattr(neuron_array, 'coordinates_z'):
+                # Handle PyTorch tensors vs NumPy arrays for SIMD optimization
+                import torch
                 
-                performance_stats['extraction_method'] = 'simd_direct_indexing'
-            else:
-                # SIMD-optimized fallback coordinate calculation
-                # Process in chunks to maximize SIMD utilization
-                coords_x = np.zeros(len(valid_indices), dtype=np.float32)
-                coords_y = np.zeros(len(valid_indices), dtype=np.float32)
-                coords_z = np.zeros(len(valid_indices), dtype=np.float32)
-                
-                # Process in SIMD-aligned chunks
-                for i in range(0, len(valid_indices), vector_width):
-                    end_idx = min(i + vector_width, len(valid_indices))
-                    chunk_indices = valid_indices[i:end_idx]
+                if isinstance(neuron_array.coordinates_x, torch.Tensor):
+                    # Convert PyTorch tensors to NumPy for SIMD operations
+                    coords_x_np = neuron_array.coordinates_x.cpu().numpy()
+                    coords_y_np = neuron_array.coordinates_y.cpu().numpy()
+                    coords_z_np = neuron_array.coordinates_z.cpu().numpy()
                     
-                    # Vectorized coordinate calculation (SIMD-optimized)
-                    coords_x[i:end_idx] = (chunk_indices % 100).astype(np.float32)
-                    coords_y[i:end_idx] = ((chunk_indices // 100) % 100).astype(np.float32)
-                    coords_z[i:end_idx] = (chunk_indices // 10000).astype(np.float32)
-                
-                performance_stats['extraction_method'] = 'simd_computed'
+                    # SIMD-optimized array indexing on NumPy arrays - keep uint32
+                    coords_x = coords_x_np[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_y = coords_y_np[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_z = coords_z_np[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    
+                    performance_stats['extraction_method'] = 'simd_torch_converted'
+                else:
+                    # Direct SIMD-optimized array indexing on NumPy arrays - keep uint32
+                    coords_x = neuron_array.coordinates_x[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_y = neuron_array.coordinates_y[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_z = neuron_array.coordinates_z[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    
+                    performance_stats['extraction_method'] = 'simd_numpy_direct'
+            else:
+                # ❌ NO FALLBACK - Coordinates must exist in neuron array
+                # Creating fake coordinates violates architectural rules
+                self.logger.error("Neuron array missing coordinate properties - cannot extract coordinates")
+                raise ValueError("Neuron coordinate arrays not available in connectome - check genome initialization")
             
             extraction_time = time.time() - start_time
             performance_stats['extraction_time_ms'] = extraction_time * 1000
@@ -2009,28 +2049,45 @@ class CoreAPIService:
             
         except Exception as e:
             self.logger.warning(f"SIMD coordinate extraction failed, using fallback: {e}")
-            return self._vectorized_extract_coordinates(gna, valid_indices, performance_stats)
+            return self._vectorized_extract_coordinates(neuron_array, valid_indices, performance_stats)
 
-    def _vectorized_extract_coordinates(self, gna, valid_indices: np.ndarray, 
+    def _vectorized_extract_coordinates(self, neuron_array, valid_indices: np.ndarray, 
                                         performance_stats: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Vectorized coordinate extraction fallback using standard numpy operations.
+        Handles both NumPy arrays and PyTorch tensors properly.
         """
         try:
             start_time = time.time()
             
-            if hasattr(gna, 'coordinates_x') and hasattr(gna, 'coordinates_y') and hasattr(gna, 'coordinates_z'):
-                # Direct vectorized array indexing
-                coords_x = gna.coordinates_x[valid_indices].astype(np.float32)
-                coords_y = gna.coordinates_y[valid_indices].astype(np.float32)
-                coords_z = gna.coordinates_z[valid_indices].astype(np.float32)
-                performance_stats['extraction_method'] = 'vectorized_direct'
+            if hasattr(neuron_array, 'coordinates_x') and hasattr(neuron_array, 'coordinates_y') and hasattr(neuron_array, 'coordinates_z'):
+                # Handle PyTorch tensors vs NumPy arrays
+                import torch
+                
+                if isinstance(neuron_array.coordinates_x, torch.Tensor):
+                    # Convert PyTorch tensors to NumPy for indexing
+                    coords_x_np = neuron_array.coordinates_x.cpu().numpy()
+                    coords_y_np = neuron_array.coordinates_y.cpu().numpy()
+                    coords_z_np = neuron_array.coordinates_z.cpu().numpy()
+                    
+                    # Extract coordinates using NumPy indexing - keep uint32
+                    coords_x = coords_x_np[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_y = coords_y_np[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_z = coords_z_np[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    
+                    performance_stats['extraction_method'] = 'vectorized_torch_converted'
+                else:
+                    # Direct NumPy array indexing - keep uint32
+                    coords_x = neuron_array.coordinates_x[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_y = neuron_array.coordinates_y[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    coords_z = neuron_array.coordinates_z[valid_indices].astype(np.uint32)  # ✅ FIXED: Keep uint32
+                    
+                    performance_stats['extraction_method'] = 'vectorized_numpy_direct'
             else:
-                # Vectorized fallback coordinate calculation
-                coords_x = (valid_indices % 100).astype(np.float32)
-                coords_y = ((valid_indices // 100) % 100).astype(np.float32)
-                coords_z = (valid_indices // 10000).astype(np.float32)
-                performance_stats['extraction_method'] = 'vectorized_computed'
+                # ❌ NO FALLBACK - Coordinates must exist in neuron array
+                # Creating fake coordinates violates architectural rules
+                self.logger.error("Neuron array missing coordinate properties - cannot extract coordinates")
+                raise ValueError("Neuron coordinate arrays not available in connectome - check genome initialization")
             
             extraction_time = time.time() - start_time
             performance_stats['extraction_time_ms'] = extraction_time * 1000
@@ -2040,10 +2097,11 @@ class CoreAPIService:
             
         except Exception as e:
             self.logger.error(f"Vectorized coordinate extraction failed: {e}")
-            # Final fallback - create zero arrays
-            n = len(valid_indices)
-            return np.zeros(n, dtype=np.float32), np.zeros(n, dtype=np.float32), np.zeros(n, dtype=np.float32) 
+            # ❌ NO FALLBACK - Don't create fake coordinates
+            # Real coordinates must exist - this is a configuration/initialization error
+            raise ValueError(f"Failed to extract neuron coordinates: {e}")
 
+    
     def benchmark_neuron_coordinate_extraction(self, neuron_count: int = 10000) -> Dict[str, Any]:
         """
         Benchmark SIMD-optimized neuron coordinate extraction performance.
