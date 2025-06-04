@@ -98,6 +98,19 @@ backup_count = 5
 enabled = true
 update_interval = 50  # milliseconds between updates
 
+[compression]
+# Data compression settings for ZMQ streams
+# LZ4 compression significantly reduces bandwidth usage for visualization and motor data
+enabled = true              # Enable/disable LZ4 compression (default: true)
+min_size_threshold = 100    # Minimum payload size to attempt compression (bytes)
+enable_stats = true         # Collect compression performance statistics
+algorithm = "lz4"           # Compression algorithm (currently only LZ4 supported)
+
+# Performance tuning
+compress_visualization = true  # Enable compression for visualization streams (high bandwidth)
+compress_motor = true         # Enable compression for motor output streams
+compress_sensory = false      # Disable compression for sensory input (typically small/real-time)
+
 # Cloud deployment example:
 # This file can be mounted as a ConfigMap in Kubernetes:
 # kubectl create configmap feagi-config --from-file=feagi_configuration.toml 

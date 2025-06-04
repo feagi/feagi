@@ -48,6 +48,7 @@ import zmq  # Import standard synchronous ZMQ (not zmq.asyncio)
 
 from feagi.utils.logger import setup_logger
 from feagi.utils.zmq_debug import log_outbound, MessageType
+from feagi.utils.compression import create_lz4_compressor
 from ...core.services.core_api_service import CoreAPIService
 
 logger = setup_logger(__name__)
@@ -107,6 +108,11 @@ class VisualizationStream:
         self.auto_enable_on_subscribers = self.stream_config.get('auto_enable_on_subscribers', True)
         self.subscriber_check_interval = self.stream_config.get('subscriber_check_interval', 1.0)
         
+        # 🗜️ LZ4 COMPRESSION: Simple LZ4 compression for bandwidth reduction
+        compression_enabled = self.stream_config.get('compression_enabled', True)
+        min_size_threshold = self.stream_config.get('min_size_threshold', 100)
+        self.compressor = create_lz4_compressor(min_size_threshold) if compression_enabled else None
+        
         # Genome state management
         self._active_mode = False  # True when genome is loaded and ready
         
@@ -135,10 +141,12 @@ class VisualizationStream:
         # Initialize state based on current genome availability
         self._update_active_mode()
         
-        # Statistics
+        # Statistics (enhanced with compression stats)
         self.stats = {
             'data_sent': 0,
             'bytes_sent': 0,
+            'bytes_saved_compression': 0,
+            'compression_time_ms': 0.0,
             'start_time': time.time()
         }
         
@@ -415,6 +423,7 @@ class VisualizationStream:
     def _publish_data(self, data: bytes) -> None:
         """
         Publish data on the 'activity' topic with comprehensive error handling.
+        Includes optional LZ4/Zstandard compression for reduced network usage.
         """
         # Defensive null check to prevent race condition
         if not self.socket:
@@ -425,6 +434,38 @@ class VisualizationStream:
         if not self.running:
             logger.debug("Cannot publish data: stream is not running")
             return
+        
+        # 🗜️ COMPRESSION: Apply LZ4 compression if enabled
+        final_data = data
+        compression_ratio = 1.0
+        compression_time_ms = 0.0
+        
+        if self.compressor:
+            try:
+                final_data, compression_info = self.compressor.compress(data)
+                compression_time_ms = compression_info['time_ms']
+                compression_ratio = compression_info['ratio']
+                bytes_saved = compression_info['bytes_saved']
+                
+                # Update statistics if compression helped
+                if compression_info['compressed']:
+                    self.stats['bytes_saved_compression'] += bytes_saved
+                    self.stats['compression_time_ms'] += compression_time_ms
+                    
+                    # Log compression stats for first few messages or significant savings
+                    if (self.stats['data_sent'] <= 3 or 
+                        compression_ratio < 0.5 or  # 50%+ compression 
+                        self.stats['data_sent'] % 100 == 0):  # Every 100 messages
+                        logger.debug(f"[LZ4] {len(data)} → {len(final_data)} bytes "
+                                   f"({compression_ratio*100:.1f}%) in {compression_time_ms:.1f}ms")
+                else:
+                    # Compression didn't help, use original data
+                    logger.debug(f"[LZ4] Skipped - {compression_info['reason']}")
+                    
+            except Exception as e:
+                logger.warning(f"[LZ4] Compression failed: {e}, sending uncompressed")
+                final_data = data
+                compression_ratio = 1.0
             
         try:
             # Atomic socket reference to prevent mid-operation changes
@@ -437,7 +478,7 @@ class VisualizationStream:
             debug_endpoint = f"tcp://{self.host}:{self.port}"
             log_outbound(
                 endpoint=debug_endpoint,
-                data=[b"activity", data],  # PUB/SUB multipart message
+                data=[b"activity", final_data],  # PUB/SUB multipart message
                 message_type=MessageType.VISUALIZATION,
                 topic="activity",
                 context=f"vis_msg_{self.stats['data_sent'] + 1}"
@@ -445,19 +486,23 @@ class VisualizationStream:
                 
             # Use synchronous send operations
             socket_ref.send(b"activity", zmq.SNDMORE)
-            socket_ref.send(data)
+            socket_ref.send(final_data)
             
             # Update statistics
             self.stats['data_sent'] += 1
-            self.stats['bytes_sent'] += len(data)
+            self.stats['bytes_sent'] += len(final_data)  # Track actual bytes sent (compressed size)
             
             # Periodic status logging (every 100 messages)
             if self.stats['data_sent'] % 100 == 0:
-                logger.debug(f"Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total")
+                total_saved = self.stats['bytes_saved_compression']
+                avg_compression_time = self.stats['compression_time_ms'] / max(self.stats['data_sent'], 1)
+                logger.debug(f"Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total"
+                           f" (saved {total_saved} bytes via compression, avg {avg_compression_time:.1f}ms/msg)")
             
             # Log first few messages to confirm publishing is working
             if self.stats['data_sent'] <= 3:
-                logger.info(f"Successfully published message #{self.stats['data_sent']} ({len(data)} bytes)")
+                savings_info = f", saved {len(data) - len(final_data)} bytes" if len(final_data) < len(data) else ""
+                logger.info(f"Successfully published message #{self.stats['data_sent']} ({len(final_data)} bytes{savings_info})")
             
         except AttributeError as e:
             # Specific handling for socket = None race condition
@@ -482,7 +527,7 @@ class VisualizationStream:
                     # Retry once with null check
                     if self.socket and self.running:
                         self.socket.send(b"activity", zmq.SNDMORE)
-                        self.socket.send(data)
+                        self.socket.send(final_data)
                         logger.info("Socket recreated and retry successful")
                     else:
                         logger.debug("Cannot retry: socket or stream not available after recreation")
@@ -539,15 +584,39 @@ class VisualizationStream:
             raise
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get visualization stream statistics."""
+        """Get visualization stream statistics including compression performance."""
         runtime = time.time() - self.stats['start_time']
-        return {
+        total_messages = max(self.stats['data_sent'], 1)  # Avoid division by zero
+        
+        base_stats = {
             'running': self.running,
             'data_sent': self.stats['data_sent'],
             'bytes_sent': self.stats['bytes_sent'],
             'runtime_seconds': runtime,
             'messages_per_second': self.stats['data_sent'] / max(runtime, 1)
         }
+        
+        # Add compression statistics if compressor is available
+        if self.compressor:
+            compressor_stats = self.compressor.get_stats()
+            compression_stats = {
+                'compression_enabled': True,
+                'compression_type': 'lz4',
+                'bytes_saved_compression': compressor_stats['bytes_saved'],
+                'avg_compression_time_ms': compressor_stats['avg_compression_time_ms'],
+                'overall_compression_ratio': compressor_stats['compression_ratio'],
+                'bandwidth_savings_percent': compressor_stats['bandwidth_savings_percent'],
+                'failed_compressions': compressor_stats['failed_compressions'],
+                'skipped_compressions': compressor_stats['skipped_compressions'],
+                'compression_success_rate': compressor_stats['success_rate']
+            }
+            return {**base_stats, **compression_stats}
+        else:
+            compression_stats = {
+                'compression_enabled': False,
+                'compression_type': 'none'
+            }
+            return {**base_stats, **compression_stats}
 
     def heartbeat_visualization_client(self, client_id: str) -> None:
         """Process client heartbeat and enable/disable FQ sampler accordingly (Rust/RTOS compatible)."""
