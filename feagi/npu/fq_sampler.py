@@ -159,7 +159,7 @@ class UnifiedFQSampler:
         return {
             'neuron_ids_buffer': np.zeros(self._buffer_size, dtype=np.int32),
             'potentials_buffer': np.zeros(self._buffer_size, dtype=np.float32),
-            'coordinates_buffer': np.zeros((self._buffer_size, 3), dtype=np.float32),
+            'coordinates_buffer': np.zeros((self._buffer_size, 3), dtype=np.uint32),
             'temp_indices': np.zeros(self._buffer_size, dtype=np.int32)
         }
 
