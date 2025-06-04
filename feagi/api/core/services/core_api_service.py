@@ -1612,11 +1612,11 @@ class CoreAPIService:
                     hasattr(neuron_array, 'coordinates_z')):
                     
                     brain_data = np.column_stack((
-                        firing_indices.astype(np.float32),
-                        neuron_array.membrane_potentials[firing_indices],
-                        neuron_array.coordinates_x[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_x
-                        neuron_array.coordinates_y[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_y
-                        neuron_array.coordinates_z[firing_indices].astype(np.float32)   # ✅ FIXED: Use coordinates_z
+                        firing_indices.astype(np.int32),  # Keep int32 for neuron IDs (they can be signed)
+                        neuron_array.membrane_potentials[firing_indices],  # Keep float32 for potentials
+                        neuron_array.coordinates_x[firing_indices].astype(np.uint32),  # ✅ FIXED: Use uint32 coordinates
+                        neuron_array.coordinates_y[firing_indices].astype(np.uint32),  # ✅ FIXED: Use uint32 coordinates
+                        neuron_array.coordinates_z[firing_indices].astype(np.uint32)   # ✅ FIXED: Use uint32 coordinates
                     ))
                     
                     return brain_data
@@ -1664,11 +1664,11 @@ class CoreAPIService:
                     hasattr(neuron_array, 'coordinates_z')):
                     
                     brain_data = np.column_stack((
-                        firing_indices.astype(np.float32),
-                        neuron_array.membrane_potentials[firing_indices],
-                        neuron_array.coordinates_x[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_x
-                        neuron_array.coordinates_y[firing_indices].astype(np.float32),  # ✅ FIXED: Use coordinates_y
-                        neuron_array.coordinates_z[firing_indices].astype(np.float32)   # ✅ FIXED: Use coordinates_z
+                        firing_indices.astype(np.int32),  # ✅ FIXED: Keep as int32 for neuron IDs
+                        neuron_array.membrane_potentials[firing_indices],  # Keep float32 for potentials
+                        neuron_array.coordinates_x[firing_indices].astype(np.uint32),  # ✅ FIXED: Use uint32 coordinates
+                        neuron_array.coordinates_y[firing_indices].astype(np.uint32),  # ✅ FIXED: Use uint32 coordinates
+                        neuron_array.coordinates_z[firing_indices].astype(np.uint32)   # ✅ FIXED: Use uint32 coordinates
                     ))
                     
                     return brain_data
