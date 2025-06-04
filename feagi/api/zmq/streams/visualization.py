@@ -753,6 +753,71 @@ class VisualizationStream:
             
             if encoder_data:
                 binary_data = encoder.encode_neuron_categories(encoder_data)
+                
+                # 🔍 DETAILED BINARY DEBUG: Show exact bytes being generated
+                print(f"🔬 BINARY DEBUG: Generated {len(binary_data)} bytes for {len(encoder_data)} areas")
+                if len(binary_data) >= 16:  # Show first few bytes
+                    print(f"   📊 First 16 bytes: {list(binary_data[:16])}")
+                    print(f"   🔢 As hex: {binary_data[:16].hex()}")
+                
+                # 🔍 Try to manually decode first neuron to verify encoding
+                if len(binary_data) > 40 and 'iv00_C' in encoder_data:  # Enough data for headers + first neuron
+                    try:
+                        # Skip headers and decode first neuron manually
+                        print(f"🧪 MANUAL DECODE TEST: Checking first neuron encoding...")
+                        
+                        # Find where neuron data starts (after Type 11 headers)
+                        # Type 11 format: [ID:1][Version:1][NumAreas:4][SecondaryHeaders][AllNeuronData]
+                        num_areas = int.from_bytes(binary_data[2:6], byteorder='little')
+                        header_size = 6 + (num_areas * 14)  # Base header + area headers
+                        
+                        print(f"   📏 Header size: {header_size} bytes")
+                        print(f"   🧠 First neuron data starts at byte {header_size}")
+                        
+                        if len(binary_data) >= header_size + 16:  # Need 16 bytes for one neuron
+                            neuron_start = header_size
+                            # 🔧 NEW INTERLEAVED FORMAT: Each neuron: x(4) + y(4) + z(4) + potential(4) = 16 bytes
+                            x_bytes = binary_data[neuron_start:neuron_start+4]
+                            y_bytes = binary_data[neuron_start+4:neuron_start+8] 
+                            z_bytes = binary_data[neuron_start+8:neuron_start+12]
+                            potential_bytes = binary_data[neuron_start+12:neuron_start+16]
+                            
+                            x_decoded = int.from_bytes(x_bytes, byteorder='little')
+                            y_decoded = int.from_bytes(y_bytes, byteorder='little') 
+                            z_decoded = int.from_bytes(z_bytes, byteorder='little')
+                            # Decode potential as float32 (not uint32)
+                            import struct
+                            potential_decoded = struct.unpack('<f', potential_bytes)[0]
+                            
+                            print(f"   🔓 DECODED: x={x_decoded}, y={y_decoded}, z={z_decoded}, potential={potential_decoded}")
+                            print(f"   📋 Expected: x={encoder_data['iv00_C']['x'][0]}, y={encoder_data['iv00_C']['y'][0]}, z={encoder_data['iv00_C']['z'][0]}, potential={encoder_data['iv00_C']['potentials'][0]}")
+                            
+                            # Check byte representation
+                            print(f"   🔬 Raw bytes:")
+                            print(f"      X: {list(x_bytes)} = {x_decoded}")
+                            print(f"      Y: {list(y_bytes)} = {y_decoded}")
+                            print(f"      Z: {list(z_bytes)} = {z_decoded}")
+                            print(f"      P: {list(potential_bytes)} = {potential_decoded}")
+                            
+                            # Verify this matches what Godot expects
+                            expected_x = encoder_data['iv00_C']['x'][0]
+                            expected_y = encoder_data['iv00_C']['y'][0] 
+                            expected_z = encoder_data['iv00_C']['z'][0]
+                            expected_p = encoder_data['iv00_C']['potentials'][0]
+                            
+                            coords_match = (x_decoded == expected_x and y_decoded == expected_y and z_decoded == expected_z)
+                            potential_match = abs(potential_decoded - expected_p) < 0.001
+                            
+                            print(f"   ✅ INTERLEAVED FORMAT: Coordinates match={coords_match}, Potential match={potential_match}")
+                            
+                            if coords_match and potential_match:
+                                print(f"   🎉 SUCCESS: Binary data correctly formatted for Godot!")
+                            else:
+                                print(f"   ❌ MISMATCH: Binary encoding still has issues")
+                                
+                    except Exception as decode_err:
+                        print(f"   ❌ Manual decode failed: {decode_err}")
+                
                 logger.debug(f"Encoded {len(for_visualization)} areas into {len(binary_data)} bytes")
                 return binary_data
             else:
