@@ -39,8 +39,8 @@ class TestMode2Handler:
         
         # Simple defaults for numpy-based random generation
         self.neurons_per_area_min = 100
-        self.neurons_per_area_max = 5000
-        self.area_selection_percentage = 0.7
+        self.neurons_per_area_max = 2000
+        self.area_selection_percentage = 1.0
         
         # Statistics and state
         self.cortical_area_info = {}

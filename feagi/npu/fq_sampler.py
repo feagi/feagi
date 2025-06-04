@@ -236,22 +236,11 @@ class UnifiedFQSampler:
 
     def _get_all_areas(self) -> List[str]:
         """Get all available cortical areas."""
-        print(f"🔍 DEBUG _get_all_areas: connectome_manager = {self.connectome_manager}")
-        print(f"   - connectome_manager type: {type(self.connectome_manager)}")
-        
+
         if self.connectome_manager:
-            print(f"   - has cortical_areas attr: {hasattr(self.connectome_manager, 'cortical_areas')}")
             if hasattr(self.connectome_manager, 'cortical_areas'):
                 areas = list(self.connectome_manager.cortical_areas.keys())
-                print(f"   - cortical_areas found: {areas[:5]} (showing first 5)")
-                print(f"   - total cortical areas: {len(areas)}")
                 return areas
-            else:
-                print(f"   - connectome_manager attributes: {dir(self.connectome_manager)[:10]} (showing first 10)")
-        else:
-            print(f"   - No connectome_manager provided!")
-        
-        print(f"   - Returning empty list")
         return []
 
     def _get_opu_areas_cached(self) -> List[str]:
@@ -298,9 +287,6 @@ class UnifiedFQSampler:
         - SIMD-ready data structures
         - Deterministic execution time
         """
-        print(f"🔍 DEBUG _sample_areas_optimized: target_areas = {target_areas}")
-        print(f"   - fire_queue_provider = {self.fire_queue_provider}")
-        print(f"   - fire_queue_provider type: {type(self.fire_queue_provider)}")
         
         if not target_areas or not self.fire_queue_provider:
             print(f"   - Early return: target_areas={bool(target_areas)}, fire_queue_provider={bool(self.fire_queue_provider)}")
@@ -309,43 +295,30 @@ class UnifiedFQSampler:
         result = {}
         current_timestamp = time.time()
         
-        print(f"   - Processing {len(target_areas)} target areas...")
-        
         # High-performance area sampling with minimal allocations
         for area_id in target_areas:
             try:
-                print(f"   - Trying to get data for area: {area_id}")
                 
                 # Get fire queue data with zero-copy access if available
                 area_data = None
                 if hasattr(self.fire_queue_provider, 'get_area_fire_queue_zerocopy'):
-                    print(f"     - Using get_area_fire_queue_zerocopy")
                     area_data = self.fire_queue_provider.get_area_fire_queue_zerocopy(area_id)
                 elif hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
-                    print(f"     - Using get_area_fire_queue")
                     area_data = self.fire_queue_provider.get_area_fire_queue(area_id)
                 else:
-                    print(f"     - No suitable method found on fire_queue_provider")
-                    print(f"     - Available methods: {[m for m in dir(self.fire_queue_provider) if not m.startswith('_')][:10]}")
                     continue
-                
-                print(f"     - area_data: {area_data}")
+
                 
                 if not area_data or not area_data.get('neuron_ids'):
-                    print(f"     - No data or neuron_ids for area {area_id}")
                     continue
                 
                 # Direct reference to data (zero-copy) with fallback to view creation
                 neuron_ids = area_data['neuron_ids']
-                print(f"     - neuron_ids type: {type(neuron_ids)}, length check: {len(neuron_ids) if hasattr(neuron_ids, '__len__') else 'no length'}")
-                print(f"     - bool(neuron_ids): {bool(neuron_ids)}")
-                
+
                 if not neuron_ids:
-                    print(f"     - Empty neuron_ids for area {area_id}")
                     continue
                 
-                print(f"     - Found {len(neuron_ids)} neurons for area {area_id}")
-                
+
                 # Create efficient data structure maintaining references
                 result[area_id] = {
                     'neuron_ids': neuron_ids,  # Direct reference, no copy
@@ -356,17 +329,10 @@ class UnifiedFQSampler:
                     'coordinates': area_data.get('coordinates', []),
                     'timestamp': current_timestamp
                 }
-                print(f"     - Successfully added area {area_id} to result")
-                
+
             except Exception as e:
-                print(f"     - Error sampling area {area_id}: {e}")
                 logger.debug(f"Error sampling area {area_id}: {e}")
                 continue
-        
-        print(f"   - Final result: {len(result)} areas with data")
-        if result:
-            for area_id, data in result.items():
-                print(f"     - {area_id}: {len(data.get('neuron_ids', []))} neurons")
         
         return result if result else None
 
