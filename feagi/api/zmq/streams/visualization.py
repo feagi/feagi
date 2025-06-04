@@ -98,10 +98,8 @@ class VisualizationStream:
         self.fq_sampler = fq_sampler  # Use provided FQ sampler instance
         
         if self.fq_sampler:
-            print(f"🔧 VIZ DEBUG: Using existing FQ sampler from process manager: {self.fq_sampler}")
             logger.info("VisualizationStream using existing FQ sampler (created at startup)")
         else:
-            print(f"⚠️ VIZ DEBUG: No FQ sampler provided - visualization stream may be disabled")
             logger.warning("No FQ sampler provided - visualization may not work properly")
         
         # Stream configuration
@@ -326,8 +324,6 @@ class VisualizationStream:
                     sample_data = self.fq_sampler.sample()
                     
                     if sample_data:
-                        print(f"📊 VIZ DEBUG: fq_sampler.sample() returned: {sample_data}")
-                        print(f"✅ VIZ DEBUG: Got data from UnifiedFQSampler: {len(sample_data)} cortical areas")
                         
                         # Convert UnifiedFQSampler format to visualization format
                         for_visualization = self._convert_fq_format_to_viz_format(sample_data)
@@ -337,9 +333,6 @@ class VisualizationStream:
                             if len(self.client_last_heartbeat) > 0:
                                 broadcast_data = self._prepare_broadcast_data(for_visualization)
                                 self._broadcast_to_clients(broadcast_data)
-                    else:
-                        print(f"❌ VIZ DEBUG: fq_sampler.sample() returned: {sample_data}")
-                        print(f"🔍 VIZ DEBUG: No data from FQ sampler")
                         
                 except Exception as e:
                     logger.error(f"Error sampling from FQ sampler: {e}")
@@ -749,74 +742,64 @@ class VisualizationStream:
                         'z': z_coords,
                         'potentials': membrane_potentials
                     }
-                    print(f">>>>>>>> {area_id} Encoder data:\n", encoder_data)
             
             if encoder_data:
                 binary_data = encoder.encode_neuron_categories(encoder_data)
                 
-                # 🔍 DETAILED BINARY DEBUG: Show exact bytes being generated
-                print(f"🔬 BINARY DEBUG: Generated {len(binary_data)} bytes for {len(encoder_data)} areas")
-                if len(binary_data) >= 16:  # Show first few bytes
-                    print(f"   📊 First 16 bytes: {list(binary_data[:16])}")
-                    print(f"   🔢 As hex: {binary_data[:16].hex()}")
-                
-                # 🔍 Try to manually decode first neuron to verify encoding
-                if len(binary_data) > 40 and 'iv00_C' in encoder_data:  # Enough data for headers + first neuron
-                    try:
-                        # Skip headers and decode first neuron manually
-                        print(f"🧪 MANUAL DECODE TEST: Checking first neuron encoding...")
-                        
-                        # Find where neuron data starts (after Type 11 headers)
-                        # Type 11 format: [ID:1][Version:1][NumAreas:4][SecondaryHeaders][AllNeuronData]
-                        num_areas = int.from_bytes(binary_data[2:6], byteorder='little')
-                        header_size = 6 + (num_areas * 14)  # Base header + area headers
-                        
-                        print(f"   📏 Header size: {header_size} bytes")
-                        print(f"   🧠 First neuron data starts at byte {header_size}")
-                        
-                        if len(binary_data) >= header_size + 16:  # Need 16 bytes for one neuron
-                            neuron_start = header_size
-                            # 🔧 NEW INTERLEAVED FORMAT: Each neuron: x(4) + y(4) + z(4) + potential(4) = 16 bytes
-                            x_bytes = binary_data[neuron_start:neuron_start+4]
-                            y_bytes = binary_data[neuron_start+4:neuron_start+8] 
-                            z_bytes = binary_data[neuron_start+8:neuron_start+12]
-                            potential_bytes = binary_data[neuron_start+12:neuron_start+16]
-                            
-                            x_decoded = int.from_bytes(x_bytes, byteorder='little')
-                            y_decoded = int.from_bytes(y_bytes, byteorder='little') 
-                            z_decoded = int.from_bytes(z_bytes, byteorder='little')
-                            # Decode potential as float32 (not uint32)
-                            import struct
-                            potential_decoded = struct.unpack('<f', potential_bytes)[0]
-                            
-                            print(f"   🔓 DECODED: x={x_decoded}, y={y_decoded}, z={z_decoded}, potential={potential_decoded}")
-                            print(f"   📋 Expected: x={encoder_data['iv00_C']['x'][0]}, y={encoder_data['iv00_C']['y'][0]}, z={encoder_data['iv00_C']['z'][0]}, potential={encoder_data['iv00_C']['potentials'][0]}")
-                            
-                            # Check byte representation
-                            print(f"   🔬 Raw bytes:")
-                            print(f"      X: {list(x_bytes)} = {x_decoded}")
-                            print(f"      Y: {list(y_bytes)} = {y_decoded}")
-                            print(f"      Z: {list(z_bytes)} = {z_decoded}")
-                            print(f"      P: {list(potential_bytes)} = {potential_decoded}")
-                            
-                            # Verify this matches what Godot expects
-                            expected_x = encoder_data['iv00_C']['x'][0]
-                            expected_y = encoder_data['iv00_C']['y'][0] 
-                            expected_z = encoder_data['iv00_C']['z'][0]
-                            expected_p = encoder_data['iv00_C']['potentials'][0]
-                            
-                            coords_match = (x_decoded == expected_x and y_decoded == expected_y and z_decoded == expected_z)
-                            potential_match = abs(potential_decoded - expected_p) < 0.001
-                            
-                            print(f"   ✅ INTERLEAVED FORMAT: Coordinates match={coords_match}, Potential match={potential_match}")
-                            
-                            if coords_match and potential_match:
-                                print(f"   🎉 SUCCESS: Binary data correctly formatted for Godot!")
-                            else:
-                                print(f"   ❌ MISMATCH: Binary encoding still has issues")
-                                
-                    except Exception as decode_err:
-                        print(f"   ❌ Manual decode failed: {decode_err}")
+                # # 🔍 Try to manually decode first neuron to verify encoding
+                # if len(binary_data) > 40 and 'iv00_C' in encoder_data:  # Enough data for headers + first neuron
+                #     try:
+                #         # Skip headers and decode first neuron manually
+                #         print(f"🧪 MANUAL DECODE TEST: Checking first neuron encoding...")
+                #
+                #         # Find where neuron data starts (after Type 11 headers)
+                #         # Type 11 format: [ID:1][Version:1][NumAreas:4][SecondaryHeaders][AllNeuronData]
+                #         num_areas = int.from_bytes(binary_data[2:6], byteorder='little')
+                #         header_size = 6 + (num_areas * 14)  # Base header + area headers
+                #
+                #         if len(binary_data) >= header_size + 16:  # Need 16 bytes for one neuron
+                #             neuron_start = header_size
+                #             # 🔧 NEW INTERLEAVED FORMAT: Each neuron: x(4) + y(4) + z(4) + potential(4) = 16 bytes
+                #             x_bytes = binary_data[neuron_start:neuron_start+4]
+                #             y_bytes = binary_data[neuron_start+4:neuron_start+8]
+                #             z_bytes = binary_data[neuron_start+8:neuron_start+12]
+                #             potential_bytes = binary_data[neuron_start+12:neuron_start+16]
+                #
+                #             x_decoded = int.from_bytes(x_bytes, byteorder='little')
+                #             y_decoded = int.from_bytes(y_bytes, byteorder='little')
+                #             z_decoded = int.from_bytes(z_bytes, byteorder='little')
+                #             # Decode potential as float32 (not uint32)
+                #             import struct
+                #             potential_decoded = struct.unpack('<f', potential_bytes)[0]
+                #
+                #             print(f"   🔓 DECODED: x={x_decoded}, y={y_decoded}, z={z_decoded}, potential={potential_decoded}")
+                #             print(f"   📋 Expected: x={encoder_data['iv00_C']['x'][0]}, y={encoder_data['iv00_C']['y'][0]}, z={encoder_data['iv00_C']['z'][0]}, potential={encoder_data['iv00_C']['potentials'][0]}")
+                #
+                #             # Check byte representation
+                #             print(f"   🔬 Raw bytes:")
+                #             print(f"      X: {list(x_bytes)} = {x_decoded}")
+                #             print(f"      Y: {list(y_bytes)} = {y_decoded}")
+                #             print(f"      Z: {list(z_bytes)} = {z_decoded}")
+                #             print(f"      P: {list(potential_bytes)} = {potential_decoded}")
+                #
+                #             # Verify this matches what Godot expects
+                #             expected_x = encoder_data['iv00_C']['x'][0]
+                #             expected_y = encoder_data['iv00_C']['y'][0]
+                #             expected_z = encoder_data['iv00_C']['z'][0]
+                #             expected_p = encoder_data['iv00_C']['potentials'][0]
+                #
+                #             coords_match = (x_decoded == expected_x and y_decoded == expected_y and z_decoded == expected_z)
+                #             potential_match = abs(potential_decoded - expected_p) < 0.001
+                #
+                #             print(f"   ✅ INTERLEAVED FORMAT: Coordinates match={coords_match}, Potential match={potential_match}")
+                #
+                #             if coords_match and potential_match:
+                #                 print(f"   🎉 SUCCESS: Binary data correctly formatted for Godot!")
+                #             else:
+                #                 print(f"   ❌ MISMATCH: Binary encoding still has issues")
+                #
+                #     except Exception as decode_err:
+                #         print(f"   ❌ Manual decode failed: {decode_err}")
                 
                 logger.debug(f"Encoded {len(for_visualization)} areas into {len(binary_data)} bytes")
                 return binary_data
@@ -844,15 +827,11 @@ class VisualizationStream:
         DEBUG ONLY: Enable FQ sampling for testing without real clients.
         This bypasses the normal client connection requirement.
         """
-        print(f"🐛 VIZ DEBUG: Manually enabling FQ sampling for debugging")
         if self.process_manager:
             success = self.process_manager.enable_viz_fq_sampler()
             if success:
                 self._fq_sampler_enabled = True
-                print(f"✅ VIZ DEBUG: FQ sampler enabled via process manager")
             else:
-                print(f"❌ VIZ DEBUG: Failed to enable FQ sampler via process manager")
+                logger.error(f"❌ VIZ DEBUG: Failed to enable FQ sampler via process manager")
         else:
-            print(f"⚠️ VIZ DEBUG: No process manager available")
-        print(f"   - _fq_sampler_enabled: {self._fq_sampler_enabled}")
-        print(f"   - fq_sampler object: {self.fq_sampler}") 
+            logger.warning(f"⚠️ VIZ DEBUG: No process manager available")
