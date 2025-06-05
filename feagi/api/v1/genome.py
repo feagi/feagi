@@ -99,8 +99,9 @@ class GenomeAPI:
         
         if result.get("success", False):
             return GenomeUploadResponse(
+                success=True,
                 message="Barebones genome loaded successfully",
-                cortical_area_count=result.get("cortical_area_count", 0)
+                loaded=result
             )
         else:
             raise HTTPException(
@@ -116,8 +117,9 @@ class GenomeAPI:
         
         if result.get("success", False):
             return GenomeUploadResponse(
+                success=True,
                 message="Essential genome loaded successfully",
-                cortical_area_count=result.get("cortical_area_count", 0)
+                loaded=result
             )
         else:
             raise HTTPException(
