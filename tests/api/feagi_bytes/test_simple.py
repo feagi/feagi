@@ -16,7 +16,7 @@ limitations under the License.
 """
 
 """
-Simplified test script to verify FEAGI connection.
+Simplified test script to verify FEAGI connection using feagi_data_processing.
 """
 
 import asyncio
@@ -25,7 +25,8 @@ import sys
 import json
 import zmq
 import zmq.asyncio
-from feagi_bytes import ByteStructureTranslator
+# Import the new feagi_data_processing library via the compatibility layer
+from feagi.api.protocols import ByteStructureTranslator
 
 # Set up logging
 logging.basicConfig(
@@ -44,7 +45,7 @@ async def test_zmq_connection():
     # Get ZMQ context
     context = zmq.asyncio.Context.instance()
     
-    # Initialize the translator
+    # Initialize the translator (now uses feagi_data_processing internally)
     translator = ByteStructureTranslator()
     
     # Ports from running FEAGI instance
@@ -157,6 +158,6 @@ async def test_zmq_connection():
     logger.info("Connection tests completed")
 
 if __name__ == "__main__":
-    logger.info("=== Starting simplified FEAGI connection test ===")
+    logger.info("=== Starting simplified FEAGI connection test with feagi_data_processing ===")
     asyncio.run(test_zmq_connection())
     logger.info("=== Test completed ===") 

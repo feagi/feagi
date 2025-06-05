@@ -332,10 +332,13 @@ class MotorStream:
                 else:
                     potentials = [1.0] * len(neuron_ids)
                 
-                # Encode using feagi_bytes for motor data - USE TYPE 11 (NEURON_CATEGORIES)
+                # Encode using feagi_data_processing for motor data - USE HIGH-PERFORMANCE NUMPY APPROACH
                 try:
-                    from feagi_bytes import ByteStructureEncoder
-                    encoder = ByteStructureEncoder()
+                    import feagi_data_processing as fdp
+                    import numpy as np
+                    
+                    # Create the main mapped neuron data container
+                    generated_mapped_neuron_data = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
                     
                     # Generate coordinates if not available
                     if coordinates and len(coordinates) == len(neuron_ids):
@@ -348,28 +351,44 @@ class MotorStream:
                         y_values = [(nid // 100) % 100 for nid in neuron_ids]
                         z_values = [nid // 10000 for nid in neuron_ids]
                     
-                    # Convert to Type 11 (NEURON_CATEGORIES) format
-                    motor_cortical_data = {
-                        area_id: {
-                            'x': x_values,
-                            'y': y_values,
-                            'z': z_values,
-                            'potentials': potentials
-                        }
-                    }
+                    # Ensure all arrays are the same length
+                    max_len = len(neuron_ids)
+                    if max_len == 0:
+                        continue
                     
-                    binary_data = encoder.encode_neuron_categories(motor_cortical_data)
+                    # Pad potentials if needed
+                    if len(potentials) < max_len:
+                        potentials.extend([0.0] * (max_len - len(potentials)))
+                    elif len(potentials) > max_len:
+                        potentials = potentials[:max_len]
+                    
+                    # Create NumPy arrays with proper dtypes for performance (neuron_c pattern)
+                    neurons_x = np.asarray(x_values[:max_len], dtype=np.uint32)
+                    neurons_y = np.asarray(y_values[:max_len], dtype=np.uint32)
+                    neurons_z = np.asarray(z_values[:max_len], dtype=np.uint32)
+                    neurons_p = np.asarray(potentials[:max_len], dtype=np.float32)
+                    
+                    # Create cortical ID
+                    cortical_id_obj = fdp.cortical_data.CorticalID(str(area_id))
+                    
+                    # Use high-performance NumPy approach (neuron_c pattern)
+                    neurons_array = fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                        neurons_x, neurons_y, neurons_z, neurons_p
+                    )
+                    
+                    # Insert the neuron array into the mapped data with its cortical ID
+                    generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
+                    
+                    # Create the final byte structure from the mapped data
+                    byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+                    binary_data = byte_structure.get_data_as_bytes()
                     
                     # DEBUG: Log the structure ID being generated
                     if binary_data and len(binary_data) > 0:
-                        structure_id = binary_data[0]
                         logger.debug(f"MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes for area {area_id}")
-                        logger.debug(f"   Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                        logger.debug(f"   High-performance NumPy approach used (neuron_c pattern)")
                         logger.debug(f"   First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
-                        if structure_id == 11:
-                            logger.debug(f"   ✅ Generated Type 11 (NEURON_CATEGORIES) - correct!")
-                        else:
-                            logger.debug(f"   ❓ Unknown structure type: {structure_id}")
+                        logger.debug(f"   ✅ Generated using NeuronXYZPArrays.new_from_numpy() - high performance!")
                     
                     await self._send_motor_binary_data(binary_data, channel=area_id)
                     

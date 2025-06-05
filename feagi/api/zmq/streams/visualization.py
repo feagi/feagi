@@ -359,13 +359,15 @@ class VisualizationStream:
         try:
             logger.debug(f"Processing cortical area format: {len(cortical_data)} areas")
             
-            # Encode using feagi_bytes binary format - USE TYPE 11 (NEURON_CATEGORIES)
+            # Encode using feagi_data_processing binary format - USE TYPE 11 (NEURON_CATEGORIES)
             try:
-                from feagi_bytes import ByteStructureEncoder
-                encoder = ByteStructureEncoder()
+                import feagi_data_processing as fdp
+                
+                # Create cortical mapped neuron data
+                cortical_mapped = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
 
-                # Convert cortical area data to the format expected by encoder
-                encoder_data = {}
+                # Convert cortical area data to the format expected by the new encoder
+                total_neurons_added = 0
                 for area_id, area_data in cortical_data.items():
                     if area_data and area_data.get('neuron_ids'):
                         neuron_ids = area_data.get('neuron_ids', [])
@@ -381,31 +383,38 @@ class VisualizationStream:
                             # ❌ NO FALLBACKS - Coordinates must exist
                             raise ValueError(f"Failed to get coordinates for {len(neuron_ids)} neurons in area {area_id}")
 
-                        encoder_data[area_id] = {
-                            'x': x_coords,
-                            'y': y_coords,
-                            'z': z_coords,
-                            'potentials': membrane_potentials
-                        }
+                        # Add neurons to the cortical mapping
+                        for i in range(len(neuron_ids)):
+                            x = int(x_coords[i]) if i < len(x_coords) else 0
+                            y = int(y_coords[i]) if i < len(y_coords) else 0
+                            z = int(z_coords[i]) if i < len(z_coords) else 0
+                            p = int(membrane_potentials[i]) if i < len(membrane_potentials) else 0
+                            
+                            neuron_obj = fdp.neuron_data.neurons.NeuronXYZP(x=x, y=y, z=z, p=p)
+                            cortical_id = int(area_id) if area_id.isdigit() else hash(area_id) % 1000
+                            cortical_mapped.insert(neuron_obj, cortical_id)
+                            total_neurons_added += 1
                 
-                if encoder_data:
-                    binary_data = encoder.encode_neuron_categories(encoder_data)
+                if total_neurons_added > 0:
+                    # Create the byte structure
+                    byte_structure = cortical_mapped.as_new_feagi_byte_structure()
+                    binary_data = byte_structure.get_data_as_bytes()
                     print("raw binary data:", binary_data)
                 else:
                     binary_data = b''
 
-
                 # DEBUG: Log the structure ID being generated
                 if binary_data and len(binary_data) > 0:
-                    structure_id = binary_data[0]
+                    structure_type = byte_structure.try_get_structure_type()
                     logger.debug(f"VISUALIZATION STREAM: Generated {len(binary_data)} bytes")
-                    logger.debug(f"   Structure ID (bytes[0]): {structure_id} (0x{structure_id:02X})")
+                    logger.debug(f"   Structure Type: {structure_type}")
+                    logger.debug(f"   Version: {byte_structure.get_version()}")
                     logger.debug(f"   First 8 bytes: {list(binary_data[:min(8, len(binary_data))])}")
 
-                    if structure_id == 11:
+                    if structure_type == 11:
                         logger.debug(f"   ✅ Generated Type 11 (NEURON_CATEGORIES)")
                     else:
-                        logger.debug(f"   ❓ Unknown structure type: {structure_id}")
+                        logger.debug(f"   ❓ Unknown structure type: {structure_type}")
 
                 # Publish the binary data
                 total_neurons = sum(len(area_data.get('neuron_ids', [])) for area_data in cortical_data.values())
@@ -413,7 +422,7 @@ class VisualizationStream:
                 logger.debug(f"Published cortical area data: {len(cortical_data)} areas, {total_neurons} neurons, {len(binary_data)} bytes")
                 
             except ImportError:
-                logger.error("feagi_bytes library not available - cannot encode binary data")
+                logger.error("feagi_data_processing library not available - cannot encode binary data")
             except Exception as e:
                 logger.error(f"Error encoding cortical area binary data: {e}")
                 
@@ -782,14 +791,17 @@ class VisualizationStream:
     def _prepare_broadcast_data(self, for_visualization: Dict[str, Any]) -> bytes:
         """
         Prepare data for broadcasting to visualization clients.
-        Convert to binary format using feagi_bytes.
+        Convert to binary format using feagi_data_processing with high-performance NumPy arrays.
         """
         try:
-            from feagi_bytes import ByteStructureEncoder
-            encoder = ByteStructureEncoder()
+            # Encode using feagi_data_processing binary format - USE HIGH-PERFORMANCE NUMPY APPROACH
+            import feagi_data_processing as fdp
+            import numpy as np
+            
+            # Create the main mapped neuron data container
+            generated_mapped_neuron_data = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
 
-            # Convert cortical area data to the format expected by encoder
-            encoder_data = {}
+            # Convert cortical area data to the format expected by the new encoder
             for area_id, area_data in for_visualization.items():
                 if area_data and area_data.get('neuron_ids'):
                     neuron_ids = area_data.get('neuron_ids', [])
@@ -805,78 +817,43 @@ class VisualizationStream:
                         # ❌ NO FALLBACKS - Coordinates must exist
                         raise ValueError(f"Failed to get coordinates for {len(neuron_ids)} neurons in area {area_id}")
 
-                    encoder_data[area_id] = {
-                        'x': x_coords,
-                        'y': y_coords,
-                        'z': z_coords,
-                        'potentials': membrane_potentials
-                    }
+                    # Ensure all arrays are the same length
+                    max_len = len(neuron_ids)
+                    if max_len == 0:
+                        continue
+                    
+                    # Pad membrane potentials if needed
+                    if len(membrane_potentials) < max_len:
+                        membrane_potentials.extend([0.0] * (max_len - len(membrane_potentials)))
+                    elif len(membrane_potentials) > max_len:
+                        membrane_potentials = membrane_potentials[:max_len]
+                    
+                    # Create NumPy arrays with proper dtypes for performance (following neuron_c example)
+                    neurons_x = np.asarray(x_coords[:max_len], dtype=np.uint32)
+                    neurons_y = np.asarray(y_coords[:max_len], dtype=np.uint32)  
+                    neurons_z = np.asarray(z_coords[:max_len], dtype=np.uint32)
+                    neurons_p = np.asarray(membrane_potentials[:max_len], dtype=np.float32)
+                    
+                    # Create cortical ID
+                    cortical_id_obj = fdp.cortical_data.CorticalID(str(area_id))
+                    
+                    # Use high-performance NumPy approach (neuron_c pattern)
+                    neurons_array = fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                        neurons_x, neurons_y, neurons_z, neurons_p
+                    )
+                    
+                    # Insert the neuron array into the mapped data with its cortical ID
+                    generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
             
-            if encoder_data:
-                binary_data = encoder.encode_neuron_categories(encoder_data)
-                
-                # # 🔍 Try to manually decode first neuron to verify encoding
-                # if len(binary_data) > 40 and 'iv00_C' in encoder_data:  # Enough data for headers + first neuron
-                #     try:
-                #         # Skip headers and decode first neuron manually
-                #         print(f"🧪 MANUAL DECODE TEST: Checking first neuron encoding...")
-                #
-                #         # Find where neuron data starts (after Type 11 headers)
-                #         # Type 11 format: [ID:1][Version:1][NumAreas:4][SecondaryHeaders][AllNeuronData]
-                #         num_areas = int.from_bytes(binary_data[2:6], byteorder='little')
-                #         header_size = 6 + (num_areas * 14)  # Base header + area headers
-                #
-                #         if len(binary_data) >= header_size + 16:  # Need 16 bytes for one neuron
-                #             neuron_start = header_size
-                #             # 🔧 NEW INTERLEAVED FORMAT: Each neuron: x(4) + y(4) + z(4) + potential(4) = 16 bytes
-                #             x_bytes = binary_data[neuron_start:neuron_start+4]
-                #             y_bytes = binary_data[neuron_start+4:neuron_start+8]
-                #             z_bytes = binary_data[neuron_start+8:neuron_start+12]
-                #             potential_bytes = binary_data[neuron_start+12:neuron_start+16]
-                #
-                #             x_decoded = int.from_bytes(x_bytes, byteorder='little')
-                #             y_decoded = int.from_bytes(y_bytes, byteorder='little')
-                #             z_decoded = int.from_bytes(z_bytes, byteorder='little')
-                #             # Decode potential as float32 (not uint32)
-                #             import struct
-                #             potential_decoded = struct.unpack('<f', potential_bytes)[0]
-                #
-                #             print(f"   🔓 DECODED: x={x_decoded}, y={y_decoded}, z={z_decoded}, potential={potential_decoded}")
-                #             print(f"   📋 Expected: x={encoder_data['iv00_C']['x'][0]}, y={encoder_data['iv00_C']['y'][0]}, z={encoder_data['iv00_C']['z'][0]}, potential={encoder_data['iv00_C']['potentials'][0]}")
-                #
-                #             # Check byte representation
-                #             print(f"   🔬 Raw bytes:")
-                #             print(f"      X: {list(x_bytes)} = {x_decoded}")
-                #             print(f"      Y: {list(y_bytes)} = {y_decoded}")
-                #             print(f"      Z: {list(z_bytes)} = {z_decoded}")
-                #             print(f"      P: {list(potential_bytes)} = {potential_decoded}")
-                #
-                #             # Verify this matches what Godot expects
-                #             expected_x = encoder_data['iv00_C']['x'][0]
-                #             expected_y = encoder_data['iv00_C']['y'][0]
-                #             expected_z = encoder_data['iv00_C']['z'][0]
-                #             expected_p = encoder_data['iv00_C']['potentials'][0]
-                #
-                #             coords_match = (x_decoded == expected_x and y_decoded == expected_y and z_decoded == expected_z)
-                #             potential_match = abs(potential_decoded - expected_p) < 0.001
-                #
-                #             print(f"   ✅ INTERLEAVED FORMAT: Coordinates match={coords_match}, Potential match={potential_match}")
-                #
-                #             if coords_match and potential_match:
-                #                 print(f"   🎉 SUCCESS: Binary data correctly formatted for Godot!")
-                #             else:
-                #                 print(f"   ❌ MISMATCH: Binary encoding still has issues")
-                #
-                #     except Exception as decode_err:
-                #         print(f"   ❌ Manual decode failed: {decode_err}")
-                
-                logger.debug(f"Encoded {len(for_visualization)} areas into {len(binary_data)} bytes")
-                return binary_data
-            else:
-                return b''
+            # Create the final byte structure from the mapped data
+            byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+            binary_data = byte_structure.get_data_as_bytes()
+            
+            logger.debug(f"Encoded {len(for_visualization)} areas into {len(binary_data)} bytes using high-performance NumPy approach (neuron_c pattern)")
+            return binary_data
                 
         except ImportError:
-            logger.error("feagi_bytes library not available - cannot encode binary data")
+            logger.error("feagi_data_processing library not available - cannot encode binary data")
             return b''
         except Exception as e:
             logger.error(f"Error encoding visualization data: {e}")
