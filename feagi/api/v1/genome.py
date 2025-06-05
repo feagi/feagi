@@ -101,6 +101,7 @@ class GenomeAPI:
             return GenomeUploadResponse(
                 success=True,
                 message="Barebones genome loaded successfully",
+                genome_number=self.core_api_service.get_genome_counter(),
                 loaded=result
             )
         else:
@@ -119,6 +120,7 @@ class GenomeAPI:
             return GenomeUploadResponse(
                 success=True,
                 message="Essential genome loaded successfully",
+                genome_number=self.core_api_service.get_genome_counter(),
                 loaded=result
             )
         else:
@@ -127,26 +129,44 @@ class GenomeAPI:
                 detail=f"Failed to load essential genome: {result.get('error', 'Unknown error')}"
             )
     
-    @genome_endpoint('POST', '/upload/file', response_model=Dict[str, Any])
-    async def upload_genome_file(self, file_data: Dict[str, Any]) -> Dict[str, Any]:
+    @genome_endpoint('POST', '/upload/file', response_model=GenomeUploadResponse)
+    async def upload_genome_file(self, file: UploadFile) -> GenomeUploadResponse:
         """Upload a genome file from user's computer."""
         try:
-            # Extract file content and metadata
-            genome_str = file_data.get('content')
-            filename = file_data.get('filename', 'uploaded_genome.json')
+            # Validate file type
+            if not file.filename:
+                raise ValueError("No file provided")
+                
+            if not file.filename.endswith(('.json', '.txt')):
+                raise ValueError("File must be a JSON or text file")
             
-            if not genome_str:
-                raise ValueError("No genome content provided")
+            # Read file content
+            file_content = await file.read()
+            if not file_content:
+                raise ValueError("File is empty")
+                
+            # Decode file content
+            try:
+                content_str = file_content.decode('utf-8')
+                genome_data = json.loads(content_str)
+            except UnicodeDecodeError:
+                raise ValueError("File must be UTF-8 encoded")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON format: {str(e)}")
+            
+            # Validate genome structure (basic check)
+            if not isinstance(genome_data, dict):
+                raise ValueError("Genome file must contain a JSON object")
             
             # Add default fields if missing
-            if "genome_title" not in genome_str:
-                genome_str["genome_title"] = filename
+            if "genome_title" not in genome_data:
+                genome_data["genome_title"] = file.filename
 
-            if "genome_description" not in genome_str:
-                genome_str["genome_description"] = ""
+            if "genome_description" not in genome_data:
+                genome_data["genome_description"] = f"Uploaded from {file.filename}"
 
             # Load the genome
-            result = self.core_api_service.load_genome(genome_str, filename=filename)
+            result = self.core_api_service.load_genome(genome_data, filename=file.filename)
             
             # Update burst engine if available
             burst_engine = self.core_api_service.get_burst_engine()
@@ -154,17 +174,22 @@ class GenomeAPI:
                 burst_engine.update_with_genome()
                 logger.info("Burst Engine updated with new genome", status="[FAST]")
                 
-            # Return raw response for v1 compatibility
-            return {
-                "loaded": result, 
-                "genome_counter": self.core_api_service.get_genome_counter()
-            }
+            # Return consistent response format with genome_number
+            return GenomeUploadResponse(
+                success=True,
+                message=f"Genome file '{file.filename}' uploaded successfully",
+                genome_number=self.core_api_service.get_genome_counter(),
+                loaded=result
+            )
         except Exception as e:
             logger.error(f"Failed to upload genome file: {str(e)}", status="[ERR]")
-            raise ValueError(f"Failed to upload genome file: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to upload genome file: {str(e)}"
+            )
     
-    @genome_endpoint('POST', '/upload/string', response_model=Dict[str, Any])
-    def upload_genome_string(self, genome: dict) -> Dict[str, Any]:
+    @genome_endpoint('POST', '/upload/string', response_model=GenomeUploadResponse)
+    def upload_genome_string(self, genome: dict) -> GenomeUploadResponse:
         """Upload a genome from JSON string."""
         try:
             # Load the genome
@@ -175,10 +200,13 @@ class GenomeAPI:
             if burst_engine:
                 burst_engine.update_with_genome()
             
-            return {
-                "loaded": result,
-                "genome_counter": self.core_api_service.get_genome_counter()
-            }
+            # Return consistent response format with genome_number
+            return GenomeUploadResponse(
+                success=True,
+                message="Genome string uploaded successfully",
+                genome_number=self.core_api_service.get_genome_counter(),
+                loaded=result
+            )
         except Exception as e:
             logger.error(f"Failed to upload genome string: {str(e)}")
             raise ValueError(f"Failed to upload genome string: {str(e)}")
@@ -320,26 +348,44 @@ class GenomeAPI:
             raise ValueError(f"Failed to process amalgamation: {str(e)}")
     
     @genome_endpoint('POST', '/amalgamation_by_upload', response_model=AmalgamationResponse)
-    async def amalgamate_by_upload(self, file_data: Dict[str, Any]) -> AmalgamationResponse:
+    async def amalgamate_by_upload(self, file: UploadFile) -> AmalgamationResponse:
         """Perform genome amalgamation using uploaded file."""
         try:
-            # Extract genome data from uploaded file
-            genome_str = file_data.get('content')
-            if not genome_str:
-                raise ValueError("No file content provided")
+            # Validate file
+            if not file.filename:
+                raise ValueError("No file provided")
+                
+            if not file.filename.endswith(('.json', '.txt')):
+                raise ValueError("File must be a JSON or text file")
+            
+            # Read and parse file content
+            file_content = await file.read()
+            if not file_content:
+                raise ValueError("File is empty")
+            
+            try:
+                content_str = file_content.decode('utf-8')
+                genome_data = json.loads(content_str)
+            except UnicodeDecodeError:
+                raise ValueError("File must be UTF-8 encoded")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON format: {str(e)}")
             
             result = self.core_api_service.process_amalgamation_request(
-                genome_payload=genome_str
+                genome_payload=genome_data
             )
             
             return AmalgamationResponse(
                 amalgamation_id=result.get("amalgamation_id", ""),
                 status="success", 
-                message="Amalgamation request processed successfully"
+                message=f"Amalgamation request processed successfully from {file.filename}"
             )
         except Exception as e:
             logger.error(f"Error in amalgamation by upload: {e}")
-            raise ValueError(f"Failed to process amalgamation: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to process amalgamation: {str(e)}"
+            )
     
     @genome_endpoint('POST', '/amalgamation_by_filename', response_model=AmalgamationResponse)
     async def amalgamate_by_filename(self, request: AmalgamationRequest) -> AmalgamationResponse:
@@ -474,20 +520,37 @@ class GenomeAPI:
             raise ValueError(f"Failed to append file to genome: {str(e)}")
 
     @genome_endpoint('POST', '/upload/file/edit', response_model=GenomeEditResponse)
-    def upload_file_for_editing(self, file_data: Dict[str, Any]) -> GenomeEditResponse:
+    async def upload_file_for_editing(self, file: UploadFile) -> GenomeEditResponse:
         """Upload a genome file and return its content for editing."""
         try:
-            # Extract file content
-            content = file_data.get('content', '')
+            # Validate file
+            if not file.filename:
+                raise ValueError("No file provided")
+                
+            if not file.filename.endswith(('.json', '.txt')):
+                raise ValueError("File must be a JSON or text file")
             
-            if not content:
-                raise ValueError("No file content provided")
+            # Read file content
+            file_content = await file.read()
+            if not file_content:
+                raise ValueError("File is empty")
             
-            # Return the content as-is for editing
-            return GenomeEditResponse(content=content)
+            try:
+                content_str = file_content.decode('utf-8')
+                # Validate JSON format but return as string
+                json.loads(content_str)  # Just for validation
+                return GenomeEditResponse(content=content_str)
+            except UnicodeDecodeError:
+                raise ValueError("File must be UTF-8 encoded")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON format: {str(e)}")
+            
         except Exception as e:
             logger.error(f"Error uploading file for editing: {e}")
-            raise ValueError(f"Failed to upload file for editing: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to upload file for editing: {str(e)}"
+            )
 
 
 # ===== Factory Function =====

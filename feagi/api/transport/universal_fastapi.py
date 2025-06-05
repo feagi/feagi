@@ -196,7 +196,7 @@ if EMBEDDED_MODE:
 
 else:
     # Normal mode - import all FastAPI dependencies and create actual routers
-    from fastapi import APIRouter, Depends, HTTPException, Request, Body
+    from fastapi import APIRouter, Depends, HTTPException, Request, Body, UploadFile
     from fastapi.responses import JSONResponse
     from typing import Dict, Any, Callable
     import inspect
@@ -350,13 +350,52 @@ else:
             # Inspect the original handler to understand its parameters
             sig = inspect.signature(original_handler)
             params = list(sig.parameters.keys())
+            param_annotations = {name: param.annotation for name, param in sig.parameters.items()}
+            
+            # Check if any parameter is UploadFile
+            has_upload_file = any(
+                annotation == UploadFile or 
+                (hasattr(annotation, '__origin__') and getattr(annotation, '__origin__', None) is UploadFile)
+                for annotation in param_annotations.values()
+            )
             
             # Determine if handler needs request data
             needs_request_data = len(params) > 1  # First param is always 'self'
             is_async = asyncio.iscoroutinefunction(original_handler)
             
-            if needs_request_data and request_model:
-                # Handler expects request data
+            if has_upload_file:
+                # Special handling for file upload endpoints
+                if is_async:
+                    async def fastapi_handler_with_file(
+                        file: UploadFile,
+                        api_instance = Depends(_get_api_instance)
+                    ):
+                        try:
+                            return await original_handler(api_instance, file)
+                        except ValueError as e:
+                            raise HTTPException(status_code=400, detail=str(e))
+                        except Exception as e:
+                            logger.error(f"Error in {original_handler.__name__}: {e}")
+                            raise HTTPException(status_code=500, detail="Internal server error")
+                            
+                    return fastapi_handler_with_file
+                else:
+                    def fastapi_handler_with_file(
+                        file: UploadFile,
+                        api_instance = Depends(_get_api_instance)
+                    ):
+                        try:
+                            return original_handler(api_instance, file)
+                        except ValueError as e:
+                            raise HTTPException(status_code=400, detail=str(e))
+                        except Exception as e:
+                            logger.error(f"Error in {original_handler.__name__}: {e}")
+                            raise HTTPException(status_code=500, detail="Internal server error")
+                            
+                    return fastapi_handler_with_file
+            
+            elif needs_request_data and request_model:
+                # Handler expects request data with Pydantic model
                 if is_async:
                     async def fastapi_handler_with_request(
                         request_data: request_model,
@@ -400,8 +439,7 @@ else:
                             else:
                                 body = {}
                             
-                            # Call sync handler (FastAPI will handle the sync call)
-                            return original_handler(api_instance, body)
+                            return await original_handler(api_instance, body)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
@@ -421,7 +459,6 @@ else:
                             else:
                                 body = {}
                             
-                            # Call sync handler (FastAPI will handle the sync call)
                             return original_handler(api_instance, body)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
