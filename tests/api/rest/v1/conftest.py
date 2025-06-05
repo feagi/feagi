@@ -356,7 +356,7 @@ def core_api_mock(connectome_manager_mock):
     # Genome API specific behaviors
     mock.get_data_path.return_value = os.path.join(tempfile.gettempdir(), "feagi_test")
     mock.get_temp_path.return_value = os.path.join(tempfile.gettempdir(), "feagi_test")
-    mock.load_genome.return_value = True
+    mock.load_genome.return_value = {"success": True, "genome_id": "test_genome", "loaded_at": "2024-01-01T00:00:00"}
     mock.get_genome_filename.return_value = "test_genome.json"
     mock.get_genome_counter.return_value = 1
     mock.reset_genome.return_value = True
@@ -384,7 +384,6 @@ def core_api_mock(connectome_manager_mock):
     }
     
     # In the core_api_mock fixture, add this method to support essential genome upload
-    mock.load_genome.return_value = True
     mock.get_burst_engine.return_value = MagicMock()
     # Add a specific method to process the essential genome
     mock.process_essential_genome = MagicMock(return_value={"success": True, "data": {"genome_id": "essential"}, "timestamp": 1234567890})
@@ -517,6 +516,11 @@ def genome_client(client_factory):
         # Configure mock return values
         mock.get_data_path.return_value = temp_dir
         mock.get_temp_path.return_value = temp_dir
+        
+        # Add load_genome method that returns a proper dictionary
+        mock.load_genome.return_value = {"success": True, "genome_id": "test_genome", "loaded_at": "2024-01-01T00:00:00"}
+        mock.get_genome_counter.return_value = 1
+        mock.get_burst_engine.return_value = MagicMock()
     
     return client_factory("genome", core_api_customizer=_customize_core_api)
 

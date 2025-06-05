@@ -83,7 +83,7 @@ def test_upload_genome_file(genome_client):
         if response.status_code == 200:
             data = response.json()
             assert "message" in data
-            assert "Genome loaded successfully" in data["message"]
+            assert "uploaded successfully" in data["message"]
     finally:
         # Clean up the temporary file
         os.unlink(temp_file_path)
