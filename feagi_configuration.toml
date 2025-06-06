@@ -13,6 +13,13 @@ debug = true
 log_level = "INFO"
 data_dir = ""  # Must be set via environment variable or configuration override
 
+[genome]
+# Genome loading and validation configuration
+auto_recovery_on_validation_failure = true  # Allow loading invalid genomes with auto-recovery (default: true)
+                                            # Set to false to reject invalid genomes completely for safety/stability
+                                            # When true: Invalid genomes are loaded but marked as invalid in state manager
+                                            # When false: Invalid genomes cause loading to fail immediately
+
 [api]
 # REST API server configuration
 # REQUIRED: These values must be provided via environment variables or config override

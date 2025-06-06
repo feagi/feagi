@@ -129,6 +129,16 @@ class TimeoutConfiguration:
     polling_timeout: int = 100
 
 
+@dataclass
+class GenomeConfiguration:
+    """
+    Genome loading and validation configurations loaded from TOML.
+    
+    Controls how FEAGI handles invalid genome files.
+    """
+    auto_recovery_on_validation_failure: bool = True  # Default: allow auto-recovery
+
+
 class FeagiConfigurationError(Exception):
     """Custom exception for FEAGI configuration errors."""
     pass
@@ -436,6 +446,23 @@ def get_timeout_config(config: Dict[str, Any]) -> TimeoutConfiguration:
         client_heartbeat_timeout=zmq_config.get('client_heartbeat_timeout', 30000),
         inactive_client_timeout=zmq_config.get('inactive_client_timeout', 60000),
         polling_timeout=zmq_config.get('polling_timeout', 100)
+    )
+
+
+def get_genome_config(config: Dict[str, Any]) -> GenomeConfiguration:
+    """
+    Extract genome configuration from loaded TOML config.
+    
+    Args:
+        config: Configuration dictionary loaded from TOML
+        
+    Returns:
+        GenomeConfiguration with genome validation settings
+    """
+    genome_config = config.get('genome', {})
+    
+    return GenomeConfiguration(
+        auto_recovery_on_validation_failure=genome_config.get('auto_recovery_on_validation_failure', True)
     )
 
 

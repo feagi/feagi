@@ -318,11 +318,52 @@ class NeuroEmbryogenesis:
             with open(genome_path, 'r') as f:
                 self.genome = json.load(f)
             
-            # Validate genome
+            # Load FEAGI configuration to check genome settings
+            try:
+                from feagi.config.toml_loader import load_feagi_config, get_genome_config
+                config = load_feagi_config()
+                genome_config = get_genome_config(config)
+                allow_auto_recovery = genome_config.auto_recovery_on_validation_failure
+            except Exception as e:
+                logger.warning(f"Could not load FEAGI configuration, defaulting to allow auto-recovery: {e}")
+                allow_auto_recovery = True  # Default to allow auto-recovery if config fails
+            
+            # Validate genome - behavior depends on configuration
             is_valid = genome_validator(self.genome)
             if not is_valid:
-                self._report_failure(DevelopmentStage.INITIALIZATION, "Invalid genome")
-                return False
+                if not allow_auto_recovery:
+                    self._report_failure(DevelopmentStage.INITIALIZATION, "Genome validation failed and auto-recovery is disabled")
+                    return False
+                else:
+                    logger.warning("Genome validation failed - attempting auto-recovery with morphology sanitization")
+                    
+                    # Attempt morphology sanitization during auto-recovery
+                    try:
+                        from feagi.evo.genome_validator import sanitize_invalid_morphologies
+                        sanitization_result = sanitize_invalid_morphologies(self.genome)
+                        
+                        # Use the sanitized genome
+                        self.genome = sanitization_result["genome"]
+                        removed_morphologies = sanitization_result["removed_morphologies"]
+                        recovery_summary = sanitization_result["recovery_summary"]
+                        
+                        logger.info(f"Auto-recovery completed: {recovery_summary}")
+                        if removed_morphologies:
+                            logger.info(f"Removed invalid morphologies: {', '.join(removed_morphologies)}")
+                        
+                        # Re-validate after sanitization
+                        is_valid_after_recovery = genome_validator(self.genome)
+                        if is_valid_after_recovery:
+                            logger.info("Genome validation passed after auto-recovery sanitization")
+                        else:
+                            logger.warning("Genome still has validation issues after sanitization - continuing anyway")
+                            
+                    except Exception as sanitization_error:
+                        logger.warning(f"Auto-recovery sanitization failed: {sanitization_error}")
+                        logger.warning("Continuing with original genome despite validation failures")
+                    
+                    logger.warning("FEAGI will try to fix/recover from remaining gene failures during development")
+                    # Don't return False - continue with loading despite validation issues
             
             # Update morphologies and physiology
             self.genome = merge_core_morphologies(self.genome)
@@ -337,7 +378,10 @@ class NeuroEmbryogenesis:
             if hasattr(self.connectome_manager, 'get_morphologies_registry'):
                 setattr(self.connectome_manager, '_neuroembryogenesis_morphologies_registry', morphology_registry)
             
-            self._report_progress(DevelopmentStage.INITIALIZATION, 100, "Genome loaded and validated")
+            if is_valid:
+                self._report_progress(DevelopmentStage.INITIALIZATION, 100, "Genome loaded and validated")
+            else:
+                self._report_progress(DevelopmentStage.INITIALIZATION, 100, "Genome loaded with validation warnings - attempting recovery")
             return True
             
         except Exception as e:
