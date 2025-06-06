@@ -155,11 +155,22 @@ class AmalgamationRequest(BaseModel):
 
 
 class GenomeUploadResponse(BaseModel):
-    """Response model for genome upload operations."""
+    """Response model for genome upload operations.
+    
+    This response follows the standard FEAGI response format:
+    - success: True if the overall operation succeeded (file uploaded AND genome loaded)
+    - message: Human-readable description of what happened
+    - genome_number: Current genome counter (incremented on successful loads)
+    - details: Standard FEAGI details field containing:
+        - success: Whether genome validation and brain development succeeded
+        - error: Error message if genome loading failed
+        - validation_errors: List of specific validation errors (if validation failed)
+        - Additional metadata about the loading process
+    """
     success: bool
     message: str
     genome_number: Optional[int] = None
-    loaded: Optional[dict] = None
+    details: Optional[dict] = None
 
 
 class GenomeFileNameResponse(BaseModel):

@@ -205,3 +205,162 @@ def genome_validator(genome):
                       blueprint_validator(genome=genome)
     print_validity(validity_status=genome_validity)
     return genome_validity
+
+
+def genome_validator_with_errors(genome):
+    """
+    Enhanced genome validator that returns detailed validation results.
+    
+    This function provides the same validation logic as genome_validator()
+    but returns detailed error information instead of just a boolean result.
+    
+    Args:
+        genome: The genome data to validate
+        
+    Returns:
+        dict: {
+            "valid": bool,
+            "errors": List[str],  # Specific error messages
+            "error_summary": str  # Summary of all errors
+        }
+    """
+    errors = []
+    
+    # Validate morphologies
+    if not morphology_validator(genome=genome):
+        errors.append("Morphology validation failed - check neuron_morphologies section")
+    
+    # Validate blueprint
+    if not blueprint_validator(genome=genome):
+        errors.append("Blueprint validation failed - check blueprint section")
+    
+    is_valid = len(errors) == 0
+    
+    if not is_valid:
+        error_summary = f"Multiple validation errors: {len(errors)} issues found"
+    else:
+        error_summary = "Valid"
+    
+    return {
+        "valid": is_valid,
+        "errors": errors,
+        "error_summary": error_summary
+    }
+
+
+def sanitize_invalid_morphologies(genome):
+    """
+    Detect and remove invalid morphologies from the genome during auto-recovery.
+    
+    This function identifies morphologies that are missing required fields and removes them,
+    also cleaning up any blueprint references to those invalid morphologies.
+    
+    Args:
+        genome: The genome data to sanitize
+        
+    Returns:
+        dict: {
+            "genome": dict,  # The sanitized genome
+            "removed_morphologies": List[str],  # Names of removed morphologies
+            "fixed_references": List[str],  # Blueprint entries that were fixed
+            "recovery_summary": str  # Summary of what was fixed
+        }
+    """
+    removed_morphologies = []
+    fixed_references = []
+    
+    # Create a copy of the genome to modify
+    import copy
+    sanitized_genome = copy.deepcopy(genome)
+    
+    # Check if neuron_morphologies section exists
+    if "neuron_morphologies" not in sanitized_genome:
+        return {
+            "genome": sanitized_genome,
+            "removed_morphologies": [],
+            "fixed_references": [],
+            "recovery_summary": "No morphologies section found - nothing to sanitize"
+        }
+    
+    morphologies = sanitized_genome["neuron_morphologies"]
+    
+    # Identify invalid morphologies
+    invalid_morphologies = []
+    
+    for morph_name, morph_data in morphologies.items():
+        if not isinstance(morph_data, dict):
+            invalid_morphologies.append(morph_name)
+            continue
+            
+        # Check for required fields
+        if "type" not in morph_data or not morph_data["type"]:
+            invalid_morphologies.append(morph_name)
+            continue
+            
+        # Check for other validation criteria
+        morph_type = morph_data.get("type", "")
+        if morph_type not in ["vectors", "patterns", "function"]:
+            invalid_morphologies.append(morph_name)
+            continue
+    
+    # Remove invalid morphologies
+    for morph_name in invalid_morphologies:
+        if morph_name in morphologies:
+            del morphologies[morph_name]
+            removed_morphologies.append(morph_name)
+    
+    # Clean up blueprint references to removed morphologies
+    if "blueprint" in sanitized_genome:
+        blueprint = sanitized_genome["blueprint"]
+        keys_to_remove = []
+        
+        for gene_key, gene_value in blueprint.items():
+            # Check if this is a mapping that references a removed morphology
+            if isinstance(gene_value, dict) and "morphology" in gene_value:
+                morphology_ref = gene_value["morphology"]
+                if morphology_ref in removed_morphologies:
+                    keys_to_remove.append(gene_key)
+                    fixed_references.append(f"Removed blueprint entry {gene_key} (referenced invalid morphology '{morphology_ref}')")
+            
+            # Also check for direct morphology references in cortical mappings
+            elif "cortical_mappings" in gene_key and isinstance(gene_value, list):
+                for mapping in gene_value:
+                    if isinstance(mapping, dict) and "morphology" in mapping:
+                        if mapping["morphology"] in removed_morphologies:
+                            # For now, we'll note this but not remove entire mappings
+                            fixed_references.append(f"Found mapping in {gene_key} with invalid morphology '{mapping['morphology']}'")
+        
+        # Remove invalid blueprint entries
+        for key in keys_to_remove:
+            del blueprint[key]
+    
+    # Also clean up cortical_mappings if they exist
+    if "cortical_mappings" in sanitized_genome and isinstance(sanitized_genome["cortical_mappings"], list):
+        mappings = sanitized_genome["cortical_mappings"]
+        valid_mappings = []
+        
+        for mapping in mappings:
+            if isinstance(mapping, dict) and "morphology" in mapping:
+                if mapping["morphology"] not in removed_morphologies:
+                    valid_mappings.append(mapping)
+                else:
+                    fixed_references.append(f"Removed cortical mapping from {mapping.get('source', 'unknown')} to {mapping.get('destination', 'unknown')} (invalid morphology '{mapping['morphology']}')")
+            else:
+                valid_mappings.append(mapping)
+        
+        sanitized_genome["cortical_mappings"] = valid_mappings
+    
+    # Generate recovery summary
+    if removed_morphologies:
+        recovery_summary = f"Auto-recovery: Removed {len(removed_morphologies)} invalid morphologies: {', '.join(removed_morphologies)}"
+        if fixed_references:
+            recovery_summary += f"; Fixed {len(fixed_references)} blueprint references"
+    else:
+        recovery_summary = "Auto-recovery: No invalid morphologies found to remove"
+    
+    return {
+        "genome": sanitized_genome,
+        "removed_morphologies": removed_morphologies,
+        "fixed_references": fixed_references,
+        "recovery_summary": recovery_summary
+    }

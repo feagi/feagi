@@ -97,18 +97,26 @@ class GenomeAPI:
         logger.info("Loading barebones genome")
         result = self.core_api_service.load_barebones_genome()
         
-        if result.get("success", False):
-            return GenomeUploadResponse(
-                success=True,
-                message="Barebones genome loaded successfully",
-                genome_number=self.core_api_service.get_genome_counter(),
-                loaded=result
+        # Prepare the final response based on loading results
+        response_data = GenomeUploadResponse(
+            success=result["success"],
+            message=(
+                "Barebones genome loaded successfully" if result["success"] and result.get("genome_validity", True)
+                else f"Barebones genome loaded but marked as invalid: {result.get('message', 'Validation failed')}" if result["success"] and not result.get("genome_validity", True)
+                else f"Barebones genome failed to load: {result.get('error', 'Unknown error')}"
+            ),
+            genome_number=self.core_api_service.get_genome_counter(),
+            details=result if not result["success"] else (
+                {
+                    "success": result["success"],
+                    "cortical_area_count": result.get("cortical_area_count", 0),
+                    "genome_validity": result.get("genome_validity", True),
+                    "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                }
             )
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Failed to load barebones genome: {result.get('error', 'Unknown error')}"
-            )
+        )
+        
+        return response_data
     
     @genome_endpoint('POST', '/upload/essential', response_model=GenomeUploadResponse)
     async def upload_essential_genome(self) -> GenomeUploadResponse:
@@ -116,18 +124,26 @@ class GenomeAPI:
         logger.info("Loading essential genome")
         result = self.core_api_service.load_essential_genome()
         
-        if result.get("success", False):
-            return GenomeUploadResponse(
-                success=True,
-                message="Essential genome loaded successfully",
-                genome_number=self.core_api_service.get_genome_counter(),
-                loaded=result
+        # Prepare the final response based on loading results
+        response_data = GenomeUploadResponse(
+            success=result["success"],
+            message=(
+                "Essential genome loaded successfully" if result["success"] and result.get("genome_validity", True)
+                else f"Essential genome loaded but marked as invalid: {result.get('message', 'Validation failed')}" if result["success"] and not result.get("genome_validity", True)
+                else f"Essential genome failed to load: {result.get('error', 'Unknown error')}"
+            ),
+            genome_number=self.core_api_service.get_genome_counter(),
+            details=result if not result["success"] else (
+                {
+                    "success": result["success"],
+                    "cortical_area_count": result.get("cortical_area_count", 0),
+                    "genome_validity": result.get("genome_validity", True),
+                    "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                }
             )
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Failed to load essential genome: {result.get('error', 'Unknown error')}"
-            )
+        )
+        
+        return response_data
     
     @genome_endpoint('POST', '/upload/file', response_model=GenomeUploadResponse)
     async def upload_genome_file(self, file: UploadFile) -> GenomeUploadResponse:
@@ -168,19 +184,26 @@ class GenomeAPI:
             # Load the genome
             result = self.core_api_service.load_genome(genome_data, filename=file.filename)
             
-            # Update burst engine if available
-            burst_engine = self.core_api_service.get_burst_engine()
-            if burst_engine:
-                burst_engine.update_with_genome()
-                logger.info("Burst Engine updated with new genome", status="[FAST]")
-                
-            # Return consistent response format with genome_number
-            return GenomeUploadResponse(
-                success=True,
-                message=f"Genome file '{file.filename}' uploaded successfully",
+            # Prepare the final response based on loading results
+            response_data = GenomeUploadResponse(
+                success=result["success"],
+                message=(
+                    "Genome file uploaded and loaded successfully" if result["success"] and result.get("genome_validity", True)
+                    else f"Genome file uploaded and loaded but marked as invalid: {result.get('message', 'Validation failed')}" if result["success"] and not result.get("genome_validity", True)
+                    else f"Genome file uploaded but failed to load: {result.get('error', 'Unknown error')}"
+                ),
                 genome_number=self.core_api_service.get_genome_counter(),
-                loaded=result
+                details=result if not result["success"] else (
+                    {
+                        "success": result["success"],
+                        "cortical_area_count": result.get("cortical_area_count", 0),
+                        "genome_validity": result.get("genome_validity", True),
+                        "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                    }
+                )
             )
+            
+            return response_data
         except Exception as e:
             logger.error(f"Failed to upload genome file: {str(e)}", status="[ERR]")
             raise HTTPException(
@@ -193,20 +216,28 @@ class GenomeAPI:
         """Upload a genome from JSON string."""
         try:
             # Load the genome
-            result = self.core_api_service.load_genome(genome)
+            result = self.core_api_service.load_genome(genome, filename="uploaded_genome.json")
             
-            # Update burst engine
-            burst_engine = self.core_api_service.get_burst_engine()
-            if burst_engine:
-                burst_engine.update_with_genome()
-            
-            # Return consistent response format with genome_number
-            return GenomeUploadResponse(
-                success=True,
-                message="Genome string uploaded successfully",
+            # Prepare the final response based on loading results
+            response_data = GenomeUploadResponse(
+                success=result["success"],
+                message=(
+                    "Genome string uploaded and loaded successfully" if result["success"] and result.get("genome_validity", True)
+                    else f"Genome string uploaded and loaded but marked as invalid: {result.get('message', 'Validation failed')}" if result["success"] and not result.get("genome_validity", True)
+                    else f"Genome string uploaded but failed to load: {result.get('error', 'Unknown error')}"
+                ),
                 genome_number=self.core_api_service.get_genome_counter(),
-                loaded=result
+                details=result if not result["success"] else (
+                    {
+                        "success": result["success"],
+                        "cortical_area_count": result.get("cortical_area_count", 0),
+                        "genome_validity": result.get("genome_validity", True),
+                        "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                    }
+                )
             )
+            
+            return response_data
         except Exception as e:
             logger.error(f"Failed to upload genome string: {str(e)}")
             raise ValueError(f"Failed to upload genome string: {str(e)}")
