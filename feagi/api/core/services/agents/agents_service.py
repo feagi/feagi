@@ -34,9 +34,21 @@ class AgentsService(BaseService):
             
             connected_agents = getattr(self.state_manager, 'connected_agents', {})
             
+            # Ensure connected_agents is a dictionary, not an integer or other type 
+            if not isinstance(connected_agents, dict):
+                self.logger.warning(f"connected_agents is not a dictionary, got type {type(connected_agents)}. Initializing as empty dict.")
+                connected_agents = {}
+                # Fix the state manager's connected_agents
+                self.state_manager.connected_agents = {}
+            
             # Convert to list format for API
             agent_list = []
             for agent_id, agent_info in connected_agents.items():
+                # Ensure agent_info is also a dictionary
+                if not isinstance(agent_info, dict):
+                    self.logger.warning(f"Agent info for {agent_id} is not a dictionary, got type {type(agent_info)}. Skipping.")
+                    continue
+                    
                 agent_data = {
                     "agent_id": agent_id,
                     "agent_type": agent_info.get("type", "unknown"),
@@ -63,8 +75,9 @@ class AgentsService(BaseService):
             if not agent_id:
                 return {"success": False, "error": "Agent ID required"}
             
-            # Initialize connected_agents if it doesn't exist
-            if not hasattr(self.state_manager, 'connected_agents'):
+            # Initialize connected_agents if it doesn't exist or is wrong type
+            if not hasattr(self.state_manager, 'connected_agents') or not isinstance(getattr(self.state_manager, 'connected_agents', None), dict):
+                self.logger.warning("Initializing connected_agents as empty dictionary")
                 self.state_manager.connected_agents = {}
             
             # Register the agent
@@ -94,7 +107,12 @@ class AgentsService(BaseService):
             if not self.state_manager:
                 return {"success": False, "error": "State manager not available"}
             
+            # Ensure connected_agents is a dictionary
             connected_agents = getattr(self.state_manager, 'connected_agents', {})
+            if not isinstance(connected_agents, dict):
+                self.logger.warning(f"connected_agents is not a dictionary in unregister, got type {type(connected_agents)}. Initializing as empty dict.")
+                connected_agents = {}
+                self.state_manager.connected_agents = {}
             
             if agent_id in connected_agents:
                 del connected_agents[agent_id]
@@ -112,13 +130,26 @@ class AgentsService(BaseService):
             if not self.state_manager:
                 return False
             
+            # Ensure connected_agents is a dictionary
             connected_agents = getattr(self.state_manager, 'connected_agents', {})
+            if not isinstance(connected_agents, dict):
+                self.logger.warning(f"connected_agents is not a dictionary in update_agent_status, got type {type(connected_agents)}. Initializing as empty dict.")
+                connected_agents = {}
+                self.state_manager.connected_agents = {}
+                return False  # Can't update if we had to reset
             
             if agent_id in connected_agents:
+                # Ensure agent_info is also a dictionary
+                if not isinstance(connected_agents[agent_id], dict):
+                    self.logger.warning(f"Agent info for {agent_id} is not a dictionary in update_agent_status, got type {type(connected_agents[agent_id])}. Skipping update.")
+                    return False
+                    
                 connected_agents[agent_id]["status"] = status
                 connected_agents[agent_id]["last_seen"] = metadata.get("timestamp") if metadata else None
                 
                 if metadata:
+                    if "metadata" not in connected_agents[agent_id]:
+                        connected_agents[agent_id]["metadata"] = {}
                     connected_agents[agent_id]["metadata"].update(metadata)
                 
                 return True
@@ -134,10 +165,21 @@ class AgentsService(BaseService):
             if not self.state_manager:
                 return None
             
+            # Ensure connected_agents is a dictionary
             connected_agents = getattr(self.state_manager, 'connected_agents', {})
+            if not isinstance(connected_agents, dict):
+                self.logger.warning(f"connected_agents is not a dictionary in get_agent_details, got type {type(connected_agents)}. Initializing as empty dict.")
+                connected_agents = {}
+                self.state_manager.connected_agents = {}
+                return None
             
             if agent_id in connected_agents:
                 agent_info = connected_agents[agent_id]
+                # Ensure agent_info is also a dictionary
+                if not isinstance(agent_info, dict):
+                    self.logger.warning(f"Agent info for {agent_id} is not a dictionary in get_agent_details, got type {type(agent_info)}. Returning None.")
+                    return None
+                    
                 return {
                     "agent_id": agent_id,
                     "type": agent_info.get("type", "unknown"),
