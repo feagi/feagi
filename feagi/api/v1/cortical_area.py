@@ -33,7 +33,9 @@ from feagi.api.v1.schemas import (
     CorticalLocationResponse, CorticalIdNameMappingResponse,
     CorticalGeometryResponse, NeuronCountResponse, CorticalIdRequest,
     CorticalNameRequest, CorticalIdListRequest, CoordinateUpdateRequest,
-    SuccessResponse, ErrorResponse, CorticalAreaTypesResponse
+    SuccessResponse, ErrorResponse, CorticalAreaTypesResponse,
+    MappingRestrictionsResponse, MappingRestrictionsRequest,
+    CorticalAreaMappingRestrictionRequest, CorticalAreaMappingRestrictionResponse
 )
 from .decorators import endpoint
 
@@ -698,6 +700,83 @@ class CorticalAreaAPI:
                 raise ValueError("Failed to reset cortical areas")
         except Exception as e:
             raise ValueError(f"Error resetting cortical areas: {str(e)}")
+    
+    # ===== Mapping Restrictions =====
+    
+    @cortical_area_endpoint('GET', '/mapping_restrictions', response_model=MappingRestrictionsResponse)
+    def get_mapping_restrictions(self) -> MappingRestrictionsResponse:
+        """Get all mapping restrictions between cortical area types."""
+        try:
+            restrictions_data = self.core_api_service.get_mapping_restrictions()
+            return MappingRestrictionsResponse(
+                restrictions=restrictions_data.get("restrictions", []),
+                defaults=restrictions_data.get("defaults", [])
+            )
+        except Exception as e:
+            raise ValueError(f"Error getting mapping restrictions: {str(e)}")
+    
+    @cortical_area_endpoint('POST', '/mapping_restrictions',
+                           request_model=MappingRestrictionsRequest,
+                           response_model=MappingRestrictionsResponse)
+    def get_mapping_restrictions_filtered(self, request: MappingRestrictionsRequest) -> MappingRestrictionsResponse:
+        """Get mapping restrictions for specific cortical area types."""
+        try:
+            restrictions_data = self.core_api_service.get_mapping_restrictions(
+                source_type=request.source_type,
+                destination_type=request.destination_type
+            )
+            
+            # Handle both single restriction and full registry responses
+            if "restrictions" in restrictions_data and "defaults" in restrictions_data:
+                # Full registry response
+                return MappingRestrictionsResponse(
+                    restrictions=restrictions_data["restrictions"],
+                    defaults=restrictions_data["defaults"]
+                )
+            else:
+                # Single restriction response - wrap in lists
+                restrictions = [restrictions_data["restriction"]] if restrictions_data.get("restriction") else []
+                defaults = [restrictions_data["default"]] if restrictions_data.get("default") else []
+                return MappingRestrictionsResponse(
+                    restrictions=restrictions,
+                    defaults=defaults
+                )
+        except Exception as e:
+            raise ValueError(f"Error getting filtered mapping restrictions: {str(e)}")
+    
+    @cortical_area_endpoint('POST', '/mapping_restrictions_between_areas',
+                           request_model=CorticalAreaMappingRestrictionRequest,
+                           response_model=CorticalAreaMappingRestrictionResponse)
+    def get_restrictions_between_cortical_areas(self, request: CorticalAreaMappingRestrictionRequest) -> CorticalAreaMappingRestrictionResponse:
+        """Get mapping restrictions between two specific cortical areas.
+        
+        This endpoint is designed to be compatible with the Godot client's expected interface:
+        - get_restrictions_between_2_cortical_areas(source, destination)
+        - Returns an object with has_restricted_morphologies() and get_morphologies_restricted_to() methods
+        """
+        try:
+            restriction_data = self.core_api_service.get_restriction_between_cortical_areas(
+                source_cortical_id=request.source_cortical_id,
+                destination_cortical_id=request.destination_cortical_id
+            )
+            
+            if not restriction_data:
+                # Return empty restriction for non-existent areas or no restrictions
+                return CorticalAreaMappingRestrictionResponse(
+                    source_cortical_id=request.source_cortical_id,
+                    destination_cortical_id=request.destination_cortical_id,
+                    source_type="UNKNOWN",
+                    destination_type="UNKNOWN",
+                    restriction=None,
+                    default=None,
+                    has_restricted_morphologies=False,
+                    get_morphologies_restricted_to=[]
+                )
+            
+            return CorticalAreaMappingRestrictionResponse(**restriction_data)
+            
+        except Exception as e:
+            raise ValueError(f"Error getting restrictions between cortical areas: {str(e)}")
 
 
 # ===== Factory Function =====

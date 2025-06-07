@@ -345,6 +345,36 @@ class CorticalStatsResponse(BaseModel):
     stats: Dict[str, Any]
 
 
+class MappingRestrictionsResponse(BaseModel):
+    """Response model for mapping restrictions between cortical area types."""
+    restrictions: List[Dict[str, Any]]
+    defaults: List[Dict[str, Any]]
+
+
+class MappingRestrictionsRequest(BaseModel):
+    """Request model for getting mapping restrictions between specific types."""
+    source_type: Optional[str] = None
+    destination_type: Optional[str] = None
+
+
+class CorticalAreaMappingRestrictionRequest(BaseModel):
+    """Request model for getting mapping restrictions between two cortical areas."""
+    source_cortical_id: str
+    destination_cortical_id: str
+
+
+class CorticalAreaMappingRestrictionResponse(BaseModel):
+    """Response model for mapping restrictions between two cortical areas."""
+    source_cortical_id: str
+    destination_cortical_id: str
+    source_type: str
+    destination_type: str
+    restriction: Optional[Dict[str, Any]]
+    default: Optional[Dict[str, Any]]
+    has_restricted_morphologies: bool
+    get_morphologies_restricted_to: List[str]
+
+
 class NeuronMappingsResponse(BaseModel):
     """Response model for neuron mappings."""
     mappings: Dict[str, Any]
@@ -424,6 +454,49 @@ class UpdateMorphologyRequest(BaseModel):
     """Request model for updating morphology."""
     morphology_id: str
     updates: Dict[str, Any]
+
+
+class MorphologyNameRequest(BaseModel):
+    """Request model for operations requiring morphology name."""
+    morphology_name: str
+
+
+class MorphologyPropertiesResponse(BaseModel):
+    """Response model for morphology properties."""
+    morphology_name: str
+    type: str
+    class_: Optional[str] = None  # Using class_ since class is reserved keyword
+    parameters: Dict[str, Any]
+    source: Optional[str] = None
+
+
+class MorphologyUsageResponse(BaseModel):
+    """Response model for morphology usage."""
+    usage: List[List[str]]  # List of [source_cortical_area, destination_cortical_area] pairs
+
+
+# ===== Cortical Mapping Schemas =====
+
+class CorticalMappingPropertiesRequest(BaseModel):
+    """Request model for cortical mapping properties between two areas."""
+    src_cortical_area: str
+    dst_cortical_area: str
+
+
+class CorticalMappingConnection(BaseModel):
+    """Model for a single cortical mapping connection."""
+    morphology_id: str
+    morphology_scalar: List[int]  # Should be [x, y, z] coordinates
+    postSynapticCurrent_multiplier: float
+    plasticity_flag: bool
+    plasticity_constant: float
+    ltp_multiplier: float
+    ltd_multiplier: float
+
+
+class CorticalMappingPropertiesResponse(BaseModel):
+    """Response model for cortical mapping properties."""
+    connections: List[CorticalMappingConnection]
 
 
 # ===== Monitoring Schemas =====

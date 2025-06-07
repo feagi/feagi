@@ -38,6 +38,7 @@ from .agents.agents_service import AgentsService
 from .network.network_service import NetworkService
 
 from feagi.utils.logger import setup_logger
+from feagi.bdu.connectivity.cortical_mappings import get_mapping_restrictions_registry
 
 logger = setup_logger()
 
@@ -1033,7 +1034,7 @@ class CoreAPIService:
                 all_morphologies[name] = {
                     "name": name,
                     "type": morphology.get("type", "unknown"),
-                    "class": morphology.get("class", "unknown"),
+                    "class": "core",  # ✅ FIXED: Use "core" for core morphologies
                     "parameters": morphology.get("parameters", {}),
                     "source": "core"
                 }
@@ -1046,7 +1047,7 @@ class CoreAPIService:
                     all_morphologies[name] = {
                         "name": name,
                         "type": morphology.get("type", "unknown"),
-                        "class": morphology.get("class", "genome"),
+                        "class": "custom",  # ✅ FIXED: Use "custom" for genome morphologies
                         "parameters": morphology.get("parameters", {}),
                         "source": "genome"
                     }
@@ -1226,6 +1227,140 @@ class CoreAPIService:
             self.logger.error(f"Error deleting morphology: {str(e)}")
             raise ValueError(f"Failed to delete morphology: {str(e)}")
     
+    def get_morphology_properties(self, morphology_name: str) -> Dict[str, Any]:
+        """Get properties of a specific morphology."""
+        try:
+            all_morphologies = self.get_morphologies()
+            if morphology_name not in all_morphologies:
+                raise ValueError(f"Morphology '{morphology_name}' not found")
+            
+            morphology = all_morphologies[morphology_name]
+            result = dict(morphology)
+            result["morphology_name"] = morphology_name
+            
+            self.logger.info(f"Retrieved properties for morphology: {morphology_name}")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error getting morphology properties: {str(e)}")
+            raise ValueError(f"Failed to get morphology properties: {str(e)}")
+    
+    def get_morphology_usage(self, morphology_name: str) -> List[List[str]]:
+        """Get usage report for a specific morphology."""
+        try:
+            genome = self.get_genome()
+            if not genome or "blueprint" not in genome:
+                return []
+            
+            blueprint = genome["blueprint"]
+            usage_list = []
+            
+            self.logger.info(f"Searching for morphology '{morphology_name}' usage in {len(blueprint)} cortical areas")
+            
+            # The genome structure is flattened, so we need to reconstruct the cortical areas
+            cortical_areas = {}
+            
+            # Parse the flattened structure to extract cortical areas and their mappings
+            for key, value in blueprint.items():
+                if "-cx-dstmap-d" in key:
+                    # Extract cortical area ID from the key
+                    # Format: "_____10c-{area_id}-cx-dstmap-d"
+                    parts = key.split("-")
+                    if len(parts) >= 3:
+                        area_id = parts[1]  # Extract the area ID
+                        cortical_areas[area_id] = value
+            
+            self.logger.debug(f"Found {len(cortical_areas)} cortical areas with mappings")
+            
+            # Search through cortical areas for connections using this morphology
+            for source_area_id, mapping_dst in cortical_areas.items():
+                if not isinstance(mapping_dst, dict):
+                    continue
+                    
+                for target_area_id, connections in mapping_dst.items():
+                    self.logger.debug(f"Checking connection {source_area_id} -> {target_area_id}: type={type(connections)}, value={connections}")
+                    
+                    if not connections or not isinstance(connections, (list, tuple)):
+                        continue
+                        
+                    # Check each connection for the morphology
+                    for connection in connections:
+                        if isinstance(connection, list) and len(connection) > 0:
+                            # First element is morphology_id
+                            morphology_id = connection[0]
+                            if morphology_id == morphology_name:
+                                # Add [source_area, target_area] pair
+                                usage_list.append([source_area_id, target_area_id])
+                                self.logger.debug(f"Found usage: {source_area_id} -> {target_area_id} using {morphology_name}")
+            
+            self.logger.info(f"Found {len(usage_list)} usages for morphology: {morphology_name}")
+            return usage_list
+            
+        except Exception as e:
+            self.logger.error(f"Error getting morphology usage: {str(e)}")
+            import traceback
+            self.logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise ValueError(f"Failed to get morphology usage: {str(e)}")
+    
+    def get_cortical_mapping_properties(self, src_cortical_area: str, dst_cortical_area: str) -> List[Dict[str, Any]]:
+        """Get cortical mapping properties between two cortical areas."""
+        try:
+            genome = self.get_genome()
+            if not genome or "blueprint" not in genome:
+                return []
+            
+            blueprint = genome["blueprint"]
+            
+            # The genome structure is flattened, so we need to find the mapping data
+            # Look for the key pattern: "_____10c-{src_cortical_area}-cx-dstmap-d"
+            mapping_key = None
+            for key in blueprint.keys():
+                if f"-{src_cortical_area}-cx-dstmap-d" in key:
+                    mapping_key = key
+                    break
+            
+            if not mapping_key:
+                self.logger.debug(f"No mapping found for source cortical area '{src_cortical_area}'")
+                return []
+            
+            mapping_dst = blueprint[mapping_key]
+            if not isinstance(mapping_dst, dict):
+                return []
+                
+            # Check if destination area is mapped from source
+            if dst_cortical_area not in mapping_dst:
+                self.logger.debug(f"No mapping found from '{src_cortical_area}' to '{dst_cortical_area}'")
+                return []
+            
+            # Return the mapping data
+            connections = mapping_dst[dst_cortical_area]
+            if not connections:
+                return []
+            
+            # Convert to expected format
+            formatted_connections = []
+            for connection in connections:
+                if isinstance(connection, list) and len(connection) >= 4:
+                    # Handle the actual genome format: [morphology_id, scalar, multiplier, plasticity_flag]
+                    # Pad with default values for missing fields
+                    formatted_connection = {
+                        "morphology_id": connection[0],
+                        "morphology_scalar": connection[1] if len(connection) > 1 else [1, 1, 1],
+                        "postSynapticCurrent_multiplier": connection[2] if len(connection) > 2 else 1,
+                        "plasticity_flag": connection[3] if len(connection) > 3 else False,
+                        "plasticity_constant": connection[4] if len(connection) > 4 else 1,
+                        "ltp_multiplier": connection[5] if len(connection) > 5 else 1,
+                        "ltd_multiplier": connection[6] if len(connection) > 6 else 1
+                    }
+                    formatted_connections.append(formatted_connection)
+            
+            self.logger.info(f"Retrieved {len(formatted_connections)} mapping properties from {src_cortical_area} to {dst_cortical_area}")
+            return formatted_connections
+            
+        except Exception as e:
+            self.logger.error(f"Error getting cortical mapping properties: {str(e)}")
+            raise ValueError(f"Failed to get cortical mapping properties: {str(e)}")
+
     def get_detailed_cortical_map(self) -> Dict[str, Any]:
         """
         Get detailed cortical mapping information in the expected format.
@@ -2218,3 +2353,85 @@ class CoreAPIService:
             recommendations.append("Excellent SIMD utilization - consider this pattern for other operations")
             
         return recommendations
+
+    # =================================================================
+    # CORTICAL MAPPING RESTRICTIONS
+    # =================================================================
+    
+    def get_mapping_restrictions(self, source_type: Optional[str] = None, 
+                                destination_type: Optional[str] = None) -> Dict[str, Any]:
+        """Get mapping restrictions between cortical area types.
+        
+        Args:
+            source_type: Source cortical area type (optional, returns all if None)
+            destination_type: Destination cortical area type (optional, returns all if None)
+            
+        Returns:
+            Dict containing restrictions and defaults for cortical area mappings
+        """
+        try:
+            registry = get_mapping_restrictions_registry()
+            
+            if source_type and destination_type:
+                # Get specific restriction
+                restriction = registry.get_restriction(source_type, destination_type)
+                default = registry.get_default(source_type, destination_type)
+                
+                return {
+                    "source_type": source_type,
+                    "destination_type": destination_type,
+                    "restriction": restriction.to_dict() if restriction else None,
+                    "default": default.to_dict() if default else None
+                }
+            else:
+                # Get all restrictions and defaults
+                return registry.to_dict()
+                
+        except Exception as e:
+            self.logger.error(f"Error getting mapping restrictions: {str(e)}")
+            return {"restrictions": [], "defaults": []}
+    
+    def get_restriction_between_cortical_areas(self, source_cortical_id: str, 
+                                             destination_cortical_id: str) -> Optional[Dict[str, Any]]:
+        """Get mapping restriction between two specific cortical areas.
+        
+        Args:
+            source_cortical_id: Source cortical area ID
+            destination_cortical_id: Destination cortical area ID
+            
+        Returns:
+            Dict containing restriction data or None if not found
+        """
+        try:
+            # Get the cortical area types
+            source_area = self.get_cortical_area(source_cortical_id)
+            destination_area = self.get_cortical_area(destination_cortical_id)
+            
+            if not source_area or not destination_area:
+                return None
+            
+            source_type = source_area.get('type', 'UNKNOWN')
+            destination_type = destination_area.get('type', 'UNKNOWN')
+            
+            # Get restriction for these types
+            registry = get_mapping_restrictions_registry()
+            restriction = registry.get_restriction(source_type, destination_type)
+            default = registry.get_default(source_type, destination_type)
+            
+            if restriction or default:
+                return {
+                    "source_cortical_id": source_cortical_id,
+                    "destination_cortical_id": destination_cortical_id,
+                    "source_type": source_type,
+                    "destination_type": destination_type,
+                    "restriction": restriction.to_dict() if restriction else None,
+                    "default": default.to_dict() if default else None,
+                    "has_restricted_morphologies": restriction.has_restricted_morphologies() if restriction else False,
+                    "get_morphologies_restricted_to": restriction.restricted_morphologies if restriction and restriction.has_restricted_morphologies() else []
+                }
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error getting restriction between {source_cortical_id} and {destination_cortical_id}: {str(e)}")
+            return None

@@ -28,6 +28,266 @@ import uuid
 logger = logging.getLogger(__name__)
 
 
+class MappingRestriction:
+    """Defines restrictions for mappings between cortical area types."""
+    
+    def __init__(self, source_type: str, destination_type: str,
+                 restricted_morphologies: Optional[List[str]] = None,
+                 disallowed_morphologies: Optional[List[str]] = None,
+                 max_mappings: int = -1,
+                 allow_scalar_change: bool = True,
+                 allow_psp_change: bool = True,
+                 allow_inhibitory_change: bool = True,
+                 allow_plasticity_change: bool = True,
+                 allow_plasticity_constant_change: bool = True,
+                 allow_ltp_change: bool = True,
+                 allow_ltd_change: bool = True):
+        """Initialize mapping restriction.
+        
+        Args:
+            source_type: Source cortical area type (e.g., "IPU", "OPU", "CUSTOM", etc.)
+            destination_type: Destination cortical area type
+            restricted_morphologies: List of morphology names that are allowed (None = all allowed)
+            disallowed_morphologies: List of morphology names that are forbidden (None = none forbidden)
+            max_mappings: Maximum number of mappings allowed (-1 = unlimited)
+            allow_scalar_change: Whether scalar values can be modified
+            allow_psp_change: Whether post-synaptic potential can be modified
+            allow_inhibitory_change: Whether inhibitory flag can be modified
+            allow_plasticity_change: Whether plasticity can be modified
+            allow_plasticity_constant_change: Whether plasticity constant can be modified
+            allow_ltp_change: Whether LTP multiplier can be modified
+            allow_ltd_change: Whether LTD multiplier can be modified
+        """
+        self.source_type = source_type
+        self.destination_type = destination_type
+        self.restricted_morphologies = restricted_morphologies or []
+        self.disallowed_morphologies = disallowed_morphologies or []
+        self.max_mappings = max_mappings
+        self.allow_scalar_change = allow_scalar_change
+        self.allow_psp_change = allow_psp_change
+        self.allow_inhibitory_change = allow_inhibitory_change
+        self.allow_plasticity_change = allow_plasticity_change
+        self.allow_plasticity_constant_change = allow_plasticity_constant_change
+        self.allow_ltp_change = allow_ltp_change
+        self.allow_ltd_change = allow_ltd_change
+    
+    def has_restricted_morphologies(self) -> bool:
+        """Check if this restriction limits morphologies to a specific set."""
+        return len(self.restricted_morphologies) > 0
+    
+    def has_disallowed_morphologies(self) -> bool:
+        """Check if this restriction forbids specific morphologies."""
+        return len(self.disallowed_morphologies) > 0
+    
+    def has_max_mappings(self) -> bool:
+        """Check if this restriction limits the number of mappings."""
+        return self.max_mappings != -1
+    
+    def is_morphology_allowed(self, morphology_name: str) -> bool:
+        """Check if a morphology is allowed under this restriction.
+        
+        Args:
+            morphology_name: Name of the morphology to check
+            
+        Returns:
+            True if the morphology is allowed, False otherwise
+        """
+        # If there are restricted morphologies, only those are allowed
+        if self.has_restricted_morphologies():
+            return morphology_name in self.restricted_morphologies
+        
+        # If there are disallowed morphologies, anything except those is allowed
+        if self.has_disallowed_morphologies():
+            return morphology_name not in self.disallowed_morphologies
+        
+        # No restrictions, all morphologies allowed
+        return True
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert restriction to dictionary for API response."""
+        return {
+            "source_type": self.source_type,
+            "destination_type": self.destination_type,
+            "restricted_morphologies": self.restricted_morphologies,
+            "disallowed_morphologies": self.disallowed_morphologies,
+            "max_mappings": self.max_mappings,
+            "allow_scalar_change": self.allow_scalar_change,
+            "allow_psp_change": self.allow_psp_change,
+            "allow_inhibitory_change": self.allow_inhibitory_change,
+            "allow_plasticity_change": self.allow_plasticity_change,
+            "allow_plasticity_constant_change": self.allow_plasticity_constant_change,
+            "allow_ltp_change": self.allow_ltp_change,
+            "allow_ltd_change": self.allow_ltd_change,
+            "has_restricted_morphologies": self.has_restricted_morphologies(),
+            "has_disallowed_morphologies": self.has_disallowed_morphologies(),
+            "has_max_mappings": self.has_max_mappings()
+        }
+
+
+class MappingDefault:
+    """Defines default settings for mappings between cortical area types."""
+    
+    def __init__(self, source_type: str, destination_type: str, default_morphology: str):
+        """Initialize mapping default.
+        
+        Args:
+            source_type: Source cortical area type
+            destination_type: Destination cortical area type  
+            default_morphology: Default morphology name to use
+        """
+        self.source_type = source_type
+        self.destination_type = destination_type
+        self.default_morphology = default_morphology
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert default to dictionary for API response."""
+        return {
+            "source_type": self.source_type,
+            "destination_type": self.destination_type,
+            "default_morphology": self.default_morphology
+        }
+
+
+class CorticalMappingRestrictionsRegistry:
+    """Registry for managing mapping restrictions and defaults between cortical area types."""
+    
+    def __init__(self):
+        """Initialize the restrictions registry with default restrictions."""
+        self.restrictions: List[MappingRestriction] = []
+        self.defaults: List[MappingDefault] = []
+        self._initialize_default_restrictions()
+    
+    def _initialize_default_restrictions(self):
+        """Initialize the default restrictions based on the current Godot configuration."""
+        
+        # Memory → OPU: Restricted to "projector" morphology only
+        self.add_restriction(MappingRestriction(
+            source_type="MEMORY",
+            destination_type="OPU", 
+            restricted_morphologies=["projector"],
+            allow_scalar_change=False,
+            allow_psp_change=True,
+            allow_inhibitory_change=True,
+            allow_plasticity_change=True,
+            allow_plasticity_constant_change=True,
+            allow_ltp_change=True,
+            allow_ltd_change=True
+        ))
+        
+        # OPU → Memory: Restricted to "memory" morphology only, very limited changes
+        self.add_restriction(MappingRestriction(
+            source_type="OPU",
+            destination_type="MEMORY",
+            restricted_morphologies=["memory"],
+            max_mappings=1,
+            allow_scalar_change=False,
+            allow_psp_change=False,
+            allow_inhibitory_change=False,
+            allow_plasticity_change=False,
+            allow_plasticity_constant_change=False,
+            allow_ltp_change=False,
+            allow_ltd_change=False
+        ))
+        
+        # OPU → OPU: Disallow "memory" morphology, allow most other changes
+        self.add_restriction(MappingRestriction(
+            source_type="OPU",
+            destination_type="OPU",
+            disallowed_morphologies=["memory"],
+            allow_scalar_change=True,
+            allow_psp_change=True,
+            allow_inhibitory_change=True,
+            allow_plasticity_change=True,
+            allow_plasticity_constant_change=True,
+            allow_ltp_change=True,
+            allow_ltd_change=True
+        ))
+        
+        # Default settings
+        self.add_default(MappingDefault("OPU", "MEMORY", "memory"))
+        self.add_default(MappingDefault("OPU", "OPU", "projector"))
+    
+    def add_restriction(self, restriction: MappingRestriction):
+        """Add a mapping restriction to the registry."""
+        self.restrictions.append(restriction)
+    
+    def add_default(self, default: MappingDefault):
+        """Add a mapping default to the registry."""
+        self.defaults.append(default)
+    
+    def get_restriction(self, source_type: str, destination_type: str) -> Optional[MappingRestriction]:
+        """Get the restriction for a specific source/destination combination.
+        
+        Args:
+            source_type: Source cortical area type
+            destination_type: Destination cortical area type
+            
+        Returns:
+            MappingRestriction if found, None otherwise
+        """
+        for restriction in self.restrictions:
+            # Exact match
+            if (restriction.source_type == source_type and 
+                restriction.destination_type == destination_type):
+                return restriction
+            
+            # Wildcard match (UNKNOWN means any type)
+            if ((restriction.source_type == "UNKNOWN" or restriction.source_type == source_type) and
+                (restriction.destination_type == "UNKNOWN" or restriction.destination_type == destination_type)):
+                return restriction
+        
+        return None
+    
+    def get_default(self, source_type: str, destination_type: str) -> Optional[MappingDefault]:
+        """Get the default morphology for a specific source/destination combination.
+        
+        Args:
+            source_type: Source cortical area type
+            destination_type: Destination cortical area type
+            
+        Returns:
+            MappingDefault if found, None otherwise
+        """
+        for default in self.defaults:
+            # Exact match
+            if (default.source_type == source_type and 
+                default.destination_type == destination_type):
+                return default
+            
+            # Wildcard match (UNKNOWN means any type)
+            if ((default.source_type == "UNKNOWN" or default.source_type == source_type) and
+                (default.destination_type == "UNKNOWN" or default.destination_type == destination_type)):
+                return default
+        
+        return None
+    
+    def get_all_restrictions(self) -> List[Dict[str, Any]]:
+        """Get all restrictions as dictionaries for API response."""
+        return [restriction.to_dict() for restriction in self.restrictions]
+    
+    def get_all_defaults(self) -> List[Dict[str, Any]]:
+        """Get all defaults as dictionaries for API response."""
+        return [default.to_dict() for default in self.defaults]
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert entire registry to dictionary for API response."""
+        return {
+            "restrictions": self.get_all_restrictions(),
+            "defaults": self.get_all_defaults()
+        }
+
+
+# Global registry instance
+_mapping_restrictions_registry = None
+
+def get_mapping_restrictions_registry() -> CorticalMappingRestrictionsRegistry:
+    """Get the global mapping restrictions registry."""
+    global _mapping_restrictions_registry
+    if _mapping_restrictions_registry is None:
+        _mapping_restrictions_registry = CorticalMappingRestrictionsRegistry()
+    return _mapping_restrictions_registry
+
+
 class CorticalMapping:
     """Base class for cortical area mappings."""
     

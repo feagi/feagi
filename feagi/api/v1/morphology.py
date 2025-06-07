@@ -29,7 +29,8 @@ from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 from .schemas import (
     MorphologyListResponse, MorphologyInfoResponse, CreateMorphologyRequest,
-    UpdateMorphologyRequest, SuccessResponse, ErrorResponse
+    UpdateMorphologyRequest, SuccessResponse, ErrorResponse, MorphologyNameRequest,
+    MorphologyPropertiesResponse, MorphologyUsageResponse
 )
 from .decorators import endpoint
 
@@ -169,6 +170,30 @@ class MorphologyAPI:
         except Exception as e:
             logger.error(f"Error deleting morphology: {e}")
             raise ValueError(f"Failed to delete morphology: {str(e)}")
+    
+    @morphology_endpoint('POST', '/morphology_properties', 
+                         request_model=MorphologyNameRequest,
+                         response_model=Dict[str, Any])
+    async def get_morphology_properties(self, request: MorphologyNameRequest) -> Dict[str, Any]:
+        """Get properties of a specific morphology."""
+        try:
+            properties = self.core_api_service.get_morphology_properties(request.morphology_name)
+            return properties
+        except Exception as e:
+            logger.error(f"Error getting morphology properties: {e}")
+            raise ValueError(f"Failed to get morphology properties: {str(e)}")
+    
+    @morphology_endpoint('POST', '/morphology_usage', 
+                         request_model=MorphologyNameRequest,
+                         response_model=List[List[str]])
+    async def get_morphology_usage(self, request: MorphologyNameRequest) -> List[List[str]]:
+        """Get usage report for a specific morphology."""
+        try:
+            usage = self.core_api_service.get_morphology_usage(request.morphology_name)
+            return usage
+        except Exception as e:
+            logger.error(f"Error getting morphology usage: {e}")
+            raise ValueError(f"Failed to get morphology usage: {str(e)}")
 
 
 # ===== Factory Function =====
