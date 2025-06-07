@@ -1,4 +1,3 @@
-
 # Copyright 2016-2022 Neuraville Inc. Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -673,6 +672,73 @@ cortical_template = {
     "init_lifespan": 9,
     "temporal_depth": 1,
     "neuron_excitability": 100
+}
+
+
+# Property mappings from cortical_template keys to genome blueprint patterns
+# This defines how cortical_template properties map to actual genome gene keys
+cortical_property_mappings = {
+    "leak_variability": "nx-leak_v-f",
+    "leak_coefficient": "nx-leak_c-f", 
+    "firing_threshold": "nx-fire_t-f",
+    "refractory_period": "nx-refrac-i",
+    "consecutive_fire_cnt_max": "nx-c_fr_c-i",
+    "snooze_length": "nx-snooze-f",
+    "firing_threshold_increment_x": "nx-ftincx-f",
+    "firing_threshold_increment_y": "nx-ftincy-f", 
+    "firing_threshold_increment_z": "nx-ftincz-f",
+    "firing_threshold_limit": "nx-fthlim-f",
+    "mp_charge_accumulation": "nx-mp_acc-b",
+    "mp_driven_psp": "nx-mp_psp-b",
+    "neuron_excitability": "nx-excite-f",
+    "postsynaptic_current": "nx-pstcr_-f",
+    "postsynaptic_current_max": "nx-pstcrm-f",
+    "synapse_attractivity": "cx-synatt-f",
+    "degeneration": "cx-de_gen-f",
+    "psp_uniform_distribution": "cx-pspuni-b",
+    "visualization": "cx-gd_vis-b",
+    "per_voxel_neuron_cnt": "cx-_n_cnt-i"
+}
+
+
+# Structural properties required for cortical area brain development
+# These are not in cortical_template as they're about area placement, not neuron properties
+cortical_structural_properties = {
+    # Position coordinates (required for brain development)
+    "rcordx": "cx-rcordx-i",
+    "rcordy": "cx-rcordy-i", 
+    "rcordz": "cx-rcordz-i",
+    # Dimension properties (required for brain development)
+    "bbx": "cx-___bbx-i",
+    "bby": "cx-___bby-i",
+    "bbz": "cx-___bbz-i",
+    # Name property (required for brain development) 
+    "name": "cx-__name-s",
+    # Note: dimensions (bbx, bby, bbz) are usually present but could add as fallback if needed
+}
+
+
+# Default physiology template for auto-recovery when physiology section is missing or incomplete
+# This provides the essential system-level parameters required for FEAGI to function properly
+physiology_template = {
+    "burst_delay": 0.025,                    # Delay between neural processing bursts (in seconds)
+    "max_age": 10000000,                     # Maximum age for neurons before lifecycle management
+    "evolution_burst_count": 50,             # Number of bursts per evolution cycle
+    "ipu_idle_threshold": 1000,              # Threshold for IPU idle detection
+    "plasticity_queue_depth": 3,             # Depth of plasticity processing queue
+    "lifespan_mgmt_interval": 10             # Interval for neuron lifespan management
+}
+
+
+# Property mappings for physiology template
+# Maps physiology_template keys to their configuration types for validation
+physiology_property_types = {
+    "burst_delay": "float",
+    "max_age": "int",
+    "evolution_burst_count": "int",
+    "ipu_idle_threshold": "int",
+    "plasticity_queue_depth": "int",
+    "lifespan_mgmt_interval": "int"
 }
 
 

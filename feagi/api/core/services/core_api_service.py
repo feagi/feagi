@@ -241,6 +241,10 @@ class CoreAPIService:
         """Get the current genome counter."""
         return self._genome_service.get_genome_counter()
     
+    def get_current_genome(self) -> Optional[Dict[str, Any]]:
+        """Get the currently loaded genome data (alias for get_genome for download compatibility)."""
+        return self._genome_service.get_genome()
+    
     def get_generations(self) -> Dict[str, Any]:
         """Get details about all generations of genomes."""
         return self._genome_service.get_generations()

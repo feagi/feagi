@@ -47,7 +47,8 @@ class GenomeService(BaseService):
     def load_genome(self, genome_data: Dict[str, Any], filename: str = "genome.json") -> Dict[str, Any]:
         """Load a genome and prepare it for use."""
         try:
-            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis, develop_brain_from_genome
+            # ARCHITECTURE: Only import NeuroEmbryogenesis - no old develop_brain_from_genome
+            from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
             try:
                 # Try to import these from the new location
                 from feagi.evo.genome_validator import genome_validator_with_errors
@@ -128,22 +129,38 @@ class GenomeService(BaseService):
                     self.logger.error(f"Error loading genome: {e}")
                     return {"success": False, "error": f"Genome validator not available: {e}"}
             else:
-                validation_result = genome_validator_with_errors(genome_data)
+                # Check if auto-recovery is enabled to determine which validation to use
+                if allow_auto_recovery:
+                    # Use silent validation for initial check to avoid logging errors that will be fixed
+                    from feagi.evo.genome_validator import genome_validator_with_errors_silent
+                    validation_result = genome_validator_with_errors_silent(genome_data)
+                else:
+                    # Auto-recovery disabled - use regular validation (log all errors)
+                    validation_result = genome_validator_with_errors(genome_data)
+            
+            # Initialize auto_recovery_details at the start
+            auto_recovery_details = {
+                "recovery_performed": False,
+                "recovery_reason": "No auto-recovery attempted",
+                "validation_warnings": []
+            }
             
             # Handle validation failures based on configuration
             if not validation_result["valid"]:
                 error_msg = validation_result.get("error_summary", "Invalid genome structure")
-                self.logger.error(f"Genome validation failed: {error_msg}")
                 
                 # Log specific errors if available
                 specific_errors = validation_result.get("errors", [])
-                if specific_errors:
-                    self.logger.error("Specific validation errors:")
-                    for error in specific_errors:
-                        self.logger.error(f"  - {error}")
                 
                 # Check if auto-recovery is allowed
                 if not allow_auto_recovery:
+                    # Only log errors when auto-recovery is disabled (they won't be fixed)
+                    self.logger.error(f"Genome validation failed: {error_msg}")
+                    if specific_errors:
+                        self.logger.error("Specific validation errors:")
+                        for error in specific_errors:
+                            self.logger.error(f"  - {error}")
+                    
                     self.logger.error("Auto-recovery is disabled in configuration - failing genome load")
                     return {
                         "success": False,
@@ -152,7 +169,10 @@ class GenomeService(BaseService):
                         "message": "Genome validation failed and auto-recovery is disabled"
                     }
                 else:
-                    self.logger.warning("Auto-recovery enabled - attempting to sanitize invalid morphologies")
+                    # Auto-recovery is enabled - suppress initial validation error logging
+                    # Just log that we're attempting auto-recovery instead of the detailed errors
+                    self.logger.info(f"Genome validation found {len(specific_errors)} issues - attempting auto-recovery")
+                    self.logger.info("Auto-recovery enabled - attempting to sanitize invalid morphologies")
                     
                     # Attempt to sanitize invalid morphologies
                     try:
@@ -180,7 +200,16 @@ class GenomeService(BaseService):
                                 if self.state_manager:
                                     self.state_manager.genome_validity = True
                             else:
-                                self.logger.warning("Genome still has validation issues after sanitization - marking as invalid")
+                                # NOW log the errors since auto-recovery couldn't fix them
+                                remaining_error_msg = post_sanitization_result.get("error_summary", "Unknown validation issues")
+                                remaining_errors = post_sanitization_result.get("errors", [])
+                                
+                                self.logger.error(f"Genome still has validation issues after auto-recovery: {remaining_error_msg}")
+                                if remaining_errors:
+                                    self.logger.error("Remaining validation errors after auto-recovery:")
+                                    for error in remaining_errors:
+                                        self.logger.error(f"  - {error}")
+                                
                                 validation_result = post_sanitization_result  # Update with new validation result
                                 if self.state_manager:
                                     self.state_manager.genome_validity = False
@@ -190,17 +219,25 @@ class GenomeService(BaseService):
                             if self.state_manager:
                                 self.state_manager.genome_validity = False
                         
-                        # Store auto-recovery details for inclusion in response
+                        # Store auto-recovery details for inclusion in response (CRITICAL - don't overwrite later!)
                         auto_recovery_details = {
                             "recovery_performed": True,
                             "removed_morphologies": removed_morphologies,
                             "fixed_references": fixed_references,
                             "recovery_summary": recovery_summary,
-                            "original_errors": specific_errors
+                            "original_errors": specific_errors,
+                            "validation_warnings": sanitization_result.get("validation_warnings", [])
                         }
                         
                     except Exception as sanitization_error:
                         self.logger.error(f"Auto-recovery sanitization failed: {sanitization_error}")
+                        # Now log the original errors since auto-recovery failed
+                        self.logger.error(f"Original genome validation failed: {error_msg}")
+                        if specific_errors:
+                            self.logger.error("Original validation errors:")
+                            for error in specific_errors:
+                                self.logger.error(f"  - {error}")
+                        
                         # Fall back to original approach - mark as invalid but continue
                         if self.state_manager:
                             self.state_manager.genome_validity = False
@@ -210,22 +247,24 @@ class GenomeService(BaseService):
                             "original_errors": specific_errors
                         }
             else:
-                # Validation passed
+                # Validation passed initially - keep the original auto_recovery_details (no changes needed)
                 if self.state_manager:
                     self.state_manager.genome_validity = True
-                auto_recovery_details = {
-                    "recovery_performed": False,
-                    "recovery_reason": "Genome validation passed"
-                }
             
             # Store the current genome
             self._current_genome = genome_data
             
-            # Update state manager with genome data but not loaded state yet
+            # ARCHITECTURE IMPROVEMENT: Stage sanitized genome in state manager FIRST
+            # This ensures connectome manager always builds from single source of truth
             if self.state_manager:
                 self.state_manager.genome = genome_data
                 self.state_manager.genome_file_name = filename
-                # Don't set to LOADED yet - wait until brain development succeeds
+                self.state_manager.genome_validity = True if validation_result.get("valid") else False
+                # Set to STAGING state while brain development is in progress
+                from feagi.core.state_manager import GenomeState
+                self.state_manager.set_genome_state(GenomeState.LOADING)
+                
+                self.logger.info("Sanitized genome staged in state manager as single source of truth")
                 
             # CRITICAL: Prepare connectome for new genome loading (clear existing brain data)
             self.logger.info("Preparing connectome for new genome loading...")
@@ -241,33 +280,60 @@ class GenomeService(BaseService):
             
             self.logger.info(f"[OK] Connectome preparation complete: {preparation_result.get('message', 'Ready for genome loading')}")
                 
-            # Save genome data to a temporary file
-            temp_genome_path = os.path.join(self._temp_dir, "temp_genome.json")
-            with open(temp_genome_path, 'w') as f:
-                json.dump(genome_data, f)
-                
+            # ARCHITECTURE IMPROVEMENT: Build brain from state manager's genome (not temp file)
+            # This ensures connectome manager always uses the sanitized genome from state manager
+            self.logger.info("Building brain from state manager's sanitized genome...")
+            
             # Initialize embryogenesis
             embry = NeuroEmbryogenesis(
                 connectome_manager=self._connectome_manager,
                 progress_callback=self._handle_embryogenesis_progress
             )
             
-            # Develop brain from genome using the temporary file
-            success, stats = develop_brain_from_genome(
-                genome_path=temp_genome_path,
-                connectome_manager=self._connectome_manager
-            )
-            
-            if not success:
-                self.logger.error(f"Failed to develop brain from genome")
-                # Set error state since brain development failed
+            # CRITICAL: Develop brain from state manager's genome (single source of truth)
+            # No more temp files - connectome manager reads directly from state manager
+            try:
+                success = embry.develop_brain_from_genome_data(genome_data)
+                
+                if not success:
+                    error_msg = embry.error or "Unknown error during brain development"
+                    self.logger.error(f"Failed to develop brain from genome: {error_msg}")
+                    
+                    # Set error state since brain development failed
+                    if self.state_manager:
+                        from feagi.core.state_manager import GenomeState
+                        self.state_manager.set_genome_state(GenomeState.ERROR)
+                        self.state_manager.set_brain_readiness(False)
+                        self.state_manager.genome_validity = False
+                    return {"success": False, "error": f"Failed to develop brain from genome: {error_msg}"}
+                
+                # Get development statistics
+                stats = embry.get_development_statistics()
+                self.logger.info(f"Brain development completed: {stats.get('total_neurons', 0)} neurons, {stats.get('total_synapses', 0)} synapses")
+                
+            except Exception as dev_error:
+                self.logger.error(f"Exception during brain development: {str(dev_error)}")
                 if self.state_manager:
                     from feagi.core.state_manager import GenomeState
                     self.state_manager.set_genome_state(GenomeState.ERROR)
                     self.state_manager.set_brain_readiness(False)
                     self.state_manager.genome_validity = False
-                return {"success": False, "error": "Failed to develop brain from genome"}
-                
+                return {"success": False, "error": f"Exception during brain development: {str(dev_error)}"}
+            
+            # CRITICAL: Update burst engine with new genome - this reinitializes injection service
+            self.logger.info("Updating burst engine with newly developed brain...")
+            try:
+                from feagi.npu.burst_engine import BurstEngine
+                burst_engine = BurstEngine.get_instance()
+                if burst_engine:
+                    burst_engine.update_with_genome()
+                    self.logger.info("[OK] Burst engine updated with new genome - injection service reinitialized")
+                else:
+                    self.logger.warning("No burst engine instance found - injection service may not be available")
+            except Exception as e:
+                self.logger.warning(f"Error updating burst engine with genome: {str(e)}")
+                # Don't fail the genome loading because of this
+            
             # CRITICAL: Complete state manager update after successful brain development
             if self.state_manager:
                 from feagi.core.state_manager import GenomeState
@@ -459,12 +525,20 @@ class GenomeService(BaseService):
                     result["auto_recovery_performed"] = True
                     result["removed_morphologies"] = auto_recovery_details.get("removed_morphologies", [])
                     result["fixed_references"] = auto_recovery_details.get("fixed_references", [])
+                    # Include validation warnings from auto-recovery
+                    result["validation_warnings"] = auto_recovery_details.get("validation_warnings", [])
                 else:
                     result["message"] = f"Genome loaded but marked as invalid due to validation failures: {validation_result.get('error_summary', 'Validation failed')}"
                     result["auto_recovery_performed"] = False
+                    result["validation_warnings"] = []
             else:
                 result["genome_validity"] = True
                 result["auto_recovery_performed"] = False
+                # Even if validation passed, include warnings from auto-recovery if any corrections were made
+                if auto_recovery_details.get("recovery_performed", False):
+                    result["validation_warnings"] = auto_recovery_details.get("validation_warnings", [])
+                else:
+                    result["validation_warnings"] = []
             
             # Include auto-recovery details in response
             result["auto_recovery_details"] = auto_recovery_details

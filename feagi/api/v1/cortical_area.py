@@ -66,6 +66,73 @@ class CorticalAreaAPI:
     def __init__(self, core_api_service: CoreAPIService):
         """Initialize with core API service dependency."""
         self.core_api_service = core_api_service
+        # Cache templates to avoid repeated imports
+        self._templates_cache = None
+    
+    def _get_template_defaults(self) -> Dict[str, Any]:
+        """
+        Get default values from templates.py - THE SINGLE SOURCE OF TRUTH for defaults.
+        
+        This method imports the cortical_template and returns the default values
+        that should be used when properties are missing from the genome data.
+        
+        Returns:
+            Dict containing default values from cortical_template
+        """
+        if self._templates_cache is None:
+            try:
+                from feagi.evo.templates import cortical_template
+                self._templates_cache = cortical_template.copy()
+            except ImportError:
+                logger.error("CRITICAL: Cannot import cortical_template from templates.py - using minimal fallbacks")
+                # Minimal emergency fallbacks only - should never happen in normal operation
+                self._templates_cache = {}
+        
+        return self._templates_cache
+    
+    def _get_default_value(self, property_name: str, fallback_value=None):
+        """
+        Get default value for a specific property from templates.
+        
+        Args:
+            property_name: Name of the property in cortical_template
+            fallback_value: Emergency fallback if templates unavailable (should never be used)
+        
+        Returns:
+            Default value from cortical_template or fallback
+        """
+        defaults = self._get_template_defaults()
+        return defaults.get(property_name, fallback_value)
+    
+    def _get_structural_default(self, property_type: str):
+        """
+        Get acceptable structural/spatial defaults that are not neuron properties.
+        
+        These are NOT from cortical_template since they are structural, not neural properties.
+        They represent spatial positioning and brain organization defaults.
+        
+        Args:
+            property_type: Type of structural property needed
+        
+        Returns:
+            Appropriate structural default value
+        """
+        structural_defaults = {
+            # Spatial coordinate defaults - position in 3D brain space
+            "coordinate": 0,
+            # Spatial dimension defaults - minimum valid brain dimension
+            "dimension": 1,
+            # Empty collection defaults for structural containers
+            "mapping": {},
+            "list": [],
+            # Brain hierarchy defaults
+            "parent_region_id": "root",
+            "parent_region_title": "Genome's root brain region",
+            "cortical_group": "CUSTOM",
+            # Memory area structural dimensions (always minimal for memory types)
+            "memory_dimensions": [1, 1, 1]
+        }
+        return structural_defaults.get(property_type, None)
     
     # ===== Cortical Area Properties =====
     
@@ -82,64 +149,64 @@ class CorticalAreaAPI:
             # Transform modern FEAGI format to expected legacy format
             parameters = area_data.get("parameters", {})
             
-            # Extract coordinates
+            # Extract coordinates using structural defaults for spatial positioning
             coordinates = area_data.get("coordinates", {})
             coordinates_3d = [
-                coordinates.get("x", 0),
-                coordinates.get("y", 0), 
-                coordinates.get("z", 0)
+                coordinates.get("x", self._get_structural_default("coordinate")),
+                coordinates.get("y", self._get_structural_default("coordinate")), 
+                coordinates.get("z", self._get_structural_default("coordinate"))
             ]
             
-            # Extract dimensions
+            # Extract dimensions using structural defaults for spatial dimensions
             dimensions = area_data.get("dimensions", {})
             cortical_dimensions = [
-                dimensions.get("width", 1),
-                dimensions.get("height", 1),
-                dimensions.get("depth", 1)
+                dimensions.get("width", self._get_structural_default("dimension")),
+                dimensions.get("height", self._get_structural_default("dimension")),
+                dimensions.get("depth", self._get_structural_default("dimension"))
             ]
             
-            # Build legacy format response
+            # Build legacy format response using template defaults for neural properties and structural defaults for spatial/organizational properties
             legacy_properties = {
                 "cortical_id": area_data.get("id", request.cortical_id),
                 "cortical_name": area_data.get("name", request.cortical_id),
-                "parent_region_id": parameters.get("parent_region_id", "root"),
-                "parent_region_title": parameters.get("parent_region_title", "Genome's root brain region"),
-                "cortical_group": area_data.get("type", "CUSTOM"),
-                "cortical_sub_group": parameters.get("subgroup", ""),
-                "cortical_neuron_per_vox_count": parameters.get("neurons_per_voxel", 1),
-                "cortical_visibility": parameters.get("gd_vis", True),
-                "cortical_synaptic_attractivity": parameters.get("synatt", 100),
+                "parent_region_id": parameters.get("parent_region_id", self._get_structural_default("parent_region_id")),
+                "parent_region_title": parameters.get("parent_region_title", self._get_structural_default("parent_region_title")),
+                "cortical_group": area_data.get("type", self._get_structural_default("cortical_group")),
+                "cortical_sub_group": parameters.get("subgroup", self._get_default_value("sub_group_id", "")),
+                "cortical_neuron_per_vox_count": parameters.get("neurons_per_voxel", self._get_default_value("per_voxel_neuron_cnt", 1)),
+                "cortical_visibility": parameters.get("gd_vis", self._get_default_value("visualization", True)),
+                "cortical_synaptic_attractivity": parameters.get("synatt", self._get_default_value("synapse_attractivity", 100)),
                 "coordinates_3d": coordinates_3d,
                 "coordinates_2d": [
-                    parameters.get("2dcorx", 0),
-                    parameters.get("2dcory", 0)
+                    parameters.get("2dcorx", self._get_structural_default("coordinate")),
+                    parameters.get("2dcory", self._get_structural_default("coordinate"))
                 ],
                 "cortical_dimensions": cortical_dimensions,
-                "cortical_destinations": parameters.get("mapping", {}),
-                "neuron_post_synaptic_potential": parameters.get("pstcr", 500),
-                "neuron_post_synaptic_potential_max": parameters.get("pstcrm", 35),
-                "neuron_fire_threshold": parameters.get("fire_t", 1),
+                "cortical_destinations": parameters.get("mapping", self._get_structural_default("mapping")),
+                "neuron_post_synaptic_potential": parameters.get("pstcr", self._get_default_value("postsynaptic_current", 1)),
+                "neuron_post_synaptic_potential_max": parameters.get("pstcrm", self._get_default_value("postsynaptic_current_max", 99999)),
+                "neuron_fire_threshold": parameters.get("fire_t", self._get_default_value("firing_threshold", 1)),
                 "neuron_fire_threshold_increment": [
-                    parameters.get("ftincx", 0),
-                    parameters.get("ftincy", 0),
-                    parameters.get("ftincz", 0)
+                    parameters.get("ftincx", self._get_default_value("firing_threshold_increment_x", 0)),
+                    parameters.get("ftincy", self._get_default_value("firing_threshold_increment_y", 0)),
+                    parameters.get("ftincz", self._get_default_value("firing_threshold_increment_z", 0))
                 ],
-                "neuron_firing_threshold_limit": parameters.get("fthlim", 0),
-                "neuron_refractory_period": parameters.get("refrac", 0),
-                "neuron_leak_coefficient": parameters.get("leak_c", 10),
-                "neuron_leak_variability": parameters.get("leak_v", 0),
-                "neuron_consecutive_fire_count": parameters.get("c_fr_c", 3),
-                "neuron_snooze_period": parameters.get("snooze", 0),
-                "neuron_degeneracy_coefficient": parameters.get("de_gen", 0),
-                "neuron_psp_uniform_distribution": parameters.get("pspuni", False),
-                "neuron_mp_charge_accumulation": parameters.get("mp_acc", True),
-                "neuron_mp_driven_psp": parameters.get("mp_psp", False),
-                "neuron_longterm_mem_threshold": parameters.get("mem__t", 100),
-                "neuron_lifespan_growth_rate": parameters.get("mem_gr", 1),
-                "neuron_init_lifespan": parameters.get("mem_ls", 9),
-                "temporal_depth": parameters.get("temporal_depth", 1),
-                "neuron_excitability": parameters.get("excite", 100),
-                "transforming": parameters.get("transforming", False)
+                "neuron_firing_threshold_limit": parameters.get("fthlim", self._get_default_value("firing_threshold_limit", 0)),
+                "neuron_refractory_period": parameters.get("refrac", self._get_default_value("refractory_period", 0)),
+                "neuron_leak_coefficient": parameters.get("leak_c", self._get_default_value("leak_coefficient", 0)),
+                "neuron_leak_variability": parameters.get("leak_v") if parameters.get("leak_v") is not None else self._get_default_value("leak_variability", 0),
+                "neuron_consecutive_fire_count": parameters.get("c_fr_c", self._get_default_value("consecutive_fire_cnt_max", 0)),
+                "neuron_snooze_period": parameters.get("snooze", self._get_default_value("snooze_length", 0)),
+                "neuron_degeneracy_coefficient": parameters.get("de_gen", self._get_default_value("degeneration", 0)),
+                "neuron_psp_uniform_distribution": parameters.get("pspuni", self._get_default_value("psp_uniform_distribution", True)),
+                "neuron_mp_charge_accumulation": parameters.get("mp_acc", self._get_default_value("mp_charge_accumulation", False)),
+                "neuron_mp_driven_psp": parameters.get("mp_psp", self._get_default_value("mp_driven_psp", False)),
+                "neuron_longterm_mem_threshold": parameters.get("mem__t", self._get_default_value("longterm_mem_threshold", 100)),
+                "neuron_lifespan_growth_rate": parameters.get("mem_gr", self._get_default_value("lifespan_growth_rate", 1)),
+                "neuron_init_lifespan": parameters.get("mem_ls", self._get_default_value("init_lifespan", 9)),
+                "temporal_depth": parameters.get("temporal_depth", self._get_default_value("temporal_depth", 1)),
+                "neuron_excitability": parameters.get("excite", self._get_default_value("neuron_excitability", 100)),
+                "transforming": parameters.get("transforming", False)  # Runtime state flag - not from templates
             }
             
             return CorticalAreaPropertiesResponse(properties=legacy_properties)
@@ -220,14 +287,14 @@ class CorticalAreaAPI:
             # Determine if memory area
             is_memory = "MEMORY" in sub_group_id
             if is_memory:
-                cortical_dimensions = [1, 1, 1]
+                cortical_dimensions = self._get_structural_default("memory_dimensions")
             else:
                 cortical_dimensions = new_custom_cortical_properties.get('cortical_dimensions')
             
             cortical_id = connectome.generate_cortical_id(temp_name[:3], is_memory=is_memory)
             
             # Calculate neuron count and validate limits
-            neuron_density = 1
+            neuron_density = self._get_default_value("per_voxel_neuron_cnt", 1)
             if copy_of:
                 neuron_density = connectome.genome["blueprint"][copy_of]["per_voxel_neuron_cnt"]
             
@@ -325,9 +392,9 @@ class CorticalAreaAPI:
         try:
             location = self.core_api_service.get_cortical_location_by_name(request.cortical_name)
             return CorticalLocationResponse(
-                x=location.get('x', 0),
-                y=location.get('y', 0),
-                z=location.get('z', 0)
+                x=location.get('x', self._get_structural_default("coordinate")),
+                y=location.get('y', self._get_structural_default("coordinate")),
+                z=location.get('z', self._get_structural_default("coordinate"))
             )
         except KeyError:
             raise ValueError(f"Cortical area with name '{request.cortical_name}' not found")
@@ -369,58 +436,58 @@ class CorticalAreaAPI:
                     coordinates = area_data.get("coordinates", {})
                     dimensions = area_data.get("dimensions", {})
                     
-                    # Build complete cortical area data
+                    # Build complete cortical area data using template defaults for neural properties and structural defaults for spatial/organizational properties
                     geometry_data[cortical_id] = {
                         "cortical_id": area_data.get("id", cortical_id),
                         "cortical_name": area_data.get("name", cortical_id),
-                        "parent_region_id": parameters.get("parent_region_id", "root"),
-                        "parent_region_title": parameters.get("parent_region_title", "Genome's root brain region"),
-                        "cortical_group": area_data.get("type", "CUSTOM"),
-                        "cortical_sub_group": parameters.get("subgroup", ""),
-                        "cortical_neuron_per_vox_count": parameters.get("neurons_per_voxel", 1),
-                        "visualization": parameters.get("gd_vis", True),
-                        "cortical_synaptic_attractivity": parameters.get("synatt", 100),
+                        "parent_region_id": parameters.get("parent_region_id", self._get_structural_default("parent_region_id")),
+                        "parent_region_title": parameters.get("parent_region_title", self._get_structural_default("parent_region_title")),
+                        "cortical_group": area_data.get("type", self._get_structural_default("cortical_group")),
+                        "cortical_sub_group": parameters.get("subgroup", self._get_default_value("sub_group_id", "")),
+                        "cortical_neuron_per_vox_count": parameters.get("neurons_per_voxel", self._get_default_value("per_voxel_neuron_cnt", 1)),
+                        "visualization": parameters.get("gd_vis", self._get_default_value("visualization", True)),
+                        "cortical_synaptic_attractivity": parameters.get("synatt", self._get_default_value("synapse_attractivity", 100)),
                         "coordinates_3d": [
-                            coordinates.get("x", 0),
-                            coordinates.get("y", 0), 
-                            coordinates.get("z", 0)
+                            coordinates.get("x", self._get_structural_default("coordinate")),
+                            coordinates.get("y", self._get_structural_default("coordinate")), 
+                            coordinates.get("z", self._get_structural_default("coordinate"))
                         ],
                         "coordinates_2d": [
-                            parameters.get("2dcorx", 0),
-                            parameters.get("2dcory", 0)
+                            parameters.get("2dcorx", self._get_structural_default("coordinate")),
+                            parameters.get("2dcory", self._get_structural_default("coordinate"))
                         ],
                         "cortical_dimensions": [
-                            dimensions.get("width", 1),
-                            dimensions.get("height", 1),
-                            dimensions.get("depth", 1)
+                            dimensions.get("width", self._get_structural_default("dimension")),
+                            dimensions.get("height", self._get_structural_default("dimension")),
+                            dimensions.get("depth", self._get_structural_default("dimension"))
                         ],
-                        "cortical_destinations": parameters.get("mapping", {}),
-                        "neuron_post_synaptic_potential": parameters.get("pstcr", 500),
-                        "neuron_post_synaptic_potential_max": parameters.get("pstcrm", 35),
-                        "neuron_fire_threshold": parameters.get("fire_t", 1),
+                        "cortical_destinations": parameters.get("mapping", self._get_structural_default("mapping")),
+                        "neuron_post_synaptic_potential": parameters.get("pstcr", self._get_default_value("postsynaptic_current", 1)),
+                        "neuron_post_synaptic_potential_max": parameters.get("pstcrm", self._get_default_value("postsynaptic_current_max", 99999)),
+                        "neuron_fire_threshold": parameters.get("fire_t", self._get_default_value("firing_threshold", 1)),
                         "neuron_fire_threshold_increment": [
-                            parameters.get("ftincx", 0),
-                            parameters.get("ftincy", 0),
-                            parameters.get("ftincz", 0)
+                            parameters.get("ftincx", self._get_default_value("firing_threshold_increment_x", 0)),
+                            parameters.get("ftincy", self._get_default_value("firing_threshold_increment_y", 0)),
+                            parameters.get("ftincz", self._get_default_value("firing_threshold_increment_z", 0))
                         ],
-                        "neuron_firing_threshold_limit": parameters.get("fthlim", 0),
-                        "neuron_refractory_period": parameters.get("refrac", 0),
-                        "neuron_leak_coefficient": parameters.get("leak_c", 10),
-                        "neuron_leak_variability": parameters.get("leak_v", 0),
-                        "neuron_consecutive_fire_count": parameters.get("c_fr_c", 3),
-                        "neuron_snooze_period": parameters.get("snooze", 0),
-                        "neuron_degeneracy_coefficient": parameters.get("de_gen", 0),
-                        "neuron_psp_uniform_distribution": parameters.get("pspuni", False),
-                        "neuron_mp_charge_accumulation": parameters.get("mp_acc", True),
-                        "neuron_mp_driven_psp": parameters.get("mp_psp", False),
-                        "neuron_longterm_mem_threshold": parameters.get("mem__t", 100),
-                        "neuron_lifespan_growth_rate": parameters.get("mem_gr", 1),
-                        "neuron_init_lifespan": parameters.get("mem_ls", 9),
-                        "temporal_depth": parameters.get("temporal_depth", 1),
-                        "neuron_excitability": parameters.get("excite", 100),
-                        "transforming": parameters.get("transforming", False),
+                        "neuron_firing_threshold_limit": parameters.get("fthlim", self._get_default_value("firing_threshold_limit", 0)),
+                        "neuron_refractory_period": parameters.get("refrac", self._get_default_value("refractory_period", 0)),
+                        "neuron_leak_coefficient": parameters.get("leak_c", self._get_default_value("leak_coefficient", 0)),
+                        "neuron_leak_variability": parameters.get("leak_v") if parameters.get("leak_v") is not None else self._get_default_value("leak_variability", 0),
+                        "neuron_consecutive_fire_count": parameters.get("c_fr_c", self._get_default_value("consecutive_fire_cnt_max", 0)),
+                        "neuron_snooze_period": parameters.get("snooze", self._get_default_value("snooze_length", 0)),
+                        "neuron_degeneracy_coefficient": parameters.get("de_gen", self._get_default_value("degeneration", 0)),
+                        "neuron_psp_uniform_distribution": parameters.get("pspuni", self._get_default_value("psp_uniform_distribution", True)),
+                        "neuron_mp_charge_accumulation": parameters.get("mp_acc", self._get_default_value("mp_charge_accumulation", False)),
+                        "neuron_mp_driven_psp": parameters.get("mp_psp", self._get_default_value("mp_driven_psp", False)),
+                        "neuron_longterm_mem_threshold": parameters.get("mem__t", self._get_default_value("longterm_mem_threshold", 100)),
+                        "neuron_lifespan_growth_rate": parameters.get("mem_gr", self._get_default_value("lifespan_growth_rate", 1)),
+                        "neuron_init_lifespan": parameters.get("mem_ls", self._get_default_value("init_lifespan", 9)),
+                        "temporal_depth": parameters.get("temporal_depth", self._get_default_value("temporal_depth", 1)),
+                        "neuron_excitability": parameters.get("excite", self._get_default_value("neuron_excitability", 100)),
+                        "transforming": parameters.get("transforming", False),  # Runtime state flag - not from templates
                         # Additional fields that might be needed by Godot
-                        "dev_count": parameters.get("dev_count", 1),
+                        "dev_count": parameters.get("dev_count", self._get_default_value("per_voxel_neuron_cnt", 1)),
                         "cortical_dimensions_per_device": parameters.get("cortical_dimensions_per_device", dimensions)
                     }
             
