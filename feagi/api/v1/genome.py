@@ -111,7 +111,8 @@ class GenomeAPI:
                     "success": result["success"],
                     "cortical_area_count": result.get("cortical_area_count", 0),
                     "genome_validity": result.get("genome_validity", True),
-                    "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                    "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else [],
+                    "validation_warnings": result.get("validation_warnings", [])
                 }
             )
         )
@@ -138,7 +139,8 @@ class GenomeAPI:
                     "success": result["success"],
                     "cortical_area_count": result.get("cortical_area_count", 0),
                     "genome_validity": result.get("genome_validity", True),
-                    "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                    "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else [],
+                    "validation_warnings": result.get("validation_warnings", [])
                 }
             )
         )
@@ -198,7 +200,8 @@ class GenomeAPI:
                         "success": result["success"],
                         "cortical_area_count": result.get("cortical_area_count", 0),
                         "genome_validity": result.get("genome_validity", True),
-                        "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                        "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else [],
+                        "validation_warnings": result.get("validation_warnings", [])
                     }
                 )
             )
@@ -232,7 +235,8 @@ class GenomeAPI:
                         "success": result["success"],
                         "cortical_area_count": result.get("cortical_area_count", 0),
                         "genome_validity": result.get("genome_validity", True),
-                        "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else []
+                        "validation_errors": result.get("validation_errors", []) if not result.get("genome_validity", True) else [],
+                        "validation_warnings": result.get("validation_warnings", [])
                     }
                 )
             )

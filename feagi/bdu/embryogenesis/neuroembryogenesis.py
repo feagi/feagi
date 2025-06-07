@@ -1237,6 +1237,122 @@ class NeuroEmbryogenesis:
             logger.error(f"Traceback:\n{traceback.format_exc()}")
             return False
 
+    def develop_brain_from_genome_data(self, genome_data: Dict[str, Any]) -> bool:
+        """
+        Develop a brain from genome data directly (not from file).
+        
+        This method is used when the genome data is already loaded and sanitized
+        in the state manager, ensuring single source of truth architecture.
+        
+        Args:
+            genome_data: The genome dictionary data
+            
+        Returns:
+            True if brain developed successfully, False otherwise
+        """
+        self.development_stats["start_time"] = datetime.datetime.now()
+        
+        # Validate and load genome data directly
+        if not self._load_genome_data(genome_data):
+            return False
+        
+        # Set up cortical areas
+        if not self._setup_cortical_areas():
+            return False
+        
+        # Create neurons using vectorized approach
+        if not self._perform_neurogenesis_vectorized():
+            return False
+        
+        # Create synapses
+        if not self._perform_synaptogenesis():
+            return False
+        
+        # Finalize and report statistics
+        self.development_stats["end_time"] = datetime.datetime.now()
+        self.development_stats["duration"] = (
+            self.development_stats["end_time"] - self.development_stats["start_time"]
+        )
+        
+        # Final report
+        self._report_progress(
+            DevelopmentStage.COMPLETED,
+            100,
+            f"Brain development completed in {self.development_stats['duration']}. "
+            f"Created {self.development_stats['cortical_areas']} cortical areas, "
+            f"{self.development_stats['total_neurons']} neurons, and "
+            f"{self.development_stats['total_synapses']} synapses."
+        )
+        
+        return True
+
+    def _load_genome_data(self, genome_data: Dict[str, Any]) -> bool:
+        """
+        Load genome data directly from dictionary (not from file).
+        
+        Args:
+            genome_data: The genome dictionary
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self._report_progress(DevelopmentStage.INITIALIZATION, 50, "Loading genome data from state manager")
+            
+            # Validate basic genome structure
+            if not isinstance(genome_data, dict):
+                self.error = "Genome data must be a dictionary"
+                self._report_progress(DevelopmentStage.FAILED, 0, self.error)
+                return False
+                
+            required_keys = ["blueprint", "physiology"]
+            for key in required_keys:
+                if key not in genome_data:
+                    self.error = f"MISSING GENOME SECTION: {key}"
+                    logger.error(f"MISSING GENOME SECTION: {key}")
+                    logger.error(f"  → PROBLEM: Required genome section '{key}' is not present in the genome data")
+                    logger.error(f"  → REQUIRED SECTIONS: {required_keys}")
+                    logger.error(f"  → AVAILABLE SECTIONS: {list(genome_data.keys()) if isinstance(genome_data, dict) else 'Invalid genome format'}")
+                    logger.error(f"  → FIX: Add the missing '{key}' section to your genome file")
+                    if key == "physiology":
+                        logger.error(f"  → EXAMPLE: Add 'physiology': {{'burst_delay': 0.025, 'max_age': 10000000, 'evolution_burst_count': 50, 'ipu_idle_threshold': 1000, 'plasticity_queue_depth': 3, 'lifespan_mgmt_interval': 10}} to your genome")
+                        logger.error(f"  → AUTO-RECOVERY: Enable auto-recovery in configuration to automatically add missing physiology properties")
+                    elif key == "blueprint":
+                        logger.error(f"  → EXAMPLE: Add 'blueprint': {{}} with cortical area definitions to your genome")
+                    self._report_progress(DevelopmentStage.FAILED, 0, self.error)
+                    return False
+            
+            # Store genome data
+            self.genome = genome_data
+            
+            # Validate physiology section specifically with detailed error reporting
+            try:
+                from feagi.evo.genome_validator import validate_physiology_section
+                physiology_validation = validate_physiology_section(self.genome)
+                if not physiology_validation["valid"]:
+                    logger.warning("PHYSIOLOGY VALIDATION ISSUES DETECTED:")
+                    for error in physiology_validation["errors"]:
+                        logger.warning(f"  → {error}")
+                    logger.warning("  → NOTE: Auto-recovery may have already fixed these issues if enabled")
+            except Exception as e:
+                logger.warning(f"Could not validate physiology section: {e}")
+            
+            # Ensure morphology registry is generated and cached
+            morphology_registry = self.get_morphology_registry()
+            
+            # Set the morphology registry on the ConnectomeManager
+            if hasattr(self.connectome_manager, 'get_morphologies_registry'):
+                setattr(self.connectome_manager, '_neuroembryogenesis_morphologies_registry', morphology_registry)
+            
+            self._report_progress(DevelopmentStage.INITIALIZATION, 100, "Genome data loaded successfully")
+            return True
+            
+        except Exception as e:
+            self.error = f"Failed to load genome data: {e}"
+            logger.exception(self.error)
+            self._report_progress(DevelopmentStage.FAILED, 0, self.error)
+            return False
+
 
 # Convenience function for direct use
 def develop_brain_from_genome(
