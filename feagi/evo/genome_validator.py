@@ -1065,7 +1065,13 @@ def blueprint_validator_silent(genome):
     Used for initial validation checks before auto-recovery.
     """
     valid_genome = False
-    blueprint = genome["blueprint"]
+    
+    # ✅ CRITICAL FIX: Check if blueprint exists before accessing it
+    try:
+        blueprint = genome["blueprint"]
+    except KeyError:
+        return False
+        
     try:
         neuron_morphologies = genome["neuron_morphologies"]
         cortical_list = cortical_list_gen(blueprint)

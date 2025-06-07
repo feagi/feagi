@@ -15,9 +15,9 @@ limitations under the License.
 """
 
 """FEAGI v1 Cortical Mapping API"""
-from typing import Dict, Any
+from typing import Dict, Any, List
 from feagi.api.core.services.core_api_service import CoreAPIService
-from .schemas import SuccessResponse
+from .schemas import SuccessResponse, CorticalMappingPropertiesRequest, CorticalMappingConnection
 from .decorators import endpoint
 
 def cortical_mapping_endpoint(methods, path, request_model=None, response_model=None, description=None):
@@ -38,6 +38,35 @@ class CorticalMappingAPI:
         if not success:
             raise ValueError("Failed to update cortical mapping")
         return SuccessResponse(message="Cortical mapping updated successfully")
+    
+    @cortical_mapping_endpoint('POST', '/mapping_properties', 
+                              request_model=CorticalMappingPropertiesRequest,
+                              response_model=List[CorticalMappingConnection])
+    async def get_mapping_properties(self, request: CorticalMappingPropertiesRequest) -> List[CorticalMappingConnection]:
+        """Get cortical mapping properties between two cortical areas."""
+        try:
+            properties = self.core_api_service.get_cortical_mapping_properties(
+                request.src_cortical_area, 
+                request.dst_cortical_area
+            )
+            
+            # Convert the response to the proper Pydantic models
+            connections = []
+            for prop in properties:
+                connection = CorticalMappingConnection(
+                    morphology_id=prop["morphology_id"],
+                    morphology_scalar=prop["morphology_scalar"],
+                    postSynapticCurrent_multiplier=prop["postSynapticCurrent_multiplier"],
+                    plasticity_flag=prop["plasticity_flag"],
+                    plasticity_constant=prop["plasticity_constant"],
+                    ltp_multiplier=prop["ltp_multiplier"],
+                    ltd_multiplier=prop["ltd_multiplier"]
+                )
+                connections.append(connection)
+            
+            return connections
+        except Exception as e:
+            raise ValueError(f"Failed to get mapping properties: {str(e)}")
 
 def create_cortical_mapping_api(core_api_service: CoreAPIService) -> CorticalMappingAPI:
     return CorticalMappingAPI(core_api_service) 
