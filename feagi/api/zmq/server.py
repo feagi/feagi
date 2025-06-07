@@ -60,6 +60,15 @@ from .connection_manager import ConnectionManager
 # Import the unified CoreAPIService
 from ..core.services.core_api_service import CoreAPIService
 
+# Import visualization streams conditionally
+try:
+    from feagi.api.zmq.streams.visualization import VisualizationStream
+    _visualization_available = True
+except ImportError:
+    _visualization_available = False
+    logger = logging.getLogger(__name__)
+    logger.debug("Visualization stream not available")
+
 # Force importing the actual ZMQ module first to avoid circular imports
 try:
     import zmq
@@ -614,65 +623,66 @@ class ZmqServer:
     
     async def _stop_services(self):
         """
-        Stop all ZMQ services gracefully with proper asyncio task cancellation.
+        Stop all ZMQ services and streams.
         """
+        print("Stopping ZMQ services...", file=sys.stderr, flush=True)
+        
         try:
-            print("Stopping ZMQ services...", file=sys.stderr, flush=True)
-            
-            # First, cancel the cleanup task if it exists
-            if hasattr(self, 'cleanup_task') and self.cleanup_task and not self.cleanup_task.done():
-                print("Cancelling cleanup task...", file=sys.stderr, flush=True)
-                self.cleanup_task.cancel()
-                try:
-                    await asyncio.wait_for(self.cleanup_task, timeout=2.0)
-                except (asyncio.CancelledError, asyncio.TimeoutError):
-                    pass  # Expected for cancelled task
-                except Exception as e:
-                    logger.warning(f"Error waiting for cleanup task cancellation: {e}")
-            
-            # Cancel all running tasks in the current event loop (except this one)
-            await self._cancel_all_tasks()
-            
-            # Stop services in parallel where possible
+            # Collect async stop tasks for services that have async stop methods
             stop_tasks = []
             
+            # Add pattern services (async stop methods)
             if self._req_rep:
                 stop_tasks.append(self._req_rep.stop())
             if self._pub_sub:
                 stop_tasks.append(self._pub_sub.stop())
             if self._push_pull:
                 stop_tasks.append(self._push_pull.stop())
+                
+            # Add stream services (async stop methods)
             if self._sensory:
                 stop_tasks.append(self._sensory.stop())
             if self._motor:
                 stop_tasks.append(self._motor.stop())
-            
             if self._rest:
-                await self._rest.stop()
+                stop_tasks.append(self._rest.stop())
             
             # Handle visualization stream separately with timeout
             if self._visualization:
-                import asyncio
+                import asyncio as asyncio_module
                 import threading
                 
                 def stop_visualization_with_timeout():
                     """Stop visualization in a separate thread with timeout."""
                     try:
                         logger.debug("Stopping visualization stream with timeout...")
-                        self._visualization.stop()  # This is the potentially blocking call
+                        
+                        # Check if visualization has async stop method
+                        if hasattr(self._visualization, 'stop') and asyncio.iscoroutinefunction(self._visualization.stop):
+                            # If stop is async, we need to run it in the event loop
+                            loop = asyncio_module.new_event_loop()
+                            try:
+                                asyncio_module.set_event_loop(loop)
+                                loop.run_until_complete(self._visualization.stop())
+                            finally:
+                                loop.close()
+                        else:
+                            # If stop is sync, call it directly
+                            self._visualization.stop()
+                            
                         logger.debug("Visualization stream stopped successfully")
                     except Exception as e:
                         logger.error(f"Error stopping visualization stream: {e}")
                 
                 # Run visualization stop in thread pool with timeout
                 try:
-                    await asyncio.wait_for(
-                        asyncio.get_event_loop().run_in_executor(
+                    await asyncio_module.wait_for(
+                        asyncio_module.get_event_loop().run_in_executor(
                             None, stop_visualization_with_timeout
                         ),
                         timeout=5.0  # 5 second timeout for visualization shutdown
                     )
-                except asyncio.TimeoutError:
+                except asyncio_module.TimeoutError:
                     logger.error("[WARN]  Visualization stream shutdown timed out after 5 seconds - forcing cleanup")
                     # Force cleanup by setting visualization to None
                     self._visualization = None
@@ -782,7 +792,9 @@ class ZmqServer:
             if self._loop:
                 try:
                     # Cancel any remaining tasks before closing the loop
-                    pending_tasks = [task for task in asyncio.all_tasks(self._loop) if not task.done()]
+                    # Use qualified asyncio module import to avoid variable shadowing
+                    import asyncio as asyncio_module
+                    pending_tasks = [task for task in asyncio_module.all_tasks(self._loop) if not task.done()]
                     if pending_tasks:
                         print(f"Force-cancelling {len(pending_tasks)} remaining tasks before loop close", 
                               file=sys.stderr, flush=True)
@@ -793,7 +805,7 @@ class ZmqServer:
                         if not self._loop.is_closed():
                             try:
                                 self._loop.run_until_complete(
-                                    asyncio.gather(*pending_tasks, return_exceptions=True)
+                                    asyncio_module.gather(*pending_tasks, return_exceptions=True)
                                 )
                             except Exception as e:
                                 print(f"Error during final task cleanup: {e}", file=sys.stderr, flush=True)

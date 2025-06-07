@@ -332,71 +332,77 @@ class ZMQRestAPIAdapter:
             raise ValueError(f"Unregistration failed: {str(e)}")
     
     async def _handle_visualization_heartbeat(self, params, query, body, headers) -> Any:
-        """Handle visualization client heartbeat."""
+        """Handle visualization heartbeat request."""
         try:
             # Check if embedded mode is enabled
             if os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1':
-                client_id = body.get('client_id') if body else None
-                logger.debug(f"Embedded mode: Visualization heartbeat ignored for client {client_id}")
+                logger.debug("[CONFIG] Embedded mode: Visualization heartbeat - disabled")
                 return {
-                    "success": False,
-                    "message": f"Visualization disabled in embedded mode",
+                    "message": "Heartbeat disabled in embedded mode",
                     "embedded_mode": True
                 }
             
-            client_id = body.get('client_id') if body else None
+            # Extract client_id from request body
+            client_id = body.get('client_id', None)
             if not client_id:
-                raise ValueError("Client ID is required")
+                logger.error("[ERR] No client_id provided in heartbeat request")
+                raise ValueError("client_id is required for heartbeat")
             
-            logger.info(f"Heartbeat from visualization client: {client_id}")
+            logger.info(f"[CONFIG] DEBUG: Processing visualization heartbeat for {client_id}")
             
             # Get the ZMQ server from the module registry
             zmq_server = getattr(self, '_zmq_server', None)
-            logger.info(f"[CONFIG] DEBUG: ZMQ server reference: {zmq_server is not None}")
-            logger.info(f"[CONFIG] DEBUG: ZMQ server type: {type(zmq_server)}")
-            
             if not zmq_server:
-                logger.warning("ZMQ server reference not available - heartbeat acknowledged anyway")
-                return {
-                    "message": f"Heartbeat received from client {client_id}"
-                }
+                logger.error("[ERR] ZMQ server reference not available for visualization heartbeat")
+                raise ValueError("ZMQ server not available")
             
             # Get visualization stream from ZMQ server
             viz_stream = zmq_server.get_visualization_stream()
-            logger.info(f"[CONFIG] DEBUG: Visualization stream: {viz_stream is not None}")
-            logger.info(f"[CONFIG] DEBUG: Visualization stream type: {type(viz_stream)}")
-            logger.info(f"[CONFIG] DEBUG: Visualization stream class name: {viz_stream.__class__.__name__ if viz_stream else 'None'}")
-            logger.info(f"[CONFIG] DEBUG: Visualization stream module: {viz_stream.__class__.__module__ if viz_stream else 'None'}")
             
             if viz_stream:
-                # Check if it has the expected method
-                has_heartbeat_method = hasattr(viz_stream, 'heartbeat_visualization_client')
-                logger.info(f"[CONFIG] DEBUG: Has heartbeat_visualization_client method: {has_heartbeat_method}")
-                
-                if has_heartbeat_method:
-                    method_obj = getattr(viz_stream, 'heartbeat_visualization_client')
-                    logger.info(f"[CONFIG] DEBUG: Method object type: {type(method_obj)}")
-                    logger.info(f"[CONFIG] DEBUG: Method is callable: {callable(method_obj)}")
-                    
                 logger.info(f"[CONFIG] DEBUG: Calling heartbeat_visualization_client for {client_id}")
-                # RTOS: VisualizationStream is now synchronous, no await needed
-                result = viz_stream.heartbeat_visualization_client(client_id)
-                logger.info(f"[CONFIG] DEBUG: Method returned: {result}")
-                logger.info(f"[CONFIG] DEBUG: Heartbeat call completed for {client_id}")
+                # Check if the visualization stream has the heartbeat method
+                if not hasattr(viz_stream, 'heartbeat_visualization_client'):
+                    logger.error(f"[ERR] Visualization stream does not have heartbeat_visualization_client method")
+                    raise ValueError("Visualization stream heartbeat method not available")
                 
-                return {
-                    "message": f"Heartbeat received from client {client_id}"
-                }
+                # RTOS: VisualizationStream is now synchronous, no await needed
+                try:
+                    result = viz_stream.heartbeat_visualization_client(client_id)
+                    logger.info(f"[CONFIG] DEBUG: Method returned: {result}")
+                    logger.info(f"[CONFIG] DEBUG: Heartbeat call completed for {client_id}")
+                    
+                    return {
+                        "message": f"Heartbeat received from client {client_id}",
+                        "client_id": client_id,
+                        "status": "success"
+                    }
+                except Exception as heartbeat_error:
+                    logger.error(f"[ERR] Error calling heartbeat method: {heartbeat_error}")
+                    raise ValueError(f"Heartbeat method failed: {str(heartbeat_error)}")
             else:
                 logger.error("[ERR] Visualization stream not available")
-                raise ValueError("Visualization stream not available")
+                # Instead of failing completely, provide degraded functionality
+                logger.warning(f"[WARN] Visualization heartbeat for {client_id} failed - stream unavailable, but continuing")
+                return {
+                    "message": f"Heartbeat processed for client {client_id} (degraded mode)",
+                    "client_id": client_id,
+                    "status": "degraded",
+                    "warning": "Visualization stream not available"
+                }
                 
         except Exception as e:
             logger.error(f"[ERR] Error processing visualization heartbeat: {str(e)}")
             logger.error(f"[ERR] Exception type: {type(e)}")
             import traceback
             logger.error(f"[ERR] Full traceback: {traceback.format_exc()}")
-            raise ValueError(f"Heartbeat failed: {str(e)}")
+            
+            # Instead of re-raising, return error response to prevent cascading failures
+            return {
+                "message": f"Heartbeat failed: {str(e)}",
+                "status": "error",
+                "error": str(e)
+            }
     
     async def _handle_visualization_status(self, params, query, body, headers) -> Any:
         """Handle visualization status request."""
