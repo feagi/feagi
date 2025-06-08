@@ -667,21 +667,40 @@ class VisualizationStream:
     def _control_fq_sampler(self, enable: bool) -> None:
         """Enable or disable the FQ sampler based on subscriber presence."""
         try:
-            if self.fq_sampler and hasattr(self.fq_sampler, 'set_visualization_subscribers'):
-                if enable:
-                    logger.info("Enabling FQ sampler - visualization clients connected", status="[CONFIG]")
+            logger.info(f"🔧 FQ SAMPLER CONTROL: {'ENABLING' if enable else 'DISABLING'} FQ sampler (current state: {self._fq_sampler_enabled})")
+            
+            # Check if we have FQ sampler instance
+            if not self.fq_sampler:
+                logger.error("❌ FQ SAMPLER CONTROL: No FQ sampler instance available")
+                return
+            
+            # Check if FQ sampler has the required method
+            if not hasattr(self.fq_sampler, 'set_visualization_subscribers'):
+                logger.error(f"❌ FQ SAMPLER CONTROL: FQ sampler {type(self.fq_sampler)} does not have set_visualization_subscribers method")
+                return
+            
+            if enable and not self._fq_sampler_enabled:
+                logger.info("✅ FQ SAMPLER CONTROL: Enabling FQ sampler - visualization clients connected")
+                try:
                     self.fq_sampler.set_visualization_subscribers(True)
                     self._fq_sampler_enabled = True
-                else:
-                    logger.info("Disabling FQ sampler - no visualization clients", status="[CONFIG]")
+                    logger.info("[ENABLED] FQ sampler enabled for visualization clients")
+                except Exception as method_error:
+                    logger.error(f"❌ FQ SAMPLER CONTROL: Failed to call set_visualization_subscribers(True): {method_error}")
+                    
+            elif not enable and self._fq_sampler_enabled:
+                logger.info("⏹️ FQ SAMPLER CONTROL: Disabling FQ sampler - no visualization clients")
+                try:
                     self.fq_sampler.set_visualization_subscribers(False)
                     self._fq_sampler_enabled = False
+                    logger.info("[DISABLED] FQ sampler disabled - no visualization clients")
+                except Exception as method_error:
+                    logger.error(f"❌ FQ SAMPLER CONTROL: Failed to call set_visualization_subscribers(False): {method_error}")
             else:
-                if enable:
-                    logger.warning("FQ sampler doesn't support set_visualization_subscribers")
+                logger.debug(f"🔧 FQ SAMPLER CONTROL: No state change needed (enable={enable}, current={self._fq_sampler_enabled})")
                 
         except Exception as e:
-            logger.error(f"Error controlling FQ sampler: {e}")
+            logger.error(f"❌ FQ SAMPLER CONTROL: Critical error: {e}")
             if logger.isEnabledFor(10):  # DEBUG level  
                 import traceback
                 logger.debug(f"FQ sampler control traceback: {traceback.format_exc()}")
@@ -760,8 +779,13 @@ class VisualizationStream:
                     # Auto-enable/disable FQ sampler based on subscriber count
                     should_enable = current_count > 0
                     
+                    logger.info(f"🔧 SUBSCRIBER MONITOR: should_enable={should_enable}, current_fq_enabled={self._fq_sampler_enabled}, will_call_control={should_enable != self._fq_sampler_enabled}")
+                    
                     if should_enable != self._fq_sampler_enabled:
+                        logger.info(f"🔧 SUBSCRIBER MONITOR: Calling _control_fq_sampler(enable={should_enable})")
                         self._control_fq_sampler(should_enable)
+                    else:
+                        logger.info(f"🔧 SUBSCRIBER MONITOR: No FQ sampler control needed (no state change)")
                 
                 # Use responsive wait with frequent stop event checks
                 wait_time = min(self.subscriber_check_interval, 1.0)  # Max 1 second intervals

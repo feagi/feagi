@@ -539,7 +539,7 @@ class SimulationStatsResponse(BaseModel):
 
 class AgentListResponse(BaseModel):
     """Response model for FEAGI agent list."""
-    agents: List[Dict[str, Any]]
+    __root__: List[str]  # Direct list of agent IDs
 
 
 class AgentInfoResponse(BaseModel):
@@ -551,6 +551,38 @@ class AgentConfigRequest(BaseModel):
     """Request model for agent configuration."""
     agent_id: str
     config: Dict[str, Any]
+
+
+class AgentRegistrationRequest(BaseModel):
+    """Request model for agent registration."""
+    agent_type: str
+    agent_id: str
+    agent_data_port: int
+    agent_version: str
+    controller_version: str
+    capabilities: Dict[str, Any]
+    agent_ip: Optional[str] = None  # If not provided, will be extracted from request
+
+
+class AgentDeregistrationRequest(BaseModel):
+    """Request model for agent deregistration."""
+    agent_id: str
+
+
+class AgentPropertiesRequest(BaseModel):
+    """Request model for getting agent properties."""
+    agent_id: str
+
+
+class AgentPropertiesResponse(BaseModel):
+    """Response model for agent properties."""
+    agent_type: str
+    agent_ip: str
+    agent_data_port: int
+    agent_router_address: str
+    agent_version: str
+    controller_version: str
+    capabilities: Dict[str, Any]
 
 
 # ===== Training Schemas =====

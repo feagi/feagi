@@ -367,6 +367,43 @@ class SystemAPI:
         except Exception as e:
             logger.error(f"Error getting version: {e}")
             raise ValueError(f"Failed to get version: {str(e)}")
+    
+    # ===== FQ Sampler Control =====
+    
+    @system_endpoint('POST', '/enable_visualization_fq_sampler', response_model=SuccessResponse)
+    def enable_visualization_fq_sampler(self) -> SuccessResponse:
+        """Enable the visualization FQ sampler for brain visualizer connectivity."""
+        try:
+            success = self.core_api_service.enable_visualization_fq_sampler()
+            if success:
+                return SuccessResponse(message="Visualization FQ sampler enabled successfully")
+            else:
+                raise ValueError("Failed to enable visualization FQ sampler")
+        except Exception as e:
+            logger.error(f"Error enabling visualization FQ sampler: {e}")
+            raise ValueError(f"Failed to enable visualization FQ sampler: {str(e)}")
+    
+    @system_endpoint('POST', '/disable_visualization_fq_sampler', response_model=SuccessResponse)
+    def disable_visualization_fq_sampler(self) -> SuccessResponse:
+        """Disable the visualization FQ sampler."""
+        try:
+            success = self.core_api_service.disable_visualization_fq_sampler()
+            if success:
+                return SuccessResponse(message="Visualization FQ sampler disabled successfully")
+            else:
+                raise ValueError("Failed to disable visualization FQ sampler")
+        except Exception as e:
+            logger.error(f"Error disabling visualization FQ sampler: {e}")
+            raise ValueError(f"Failed to disable visualization FQ sampler: {str(e)}")
+    
+    @system_endpoint('GET', '/fq_sampler_status')
+    def get_fq_sampler_status(self) -> Dict[str, Any]:
+        """Get the current status of all FQ samplers."""
+        try:
+            return self.core_api_service.get_fq_sampler_status()
+        except Exception as e:
+            logger.error(f"Error getting FQ sampler status: {e}")
+            raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
 
 
 # ===== Factory Function =====

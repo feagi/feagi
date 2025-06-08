@@ -21,7 +21,9 @@ FEAGI v1 Agent API - Single Source of Truth
 from typing import Dict, Any, List
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
-from .schemas import AgentListResponse, AgentInfoResponse, AgentConfigRequest, SuccessResponse
+from .schemas import (AgentListResponse, AgentInfoResponse, AgentConfigRequest, SuccessResponse,
+                      AgentRegistrationRequest, AgentDeregistrationRequest, 
+                      AgentPropertiesRequest, AgentPropertiesResponse)
 from .decorators import endpoint
 
 logger = setup_logger(__name__)
@@ -36,15 +38,22 @@ class FeagiAgentAPI:
     @agent_endpoint('GET', '/list', response_model=AgentListResponse)
     async def get_agents_list(self) -> AgentListResponse:
         try:
-            agents = self.core_api_service.get_connected_agents()
-            return AgentListResponse(agents=agents)
+            # Get all connected agents from the state manager
+            connected_agents = self.core_api_service.get_connected_agents()
+            
+            # Convert set to list of agent IDs
+            agent_ids = list(connected_agents)
+            
+            return AgentListResponse(__root__=agent_ids)
         except Exception as e:
             raise ValueError(f"Failed to get agents list: {str(e)}")
     
     @agent_endpoint('GET', '/info/{agent_id}', response_model=AgentInfoResponse)
     async def get_agent_info(self, agent_id: str) -> AgentInfoResponse:
         try:
-            agent_info = self.core_api_service.get_agent_details(agent_id)
+            agent_info = self.core_api_service.get_agent_properties(agent_id)
+            if not agent_info:
+                raise ValueError(f"Agent {agent_id} not found")
             return AgentInfoResponse(agent_info=agent_info)
         except Exception as e:
             raise ValueError(f"Failed to get agent info: {str(e)}")
@@ -58,6 +67,43 @@ class FeagiAgentAPI:
             return SuccessResponse(message="Agent configured successfully")
         except Exception as e:
             raise ValueError(f"Failed to configure agent: {str(e)}")
+    
+    @agent_endpoint('POST', '/register', request_model=AgentRegistrationRequest, response_model=SuccessResponse)
+    async def register_agent(self, request: AgentRegistrationRequest) -> SuccessResponse:
+        try:
+            success = self.core_api_service.register_agent(
+                agent_id=request.agent_id,
+                agent_type=request.agent_type,
+                capabilities=request.capabilities,
+                agent_data_port=request.agent_data_port,
+                agent_version=request.agent_version,
+                controller_version=request.controller_version
+            )
+            if not success:
+                raise ValueError("Failed to register agent")
+            return SuccessResponse(message=f"Agent {request.agent_id} registered successfully")
+        except Exception as e:
+            raise ValueError(f"Failed to register agent: {str(e)}")
+    
+    @agent_endpoint('DELETE', '/deregister', request_model=AgentDeregistrationRequest, response_model=SuccessResponse)
+    async def deregister_agent(self, request: AgentDeregistrationRequest) -> SuccessResponse:
+        try:
+            success = self.core_api_service.unregister_agent(request.agent_id)
+            if not success:
+                raise ValueError("Failed to deregister agent")
+            return SuccessResponse(message=f"Agent {request.agent_id} deregistered successfully")
+        except Exception as e:
+            raise ValueError(f"Failed to deregister agent: {str(e)}")
+    
+    @agent_endpoint('GET', '/properties/{agent_id}', response_model=AgentPropertiesResponse)
+    async def get_agent_properties(self, agent_id: str) -> AgentPropertiesResponse:
+        try:
+            properties = self.core_api_service.get_agent_properties(agent_id)
+            if properties is None:
+                raise ValueError(f"Agent {agent_id} not found")
+            return AgentPropertiesResponse(agent_id=agent_id, properties=properties)
+        except Exception as e:
+            raise ValueError(f"Failed to get agent properties: {str(e)}")
 
 def create_feagi_agent_api(core_api_service: CoreAPIService) -> FeagiAgentAPI:
     return FeagiAgentAPI(core_api_service) 

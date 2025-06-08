@@ -581,7 +581,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
         get_monitoring_router(),
         prefix="/v1/monitoring",
         tags=["MONITORING"],
-        dependencies=[],
+        dependencies=[Depends(check_active_genome)],
         responses=standard_response
     )
     

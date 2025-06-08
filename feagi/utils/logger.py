@@ -18,7 +18,7 @@ limitations under the License.
 import logging
 import os
 import sys
-from typing import Optional
+from typing import Optional, Dict, Any
 from pathlib import Path
 from datetime import datetime
 
@@ -195,20 +195,81 @@ class StatusAdapter(logging.LoggerAdapter):
 
 # Global flag to track if we've already shown the main logger setup messages
 _MAIN_LOGGER_SETUP_SHOWN = False
+# Cache for the global log level to avoid repeated config loading
+_CACHED_LOG_LEVEL = None
+# Global storage for deferred setup info
+_DEFERRED_SETUP_INFO: Optional[Dict[str, Any]] = None
+
+def clear_logger_cache():
+    """Clear the logger cache - for testing/debugging only."""
+    global _CACHED_LOG_LEVEL
+    _CACHED_LOG_LEVEL = None
+
+def show_deferred_setup_info():
+    """Show the deferred logger setup info if CLI log level allows it."""
+    global _DEFERRED_SETUP_INFO
+    if _DEFERRED_SETUP_INFO is None:
+        return
+    
+    # Check CLI log level to see if we should show INFO messages
+    cli_level_str = os.environ.get('FEAGI_CLI_LOG_LEVEL')
+    should_show = True
+    if cli_level_str:
+        cli_level = getattr(logging, cli_level_str.upper(), logging.INFO)
+        should_show = cli_level <= logging.INFO
+    
+    if should_show:
+        # Create temporary logger to show setup info
+        temp_console = logging.StreamHandler(sys.stdout)
+        temp_console.setFormatter(_DEFERRED_SETUP_INFO['formatter'])
+        temp_logger = logging.getLogger("temp_setup_deferred")
+        temp_logger.handlers.clear()  # Clear any existing handlers
+        temp_logger.propagate = False  # Prevent propagation to avoid duplicates
+        temp_logger.addHandler(temp_console)
+        temp_logger.setLevel(logging.INFO)
+        temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
+        temp_adapter.info(f"FEAGI run: {_DEFERRED_SETUP_INFO['run_dir']}", status="[FOLDER]")
+        temp_adapter.info(f"Log file: {_DEFERRED_SETUP_INFO['log_path']}", status="[LOG]")
+        temp_logger.removeHandler(temp_console)
+    
+    # Clear the deferred info so it's only shown once
+    _DEFERRED_SETUP_INFO = None
 
 def setup_logger(
     name: str = "feagi",
-    level: int = logging.WARNING,
+    level: Optional[int] = None,  # Changed from WARNING default to None
     log_file: Optional[str] = None,
     console: bool = True,
     tag: Optional[str] = None,
 ) -> StatusAdapter:
-    global _MAIN_LOGGER_SETUP_SHOWN
+    global _MAIN_LOGGER_SETUP_SHOWN, _CACHED_LOG_LEVEL
     
-    # Check for CLI-provided log level override
-    cli_log_level = os.environ.get('FEAGI_CLI_LOG_LEVEL')
-    if cli_log_level:
-        level = getattr(logging, cli_log_level, level)
+    # Determine log level priority: parameter > CLI env var > config > default INFO
+    final_level = level
+    
+    if final_level is None:
+        # Check for CLI-provided log level override
+        cli_log_level = os.environ.get('FEAGI_CLI_LOG_LEVEL')
+        if cli_log_level:
+            final_level = getattr(logging, cli_log_level.upper(), None)
+    
+    if final_level is None:
+        # Use cached log level if available to avoid repeated config loading
+        if _CACHED_LOG_LEVEL is not None:
+            final_level = _CACHED_LOG_LEVEL
+        else:
+            # Try to get log level from FEAGI configuration (only once)
+            try:
+                from feagi.config.toml_loader import load_feagi_config
+                config = load_feagi_config()
+                config_log_level = config.get('system', {}).get('log_level', 'INFO')
+                final_level = getattr(logging, config_log_level.upper(), logging.INFO)
+                # Cache the result to avoid repeated config loading
+                _CACHED_LOG_LEVEL = final_level
+            except (ImportError, Exception):
+                # Fallback to INFO if config is not available (e.g., during early startup)
+                final_level = logging.INFO
+                _CACHED_LOG_LEVEL = final_level
     
     LEVEL_MAP = {
         "DEBUG":    "DEBUG   ",
@@ -282,24 +343,22 @@ def setup_logger(
             # Create status block with consistent padding
             status_block = f"{status}{padding}"
             
-            # If no status, use consistent spacing for alignment
+            # If no status indicator, show log level instead with consistent spacing
             if not status:
-                status_block = "        "  # 8 spaces for alignment
+                # Format the log level with fixed width for alignment
+                level_str = LEVEL_MAP.get(record.levelname, record.levelname)
+                status_block = f"{level_str:<8}"  # Left-align with fixed 8 chars
                 
-            # Format the log level with fixed width
-            level_str = LEVEL_MAP.get(record.levelname, record.levelname)
-            level = f"{level_str:<8}"  # Left-align with fixed 8 chars
-            
             # Format timestamp and message
             timestamp = self.formatTime(record, self.datefmt)
             tag_str = f"[{record.__dict__.get('label', '')}] " if record.__dict__.get('label') else ""
             message = record.getMessage()
 
-            # Build the final log line with fixed column widths
-            return f"{status_block}{level}  {timestamp} {tag_str}{message}"
+            # Build the final log line - only show status block (which is either status indicator OR level)
+            return f"{status_block}  {timestamp} {tag_str}{message}"
 
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(final_level)
     logger.handlers.clear()
     logger.propagate = False
 
@@ -350,7 +409,7 @@ def setup_logger(
         
         # Create file handler
         file_handler = logging.FileHandler(full_log_path, encoding='utf-8')
-        file_handler.setLevel(level)
+        file_handler.setLevel(final_level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
         
@@ -374,38 +433,47 @@ def setup_logger(
             # Symlinks might not be supported on all platforms
             pass
         
-        # Log the file location ONLY ONCE for the main logger
+        # Store setup info for later display after CLI parsing
         if console and name == "feagi":
             if not _MAIN_LOGGER_SETUP_SHOWN:
-                temp_console = logging.StreamHandler(sys.stdout)
-                temp_console.setFormatter(formatter)
-                temp_logger = logging.getLogger("temp_setup")
-                temp_logger.addHandler(temp_console)
-                temp_logger.setLevel(logging.INFO)
-                temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
-                temp_adapter.info(f"FEAGI run: {run_dir}", status="[FOLDER]")
-                temp_adapter.info(f"Log file: {full_log_path}", status="[LOG]")
-                temp_logger.removeHandler(temp_console)
+                # Store the setup information globally for later display
+                global _DEFERRED_SETUP_INFO
+                _DEFERRED_SETUP_INFO = {
+                    'run_dir': run_dir,
+                    'log_path': full_log_path,
+                    'formatter': formatter
+                }
                 _MAIN_LOGGER_SETUP_SHOWN = True
             
     except Exception as e:
         # If log file creation fails, just continue with console logging
         if console and name == "feagi":
             if not _MAIN_LOGGER_SETUP_SHOWN:
-                temp_console = logging.StreamHandler(sys.stdout)
-                temp_console.setFormatter(formatter)
-                temp_logger = logging.getLogger("temp_setup")
-                temp_logger.addHandler(temp_console)
-                temp_logger.setLevel(logging.WARNING)
-                temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
-                temp_adapter.warning(f"Failed to create log file: {e}", status="[WARN]")
-                temp_logger.removeHandler(temp_console)
+                # Check if CLI override will suppress these messages
+                cli_level_str = os.environ.get('FEAGI_CLI_LOG_LEVEL')
+                should_show_warning = True
+                if cli_level_str:
+                    cli_level = getattr(logging, cli_level_str.upper(), logging.INFO)
+                    should_show_warning = cli_level <= logging.WARNING
+                else:
+                    # Use current final_level if no CLI override
+                    should_show_warning = final_level <= logging.WARNING
+                
+                if should_show_warning:
+                    temp_console = logging.StreamHandler(sys.stdout)
+                    temp_console.setFormatter(formatter)
+                    temp_logger = logging.getLogger("temp_setup")
+                    temp_logger.addHandler(temp_console)
+                    temp_logger.setLevel(final_level)  # Use the same level as final_level
+                    temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
+                    temp_adapter.warning(f"Failed to create log file: {e}", status="[WARN]")
+                    temp_logger.removeHandler(temp_console)
                 _MAIN_LOGGER_SETUP_SHOWN = True
 
     # Add console handler if requested
     if console:
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(level)
+        console_handler.setLevel(final_level)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 

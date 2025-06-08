@@ -74,7 +74,7 @@ class BurstEngineDebugMixin:
         if fq_sampler not in self._fq_samplers:
             self._fq_samplers.append(fq_sampler)
             if hasattr(self, 'debug_npu') and self.debug_npu:
-                logger.info(f"[DEBUG] NPU DEBUG: Registered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+                logger.debug(f"[DEBUG] NPU DEBUG: Registered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
 
     def unregister_fq_sampler(self, fq_sampler: Any) -> None:
         """
@@ -86,7 +86,7 @@ class BurstEngineDebugMixin:
         if fq_sampler in self._fq_samplers:
             self._fq_samplers.remove(fq_sampler)
             if hasattr(self, 'debug_npu') and self.debug_npu:
-                logger.info(f"[DEBUG] NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
+                logger.debug(f"[DEBUG] NPU DEBUG: Unregistered FQ sampler - Total FQ samplers: {len(self._fq_samplers)}")
 
     def _debug_fire_queue_output(self) -> None:
         """
@@ -102,29 +102,29 @@ class BurstEngineDebugMixin:
         """
         try:
             burst_count = getattr(self, 'burst_count', 0)
-            logger.info(f"\n[DEBUG] ===== NPU DEBUG - BURST {burst_count} =====")
+            logger.debug(f"\n[DEBUG] ===== NPU DEBUG - BURST {burst_count} =====")
             
             # Get global FCL
             fcl_manager = getattr(self, 'fcl_manager', None)
             if not fcl_manager:
-                logger.info("[DEBUG] No FCL manager available for debug output")
+                logger.debug("[DEBUG] No FCL manager available for debug output")
                 return
                 
             global_fcl = fcl_manager.get_global_fcl()
             total_firing = len(global_fcl)
             
-            logger.info(f"[STATS] Global Fire Summary:")
-            logger.info(f"   Total firing neurons: {total_firing}")
+            logger.debug(f"[STATS] Global Fire Summary:")
+            logger.debug(f"   Total firing neurons: {total_firing}")
             
             # Get burst interval if available
             burst_interval = getattr(self, 'burst_interval', 1.0)
-            logger.info(f"   Burst frequency: {1.0/burst_interval:.1f}Hz target")
+            logger.debug(f"   Burst frequency: {1.0/burst_interval:.1f}Hz target")
             
             if total_firing > 0:
                 # Get firing neurons by cortical area
                 fcl_by_cortical = fcl_manager.get_fcl_by_cortical()
                 
-                logger.info(f"[BRAIN] Per-Area Breakdown ({len(fcl_by_cortical)} active areas):")
+                logger.debug(f"[BRAIN] Per-Area Breakdown ({len(fcl_by_cortical)} active areas):")
                 
                 # Sort areas by number of firing neurons for consistent output
                 sorted_areas = sorted(fcl_by_cortical.items(), key=lambda x: len(x[1]), reverse=True)
@@ -136,10 +136,10 @@ class BurstEngineDebugMixin:
                     # Display first few neurons for small lists, summarize for large ones
                     if area_count <= 10:
                         neuron_list = sorted(list(area_fcl))
-                        logger.info(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_list}")
+                        logger.debug(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_list}")
                     else:
                         neuron_sample = sorted(list(area_fcl))[:5]
-                        logger.info(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_sample}... (+{area_count-5} more)")
+                        logger.debug(f"   {cortical_id}: {area_count} neurons ({percentage:.1f}%) - {neuron_sample}... (+{area_count-5} more)")
                 
                 # Show special area injection info if available (all area types)
                 if hasattr(self, 'injection_service') and self.injection_service:
@@ -147,24 +147,24 @@ class BurstEngineDebugMixin:
                     if 'total_injections' in stats and stats.get('total_injections', 0) > 0:
                         total_neurons = stats.get('total_neurons_injected', 0)
                         total_batches = sum(stats.get('prepared_batches', {}).values())
-                        logger.info(f"[FAST] Special Area Injection: {total_neurons} neurons from {total_batches} batches (all area types)")
+                        logger.debug(f"[FAST] Special Area Injection: {total_neurons} neurons from {total_batches} batches (all area types)")
             else:
-                logger.info("   No neurons firing this burst")
+                logger.debug("   No neurons firing this burst")
                 
             # Show recent firing statistics if available
             if hasattr(fcl_manager, 'get_firing_statistics'):
                 firing_stats = fcl_manager.get_firing_statistics()
                 if firing_stats:
-                    logger.info(f"[UP] Recent Activity:")
-                    logger.info(f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst")
-                    logger.info(f"   Peak firing: {firing_stats.get('peak_firing', 0)} neurons")
+                    logger.debug(f"[UP] Recent Activity:")
+                    logger.debug(f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst")
+                    logger.debug(f"   Peak firing: {firing_stats.get('peak_firing', 0)} neurons")
             
             # === FQ SAMPLER DEBUG INFORMATION ===
-            logger.info(f"[TARGET] Sampler Debug Information:")
+            logger.debug(f"[TARGET] Sampler Debug Information:")
             
             # FQ Samplers (for motor and visualization)
             if self._fq_samplers:
-                logger.info(f"   FQ Samplers Active: {len(self._fq_samplers)}")
+                logger.debug(f"   FQ Samplers Active: {len(self._fq_samplers)}")
                 for i, fq_sampler in enumerate(self._fq_samplers):
                     try:
                         sampler_name = f"FQSampler-{i+1}"
@@ -175,16 +175,16 @@ class BurstEngineDebugMixin:
                         viz_subs = getattr(fq_sampler, '_has_visualization_subscribers', False)
                         motor_subs = getattr(fq_sampler, '_has_motor_subscribers', False)
                         
-                        logger.info(f"      {sampler_name}: {running_status} @ {sample_freq:.1f}Hz")
-                        logger.info(f"         Viz subscribers: {'YES' if viz_subs else 'NO'}")
-                        logger.info(f"         Motor subscribers: {'YES' if motor_subs else 'NO'}")
+                        logger.debug(f"      {sampler_name}: {running_status} @ {sample_freq:.1f}Hz")
+                        logger.debug(f"         Viz subscribers: {'YES' if viz_subs else 'NO'}")
+                        logger.debug(f"         Motor subscribers: {'YES' if motor_subs else 'NO'}")
                         
                         # Try to get sample data for current burst
                         if hasattr(fq_sampler, '_get_global_fire_queue_data'):
                             sample_data = fq_sampler._get_global_fire_queue_data()
                             if sample_data and sample_data.get('neuron_ids'):
                                 sample_count = len(sample_data['neuron_ids'])
-                                logger.info(f"         [STATS] Sample data: {sample_count} neurons")
+                                logger.debug(f"         [STATS] Sample data: {sample_count} neurons")
                                 
                                 # Show membrane potential range if available
                                 if sample_data.get('membrane_potentials'):
@@ -192,7 +192,7 @@ class BurstEngineDebugMixin:
                                     min_pot = min(potentials)
                                     max_pot = max(potentials)
                                     avg_pot = sum(potentials) / len(potentials)
-                                    logger.info(f"         [BRAIN] Membrane potentials: {min_pot:.2f} - {max_pot:.2f} (avg: {avg_pot:.2f})")
+                                    logger.debug(f"         [BRAIN] Membrane potentials: {min_pot:.2f} - {max_pot:.2f} (avg: {avg_pot:.2f})")
                                     
                                 # Show coordinate range if available
                                 if sample_data.get('coordinates'):
@@ -201,26 +201,26 @@ class BurstEngineDebugMixin:
                                         x_coords = [c[0] for c in coords]
                                         y_coords = [c[1] for c in coords]
                                         z_coords = [c[2] for c in coords]
-                                        logger.info(f"         Coordinate ranges: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
+                                        logger.debug(f"         Coordinate ranges: X:{min(x_coords)}-{max(x_coords)} Y:{min(y_coords)}-{max(y_coords)} Z:{min(z_coords)}-{max(z_coords)}")
                             else:
-                                logger.info(f"         [STATS] Sample data: No neurons firing")
+                                logger.debug(f"         [STATS] Sample data: No neurons firing")
                         
                         # Check queue status
                         if hasattr(fq_sampler, 'output_queue'):
                             try:
                                 queue_size = fq_sampler.output_queue.qsize()
-                                logger.info(f"         Output queue: {queue_size} items")
+                                logger.debug(f"         Output queue: {queue_size} items")
                             except:
-                                logger.info(f"         Output queue: Status unknown")
+                                logger.debug(f"         Output queue: Status unknown")
                                 
                     except Exception as sampler_error:
-                        logger.info(f"      FQSampler-{i+1}: ERROR - {sampler_error}")
+                        logger.debug(f"      FQSampler-{i+1}: ERROR - {sampler_error}")
             else:
-                logger.info(f"   FQ Samplers: NONE REGISTERED")
+                logger.debug(f"   FQ Samplers: NONE REGISTERED")
             
             # === MOTOR/VISUALIZATION STREAM DEBUGGING ===
             if self._fq_samplers:
-                logger.info(f"Motor & Visualization Stream Debug:")
+                logger.debug(f"Motor & Visualization Stream Debug:")
                 
                 # Check if any samplers are active for motor output
                 motor_active_count = 0
@@ -232,11 +232,11 @@ class BurstEngineDebugMixin:
                     if getattr(sampler, '_has_visualization_subscribers', False):
                         viz_active_count += 1
                 
-                logger.info(f"   Motor stream: {motor_active_count} active samplers")
-                logger.info(f"   Visualization stream: {viz_active_count} active samplers")
+                logger.debug(f"   Motor stream: {motor_active_count} active samplers")
+                logger.debug(f"   Visualization stream: {viz_active_count} active samplers")
                 
                 if motor_active_count == 0 and viz_active_count == 0:
-                    logger.info(f"   [WARN]  WARNING: No active subscribers - streams may be inactive!")
+                    logger.debug(f"   [WARN]  WARNING: No active subscribers - streams may be inactive!")
                 
                 # Sample recent data from each active FQ sampler
                 for i, fq_sampler in enumerate(self._fq_samplers):
@@ -244,7 +244,7 @@ class BurstEngineDebugMixin:
                         getattr(fq_sampler, '_has_visualization_subscribers', False) or 
                         getattr(fq_sampler, '_has_motor_subscribers', False)
                     ):
-                        logger.info(f"   [STATS] FQSampler-{i+1} Recent Sample:")
+                        logger.debug(f"   [STATS] FQSampler-{i+1} Recent Sample:")
                         
                         # Try to get per-area samples for key areas
                         if hasattr(fq_sampler, 'connectome_manager') and fq_sampler.connectome_manager:
@@ -260,16 +260,16 @@ class BurstEngineDebugMixin:
                                         area_sample = fq_sampler._get_area_fire_queue_data(area_id)
                                         if area_sample and area_sample.get('neuron_ids'):
                                             neuron_count = len(area_sample['neuron_ids'])
-                                            logger.info(f"      {area_id}: {neuron_count} active neurons")
+                                            logger.debug(f"      {area_id}: {neuron_count} active neurons")
                                             sampled_any = True
                                 
                                 if not sampled_any:
-                                    logger.info(f"      No area samples available")
+                                    logger.debug(f"      No area samples available")
                                     
                             except Exception as sample_error:
-                                logger.info(f"      Sample error: {sample_error}")
+                                logger.debug(f"      Sample error: {sample_error}")
             
-            logger.info(f"[DEBUG] ========================================\n")
+            logger.debug(f"[DEBUG] ========================================\n")
             
         except Exception as e:
             logger.error(f"[DEBUG] NPU DEBUG ERROR: Failed to display fire queue - {e}")

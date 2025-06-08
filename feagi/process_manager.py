@@ -355,6 +355,35 @@ class ProcessManager:
                     
                     logger.info(f"[OK] Rust/RTOS compatible FQ Samplers created: motor={motor_enabled}, viz={visualization_enabled}")
                     
+                    # --- Start FQ Sampler Threads (CRITICAL: They need to run to function!) ---
+                    import threading
+                    
+                    # Start Motor FQ Sampler thread
+                    if self._motor_fq_sampler is not None:
+                        self._motor_fq_thread = threading.Thread(
+                            target=self._motor_fq_sampler.run,
+                            name="MotorFQSampler",
+                            daemon=True
+                        )
+                        self._motor_fq_thread.start()
+                        logger.info("🔥 Motor FQ Sampler thread started")
+                    else:
+                        self._motor_fq_thread = None
+                    
+                    # Start Visualization FQ Sampler thread  
+                    if self._viz_fq_sampler is not None:
+                        self._viz_fq_thread = threading.Thread(
+                            target=self._viz_fq_sampler.run,
+                            name="VisualizationFQSampler",
+                            daemon=True
+                        )
+                        self._viz_fq_thread.start()
+                        logger.info("🔥 Visualization FQ Sampler thread started")
+                    else:
+                        self._viz_fq_thread = None
+                    
+                    logger.info(f"🔥 FQ Sampler threads running: motor={self._motor_fq_thread is not None}, viz={self._viz_fq_thread is not None}")
+                    
                 except Exception as e:
                     logger.error(f"Failed to initialize FQ Samplers: {e}")
                     self._motor_fq_sampler = None
@@ -909,7 +938,13 @@ class ProcessManager:
                 print("Stopping Motor FQSampler...", file=sys.stderr, flush=True)
                 try:
                     self._motor_fq_sampler.stop()
+                    # Wait for thread to finish
+                    if hasattr(self, '_motor_fq_thread') and self._motor_fq_thread and self._motor_fq_thread.is_alive():
+                        self._motor_fq_thread.join(timeout=2.0)
+                        if self._motor_fq_thread.is_alive():
+                            print("Motor FQ Sampler thread did not stop within timeout", file=sys.stderr, flush=True)
                     self._motor_fq_sampler = None
+                    self._motor_fq_thread = None
                 except Exception as e:
                     print(f"Error stopping Motor FQSampler: {e}", file=sys.stderr, flush=True)
             
@@ -918,7 +953,13 @@ class ProcessManager:
                 print("Stopping Visualization FQSampler...", file=sys.stderr, flush=True)
                 try:
                     self._viz_fq_sampler.stop()
+                    # Wait for thread to finish
+                    if hasattr(self, '_viz_fq_thread') and self._viz_fq_thread and self._viz_fq_thread.is_alive():
+                        self._viz_fq_thread.join(timeout=2.0)
+                        if self._viz_fq_thread.is_alive():
+                            print("Visualization FQ Sampler thread did not stop within timeout", file=sys.stderr, flush=True)
                     self._viz_fq_sampler = None
+                    self._viz_fq_thread = None
                 except Exception as e:
                     print(f"Error stopping Visualization FQSampler: {e}", file=sys.stderr, flush=True)
             

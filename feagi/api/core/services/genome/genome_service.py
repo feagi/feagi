@@ -38,7 +38,7 @@ class GenomeService(BaseService):
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
         self._brain_service = brain_service  # Reference to existing brain service
         
-        print(f"[DEBUG] GENOME SERVICE: Initialized with brain_service: {brain_service is not None}")
+        self.logger.debug(f"GENOME SERVICE: Initialized with brain_service: {brain_service is not None}")
         if brain_service:
             self.logger.info("[DEBUG] GENOME SERVICE: Using provided brain service instance")
         else:
@@ -324,13 +324,17 @@ class GenomeService(BaseService):
             self.logger.info("Updating burst engine with newly developed brain...")
             try:
                 from feagi.npu.burst_engine import BurstEngine
+                self.logger.debug("GENOME SERVICE: Looking for burst engine instance...")
                 burst_engine = BurstEngine.get_instance()
                 if burst_engine:
+                    self.logger.debug("GENOME SERVICE: Found burst engine, calling update_with_genome()...")
                     burst_engine.update_with_genome()
                     self.logger.info("[OK] Burst engine updated with new genome - injection service reinitialized")
                 else:
+                    self.logger.debug("GENOME SERVICE: No burst engine instance found!")
                     self.logger.warning("No burst engine instance found - injection service may not be available")
             except Exception as e:
+                self.logger.debug(f"GENOME SERVICE: Exception updating burst engine: {str(e)}")
                 self.logger.warning(f"Error updating burst engine with genome: {str(e)}")
                 # Don't fail the genome loading because of this
             
@@ -429,10 +433,10 @@ class GenomeService(BaseService):
                             # Properly start the burst engine through the brain service
                             try:
                                 if self._brain_service:
-                                    print(f"[DEBUG] GENOME SERVICE: Using existing brain service for auto-start")
+                                    self.logger.debug("GENOME SERVICE: Using existing brain service for auto-start")
                                     success = self._brain_service.start_burst_engine()
                                 else:
-                                    print(f"[DEBUG] GENOME SERVICE: Creating temporary brain service for auto-start")
+                                    self.logger.debug("GENOME SERVICE: Creating temporary brain service for auto-start")
                                     from feagi.api.core.services.brain.brain_service import BrainService
                                     brain_service = BrainService(self._connectome_manager, self.state_manager)
                                     success = brain_service.start_burst_engine()
@@ -765,28 +769,35 @@ class GenomeService(BaseService):
             Dict containing success status and error information
         """
         try:
+            self.logger.debug(f"GENOME SERVICE: load_default_genome called with genome_name: {genome_name}")
             # Normalize genome name
             genome_name = genome_name.replace('.json', '')
             genome_filename = f"{genome_name}_genome.json"
+            self.logger.debug(f"GENOME SERVICE: Looking for genome file: {genome_filename}")
             
             # Find genome file using clean path resolution
             genome_path = self._find_default_genome_path(genome_filename)
             if not genome_path:
+                self.logger.debug(f"GENOME SERVICE: Genome file not found: {genome_filename}")
                 return {"success": False, "error": f"Default genome '{genome_name}' not found"}
                 
+            self.logger.debug(f"GENOME SERVICE: Found genome file at: {genome_path}")
             self.logger.info(f"Loading {genome_name} genome from {genome_path}")
                 
             # Load and process genome
             with genome_path.open('r') as f:
                 genome_data = json.load(f)
             
+            self.logger.debug("GENOME SERVICE: Loaded genome data, calling load_genome()...")
             # Update state manager
             if self.state_manager:
                 self.state_manager.genome_file_name = genome_filename
             
             # Load genome through the main pipeline
             self._genome_filename = genome_filename
-            return self.load_genome(genome_data, genome_filename)
+            result = self.load_genome(genome_data, genome_filename)
+            self.logger.debug(f"GENOME SERVICE: load_genome returned: {result.get('success', 'unknown')}")
+            return result
             
         except Exception as e:
             self.logger.error(f"Failed to load {genome_name} genome: {str(e)}")

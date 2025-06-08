@@ -30,6 +30,7 @@ import ctypes
 import mmap
 import os
 import tempfile
+import threading
 from enum import IntEnum, Enum
 from typing import Optional
 import time
@@ -143,6 +144,16 @@ class FeagiStateStruct(ctypes.Structure):
         ("brain_readiness", ctypes.c_uint8),  # 0 = False, 1 = True
         ("test_visualization_mode", ctypes.c_uint8),  # 0 = False, 1 = True
         ("genome_timestamp", ctypes.c_uint64),  # Timestamp (milliseconds) when genome was last loaded/changed
+        # Simple agent counts for FQ sampler compatibility (kept in binary structure)
+        ("agents_with_visualization", ctypes.c_uint32),  # Count of agents with visualization capability
+        ("agents_with_motor", ctypes.c_uint32),  # Count of agents with motor capability  
+        ("agents_with_sensory", ctypes.c_uint32),  # Count of agents with sensory capability
+        ("last_agent_registry_update", ctypes.c_uint64),  # Timestamp of last agent registry change
+        # Legacy fields (kept for compatibility)
+        ("visualization_client_count", ctypes.c_uint32),  # Number of connected visualization clients
+        ("motor_client_count", ctypes.c_uint32),  # Number of connected motor clients  
+        ("visualization_sampling_enabled", ctypes.c_uint8),  # 0 = False, 1 = True
+        ("motor_sampling_enabled", ctypes.c_uint8),  # 0 = False, 1 = True
         # SIMD Configuration (centralized detection results)
         ("simd_available", ctypes.c_uint8),  # 0 = False, 1 = True
         ("simd_backend", ctypes.c_uint8),    # Backend enum value (0=scalar, 1=SSE2, 2=AVX, etc.)
@@ -189,6 +200,30 @@ _SIMD_BACKEND_VALUES = {
 }
 
 _SIMD_BACKEND_INTS = {v: k for k, v in _SIMD_BACKEND_VALUES.items()}
+
+# Agent Capability Flags for centralized agent registry
+class AgentCapability:
+    """Bit flags for agent capabilities"""
+    NONE = 0
+    VISUALIZATION = 1  # Can receive visualization data
+    MOTOR = 2          # Can receive motor data  
+    SENSORY = 4        # Can send sensory data
+    BRAIN_CONTROL = 8  # Can control brain parameters
+    GENOME_EDIT = 16   # Can modify genome
+    ALL = 31          # All capabilities combined
+
+# Agent Type mappings
+_AGENT_TYPE_VALUES = {
+    0: "UNKNOWN",
+    1: "BRIDGE", 
+    2: "CONNECTOR",
+    3: "EXTERNAL",
+    4: "INTERNAL", 
+    5: "SIMULATOR",
+    6: "VISUALIZER"
+}
+
+_AGENT_TYPE_INTS = {v: k for k, v in _AGENT_TYPE_VALUES.items()}
 
 class ServiceState(Enum):
     UNAVAILABLE = "UNAVAILABLE"
@@ -347,6 +382,14 @@ class FeagiStateManager:
         # Format: {timestamp: {"frequency_hz": float, "measurement_duration_s": float, "performance_status": str}}
         self._frequency_measurement_history = {}
         self._max_frequency_history_entries = 100  # Keep last 100 measurements
+        
+        # Comprehensive agent registry (not in binary structure - Python only)
+        self._agent_registry = {
+            "connected_visualization_agents": set(),
+            "connected_sensorimotor_agents": set(), 
+            "agent_properties": {}
+        }
+        self._agent_registry_lock = threading.Lock()
 
     def cleanup(self):
         """Clean up resources and delete the state file on shutdown"""
@@ -374,7 +417,7 @@ class FeagiStateManager:
         old = GenomeState(self.state_ptr.contents.genome_state)
         self.state_ptr.contents.genome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[DNA]", "Genome state changed", old.name, state.name)
+        self._log_state_change("GenomeState", old, state)
         self._notify_state_change("genome", old, state)
     
     # ===== Connectome State =====
@@ -388,7 +431,7 @@ class FeagiStateManager:
         old = ConnectomeState(self.state_ptr.contents.connectome_state)
         self.state_ptr.contents.connectome_state = int(state)
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[WEB]", "Connectome state changed", old.name, state.name)
+        self._log_state_change("ConnectomeState", old, state)
         self._notify_state_change("connectome", old, state)
 
     # ===== API State =====
@@ -403,7 +446,7 @@ class FeagiStateManager:
         old_state = self.get_api_state()
         self.state_ptr.contents.api_state = int(state)
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[NET]", "REST API state changed", old_state.name, state.name)
+        self._log_state_change("APIState", old_state, state)
         self._notify_state_change("API", old_state, state)
 
     # ===== ZMQ State =====
@@ -418,7 +461,7 @@ class FeagiStateManager:
         old_state = self.get_zmq_state()
         self.state_ptr.contents.zmq_state = int(state)
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[NET]", "ZMQ state changed", old_state.name, state.name)
+        self._log_state_change("ZMQState", old_state, state)
         self._notify_state_change("ZMQ", old_state, state)
 
     # ===== Agent Count =====
@@ -431,7 +474,212 @@ class FeagiStateManager:
         old_count = self.state_ptr.contents.agent_count
         self.state_ptr.contents.agent_count = count
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[AGENT]", "Agent count changed", old_count, count)
+        self._log_state_change("AgentCount", old_count, count)
+
+    # ===== Comprehensive Agent Registry =====
+    def register_agent(self, agent_id: str, agent_type: str = None, capabilities: dict = None, 
+                      agent_data_port: int = None, agent_version: str = None, 
+                      controller_version: str = None, agent_ip: str = None) -> None:
+        """
+        Register an agent with full capability structure and metadata.
+        
+        Args:
+            agent_id: Unique identifier for the agent
+            agent_type: Type of agent (optional, will be determined from capabilities if not provided)
+            capabilities: Full capabilities dictionary structure
+            agent_data_port: Port number for agent data communication
+            agent_version: Version of the agent software
+            controller_version: Version of the controller software
+            agent_ip: IP address of the agent (optional)
+        """
+        with self._agent_registry_lock:
+            timestamp = time.time()
+            
+            # Determine agent type from capabilities if not provided
+            if not agent_type and capabilities:
+                agent_type = self._determine_agent_type(capabilities)
+            elif not agent_type:
+                agent_type = "unknown"
+            
+            # Generate router address if IP and port are provided
+            agent_router_address = None
+            if agent_ip and agent_data_port:
+                agent_router_address = f"tcp://{agent_ip}:{agent_data_port}"
+            
+            # Add to agent properties with full metadata
+            self._agent_registry["agent_properties"][agent_id] = {
+                "capabilities": capabilities or {},
+                "type": agent_type,
+                "agent_data_port": agent_data_port,
+                "agent_version": agent_version,
+                "controller_version": controller_version,
+                "agent_ip": agent_ip,
+                "agent_router_address": agent_router_address,
+                "connection_log": [{"event": "connected", "timestamp": timestamp}],
+                "last_activity": timestamp,
+                "registration_timestamp": timestamp
+            }
+            
+            # Add to appropriate connected agent sets based on capabilities
+            if self._has_visualization_capabilities(capabilities or {}):
+                self._agent_registry["connected_visualization_agents"].add(agent_id)
+                
+            if self._has_sensorimotor_capabilities(capabilities or {}):
+                self._agent_registry["connected_sensorimotor_agents"].add(agent_id)
+            
+            # Update binary structure counts for FQ sampler compatibility  
+            self._update_agent_counts()
+            self.state_ptr.contents.last_agent_registry_update = int(timestamp * 1000)
+            self.state_ptr.contents.state_version += 1
+            
+            logger.info(f"Registered agent {agent_id} (type: {agent_type}, port: {agent_data_port})")
+    
+    def unregister_agent(self, agent_id: str) -> None:
+        """
+        Unregister an agent and remove from all tracking.
+        
+        Args:
+            agent_id: Unique identifier for the agent to remove
+        """
+        with self._agent_registry_lock:
+            if agent_id not in self._agent_registry["agent_properties"]:
+                logger.warning(f"Attempted to unregister unknown agent: {agent_id}")
+                return
+                
+            timestamp = time.time()
+            
+            # Log disconnection
+            self._agent_registry["agent_properties"][agent_id]["connection_log"].append({
+                "event": "disconnected", 
+                "timestamp": timestamp
+            })
+            
+            # Remove from connected sets
+            self._agent_registry["connected_visualization_agents"].discard(agent_id)
+            self._agent_registry["connected_sensorimotor_agents"].discard(agent_id)
+            
+            # Remove from agent properties  
+            del self._agent_registry["agent_properties"][agent_id]
+            
+            # Update binary structure counts
+            self._update_agent_counts()
+            self.state_ptr.contents.last_agent_registry_update = int(timestamp * 1000)
+            self.state_ptr.contents.state_version += 1
+            
+            logger.info(f"Unregistered agent {agent_id}")
+    
+    def get_connected_agents(self, capability_type: str = None) -> set:
+        """
+        Get set of connected agent IDs, optionally filtered by capability type.
+        
+        Args:
+            capability_type: Optional filter ("visualization", "sensorimotor", None for all)
+            
+        Returns:
+            Set of agent IDs
+        """
+        with self._agent_registry_lock:
+            if capability_type == "visualization":
+                return self._agent_registry["connected_visualization_agents"].copy()
+            elif capability_type == "sensorimotor":
+                return self._agent_registry["connected_sensorimotor_agents"].copy()
+            else:
+                # Return all connected agents
+                all_agents = set()
+                all_agents.update(self._agent_registry["connected_visualization_agents"])
+                all_agents.update(self._agent_registry["connected_sensorimotor_agents"])
+                return all_agents
+    
+    def get_agent_properties(self, agent_id: str) -> dict:
+        """
+        Get full properties for a specific agent.
+        
+        Args:
+            agent_id: Agent identifier
+            
+        Returns:
+            Dictionary with agent properties or None if not found
+        """
+        with self._agent_registry_lock:
+            return self._agent_registry["agent_properties"].get(agent_id, {}).copy()
+    
+    def get_agent_registry_summary(self) -> dict:
+        """
+        Get comprehensive summary of agent registry state.
+        
+        Returns:
+            Dictionary with registry state including counts and agent lists
+        """
+        with self._agent_registry_lock:
+            return {
+                "connected_visualization_agents": list(self._agent_registry["connected_visualization_agents"]),
+                "connected_sensorimotor_agents": list(self._agent_registry["connected_sensorimotor_agents"]),
+                "total_agents": len(self._agent_registry["agent_properties"]),
+                "agent_count_viz": len(self._agent_registry["connected_visualization_agents"]),
+                "agent_count_sensorimotor": len(self._agent_registry["connected_sensorimotor_agents"]),
+                "last_update": self.state_ptr.contents.last_agent_registry_update,
+            }
+    
+    # FQ Sampler compatibility methods (use binary structure counts)
+    def has_visualization_agents(self) -> bool:
+        """Check if any agents with visualization capability are connected"""
+        return self.state_ptr.contents.agents_with_visualization > 0
+        
+    def has_motor_agents(self) -> bool:
+        """Check if any agents with motor capability are connected (alias for sensorimotor)"""
+        return self.state_ptr.contents.agents_with_motor > 0
+        
+    def has_sensory_agents(self) -> bool:
+        """Check if any agents with sensory capability are connected"""
+        return self.state_ptr.contents.agents_with_sensory > 0
+    
+    def get_agents_with_visualization(self) -> int:
+        """Get count of agents with visualization capability"""
+        return self.state_ptr.contents.agents_with_visualization
+        
+    def get_agents_with_motor(self) -> int:
+        """Get count of agents with motor capability"""
+        return self.state_ptr.contents.agents_with_motor
+        
+    def get_agents_with_sensory(self) -> int:
+        """Get count of agents with sensory capability"""
+        return self.state_ptr.contents.agents_with_sensory
+    
+    # Helper methods
+    def _has_visualization_capabilities(self, capabilities: dict) -> bool:
+        """Check if capabilities dictionary indicates visualization support"""
+        if isinstance(capabilities, dict):
+            return "visualization" in capabilities
+        return False
+    
+    def _has_sensorimotor_capabilities(self, capabilities: dict) -> bool:
+        """Check if capabilities dictionary indicates sensorimotor support"""
+        # Look for input/output capabilities in the structure
+        if isinstance(capabilities, dict):
+            return "input" in capabilities or "output" in capabilities
+        return False
+    
+    def _determine_agent_type(self, capabilities: dict) -> str:
+        """Determine agent type based on capabilities structure"""
+        if not isinstance(capabilities, dict):
+            return "unknown"
+            
+        if "visualization" in capabilities:
+            return "visualization"
+        elif "input" in capabilities or "output" in capabilities:
+            return "sensorimotor"
+        elif "timeseries_database" in capabilities:
+            return "database"
+        else:
+            return "unknown"
+    
+    def _update_agent_counts(self) -> None:
+        """Update binary structure counts based on current registry state"""
+        self.state_ptr.contents.agents_with_visualization = len(self._agent_registry["connected_visualization_agents"])
+        self.state_ptr.contents.agents_with_motor = len(self._agent_registry["connected_sensorimotor_agents"])  
+        self.state_ptr.contents.agents_with_sensory = len(self._agent_registry["connected_sensorimotor_agents"])
+        self.state_ptr.contents.agent_count = len(self._agent_registry["agent_properties"])
+
 
     # ===== Burst Engine State =====
     def get_burst_engine_state(self) -> ServiceState:
@@ -452,7 +700,7 @@ class FeagiStateManager:
         
         self.state_ptr.contents.burst_engine_state = int_value
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[BURST]", "Burst Engine state changed", old_state.name, state.name)
+        self._log_state_change("BurstEngineState", old_state, state)
         # Use the category key from the notification callbacks dict
         self._notify_state_change("burst_engine", old_state, state)
 
@@ -468,7 +716,7 @@ class FeagiStateManager:
         self.state_ptr.contents.state_version += 1
         
         # Always log frequency changes since this is important for monitoring
-        self._log_state_change("[FREQ]", f"Target burst frequency changed", f"{old_frequency:.1f}Hz", f"{frequency:.1f}Hz")
+        self._log_state_change("BurstFrequency", f"{old_frequency:.1f}Hz", f"{frequency:.1f}Hz")
 
     # ===== Simulation State =====
     def get_simulation_state(self) -> SimulationState:
@@ -481,7 +729,7 @@ class FeagiStateManager:
         old = SimulationState(self.state_ptr.contents.simulation_state)
         self.state_ptr.contents.simulation_state = int(state)
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[SIM]", "Simulation state changed", old.name, state.name)
+        self._log_state_change("SimulationState", old, state)
         self._notify_state_change("simulation", old, state)
         
     # ===== FQSampler State =====
@@ -496,7 +744,7 @@ class FeagiStateManager:
         old_state = self.get_fq_sampler_state()
         self.state_ptr.contents.fq_sampler_state = int(state)
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[TARGET]", "FQSampler state changed", old_state.name, state.name)
+        self._log_state_change("FQSamplerState", old_state, state)
         self._notify_state_change("FQ Sampler", old_state, state)
 
     # ===== FQSampler Frequency =====
@@ -508,7 +756,7 @@ class FeagiStateManager:
         old_frequency = self.state_ptr.contents.fq_sampler_frequency
         self.state_ptr.contents.fq_sampler_frequency = frequency
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[TARGET]", "FQSampler frequency changed", f"{old_frequency:.1f}Hz", f"{frequency:.1f}Hz")
+        self._log_state_change("FQSamplerFrequency", f"{old_frequency:.1f}Hz", f"{frequency:.1f}Hz")
 
     # ===== FQSampler Consumer =====
     def get_fq_sampler_consumer(self) -> int:
@@ -522,7 +770,7 @@ class FeagiStateManager:
         consumer_names = {1: "Visualization", 2: "Motor", 3: "Both", 0: "None"}
         old_name = consumer_names.get(old_consumer, f"Code{old_consumer}")
         new_name = consumer_names.get(consumer, f"Code{consumer}")
-        self._log_state_change("[TARGET]", "FQSampler consumer changed", old_name, new_name)
+        self._log_state_change("FQSamplerConsumer", old_name, new_name)
 
     # ===== State Version =====
     def get_state_version(self) -> int:
@@ -560,7 +808,7 @@ class FeagiStateManager:
         old_counter = self.state_ptr.contents.genome_counter
         self.state_ptr.contents.genome_counter += 1
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[DNA]", "Genome counter incremented", old_counter, self.state_ptr.contents.genome_counter)
+        self._log_state_change("GenomeCounter", old_counter, self.state_ptr.contents.genome_counter)
         self.sync_to_disk()
 
     def get_brain_readiness(self) -> bool:
@@ -572,7 +820,7 @@ class FeagiStateManager:
         old = bool(self.state_ptr.contents.brain_readiness)
         self.state_ptr.contents.brain_readiness = 1 if ready else 0
         self.state_ptr.contents.state_version += 1
-        self._log_state_change("[BRAIN]", "Brain readiness changed", old, ready)
+        self._log_state_change("BrainReadiness", old, ready)
 
     def get_genome_timestamp(self) -> int:
         """Get the genome timestamp (milliseconds since epoch when genome was last loaded/changed)"""
@@ -586,7 +834,7 @@ class FeagiStateManager:
         # Convert timestamps to readable format for logging
         old_readable = datetime.datetime.fromtimestamp(old/1000).strftime('%Y-%m-%d %H:%M:%S') if old > 0 else "None"
         new_readable = datetime.datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%d %H:%M:%S')
-        self._log_state_change("[TIME]", "Genome timestamp changed", old_readable, new_readable)
+        self._log_state_change("GenomeTimestamp", old_readable, new_readable)
 
     def get_test_visualization_mode(self) -> bool:
         """Get the test visualization mode flag (True if test visualization is enabled)"""
@@ -606,7 +854,7 @@ class FeagiStateManager:
         self.state_ptr.contents.test_visualization_mode = 1 if enabled else 0
         self.state_ptr.contents.state_version += 1
         if old != enabled:
-            self._log_state_change("[TEST]", "Test visualization mode changed", old, enabled)
+            self._log_state_change("TestVisualizationMode", old, enabled)
 
     def get_connectome(self):
         """Get the current connectome instance"""
@@ -929,7 +1177,7 @@ class FeagiStateManager:
         
         RTOS/Rust Compatible: Single detection, cached results.
         """
-        self._log_state_change("[INIT]", "Starting SIMD/GPU backend detection...")
+        self._log_state_message("[INIT]", "Starting SIMD/GPU backend detection...")
         
         try:
             # Import SIMD detection (may fail in SIMD-less environments)
@@ -957,11 +1205,11 @@ class FeagiStateManager:
             self.state_ptr.contents.state_version += 1
             
             # Comprehensive backend logging
-            self._log_state_change("[BACKEND]", f"🚀 SIMD/GPU Detection Complete")
-            self._log_state_change("[BACKEND]", f"├─ Platform: {caps.platform} ({caps.architecture})")
-            self._log_state_change("[BACKEND]", f"├─ Optimal Backend: {backend_name}")
-            self._log_state_change("[BACKEND]", f"├─ Vector Width: {caps.vector_width} (SIMD parallelism)")
-            self._log_state_change("[BACKEND]", f"├─ Memory Alignment: {self.state_ptr.contents.simd_alignment} bytes")
+            self._log_state_message("[BACKEND]", f"🚀 SIMD/GPU Detection Complete")
+            self._log_state_message("[BACKEND]", f"├─ Platform: {caps.platform} ({caps.architecture})")
+            self._log_state_message("[BACKEND]", f"├─ Optimal Backend: {backend_name}")
+            self._log_state_message("[BACKEND]", f"├─ Vector Width: {caps.vector_width} (SIMD parallelism)")
+            self._log_state_message("[BACKEND]", f"├─ Memory Alignment: {self.state_ptr.contents.simd_alignment} bytes")
             
             # CPU SIMD capabilities
             simd_features = []
@@ -973,9 +1221,9 @@ class FeagiStateManager:
             if caps.sve: simd_features.append("SVE")
             
             if simd_features:
-                self._log_state_change("[BACKEND]", f"├─ CPU SIMD Features: {', '.join(simd_features)}")
+                self._log_state_message("[BACKEND]", f"├─ CPU SIMD Features: {', '.join(simd_features)}")
             else:
-                self._log_state_change("[BACKEND]", f"├─ CPU SIMD Features: None (scalar only)")
+                self._log_state_message("[BACKEND]", f"├─ CPU SIMD Features: None (scalar only)")
             
             # GPU capabilities
             gpu_features = []
@@ -983,9 +1231,9 @@ class FeagiStateManager:
             if caps.webgpu_available: gpu_features.append("WebGPU")
             
             if gpu_features:
-                self._log_state_change("[BACKEND]", f"├─ GPU Features: {', '.join(gpu_features)}")
+                self._log_state_message("[BACKEND]", f"├─ GPU Features: {', '.join(gpu_features)}")
             else:
-                self._log_state_change("[BACKEND]", f"├─ GPU Features: None detected")
+                self._log_state_message("[BACKEND]", f"├─ GPU Features: None detected")
             
             # Performance expectations
             if caps.vector_width >= 16:
@@ -997,10 +1245,10 @@ class FeagiStateManager:
             else:
                 perf_tier = "Scalar (No SIMD)"
                 
-            self._log_state_change("[BACKEND]", f"└─ Performance Tier: {perf_tier}")
+            self._log_state_message("[BACKEND]", f"└─ Performance Tier: {perf_tier}")
             
             # Final summary
-            self._log_state_change("[SIMD]", f"✅ Acceleration enabled: {backend_name} backend ready for neural processing")
+            self._log_state_message("[SIMD]", f"✅ Acceleration enabled: {backend_name} backend ready for neural processing")
             return True
             
         except ImportError:
@@ -1015,11 +1263,11 @@ class FeagiStateManager:
             self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
             
             self.state_ptr.contents.state_version += 1
-            self._log_state_change("[BACKEND]", "⚠️ SIMD/GPU acceleration not available")
-            self._log_state_change("[BACKEND]", "├─ Backend: SCALAR (CPU-only)")
-            self._log_state_change("[BACKEND]", "├─ Reason: SIMD detection module not found")
-            self._log_state_change("[BACKEND]", "└─ Performance: Basic CPU processing")
-            self._log_state_change("[SIMD]", "❌ Using scalar fallback for neural processing")
+            self._log_state_message("[BACKEND]", "⚠️ SIMD/GPU acceleration not available")
+            self._log_state_message("[BACKEND]", "├─ Backend: SCALAR (CPU-only)")
+            self._log_state_message("[BACKEND]", "├─ Reason: SIMD detection module not found")
+            self._log_state_message("[BACKEND]", "└─ Performance: Basic CPU processing")
+            self._log_state_message("[SIMD]", "❌ Using scalar fallback for neural processing")
             return False
             
         except Exception as e:
@@ -1034,11 +1282,11 @@ class FeagiStateManager:
             self.state_ptr.contents.simd_initialization_timestamp = int(time.time() * 1000)
             
             self.state_ptr.contents.state_version += 1
-            self._log_state_change("[BACKEND]", f"❌ SIMD/GPU detection failed: {e}")
-            self._log_state_change("[BACKEND]", "├─ Backend: SCALAR (CPU-only)")
-            self._log_state_change("[BACKEND]", "├─ Reason: Hardware detection error")
-            self._log_state_change("[BACKEND]", "└─ Performance: Basic CPU processing")
-            self._log_state_change("[SIMD]", "❌ Using scalar fallback for neural processing")
+            self._log_state_message("[BACKEND]", f"❌ SIMD/GPU detection failed: {e}")
+            self._log_state_message("[BACKEND]", "├─ Backend: SCALAR (CPU-only)")
+            self._log_state_message("[BACKEND]", "├─ Reason: Hardware detection error")
+            self._log_state_message("[BACKEND]", "└─ Performance: Basic CPU processing")
+            self._log_state_message("[SIMD]", "❌ Using scalar fallback for neural processing")
             return False
 
     def get_simd_configuration(self) -> dict:
@@ -1083,18 +1331,18 @@ class FeagiStateManager:
         Call this after FEAGI initialization is complete to provide
         a complete overview of the system configuration.
         """
-        self._log_state_change("[STARTUP]", "🏁 FEAGI Initialization Summary")
-        self._log_state_change("[STARTUP]", "=" * 50)
+        self._log_state_message("[STARTUP]", "🏁 FEAGI Initialization Summary")
+        self._log_state_message("[STARTUP]", "=" * 50)
         
         # Core states
         genome_state = self.get_genome_state()
         connectome_state = self.get_connectome_state()
         simulation_state = self.get_simulation_state()
         
-        self._log_state_change("[STARTUP]", f"🧬 Genome State: {genome_state.name}")
-        self._log_state_change("[STARTUP]", f"🕸️  Connectome State: {connectome_state.name}")
-        self._log_state_change("[STARTUP]", f"🧪 Simulation State: {simulation_state.name}")
-        self._log_state_change("[STARTUP]", f"🧠 Brain Ready: {self.get_brain_readiness()}")
+        self._log_state_message("[STARTUP]", f"🧬 Genome State: {genome_state.name}")
+        self._log_state_message("[STARTUP]", f"🕸️  Connectome State: {connectome_state.name}")
+        self._log_state_message("[STARTUP]", f"🧪 Simulation State: {simulation_state.name}")
+        self._log_state_message("[STARTUP]", f"🧠 Brain Ready: {self.get_brain_readiness()}")
         
         # Service states
         api_state = self.get_api_state()
@@ -1102,55 +1350,73 @@ class FeagiStateManager:
         burst_state = self.get_burst_engine_state()
         fq_state = self.get_fq_sampler_state()
         
-        self._log_state_change("[STARTUP]", f"🌐 REST API: {api_state.name}")
-        self._log_state_change("[STARTUP]", f"⚡ ZMQ Service: {zmq_state.name}")
-        self._log_state_change("[STARTUP]", f"💥 Burst Engine: {burst_state.name}")
-        self._log_state_change("[STARTUP]", f"🎯 FQ Sampler: {fq_state.name}")
+        self._log_state_message("[STARTUP]", f"🌐 REST API: {api_state.name}")
+        self._log_state_message("[STARTUP]", f"⚡ ZMQ Service: {zmq_state.name}")
+        self._log_state_message("[STARTUP]", f"💥 Burst Engine: {burst_state.name}")
+        self._log_state_message("[STARTUP]", f"🎯 FQ Sampler: {fq_state.name}")
         
         # Performance configuration
         burst_freq = self.get_burst_frequency()
         fq_freq = self.get_fq_sampler_frequency()
         agent_count = self.get_agent_count()
         
-        self._log_state_change("[STARTUP]", f"⚡ Burst Frequency: {burst_freq:.1f}Hz")
-        self._log_state_change("[STARTUP]", f"🎯 FQ Frequency: {fq_freq:.1f}Hz")
-        self._log_state_change("[STARTUP]", f"🤖 Connected Agents: {agent_count}")
+        self._log_state_message("[STARTUP]", f"⚡ Burst Frequency: {burst_freq:.1f}Hz")
+        self._log_state_message("[STARTUP]", f"🎯 FQ Frequency: {fq_freq:.1f}Hz")
+        self._log_state_message("[STARTUP]", f"🤖 Connected Agents: {agent_count}")
         
         # SIMD/GPU summary
         simd_config = self.get_simd_configuration()
         if simd_config['available']:
-            self._log_state_change("[STARTUP]", f"🚀 Acceleration: {simd_config['backend']} (Vector Width: {simd_config['vector_width']})")
+            self._log_state_message("[STARTUP]", f"🚀 Acceleration: {simd_config['backend']} (Vector Width: {simd_config['vector_width']})")
         else:
-            self._log_state_change("[STARTUP]", f"🐌 Acceleration: SCALAR (No SIMD/GPU)")
+            self._log_state_message("[STARTUP]", f"🐌 Acceleration: SCALAR (No SIMD/GPU)")
         
         # Test modes
         test_viz = self.get_test_visualization_mode()
         if test_viz:
-            self._log_state_change("[STARTUP]", f"🧪 Test Visualization: ENABLED")
+            self._log_state_message("[STARTUP]", f"🧪 Test Visualization: ENABLED")
         
         # State version for debugging
         version = self.get_state_version()
-        self._log_state_change("[STARTUP]", f"📊 State Version: {version}")
+        self._log_state_message("[STARTUP]", f"📊 State Version: {version}")
         
-        self._log_state_change("[STARTUP]", "=" * 50)
-        self._log_state_change("[STARTUP]", "✅ FEAGI is ready for neural simulation!")
+        self._log_state_message("[STARTUP]", "=" * 50)
+        self._log_state_message("[STARTUP]", "✅ FEAGI is ready for neural simulation!")
 
-    def _log_state_change(self, category: str, message: str, old_value=None, new_value=None):
+    def _log_state_change(self, state_type: str, old_value, new_value):
         """
-        Centralized state change logging with consistent formatting.
+        Log state changes in the expected format: [state manager] {prior state} >> {new state}
+        
+        ENFORCED USAGE: This method requires exactly 3 parameters for actual state transitions.
+        For general logging messages, use _log_state_message() instead.
+        
+        Args:
+            state_type: Type of state that changed (e.g., "GenomeState", "ConnectomeState")
+            old_value: Previous state value
+            new_value: New state value
+        """
+        # Enforce correct usage pattern - this method is ONLY for state transitions
+        if state_type.startswith('[') and state_type.endswith(']'):
+            raise ValueError(
+                f"Invalid usage: _log_state_change() called with category tag '{state_type}'. "
+                f"Use _log_state_message() for general logging with category tags. "
+                f"_log_state_change() is reserved for actual state transitions only."
+            )
+        
+        if old_value != new_value:
+            old_str = str(old_value) if old_value is not None else "None"
+            new_str = str(new_value) if new_value is not None else "None"
+            logger.info(f"[state manager] {state_type}: {old_str} >> {new_str}")
+    
+    def _log_state_message(self, category: str, message: str):
+        """
+        Log informational state messages with category prefixes.
         
         Args:
             category: Category tag like "[DNA]", "[NET]", "[SIMD]"
             message: The main log message
-            old_value: Optional old value for transitions
-            new_value: Optional new value for transitions
         """
-        if old_value is not None and new_value is not None:
-            full_message = f"{message}: {old_value} → {new_value}"
-        else:
-            full_message = message
-            
-        logger.info(f"{category} {full_message}")
+        logger.info(f"{category} {message}")
 
 def get_state_manager():
     """Get the singleton instance of FeagiStateManager"""

@@ -205,19 +205,29 @@ class UnifiedFQSampler:
             # Get target areas based on strategy
             target_areas = self._get_target_areas()
             if not target_areas:
+                logger.debug(f"🔥 FQ SAMPLER: No target areas found for sampling")
                 return None
             
             # High-performance sampling with zero-copy operations
+            logger.debug(f"🔥 FQ SAMPLER: Target areas for sampling: {target_areas}")
             result = self._sample_areas_optimized(target_areas)
             
             # Update performance stats
             sample_time = time.perf_counter() - start_time
             self._update_performance_stats(sample_time, result is not None)
             
+            # Debug logging for successful samples
+            if result:
+                logger.debug(f"🔥 FQ SAMPLER: Sample result: {result}")
+                area_counts = {area: len(data.get('neuron_ids', [])) for area, data in result.items()}
+                total_neurons = sum(area_counts.values())
+                if total_neurons > 0:
+                    logger.info(f"🔥🔥🔥🔥🔥 FQ SAMPLER: Sampled {total_neurons} neurons from {len(result)} areas: {area_counts}")
+            
             return result
             
         except Exception as e:
-            logger.error(f"Error during sampling: {e}")
+            logger.error(f"🔥 FQ SAMPLER: Error during sampling: {e}")
             self._performance_stats['failed_samples'] += 1
             return None
 
@@ -226,7 +236,7 @@ class UnifiedFQSampler:
         mode = self.current_strategy.mode
         
         if mode == SamplingMode.VISUALIZATION:
-            return self._get_all_areas()
+            return self._get_visualization_areas()
         elif mode == SamplingMode.OPU:
             return self._get_opu_areas_cached()
         elif mode == SamplingMode.CUSTOM_AREAS:
@@ -234,14 +244,46 @@ class UnifiedFQSampler:
         
         return []
 
-    def _get_all_areas(self) -> List[str]:
-        """Get all available cortical areas."""
-
-        if self.connectome_manager:
+    def _get_visualization_areas(self) -> List[str]:
+        """Get all cortical areas for visualization (opt-out model: all areas unless visualization=false)."""
+        visualization_areas = []
+        
+        if not self.connectome_manager:
+            logger.debug(f"🔥 FQ SAMPLER: No connectome manager available for visualization areas")
+            return []
+            
+        try:
             if hasattr(self.connectome_manager, 'cortical_areas'):
-                areas = list(self.connectome_manager.cortical_areas.keys())
-                return areas
-        return []
+                for area_id, area_obj in self.connectome_manager.cortical_areas.items():
+                    try:
+                        # Default to True (opt-out model)
+                        visualization_enabled = True
+                        
+                        # Check if area properties explicitly disable visualization
+                        if hasattr(area_obj, 'properties') and area_obj.properties:
+                            visualization_enabled = area_obj.properties.get('visualization', True)
+                        
+                        if visualization_enabled:
+                            logger.debug(f"🔥 FQ SAMPLER: Area {area_id} included in visualization")
+                            visualization_areas.append(area_id)
+                        else:
+                            logger.debug(f"🔥 FQ SAMPLER: Area {area_id} excluded from visualization (visualization=false)")
+                            
+                    except Exception as e:
+                        logger.debug(f"🔥 FQ SAMPLER: Error checking area {area_id} for visualization: {e}")
+                        # Default to include in case of error
+                        visualization_areas.append(area_id)
+                        
+        except Exception as e:
+            logger.error(f"🔥 FQ SAMPLER: Error getting visualization areas: {e}")
+            
+        logger.info(f"🔥🔥🔥 FQ SAMPLER: Found {len(visualization_areas)} areas for visualization sampling: {visualization_areas[:5]}{'...' if len(visualization_areas) > 5 else ''}")
+        return visualization_areas
+
+    def _get_all_areas(self) -> List[str]:
+        """Get all available cortical areas (legacy method, use _get_visualization_areas instead)."""
+        # Keep for backward compatibility but delegate to proper method
+        return self._get_visualization_areas()
 
     def _get_opu_areas_cached(self) -> List[str]:
         """Get OPU areas with high-performance caching."""
@@ -254,27 +296,56 @@ class UnifiedFQSampler:
         
         # Refresh cache with optimized lookup
         opu_areas = []
-        if self.connectome_manager:
-            try:
-                # Fast lookup using cached connectome structure
-                if hasattr(self.connectome_manager, 'get_areas_by_type'):
-                    opu_areas = self.connectome_manager.get_areas_by_type('OPU')
-                else:
-                    # Optimized scan for OPU areas
-                    if hasattr(self.connectome_manager, 'cortical_areas'):
-                        for area_id, area_obj in self.connectome_manager.cortical_areas.items():
-                            try:
-                                if hasattr(area_obj, 'properties') and area_obj.properties.get('type') == 'OPU':
-                                    opu_areas.append(area_id)
-                            except Exception:
-                                continue
-            except Exception as e:
-                logger.warning(f"Error getting OPU areas: {e}")
+        if not self.connectome_manager:
+            logger.debug(f"🔥 FQ SAMPLER: No connectome manager available for OPU areas")
+            self._opu_areas_cache = []
+            self._cache_timestamp = current_time
+            return []
+            
+        try:
+            # Fast lookup using cached connectome structure
+            if hasattr(self.connectome_manager, 'get_areas_by_type'):
+                opu_areas = self.connectome_manager.get_areas_by_type('OPU')
+                logger.debug(f"🔥 FQ SAMPLER: Found OPU areas via get_areas_by_type: {opu_areas}")
+            else:
+                # Optimized scan for OPU areas - look for various OPU indicators
+                if hasattr(self.connectome_manager, 'cortical_areas'):
+                    for area_id, area_obj in self.connectome_manager.cortical_areas.items():
+                        try:
+                            is_opu = False
+                            
+                            # Check multiple possible OPU indicators
+                            if hasattr(area_obj, 'properties') and area_obj.properties:
+                                area_type = area_obj.properties.get('type', '').upper()
+                                cortical_area_type = area_obj.properties.get('cortical_area_type', '').upper()
+                                
+                                # Check for OPU type indicators
+                                if (area_type in ['OPU', 'MOTOR', 'OUTPUT'] or
+                                    cortical_area_type in ['OPU', 'MOTOR', 'OUTPUT'] or
+                                    'OPU' in area_type or
+                                    'MOTOR' in area_type):
+                                    is_opu = True
+                                    
+                            # Also check area name patterns (common convention)
+                            if not is_opu and ('opu' in area_id.lower() or 'motor' in area_id.lower()):
+                                is_opu = True
+                                
+                            if is_opu:
+                                opu_areas.append(area_id)
+                                logger.debug(f"🔥 FQ SAMPLER: Area {area_id} identified as OPU")
+                                
+                        except Exception as e:
+                            logger.debug(f"🔥 FQ SAMPLER: Error checking area {area_id} for OPU type: {e}")
+                            continue
+                            
+        except Exception as e:
+            logger.error(f"🔥 FQ SAMPLER: Error getting OPU areas: {e}")
         
         # Update cache
         self._opu_areas_cache = opu_areas
         self._cache_timestamp = current_time
         
+        logger.info(f"🔥 FQ SAMPLER: Found {len(opu_areas)} OPU areas for motor sampling: {opu_areas}")
         return opu_areas
 
     def _sample_areas_optimized(self, target_areas: List[str]) -> Optional[Dict[str, Any]]:
@@ -289,7 +360,7 @@ class UnifiedFQSampler:
         """
         
         if not target_areas or not self.fire_queue_provider:
-            print(f"   - Early return: target_areas={bool(target_areas)}, fire_queue_provider={bool(self.fire_queue_provider)}")
+            logger.debug(f"   - Early return: target_areas={bool(target_areas)}, fire_queue_provider={bool(self.fire_queue_provider)}")
             return None
         
         result = {}
@@ -356,8 +427,10 @@ class UnifiedFQSampler:
     def run(self) -> None:
         """Main sampling loop with deterministic timing."""
         self.running = True
-        logger.info(f"UnifiedFQSampler starting: mode={self.current_strategy.mode.value}, "
+        logger.info(f"🔥 FQ SAMPLER: Starting sampling loop: mode={self.current_strategy.mode.value}, "
                    f"frequency={self.sample_frequency}Hz")
+        
+        sample_count = 0
         
         try:
             while self.running:
@@ -366,12 +439,20 @@ class UnifiedFQSampler:
                 # Sample data if we have subscribers
                 if self._should_sample():
                     sample_data = self.sample()
+                    sample_count += 1
                     
                     if sample_data and self.output_queue:
                         try:
                             self.output_queue.put_nowait(sample_data)
+                            logger.info(f"🔥 FQ SAMPLER: Queued sample {sample_count} with data from {len(sample_data)} areas")
                         except Exception as e:
-                            logger.debug(f"Output queue error: {e}")
+                            logger.error(f"🔥 FQ SAMPLER: Output queue error: {e}")
+                    elif sample_data:
+                        if sample_count % 10 == 0:  # Log every 10 samples
+                            logger.info(f"🔥 FQ SAMPLER: Generated sample {sample_count} with {len(sample_data)} areas but no output queue")
+                    else:
+                        if sample_count % 30 == 0:  # Log every 30 empty samples
+                            logger.debug(f"🔥 FQ SAMPLER: Sample {sample_count} returned no data")
                 
                 # Deterministic timing control
                 elapsed = time.perf_counter() - start_time
@@ -380,16 +461,29 @@ class UnifiedFQSampler:
                     time.sleep(sleep_time)
                     
         except Exception as e:
-            logger.error(f"Fatal error in sampling loop: {e}")
+            logger.error(f"🔥 FQ SAMPLER: Fatal error in sampling loop: {e}")
         finally:
             self.running = False
-            logger.info("UnifiedFQSampler stopped")
+            logger.info(f"🔥 FQ SAMPLER: Sampling loop stopped after {sample_count} samples")
 
     def _should_sample(self) -> bool:
         """Determine if sampling should occur based on subscriber presence."""
-        return (self._has_visualization_subscribers or 
-                self._has_motor_subscribers or 
-                self.output_queue is not None)
+        should_sample = (self._has_visualization_subscribers or 
+                        self._has_motor_subscribers or 
+                        self.output_queue is not None)
+        
+        # Debug logging every 30 calls to avoid spam
+        if not hasattr(self, '_debug_counter'):
+            self._debug_counter = 0
+        self._debug_counter += 1
+        
+        if self._debug_counter % 30 == 0:  # Log every 30 calls
+            logger.info(f"🔥 FQ SAMPLER: _should_sample() = {should_sample} "
+                       f"(viz_subs={self._has_visualization_subscribers}, "
+                       f"motor_subs={self._has_motor_subscribers}, "
+                       f"output_queue={self.output_queue is not None})")
+        
+        return should_sample
 
     def stop(self) -> None:
         """Stop the sampler."""
@@ -398,13 +492,16 @@ class UnifiedFQSampler:
 
     def set_visualization_subscribers(self, has_subscribers: bool) -> None:
         """Set whether there are visualization subscribers."""
+        old_state = self._has_visualization_subscribers
         self._has_visualization_subscribers = has_subscribers
-        logger.debug(f"Visualization subscribers: {has_subscribers}")
+        logger.info(f"🔥 FQ SAMPLER: Visualization subscribers changed: {old_state} -> {has_subscribers}")
+        logger.info(f"🔥 FQ SAMPLER: _should_sample() now returns: {self._should_sample()}")
     
     def set_motor_subscribers(self, has_subscribers: bool) -> None:
         """Set whether there are motor subscribers."""
+        old_state = self._has_motor_subscribers
         self._has_motor_subscribers = has_subscribers
-        logger.debug(f"Motor subscribers: {has_subscribers}")
+        logger.info(f"🔥 FQ SAMPLER: Motor subscribers changed: {old_state} -> {has_subscribers}")
     
     def get_performance_stats(self) -> Dict[str, Any]:
         """Get performance statistics."""

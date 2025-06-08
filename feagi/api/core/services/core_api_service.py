@@ -196,6 +196,18 @@ class CoreAPIService:
     def get_unique_logs(self) -> List[str]:
         """Get unique log entries."""
         return self._system_service.get_unique_logs()
+    
+    def enable_visualization_fq_sampler(self) -> bool:
+        """Enable the visualization FQ sampler for brain visualizer connectivity."""
+        return self._system_service.enable_visualization_fq_sampler()
+    
+    def disable_visualization_fq_sampler(self) -> bool:
+        """Disable the visualization FQ sampler."""
+        return self._system_service.disable_visualization_fq_sampler()
+    
+    def get_fq_sampler_status(self) -> Dict[str, Any]:
+        """Get the current status of all FQ samplers."""
+        return self._system_service.get_fq_sampler_status()
 
     def get_burst_timer(self) -> float:
         """Get burst timer from burst engine."""
@@ -211,7 +223,10 @@ class CoreAPIService:
     
     def load_barebones_genome(self) -> Dict[str, Any]:
         """Load the barebones genome."""
-        return self._genome_service.load_default_genome("barebones")
+        print(f"[DEBUG] CORE API SERVICE: load_barebones_genome called, delegating to genome service")
+        result = self._genome_service.load_default_genome("barebones")
+        print(f"[DEBUG] CORE API SERVICE: genome service returned: {result.get('success', 'unknown')}")
+        return result
     
     def load_test_genome(self) -> Dict[str, Any]:
         """Load the test genome."""
@@ -474,52 +489,12 @@ class CoreAPIService:
     # AGENTS SERVICE DELEGATION
     # =================================================================
     
-    def get_connected_agents(self) -> List[Dict[str, Any]]:
-        """Get list of currently connected agents."""
-        return self._agents_service.get_connected_agents()
-    
-    def register_agent(self, agent_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Register a new agent."""
-        return self._agents_service.register_agent(agent_data)
-    
-    def unregister_agent(self, agent_id: str) -> Dict[str, Any]:
-        """Unregister an agent."""
-        return self._agents_service.unregister_agent(agent_id)
-    
-    def update_agent_status(self, agent_id: str, status: str, metadata: Dict[str, Any] = None) -> bool:
-        """Update agent status and metadata."""
-        return self._agents_service.update_agent_status(agent_id, status, metadata)
-    
-    def get_agent_details(self, agent_id: str) -> Optional[Dict[str, Any]]:
-        """Get detailed information about a specific agent."""
-        return self._agents_service.get_agent_details(agent_id)
-    
-    def send_message_to_agent(self, agent_id: str, message: Dict[str, Any]) -> Dict[str, Any]:
-        """Send a message to a specific agent."""
-        return self._agents_service.send_message_to_agent(agent_id, message)
-    
-    def broadcast_message(self, message: Dict[str, Any], agent_filter: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Broadcast a message to all connected agents or filtered subset."""
-        return self._agents_service.broadcast_message(message, agent_filter)
-    
-    def get_agent_statistics(self) -> Dict[str, Any]:
-        """Get agent statistics."""
-        return self._agents_service.get_agent_statistics()
-
-    def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
-        """Configure an agent with the given configuration."""
-        try:
-            # For now, implement a basic configuration update
-            # This could be extended to support more sophisticated agent configuration
-            result = self._agents_service.update_agent_status(agent_id, "configured", config)
-            self.logger.info(f"Agent {agent_id} configured with: {config}")
-            return result
-        except Exception as e:
-            self.logger.error(f"Error configuring agent {agent_id}: {str(e)}")
-            return False
-
     # =================================================================
-    # NETWORK SERVICE DELEGATION
+    # LEGACY AGENT METHODS (removed - using new comprehensive agent registry)  
+    # =================================================================
+    
+    # =================================================================
+    # NETWORK SERVICE DELEGATION  
     # =================================================================
     
     def get_network_status(self) -> Dict[str, Any]:
@@ -598,7 +573,6 @@ class CoreAPIService:
             
             if singleton_instance is None:
                 # Create singleton instance only if none exists
-                print(f"[DEBUG] CORE API: Creating singleton BurstEngine instance")
                 self.logger.info("[DEBUG] CORE API: Creating singleton BurstEngine instance")
                 
                 # Check for debug NPU flag and pass through config
@@ -606,9 +580,7 @@ class CoreAPIService:
                 engine_config = {'debug_npu': debug_npu}
                 
                 singleton_instance = BurstEngine(connectome_manager=self._connectome_manager, config=engine_config)
-            else:
-                print(f"[DEBUG] CORE API: Using existing singleton BurstEngine instance")
-                self.logger.info("[DEBUG] CORE API: Using existing singleton BurstEngine instance")
+            # Removed log spam: no longer log when using existing singleton
             
             return singleton_instance
             
@@ -669,21 +641,46 @@ class CoreAPIService:
             if not self._validate_genome_loaded():
                 return None
                 
+            # CRITICAL FIX: Convert cortical_id (string) to cortical_idx (integer)
+            cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+            if cortical_idx is None:
+                self.logger.debug(f"Could not find cortical_idx for cortical_id '{cortical_id}'")
+                return None
+                
             if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
-                area_fcl = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_id)  # Pass cortical_id directly
-                if area_fcl and hasattr(area_fcl, '__iter__'):
-                    neuron_ids = list(area_fcl)
+                # Get the BitMap from FCL manager
+                fcl_bitmap = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_idx)
+                
+                # Convert BitMap to the expected dictionary format
+                if fcl_bitmap and not fcl_bitmap.is_empty():
+                    # Convert BitMap to list of neuron IDs
+                    neuron_ids = list(fcl_bitmap)
+                    
+                    # Create the expected dictionary format for FQ sampler
                     return {
-                        'cortical_id': cortical_id,
                         'neuron_ids': neuron_ids,
-                        'membrane_potentials': [1.0] * len(neuron_ids),
-                        'thresholds': [1.0] * len(neuron_ids),
-                        'consecutive_fire_counts': [0] * len(neuron_ids),
-                        'refractory_counters': [0] * len(neuron_ids)
+                        'membrane_potentials': [0.0] * len(neuron_ids),  # Placeholder - neurons just fired
+                        'thresholds': [1.0] * len(neuron_ids),  # Placeholder
+                        'consecutive_fire_counts': [1] * len(neuron_ids),  # Just fired
+                        'refractory_counters': [0] * len(neuron_ids),  # Placeholder
+                        'coordinates': [(0, 0, 0)] * len(neuron_ids)  # Placeholder
                     }
-            return None
+                else:
+                    # No neurons firing in this area
+                    return {
+                        'neuron_ids': [],
+                        'membrane_potentials': [],
+                        'thresholds': [],
+                        'consecutive_fire_counts': [],
+                        'refractory_counters': [],
+                        'coordinates': []
+                    }
+            else:
+                self.logger.debug(f"FCL manager not available for area '{cortical_id}'")
+                return None
+                
         except Exception as e:
-            self.logger.error(f"Error getting area fire queue for {cortical_id}: {str(e)}")
+            self.logger.error(f"Error getting fire queue for area '{cortical_id}': {e}")
             return None
 
     def genome_is_loaded(self) -> bool:
@@ -935,8 +932,14 @@ class CoreAPIService:
             raise ValueError(f"Failed to get area FQ sample rate: {str(e)}")
     
     def get_burst_counter(self) -> int:
-        """Get current burst counter."""
+        """Get current burst counter - RTOS-safe."""
         try:
+            # RTOS-SAFE: Get actual burst count from burst engine
+            burst_engine = self.get_burst_engine()
+            if burst_engine and hasattr(burst_engine, 'burst_count'):
+                return burst_engine.burst_count
+            
+            # Fallback to state manager if burst engine not available
             if self.state_manager:
                 return getattr(self.state_manager, 'current_burst_id', 0)
             return 0
@@ -945,9 +948,22 @@ class CoreAPIService:
             return 0
     
     def update_burst_engine_config(self, config: Dict[str, Any]) -> bool:
-        """Update burst engine configuration."""
+        """Update burst engine configuration - RTOS-safe."""
         try:
-            # This would need implementation in brain service
+            # Get the singleton burst engine instance
+            burst_engine = self.get_burst_engine()
+            if not burst_engine:
+                self.logger.error("No burst engine instance available for config update")
+                return False
+            
+            # RTOS-SAFE: Update frequency if provided
+            if "burst_frequency_hz" in config:
+                frequency = config["burst_frequency_hz"]
+                if not burst_engine.update_frequency(frequency):
+                    self.logger.error(f"Failed to update burst frequency to {frequency}Hz")
+                    return False
+                self.logger.info(f"Updated burst frequency to {frequency}Hz")
+            
             return True
         except Exception as e:
             self.logger.error(f"Error updating burst engine config: {str(e)}")
@@ -1713,12 +1729,43 @@ class CoreAPIService:
     
     def get_frequency_status_summary(self) -> dict:
         """
-        Get current frequency status and latest measurement.
+        Get current frequency status and latest measurement - RTOS-safe.
         
         Returns:
             Dictionary with frequency status and latest measurement
         """
-        return self.state_manager.get_frequency_status_summary()
+        try:
+            # RTOS-SAFE: Get actual frequency data from burst engine
+            burst_engine = self.get_burst_engine()
+            if burst_engine:
+                frequency_config = burst_engine.get_frequency_config()
+                return {
+                    "target_frequency_hz": frequency_config.get("current_frequency_hz", 0.0),
+                    "has_measurements": burst_engine.burst_count > 0,
+                    "total_measurements": burst_engine.burst_count,
+                    "latest_measurement": {
+                        "frequency_hz": frequency_config.get("current_frequency_hz", 0.0),
+                        "burst_count": burst_engine.burst_count,
+                        "last_burst_time": getattr(burst_engine, 'last_burst_time', 0.0)
+                    } if burst_engine.burst_count > 0 else None
+                }
+            
+            # Fallback to state manager if burst engine not available
+            return self.state_manager.get_frequency_status_summary() if self.state_manager else {
+                "target_frequency_hz": 0.0,
+                "has_measurements": False,
+                "total_measurements": 0,
+                "latest_measurement": None
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting frequency status: {str(e)}")
+            return {
+                "target_frequency_hz": 0.0,
+                "has_measurements": False,
+                "total_measurements": 0,
+                "latest_measurement": None,
+                "error": str(e)
+            }
 
     def get_fire_queue_direct(self) -> Optional[np.ndarray]:
         """Get fire queue data directly from SoA structures - zero-copy access.
@@ -2435,3 +2482,154 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error getting restriction between {source_cortical_id} and {destination_cortical_id}: {str(e)}")
             return None
+
+    # =================================================================
+    # AGENT REGISTRY (State Manager Integration)
+    # =================================================================
+    
+    def register_agent(self, agent_id: str, agent_type: str = None, capabilities: dict = None,
+                      agent_data_port: int = None, agent_version: str = None, 
+                      controller_version: str = None) -> bool:
+        """
+        Register an agent with full capability structure and metadata.
+        
+        Args:
+            agent_id: Unique identifier for the agent
+            agent_type: Type of agent (optional, determined from capabilities if not provided)
+            capabilities: Full capabilities dictionary structure
+            agent_data_port: Port number for agent data communication
+            agent_version: Version of the agent software
+            controller_version: Version of the controller software
+            
+        Returns:
+            bool: True if registration successful
+        """
+        try:
+            if self.state_manager:
+                self.state_manager.register_agent(
+                    agent_id=agent_id,
+                    agent_type=agent_type,
+                    capabilities=capabilities,
+                    agent_data_port=agent_data_port,
+                    agent_version=agent_version,
+                    controller_version=controller_version
+                )
+                self.logger.info(f"Registered agent {agent_id} (type: {agent_type}, port: {agent_data_port})")
+                return True
+            else:
+                self.logger.warning("State manager not available for agent registration")
+                return False
+        except Exception as e:
+            self.logger.error(f"Failed to register agent {agent_id}: {e}")
+            return False
+            
+    def unregister_agent(self, agent_id: str) -> bool:
+        """
+        Unregister an agent and remove from all tracking.
+        
+        Args:
+            agent_id: Unique identifier for the agent to remove
+            
+        Returns:
+            bool: True if unregistration successful
+        """
+        try:
+            if self.state_manager:
+                self.state_manager.unregister_agent(agent_id)
+                self.logger.info(f"Unregistered agent {agent_id}")
+                return True
+            else:
+                self.logger.warning("State manager not available for agent unregistration")
+                return False
+        except Exception as e:
+            self.logger.error(f"Failed to unregister agent {agent_id}: {e}")
+            return False
+            
+    def get_connected_agents(self, capability_type: str = None) -> set:
+        """
+        Get set of connected agent IDs, optionally filtered by capability type.
+        
+        Args:
+            capability_type: Optional filter ("visualization", "sensorimotor", None for all)
+            
+        Returns:
+            Set of agent IDs
+        """
+        try:
+            if self.state_manager:
+                return self.state_manager.get_connected_agents(capability_type)
+            else:
+                self.logger.warning("State manager not available for agent list")
+                return set()
+        except Exception as e:
+            self.logger.error(f"Failed to get connected agents: {e}")
+            return set()
+
+    def get_agent_properties(self, agent_id: str) -> dict:
+        """
+        Get full properties for a specific agent.
+        
+        Args:
+            agent_id: Agent identifier
+            
+        Returns:
+            Dictionary with agent properties or empty dict if not found
+        """
+        try:
+            if self.state_manager:
+                return self.state_manager.get_agent_properties(agent_id)
+            else:
+                self.logger.warning("State manager not available for agent properties")
+                return {}
+        except Exception as e:
+            self.logger.error(f"Failed to get agent properties for {agent_id}: {e}")
+            return {}
+            
+    def get_agent_registry_summary(self) -> Dict[str, Any]:
+        """
+        Get comprehensive summary of the agent registry.
+        
+        Returns:
+            Dict containing agent registry state and statistics
+        """
+        try:
+            if self.state_manager:
+                return self.state_manager.get_agent_registry_summary()
+            else:
+                self.logger.warning("State manager not available for agent registry summary")
+                return {}
+        except Exception as e:
+            self.logger.error(f"Failed to get agent registry summary: {e}")
+            return {}
+            
+    def has_visualization_agents(self) -> bool:
+        """Check if any agents with visualization capability are connected"""
+        return self.state_manager.has_visualization_agents() if self.state_manager else False
+        
+    def has_motor_agents(self) -> bool:
+        """Check if any agents with motor capability are connected"""  
+        return self.state_manager.has_motor_agents() if self.state_manager else False
+        
+    def has_sensory_agents(self) -> bool:
+        """Check if any agents with sensory capability are connected"""
+        return self.state_manager.has_sensory_agents() if self.state_manager else False
+        
+    def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
+        """
+        Configure agent settings (placeholder for future implementation).
+        
+        Args:
+            agent_id: Agent identifier
+            config: Configuration dictionary
+            
+        Returns:
+            bool: True if configuration successful
+        """
+        try:
+            # For now, just log the configuration request
+            # Future implementation will handle agent-specific configuration
+            self.logger.info(f"Configuration request for agent {agent_id}: {config}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to configure agent {agent_id}: {e}")
+            return False

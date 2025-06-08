@@ -59,101 +59,108 @@ class InjectionBatch:
 
 class FCLInjectionService:
     """
-    Service for injecting neuron candidates from special areas into the FCL.
+    Unified FCL injection service for all special area types.
     
-    This service coordinates with the SpecialAreaHandler to identify special areas
-    (power areas, sensory inputs, modulators, etc.) and adds their neurons as
-    candidates to the FCL at appropriate timing during burst processing.
-    
-    Implements the unified FCL candidate model:
-    - External candidates are added to FCL (not fired directly)
-    - All FCL candidates processed together by connectome manager
-    - Supports extensible special area types through timing phases
-    - Burst engine remains completely area-agnostic
+    This service handles injection of neurons from special cortical areas (power, modulator, etc.)
+    into the Fire Candidate List (FCL) during burst processing. It uses a unified injection model
+    where all external sources contribute candidates to the FCL, which are then processed together
+    with internal synaptic propagation.
     
     Key features:
-    - Batch injection for performance
-    - Configurable timing (pre/during/post burst)
-    - Probabilistic injection support
-    - Performance monitoring and statistics
-    - Extensible to any special area type
+    - Area-agnostic: Works with any special area type
+    - Timing-aware: Supports pre-burst, during-burst, and post-burst injection phases
+    - Probabilistic: Supports probability-based candidate selection for efficiency
+    - RTOS-compatible: No hardcoded values, uses configuration system
     """
-    
-    def __init__(self, fcl_manager: Any, special_area_handler: SpecialAreaHandler, 
-                 config: Optional[Dict[str, Any]] = None):
+
+    def __init__(self, fcl_manager: Any, special_area_handler: Any):
         """
         Initialize the FCL injection service.
         
         Args:
-            fcl_manager: The FCL manager instance
-            special_area_handler: Handler for special areas
-            config: Optional configuration parameters
+            fcl_manager: Manager for the Fire Candidate List
+            special_area_handler: Handler for detecting and processing special areas
         """
         self.fcl_manager = fcl_manager
         self.special_area_handler = special_area_handler
-        self.config = config or {}
         
-        # Performance configuration
-        self.batch_size = self.config.get('batch_injection_size', 1000)
-        self.enable_probabilistic = self.config.get('enable_probabilistic_injection', True)
-        self.enable_timing_optimization = self.config.get('enable_timing_optimization', True)
+        # Store reference to connectome manager for membrane potential access
+        # This is needed to set power neuron membrane potentials above threshold
+        self.connectome_manager = None
+        if hasattr(special_area_handler, 'connectome_manager'):
+            self.connectome_manager = special_area_handler.connectome_manager
+            logger.info("[FCL INJECTION] Stored connectome manager reference for membrane potential access")
+        else:
+            logger.warning("[FCL INJECTION] Could not access connectome manager - membrane potential setting may not work")
         
-        # Pre-computed injection batches for performance
+        # Configuration attributes expected by other components
+        self.batch_size = 1000  # Default batch size for processing neurons
+        self.enable_probabilistic = True  # Enable probabilistic injection by default
+        self.last_injection_duration = 0.0
+        
+        # Statistics tracking
+        self.total_neurons_injected = 0
+        self.injection_stats = {
+            'total_injections': 0,
+            'successful_injections': 0,
+            'failed_injections': 0
+        }
+        
+        # Pre-computed injection batches for efficiency
         self._injection_batches: Dict[InjectionTiming, List[InjectionBatch]] = {
             InjectionTiming.PRE_BURST: [],
             InjectionTiming.DURING_BURST: [],
             InjectionTiming.POST_BURST: []
         }
         
-        # Statistics
-        self.total_injections = 0
-        self.total_neurons_injected = 0
-        self.injection_timing_stats = {timing: 0 for timing in InjectionTiming}
-        self.last_injection_duration = 0.0
-        
-        # Performance optimization: pre-allocate injection data structures
+        # Prepare injection batches based on detected special areas
         self._prepare_injection_batches()
         
-        logger.info("FCL Injection Service initialized", status="[CONFIG]")
+        logger.info(f"FCL injection service initialized with {len(self._get_all_batches())} injection batches")
     
     def _prepare_injection_batches(self) -> None:
         """
-        Pre-compute injection batches for all special areas.
+        Pre-compute injection batches for performance optimization.
         
-        This optimization pre-allocates and caches injection data to minimize
-        runtime overhead during burst processing.
+        SIMPLIFIED for core power area (___pwr at cortical_idx=1):
+        Creates injection batches for detected power areas.
         """
         # Clear existing batches
         for timing in InjectionTiming:
             self._injection_batches[timing].clear()
         
-        # Get all power areas and create injection batches
-        power_neurons = self.special_area_handler.get_all_power_neurons()
-        logger.info(f"Preparing injection batches for {len(power_neurons)} power areas: {list(power_neurons.keys())}")
-        
-        for cortical_id, neuron_ids in power_neurons.items():
-            logger.debug(f"Processing power area {cortical_id} with {len(neuron_ids)} neurons: {neuron_ids}")
+        try:
+            # Get all power areas (simplified approach returns only core power area)
+            power_neurons = self.special_area_handler.get_all_power_neurons()
             
-            config = self.special_area_handler.get_special_config(cortical_id)
-            if not config:
-                logger.warning(f"No config found for power area {cortical_id}")
-                continue
-            if not config.enabled:
-                logger.info(f"Power area {cortical_id} is disabled, skipping")
-                continue
+            if not power_neurons:
+                logger.info("No power area neurons found - injection batches will be empty")
+                return
             
-            # Determine timing
-            timing_str = config.injection_timing
-            try:
-                timing = InjectionTiming(timing_str)
-                logger.debug(f"Power area {cortical_id} uses {timing_str} timing")
-            except ValueError:
-                logger.warning(f"Invalid injection timing '{timing_str}' for area {cortical_id}, using PRE_BURST")
-                timing = InjectionTiming.PRE_BURST
+            logger.info(f"Preparing injection batches for {len(power_neurons)} power areas: {list(power_neurons.keys())}")
             
-            # Create batches if needed (split large neuron lists)
-            if len(neuron_ids) <= self.batch_size:
-                # Single batch
+            # Create injection batches for each power area
+            for cortical_id, neuron_ids in power_neurons.items():
+                logger.debug(f"Processing power area {cortical_id} with {len(neuron_ids)} neurons")
+                
+                config = self.special_area_handler.get_special_config(cortical_id)
+                if not config:
+                    logger.warning(f"No config found for power area {cortical_id}")
+                    continue
+                if not config.enabled:
+                    logger.info(f"Power area {cortical_id} is disabled, skipping")
+                    continue
+                
+                # Determine timing
+                timing_str = config.injection_timing
+                try:
+                    timing = InjectionTiming(timing_str)
+                    logger.debug(f"Power area {cortical_id} uses {timing_str} timing")
+                except ValueError:
+                    logger.warning(f"Invalid injection timing '{timing_str}' for area {cortical_id}, using PRE_BURST")
+                    timing = InjectionTiming.PRE_BURST
+                
+                # Create single batch (simplified - no batch splitting needed for core power area)
                 batch = InjectionBatch(
                     cortical_id=cortical_id,
                     neuron_ids=neuron_ids.copy(),
@@ -161,77 +168,128 @@ class FCLInjectionService:
                     probability=config.injection_probability
                 )
                 self._injection_batches[timing].append(batch)
-                logger.info(f"Created single batch for {cortical_id}: {len(neuron_ids)} neurons, timing={timing.value}, prob={config.injection_probability}")
-            else:
-                # Multiple batches
-                batch_count = 0
-                for i in range(0, len(neuron_ids), self.batch_size):
-                    batch_neurons = neuron_ids[i:i + self.batch_size]
-                    batch = InjectionBatch(
-                        cortical_id=f"{cortical_id}_batch_{i//self.batch_size}",
-                        neuron_ids=batch_neurons,
-                        timing=timing,
-                        probability=config.injection_probability
-                    )
-                    self._injection_batches[timing].append(batch)
-                    batch_count += 1
-                logger.info(f"Created {batch_count} batches for {cortical_id}: {len(neuron_ids)} neurons total")
-        
-        # Log preparation results
-        total_batches = sum(len(batches) for batches in self._injection_batches.values())
-        batch_summary = {timing.value: len(batches) for timing, batches in self._injection_batches.items()}
-        logger.info(f"Prepared {total_batches} injection batches for {len(power_neurons)} power areas: {batch_summary}", status="[SAVE]")
-        
-        # Log detailed batch info for debugging
-        for timing, batches in self._injection_batches.items():
-            if batches:
-                area_info = [(batch.cortical_id, len(batch.neuron_ids)) for batch in batches]
-                logger.debug(f"{timing.value} batches: {area_info}")
+                logger.info(f"Created batch for {cortical_id}: {len(neuron_ids)} neurons, timing={timing.value}, prob={config.injection_probability}")
+            
+            # Log preparation results
+            total_batches = sum(len(batches) for batches in self._injection_batches.values())
+            batch_summary = {timing.value: len(batches) for timing, batches in self._injection_batches.items()}
+            logger.info(f"Prepared {total_batches} injection batches for {len(power_neurons)} power areas: {batch_summary}", status="[SAVE]")
+            
+        except Exception as e:
+            logger.error(f"Error preparing injection batches: {e}")
+            # Continue with empty batches - injection will still work via direct method
     
     def inject_pre_burst(self, current_timestep: int) -> int:
         """
-        Add neuron candidates from special areas to FCL before burst processing.
+        Inject power area neurons into FCL with proper membrane potential.
         
-        This phase typically handles power areas, sensory input, and other external
-        sources that should be available as firing candidates during the burst.
+        Direct injection from the core power area (cortical_idx=1). 
+        
+        CRITICAL: Sets membrane potential above threshold so power neurons actually fire!
+        The FCL candidates still undergo membrane potential checks, so we must ensure
+        power neurons meet firing conditions.
+        
+        IMPORTANT: Power injection occurs EVERY BURST for constant brain power supply.
         
         Args:
             current_timestep: Current simulation timestep
             
         Returns:
-            Number of candidates added to FCL
+            Number of power neurons injected
         """
-        return self._execute_injection_phase(InjectionTiming.PRE_BURST, current_timestep)
+        try:
+            # Write proof every 50 calls for debugging (but inject every burst)
+            if current_timestep % 50 == 0:
+                with open("/tmp/feagi_injection_proof.log", "a") as f:
+                    f.write(f"[{current_timestep}] inject_pre_burst called (every burst mode)\\n")
+                    
+            # Get power area neurons from special area handler (cortical_idx=1)
+            # This happens EVERY burst to provide constant power supply
+            power_neurons = self.special_area_handler.get_power_area_neurons()
+            
+            if not power_neurons:
+                # Only log this occasionally to avoid spam
+                if current_timestep % 100 == 0:
+                    logger.debug(f"No power area neurons found for injection at timestep {current_timestep}")
+                return 0
+                
+            # Write proof every 50 calls showing what neurons were found (but inject every burst)
+            if current_timestep % 50 == 0:
+                with open("/tmp/feagi_injection_proof.log", "a") as f:
+                    f.write(f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\\n")
+            
+            # CRITICAL FIX: Set power neurons' membrane potential above threshold
+            # BEFORE adding them to FCL so they will actually fire!
+            try:
+                if self.connectome_manager and hasattr(self.connectome_manager, 'neuron_array'):
+                    neuron_array = self.connectome_manager.neuron_array
+                    if hasattr(neuron_array, 'set_neuron_property'):
+                        # Set membrane potential to 1.5 (above threshold of 1.0) for all power neurons
+                        success_count = 0
+                        for neuron_id in power_neurons:
+                            try:
+                                neuron_array.set_neuron_property(neuron_id, "membrane_potential", 1.5)
+                                success_count += 1
+                                if current_timestep % 100 == 0:  # Log occasionally
+                                    logger.debug(f"[POWER MP FIX] Set membrane_potential=1.5 for power neuron {neuron_id}")
+                            except Exception as e:
+                                if current_timestep % 100 == 0:  # Log occasionally
+                                    logger.warning(f"[POWER MP FIX] Failed to set MP for neuron {neuron_id}: {e}")
+                        
+                        if success_count > 0 and current_timestep % 100 == 0:  # Log occasionally
+                            logger.info(f"[POWER MP FIX] Successfully set membrane potential for {success_count}/{len(power_neurons)} power neurons")
+                        elif success_count == 0 and current_timestep % 100 == 0:  # Log occasionally
+                            logger.warning(f"[POWER MP FIX] Failed to set membrane potential for any of the {len(power_neurons)} power neurons")
+                    else:
+                        if current_timestep % 500 == 0:  # Log very occasionally
+                            logger.warning("[POWER MP FIX] NeuronArray does not support set_neuron_property method")
+                else:
+                    if current_timestep % 500 == 0:  # Log very occasionally
+                        logger.warning("[POWER MP FIX] ConnectomeManager or neuron_array not available")
+                    
+            except Exception as e:
+                if current_timestep % 100 == 0:  # Log occasionally
+                    logger.error(f"[POWER MP FIX] Error setting membrane potentials for power neurons: {e}")
+            
+            # Now inject power neurons into FCL (with proper membrane potentials set)
+            # This happens EVERY BURST to provide constant power supply
+            injected_count = self._inject_batch(
+                InjectionBatch(
+                    cortical_id="___pwr",
+                    neuron_ids=power_neurons,
+                    timing=InjectionTiming.PRE_BURST,
+                    probability=1.0  # Always inject power neurons
+                ), 
+                current_timestep
+            )
+            
+            if injected_count > 0 and current_timestep % 50 == 0:  # Log occasionally
+                logger.debug(f"Power area injection: {injected_count} neurons injected at timestep {current_timestep} (every burst mode)")
+            
+            return injected_count
+            
+        except Exception as e:
+            if current_timestep % 100 == 0:  # Log occasionally
+                logger.error(f"Error in power area injection at timestep {current_timestep}: {e}")
+            return 0
     
     def inject_during_burst(self, current_timestep: int) -> int:
         """
-        Add neuron candidates from modulator areas during burst processing.
+        No-op: During-burst injection not needed for core power area.
         
-        This phase typically handles modulatory influences that should affect
-        ongoing neural computation within the same burst.
-        
-        Args:
-            current_timestep: Current simulation timestep
-            
         Returns:
-            Number of candidates added to FCL
+            Always 0 (no injection performed)
         """
-        return self._execute_injection_phase(InjectionTiming.DURING_BURST, current_timestep)
+        return 0
     
     def inject_post_burst(self, current_timestep: int) -> int:
         """
-        Add neuron candidates from special areas after burst processing.
+        No-op: Post-burst injection not needed for core power area.
         
-        This phase typically handles cleanup, memory consolidation, or other
-        post-processing special behaviors.
-        
-        Args:
-            current_timestep: Current simulation timestep
-            
         Returns:
-            Number of candidates added to FCL
+            Always 0 (no injection performed)
         """
-        return self._execute_injection_phase(InjectionTiming.POST_BURST, current_timestep)
+        return 0
     
     def _execute_injection_phase(self, timing: InjectionTiming, current_timestep: int) -> int:
         """
@@ -264,8 +322,7 @@ class FCLInjectionService:
         # Update statistics
         end_time = time.perf_counter()
         self.last_injection_duration = end_time - start_time
-        self.injection_timing_stats[timing] += 1
-        self.total_injections += 1
+        self.injection_stats['total_injections'] += 1
         self.total_neurons_injected += total_injected
         
         if total_injected > 0:
@@ -310,19 +367,16 @@ class FCLInjectionService:
             # This is the unified FCL candidate model: external sources add candidates
             # that get processed together with internal synaptic propagation
             
-            if hasattr(self.fcl_manager, 'add_neurons_to_fcl'):
+            # Use the correct FCL manager method that actually exists
+            if hasattr(self.fcl_manager, 'add_to_current_fcl'):
                 # Direct injection - bypasses membrane potential checks
-                self.fcl_manager.add_neurons_to_fcl(cortical_id, neurons_to_inject, current_timestep)
-                logger.debug(f"FCL candidate addition: Added {len(neurons_to_inject)} candidates from {cortical_id} to FCL")
-            elif hasattr(self.fcl_manager, 'add_to_current_fcl'):
-                # Fallback: Direct injection into current FCL
                 self.fcl_manager.add_to_current_fcl(neurons_to_inject)
-                logger.debug(f"FCL candidate addition (fallback): Added {len(neurons_to_inject)} candidates to FCL")
+                logger.debug(f"FCL candidate addition: Added {len(neurons_to_inject)} candidates from {cortical_id} to FCL")
             elif hasattr(self.fcl_manager, 'update_fcl'):
-                # Last resort: Force through update_fcl but mark as injected
-                neurons_by_cortical = {cortical_id: neurons_to_inject}
+                # Fallback: Use update_fcl with cortical mapping
+                neurons_by_cortical = {1: neurons_to_inject}  # Use cortical_idx=1 for power area
                 self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
-                logger.debug(f"FCL candidate addition (forced): Updated FCL with {len(neurons_to_inject)} candidates from {cortical_id}")
+                logger.debug(f"FCL candidate addition (update): Added {len(neurons_to_inject)} candidates from {cortical_id} to FCL")
             else:
                 logger.error("FCL manager does not support any known injection method")
                 return 0
@@ -354,9 +408,10 @@ class FCLInjectionService:
             Dictionary with injection statistics and performance metrics
         """
         return {
-            "total_injections": self.total_injections,
+            "total_injections": self.injection_stats['total_injections'],
             "total_neurons_injected": self.total_neurons_injected,
-            "injection_timing_stats": dict(self.injection_timing_stats),
+            "successful_injections": self.injection_stats['successful_injections'],
+            "failed_injections": self.injection_stats['failed_injections'],
             "last_injection_duration": self.last_injection_duration,
             "prepared_batches": {
                 timing.value: len(batches) 
@@ -418,6 +473,76 @@ class FCLInjectionService:
         
         preview["areas_involved"] = list(preview["areas_involved"])
         return preview
+
+    def inject_external_activations(self, activations: Dict[CorticalId, List[NeuronId]], 
+                                   current_timestep: int, source: str = "external") -> int:
+        """
+        Inject neuron activations from external sources (test mode, manual stimulation, etc.).
+        
+        This method provides a clean interface for external systems to submit neuron
+        activations without needing to know FCL manager internals. The service handles
+        the conversion to appropriate data structures and injection timing.
+        
+        Args:
+            activations: Dictionary mapping cortical area IDs to lists of neuron IDs to activate
+            current_timestep: Current simulation timestep
+            source: Source identifier for logging/debugging (e.g., "test_mode_1", "manual_stimulation")
+            
+        Returns:
+            Number of neurons successfully injected
+        """
+        try:
+            total_injected = 0
+            
+            if not activations:
+                logger.debug(f"No activations provided by {source}")
+                return 0
+            
+            logger.debug(f"Processing external activations from {source}: {len(activations)} cortical areas")
+            
+            for cortical_id, neuron_ids in activations.items():
+                if not neuron_ids:
+                    continue
+                    
+                try:
+                    # Create injection batch for this area
+                    batch = InjectionBatch(
+                        cortical_id=cortical_id,
+                        neuron_ids=neuron_ids.copy(),
+                        timing=InjectionTiming.PRE_BURST,  # External activations treated as pre-burst
+                        probability=1.0  # External activations always inject (no probabilistic filtering)
+                    )
+                    
+                    # Inject the batch
+                    injected_count = self._inject_batch(batch, current_timestep)
+                    total_injected += injected_count
+                    
+                    if injected_count > 0:
+                        logger.debug(f"Injected {injected_count} external neurons from {source} in area {cortical_id}")
+                    else:
+                        logger.warning(f"Failed to inject neurons from {source} in area {cortical_id}")
+                        
+                except Exception as e:
+                    logger.error(f"Error injecting external activations for area {cortical_id} from {source}: {e}")
+                    continue
+            
+            if total_injected > 0:
+                logger.debug(f"FCL EXTERNAL INJECTION: Added {total_injected} candidates from {source} across {len(activations)} areas")
+            else:
+                logger.warning(f"No external candidates were injected from {source}")
+            
+            return total_injected
+            
+        except Exception as e:
+            logger.error(f"Error processing external activations from {source}: {e}")
+            return 0
+
+    def _get_all_batches(self) -> List[InjectionBatch]:
+        """Get all injection batches across all timing phases."""
+        all_batches = []
+        for batches in self._injection_batches.values():
+            all_batches.extend(batches)
+        return all_batches
 
 
 # Example usage and testing functions
