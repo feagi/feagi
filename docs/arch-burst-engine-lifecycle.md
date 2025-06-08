@@ -21,6 +21,9 @@ The state manager is the single source of truth for burst engine status across a
 ### 3. Fail-Fast Logic
 Operations that require the burst engine will fail immediately with clear error messages rather than hanging or producing inconsistent results.
 
+### 4. Automatic Startup & State Coordination
+The burst engine automatically starts during FEAGI initialization and coordinates with agent registration for seamless FQ sampler management.
+
 ## Burst Engine States
 
 ### ServiceState Enumeration
@@ -51,23 +54,45 @@ The `ON_HOLD` state represents a paused burst engine:
 ```mermaid
 graph TD
     A[FEAGI Launch] --> B[UNAVAILABLE]
-    B --> C{Genome Load Request}
+    B --> C[Process Manager Auto-Start]
     C --> D[Start Burst Engine]
     D --> E{Engine Start Success?}
     E -->|Yes| F[READY]
-    E -->|No| G[FAILED - Reject Genome Load]
-    F --> H[Load Genome]
-    H --> I{Genome Load Success?}
-    I -->|Yes| J[Engine READY + Genome Loaded]
-    I -->|No| K[ERROR - Engine remains READY]
-    J --> L{User Action}
-    L -->|Hold| M[ON_HOLD]
-    L -->|Stop| N[STOPPED]
-    L -->|Continue| J
-    M -->|Resume| J
-    M -->|Stop| N
-    N --> O[UNAVAILABLE]
+    E -->|No| G[FAILED - System Abort]
+    F --> H{Genome Load Request}
+    H --> I[Load Genome]
+    I --> J{Genome Load Success?}
+    J -->|Yes| K[Engine READY + Genome Loaded]
+    J -->|No| L[ERROR - Engine remains READY]
+    K --> M{User Action}
+    M -->|Hold| N[ON_HOLD]
+    M -->|Stop| O[STOPPED]
+    M -->|Continue| K
+    M -->|Agent Registration| P[Agent-Driven FQ Coordination]
+    N -->|Resume| K
+    N -->|Stop| O
+    O --> Q[UNAVAILABLE]
+    P --> K
 ```
+
+## Agent Integration & FQ Sampler Coordination
+
+### Automatic FQ Sampler Management
+
+The burst engine now coordinates with the agent registration system to provide automatic FQ sampler management:
+
+**Agent Registration Flow**:
+1. Agent registers with capabilities (visualization, motor, etc.)
+2. System detects required FQ samplers based on capabilities
+3. FQ samplers automatically enabled/disabled without manual intervention
+4. Data flows to appropriate ports based on agent needs
+
+**Coordination Logic**:
+- **Visualization Agents**: Auto-enable 30Hz visualization FQ sampler (port 5562)
+- **Motor Agents**: Auto-enable 100Hz motor FQ sampler (port 5564)  
+- **Deregistration**: Auto-disable samplers when no agents of that type remain
+
+This integration eliminates the need for manual FQ sampler management while maintaining RUST/RTOS compatibility through enable/disable patterns rather than create/destroy operations.
 
 ## API Endpoints
 

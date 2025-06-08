@@ -4,7 +4,7 @@
 
 ## Overview
 
-This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, implementing a **multi-stream architecture** where each stream has a specific purpose and protocol. This design eliminates protocol confusion, improves performance, and provides clear separation of concerns. A key innovation is the **differentiated FQ sampler** that provides optimized data streams for different consumer types.
+This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, implementing a **multi-stream architecture** where each stream has a specific purpose and protocol. This design eliminates protocol confusion, improves performance, and provides clear separation of concerns. A key innovation is the **differentiated FQ sampler** that provides optimized data streams for different consumer types, with **intelligent agent-driven coordination** that automatically manages FQ samplers based on connected agent capabilities.
 
 ## Architecture Principles
 
@@ -15,6 +15,8 @@ This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, im
 5. **Binary Efficiency**: Optimized binary protocols for high-throughput data exchange
 6. **Versioning**: Protocol versioning for backward compatibility
 7. **Differentiated Data Delivery**: Optimized sampling behavior for different subscriber types
+8. **Agent Registration & Coordination**: Automatic FQ sampler management based on connected agent capabilities
+9. **Zero-Manual Intervention**: Intelligent system coordination eliminates need for manual data flow management
 
 ## Multi-Stream Architecture Overview
 
@@ -194,6 +196,222 @@ response = socket.recv_string()
   "body": {"status": "ok"},
   "timestamp": 1621234567890
 }
+```
+
+## Agent Registration & FQ Sampler Coordination
+
+### Overview
+
+FEAGI 2.0 introduces an intelligent agent registration system that provides automatic coordination between connected agents and the FQ (Fire Queue) samplers. This eliminates the need for manual intervention to enable data flow for visualization and motor streams.
+
+### Architecture Flow
+
+```
+Agent Registration → Capability Detection → Automatic FQ Sampler Enable/Disable → Data Flow
+```
+
+### Key Components
+
+1. **Agent Registry**: Centralized tracking of connected agents with capabilities
+2. **Capability Detection**: Automatic detection of agent visualization and motor requirements  
+3. **FQ Sampler Management**: RUST/RTOS compatible enable/disable coordination
+4. **Resource Optimization**: Samplers only consume CPU when agents actually need data
+
+### Agent Registration Process
+
+#### 1. Agent Registration
+```json
+// POST /v1/agent/register
+{
+  "route": "/v1/agent/register",
+  "method": "POST",
+  "body": {
+    "agent_id": "godot_visualizer_001",
+    "agent_type": "brain_visualizer", 
+    "capabilities": {
+      "visualization": true,
+      "motor": false,
+      "sensory": true
+    },
+    "metadata": {
+      "version": "2.0.1",
+      "platform": "godot_4.2"
+    }
+  }
+}
+```
+
+**Response with Automatic FQ Sampler Coordination**:
+```json
+{
+  "status": 200,
+  "body": {
+    "message": "Agent registered successfully",
+    "agent_id": "godot_visualizer_001",
+    "fq_samplers_enabled": {
+      "visualization": true,  // Automatically enabled due to visualization capability
+      "motor": false          // Remains disabled (no motor capability)
+    }
+  }
+}
+```
+
+#### 2. Capability-Based FQ Sampler Management
+
+**Visualization Capability Detection**:
+- Agent registers with `capabilities.visualization = true`
+- System automatically enables Visualization FQ Sampler (30Hz, all cortical areas)
+- Data flows to port 5562 for visualization consumption
+
+**Motor Capability Detection**:
+- Agent registers with `capabilities.motor = true` OR `capabilities.output = true` OR `capabilities.sensorimotor = true`
+- System automatically enables Motor FQ Sampler (100Hz, OPU areas only)
+- Data flows to port 5564 for motor control consumption
+
+#### 3. Agent Deregistration & Cleanup
+```json
+// DELETE /v1/agent/deregister
+{
+  "route": "/v1/agent/deregister",
+  "method": "DELETE",
+  "body": {
+    "agent_id": "godot_visualizer_001"
+  }
+}
+```
+
+**Automatic Cleanup Response**:
+```json
+{
+  "status": 200,
+  "body": {
+    "message": "Agent deregistered successfully",
+    "agent_id": "godot_visualizer_001",
+    "fq_samplers_disabled": {
+      "visualization": true,  // Disabled if no other visualization agents remain
+      "motor": false          // Remains in current state
+    }
+  }
+}
+```
+
+### FQ Sampler Coordination Logic
+
+#### Visualization FQ Sampler
+- **Enable Condition**: At least one agent with `visualization` capability registered
+- **Disable Condition**: No agents with `visualization` capability remain
+- **Sampling**: 30Hz, all cortical areas
+- **Port**: 5562
+
+#### Motor FQ Sampler  
+- **Enable Condition**: At least one agent with motor capabilities (`motor`, `output`, or `sensorimotor`)
+- **Disable Condition**: No agents with motor capabilities remain
+- **Sampling**: 100Hz, OPU areas only
+- **Port**: 5564
+
+### Agent Management Endpoints
+
+#### List Active Agents
+```json
+// GET /v1/agent/list
+{
+  "route": "/v1/agent/list",
+  "method": "GET"
+}
+```
+
+**Response**:
+```json
+{
+  "status": 200,
+  "body": {
+    "agents": [
+      {
+        "agent_id": "godot_visualizer_001",
+        "agent_type": "brain_visualizer",
+        "capabilities": ["visualization", "sensory"],
+        "status": "active",
+        "last_seen": "2025-06-07T12:34:56Z"
+      },
+      {
+        "agent_id": "robotic_arm_controller",
+        "agent_type": "motor_controller", 
+        "capabilities": ["motor", "sensorimotor"],
+        "status": "active",
+        "last_seen": "2025-06-07T12:35:12Z"
+      }
+    ],
+    "summary": {
+      "total_agents": 2,
+      "visualization_agents": 1,
+      "motor_agents": 1
+    }
+  }
+}
+```
+
+#### Agent Properties
+```json  
+// GET /v1/agent/properties/{agent_id}
+{
+  "route": "/v1/agent/properties/godot_visualizer_001",
+  "method": "GET"
+}
+```
+
+#### FQ Sampler Status
+```json
+// GET /v1/agent/fq_sampler_status  
+{
+  "route": "/v1/agent/fq_sampler_status",
+  "method": "GET"
+}
+```
+
+**Response**:
+```json
+{
+  "status": 200,
+  "body": {
+    "visualization_fq_sampler": {
+      "enabled": true,
+      "reason": "1 visualization agent(s) connected",
+      "agents_requiring": ["godot_visualizer_001"]
+    },
+    "motor_fq_sampler": {
+      "enabled": true, 
+      "reason": "1 motor agent(s) connected",
+      "agents_requiring": ["robotic_arm_controller"]
+    }
+  }
+}
+```
+
+### Benefits of Agent-Driven Coordination
+
+1. **Zero Manual Intervention**: No need to manually enable/disable FQ samplers
+2. **Resource Efficiency**: Samplers only consume CPU when agents actually need data
+3. **RUST/RTOS Compatibility**: Uses enable/disable pattern rather than create/destroy
+4. **Robust Coordination**: Thread-safe operations with comprehensive error handling
+5. **Real-time Monitoring**: Full visibility into agent-sampler relationships
+
+### Migration from Manual Management
+
+**Before (Manual)**:
+```bash
+# Manual intervention required
+curl -X POST "http://localhost:8000/v1/system/enable_visualization_fq_sampler"
+curl -X POST "http://localhost:8000/v1/system/enable_motor_fq_sampler"
+```
+
+**After (Automatic)**:
+```python
+# Zero manual intervention - automatic coordination
+agent_client.register(
+    agent_id="my_visualizer",
+    capabilities={"visualization": True}
+)
+# Visualization FQ Sampler automatically enabled
 ```
 
 **Get Cortical Area**:
