@@ -2547,25 +2547,33 @@ class CoreAPIService:
             self.logger.error(f"Failed to unregister agent {agent_id}: {e}")
             return False
             
-    def get_connected_agents(self, capability_type: str = None) -> set:
+    def get_connected_agents(self) -> List[str]:
+        """Get list of all connected agent IDs."""
+        try:
+            return self.state_manager.get_connected_agents()
+        except Exception as e:
+            self.logger.error(f"Error getting connected agents: {e}")
+            return []
+
+    def get_agent_registry_summary(self) -> dict:
         """
-        Get set of connected agent IDs, optionally filtered by capability type.
+        Get comprehensive summary of agent registry state for FQ sampler management.
         
-        Args:
-            capability_type: Optional filter ("visualization", "sensorimotor", None for all)
-            
         Returns:
-            Set of agent IDs
+            Dictionary with registry state including counts and agent lists
         """
         try:
-            if self.state_manager:
-                return self.state_manager.get_connected_agents(capability_type)
-            else:
-                self.logger.warning("State manager not available for agent list")
-                return set()
+            return self.state_manager.get_agent_registry_summary()
         except Exception as e:
-            self.logger.error(f"Failed to get connected agents: {e}")
-            return set()
+            self.logger.error(f"Error getting agent registry summary: {e}")
+            return {
+                "connected_visualization_agents": [],
+                "connected_sensorimotor_agents": [],
+                "total_agents": 0,
+                "agent_count_viz": 0,
+                "agent_count_sensorimotor": 0,
+                "last_update": 0,
+            }
 
     def get_agent_properties(self, agent_id: str) -> dict:
         """
@@ -2587,35 +2595,6 @@ class CoreAPIService:
             self.logger.error(f"Failed to get agent properties for {agent_id}: {e}")
             return {}
             
-    def get_agent_registry_summary(self) -> Dict[str, Any]:
-        """
-        Get comprehensive summary of the agent registry.
-        
-        Returns:
-            Dict containing agent registry state and statistics
-        """
-        try:
-            if self.state_manager:
-                return self.state_manager.get_agent_registry_summary()
-            else:
-                self.logger.warning("State manager not available for agent registry summary")
-                return {}
-        except Exception as e:
-            self.logger.error(f"Failed to get agent registry summary: {e}")
-            return {}
-            
-    def has_visualization_agents(self) -> bool:
-        """Check if any agents with visualization capability are connected"""
-        return self.state_manager.has_visualization_agents() if self.state_manager else False
-        
-    def has_motor_agents(self) -> bool:
-        """Check if any agents with motor capability are connected"""  
-        return self.state_manager.has_motor_agents() if self.state_manager else False
-        
-    def has_sensory_agents(self) -> bool:
-        """Check if any agents with sensory capability are connected"""
-        return self.state_manager.has_sensory_agents() if self.state_manager else False
-        
     def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
         """
         Configure agent settings (placeholder for future implementation).
