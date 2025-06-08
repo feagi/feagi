@@ -24,7 +24,7 @@ regardless of transport protocol (HTTP, ZMQ, etc.).
 
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 
 # ===== System Schemas =====
@@ -537,9 +537,9 @@ class SimulationStatsResponse(BaseModel):
 
 # ===== Agent Schemas =====
 
-class AgentListResponse(BaseModel):
+class AgentListResponse(RootModel[List[str]]):
     """Response model for FEAGI agent list."""
-    __root__: List[str]  # Direct list of agent IDs
+    root: List[str]  # Direct list of agent IDs
 
 
 class AgentInfoResponse(BaseModel):

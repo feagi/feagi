@@ -2489,7 +2489,7 @@ class CoreAPIService:
     
     def register_agent(self, agent_id: str, agent_type: str = None, capabilities: dict = None,
                       agent_data_port: int = None, agent_version: str = None, 
-                      controller_version: str = None) -> bool:
+                      controller_version: str = None, agent_ip: str = None) -> bool:
         """
         Register an agent with full capability structure and metadata.
         
@@ -2500,6 +2500,7 @@ class CoreAPIService:
             agent_data_port: Port number for agent data communication
             agent_version: Version of the agent software
             controller_version: Version of the controller software
+            agent_ip: IP address of the agent (optional)
             
         Returns:
             bool: True if registration successful
@@ -2512,9 +2513,10 @@ class CoreAPIService:
                     capabilities=capabilities,
                     agent_data_port=agent_data_port,
                     agent_version=agent_version,
-                    controller_version=controller_version
+                    controller_version=controller_version,
+                    agent_ip=agent_ip
                 )
-                self.logger.info(f"Registered agent {agent_id} (type: {agent_type}, port: {agent_data_port})")
+                self.logger.info(f"Registered agent {agent_id} (type: {agent_type}, port: {agent_data_port}, ip: {agent_ip})")
                 return True
             else:
                 self.logger.warning("State manager not available for agent registration")

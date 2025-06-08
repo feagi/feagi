@@ -352,6 +352,9 @@ else:
             params = list(sig.parameters.keys())
             param_annotations = {name: param.annotation for name, param in sig.parameters.items()}
             
+            # Remove 'self' from params for analysis
+            handler_params = [p for p in params if p != 'self']
+            
             # Check if any parameter is UploadFile
             has_upload_file = any(
                 annotation == UploadFile or 
@@ -359,8 +362,9 @@ else:
                 for annotation in param_annotations.values()
             )
             
-            # Determine if handler needs request data
-            needs_request_data = len(params) > 1  # First param is always 'self'
+            # Determine handler characteristics
+            has_path_params = len(handler_params) > 0 and not request_model and not has_upload_file
+            has_request_body = request_model is not None
             is_async = asyncio.iscoroutinefunction(original_handler)
             
             if has_upload_file:
@@ -394,8 +398,45 @@ else:
                             
                     return fastapi_handler_with_file
             
-            elif needs_request_data and request_model:
-                # Handler expects request data with Pydantic model
+            elif has_request_body and has_path_params:
+                # Handler has both path parameters AND request body
+                if is_async:
+                    async def fastapi_handler_with_both(
+                        request_data: request_model,
+                        api_instance = Depends(_get_api_instance),
+                        **path_params
+                    ):
+                        try:
+                            # Pass path parameters first, then request body
+                            args = list(path_params.values()) + [request_data]
+                            return await original_handler(api_instance, *args)
+                        except ValueError as e:
+                            raise HTTPException(status_code=400, detail=str(e))
+                        except Exception as e:
+                            logger.error(f"Error in {original_handler.__name__}: {e}")
+                            raise HTTPException(status_code=500, detail="Internal server error")
+                            
+                    return fastapi_handler_with_both
+                else:
+                    def fastapi_handler_with_both(
+                        request_data: request_model,
+                        api_instance = Depends(_get_api_instance),
+                        **path_params
+                    ):
+                        try:
+                            # Pass path parameters first, then request body
+                            args = list(path_params.values()) + [request_data]
+                            return original_handler(api_instance, *args)
+                        except ValueError as e:
+                            raise HTTPException(status_code=400, detail=str(e))
+                        except Exception as e:
+                            logger.error(f"Error in {original_handler.__name__}: {e}")
+                            raise HTTPException(status_code=500, detail="Internal server error")
+                            
+                    return fastapi_handler_with_both
+            
+            elif has_request_body:
+                # Handler expects request body only
                 if is_async:
                     async def fastapi_handler_with_request(
                         request_data: request_model,
@@ -425,51 +466,43 @@ else:
                             
                     return fastapi_handler_with_request
             
-            elif needs_request_data and not request_model:
-                # Handler expects parameters but no Pydantic model (e.g., Dict[str, Any])
+            elif has_path_params:
+                # Handler expects path parameters only (like /properties/{agent_id})
                 if is_async:
-                    async def fastapi_handler_with_params(
-                        request: Request,
-                        api_instance = Depends(_get_api_instance)
+                    async def fastapi_handler_with_path_params(
+                        api_instance = Depends(_get_api_instance),
+                        **path_params
                     ):
                         try:
-                            # Parse JSON body manually for better compatibility
-                            if request.headers.get('content-type') == 'application/json':
-                                body = await request.json()
-                            else:
-                                body = {}
-                            
-                            return await original_handler(api_instance, body)
+                            # Pass path parameters in the order they appear in the method signature
+                            args = [path_params[param] for param in handler_params if param in path_params]
+                            return await original_handler(api_instance, *args)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(status_code=500, detail="Internal server error")
-
-                    return fastapi_handler_with_params
+                            
+                    return fastapi_handler_with_path_params
                 else:
-                    async def fastapi_handler_with_params(
-                        request: Request,
-                        api_instance = Depends(_get_api_instance)
+                    def fastapi_handler_with_path_params(
+                        api_instance = Depends(_get_api_instance),
+                        **path_params
                     ):
                         try:
-                            # Parse JSON body manually for better compatibility
-                            if request.headers.get('content-type') == 'application/json':
-                                body = await request.json()
-                            else:
-                                body = {}
-                            
-                            return original_handler(api_instance, body)
+                            # Pass path parameters in the order they appear in the method signature
+                            args = [path_params[param] for param in handler_params if param in path_params]
+                            return original_handler(api_instance, *args)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
                             raise HTTPException(status_code=500, detail="Internal server error")
-
-                    return fastapi_handler_with_params
+                            
+                    return fastapi_handler_with_path_params
 
             else:
-                # Handler doesn't need request data (e.g., GET endpoints)
+                # Handler doesn't need parameters (simple GET endpoints)
                 if is_async:
                     async def fastapi_handler_simple(api_instance = Depends(_get_api_instance)):
                         try:
@@ -692,4 +725,17 @@ else:
 
     def get_evolution_router() -> APIRouter:
         """Get the evolution router for use in main FastAPI app."""
-        return create_evolution_router() 
+        return create_evolution_router()
+
+    # Force import of API classes to ensure endpoint registration
+    from feagi.api.v1.feagi_agent import FeagiAgentAPI
+    from feagi.api.v1.system import SystemAPI
+    from feagi.api.v1.genome import GenomeAPI
+    from feagi.api.v1.cortical_area import CorticalAreaAPI
+    from feagi.api.v1.connectome import ConnectomeAPI
+    from feagi.api.v1.burst_engine import BurstEngineAPI
+    from feagi.api.v1.neuroplasticity import NeuroplasticityAPI
+    from feagi.api.v1.region import RegionAPI
+    from feagi.api.v1.morphology import MorphologyAPI
+    from feagi.api.v1.monitoring import MonitoringAPI
+    from feagi.api.v1.simulation import SimulationAPI 
