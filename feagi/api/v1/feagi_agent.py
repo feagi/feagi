@@ -35,6 +35,7 @@ def agent_endpoint(methods, path, request_model=None, response_model=None, descr
 class FeagiAgentAPI:
     def __init__(self, core_api_service: CoreAPIService):
         self.core_api_service = core_api_service
+        self.logger = logger
     
     @agent_endpoint('GET', '/list', response_model=AgentListResponse)
     async def list_agents(self) -> AgentListResponse:

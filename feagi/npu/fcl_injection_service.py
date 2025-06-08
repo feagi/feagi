@@ -198,25 +198,26 @@ class FCLInjectionService:
             Number of power neurons injected
         """
         try:
-            # Write proof every 50 calls for debugging (but inject every burst)
-            if current_timestep % 50 == 0:
-                with open("/tmp/feagi_injection_proof.log", "a") as f:
-                    f.write(f"[{current_timestep}] inject_pre_burst called (every burst mode)\\n")
+            # Write proof EVERY call for debugging to see what's happening
+            with open("/tmp/feagi_injection_proof.log", "a") as f:
+                f.write(f"[{current_timestep}] inject_pre_burst called (every burst mode)\n")
                     
             # Get power area neurons from special area handler (cortical_idx=1)
             # This happens EVERY burst to provide constant power supply
             power_neurons = self.special_area_handler.get_power_area_neurons()
+            
+            # Write proof EVERY call showing what neurons were found
+            with open("/tmp/feagi_injection_proof.log", "a") as f:
+                if power_neurons:
+                    f.write(f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n")
+                else:
+                    f.write(f"[{current_timestep}] NO POWER NEURONS FOUND\n")
             
             if not power_neurons:
                 # Only log this occasionally to avoid spam
                 if current_timestep % 100 == 0:
                     logger.debug(f"No power area neurons found for injection at timestep {current_timestep}")
                 return 0
-                
-            # Write proof every 50 calls showing what neurons were found (but inject every burst)
-            if current_timestep % 50 == 0:
-                with open("/tmp/feagi_injection_proof.log", "a") as f:
-                    f.write(f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\\n")
             
             # CRITICAL FIX: Set power neurons' membrane potential above threshold
             # BEFORE adding them to FCL so they will actually fire!

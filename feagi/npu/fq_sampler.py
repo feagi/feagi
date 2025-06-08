@@ -277,7 +277,6 @@ class UnifiedFQSampler:
         except Exception as e:
             logger.error(f"🔥 FQ SAMPLER: Error getting visualization areas: {e}")
             
-        logger.info(f"🔥🔥🔥 FQ SAMPLER: Found {len(visualization_areas)} areas for visualization sampling: {visualization_areas[:5]}{'...' if len(visualization_areas) > 5 else ''}")
         return visualization_areas
 
     def _get_all_areas(self) -> List[str]:
@@ -468,6 +467,7 @@ class UnifiedFQSampler:
 
     def _should_sample(self) -> bool:
         """Determine if sampling should occur based on subscriber presence."""
+        
         should_sample = (self._has_visualization_subscribers or 
                         self._has_motor_subscribers or 
                         self.output_queue is not None)
