@@ -68,8 +68,43 @@ class FeagiTestRunner:
         # Test mode handlers
         self.mode_handler = None
         
+        # Initialize FCL injection service reference - will be set after genome loading
+        self.fcl_injection_service = None
+        
+        # Verify burst engine is available (but injection service will be checked later)
+        if not self.burst_engine:
+            logger.error("No burst engine available - test mode cannot proceed")
+            raise RuntimeError(
+                "Test mode requires burst engine but none is available. "
+                "Ensure FEAGI core services are properly initialized."
+            )
+        
+        logger.info("Test runner initialized - injection service will be verified after genome loading")
+        
         # Initialize the appropriate test mode handler
         self._initialize_test_mode_handler()
+    
+    def _verify_injection_service_available(self):
+        """
+        Verify that the FCL injection service is available for test mode.
+        
+        This should be called after genome loading to ensure the injection service
+        has been properly initialized with the loaded genome data.
+        
+        Returns:
+            bool: True if injection service is available, False otherwise
+        """
+        if self.burst_engine and hasattr(self.burst_engine, 'injection_service'):
+            self.fcl_injection_service = self.burst_engine.injection_service
+            if self.fcl_injection_service:
+                logger.info("FCL injection service verified and available for test mode")
+                return True
+            else:
+                logger.error("Burst engine has no injection service after genome loading")
+                return False
+        else:
+            logger.error("Burst engine has no injection_service attribute")
+            return False
     
     def _initialize_test_mode_handler(self):
         """Initialize the appropriate test mode handler based on the selected mode."""
@@ -83,6 +118,42 @@ class FeagiTestRunner:
             logger.info("🎲 TEST MODE 2: Numpy-based scalable random neuron generation")
         else:
             raise ValueError(f"Unknown test mode: {self.test_mode}")
+    
+    def _enable_visualization_for_test_mode(self):
+        """
+        Enable visualization FQ sampler for test mode.
+        
+        In normal operation, the FQ sampler only enables when a visualization client connects.
+        In test mode, we want to enable it automatically so that brain visualizer can connect
+        and see the test data being generated.
+        """
+        logger.info("🎯 [TEST MODE] Attempting to enable visualization FQ sampler...")
+        try:
+            # Import here to avoid circular dependencies
+            from feagi.process_manager import get_process_manager
+            
+            process_manager = get_process_manager()
+            logger.info(f"[TEST MODE] Process manager obtained: {process_manager is not None}")
+            
+            if process_manager:
+                # Check if viz FQ sampler exists
+                viz_sampler = process_manager.get_viz_fq_sampler()
+                logger.info(f"[TEST MODE] Visualization FQ sampler exists: {viz_sampler is not None}")
+                
+                # Enable the visualization FQ sampler
+                success = process_manager.enable_viz_fq_sampler()
+                if success:
+                    logger.info("🎯 [TEST MODE] ✅ Visualization FQ sampler enabled for brain visualizer connectivity")
+                else:
+                    logger.warning("[TEST MODE] ❌ Failed to enable visualization FQ sampler - brain visualizer may not show data")
+            else:
+                logger.warning("[TEST MODE] ❌ No process manager available - brain visualizer may not show data")
+                
+        except Exception as e:
+            logger.error(f"[TEST MODE] ❌ Error enabling visualization FQ sampler: {e}")
+            import traceback
+            logger.error(f"[TEST MODE] Traceback: {traceback.format_exc()}")
+            logger.warning("Brain visualizer connectivity may be limited during test mode")
     
     def load_genome(self):
         """
@@ -106,6 +177,18 @@ class FeagiTestRunner:
                 logger.error(f"Failed to load genome: {result.get('error', 'Unknown error')}")
                 return False
             
+            # Refresh FCL injection service reference after genome loading
+            try:
+                burst_engine = self.core_api.get_burst_engine()
+                if burst_engine and hasattr(burst_engine, 'injection_service'):
+                    self.fcl_injection_service = burst_engine.injection_service
+                    if self.fcl_injection_service:
+                        logger.info("FCL injection service refreshed after essential genome load")
+                    else:
+                        logger.warning("Injection service is None after essential genome load")
+            except Exception as e:
+                logger.warning(f"Could not refresh injection service: {e}")
+            
             # Wait for brain readiness to become True (state-driven)
             logger.info("Waiting for brain readiness state to become True...")
             
@@ -117,6 +200,12 @@ class FeagiTestRunner:
             while elapsed_time < max_wait_time:
                 if self.state_manager.get_brain_readiness():
                     logger.info(f"Brain is ready after {elapsed_time:.1f}s")
+                    
+                    # Verify injection service is now available after genome loading
+                    if not self._verify_injection_service_available():
+                        logger.error("Test mode requires FCL injection service but none is available after essential genome loading")
+                        return False
+                    
                     return True
                     
                 time.sleep(check_interval)
@@ -160,6 +249,16 @@ class FeagiTestRunner:
                 if burst_engine:
                     burst_engine.update_with_genome()
                     logger.info("Burst engine updated with test genome - special area services initialized")
+                    
+                    # Refresh FCL injection service reference after genome update
+                    if hasattr(burst_engine, 'injection_service'):
+                        self.fcl_injection_service = burst_engine.injection_service
+                        if self.fcl_injection_service:
+                            logger.info("FCL injection service refreshed after genome update")
+                        else:
+                            logger.warning("Injection service is None after genome update")
+                    else:
+                        logger.warning("Burst engine has no injection_service attribute")
                 else:
                     logger.warning("No burst engine available for genome update")
             except Exception as e:
@@ -177,6 +276,12 @@ class FeagiTestRunner:
             while elapsed_time < max_wait_time:
                 if self.state_manager.get_brain_readiness():
                     logger.info(f"Brain is ready after {elapsed_time:.1f}s")
+                    
+                    # Verify injection service is now available after genome loading
+                    if not self._verify_injection_service_available():
+                        logger.error("Test mode requires FCL injection service but none is available after test genome loading")
+                        return False
+                    
                     return True
                     
                 time.sleep(check_interval)
@@ -228,6 +333,51 @@ class FeagiTestRunner:
             import traceback
             logger.error(traceback.format_exc())
             return False
+    
+    def submit_neuron_activations(self, activations, source_name):
+        """
+        Submit neuron activations through the FCL injection service.
+        
+        Test mode MUST use the primary FCL injection service to properly test
+        the main neural engine. No fallbacks are allowed - if the injection
+        service isn't available, test mode should fail.
+        
+        Args:
+            activations: Dictionary mapping cortical area IDs to lists of neuron IDs
+            source_name: Source identifier for logging (e.g., "test_mode_1")
+            
+        Returns:
+            int: Number of neurons successfully injected
+            
+        Raises:
+            RuntimeError: If FCL injection service is not available
+        """
+        try:
+            if not activations:
+                logger.debug(f"No activations to submit from {source_name}")
+                return 0
+
+            # FCL injection service MUST be available for test mode
+            if not self.fcl_injection_service:
+                raise RuntimeError(
+                    f"FCL injection service not available for {source_name}. "
+                    "Test mode requires the primary injection service to properly test the neural engine. "
+                    "Check that the burst engine and injection service are properly initialized."
+                )
+
+            # Use the primary FCL injection service (the only path for test mode)
+            current_timestep = getattr(self.fcl_manager, 'current_timestep', 0)
+            injected_count = self.fcl_injection_service.inject_external_activations(
+                activations, current_timestep, source_name
+            )
+            
+            total_neurons = sum(len(neurons) for neurons in activations.values())
+            logger.debug(f"Successfully injected {injected_count}/{total_neurons} neurons from {source_name} via primary FCL injection service")
+            return injected_count
+                
+        except Exception as e:
+            logger.error(f"Error submitting neuron activations from {source_name}: {e}")
+            raise  # Re-raise to fail test mode fast
     
     def check_neural_activity(self):
         """
@@ -305,6 +455,12 @@ class FeagiTestRunner:
                 self.test_result = False
                 self.is_running = False
                 return
+                
+            # ENABLE VISUALIZATION FQ SAMPLER for test mode
+            # This allows brain visualizer to connect and see test data
+            logger.info("🎯 [TEST MODE] About to enable visualization FQ sampler...")
+            self._enable_visualization_for_test_mode()
+            logger.info("🎯 [TEST MODE] Visualization FQ sampler enable attempt completed")
                 
             # Capture initial state
             self.capture_initial_state()

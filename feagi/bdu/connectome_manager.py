@@ -152,8 +152,14 @@ class ConnectomeManager:
         
         # Cortical area management
         self.cortical_areas: Dict[str, CorticalArea] = {}
-        self.next_cortical_idx = 1  # Start from 1, reserve 0 for special purposes
+        self.next_cortical_idx = 2  # Start from 2, reserve 0 for "_death" and 1 for "___pwr"
         self.area_neuron_masks: Dict[str, np.ndarray] = {}
+        
+        # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "___pwr"
+        self.reserved_cortical_areas = {
+            "_death": 0,
+            "___pwr": 1
+        }
         
         # Brain region management
         self.brain_regions: Dict[str, Dict[str, Any]] = {}
@@ -652,6 +658,26 @@ class ConnectomeManager:
         """
         return self.get_neurons_by_cortical_area(cortical_id)
     
+    def get_neurons_by_cortical_idx(self, cortical_idx: int) -> List[int]:
+        """Get all neurons in a cortical area by cortical_idx (integer).
+        
+        Args:
+            cortical_idx: Integer cortical index (0 for _death, 1 for ___pwr, etc.)
+            
+        Returns:
+            List of neuron IDs in the area
+            
+        Raises:
+            KeyError: If no area with the specified cortical_idx exists
+        """
+        # Find the cortical area with the specified cortical_idx
+        for cortical_id, area in self.cortical_areas.items():
+            if area.cortical_idx == cortical_idx:
+                return self.get_neurons_by_cortical_area(cortical_id)
+        
+        # No area found with this cortical_idx
+        raise KeyError(f"No cortical area found with cortical_idx={cortical_idx}")
+    
     def get_neuron_count(self) -> int:
         """Get the total number of neurons in the connectome.
         
@@ -1111,9 +1137,15 @@ class ConnectomeManager:
             if area.name == name:
                 raise ValueError(f"Cortical area with name '{name}' already exists")
         
-        # Assign unique cortical_idx
-        cortical_idx = self.next_cortical_idx
-        self.next_cortical_idx += 1
+        # Check for reserved core areas and assign appropriate cortical_idx
+        if cortical_id in self.reserved_cortical_areas:
+            # This is a core area (___pwr or _death) - use reserved cortical_idx
+            cortical_idx = self.reserved_cortical_areas[cortical_id]
+            logger.info(f"Assigning reserved cortical_idx={cortical_idx} to core area '{cortical_id}'")
+        else:
+            # Regular area - assign next available cortical_idx
+            cortical_idx = self.next_cortical_idx
+            self.next_cortical_idx += 1
         
         # Create the cortical area with assigned cortical_idx
         area = CorticalArea(
@@ -1123,7 +1155,7 @@ class ConnectomeManager:
             area_type=area_type,
             properties=properties or {},
             cortical_id=cortical_id,
-            cortical_idx=cortical_idx  # Now we assign a unique index
+            cortical_idx=cortical_idx  # Now we assign reserved or next available index
         )
         
         # Add to cortical areas dict

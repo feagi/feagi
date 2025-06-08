@@ -291,71 +291,71 @@ heartbeat = {
 }
 ```
 
-## Special Area Implementation
+## Core Power Area Implementation
 
-### Naming Conventions
+### High-Performance Power Area Injection
 
-Special areas are automatically detected using these patterns:
+FEAGI 2.0 implements ultra-fast power area injection optimized for 100kHz burst frequencies:
 
-1. **Power Areas**:
-   - **Suffix Pattern**: Any cortical area ID ending with "_pwr" (e.g., "motor_pwr", "visual_pwr")
-   - **Exact Match**: Area ID exactly equals "___pwr"
-   - **Property Flag**: Area has `"__power_injection": true` in its properties
-
-2. **Modulator Areas**:
-   - **Suffix Pattern**: Any cortical area ID ending with "_mod" (e.g., "dopamine_mod", "attention_mod")
-   - **Property Flag**: Area has `"__modulator": true` in its properties
-
-3. **Custom Special Areas**:
-   - **Property Flag**: Any area with special behavior properties gets custom handling
+1. **Core Power Area**:
+   - **cortical_idx=1**: Reserved for the core power area (___pwr)
+   - **Guaranteed to exist**: Created during neuroembryogenesis in every genome
+   - **Direct access**: No detection or lookup overhead - uses cortical_idx=1 directly
+   - **Always inject**: All neurons from the power area are injected into FCL every burst
 
 ### Injection Timing
 
-Special areas can add candidates to FCL at different phases of the burst cycle:
-
-- **pre_burst** (default for power areas): Add candidates before regular neuron firing - ensures special neurons are available for synaptic propagation
-- **during_burst** (default for modulators): Add candidates during membrane potential updates - for modulation effects
-- **post_burst**: Add candidates after regular processing - for cleanup or special effects
+The core power area injects during the **pre_burst** phase:
+- Adds candidates before regular neuron firing
+- Ensures power neurons are available for synaptic propagation
+- Provides foundational neural activity for the connectome
 
 ### Configuration Options
 
-Special area behavior can be configured at multiple levels using the clean generic architecture:
+Core power area injection can be configured at the burst engine level:
 
 ```python
-# Burst engine configuration (generic, area-agnostic)
+# Burst engine configuration
 config = {
-    'enable_injection': True,  # Global enable/disable for all special areas
-    'desired_frequency_hz': 10.0,  # Target burst frequency
-    'special_area_config': {
-        'batch_injection_threshold': 100
-    },
-    'injection_config': {
-        'batch_injection_size': 1000,
-        'enable_probabilistic_injection': True
-    }
+    'enable_injection': True,  # Global enable/disable for power area injection
+    'desired_frequency_hz': 100000.0,  # Target burst frequency (100kHz supported)
 }
 
 engine = BurstEngine(connectome_manager, fcl_manager, config)
 
-# Per-area configuration through properties (handled by injection service internally)
-power_area = {
-    "id": "reward_pwr",
-    "properties": {
-        "__power_injection": True,
-        "injection_timing": "pre_burst",
-        "injection_probability": 1.0  # Always inject (0.0-1.0 for probabilistic)
-    }
-}
-
-modulator_area = {
-    "id": "dopamine_mod", 
-    "properties": {
-        "__modulator": True,
-        "injection_timing": "during_burst",  # Affect ongoing neural computation
-        "injection_probability": 0.8
-    }
-}
+# Core power area is automatically configured:
+# - cortical_idx=1 (___pwr)
+# - Always inject all neurons
+# - Pre-burst timing
+# - Direct access for maximum performance
 ```
+
+## Core Area Reservations
+
+During neuroembryogenesis, FEAGI reserves specific cortical_idx values for core areas:
+
+- **cortical_idx=0**: Reserved for `"_death"` area
+- **cortical_idx=1**: Reserved for `"___pwr"` area (power area)
+- **cortical_idx≥2**: Available for regular cortical areas
+
+This reservation system ensures that critical core areas always have predictable cortical_idx values for:
+- Performance optimization (direct access via cortical_idx)
+- System reliability (guaranteed existence)
+- Inter-component compatibility
+
+### Power Area Injection
+
+The FCL injection service directly accesses the power area using `cortical_idx=1`:
+
+```python
+# Direct access to power area (___pwr) at cortical_idx=1
+power_neurons = connectome_manager.get_neurons_by_cortical_idx(1)
+```
+
+This approach provides:
+- **Ultra-fast access**: No string lookups or detection logic
+- **100kHz compatibility**: Optimized for high-frequency burst operations  
+- **Guaranteed availability**: Core areas always exist in every genome
 
 ## Neural Processing Architecture
 

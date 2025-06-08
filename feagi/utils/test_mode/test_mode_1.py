@@ -202,16 +202,18 @@ class TestMode1Handler:
     
     def _inject_predictable_activations(self):
         """
-        Inject predictable neuron activations from the JSON file.
+        Generate predictable neuron activations from the JSON file and submit them via test runner.
+        
+        This method separates neuron selection logic from injection mechanism,
+        following proper architectural separation of concerns.
         
         Returns:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            total_active_neurons = 0
-            active_areas = []
+            activations = {}  # Dictionary to hold activations for submission
             
-            logger.debug(f"Injecting predictable activations for {len(self.test_activations_data)} cortical areas")
+            logger.debug(f"Generating predictable activations for {len(self.test_activations_data)} cortical areas")
             
             for cortical_id, coordinates_list in self.test_activations_data.items():
                 try:
@@ -248,21 +250,8 @@ class TestMode1Handler:
                     if selected_neurons:
                         # Remove duplicates while preserving order
                         selected_neurons = list(dict.fromkeys(selected_neurons))
-                        
-                        # Create bitmap from selected neuron IDs
-                        from feagi.npu.fcl_manager import BitMap
-                        bitmap = BitMap(selected_neurons)
-                        
-                        # Add the bitmap to FCL updates
-                        if len(bitmap) > 0:
-                            total_active_neurons += len(bitmap)
-                            active_areas.append(cortical_id)
-                            
-                            # FIXED: Use timestep 0 for current burst (post-refactor FCL semantics)
-                            current_timestep = 0
-                            self.fcl_manager.update_fcl(current_timestep, {cortical_id: bitmap})
-                            
-                            logger.debug(f"Injected {len(bitmap)} predictable neurons in {cortical_id} at timestep {current_timestep}")
+                        activations[cortical_id] = selected_neurons
+                        logger.debug(f"Prepared {len(selected_neurons)} neurons for activation in {cortical_id}")
                     else:
                         logger.warning(f"No valid neurons found for coordinates in {cortical_id}")
                         
@@ -270,23 +259,35 @@ class TestMode1Handler:
                     logger.error(f"Error processing predictable activations for {cortical_id}: {e}")
                     continue
             
-            # Summary log
-            if total_active_neurons > 0:
-                logger.info(f"🎯 Injected {total_active_neurons} PREDICTABLE neurons across {len(active_areas)} areas")
-                return True
+            # Submit activations via test runner (proper architecture)
+            if activations:
+                total_neurons = sum(len(neurons) for neurons in activations.values())
+                logger.debug(f"🎯 Submitting {total_neurons} PREDICTABLE neurons across {len(activations)} areas via FCL injection service")
+                
+                injected_count = self.test_runner.submit_neuron_activations(activations, "test_mode_1_predictable")
+                
+                if injected_count > 0:
+                    logger.debug(f"✅ Successfully injected {injected_count} predictable neurons")
+                    return True
+                else:
+                    logger.warning("Failed to inject predictable neurons")
+                    return False
             else:
-                logger.warning("No predictable neurons were successfully injected")
+                logger.warning("No predictable activations generated")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error injecting predictable activations: {e}")
+            logger.error(f"Error generating predictable activations: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return False
     
     def _inject_random_activations_fallback(self):
         """
-        Fallback to inject random neuron activations when JSON is not available.
+        Generate random neuron activations and submit them via test runner.
+        
+        This method separates neuron selection logic from injection mechanism,
+        following proper architectural separation of concerns.
         
         Returns:
             bool: True if data was injected successfully, False otherwise
@@ -303,9 +304,8 @@ class TestMode1Handler:
                 
             logger.debug(f"Found {len(cortical_areas)} cortical areas in connectome")
             
-            # Process each cortical area
-            total_active_neurons = 0
-            active_areas = []
+            # Generate activations
+            activations = {}
             
             for cortical_id in cortical_areas:
                 try:
@@ -324,35 +324,32 @@ class TestMode1Handler:
                     num_to_select = max(1, int(len(all_neurons) * selection_percentage))
                     selected_neurons = random.sample(list(all_neurons), num_to_select)
                     
+                    activations[cortical_id] = selected_neurons
                     logger.debug(f"Selected {len(selected_neurons)}/{len(all_neurons)} neurons from {cortical_id}")
                     
-                    # Create bitmap from selected neuron IDs
-                    from feagi.npu.fcl_manager import BitMap
-                    bitmap = BitMap(selected_neurons)
-                    
-                    # Add the bitmap to FCL updates
-                    if len(bitmap) > 0:
-                        total_active_neurons += len(bitmap)
-                        active_areas.append(cortical_id)
-                        
-                        # FIXED: Use timestep 0 for current burst (post-refactor FCL semantics)
-                        current_timestep = 0
-                        self.fcl_manager.update_fcl(current_timestep, {cortical_id: bitmap})
-                        
                 except Exception as e:
                     logger.error(f"Error processing cortical area {cortical_id}: {e}")
                     continue
             
-            # Single summary log
-            if total_active_neurons > 0:
-                logger.info(f"🎲 Injected {total_active_neurons} RANDOM neurons across {len(active_areas)} areas (fallback mode)")
-                return True
+            # Submit activations via test runner (proper architecture)
+            if activations:
+                total_neurons = sum(len(neurons) for neurons in activations.values())
+                logger.debug(f"🎲 Submitting {total_neurons} RANDOM neurons across {len(activations)} areas via FCL injection service")
+                
+                injected_count = self.test_runner.submit_neuron_activations(activations, "test_mode_1_random")
+                
+                if injected_count > 0:
+                    logger.debug(f"✅ Successfully injected {injected_count} random neurons (fallback mode)")
+                    return True
+                else:
+                    logger.warning("Failed to inject random neurons")
+                    return False
             else:
-                logger.warning("No random neurons were successfully injected")
+                logger.warning("No random activations generated")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error injecting random activations: {e}")
+            logger.error(f"Error generating random activations: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return False 

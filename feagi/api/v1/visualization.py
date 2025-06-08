@@ -229,13 +229,11 @@ async def get_visualization_status(
                 # Get visualization stream from ZMQ server
                 viz_stream = zmq_server.get_visualization_stream()
                 if viz_stream:
-                    # Get status from visualization stream
-                    active_clients = len(getattr(viz_stream, '_active_clients', {}))
+                    # Get status from visualization stream - USE CORRECT METHOD
+                    active_clients = viz_stream.get_connected_client_count()
                     
-                    # Check FQ sampler status
-                    fq_sampler_enabled = False
-                    if hasattr(pm, '_fq_sampler') and pm._fq_sampler:
-                        fq_sampler_enabled = getattr(pm._fq_sampler, '_has_visualization_subscribers', False)
+                    # Check FQ sampler status using correct attributes
+                    fq_sampler_enabled = getattr(viz_stream, '_fq_sampler_enabled', False)
                     
                     return VisualizationStatusResponse(
                         enabled=True,

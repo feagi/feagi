@@ -537,16 +537,33 @@ class NeuroEmbryogenesis:
         """
         Create all cortical areas in the connectome manager based on the genome.
         
+        ENHANCED: Now guarantees core areas (_death, ___pwr) are created first from templates,
+        then allows genome to override their properties, then creates remaining areas.
+        
         Returns:
             True if successful, False otherwise
         """
         self._report_progress(DevelopmentStage.CORTICOGENESIS, 0, "Setting up cortical areas")
         
         try:
-            cortical_ids = self._get_cortical_ids_from_genome()
-            total_areas = len(cortical_ids)
+            # STEP 1: Create guaranteed core areas from templates.py
+            self._report_progress(DevelopmentStage.CORTICOGENESIS, 10, "Creating guaranteed core areas")
+            if not self._create_core_areas_from_templates():
+                return False
             
-            for i, cortical_id in enumerate(cortical_ids):
+            # STEP 2: Extract genome cortical areas
+            cortical_ids = self._get_cortical_ids_from_genome()
+            
+            # STEP 3: Check if genome contains core areas and update their properties
+            self._report_progress(DevelopmentStage.CORTICOGENESIS, 20, "Updating core area properties from genome")
+            self._update_core_areas_from_genome(cortical_ids)
+            
+            # STEP 4: Create remaining non-core areas from genome
+            self._report_progress(DevelopmentStage.CORTICOGENESIS, 30, "Creating genome-defined cortical areas")
+            remaining_areas = [cid for cid in cortical_ids if cid not in ["_death", "___pwr"]]
+            total_remaining = len(remaining_areas)
+            
+            for i, cortical_id in enumerate(remaining_areas):
                 properties = self._extract_cortical_properties(cortical_id)
                 
                 # Skip if required properties are missing
@@ -572,7 +589,6 @@ class NeuroEmbryogenesis:
                 # Add to connectome manager
                 try:
                     logger.debug(f"Creating cortical area with ID {cortical_id}")
-                    # Update to match the new ConnectomeManager API
                     created_cortical_id = self.connectome_manager.add_cortical_area(
                         name=name,
                         dimensions=dimensions,
@@ -600,21 +616,21 @@ class NeuroEmbryogenesis:
                     logger.error(f"Failed to create cortical area {cortical_id}: {e}")
                     continue
                 
-                # Report progress - Log detailed per-area progress at DEBUG level to reduce noise
-                progress = ((i + 1) / total_areas) * 100
-                logger.debug(f"[{DevelopmentStage.CORTICOGENESIS.value}] {progress:.1f}% - Created cortical area {i+1}/{total_areas}: {name}")
+                # Report progress for remaining areas
+                remaining_progress = 30 + ((i + 1) / total_remaining) * 60  # 30-90% range
+                logger.debug(f"[{DevelopmentStage.CORTICOGENESIS.value}] {remaining_progress:.1f}% - Created genome area {i+1}/{total_remaining}: {name}")
             
             self.development_stats["cortical_areas"] = len(self.cortical_areas)
             
             if not self.cortical_areas:
-                self.error = "No valid cortical areas found in genome"
+                self.error = "No valid cortical areas found"
                 self._report_progress(DevelopmentStage.FAILED, 0, self.error)
                 return False
                 
             self._report_progress(
                 DevelopmentStage.CORTICOGENESIS, 
                 100, 
-                f"Created {len(self.cortical_areas)} cortical areas"
+                f"Created {len(self.cortical_areas)} cortical areas (including {len([cid for cid in self.cortical_areas.keys() if cid in ['_death', '___pwr']])} core areas)"
             )
             return True
             
@@ -623,6 +639,135 @@ class NeuroEmbryogenesis:
             logger.exception(self.error)
             self._report_progress(DevelopmentStage.FAILED, 0, self.error)
             return False
+
+    def _create_core_areas_from_templates(self) -> bool:
+        """
+        Create the guaranteed core areas (_death, ___pwr) from templates.py.
+        
+        These areas are ALWAYS created regardless of genome content to ensure
+        system reliability and proper cortical_idx reservation.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Import cortical_types from templates
+            from feagi.evo.templates import cortical_types
+            
+            core_devices = cortical_types["CORE"]["supported_devices"]
+            
+            # Create _death area (cortical_idx=0)
+            death_template = core_devices["_death"]
+            death_id = self.connectome_manager.add_cortical_area(
+                name=death_template["cortical_name"],
+                dimensions=tuple(death_template["resolution"]),
+                position=tuple(death_template["coordinate_3d"]),
+                area_type="CORE",
+                properties={
+                    "template_source": "core",
+                    "enabled": death_template["enabled"],
+                    "structure": death_template["structure"]
+                },
+                cortical_id="_death"
+            )
+            
+            # Store in tracking maps
+            death_area = self.connectome_manager.get_cortical_area(death_id)
+            self.cortical_areas[death_id] = death_area
+            self.cortical_id_map[death_area.cortical_idx] = "_death"
+            self.reverse_cortical_id_map["_death"] = death_area.cortical_idx
+            
+            logger.info(f"Created core area _death at cortical_idx={death_area.cortical_idx}")
+            
+            # Create ___pwr area (cortical_idx=1) 
+            pwr_template = core_devices["___pwr"]
+            pwr_id = self.connectome_manager.add_cortical_area(
+                name=pwr_template["cortical_name"],
+                dimensions=tuple(pwr_template["resolution"]),
+                position=tuple(pwr_template["coordinate_3d"]),
+                area_type="CORE",
+                properties={
+                    "template_source": "core",
+                    "enabled": True,  # Always enable power area regardless of template default
+                    "structure": pwr_template["structure"]
+                },
+                cortical_id="___pwr"
+            )
+            
+            # Store in tracking maps  
+            pwr_area = self.connectome_manager.get_cortical_area(pwr_id)
+            self.cortical_areas[pwr_id] = pwr_area
+            self.cortical_id_map[pwr_area.cortical_idx] = "___pwr"
+            self.reverse_cortical_id_map["___pwr"] = pwr_area.cortical_idx
+            
+            logger.info(f"Created core area ___pwr at cortical_idx={pwr_area.cortical_idx}")
+            
+            # Verify correct cortical_idx assignment
+            if death_area.cortical_idx != 0:
+                logger.error(f"CRITICAL: _death area got cortical_idx={death_area.cortical_idx}, expected 0")
+                return False
+            if pwr_area.cortical_idx != 1:
+                logger.error(f"CRITICAL: ___pwr area got cortical_idx={pwr_area.cortical_idx}, expected 1")
+                return False
+                
+            logger.info("Core areas created successfully with correct cortical_idx reservation")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to create core areas from templates: {e}")
+            return False
+
+    def _update_core_areas_from_genome(self, genome_cortical_ids: List[str]) -> None:
+        """
+        Update core area properties if they are defined in the genome.
+        
+        This allows genomes to override the template defaults for core areas
+        while ensuring the areas always exist.
+        
+        Args:
+            genome_cortical_ids: List of cortical IDs found in genome
+        """
+        try:
+            for core_id in ["_death", "___pwr"]:
+                if core_id in genome_cortical_ids:
+                    logger.info(f"Updating core area {core_id} with genome properties")
+                    
+                    # Extract properties from genome
+                    genome_properties = self._extract_cortical_properties(core_id)
+                    
+                    # Get the existing core area
+                    area = None
+                    for area_id, area_obj in self.cortical_areas.items():
+                        if area_obj.cortical_id == core_id:
+                            area = area_obj
+                            break
+                    
+                    if area:
+                        # Update properties that are defined in genome
+                        if "dimensions" in genome_properties:
+                            area.dimensions = tuple(genome_properties["dimensions"])
+                            logger.debug(f"Updated {core_id} dimensions to {area.dimensions}")
+                        
+                        if "position" in genome_properties:
+                            area.position = tuple(genome_properties["position"])
+                            logger.debug(f"Updated {core_id} position to {area.position}")
+                        
+                        if "name" in genome_properties:
+                            area.name = genome_properties["name"]
+                            logger.debug(f"Updated {core_id} name to {area.name}")
+                        
+                        # Merge additional properties
+                        if hasattr(area, 'properties'):
+                            area.properties.update(genome_properties)
+                        else:
+                            area.properties = genome_properties
+                        
+                        logger.info(f"Core area {core_id} updated with genome properties")
+                    else:
+                        logger.warning(f"Could not find core area {core_id} to update")
+                        
+        except Exception as e:
+            logger.warning(f"Error updating core areas from genome: {e}")
     
     def _perform_neurogenesis(self) -> bool:
         """
@@ -1313,7 +1458,7 @@ class NeuroEmbryogenesis:
                     logger.error(f"  → PROBLEM: Required genome section '{key}' is not present in the genome data")
                     logger.error(f"  → REQUIRED SECTIONS: {required_keys}")
                     logger.error(f"  → AVAILABLE SECTIONS: {list(genome_data.keys()) if isinstance(genome_data, dict) else 'Invalid genome format'}")
-                    logger.error(f"  → FIX: Add the missing '{key}' section to your genome file")
+                    logger.error(f"  → FIX: Add the missing '{key}' section to your genome")
                     if key == "physiology":
                         logger.error(f"  → EXAMPLE: Add 'physiology': {{'burst_delay': 0.025, 'max_age': 10000000, 'evolution_burst_count': 50, 'ipu_idle_threshold': 1000, 'plasticity_queue_depth': 3, 'lifespan_mgmt_interval': 10}} to your genome")
                         logger.error(f"  → AUTO-RECOVERY: Enable auto-recovery in configuration to automatically add missing physiology properties")

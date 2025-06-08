@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
 import tempfile
+import weakref
 
 try:
     import tomllib  # Python 3.11+
@@ -47,6 +48,16 @@ except ImportError:
         )
 
 logger = logging.getLogger(__name__)
+
+# Global cache for configuration to prevent repeated loading and log spam
+_CONFIG_CACHE: Optional[Dict[str, Any]] = None
+_CONFIG_CACHE_KEY: Optional[str] = None
+
+def _get_cache_key(config_path: Optional[Path] = None, cli_args: Optional[Dict[str, Any]] = None) -> str:
+    """Generate a cache key based on config path and CLI arguments."""
+    path_str = str(config_path) if config_path else "default"
+    cli_str = str(sorted(cli_args.items())) if cli_args else "none"
+    return f"{path_str}:{cli_str}"
 
 
 @dataclass
@@ -511,12 +522,29 @@ def load_feagi_config(cli_args: Optional[Dict[str, Any]] = None) -> Dict[str, An
     """
     Load and validate FEAGI configuration with all overrides applied.
     
+    Uses global caching to prevent repeated file loading and log spam.
+    
     Args:
         cli_args: Optional command-line arguments
         
     Returns:
         Complete, validated configuration dictionary
     """
+    global _CONFIG_CACHE, _CONFIG_CACHE_KEY
+    
+    # Generate cache key for this configuration request
+    cache_key = _get_cache_key(cli_args=cli_args)
+    
+    # Return cached configuration if available and matching
+    if _CONFIG_CACHE is not None and _CONFIG_CACHE_KEY == cache_key:
+        return _CONFIG_CACHE.copy()  # Return a copy to prevent modification
+    
+    # Load fresh configuration
     config = load_toml_configuration(cli_args=cli_args)
     validate_configuration(config)
+    
+    # Cache the result
+    _CONFIG_CACHE = config.copy()
+    _CONFIG_CACHE_KEY = cache_key
+    
     return config 

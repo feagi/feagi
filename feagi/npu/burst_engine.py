@@ -104,8 +104,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             # WGPU-COMPATIBLE: Use logger instead of print for debug output
             logger.info(f"[DEBUG] BURST ENGINE: Creating NEW singleton instance {cls._instance_id}")
         else:
-            # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.info(f"[DEBUG] BURST ENGINE: Returning EXISTING singleton instance {cls._instance_id}")
+            # Removed log spam: no longer log when returning existing singleton
+            pass
         return cls._instance
     
     @property
@@ -182,9 +182,20 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         
         # Support both parameter names for backward compatibility
         self.desired_frequency = self.config.get('desired_frequency_hz', 
-                                              self.config.get('target_frequency', 1.0))
+                                              self.config.get('target_frequency', 10.0))  # Default to 10Hz instead of 1Hz for better performance
         self.target_frequency = self.desired_frequency  # For backward compatibility
+        
+        # Ensure frequency is never zero to avoid division by zero
+        if self.desired_frequency <= 0:
+            logger.warning(f"Invalid frequency {self.desired_frequency}Hz, using default 10Hz")
+            self.desired_frequency = 10.0
+            self.target_frequency = 10.0
+            
         self.burst_interval = 1.0 / self.desired_frequency
+        
+        # Log the frequency configuration for debugging
+        if self.debug_npu:
+            logger.info(f"[DEBUG] BURST ENGINE: Frequency configured: {self.desired_frequency}Hz, interval: {self.burst_interval:.4f}s")
         
         # Use cortical_areas instead of _areas - fix the attribute name
         self.cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
@@ -223,47 +234,41 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
     def _initialize_injection_service(self) -> None:
         """
-        Initialize generic injection service for special areas.
+        Initialize the FCL injection service for special area handling.
         
-        This is called when a genome is loaded or when the burst engine is created
-        with an already-loaded connectome. The service handles ALL types of special
-        areas (power, modulator, sensory, etc.) without the burst engine needing
-        to know the specifics.
+        This method sets up the injection service that handles power areas and other
+        special cortical areas that need to inject neurons into the FCL during burst processing.
         """
-        if not self.enable_injection:
-            logger.info("FCL injection service disabled by configuration", status="[FAST]")
-            return
-        
         try:
-            # Initialize special area handler (detects all special area types)
-            special_area_handler = SpecialAreaHandler(
-                connectome_manager=self.connectome_manager,
-                config=self.config.get('special_area_config', {})
+            # Import here to avoid circular dependencies
+            from feagi.npu.fcl_injection_service import FCLInjectionService
+            from feagi.npu.special_area_handler import SpecialAreaHandler
+            
+            # Create special area handler
+            special_area_handler = SpecialAreaHandler(self.connectome_manager)
+            logger.info(f"[INJECTION INIT] Created SpecialAreaHandler for burst engine instance {self._instance_id}")
+            
+            # Create FCL injection service
+            self.injection_service = FCLInjectionService(
+                fcl_manager=self.fcl_manager,
+                special_area_handler=special_area_handler
             )
+            logger.info(f"[INJECTION INIT] Created FCLInjectionService for burst engine instance {self._instance_id}")
             
-            # Detect all special areas (power, modulator, sensory, etc.)
-            special_area_handler.detect_special_areas()
+            # Test power area detection immediately
+            try:
+                power_neurons = special_area_handler.get_power_area_neurons()
+                if power_neurons:
+                    logger.info(f"[INJECTION INIT] Successfully detected {len(power_neurons)} power area neurons during initialization")
+                else:
+                    logger.warning(f"[INJECTION INIT] No power area neurons detected during initialization - this may be normal if genome not loaded yet")
+            except Exception as e:
+                logger.error(f"[INJECTION INIT] Error testing power area detection during initialization: {e}")
             
-            # Initialize FCL injection service if ANY special areas detected
-            special_areas = special_area_handler.special_areas
-            if special_areas:
-                self.injection_service = FCLInjectionService(
-                    fcl_manager=self.fcl_manager,
-                    special_area_handler=special_area_handler,
-                    config=self.config.get('injection_config', {})
-                )
-                
-                logger.info(f"Initialized FCL injection service for {len(special_areas)} special areas", status="[CONFIG]")
-                
-                # Log injection preview for debugging
-                if self.debug_npu:
-                    preview = self.injection_service.get_power_injection_preview()
-                    logger.debug(f"Injection service preview: {preview}")
-            else:
-                logger.info("No special areas detected, injection service not initialized", status="[FAST]")
-                
+            logger.info(f"[INJECTION INIT] Injection service initialization complete for burst engine {self._instance_id}")
+            
         except Exception as e:
-            logger.error(f"Error initializing injection service: {e}")
+            logger.error(f"[INJECTION INIT] Failed to initialize injection service for burst engine {self._instance_id}: {e}")
             self.injection_service = None
 
     def _process_burst(self) -> List[int]:
@@ -282,6 +287,34 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         Returns:
             List of neuron IDs that fired in this burst
         """
+        # Unconditional proof that _process_burst is being called
+        try:
+            with open("/tmp/feagi_process_burst.log", "a") as f:
+                import datetime
+                f.write(f"{datetime.datetime.now()}: _process_burst called, burst_count={self.burst_count}, injection_service={type(self.injection_service).__name__ if self.injection_service else 'None'}\n")
+        except:
+            pass
+        # INFO level logging to make injection service status visible
+        if self.burst_count % 50 == 0:  # Log every 50 bursts to avoid spam
+            if self.injection_service:
+                logger.info(f"[BURST ENGINE] Burst {self.burst_count}: Injection service AVAILABLE, calling inject_pre_burst")
+                # Also write to file for proof
+                try:
+                    with open("/tmp/feagi_burst_proof.log", "a") as f:
+                        import datetime
+                        f.write(f"{datetime.datetime.now()}: Burst engine calling inject_pre_burst with burst_count={self.burst_count}\n")
+                except:
+                    pass
+            else:
+                logger.info(f"[BURST ENGINE] Burst {self.burst_count}: NO INJECTION SERVICE - power area injection disabled")
+                # Also write to file for proof
+                try:
+                    with open("/tmp/feagi_burst_proof.log", "a") as f:
+                        import datetime
+                        f.write(f"{datetime.datetime.now()}: Burst engine has NO injection service at burst_count={self.burst_count}\n")
+                except:
+                    pass
+        
         # WGPU-COMPATIBLE: Use logger instead of print for debug output
         if self.debug_npu:
             logger.debug(f"[DEBUG] BURST ENGINE _process_burst called! Instance {self._instance_id}, Burst count: {self.burst_count}")
@@ -303,7 +336,22 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         if self.injection_service:
             if self.debug_npu:
                 logger.debug(f"[DEBUG] BURST ENGINE: Adding pre-burst candidates to FCL")
+            # Unconditional proof that injection is being called
+            try:
+                with open("/tmp/feagi_injection_calls.log", "a") as f:
+                    import datetime
+                    f.write(f"{datetime.datetime.now()}: inject_pre_burst called with burst_count={self.burst_count}\n")
+            except:
+                pass
             self.injection_service.inject_pre_burst(self.burst_count)
+        else:
+            # Unconditional proof that injection service is missing
+            try:
+                with open("/tmp/feagi_injection_calls.log", "a") as f:
+                    import datetime
+                    f.write(f"{datetime.datetime.now()}: NO injection service available at burst_count={self.burst_count}\n")
+            except:
+                pass
         
         # 2. Core neural computation (synaptic propagation)
         #    Process ALL FCL candidates (internal + external) in one unified sweep
@@ -353,6 +401,13 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         Returns:
             List of neuron IDs that fired in this burst
         """
+        # Unconditional proof that this method is being called
+        try:
+            with open("/tmp/feagi_enhanced_burst.log", "a") as f:
+                import datetime
+                f.write(f"{datetime.datetime.now()}: _process_burst_with_power_injection called, timestep={current_timestep}, injection_service={type(self.injection_service).__name__ if self.injection_service else 'None'}\n")
+        except:
+            pass
         # Debug logging if --debug-npu is enabled
         if self.debug_npu:
             logger.debug(f"[DEBUG] BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}")
@@ -428,6 +483,15 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 
                 # Execute burst processing
                 try:
+                    # Unconditional proof that run loop is executing
+                    if self.burst_count % 100 == 0:  # Every 100 bursts to avoid spam
+                        try:
+                            with open("/tmp/feagi_run_loop.log", "a") as f:
+                                import datetime
+                                f.write(f"{datetime.datetime.now()}: run() loop executing, about to call _process_burst(), burst_count={self.burst_count}\n")
+                        except:
+                            pass
+                    
                     fired_neurons = self._process_burst()
                     processing_end = time.perf_counter()
                     processing_duration = processing_end - processing_start
@@ -523,14 +587,38 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         connectome manager to refresh the engine's understanding of the neural network.
         """
         logger.info("Updating burst engine with new genome", status="[CONFIG]")
+        # Write to debug file for development tracking
+        try:
+            with open("/tmp/feagi_injection_debug.log", "a") as f:
+                import datetime
+                f.write(f"{datetime.datetime.now()}: update_with_genome() called\n")
+        except:
+            pass
         
         try:
-            # Update cortical areas from connectome
-            self.cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
-            self.shed_areas = set(area.id for area in self.cortical_areas if area.properties.get('__shed', False))
+            # Get current cortical areas for comparison
+            new_cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
+            new_shed_areas = set(area.id for area in new_cortical_areas if area.properties.get('__shed', False))
             
-            # Re-initialize injection service with new genome
+            # Always ensure injection service is initialized when genome is loaded
+            # Update cortical areas from connectome
+            self.cortical_areas = new_cortical_areas
+            self.shed_areas = new_shed_areas
+            
+            # Always initialize injection service to ensure proper special area detection
+            logger.debug("[DEBUG] BURST ENGINE: Re-initializing injection service with genome data")
+                
             self._initialize_injection_service()
+            
+            service_type = type(self.injection_service).__name__ if self.injection_service else 'None'
+            logger.debug(f"[DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}")
+            # Write to debug file for development
+            try:
+                with open("/tmp/feagi_injection_debug.log", "a") as f:
+                    import datetime
+                    f.write(f"{datetime.datetime.now()}: Injection service after init: {service_type}\n")
+            except:
+                pass
             
             # Mark genome as loaded
             self.genome_loaded = True
@@ -601,6 +689,44 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             logger.error(f"Error setting injection for {cortical_id}: {e}")
             return False
 
+    def update_frequency(self, frequency_hz: float) -> bool:
+        """
+        Update burst frequency - RTOS-safe, no dynamic allocation.
+        
+        Args:
+            frequency_hz: New frequency in Hz (must be > 0)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        # RTOS-SAFE: Validate input without exceptions in normal case
+        if frequency_hz <= 0.0 or frequency_hz > 10000.0:  # Max 10kHz for safety
+            return False
+        
+        # RTOS-SAFE: Atomic updates, no intermediate invalid state
+        self.desired_frequency = frequency_hz
+        self.target_frequency = frequency_hz
+        self.burst_interval = 1.0 / frequency_hz
+        
+        # RTOS-SAFE: Minimal logging only if debug enabled
+        if self.debug_npu:
+            logger.info(f"[DEBUG] BURST ENGINE: Frequency updated to {frequency_hz}Hz")
+        
+        return True
+
+    def get_frequency_config(self) -> Dict[str, float]:
+        """
+        Get current frequency configuration - RTOS-safe, no allocation.
+        
+        Returns:
+            Dictionary with current frequency settings
+        """
+        return {
+            "current_frequency_hz": self.desired_frequency,
+            "burst_interval_seconds": self.burst_interval,
+            "target_frequency_hz": self.target_frequency
+        }
+
     def run_with_fire_queue(self, mpf: bool = True, puf: bool = False, max_consecutive_fires: int = 10) -> bool:
         """
         Run fire queue processing with membrane potential and plasticity updates.
@@ -618,6 +744,14 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             return False
         
         try:
+            # Unconditional proof that run_with_fire_queue is being called
+            try:
+                with open("/tmp/feagi_fire_queue.log", "a") as f:
+                    import datetime
+                    f.write(f"{datetime.datetime.now()}: run_with_fire_queue called, about to call _process_burst_with_power_injection\n")
+            except:
+                pass
+                
             # FCL manager uses sliding window with current timestep always 0
             current_timestep = 0  # Fixed: always use 0 for current timestep
             

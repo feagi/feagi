@@ -368,4 +368,96 @@ class SystemService(BaseService):
             return []
         except Exception as e:
             self.logger.error(f"Error getting unique logs: {str(e)}")
-            return [] 
+            return []
+    
+    def enable_visualization_fq_sampler(self) -> bool:
+        """Enable the visualization FQ sampler for brain visualizer connectivity."""
+        try:
+            # Import here to avoid circular dependencies
+            from feagi.process_manager import get_process_manager
+            
+            process_manager = get_process_manager()
+            if process_manager:
+                success = process_manager.enable_viz_fq_sampler()
+                if success:
+                    self.logger.info("✅ Visualization FQ sampler enabled via REST API")
+                    return True
+                else:
+                    self.logger.error("❌ Failed to enable visualization FQ sampler")
+                    return False
+            else:
+                self.logger.error("❌ Process manager not available")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error enabling visualization FQ sampler: {str(e)}")
+            return False
+    
+    def disable_visualization_fq_sampler(self) -> bool:
+        """Disable the visualization FQ sampler."""
+        try:
+            # Import here to avoid circular dependencies
+            from feagi.process_manager import get_process_manager
+            
+            process_manager = get_process_manager()
+            if process_manager:
+                success = process_manager.disable_viz_fq_sampler()
+                if success:
+                    self.logger.info("✅ Visualization FQ sampler disabled via REST API")
+                    return True
+                else:
+                    self.logger.error("❌ Failed to disable visualization FQ sampler")
+                    return False
+            else:
+                self.logger.error("❌ Process manager not available")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error disabling visualization FQ sampler: {str(e)}")
+            return False
+    
+    def get_fq_sampler_status(self) -> Dict[str, Any]:
+        """Get the current status of all FQ samplers."""
+        try:
+            # Import here to avoid circular dependencies
+            from feagi.process_manager import get_process_manager
+            
+            process_manager = get_process_manager()
+            if process_manager:
+                status = {}
+                
+                # Get visualization FQ sampler status
+                viz_sampler = getattr(process_manager, '_viz_fq_sampler', None)
+                if viz_sampler:
+                    # Check if sampler has visualization subscribers (enabled state)
+                    has_subscribers = getattr(viz_sampler, '_has_visualization_subscribers', False)
+                    status['visualization'] = {
+                        'enabled': has_subscribers,
+                        'frequency_hz': getattr(viz_sampler, 'sample_frequency', 'unknown'),
+                        'mode': getattr(viz_sampler, 'current_strategy', {}).get('mode', 'unknown'),
+                        'running': getattr(viz_sampler, 'running', False)
+                    }
+                else:
+                    status['visualization'] = {'enabled': False, 'error': 'sampler not found'}
+                
+                # Get motor FQ sampler status
+                motor_sampler = getattr(process_manager, '_motor_fq_sampler', None)
+                if motor_sampler:
+                    # Check if sampler has motor subscribers (enabled state)
+                    has_subscribers = getattr(motor_sampler, '_has_motor_subscribers', False)
+                    status['motor'] = {
+                        'enabled': has_subscribers,
+                        'frequency_hz': getattr(motor_sampler, 'sample_frequency', 'unknown'),
+                        'mode': getattr(motor_sampler, 'current_strategy', {}).get('mode', 'unknown'),
+                        'running': getattr(motor_sampler, 'running', False)
+                    }
+                else:
+                    status['motor'] = {'enabled': False, 'error': 'sampler not found'}
+                
+                return status
+            else:
+                return {'error': 'Process manager not available'}
+                
+        except Exception as e:
+            self.logger.error(f"Error getting FQ sampler status: {str(e)}")
+            return {'error': str(e)} 

@@ -63,6 +63,14 @@ class BrainService(BaseService):
 
     def start_burst_engine(self) -> bool:
         """Start the burst engine."""
+        # Unconditional debug logging
+        try:
+            with open("/tmp/feagi_injection_debug.log", "a") as f:
+                import datetime
+                f.write(f"{datetime.datetime.now()}: Brain service start_burst_engine() called\n")
+        except:
+            pass
+            
         try:
             if not self.state_manager:
                 if os.environ.get('FEAGI_DEBUG_NPU') == '1':
@@ -77,19 +85,16 @@ class BrainService(BaseService):
                 self.logger.error("No burst engine instance available")
                 return False
             
-            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"[DEBUG] BRAIN SERVICE: Got burst engine instance {burst_engine._instance_id}")
-                print(f"[DEBUG] BRAIN SERVICE: Current _running state: {burst_engine._running}")
+            self.logger.debug(f"BRAIN SERVICE: Got burst engine instance {burst_engine._instance_id}")
+            self.logger.debug(f"BRAIN SERVICE: Current _running state: {burst_engine._running}")
             
             # Check if it's already running
             if burst_engine._running:
-                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"[DEBUG] BRAIN SERVICE: Burst engine reports _running=True, skipping start")
+                self.logger.debug("BRAIN SERVICE: Burst engine reports _running=True, skipping start")
                 self.logger.info("Burst engine is already running")
                 return True
             
-            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"[DEBUG] BRAIN SERVICE: Burst engine _running=False, proceeding to start")
+            self.logger.debug("BRAIN SERVICE: Burst engine _running=False, proceeding to start")
             
             # Clear exit condition to start the burst engine
             self.state_manager.exit_condition = False
@@ -100,29 +105,24 @@ class BrainService(BaseService):
             def run_burst_engine():
                 """Background thread function to run the burst engine main loop"""
                 try:
-                    if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                        print(f"[DEBUG] BRAIN SERVICE: Background thread starting, about to call burst_engine.run()")
-                    self.logger.info("[DEBUG] BRAIN SERVICE: Starting burst engine main loop in background thread")
+                    self.logger.debug("BRAIN SERVICE: Background thread starting, about to call burst_engine.run()")
+                    self.logger.info("BRAIN SERVICE: Starting burst engine main loop in background thread")
                     burst_engine.run()
-                    if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                        print(f"[DEBUG] BRAIN SERVICE: burst_engine.run() returned")
+                    self.logger.debug("BRAIN SERVICE: burst_engine.run() returned")
                 except Exception as e:
-                    if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                        print(f"[DEBUG] BRAIN SERVICE: Exception in burst engine main loop: {str(e)}")
-                    self.logger.error(f"[DEBUG] BRAIN SERVICE: Error in burst engine main loop: {str(e)}")
+                    self.logger.debug(f"BRAIN SERVICE: Exception in burst engine main loop: {str(e)}")
+                    self.logger.error(f"BRAIN SERVICE: Error in burst engine main loop: {str(e)}")
                     # Set burst engine state to ERROR on exception
                     from feagi.core.state_manager import ServiceState
                     self.state_manager.set_burst_engine_state(ServiceState.ERROR)
             
-            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"[DEBUG] BRAIN SERVICE: Creating background thread")
+            self.logger.debug("BRAIN SERVICE: Creating background thread")
             
             # Start the burst engine in a daemon thread
             burst_thread = threading.Thread(target=run_burst_engine, daemon=True)
             burst_thread.start()
             
-            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"[DEBUG] BRAIN SERVICE: Background thread started, using event-based synchronization...")
+            self.logger.debug("BRAIN SERVICE: Background thread started, using event-based synchronization...")
             
             # RTOS-COMPATIBLE: Event-based synchronization instead of sleep polling
             startup_event = threading.Event()
@@ -169,24 +169,50 @@ class BrainService(BaseService):
             # RTOS: Wait for event with timeout (deterministic)
             event_triggered = startup_event.wait(timeout=3.0)  # Max 3 second timeout
             
-            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"[DEBUG] BRAIN SERVICE: Event triggered: {event_triggered}, Success: {startup_success}")
+            self.logger.debug(f"BRAIN SERVICE: Event triggered: {event_triggered}, Success: {startup_success}")
             
             # Verify startup success
             if startup_success and burst_engine._running:
-                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"[DEBUG] BRAIN SERVICE: Success! Burst engine is now running")
+                self.logger.debug("BRAIN SERVICE: Success! Burst engine is now running")
                 self.logger.info("Burst engine started successfully in background thread")
+                
+                # CRITICAL: If there's already a genome loaded, update the burst engine with it
+                # This ensures injection service gets initialized for existing genomes
+                genome_loaded = self.state_manager and self.state_manager.is_genome_loaded()
+                self.logger.debug(f"BRAIN SERVICE: Checking genome status - loaded: {genome_loaded}")
+                # Write to debug file
+                try:
+                    with open("/tmp/feagi_injection_debug.log", "a") as f:
+                        import datetime
+                        f.write(f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n")
+                except:
+                    pass
+                    
+                if genome_loaded:
+                    self.logger.debug("BRAIN SERVICE: Genome already loaded, calling update_with_genome()")
+                    try:
+                        with open("/tmp/feagi_injection_debug.log", "a") as f:
+                            import datetime
+                            f.write(f"{datetime.datetime.now()}: Brain service calling update_with_genome()\n")
+                        burst_engine.update_with_genome()
+                        self.logger.info("Updated burst engine with existing genome - injection service initialized")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to update burst engine with existing genome: {str(e)}")
+                        try:
+                            with open("/tmp/feagi_injection_debug.log", "a") as f:
+                                import datetime
+                                f.write(f"{datetime.datetime.now()}: Brain service error: {str(e)}\n")
+                        except:
+                            pass
+                
                 return True
             else:
-                if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                    print(f"[DEBUG] BRAIN SERVICE: FAILED! Burst engine _running is still False")
+                self.logger.debug("BRAIN SERVICE: FAILED! Burst engine _running is still False")
                 self.logger.error("Failed to start burst engine main loop")
                 return False
             
         except Exception as e:
-            if os.environ.get('FEAGI_DEBUG_NPU') == '1':
-                print(f"[DEBUG] BRAIN SERVICE: Exception in start_burst_engine: {str(e)}")
+            self.logger.debug(f"BRAIN SERVICE: Exception in start_burst_engine: {str(e)}")
             self.logger.error(f"Error starting burst engine: {str(e)}")
             return False
 
@@ -446,21 +472,39 @@ class BrainService(BaseService):
             return {"success": False, "error": str(e)}
 
     def get_burst_engine_config(self) -> Dict[str, Any]:
-        """Get burst engine configuration."""
+        """Get burst engine configuration - RTOS-safe."""
         try:
-            if not self.state_manager:
-                return {"error": "State manager not available"}
-            
-            # Get configuration from state manager or use defaults
-            config = {
-                "burst_frequency_hz": getattr(self.state_manager, 'burst_frequency', 1.0),
-                "max_neurons_per_burst": getattr(self.state_manager, 'max_neurons_per_burst', 1000),
-                "burst_timeout_ms": getattr(self.state_manager, 'burst_timeout', 1000),
-                "auto_restart": getattr(self.state_manager, 'auto_restart', True),
-                "performance_mode": getattr(self.state_manager, 'performance_mode', "normal")
-            }
-            
-            return config
+            # Get real configuration from burst engine
+            burst_engine = self._get_burst_engine()
+            if burst_engine:
+                # RTOS-SAFE: Get current frequency configuration
+                frequency_config = burst_engine.get_frequency_config()
+                
+                # Combine with state manager configuration
+                base_config = {
+                    "burst_frequency_hz": frequency_config.get("current_frequency_hz", 10.0),
+                    "burst_interval_seconds": frequency_config.get("burst_interval_seconds", 0.1),
+                    "target_frequency_hz": frequency_config.get("target_frequency_hz", 10.0),
+                    "max_neurons_per_burst": getattr(self.state_manager, 'max_neurons_per_burst', 1000) if self.state_manager else 1000,
+                    "burst_timeout_ms": getattr(self.state_manager, 'burst_timeout', 1000) if self.state_manager else 1000,
+                    "auto_restart": getattr(self.state_manager, 'auto_restart', True) if self.state_manager else True,
+                    "performance_mode": getattr(self.state_manager, 'performance_mode', "normal") if self.state_manager else "normal"
+                }
+                
+                return base_config
+            else:
+                # Fallback configuration when burst engine is not available
+                return {
+                    "burst_frequency_hz": 10.0,
+                    "burst_interval_seconds": 0.1,
+                    "target_frequency_hz": 10.0,
+                    "max_neurons_per_burst": 1000,
+                    "burst_timeout_ms": 1000,
+                    "auto_restart": True,
+                    "performance_mode": "normal",
+                    "error": "Burst engine not available"
+                }
+                
         except Exception as e:
             self.logger.error(f"Error getting burst engine config: {str(e)}")
             return {"error": str(e)}

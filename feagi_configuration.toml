@@ -67,6 +67,24 @@ socket_send_timeout = 5000     # Socket send timeout
 client_heartbeat_timeout = 30000  # Client heartbeat timeout
 inactive_client_timeout = 60000   # Consider clients inactive after this
 
+# Stream-specific enable/disable configuration
+[zmq.streams]
+# Enable/disable individual ZMQ streams
+
+[zmq.streams.visualization]
+enabled = true                    # Enable visualization stream
+auto_enable_on_subscribers = true # Auto-enable FQ sampler when clients connect
+subscriber_check_interval = 1.0  # Seconds between subscriber checks
+
+[zmq.streams.sensory]
+enabled = true                    # Enable sensory stream
+
+[zmq.streams.motor]
+enabled = true                    # Enable motor stream
+
+[zmq.streams.rest]
+enabled = true                    # Enable REST API stream (primary API interface)
+
 [timeouts]
 # System-wide timeout configurations (all in seconds unless specified)
 graceful_shutdown = 8.0        # Time to wait for graceful shutdown

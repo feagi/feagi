@@ -184,14 +184,16 @@ class TestMode2Handler:
     
     def _inject_numpy_generated_activations(self):
         """
-        Generate and inject random activations using numpy for scalability.
+        Generate random activations using numpy for scalability and submit them via test runner.
+        
+        This method separates neuron selection logic from injection mechanism,
+        following proper architectural separation of concerns.
         
         Returns:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            total_active_neurons = 0
-            active_areas = []
+            activations = {}  # Dictionary to hold activations for submission
             
             logger.debug(f"Generating random activations for {len(self.selected_areas)} cortical areas")
             
@@ -220,34 +222,30 @@ class TestMode2Handler:
                     )
                     
                     selected_neurons = [available_neurons[i] for i in selected_indices]
+                    activations[area_id] = selected_neurons
                     
-                    # Create bitmap from selected neuron IDs
-                    from feagi.npu.fcl_manager import BitMap
-                    bitmap = BitMap(selected_neurons)
-                    
-                    # Add the bitmap to FCL updates
-                    if len(bitmap) > 0:
-                        total_active_neurons += len(bitmap)
-                        active_areas.append(area_id)
-                        self.fcl_manager.update_fcl(
-                            self.fcl_manager.current_timestep, 
-                            {area_id: bitmap}
-                        )
-                        
-                        logger.debug(f"Generated {len(bitmap)} random neurons in {area_id} "
-                                   f"(density: {len(bitmap)/area_info['neuron_count']:.2%})")
-                    
+                    logger.debug(f"Generated {len(selected_neurons)} random neurons in {area_id} "
+                               f"(density: {len(selected_neurons)/area_info['neuron_count']:.2%})")
                         
                 except Exception as e:
                     logger.error(f"Error generating activations for {area_id}: {e}")
                     continue
             
-            # Summary log
-            if total_active_neurons > 0:
-                logger.info(f"🎲 Generated {total_active_neurons} RANDOM neurons across {len(active_areas)} areas")
-                return True
+            # Submit activations via test runner (proper architecture)
+            if activations:
+                total_neurons = sum(len(neurons) for neurons in activations.values())
+                logger.info(f"🎲 Submitting {total_neurons} NUMPY-GENERATED neurons across {len(activations)} areas via FCL injection service")
+                
+                injected_count = self.test_runner.submit_neuron_activations(activations, "test_mode_2_numpy")
+                
+                if injected_count > 0:
+                    logger.info(f"✅ Successfully injected {injected_count} numpy-generated neurons")
+                    return True
+                else:
+                    logger.warning("Failed to inject numpy-generated neurons")
+                    return False
             else:
-                logger.warning("No random neurons were successfully generated")
+                logger.warning("No numpy-generated activations generated")
                 return False
                 
         except Exception as e:

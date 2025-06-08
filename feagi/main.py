@@ -52,6 +52,32 @@ setup_feagi_logging()
 # )
 logger = setup_logger("feagi.main")
 
+def _update_all_logger_levels(log_level_str: str):
+    """
+    Update all existing logger levels to the new level.
+    
+    This is necessary because loggers created before CLI override
+    retain their original level and don't automatically update.
+    
+    Args:
+        log_level_str: Log level string (DEBUG, INFO, WARNING, ERROR)
+    """
+    import logging
+    
+    # Convert string to logging level
+    level = getattr(logging, log_level_str.upper(), logging.INFO)
+    
+    # Update root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    
+    # Update all existing loggers in the logger registry
+    logger_dict = logging.Logger.manager.loggerDict
+    for logger_name, logger_obj in logger_dict.items():
+        if isinstance(logger_obj, logging.Logger):
+            logger_obj.setLevel(level)
+        # PlaceHolder objects don't need updating
+
 def check_dependencies():
     """
     Check if installed dependencies match required versions.
@@ -172,6 +198,18 @@ def main():
     
     args = parser.parse_args()
     
+    # CRITICAL: Update logger levels IMMEDIATELY after parsing CLI args
+    # This must happen before any logging occurs to respect --log-level
+    if args.log_level is not None:
+        # Set environment variable for future logger creation
+        os.environ['FEAGI_CLI_LOG_LEVEL'] = args.log_level
+        # Update all existing loggers immediately
+        _update_all_logger_levels(args.log_level)
+        
+    # Show deferred logger setup info now that CLI override is applied
+    from feagi.utils.logger import show_deferred_setup_info
+    show_deferred_setup_info()
+    
     try:
         # Load TOML configuration with command-line overrides
         from feagi.config.toml_loader import load_feagi_config, FeagiConfigurationError
@@ -246,6 +284,8 @@ def main():
         # Load configuration with CLI overrides
         logger.info("Loading FEAGI configuration...")
         config = load_feagi_config(cli_args=cli_overrides)
+        
+        # Logger levels already updated immediately after CLI parsing
         
         # Log the final configuration being used
         api_config = config.get('api', {})
@@ -359,6 +399,14 @@ def main():
     if not process_manager.start(config):
         logger.error("[ERR] Failed to start FEAGI. See logs for details.")
         return 1
+    
+    # Log startup summary with all state information
+    try:
+        from feagi.core.state_manager import get_state_manager
+        state_manager = get_state_manager()
+        state_manager.log_startup_summary()
+    except Exception as e:
+        logger.warning(f"Could not log startup summary: {e}")
     
     # If in test mode, run tests AFTER processes are started
     test_mode_enabled = args.test or args.test_mode_1 or args.test_mode_2
