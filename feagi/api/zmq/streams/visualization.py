@@ -663,6 +663,41 @@ class VisualizationStream:
         """Get the number of connected visualization clients."""
         with self._client_lock:  # Thread-safe access
             return len(self.client_last_heartbeat)
+    
+    def _get_registered_visualization_agents(self) -> int:
+        """
+        Get the number of registered visualization agents from the agent registry.
+        This bridges the old heartbeat system with the new agent registration system.
+        """
+        try:
+            if not self.core_api:
+                logger.debug("🔍 AGENT REGISTRY: No core_api available")
+                return 0
+            
+            # Get agent registry summary from core API
+            agent_summary = self.core_api.get_agent_registry_summary()
+            if not agent_summary:
+                logger.debug("🔍 AGENT REGISTRY: No agent summary returned")
+                return 0
+            
+            # Count agents with visualization capability
+            viz_agents = 0
+            agents = agent_summary.get('agents', {})
+            logger.debug(f"🔍 AGENT REGISTRY: Checking {len(agents)} total agents")
+            
+            for agent_id, agent_info in agents.items():
+                capabilities = agent_info.get('capabilities', {})
+                has_viz = capabilities.get('visualization', False)
+                logger.debug(f"🔍 AGENT REGISTRY: Agent {agent_id} - visualization: {has_viz}")
+                if has_viz:
+                    viz_agents += 1
+            
+            logger.info(f"🔍 AGENT REGISTRY: Found {viz_agents} registered visualization agents")
+            return viz_agents
+            
+        except Exception as e:
+            logger.error(f"Error checking agent registry for visualization agents: {e}")
+            return 0
 
     def _control_fq_sampler(self, enable: bool) -> None:
         """Enable or disable the FQ sampler based on subscriber presence."""
@@ -758,8 +793,12 @@ class VisualizationStream:
         """
         Subscriber monitoring worker thread.
         Automatically enables/disables FQ sampler based on subscriber presence.
+        
+        FIXED: Now checks both visualization heartbeats AND agent registry for registered visualization agents.
+        This prevents race conditions between the old heartbeat system and new agent registration system.
         """
-        logger.debug("Starting subscriber monitoring for automatic FQ sampler control")
+        logger.info("🔧 SUBSCRIBER MONITOR: Starting subscriber monitoring for automatic FQ sampler control")
+        logger.info(f"🔧 SUBSCRIBER MONITOR: core_api available: {self.core_api is not None}, check_interval: {self.subscriber_check_interval}s")
         
         while self.running and not self._stop_event.is_set():
             try:
@@ -768,21 +807,25 @@ class VisualizationStream:
                     logger.debug("Subscriber monitor received stop signal")
                     break
                 
-                # Check current subscriber count via client heartbeats
-                current_count = self.get_connected_client_count()
+                # FIXED: Check BOTH heartbeat clients AND registered agents
+                heartbeat_count = self.get_connected_client_count()
+                registered_viz_agents = self._get_registered_visualization_agents()
+                
+                # Total subscriber count includes both heartbeat clients and registered agents
+                total_subscribers = heartbeat_count + registered_viz_agents
                 
                 # Update subscriber count
-                if current_count != self._last_subscriber_count:
-                    logger.info(f"Visualization subscriber count changed: {self._last_subscriber_count} -> {current_count}")
-                    self._last_subscriber_count = current_count
+                if total_subscribers != self._last_subscriber_count:
+                    logger.info(f"Visualization subscribers changed: {self._last_subscriber_count} -> {total_subscribers} (heartbeats: {heartbeat_count}, agents: {registered_viz_agents})")
+                    self._last_subscriber_count = total_subscribers
                     
-                    # Auto-enable/disable FQ sampler based on subscriber count
-                    should_enable = current_count > 0
+                    # Auto-enable/disable FQ sampler based on total subscriber count
+                    should_enable = total_subscribers > 0
                     
                     logger.info(f"🔧 SUBSCRIBER MONITOR: should_enable={should_enable}, current_fq_enabled={self._fq_sampler_enabled}, will_call_control={should_enable != self._fq_sampler_enabled}")
                     
                     if should_enable != self._fq_sampler_enabled:
-                        logger.info(f"🔧 SUBSCRIBER MONITOR: Calling _control_fq_sampler(enable={should_enable})")
+                        logger.info(f"🔧 SUBSCRIBER MONITOR: Calling _control_fq_sampler(enable={should_enable}) - subscribers={total_subscribers}")
                         self._control_fq_sampler(should_enable)
                     else:
                         logger.info(f"🔧 SUBSCRIBER MONITOR: No FQ sampler control needed (no state change)")

@@ -475,6 +475,9 @@ class ZmqServer:
             )
             
             if self.vis_port is not None:
+                # Get visualization-specific stream configuration
+                viz_stream_config = self.stream_config.get('visualization', {}) if self.stream_config else {}
+                
                 # Use existing FQ sampler from process manager (created at startup)
                 self._visualization = VisualizationStream(
                     host=self.host,
@@ -483,7 +486,8 @@ class ZmqServer:
                     fq_sampler=self._process_manager.get_viz_fq_sampler() if self._process_manager else None,  # Use existing FQ sampler
                     core_api=self.core_api,  # Pass core_api for coordinate extraction and genome state
                     connectome_manager=self.core_api.get_connectome_manager(),  # Pass connectome_manager for cortical areas
-                    process_manager=self._process_manager  # Pass process manager for enable/disable control
+                    process_manager=self._process_manager,  # Pass process manager for enable/disable control
+                    stream_config=viz_stream_config  # Pass visualization-specific configuration
                 )
                 logger.info(f"Primary visualization stream enabled on port {self.vis_port} using existing FQ sampler")
             else:
