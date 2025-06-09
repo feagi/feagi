@@ -107,53 +107,17 @@ class FeagiTestRunner:
             return False
     
     def _initialize_test_mode_handler(self):
-        """Initialize the appropriate test mode handler based on the selected mode."""
+        """Initialize the appropriate test mode handler based on test_mode."""
         if self.test_mode == "mode_1":
             from .test_mode_1 import TestMode1Handler
             self.mode_handler = TestMode1Handler(self)
-            logger.info("🎯 TEST MODE 1: JSON-based predictable neuron activations")
+            logger.info("🎲 TEST MODE 1: JSON-based random sensory generation")
         elif self.test_mode == "mode_2":
             from .test_mode_2 import TestMode2Handler
             self.mode_handler = TestMode2Handler(self)
             logger.info("🎲 TEST MODE 2: Numpy-based scalable random neuron generation")
         else:
             raise ValueError(f"Unknown test mode: {self.test_mode}")
-    
-    def _enable_visualization_for_test_mode(self):
-        """
-        Enable visualization FQ sampler for test mode.
-        
-        In normal operation, the FQ sampler only enables when a visualization client connects.
-        In test mode, we want to enable it automatically so that brain visualizer can connect
-        and see the test data being generated.
-        """
-        logger.info("🎯 [TEST MODE] Attempting to enable visualization FQ sampler...")
-        try:
-            # Import here to avoid circular dependencies
-            from feagi.process_manager import get_process_manager
-            
-            process_manager = get_process_manager()
-            logger.info(f"[TEST MODE] Process manager obtained: {process_manager is not None}")
-            
-            if process_manager:
-                # Check if viz FQ sampler exists
-                viz_sampler = process_manager.get_viz_fq_sampler()
-                logger.info(f"[TEST MODE] Visualization FQ sampler exists: {viz_sampler is not None}")
-                
-                # Enable the visualization FQ sampler
-                success = process_manager.enable_viz_fq_sampler()
-                if success:
-                    logger.info("🎯 [TEST MODE] ✅ Visualization FQ sampler enabled for brain visualizer connectivity")
-                else:
-                    logger.warning("[TEST MODE] ❌ Failed to enable visualization FQ sampler - brain visualizer may not show data")
-            else:
-                logger.warning("[TEST MODE] ❌ No process manager available - brain visualizer may not show data")
-                
-        except Exception as e:
-            logger.error(f"[TEST MODE] ❌ Error enabling visualization FQ sampler: {e}")
-            import traceback
-            logger.error(f"[TEST MODE] Traceback: {traceback.format_exc()}")
-            logger.warning("Brain visualizer connectivity may be limited during test mode")
     
     def load_genome(self):
         """
@@ -455,12 +419,6 @@ class FeagiTestRunner:
                 self.test_result = False
                 self.is_running = False
                 return
-                
-            # ENABLE VISUALIZATION FQ SAMPLER for test mode
-            # This allows brain visualizer to connect and see test data
-            logger.info("🎯 [TEST MODE] About to enable visualization FQ sampler...")
-            self._enable_visualization_for_test_mode()
-            logger.info("🎯 [TEST MODE] Visualization FQ sampler enable attempt completed")
                 
             # Capture initial state
             self.capture_initial_state()

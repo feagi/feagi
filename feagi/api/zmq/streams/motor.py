@@ -111,27 +111,19 @@ class MotorStream:
         # Rate limiter for throttling high-frequency data
         self.rate_limiter = RateLimiter()
         
-        # Motor subscriber management and FQ Sampler integration - ONLY use UnifiedFQSampler
+        # Motor subscriber management and FQ Sampler integration - ONLY use FQ sampler from Process Manager
         if fq_sampler:
             self.fq_sampler = fq_sampler
-        elif fire_queue_provider:
-            # Create new UnifiedFQSampler for motor control (OPU mode)
-            from feagi.npu.fq_sampler import UnifiedFQSampler
-            self.fq_sampler = UnifiedFQSampler(
-                fire_queue_provider=fire_queue_provider,
-                sample_frequency_hz=100.0,  # 100Hz for motor control (higher frequency)
-                sampling_mode='opu',  # Only sample OPU (motor) areas
-                connectome_manager=connectome_manager or getattr(core_api, '_connectome_manager', None)
-            )
-            logger.info("Created UnifiedFQSampler for motor with 'opu' mode")
+            logger.info("MotorStream using FQ sampler from Process Manager (created on-demand when motor agents connect)")
         else:
-            raise ValueError("Either fq_sampler or fire_queue_provider must be provided")
+            # No fallback creation - must use Process Manager's on-demand FQ sampler
+            self.fq_sampler = None
+            logger.info("No motor FQ sampler available - will be created on-demand when motor agents connect")
         
         self.client_last_heartbeat: Dict[str, float] = {}
         self.client_heartbeat_timeout = 30.0  # 30 seconds timeout
         self.subscriber_check_interval = 2.0  # Check every 2 seconds
         self._last_subscriber_count = 0
-        self._fq_sampler_enabled = False
         self._subscriber_count = 0
         
         # Motor stream processing task
@@ -252,12 +244,7 @@ class MotorStream:
                 pass  # Expected during cancellation
             self._subscriber_monitor_task = None
         
-        # RTOS-friendly: Simple FQ sampler control, no timeout
-        if self._fq_sampler_enabled:
-            try:
-                await self._control_fq_sampler(False)
-            except Exception as e:
-                logger.warning(f"Error disabling FQ sampler: {e}")
+        # NOTE: FQ sampler control is handled by Registration Manager, not by streams
         
         # RTOS-friendly: Simple socket cleanup
         if self.socket:
@@ -511,25 +498,20 @@ class MotorStream:
         self.client_last_heartbeat[client_id] = current_time
 
     async def _monitor_subscribers(self) -> None:
-        """Monitor ZMQ motor subscribers and automatically enable/disable FQ sampler."""
-        logger.info("Starting motor subscriber monitoring for automatic FQ sampler control")
+        """Monitor ZMQ motor subscribers - removed FQ sampler control (handled by Registration Manager)."""
+        logger.info("Starting motor subscriber monitoring for logging/statistics only")
         
         # RTOS-friendly: Simple loop with small, bounded sleep intervals
         while self.running:
             try:
-                # Check current subscriber count
+                # Check current subscriber count for logging/statistics only
                 current_count = self.get_connected_client_count()
                 
-                # Update subscriber count
+                # Update subscriber count for logging only
                 if current_count != self._last_subscriber_count:
                     logger.info(f"Motor subscriber count changed: {self._last_subscriber_count} -> {current_count}")
                     self._last_subscriber_count = current_count
-                    
-                    # Auto-enable/disable FQ sampler based on subscriber count
-                    should_enable = current_count > 0
-                    
-                    if should_enable != self._fq_sampler_enabled:
-                        await self._control_fq_sampler(should_enable)
+                    # NOTE: FQ sampler control is handled by Registration Manager when agents register/deregister
                 
                 # RTOS-friendly: Use small bounded intervals for responsive shutdown
                 # Check running flag more frequently for deterministic cancellation
@@ -556,13 +538,11 @@ class MotorStream:
         self.client_last_heartbeat[client_id] = current_time
         logger.info(f"🚗 Motor client registered: {client_id}")
         
-        # Force a subscriber count update
+        # Update subscriber count for logging only
         current_count = self.get_connected_client_count()
         if current_count != self._last_subscriber_count:
             self._last_subscriber_count = current_count
-            should_enable = current_count > 0
-            if should_enable != self._fq_sampler_enabled:
-                await self._control_fq_sampler(should_enable)
+            # NOTE: FQ sampler control is handled by Registration Manager, not by streams
 
     async def unregister_motor_client(self, client_id: str) -> None:
         """Unregister a motor client."""
@@ -570,48 +550,18 @@ class MotorStream:
             del self.client_last_heartbeat[client_id]
             logger.info(f"🚗 Motor client unregistered: {client_id}")
             
-            # Force a subscriber count update
+            # Update subscriber count for logging only
             current_count = self.get_connected_client_count()
             if current_count != self._last_subscriber_count:
                 self._last_subscriber_count = current_count
-                should_enable = current_count > 0
-                if should_enable != self._fq_sampler_enabled:
-                    await self._control_fq_sampler(should_enable)
+                # NOTE: FQ sampler control is handled by Registration Manager, not by streams
 
     async def heartbeat_motor_client(self, client_id: str) -> None:
         """Update heartbeat for a motor client."""
         self.client_last_heartbeat[client_id] = time.time()
         # Don't log every heartbeat to avoid spam, just update the timestamp
 
-    async def _control_fq_sampler(self, enable: bool) -> None:
-        """Enable or disable the FQ sampler based on motor subscriber presence."""
-        try:
-            if not self.fq_sampler:
-                # Try to get FQ sampler from process manager
-                try:
-                    from feagi.process_manager import get_process_manager
-                    process_manager = get_process_manager()
-                    if process_manager and hasattr(process_manager, '_fq_sampler'):
-                        self.fq_sampler = process_manager._fq_sampler
-                        logger.info("Found FQ sampler from process manager")
-                except Exception:
-                    pass
-            
-            if self.fq_sampler and hasattr(self.fq_sampler, 'set_motor_subscribers'):
-                if enable:
-                    logger.info("Enabling FQ sampler for motor - motor clients connected", status="[CONFIG]")
-                    self.fq_sampler.set_motor_subscribers(True)
-                    self._fq_sampler_enabled = True
-                else:
-                    logger.info("Disabling FQ sampler for motor - no motor clients", status="[CONFIG]")
-                    self.fq_sampler.set_motor_subscribers(False)
-                    self._fq_sampler_enabled = False
-            else:
-                if enable:
-                    logger.warning("FQ sampler not available or doesn't support set_motor_subscribers")
-                
-        except Exception as e:
-            logger.error(f"Error controlling FQ sampler for motor: {e}") 
+
 
 def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
     """

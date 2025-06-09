@@ -454,16 +454,18 @@ class ZmqServer:
                 logger.info("Sensory stream disabled")
             
             if self.motor_port is not None:
+                # Get motor FQ sampler from process manager (created on-demand when motor agents connect)
+                motor_fq_sampler = self._process_manager.get_motor_fq_sampler() if self._process_manager else None
                 self._motor = MotorStream(
                     core_api=self.core_api,
                     host=self.host,
                     port=self.motor_port,
                     context=self._context,
-                    fq_sampler=self._fq_sampler,
+                    fq_sampler=motor_fq_sampler,  # Use existing FQ sampler from Process Manager
                     fire_queue_provider=self._fire_queue_provider,
                     stream_config=self.stream_config.get('motor', {})
                 )
-                logger.info(f"Motor stream enabled on port {self.motor_port}")
+                logger.info(f"Motor stream enabled on port {self.motor_port} using existing FQ sampler")
             else:
                 logger.info("Motor stream disabled")
             
@@ -478,7 +480,7 @@ class ZmqServer:
                 # Get visualization-specific stream configuration
                 viz_stream_config = self.stream_config.get('visualization', {}) if self.stream_config else {}
                 
-                # Use existing FQ sampler from process manager (created at startup)
+                # Get visualization FQ sampler from process manager (created on-demand when visualization agents connect)
                 self._visualization = VisualizationStream(
                     host=self.host,
                     port=self.vis_port,

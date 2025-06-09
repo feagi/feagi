@@ -91,13 +91,21 @@ class CacheAlignedArray:
         self.dtype = np.dtype(dtype)  # Ensure it's a proper numpy dtype
         self.alignment = alignment
         
-        # Calculate aligned size
+        # Calculate aligned size with safety checks
         element_size = self.dtype.itemsize
+        if element_size <= 0:
+            raise ValueError(f"Invalid element size: {element_size}")
+        if size <= 0:
+            raise ValueError(f"Invalid array size: {size}")
+        if alignment <= 0 or (alignment & (alignment - 1)) != 0:
+            raise ValueError(f"Alignment must be a power of 2, got: {alignment}")
+            
         total_bytes = size * element_size
         aligned_bytes = (total_bytes + alignment - 1) & ~(alignment - 1)
         
-        # Allocate oversized array and slice to get alignment
-        oversized_elements = (aligned_bytes + element_size - 1) // element_size + alignment
+        # Allocate oversized array with extra safety margin
+        safety_margin = alignment * 2  # Extra safety margin
+        oversized_elements = (aligned_bytes + element_size - 1) // element_size + alignment + safety_margin
         self._oversized = np.zeros(oversized_elements, dtype=dtype)
         
         # Find aligned start position
@@ -107,7 +115,13 @@ class CacheAlignedArray:
             offset_bytes = 0
         
         offset_elements = offset_bytes // element_size
-        self.array = self._oversized[offset_elements:offset_elements + size]
+        end_element = offset_elements + size
+        
+        # Ensure we don't go out of bounds
+        if end_element > len(self._oversized):
+            raise RuntimeError(f"Array alignment calculation error: end_element={end_element}, oversized_length={len(self._oversized)}")
+            
+        self.array = self._oversized[offset_elements:end_element]
         
         # Verify alignment
         assert self.array.ctypes.data % alignment == 0, f"Failed to achieve {alignment}-byte alignment"
@@ -196,10 +210,14 @@ class BlockSparseMatrix:
                     nonzero_cols = np.nonzero(block[in_block_row, :])[0]
                     
                     if len(nonzero_cols) > 0:
-                        # Convert to global indices
+                        # Convert to global indices with bounds checking
                         global_targets = bc * self.block_size + nonzero_cols
-                        weights = block[in_block_row, nonzero_cols]
-                        connections.append((global_targets, weights))
+                        # Filter targets that are within matrix bounds
+                        valid_targets_mask = global_targets < self.cols
+                        if np.any(valid_targets_mask):
+                            valid_targets = global_targets[valid_targets_mask]
+                            valid_weights = block[in_block_row, nonzero_cols][valid_targets_mask]
+                            connections.append((valid_targets, valid_weights))
         
         return connections
 
@@ -249,11 +267,13 @@ if NUMBA_AVAILABLE:
     @njit(parallel=True, fastmath=True)
     def simd_synaptic_integration(targets: np.ndarray, weights: np.ndarray, 
                                  potentials: np.ndarray) -> None:
-        """SIMD-optimized synaptic integration."""
+        """SIMD-optimized synaptic integration with bounds checking."""
         n = targets.shape[0]
+        max_target = potentials.shape[0]
         for i in prange(n):
             target_idx = targets[i]
-            potentials[target_idx] += weights[i]
+            if 0 <= target_idx < max_target:  # Critical bounds check
+                potentials[target_idx] += weights[i]
 
 else:
     # Fallback implementations
@@ -281,7 +301,11 @@ else:
     
     def simd_synaptic_integration(targets: np.ndarray, weights: np.ndarray, 
                                  potentials: np.ndarray) -> None:
-        np.add.at(potentials, targets, weights)
+        # Filter valid targets to prevent buffer overflow
+        valid_mask = (targets >= 0) & (targets < len(potentials))
+        valid_targets = targets[valid_mask]
+        valid_weights = weights[valid_mask]
+        np.add.at(potentials, valid_targets, valid_weights)
 
 class NeuronArray:
     """Ultra-high-performance neuron storage optimized for embedded and GPU processing.
@@ -330,6 +354,9 @@ class NeuronArray:
         self.next_index = 0
         self.free_indices: Set[int] = set()
         self.neuron_count = 0
+        
+        # Unique neuron ID generator - separate from array indices to prevent corruption
+        self._next_neuron_id = 1  # Start from 1 (0 reserved for invalid)
         
         # Performance tracking
         self.operation_count = 0
@@ -1069,27 +1096,62 @@ class NeuronArray:
         else:
             can_update_mask = valid & (self.refractory_counters == 0)
         
-        # Update membrane potentials for valid neurons
+        # Update membrane potentials for valid neurons with CRITICAL SHAPE VALIDATION
         if isinstance(synapse_data, torch.Tensor):
-            # GPU implementation using PyTorch
+            # GPU implementation using PyTorch with shape safety
             for idx in synapse_indices:
                 if idx >= len(self.membrane_potentials):
                     continue
                 
-                # Get all post-synaptic targets and weights
-                targets = torch.nonzero(synapse_data[idx]).squeeze()
-                if targets.dim() == 0 and targets.numel() > 0:
-                    targets = targets.unsqueeze(0)
-                
-                if targets.numel() == 0:
+                try:
+                    # Get all post-synaptic targets with safe tensor operations
+                    targets = torch.nonzero(synapse_data[idx]).squeeze()
+                    if targets.dim() == 0 and targets.numel() > 0:
+                        targets = targets.unsqueeze(0)
+                    elif targets.dim() > 1:  # CRITICAL: Handle multi-dimensional nonzero results
+                        targets = targets.squeeze(-1) if targets.shape[-1] == 1 else targets[:, 0]
+                    
+                    if targets.numel() == 0:
+                        continue
+                    
+                    # CRITICAL BOUNDS VALIDATION: Ensure targets are within array bounds
+                    if targets.max() >= self.membrane_potentials.shape[0]:
+                        valid_bounds_mask = targets < self.membrane_potentials.shape[0]
+                        targets = targets[valid_bounds_mask]
+                        if targets.numel() == 0:
+                            continue
+                    
+                    # Get weights with shape-safe indexing
+                    weights = synapse_data[idx, targets]
+                    
+                    # CRITICAL SHAPE VALIDATION: Ensure weights and targets match exactly
+                    if weights.shape[0] != targets.shape[0]:
+                        min_size = min(weights.shape[0], targets.shape[0])
+                        weights = weights[:min_size]
+                        targets = targets[:min_size]
+                        if min_size == 0:
+                            continue
+                    
+                    # Apply refractory mask with bounds checking
+                    update_mask = can_update_mask[targets]
+                    
+                    # CRITICAL: Final shape validation before membrane potential update
+                    if update_mask.shape[0] != targets.shape[0] or update_mask.shape[0] != weights.shape[0]:
+                        logger.warning(f"BURST ENGINE: Tensor shape mismatch avoided - update_mask: {update_mask.shape}, targets: {targets.shape}, weights: {weights.shape}")
+                        continue
+                    
+                    if update_mask.any():
+                        valid_targets = targets[update_mask]
+                        valid_weights = weights[update_mask]
+                        
+                        # Final safety check before tensor operation
+                        if valid_targets.shape[0] == valid_weights.shape[0] and valid_targets.shape[0] > 0:
+                            self.membrane_potentials[valid_targets] += valid_weights
+                        
+                except Exception as e:
+                    # CRITICAL: Catch and log broadcasting errors instead of crashing
+                    logger.warning(f"BURST ENGINE: Synaptic integration error caught for neuron {idx}: {e}")
                     continue
-                
-                weights = synapse_data[idx, targets]
-                
-                # Add weights to membrane potentials of targets
-                update_mask = can_update_mask[targets]
-                if update_mask.any():
-                    self.membrane_potentials[targets[update_mask]] += weights[update_mask]
         else:
             # CPU implementation using sparse matrices
             for idx in synapse_indices:
@@ -1274,35 +1336,58 @@ class NeuronArray:
             self.free_indices = set()
             self.next_index += num_new_indices
         
-        # Generate neuron IDs (in this case, same as indices for simplicity)
-        neuron_ids = list(indices.copy())
+        # CRITICAL FIX: Generate unique neuron IDs separately from array indices
+        # Array indices are for internal storage, neuron IDs are external identifiers
+        # Reusing indices as IDs causes memory corruption and tensor shape mismatches
+        if not hasattr(self, '_next_neuron_id'):
+            self._next_neuron_id = 1  # Start neuron IDs from 1 (0 reserved for invalid)
+        
+        neuron_ids = list(range(self._next_neuron_id, self._next_neuron_id + num_neurons))
+        self._next_neuron_id += num_neurons
         
         # Prepare property arrays (convert to arrays if they are single values)
         # Use backend-specific arrays
+        # Convert inputs to arrays with proper shapes and types - MEMORY SAFE
+        # Ensure all arrays have exactly num_neurons elements to prevent broadcasting errors
         if not isinstance(thresholds, list) and not isinstance(thresholds, np.ndarray):
-            thresholds = self.backend.array([float(thresholds)] * num_neurons)
+            thresholds_list = [float(thresholds)] * num_neurons
         else:
-            thresholds = self.backend.array(thresholds)
+            thresholds_list = list(thresholds)
+            if len(thresholds_list) != num_neurons:
+                raise ValueError(f"thresholds length ({len(thresholds_list)}) must match num_neurons ({num_neurons})")
+        thresholds = self.backend.array(thresholds_list)
         
         if not isinstance(membrane_potentials, list) and not isinstance(membrane_potentials, np.ndarray):
-            membrane_potentials = self.backend.array([float(membrane_potentials)] * num_neurons)
+            membrane_potentials_list = [float(membrane_potentials)] * num_neurons
         else:
-            membrane_potentials = self.backend.array(membrane_potentials)
+            membrane_potentials_list = list(membrane_potentials)
+            if len(membrane_potentials_list) != num_neurons:
+                raise ValueError(f"membrane_potentials length ({len(membrane_potentials_list)}) must match num_neurons ({num_neurons})")
+        membrane_potentials = self.backend.array(membrane_potentials_list)
         
         if not isinstance(resting_potentials, list) and not isinstance(resting_potentials, np.ndarray):
-            resting_potentials = self.backend.array([float(resting_potentials)] * num_neurons)
+            resting_potentials_list = [float(resting_potentials)] * num_neurons
         else:
-            resting_potentials = self.backend.array(resting_potentials)
+            resting_potentials_list = list(resting_potentials)
+            if len(resting_potentials_list) != num_neurons:
+                raise ValueError(f"resting_potentials length ({len(resting_potentials_list)}) must match num_neurons ({num_neurons})")
+        resting_potentials = self.backend.array(resting_potentials_list)
         
         if not isinstance(decay_rates, list) and not isinstance(decay_rates, np.ndarray):
-            decay_rates = self.backend.array([float(decay_rates)] * num_neurons)
+            decay_rates_list = [float(decay_rates)] * num_neurons
         else:
-            decay_rates = self.backend.array(decay_rates)
+            decay_rates_list = list(decay_rates)
+            if len(decay_rates_list) != num_neurons:
+                raise ValueError(f"decay_rates length ({len(decay_rates_list)}) must match num_neurons ({num_neurons})")
+        decay_rates = self.backend.array(decay_rates_list)
         
         if not isinstance(refractory_periods, list) and not isinstance(refractory_periods, np.ndarray):
-            refractory_periods = self.backend.array([int(refractory_periods)] * num_neurons)
+            refractory_periods_list = [int(refractory_periods)] * num_neurons
         else:
-            refractory_periods = self.backend.array(refractory_periods)
+            refractory_periods_list = list(refractory_periods)
+            if len(refractory_periods_list) != num_neurons:
+                raise ValueError(f"refractory_periods length ({len(refractory_periods_list)}) must match num_neurons ({num_neurons})")
+        refractory_periods = self.backend.array(refractory_periods_list)
         
         # Extract position components as uint32
         coordinates_x = self.backend.array([np.uint32(max(0, pos[0])) for pos in positions])
@@ -1314,37 +1399,52 @@ class NeuronArray:
         
         # Convert to tensors if using PyTorch
         if isinstance(self.membrane_potentials, torch.Tensor):
+            # Validate tensor shapes before operations to prevent memory corruption
             idx_tensor = torch.tensor(idx_array, dtype=torch.long)
+            
+            # CRITICAL MEMORY SAFETY: Validate all indices are within bounds
+            max_idx = torch.max(idx_tensor).item() if len(idx_tensor) > 0 else 0
+            if max_idx >= self.membrane_potentials.shape[0]:
+                raise ValueError(f"Index out of bounds: max_idx={max_idx}, tensor_size={self.membrane_potentials.shape[0]}")
+            
+            # Verify tensor compatibility before index_copy operations
+            expected_size = len(idx_array)
+            if (membrane_potentials.shape[0] != expected_size or 
+                resting_potentials.shape[0] != expected_size or
+                thresholds.shape[0] != expected_size or
+                decay_rates.shape[0] != expected_size or
+                refractory_periods.shape[0] != expected_size):
+                raise ValueError(f"Tensor size mismatch: expected {expected_size}, got membrane_potentials={membrane_potentials.shape[0]}, resting_potentials={resting_potentials.shape[0]}, thresholds={thresholds.shape[0]}, decay_rates={decay_rates.shape[0]}, refractory_periods={refractory_periods.shape[0]}")
             
             # Determine the dtype of the target tensors
             target_dtype = self.membrane_potentials.dtype
             
-            # Use PyTorch indexing for tensors - ensure matching dtypes
-            self.membrane_potentials.index_copy_(0, idx_tensor, 
-                                               membrane_potentials.to(dtype=target_dtype))
-            self.resting_potentials.index_copy_(0, idx_tensor, 
-                                              resting_potentials.to(dtype=target_dtype))
-            self.thresholds.index_copy_(0, idx_tensor, 
-                                      thresholds.to(dtype=target_dtype))
-            self.decay_rates.index_copy_(0, idx_tensor, 
-                                       decay_rates.to(dtype=target_dtype))
-            # Convert integer tensors to the appropriate type
-            self.refractory_periods.index_copy_(0, idx_tensor, 
-                                              refractory_periods.to(dtype=self.refractory_periods.dtype))
-            self.coordinates_x.index_copy_(0, idx_tensor, 
-                                       coordinates_x.to(dtype=self.coordinates_x.dtype))
-            self.coordinates_y.index_copy_(0, idx_tensor, 
-                                       coordinates_y.to(dtype=self.coordinates_y.dtype))
-            self.coordinates_z.index_copy_(0, idx_tensor, 
-                                       coordinates_z.to(dtype=self.coordinates_z.dtype))
-            self.cortical_idxs.index_copy_(0, idx_tensor, 
-                                        torch.full_like(idx_tensor, cortical_idx, 
-                                                     dtype=self.cortical_idxs.dtype))
-            
-            # Set valid mask
-            valid_mask = self.backend.to_numpy(self.valid_mask)
-            valid_mask[idx_array] = True
-            self.valid_mask = self.backend.array(valid_mask)
+            try:
+                # MEMORY SAFE: Use in-place operations with explicit bounds checking
+                # Create a safe slice to avoid out-of-bounds writes
+                safe_indices = idx_tensor[idx_tensor < self.membrane_potentials.shape[0]]
+                safe_count = len(safe_indices)
+                
+                if safe_count != len(idx_tensor):
+                    raise ValueError(f"Unsafe indices detected: {len(idx_tensor) - safe_count} indices out of bounds")
+                
+                # Use PyTorch indexing for tensors - ensure matching dtypes and safe operations
+                self.membrane_potentials[safe_indices] = membrane_potentials[:safe_count].to(dtype=target_dtype)
+                self.resting_potentials[safe_indices] = resting_potentials[:safe_count].to(dtype=target_dtype)
+                self.thresholds[safe_indices] = thresholds[:safe_count].to(dtype=target_dtype)
+                self.decay_rates[safe_indices] = decay_rates[:safe_count].to(dtype=target_dtype)
+                self.refractory_periods[safe_indices] = refractory_periods[:safe_count].to(dtype=self.refractory_periods.dtype)
+                self.coordinates_x[safe_indices] = coordinates_x[:safe_count].to(dtype=self.coordinates_x.dtype)
+                self.coordinates_y[safe_indices] = coordinates_y[:safe_count].to(dtype=self.coordinates_y.dtype)
+                self.coordinates_z[safe_indices] = coordinates_z[:safe_count].to(dtype=self.coordinates_z.dtype)
+                self.cortical_idxs[safe_indices] = cortical_idx
+                
+                # Set valid mask - use safe numpy operations to avoid tensor issues
+                valid_mask = self.backend.to_numpy(self.valid_mask)
+                valid_mask[idx_array[:safe_count]] = True
+                self.valid_mask = self.backend.array(valid_mask)
+            except Exception as e:
+                raise RuntimeError(f"PyTorch tensor operation failed during neuron creation: {e}. This may indicate memory corruption or incompatible tensor shapes.")
         else:
             # For NumPy arrays, use standard indexing
             self.membrane_potentials[idx_array] = membrane_potentials
