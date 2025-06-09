@@ -44,6 +44,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Set, Tuple, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
+import traceback
+import uuid  # Add UUID import for unique instance IDs
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +126,9 @@ class UnifiedFQSampler:
         self.output_queue = output_queue
         self.connectome_manager = connectome_manager
         self.running = False
+        
+        # Generate unique instance ID for debugging
+        self.instance_id = str(uuid.uuid4())[:8]
         
         # Configure sampling strategy
         self._configure_strategy(sampling_mode, target_areas)
@@ -478,7 +483,7 @@ class UnifiedFQSampler:
         self._debug_counter += 1
         
         if self._debug_counter % 30 == 0:  # Log every 30 calls
-            logger.info(f"🔥 FQ SAMPLER: _should_sample() = {should_sample} "
+            logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: _should_sample() = {should_sample} "
                        f"(viz_subs={self._has_visualization_subscribers}, "
                        f"motor_subs={self._has_motor_subscribers}, "
                        f"output_queue={self.output_queue is not None})")
@@ -494,8 +499,26 @@ class UnifiedFQSampler:
         """Set whether there are visualization subscribers."""
         old_state = self._has_visualization_subscribers
         self._has_visualization_subscribers = has_subscribers
-        logger.info(f"🔥 FQ SAMPLER: Visualization subscribers changed: {old_state} -> {has_subscribers}")
-        logger.info(f"🔥 FQ SAMPLER: _should_sample() now returns: {self._should_sample()}")
+        
+        # Debug: Add stack trace to identify caller with more detailed info
+        import traceback
+        import threading
+        
+        # Get just the immediate caller (2 levels up)
+        stack = traceback.extract_stack()
+        if len(stack) >= 3:
+            caller_frame = stack[-3]  # The frame that called this method
+            caller_info = f"{caller_frame.filename}:{caller_frame.lineno} in {caller_frame.name}()"
+        else:
+            caller_info = "Unknown caller"
+        
+        # Instance-specific logging with thread info
+        thread_id = threading.current_thread().ident
+        
+        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Visualization subscribers: {old_state} -> {has_subscribers}")
+        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Called from: {caller_info}")
+        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Thread: {thread_id}, Mode: {self.sampling_mode}")
+        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: _should_sample() now: {self._should_sample()}")
     
     def set_motor_subscribers(self, has_subscribers: bool) -> None:
         """Set whether there are motor subscribers."""
