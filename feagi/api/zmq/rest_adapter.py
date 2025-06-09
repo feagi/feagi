@@ -146,6 +146,15 @@ class ZMQRestAPIAdapter:
             # ===== Status endpoint - Delegated to v1 API =====
             "GET:/v1/status": self._delegate_to_v1_api,
             
+            # ===== Agent endpoints - Delegated to v1 API =====
+            "GET:/v1/agent/list": self._delegate_to_v1_api,
+            "GET:/v1/agent/info/{agent_id}": self._delegate_to_v1_api,
+            "POST:/v1/agent/configure": self._delegate_to_v1_api,
+            "POST:/v1/agent/register": self._delegate_to_v1_api,
+            "DELETE:/v1/agent/deregister": self._delegate_to_v1_api,
+            "GET:/v1/agent/properties/{agent_id}": self._delegate_to_v1_api,
+            "GET:/v1/agent/fq_sampler_status": self._delegate_to_v1_api,
+            
             # ===== Visualization endpoints - Custom handlers =====
             "POST:/v1/visualization/register_client": self._handle_visualization_register_client,
             "POST:/v1/visualization/unregister_client": self._handle_visualization_unregister_client,
