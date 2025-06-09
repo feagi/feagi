@@ -208,14 +208,14 @@ class ProcessManager:
         """
         Initialize Priority 1 (Critical) processes.
         
-        These processes are essential for neural simulation and include:
-        - Burst Engine
-        - Connectome Manager
-        - FCL Manager
-        - Memory & Learning Manager
+        These processes are essential for FEAGI's core operation:
+        - Connectome Manager (neural structure and arrays)
+        - FeagiStateManager (system state coordination)
+        - Core API Services
+        - Burst Engine (neural processing - initialized in STANDBY mode)
         
         Args:
-            config: Configuration parameters for the processes
+            config: Configuration parameters loaded from TOML file
             
         Returns:
             True if successfully initialized, False otherwise
@@ -223,15 +223,21 @@ class ProcessManager:
         logger.info("Initializing critical (Priority 1) processes...")
         
         try:
-            # Check if embedded mode is enabled to prevent FastAPI imports
-            embedded_mode = config.get('system', {}).get('embedded', False)
+            # --- Configure Backend ---
+            # Get backend from config with fallback to 'auto'
+            backend_name = config.get('npu', {}).get('backend', 'auto')
+            logger.info(f"Using backend: {backend_name}")
             
-            if embedded_mode:
-                logger.info("[CONFIG] Embedded mode: Initializing core components without REST API imports")
-                # Environment variable already set in main.py before any imports
+            # --- Initialize State Manager Early ---
+            from feagi.core.state_manager import FeagiStateManager, ServiceState
+            state_manager = FeagiStateManager.instance()
+            logger.info("State Manager initialized")
             
-            # Initialize core components - these run in the same process
-            # but are conceptually distinct according to the architecture
+            # --- Initialize Connectome Manager ---
+            logger.info("Initializing connectome manager...")
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            self._connectome_manager = ConnectomeManager.instance(config, backend=backend_name)
+            logger.info("Connectome Manager initialized")
             
             # Import here to avoid circular imports
             from feagi.core import create_core_api
@@ -246,17 +252,30 @@ class ProcessManager:
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
                 
-                # [DEBUG] CRITICAL FIX: Auto-start the burst engine after initialization
-                logger.info("[DEBUG] PROCESS MANAGER: Starting burst engine automatically...")
+                # [ARCHITECTURE FIX] Initialize burst engine in STANDBY mode
+                # This ensures the burst engine singleton is always available for FQ sampler registration
+                # even before a genome is loaded. The engine will transition to READY when genome loads.
+                logger.info("🔥 BURST ENGINE: Initializing in STANDBY mode for early FQ sampler registration...")
                 try:
-                    burst_start_success = self._core_api.start_burst_engine()
-                    if burst_start_success:
-                        logger.info("[OK] Burst engine started successfully by Process Manager")
+                    # Set the burst engine to STANDBY state - available but not processing
+                    state_manager.set_burst_engine_state(ServiceState.INITIALIZING)
+                    
+                    # The burst engine is now initialized and available as a singleton
+                    # It can accept FQ sampler registrations even without a genome
+                    if self._burst_engine:
+                        logger.info(f"🔥 BURST ENGINE: Singleton instance [{self._burst_engine._instance_id}] available in STANDBY mode")
+                        logger.info("🔥 BURST ENGINE: Ready to accept FQ sampler registrations")
+                        
+                        # Set to standby state - engine exists but not actively processing
+                        state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)  # Will transition to READY when genome loads
+                        
+                        logger.info("🔥 BURST ENGINE: STANDBY mode initialized - FQ samplers can now register")
                     else:
-                        logger.error("[ERR] Failed to start burst engine - neural processing will not work!")
+                        logger.error("❌ Failed to get burst engine instance - FQ sampler registration will fail!")
                         return False
+                        
                 except Exception as e:
-                    logger.error(f"[ERR] Error starting burst engine: {e}")
+                    logger.error(f"❌ Error initializing burst engine in STANDBY mode: {e}")
                     return False
             
             logger.info("[OK] Critical processes initialized successfully", status="[OK] ")
@@ -978,27 +997,34 @@ class ProcessManager:
 
     def create_fq_sampler(self, mode: str, frequency: float) -> bool:
         """
-        Create a UnifiedFQSampler with the specified mode and frequency.
+        Create and register FQ sampler of the specified mode.
         
         Args:
-            mode: Sampling mode ('visualization', 'opu', 'custom_areas')
+            mode: Sampling mode ('visualization', 'opu')
             frequency: Sampling frequency in Hz
             
         Returns:
-            bool: True if successfully created, False otherwise
+            True if sampler was created and registered successfully, False otherwise
         """
         logger.info(f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz")
         
         try:
-            from feagi.npu.fq_sampler import UnifiedFQSampler
+            # Check if sampler already exists for this mode
+            if mode == 'visualization' and self._viz_fq_sampler is not None:
+                logger.warning(f"🔥 Visualization FQ Sampler already exists: {self._viz_fq_sampler.instance_id}")
+                return True
+            elif mode == 'opu' and self._motor_fq_sampler is not None:
+                logger.warning(f"🔥 Motor FQ Sampler already exists: {self._motor_fq_sampler.instance_id}")
+                return True
             
+            # Import FQ sampler
+            from feagi.npu.unified_fq_sampler import UnifiedFQSampler
+            
+            # Create the sampler
             fq_sampler = UnifiedFQSampler(
-                fire_queue_provider=self._core_api,
-                sample_frequency_hz=frequency,
-                sampling_mode=mode,
-                output_queue=None,
-                connectome_manager=self._connectome_manager,
-                target_areas=None
+                frequency=frequency,
+                mode=mode,
+                core_api=self._core_api
             )
             
             # Store the sampler based on mode
@@ -1012,27 +1038,43 @@ class ProcessManager:
                 logger.warning(f"Unknown FQ sampler mode: {mode}")
                 return False
                 
+            # [ARCHITECTURE FIX] Register with burst engine for data flow coordination
+            # The burst engine should always be available in STANDBY mode for registration
+            if self._burst_engine:
+                try:
+                    self._burst_engine.register_fq_sampler(fq_sampler)
+                    logger.info(f"🔥 FQ sampler [{fq_sampler.instance_id}] registered with burst engine successfully")
+                except Exception as reg_error:
+                    logger.error(f"🔥 Failed to register FQ sampler [{fq_sampler.instance_id}] with burst engine: {reg_error}")
+                    # Continue anyway - FQ sampler can still function without registration
+            else:
+                logger.error(f"🔥 Could not register FQ sampler [{fq_sampler.instance_id}] - burst engine not available")
+                logger.error("🔥 This should not happen if burst engine is properly initialized in STANDBY mode")
+                # Continue anyway - the system should still function
+            
             # Start the sampler
             import threading
+            
+            def run_fq_sampler():
+                try:
+                    fq_sampler.start()
+                except Exception as e:
+                    logger.error(f"🔥 Error in FQ sampler thread: {e}")
+            
             if mode == 'visualization':
-                self._viz_fq_thread = threading.Thread(
-                    target=fq_sampler.run,
-                    daemon=True,
-                    name="VisualizationFQSamplerThread"
-                )
+                self._viz_fq_thread = threading.Thread(target=run_fq_sampler, daemon=True)
                 self._viz_fq_thread.start()
+                logger.info(f"🎨 Visualization FQ Sampler thread started")
             elif mode == 'opu':
-                self._motor_fq_thread = threading.Thread(
-                    target=fq_sampler.run,
-                    daemon=True,
-                    name="MotorFQSamplerThread"
-                )
+                self._motor_fq_thread = threading.Thread(target=run_fq_sampler, daemon=True)
                 self._motor_fq_thread.start()
-                
+                logger.info(f"🚗 Motor FQ Sampler thread started")
+            
+            logger.info(f"🔥 FQ Sampler created and started successfully: mode={mode}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to create FQ sampler: {e}")
+            logger.error(f"🔥 Failed to create FQ sampler (mode={mode}): {e}")
             return False
 
     def disable_fq_sampler(self, mode: str):
@@ -1047,6 +1089,11 @@ class ProcessManager:
         try:
             if mode == 'visualization':
                 if self._viz_fq_sampler is not None:
+                    # Unregister from burst engine first
+                    if self._burst_engine:
+                        self._burst_engine.unregister_fq_sampler(self._viz_fq_sampler)
+                        logger.info(f"🔥 Visualization FQ sampler [{getattr(self._viz_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine")
+                    
                     if hasattr(self._viz_fq_sampler, 'stop'):
                         self._viz_fq_sampler.stop()
                     
@@ -1059,6 +1106,11 @@ class ProcessManager:
                     
             elif mode == 'opu' or mode == 'motor':
                 if self._motor_fq_sampler is not None:
+                    # Unregister from burst engine first
+                    if self._burst_engine:
+                        self._burst_engine.unregister_fq_sampler(self._motor_fq_sampler)
+                        logger.info(f"🔥 Motor FQ sampler [{getattr(self._motor_fq_sampler, 'instance_id', 'unknown')}] unregistered from burst engine")
+                    
                     if hasattr(self._motor_fq_sampler, 'stop'):
                         self._motor_fq_sampler.stop()
                     
