@@ -294,7 +294,20 @@ class ConnectomeManager:
         
         # Update FCL manager with fired neurons
         if hasattr(self, 'fcl_manager') and self.fcl_manager:
-            self.fcl_manager.update_fcl(fired_neurons, self.current_timestep)
+            # Convert fired neurons to the format expected by FCL manager
+            # FCL expects current_timestep first, then neurons_by_cortical
+            neurons_by_cortical = {}
+            if fired_neurons:
+                # Group fired neurons by cortical area
+                for neuron_id in fired_neurons:
+                    if neuron_id in self.neuron_id_to_index:
+                        index = self.neuron_id_to_index[neuron_id]
+                        cortical_idx = int(self.neuron_array.cortical_idxs[index])
+                        if cortical_idx not in neurons_by_cortical:
+                            neurons_by_cortical[cortical_idx] = []
+                        neurons_by_cortical[cortical_idx].append(neuron_id)
+            
+            self.fcl_manager.update_fcl(self.current_timestep, neurons_by_cortical)
         
         return fired_neurons
     

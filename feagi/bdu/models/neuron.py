@@ -88,11 +88,11 @@ class CacheAlignedArray:
             alignment: Memory alignment in bytes
         """
         self.size = size
-        self.dtype = dtype
+        self.dtype = np.dtype(dtype)  # Ensure it's a proper numpy dtype
         self.alignment = alignment
         
         # Calculate aligned size
-        element_size = dtype.itemsize
+        element_size = self.dtype.itemsize
         total_bytes = size * element_size
         aligned_bytes = (total_bytes + alignment - 1) & ~(alignment - 1)
         
