@@ -49,13 +49,16 @@ from feagi.api.v1.system import create_system_api, SystemAPI
 from feagi.api.v1.cortical_area import create_cortical_area_api, CorticalAreaAPI
 from feagi.api.v1.genome import create_genome_api, GenomeAPI
 from feagi.api.v1.connectome import create_connectome_api, ConnectomeAPI
+from feagi.api.v1.feagi_agent import create_feagi_agent_api, FeagiAgentAPI
 from feagi.api.v1.schemas import (
     UserPreferencesRequest, UserPreferencesResponse,
     VersionsResponse, HealthCheckResponse, ConfigurationResponse,
     InfluxDBTestResponse, CorticalAreaTypesResponse,
     SuccessResponse, ErrorResponse,
     RegistrationRequest, LogsRequest, SubscriberRequest,
-    CircuitLibraryPathRequest, CorticalIdRequest, CorticalIdListRequest
+    CircuitLibraryPathRequest, CorticalIdRequest, CorticalIdListRequest,
+    AgentRegistrationRequest, AgentDeregistrationRequest, AgentConfigRequest,
+    AgentListResponse, AgentInfoResponse, AgentPropertiesResponse
 )
 from feagi.utils.logger import setup_logger
 
@@ -151,6 +154,7 @@ else:
             self.cortical_area_api = create_cortical_area_api(core_api_service)
             self.genome_api = create_genome_api(core_api_service)
             self.connectome_api = create_connectome_api(core_api_service)
+            self.agent_api = create_feagi_agent_api(core_api_service)
             self.route_handlers = {}
             self._initialize_route_handlers()
         
@@ -196,6 +200,15 @@ else:
                 "POST:/v1/genome/upload/file": self._handle_upload_genome_file,
                 "POST:/v1/genome/upload/string": self._handle_upload_genome_string,
                 "POST:/v1/genome/reset": self._handle_reset_genome,
+                
+                # ===== Agent Endpoints (using v1 API) =====
+                "GET:/v1/agent/list": self._handle_list_agents,
+                "GET:/v1/agent/info/{agent_id}": self._handle_get_agent_info,
+                "POST:/v1/agent/configure": self._handle_configure_agent,
+                "POST:/v1/agent/register": self._handle_register_agent,
+                "DELETE:/v1/agent/deregister": self._handle_deregister_agent,
+                "GET:/v1/agent/properties/{agent_id}": self._handle_get_agent_properties,
+                "GET:/v1/agent/fq_sampler_status": self._handle_get_fq_sampler_status,
                 
                 # ===== Connectome Endpoints (using v1 API) =====
                 "GET:/v1/connectome/cortical_areas": self._handle_get_connectome_cortical_areas,
@@ -563,4 +576,47 @@ else:
         
         async def _handle_get_transforming_cortical_areas(self, params, query, body, headers):
             """Handler for GET /v1/connectome/cortical_areas/list/transforming"""
-            return await self.connectome_api.get_transforming_cortical_areas() 
+            return await self.connectome_api.get_transforming_cortical_areas()
+        
+        # ===== Agent Handler Implementations (using v1 API) =====
+        
+        async def _handle_list_agents(self, params, query, body, headers):
+            """Handler for GET /v1/agent/list"""
+            return await self.agent_api.list_agents()
+        
+        async def _handle_get_agent_info(self, params, query, body, headers):
+            """Handler for GET /v1/agent/info/{agent_id}"""
+            agent_id = params.get('agent_id')
+            if not agent_id:
+                raise ValueError("Missing required parameter: agent_id")
+            return await self.agent_api.get_agent_info(agent_id)
+        
+        async def _handle_configure_agent(self, params, query, body, headers):
+            """Handler for POST /v1/agent/configure"""
+            request = AgentConfigRequest(**body) if body else AgentConfigRequest()
+            return await self.agent_api.configure_agent(request)
+        
+        async def _handle_register_agent(self, params, query, body, headers):
+            """Handler for POST /v1/agent/register"""
+            if not body:
+                raise ValueError("Missing agent registration data in request body")
+            request = AgentRegistrationRequest(**body)
+            return await self.agent_api.register_agent(request)
+        
+        async def _handle_deregister_agent(self, params, query, body, headers):
+            """Handler for DELETE /v1/agent/deregister"""
+            if not body:
+                raise ValueError("Missing agent deregistration data in request body")
+            request = AgentDeregistrationRequest(**body)
+            return await self.agent_api.deregister_agent(request)
+        
+        async def _handle_get_agent_properties(self, params, query, body, headers):
+            """Handler for GET /v1/agent/properties/{agent_id}"""
+            agent_id = params.get('agent_id')
+            if not agent_id:
+                raise ValueError("Missing required parameter: agent_id")
+            return await self.agent_api.get_agent_properties(agent_id)
+        
+        async def _handle_get_fq_sampler_status(self, params, query, body, headers):
+            """Handler for GET /v1/agent/fq_sampler_status"""
+            return await self.agent_api.get_fq_sampler_status() 
