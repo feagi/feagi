@@ -629,16 +629,12 @@ class VisualizationStream:
 
     def heartbeat_visualization_client(self, client_id: str) -> None:
         """
-        Process visualization client heartbeat and register with Registration Manager.
+        Process heartbeat from a visualization client.
         
         Args:
             client_id: Unique identifier of the visualization client (bridge instance)
         """
         current_time = time.time()
-        
-        # Map bridge client to actual agent name
-        # The bridge is just transport - brain_visualizer is the actual agent
-        actual_agent_id = "brain_visualizer"
         
         with self._client_lock:  # Thread-safe client access
             was_new_client = client_id not in self.client_last_heartbeat
@@ -646,48 +642,9 @@ class VisualizationStream:
             
             if was_new_client:
                 logger.info(f"💚 New visualization client connected: {client_id}")
-                
-                # Register with Registration Manager for automatic FQ coordination
-                try:
-                    from feagi.pns.registration_manager import get_registration_manager
-                    
-                    registration_manager = get_registration_manager()
-                    if registration_manager:
-                        # Register the brain_visualizer agent (not the bridge)
-                        response = registration_manager.register_agent_direct(
-                            agent_id=actual_agent_id,
-                            agent_type="brain_visualizer",
-                            capabilities={"visualization": True, "3d_visualization": True},
-                            metadata={
-                                "connection_type": "zmq_heartbeat", 
-                                "stream_port": self.port,
-                                "bridge_client_id": client_id
-                            }
-                        )
-                        
-                        if response.success:
-                            logger.info(f"✅ Visualization client '{client_id}' registered with Registration Manager as '{actual_agent_id}' - "
-                                       f"FQ samplers: {response.fq_samplers_enabled}")
-                        else:
-                            logger.warning(f"⚠️ Failed to register visualization client with Registration Manager: {response.message}")
-                    else:
-                        logger.warning("⚠️ Registration Manager not available for client registration")
-                        
-                except Exception as e:
-                    logger.error(f"❌ Error registering visualization client with Registration Manager: {e}")
+                logger.info(f"ℹ️ Note: Agent registration must be done explicitly via REST API - no automatic registration")
             else:
                 logger.debug(f"💓 Heartbeat from visualization client: {client_id}")
-                
-                # Update heartbeat with Registration Manager using the actual agent ID
-                try:
-                    from feagi.pns.registration_manager import get_registration_manager
-                    
-                    registration_manager = get_registration_manager()
-                    if registration_manager:
-                        registration_manager.heartbeat_agent(actual_agent_id)
-                        
-                except Exception as e:
-                    logger.debug(f"Error updating heartbeat with Registration Manager: {e}")
 
     def get_connected_client_count(self) -> int:
         """Get the number of connected visualization clients."""
@@ -774,36 +731,16 @@ class VisualizationStream:
                         if current_time - last_heartbeat > self.client_heartbeat_timeout:
                             clients_to_remove.append(client_id)
                     
-                    # Remove timed out clients and deregister from Registration Manager
+                    # Remove timed out clients
                     for client_id in clients_to_remove:
                         del self.client_last_heartbeat[client_id]
                         logger.info(f"💔 Client {client_id} disconnected (timeout)")
-                        
-                        # Deregister from Registration Manager using the actual agent ID
-                        actual_agent_id = "brain_visualizer"  # Bridge maps to brain_visualizer agent
-                        
-                        try:
-                            from feagi.pns.registration_manager import get_registration_manager
-                            
-                            registration_manager = get_registration_manager()
-                            if registration_manager:
-                                response = registration_manager.deregister_agent(actual_agent_id)
-                                if response.success:
-                                    logger.info(f"✅ Client '{client_id}' deregistered agent '{actual_agent_id}' from Registration Manager - "
-                                               f"FQ samplers: {response.fq_samplers_enabled}")
-                                else:
-                                    logger.warning(f"⚠️ Failed to deregister agent from Registration Manager: {response.message}")
-                            else:
-                                logger.warning("⚠️ Registration Manager not available for client deregistration")
-                                
-                        except Exception as e:
-                            logger.error(f"❌ Error deregistering agent from Registration Manager: {e}")
+                        logger.info(f"ℹ️ Note: Agent deregistration must be done explicitly via REST API - no automatic deregistration")
                     
                     # Log final client count
                     total_clients = len(self.client_last_heartbeat)
                     if len(clients_to_remove) > 0:
                         logger.info(f"💡 Remaining heartbeat clients: {total_clients}")
-                        logger.info(f"💡 FQ sampler coordination handled by Registration Manager")
                 
             except Exception as e:
                 logger.error(f"Error cleaning up clients: {e}")
@@ -944,17 +881,3 @@ class VisualizationStream:
             self._publish_data(broadcast_data)
         else:
             logger.debug("No data to broadcast")
-
-    def enable_debug_sampling(self) -> None:
-        """
-        DEBUG ONLY: Enable FQ sampling for testing without real clients.
-        This bypasses the normal client connection requirement.
-        """
-        if self.process_manager:
-            success = self.process_manager.enable_viz_fq_sampler()
-            if success:
-                self._fq_sampler_enabled = True
-            else:
-                logger.error(f"❌ VIZ DEBUG: Failed to enable FQ sampler via process manager")
-        else:
-            logger.warning(f"⚠️ VIZ DEBUG: No process manager available")

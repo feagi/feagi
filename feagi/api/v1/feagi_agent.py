@@ -25,7 +25,7 @@ from .schemas import (AgentListResponse, AgentInfoResponse, AgentConfigRequest, 
                       AgentRegistrationRequest, AgentDeregistrationRequest, 
                       AgentPropertiesRequest, AgentPropertiesResponse)
 from .decorators import endpoint
-from fastapi import HTTPException
+from fastapi import HTTPException, Query
 
 logger = setup_logger(__name__)
 
@@ -209,19 +209,34 @@ class FeagiAgentAPI:
             properties = registration_manager.get_agent_properties(agent_id)
             if not properties:
                 raise ValueError(f"Agent {agent_id} not found")
-                
-            # Format response to match expected ecosystem structure
+            
+            # Map Registration Manager data to AgentPropertiesResponse schema
+            agent_router_address = properties.get('agent_router_address')
+            if not agent_router_address and properties.get('agent_ip') and properties.get('agent_data_port'):
+                agent_router_address = f"tcp://{properties['agent_ip']}:{properties['agent_data_port']}"
+            
             return AgentPropertiesResponse(
-                agent_type=properties.get("agent_type", "unknown"),
-                agent_ip=properties.get("agent_ip", ""),
-                agent_data_port=properties.get("agent_data_port", 0),
-                agent_router_address=properties.get("agent_router_address", ""),
-                agent_version=properties.get("agent_version", ""),
-                controller_version=properties.get("controller_version", ""),
-                capabilities=properties.get("capabilities", {})
+                agent_type=properties.get('agent_type', ''),
+                agent_ip=properties.get('agent_ip', '127.0.0.1'),
+                agent_data_port=properties.get('agent_data_port', 0),
+                agent_router_address=agent_router_address or '',
+                agent_version=properties.get('agent_version', ''),
+                controller_version=properties.get('controller_version', ''),
+                capabilities=properties.get('capabilities', {})
             )
         except Exception as e:
+            self.logger.error(f"Error getting agent properties for {agent_id}: {str(e)}")
             raise ValueError(f"Failed to get agent properties: {str(e)}")
+
+    # Manual query parameter version for FastAPI compatibility
+    async def get_agent_properties_query(self, agent_id: str) -> AgentPropertiesResponse:
+        """
+        Get agent properties using query parameter format.
+        This endpoint supports the query parameter format: /v1/agent/properties?agent_id=<agent_id>
+        This method is manually registered to FastAPI to support query parameters.
+        """
+        # Delegate to the path parameter version for consistency
+        return await self.get_agent_properties(agent_id)
 
     @agent_endpoint('GET', '/fq_sampler_status')
     async def get_fq_sampler_status(self) -> dict:

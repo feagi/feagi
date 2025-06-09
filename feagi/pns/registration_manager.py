@@ -106,28 +106,29 @@ class RegistrationManager:
 
     def register_agent(self, request: AgentRegistrationRequest) -> AgentRegistrationResponse:
         """
-        Register a new agent or re-register an existing agent with FEAGI.
+        Register a new agent in the FEAGI system.
         
-        Supports seamless re-registration: if an agent with the same ID is already
-        registered, it will be overwritten rather than rejected. This handles cases
-        where agents disconnect ungracefully and FEAGI doesn't detect the disconnection.
+        This method handles agent registration with comprehensive state management,
+        FQ sampler coordination, and notification of state changes.
         
         Args:
-            request: Agent registration request containing agent details
+            request: AgentRegistrationRequest object containing all agent details
             
         Returns:
-            AgentRegistrationResponse with registration result and FQ sampler coordination
+            AgentRegistrationResponse with registration status and FQ sampler info
         """
         with self._lock:
+            logger.info(f"🤖 AGENT REGISTRATION REQUEST: {request.agent_id} (type: {request.agent_type}) with capabilities: {request.capabilities}")
+            
             try:
-                # 1. Validate request
+                # 1. Validate agent request
                 validation_result = self._validate_agent_request(request)
-                if not validation_result['valid']:
+                if not validation_result.get('valid', False):
                     return AgentRegistrationResponse(
                         success=False,
-                        message=validation_result['message'],
+                        message=validation_result.get('error', 'Validation failed'),
                         agent_id=request.agent_id,
-                        error_code=validation_result['error_code']
+                        error_code='VALIDATION_ERROR'
                     )
                 
                 # 2. Check FEAGI readiness
@@ -163,7 +164,7 @@ class RegistrationManager:
                     'agent_id': agent_id,
                     'agent_type': request.agent_type,
                     'capabilities': request.capabilities,
-                    'agent_data_port': request.agent_data_port or 0,
+                    'agent_data_port': request.agent_data_port,
                     'agent_version': request.agent_version,
                     'controller_version': request.controller_version,
                     'agent_ip': request.agent_ip or "127.0.0.1",  # @architecture:acceptable - emergency fallback
@@ -548,24 +549,42 @@ class RegistrationManager:
             # Handle visualization FQ sampler
             if self._has_visualization_capabilities(capabilities):
                 if not self._fq_sampler_states['visualization_enabled']:
-                    success = self._process_manager.enable_viz_fq_sampler()
+                    # Get frequency from config or use default
+                    viz_frequency = 30.0  # Default visualization frequency
+                    if hasattr(self._process_manager, '_fq_sampler_config'):
+                        viz_frequency = self._process_manager._fq_sampler_config.get('visualization_frequency', 30.0)
+                    
+                    success = self._process_manager.create_fq_sampler('visualization', viz_frequency)
                     if success:
                         self._fq_sampler_states['visualization_enabled'] = True
-                        logger.info("🎨 Visualization FQ sampler enabled for new agent")
+                        logger.info("🎨 [ON-DEMAND] Visualization FQ sampler created successfully")
                     else:
-                        logger.warning("⚠️ Failed to enable visualization FQ sampler")
+                        logger.error("🎨 [ERROR] Failed to create visualization FQ sampler")
+                
+                # CRITICAL: Notify ALL existing FQ samplers that visualization client connected
+                self._notify_existing_fq_samplers_visualization(True)
+                
                 fq_results['visualization'] = self._fq_sampler_states['visualization_enabled']
             
             # Handle motor FQ sampler
             if self._has_motor_capabilities(capabilities):
                 logger.info(f"🚗 Agent has motor capabilities: {capabilities}")
                 if not self._fq_sampler_states['motor_enabled']:
-                    success = self._process_manager.enable_motor_fq_sampler()
+                    # Get frequency from config or use default  
+                    motor_frequency = 100.0  # Default motor frequency
+                    if hasattr(self._process_manager, '_fq_sampler_config'):
+                        motor_frequency = self._process_manager._fq_sampler_config.get('motor_frequency', 100.0)
+                    
+                    success = self._process_manager.create_fq_sampler('opu', motor_frequency)
                     if success:
                         self._fq_sampler_states['motor_enabled'] = True
-                        logger.info("🚗 Motor FQ sampler enabled for new agent")
+                        logger.info("🚗 [ON-DEMAND] Motor FQ sampler created successfully")
                     else:
-                        logger.warning("⚠️ Failed to enable motor FQ sampler")
+                        logger.error("🚗 [ERROR] Failed to create motor FQ sampler")
+                
+                # CRITICAL: Notify ALL existing FQ samplers that motor client connected
+                self._notify_existing_fq_samplers_motor(True)
+                
                 fq_results['motor'] = self._fq_sampler_states['motor_enabled']
             else:
                 logger.info(f"✅ Agent has NO motor capabilities: {capabilities}")
@@ -587,7 +606,7 @@ class RegistrationManager:
             # Handle visualization FQ sampler
             if self._has_visualization_capabilities(capabilities):
                 if self._capability_counts['visualization'] == 0 and self._fq_sampler_states['visualization_enabled']:
-                    self._process_manager.disable_viz_fq_sampler()
+                    self._process_manager.disable_fq_sampler('visualization')
                     self._fq_sampler_states['visualization_enabled'] = False
                     logger.info("🎨 Visualization FQ sampler disabled - no visualization agents remain")
                 fq_results['visualization'] = self._fq_sampler_states['visualization_enabled']
@@ -595,7 +614,7 @@ class RegistrationManager:
             # Handle motor FQ sampler
             if self._has_motor_capabilities(capabilities):
                 if self._capability_counts['motor'] == 0 and self._fq_sampler_states['motor_enabled']:
-                    self._process_manager.disable_motor_fq_sampler()
+                    self._process_manager.disable_fq_sampler('motor')
                     self._fq_sampler_states['motor_enabled'] = False
                     logger.info("🚗 Motor FQ sampler disabled - no motor agents remain")
                 fq_results['motor'] = self._fq_sampler_states['motor_enabled']
@@ -604,6 +623,126 @@ class RegistrationManager:
             logger.error(f"❌ Error coordinating FQ samplers for deregistration: {e}")
         
         return fq_results
+
+    def _notify_existing_fq_samplers_visualization(self, has_clients: bool) -> None:
+        """
+        Notify ALL existing FQ samplers about visualization client status.
+        
+        This is critical because there may be FQ samplers that were created during
+        startup or by other processes that don't know about client connections.
+        
+        Args:
+            has_clients: True if visualization clients are connected, False otherwise
+        """
+        logger.info(f"🔔 NOTIFYING ALL FQ SAMPLERS: Visualization clients connected = {has_clients}")
+        
+        # Notify Process Manager's FQ samplers
+        if self._process_manager:
+            if hasattr(self._process_manager, '_viz_fq_sampler') and self._process_manager._viz_fq_sampler:
+                try:
+                    self._process_manager._viz_fq_sampler.set_visualization_subscribers(has_clients)
+                    logger.info(f"🎨 Notified Process Manager visualization FQ sampler: {has_clients}")
+                except Exception as e:
+                    logger.error(f"Error notifying Process Manager viz FQ sampler: {e}")
+            
+            if hasattr(self._process_manager, '_motor_fq_sampler') and self._process_manager._motor_fq_sampler:
+                try:
+                    # Motor samplers also need to know about visualization clients (they might sample viz data)
+                    self._process_manager._motor_fq_sampler.set_visualization_subscribers(has_clients)
+                    logger.info(f"🚗 Notified Process Manager motor FQ sampler about viz clients: {has_clients}")
+                except Exception as e:
+                    logger.error(f"Error notifying Process Manager motor FQ sampler: {e}")
+        
+        # Notify ZMQ Server's FQ samplers 
+        zmq_server = None
+        if self._process_manager:
+            zmq_server = self._process_manager.get_zmq_server()
+        
+        if zmq_server:
+            # Notify visualization stream FQ samplers
+            if hasattr(zmq_server, 'visualization_stream') and zmq_server.visualization_stream:
+                if hasattr(zmq_server.visualization_stream, 'fq_sampler') and zmq_server.visualization_stream.fq_sampler:
+                    try:
+                        zmq_server.visualization_stream.fq_sampler.set_visualization_subscribers(has_clients)
+                        logger.info(f"📺 Notified ZMQ visualization stream FQ sampler: {has_clients}")
+                    except Exception as e:
+                        logger.error(f"Error notifying ZMQ viz stream FQ sampler: {e}")
+            
+            # Notify motor stream FQ samplers  
+            if hasattr(zmq_server, 'motor_stream') and zmq_server.motor_stream:
+                if hasattr(zmq_server.motor_stream, 'fq_sampler') and zmq_server.motor_stream.fq_sampler:
+                    try:
+                        zmq_server.motor_stream.fq_sampler.set_visualization_subscribers(has_clients)
+                        logger.info(f"🚗 Notified ZMQ motor stream FQ sampler about viz clients: {has_clients}")
+                    except Exception as e:
+                        logger.error(f"Error notifying ZMQ motor stream FQ sampler: {e}")
+        
+        # Try to find any other FQ samplers that might exist
+        self._find_and_notify_legacy_fq_samplers_visualization(has_clients)
+
+    def _notify_existing_fq_samplers_motor(self, has_clients: bool) -> None:
+        """
+        Notify ALL existing FQ samplers about motor client status.
+        
+        Args:
+            has_clients: True if motor clients are connected, False otherwise
+        """
+        logger.info(f"🔔 NOTIFYING ALL FQ SAMPLERS: Motor clients connected = {has_clients}")
+        
+        # Notify Process Manager's FQ samplers
+        if self._process_manager:
+            if hasattr(self._process_manager, '_motor_fq_sampler') and self._process_manager._motor_fq_sampler:
+                try:
+                    self._process_manager._motor_fq_sampler.set_motor_subscribers(has_clients)
+                    logger.info(f"🚗 Notified Process Manager motor FQ sampler: {has_clients}")
+                except Exception as e:
+                    logger.error(f"Error notifying Process Manager motor FQ sampler: {e}")
+            
+            if hasattr(self._process_manager, '_viz_fq_sampler') and self._process_manager._viz_fq_sampler:
+                try:
+                    # Visualization samplers also need to know about motor clients  
+                    self._process_manager._viz_fq_sampler.set_motor_subscribers(has_clients)
+                    logger.info(f"🎨 Notified Process Manager viz FQ sampler about motor clients: {has_clients}")
+                except Exception as e:
+                    logger.error(f"Error notifying Process Manager viz FQ sampler: {e}")
+
+    def _find_and_notify_legacy_fq_samplers_visualization(self, has_clients: bool) -> None:
+        """
+        Try to find and notify any legacy FQ samplers that might exist.
+        
+        This is a best-effort attempt to find FQ samplers that were created
+        outside of the Process Manager (like during startup or by other processes).
+        """
+        try:
+            # Try to access core API to find FQ samplers
+            if self._process_manager:
+                core_api = self._process_manager.get_core_api()
+                if core_api:
+                    # Try to get burst engine and its FQ samplers
+                    try:
+                        burst_engine = core_api.get_burst_engine()
+                        if burst_engine and hasattr(burst_engine, '_fq_samplers'):
+                            for fq_sampler in burst_engine._fq_samplers:
+                                if hasattr(fq_sampler, 'set_visualization_subscribers'):
+                                    fq_sampler.set_visualization_subscribers(has_clients)
+                                    instance_id = getattr(fq_sampler, 'instance_id', 'unknown')
+                                    logger.info(f"🔥 Notified legacy FQ sampler [{instance_id}]: viz_clients={has_clients}")
+                    except Exception as e:
+                        logger.debug(f"Could not notify burst engine FQ samplers: {e}")
+                    
+                    # Try to get connectome manager and its FQ samplers
+                    try:
+                        connectome_manager = core_api.get_connectome_manager()
+                        if connectome_manager and hasattr(connectome_manager, 'fq_sampler'):
+                            if hasattr(connectome_manager.fq_sampler, 'set_visualization_subscribers'):
+                                connectome_manager.fq_sampler.set_visualization_subscribers(has_clients)
+                                instance_id = getattr(connectome_manager.fq_sampler, 'instance_id', 'unknown')
+                                logger.info(f"🧠 Notified connectome FQ sampler [{instance_id}]: viz_clients={has_clients}")
+                    except Exception as e:
+                        logger.debug(f"Could not notify connectome FQ samplers: {e}")
+                        
+        except Exception as e:
+            logger.debug(f"Error finding legacy FQ samplers: {e}")
 
     def _update_state_manager(self) -> None:
         """Update State Manager with current agent registry."""
