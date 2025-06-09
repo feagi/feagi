@@ -725,9 +725,6 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 # Export the main class and import UnifiedFQSampler from the dedicated module
 from .fq_sampler import UnifiedFQSampler
 
-# Backward compatibility aliases
-FQSampler = UnifiedFQSampler
-OptimizedFQSampler = UnifiedFQSampler
 
 # Public API
-__all__ = ['BurstEngine', 'UnifiedFQSampler', 'FQSampler', 'OptimizedFQSampler']
+__all__ = ['BurstEngine', 'UnifiedFQSampler']

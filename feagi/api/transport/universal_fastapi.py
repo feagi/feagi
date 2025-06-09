@@ -592,7 +592,33 @@ else:
     def create_feagi_agent_router() -> APIRouter:
         """Create a FastAPI router for feagi agent endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('feagi_agent')
+        router = wrapper.create_router_for_module('feagi_agent')
+        
+        # MANUAL ADDITION: Query parameter version of agent properties endpoint
+        # The universal wrapper doesn't support query parameters, so we add this manually
+        from feagi.api.rest.dependencies import get_core_api_service
+        from feagi.api.v1.feagi_agent import create_feagi_agent_api
+        from feagi.api.v1.schemas import AgentPropertiesResponse
+        from fastapi import Depends, HTTPException
+        
+        @router.get("/properties", response_model=AgentPropertiesResponse)
+        async def get_agent_properties_query(
+            agent_id: str,
+            core_api_service = Depends(get_core_api_service)
+        ):
+            """
+            Get agent properties using query parameter format.
+            This endpoint supports: /v1/agent/properties?agent_id=<agent_id>
+            """
+            try:
+                agent_api = create_feagi_agent_api(core_api_service)
+                return await agent_api.get_agent_properties_query(agent_id)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except Exception as e:
+                raise HTTPException(status_code=500, detail="Internal server error")
+        
+        return router
 
 
     def create_insights_router() -> APIRouter:

@@ -42,7 +42,6 @@ import sys
 import threading
 import time
 from typing import Dict, Any, Optional, List, Tuple, Set
-from feagi.npu.burst_engine import FQSampler
 from feagi.core.state_manager import FeagiStateManager
 from queue import Queue
 import traceback
@@ -977,147 +976,103 @@ class ProcessManager:
         
         return stats
 
-    def enable_viz_fq_sampler(self):
+    def create_fq_sampler(self, mode: str, frequency: float) -> bool:
         """
-        Enable visualization FQ sampler on-demand when visualization agents connect.
+        Create a UnifiedFQSampler with the specified mode and frequency.
         
+        Args:
+            mode: Sampling mode ('visualization', 'opu', 'custom_areas')
+            frequency: Sampling frequency in Hz
+            
         Returns:
-            bool: True if successfully enabled, False otherwise
+            bool: True if successfully created, False otherwise
         """
-        if self._viz_fq_sampler is not None:
-            logger.info("Visualization FQ sampler already exists - not creating duplicate")
-            return True
-        
-        if not self._fq_sampler_config.get('visualization_enabled', True):
-            logger.warning("Visualization FQ sampler disabled in configuration")
-            return False
+        logger.info(f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz")
         
         try:
             from feagi.npu.fq_sampler import UnifiedFQSampler
-            from feagi.npu.sampling_strategy import SamplingMode
             
-            # Create visualization FQ sampler with 30Hz frequency
-            viz_frequency = self._fq_sampler_config.get('visualization_frequency', 30.0)
-            
-            self._viz_fq_sampler = UnifiedFQSampler(
-                frequency=viz_frequency,
-                mode=SamplingMode.VISUALIZATION,
+            fq_sampler = UnifiedFQSampler(
+                fire_queue_provider=self._core_api,
+                sample_frequency_hz=frequency,
+                sampling_mode=mode,
+                output_queue=None,
                 connectome_manager=self._connectome_manager,
-                instance_id=f"viz_{int(time.time() * 1000) % 100000}",
-                name="VisualizationFQSampler",
-                fire_queue_provider=self._core_api
+                target_areas=None
             )
             
-            # Start the visualization FQ sampler in a separate thread
-            self._viz_fq_thread = threading.Thread(
-                target=self._viz_fq_sampler.start_sampling,
-                daemon=True,
-                name="VisualizationFQSamplerThread"
-            )
-            self._viz_fq_thread.start()
-            
-            logger.info(f"🎨 ON-DEMAND: Visualization FQ sampler created and started at {viz_frequency}Hz")
+            # Store the sampler based on mode
+            if mode == 'visualization':
+                self._viz_fq_sampler = fq_sampler
+                logger.info(f"🎨 Visualization FQ Sampler created: {fq_sampler.instance_id}")
+            elif mode == 'opu':
+                self._motor_fq_sampler = fq_sampler  
+                logger.info(f"🚗 Motor FQ Sampler created: {fq_sampler.instance_id}")
+            else:
+                logger.warning(f"Unknown FQ sampler mode: {mode}")
+                return False
+                
+            # Start the sampler
+            import threading
+            if mode == 'visualization':
+                self._viz_fq_thread = threading.Thread(
+                    target=fq_sampler.run,
+                    daemon=True,
+                    name="VisualizationFQSamplerThread"
+                )
+                self._viz_fq_thread.start()
+            elif mode == 'opu':
+                self._motor_fq_thread = threading.Thread(
+                    target=fq_sampler.run,
+                    daemon=True,
+                    name="MotorFQSamplerThread"
+                )
+                self._motor_fq_thread.start()
+                
             return True
             
         except Exception as e:
-            logger.error(f"Failed to enable visualization FQ sampler: {e}")
-            logger.debug(traceback.format_exc())
+            logger.error(f"Failed to create FQ sampler: {e}")
             return False
 
-    def disable_viz_fq_sampler(self):
+    def disable_fq_sampler(self, mode: str):
         """
-        Disable and destroy visualization FQ sampler when last visualization client disconnects.
-        True on-demand lifecycle - completely removes the FQ sampler.
+        Disable and destroy FQ sampler of the specified mode.
+        
+        Args:
+            mode: Sampling mode to disable ('visualization', 'opu')
         """
-        if self._viz_fq_sampler is None:
-            logger.debug("Visualization FQ sampler already disabled/destroyed")
-            return
-            
+        logger.info(f"🔥 Disabling FQ Sampler: mode={mode}")
+        
         try:
-            # Disable the sampler first
-            if hasattr(self._viz_fq_sampler, 'set_visualization_subscribers'):
-                self._viz_fq_sampler.set_visualization_subscribers(False)
-                logger.info("[DISABLED] Visualization FQ Sampler disabled - no clients connected")
-            
-            # Stop and destroy the FQ sampler
-            logger.info("[ON-DEMAND] Destroying visualization FQ sampler...")
-            
-            # Stop the sampler
-            if hasattr(self._viz_fq_sampler, 'stop'):
-                self._viz_fq_sampler.stop()
-            
-            # Stop the thread if running
-            if self._viz_fq_thread and self._viz_fq_thread.is_alive():
-                # Thread should stop when sampler.stop() is called
-                self._viz_fq_thread.join(timeout=2.0)
-                if self._viz_fq_thread.is_alive():
-                    logger.warning("Visualization FQ sampler thread did not stop gracefully")
-            
-            # Clean up references
-            self._viz_fq_sampler = None
-            self._viz_fq_thread = None
-            
-            logger.info("[DESTROYED] Visualization FQ sampler destroyed - memory freed")
+            if mode == 'visualization':
+                if self._viz_fq_sampler is not None:
+                    if hasattr(self._viz_fq_sampler, 'stop'):
+                        self._viz_fq_sampler.stop()
+                    
+                    if self._viz_fq_thread and self._viz_fq_thread.is_alive():
+                        self._viz_fq_thread.join(timeout=2.0)
+                    
+                    self._viz_fq_sampler = None
+                    self._viz_fq_thread = None
+                    logger.info("🎨 Visualization FQ sampler disabled and destroyed")
+                    
+            elif mode == 'opu' or mode == 'motor':
+                if self._motor_fq_sampler is not None:
+                    if hasattr(self._motor_fq_sampler, 'stop'):
+                        self._motor_fq_sampler.stop()
+                    
+                    if self._motor_fq_thread and self._motor_fq_thread.is_alive():
+                        self._motor_fq_thread.join(timeout=2.0)
+                    
+                    self._motor_fq_sampler = None
+                    self._motor_fq_thread = None
+                    logger.info("🚗 Motor FQ sampler disabled and destroyed")
+            else:
+                logger.warning(f"Unknown FQ sampler mode to disable: {mode}")
                 
         except Exception as e:
-            logger.error(f"Error destroying visualization FQ sampler: {e}")
-            # Force cleanup even on error
-            self._viz_fq_sampler = None
-            self._viz_fq_thread = None
-
-    def enable_motor_fq_sampler(self):
-        """
-        Enable motor FQ sampler on-demand when motor agents connect.
-        
-        TEMPORARILY DISABLED FOR DEBUGGING
-        
-        Returns:
-            bool: True if successfully enabled, False otherwise
-        """
-        logger.info("🚫 TEMPORARILY DISABLED: Motor FQ sampler creation disabled for debugging")
-        logger.info("🚫 This should prevent motor FQ sampler from being created")
-        return False
-
-    def disable_motor_fq_sampler(self):
-        """
-        Disable and destroy motor FQ sampler when last motor client disconnects.
-        True on-demand lifecycle - completely removes the FQ sampler.
-        """
-        if self._motor_fq_sampler is None:
-            logger.debug("Motor FQ sampler already disabled/destroyed")
-            return
-            
-        try:
-            # Disable the sampler first
-            if hasattr(self._motor_fq_sampler, 'set_motor_subscribers'):
-                self._motor_fq_sampler.set_motor_subscribers(False)
-                logger.info("[DISABLED] Motor FQ Sampler disabled - no clients connected")
-            
-            # Stop and destroy the FQ sampler
-            logger.info("[ON-DEMAND] Destroying motor FQ sampler...")
-            
-            # Stop the sampler
-            if hasattr(self._motor_fq_sampler, 'stop'):
-                self._motor_fq_sampler.stop()
-            
-            # Stop the thread if running
-            if self._motor_fq_thread and self._motor_fq_thread.is_alive():
-                # Thread should stop when sampler.stop() is called
-                self._motor_fq_thread.join(timeout=2.0)
-                if self._motor_fq_thread.is_alive():
-                    logger.warning("Motor FQ sampler thread did not stop gracefully")
-            
-            # Clean up references
-            self._motor_fq_sampler = None
-            self._motor_fq_thread = None
-            
-            logger.info("[DESTROYED] Motor FQ sampler destroyed - memory freed")
-                
-        except Exception as e:
-            logger.error(f"Error destroying motor FQ sampler: {e}")
-            # Force cleanup even on error
-            self._motor_fq_sampler = None
-            self._motor_fq_thread = None
+            logger.error(f"Error disabling FQ sampler ({mode}): {e}")
 
 # Global instance for the process manager
 _process_manager = None
