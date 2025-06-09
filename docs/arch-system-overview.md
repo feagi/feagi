@@ -22,6 +22,8 @@ FEAGI 2.0 employs a **Rust/RTOS compatible architecture** designed for high perf
 - **Singleton ConnectomeManager** for mission-critical reliability
 - **Memory-mapped state management** for zero-copy data access
 - **Rust/RTOS compatibility** for future migration
+- **Embedded performance optimizations** integrated into core architecture (10M neurons at 15Hz)
+- **SIMD-optimized neural processing** with cache-aligned memory and block-sparse matrices
 - **Evolutionary optimization** capabilities
 - **Configurable visualization sampling** for high-frequency simulations
 
