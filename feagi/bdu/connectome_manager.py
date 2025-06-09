@@ -239,119 +239,64 @@ class ConnectomeManager:
         return self
 
     def update_membrane_potentials(self, decay_factor=None, current_timestep=None) -> List[int]:
-        """Update membrane potentials based on incoming signals.
+        """Update membrane potentials using embedded optimizations.
         
-        This GPU-optimized implementation uses sparse matrix operations and
-        vectorized computations for maximum performance.
+        This method now uses the ultra-high-performance embedded-optimized neural update
+        from the NeuronArray, providing:
+        - SIMD-vectorized operations
+        - Cache-aligned memory access
+        - Block-sparse connectivity optimization
+        - Zero-allocation operation paths
+        
+        Designed for 10M neurons at 15Hz on single-core embedded systems.
         
         Args:
-            decay_factor: Optional decay factor (for test compatibility)
+            decay_factor: Optional decay factor (for backward compatibility)
             current_timestep: Current simulation timestep (optional)
             
         Returns:
             List of neuron IDs that fired
         """
-        # Handle decay factor for test compatibility
+        # Handle backward compatibility for test cases
         if decay_factor is not None and isinstance(decay_factor, (int, float)):
-            # Simple implementation for test compatibility
-            # Just apply the decay factor to all valid neurons
-            valid_neurons = self.neuron_array.valid_mask
-            if isinstance(self.neuron_array.membrane_potentials, torch.Tensor):
-                # Update PyTorch tensors
-                decay_tensor = torch.tensor(decay_factor, dtype=self.neuron_array.membrane_potentials.dtype, 
-                                           device=self.neuron_array.membrane_potentials.device)
-                self.neuron_array.membrane_potentials[valid_neurons] = decay_tensor
-            else:
-                # Update NumPy arrays
-                self.neuron_array.membrane_potentials[valid_neurons] = decay_factor
-            return []
-            
-        # Original implementation starts here
-        # Use multi-GPU implementation if available
-        if self.multi_gpu_manager is not None and self.multi_gpu_manager.initialized:
-            return self.multi_gpu_manager.update_membrane_potentials(current_timestep)
-            
-        # Original single-GPU implementation
+            # Legacy test compatibility mode
+            return self.neuron_array.update_membrane_potentials(
+                decay_factor=decay_factor
+            )
+        
+        # Set current timestep
         if current_timestep is not None:
             self.current_timestep = current_timestep
         
-        # Ensure outgoing matrix is in CSR format for efficient row access
-        self._ensure_csr_format_outgoing()
+        # Use embedded-optimized neural update with connectivity
+        connectivity_matrix = None
+        if hasattr(self, 'outgoing_matrix') and self.outgoing_matrix is not None:
+            connectivity_matrix = self.outgoing_matrix
         
-        # Get subset of outgoing matrix for active neurons
-        # Convert active_neurons to boolean mask if it's a set
-        if isinstance(self.active_neurons, set):
-            active_mask = np.zeros(self.max_neurons, dtype=np.bool_)
-            for nid in self.active_neurons:
-                if nid in self.neuron_id_to_index:
-                    idx = self.neuron_id_to_index[nid]
-                    active_mask[idx] = True
-            self.active_neurons = active_mask
+        # Perform high-performance neural update
+        fired_neurons = self.neuron_array.update_membrane_potentials(
+            synapse_data=connectivity_matrix,
+            timestep=self.current_timestep
+        )
         
-        # If we have no active neurons, decay potentials and check for firing
-        if not np.any(self.active_neurons):
-            return self._update_without_firing()
-        
-        # Create a signal propagation matrix from active neurons
-        # This uses the active_neurons mask to efficiently extract only relevant rows
-        active_indices = np.where(self.active_neurons)[0]
-        
-        if len(active_indices) == 0:
-            return self._update_without_firing()
-        
-        # Extract rows from outgoing matrix for active neurons
-        # This creates a submatrix of only the connections from active neurons
-        signal_matrix = self.outgoing_matrix[active_indices]
-        
-        # Reset active neurons for next timestep
-        self.active_neurons.fill(False)
-        
-        # Process incoming signals using the GPU-optimized NeuronArray
-        # This updates membrane potentials and returns a mask of neurons that fired
-        fired_mask = self.neuron_array.process_incoming_signals(signal_matrix)
-        
-        # Decay membrane potentials for non-firing neurons
-        non_fired_mask = ~fired_mask
-        valid_neurons = self.neuron_array.valid_mask
-        
-        # Apply decay to valid neurons that didn't fire
-        neurons_to_decay = non_fired_mask & valid_neurons
-        
-        if isinstance(self.neuron_array.membrane_potentials, torch.Tensor) and self.neuron_array.device == "cuda":
-            # Use PyTorch operations if on GPU
-            self.neuron_array.membrane_potentials[neurons_to_decay] = (
-                self.neuron_array.membrane_potentials[neurons_to_decay] * 
-                (1 - self.neuron_array.decay_rates[neurons_to_decay])
-            )
+        # Update active neurons tracking
+        if len(fired_neurons) > 0:
+            # Convert neuron IDs to indices for active neurons mask
+            fired_indices = [self.neuron_id_to_index.get(nid) for nid in fired_neurons 
+                           if nid in self.neuron_id_to_index]
+            fired_indices = [idx for idx in fired_indices if idx is not None]
+            
+            if fired_indices:
+                self.active_neurons[:] = False  # Reset
+                self.active_neurons[fired_indices] = True
         else:
-            # Use NumPy operations if on CPU
-            self.neuron_array.membrane_potentials[neurons_to_decay] *= (
-                1 - self.neuron_array.decay_rates[neurons_to_decay]
-            )
+            self.active_neurons[:] = False
         
-        # Decrement refractory counters
-        refractory_mask = self.neuron_array.refractory_counters > 0
-        self.neuron_array.refractory_counters[refractory_mask] -= 1
+        # Update FCL manager with fired neurons
+        if hasattr(self, 'fcl_manager') and self.fcl_manager:
+            self.fcl_manager.update_fcl(fired_neurons, self.current_timestep)
         
-        # Update active_neurons for next timestep (neurons that fired)
-        self.active_neurons = fired_mask & valid_neurons
-        
-        # Update FCL manager
-        fired_indices = np.where(fired_mask)[0]
-        
-        # Add fired neurons to the current FCL
-        if len(fired_indices) > 0:
-            self.fcl_manager.add_to_current_fcl(fired_indices)
-        
-        # Convert fired indices to neuron IDs
-        fired_neuron_ids = [
-            self.index_to_neuron_id.get(idx, idx) for idx in fired_indices
-        ]
-        
-        # Increment timestep
-        self.current_timestep += 1
-        
-        return fired_neuron_ids
+        return fired_neurons
     
     #----------------------------------------------------------------------
     # Synapse Storage Methods
