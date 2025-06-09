@@ -57,7 +57,7 @@ reverse_cortical_id_map[cortical_id] = cortical_idx
 The naming convention is consistently applied throughout the codebase:
 
 - In `connectome_manager_gpu.py`, the property is called `cortical_idxs` in the NeuronArray class
-- In `optimized_structures.py`, the property is called `cortical_idxs` in the GlobalNeuronArray class
+- In `neuron.py`, the property is called `cortical_idxs` in the NeuronArray class
 - In `Connectome` class, the properties `source_cortical_idxs` and `target_cortical_idxs` store integer indices
 - All GPU-optimized structures consistently use the `_idxs` suffix for integer index arrays
 
