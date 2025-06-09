@@ -159,6 +159,11 @@ class UnifiedFQSampler:
         logger.info(f"UnifiedFQSampler initialized: mode={self.current_strategy.mode.value}, "
                    f"frequency={self.sample_frequency}Hz")
 
+    @property
+    def sampling_mode(self) -> str:
+        """Get the current sampling mode as a string."""
+        return self.current_strategy.mode.value
+
     def _initialize_buffers(self) -> Dict[str, np.ndarray]:
         """Initialize pre-allocated buffers for zero-copy operations."""
         return {
