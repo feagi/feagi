@@ -287,6 +287,32 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             import time
             burst_start_time = time.perf_counter()
             
+            # LOG RAW FCL t-1 CONTENT FOR DEBUGGING VISUALIZATION ISSUES
+            if hasattr(self, 'fcl_manager') and self.fcl_manager:
+                try:
+                    # Get FCL from previous timestep (t-1) - this is what FQ sampler reads
+                    fcl_t_minus_1 = self.fcl_manager.get_fcl(offset=-1)
+                    if fcl_t_minus_1 and not fcl_t_minus_1.is_empty():
+                        neuron_list = list(fcl_t_minus_1)[:10]  # Show first 10 neurons
+                        logger.debug(f"🔥 FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}")
+                        
+                        # Show which cortical areas these neurons belong to
+                        if hasattr(self.connectome_manager, 'neuron_array') and hasattr(self.connectome_manager.neuron_array, 'cortical_area_id'):
+                            area_count = {}
+                            for neuron_id in fcl_t_minus_1:
+                                if neuron_id < len(self.connectome_manager.neuron_array.cortical_area_id):
+                                    area = self.connectome_manager.neuron_array.cortical_area_id[neuron_id]
+                                    if isinstance(area, bytes):
+                                        area = area.decode('utf-8')
+                                    elif not isinstance(area, str):
+                                        area = str(area)
+                                    area_count[area] = area_count.get(area, 0) + 1
+                            logger.debug(f"🔥 FCL t-1 AREAS: {dict(list(area_count.items())[:5])}...")  # Show first 5 areas
+                    else:
+                        logger.debug(f"🔥 FCL t-1 CONTENT: EMPTY")
+                except Exception as e:
+                    logger.debug(f"🔥 FCL t-1 LOGGING ERROR: {e}")
+            
             # 1. External candidates injection (all special area types)
             if self.injection_service and self.enable_injection:
                 self.injection_service.inject_pre_burst(self.burst_count)
