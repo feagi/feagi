@@ -797,7 +797,7 @@ class FeagiStateManager:
         
     def is_simulation_running(self) -> bool:
         """Check if simulation is currently running"""
-        return self.get_simulation_state() == SimulationState.RUNNING 
+        return self.get_simulation_state() == SimulationState.RUNNING
 
     def get_genome_counter(self) -> int:
         """Get the current genome counter value"""
@@ -1417,6 +1417,125 @@ class FeagiStateManager:
             message: The main log message
         """
         logger.info(f"{category} {message}")
+
+    # ===== CRITICAL SERVICE READINESS GATE =====
+    
+    def are_critical_services_ready(self) -> bool:
+        """
+        Check if ALL critical services are ready for operation.
+        
+        This is the master gate that prevents FQ sampler registration 
+        until all Priority 1 critical services are operational.
+        
+        Returns:
+            bool: True if all critical services are ready, False otherwise
+        """
+        critical_status = self.get_critical_services_status()
+        
+        # All services must be in READY state
+        ready = all(
+            status == ServiceState.READY 
+            for status in critical_status.values()
+        )
+        
+        if not ready:
+            # Log which services are not ready (but only once every 5 seconds to avoid spam)
+            import time
+            current_time = time.time()
+            if not hasattr(self, '_last_critical_check_log') or current_time - self._last_critical_check_log > 5.0:
+                not_ready = [
+                    service for service, status in critical_status.items() 
+                    if status != ServiceState.READY
+                ]
+                self._log_state_message("CRITICAL", f"Services not ready: {', '.join(not_ready)}")
+                self._last_critical_check_log = current_time
+        
+        return ready
+    
+    def get_critical_services_status(self) -> dict:
+        """
+        Get the status of all critical services.
+        
+        Returns:
+            dict: Service name -> ServiceState mapping
+        """
+        return {
+            "burst_engine": self.get_burst_engine_state(),
+            "connectome": ServiceState.READY if self.is_connectome_ready() else ServiceState.UNAVAILABLE,
+            "genome": ServiceState.READY if self.is_genome_loaded() else ServiceState.UNAVAILABLE,
+            "state_manager": ServiceState.READY,  # Always ready if this method is called
+            "zmq_server": self.get_zmq_state(),
+            "api_server": self.get_api_state()
+        }
+    
+    def wait_for_critical_services(self, timeout_seconds: float = 30.0, check_interval: float = 0.5) -> bool:
+        """
+        Wait for all critical services to become ready.
+        
+        Args:
+            timeout_seconds: Maximum time to wait in seconds
+            check_interval: How often to check service status in seconds
+            
+        Returns:
+            bool: True if all services became ready within timeout, False if timeout
+        """
+        import time
+        start_time = time.time()
+        
+        self._log_state_message("CRITICAL", f"Waiting for critical services (timeout: {timeout_seconds}s)")
+        
+        while time.time() - start_time < timeout_seconds:
+            if self.are_critical_services_ready():
+                elapsed = time.time() - start_time
+                self._log_state_message("CRITICAL", f"All critical services ready after {elapsed:.1f}s")
+                return True
+            
+            # Log progress every 5 seconds
+            elapsed = time.time() - start_time
+            if elapsed % 5.0 < check_interval:
+                status = self.get_critical_services_status()
+                not_ready = [s for s, st in status.items() if st != ServiceState.READY]
+                self._log_state_message("CRITICAL", f"Still waiting for: {', '.join(not_ready)} ({elapsed:.1f}s elapsed)")
+            
+            time.sleep(check_interval)
+        
+        # Timeout reached
+        status = self.get_critical_services_status()
+        not_ready = [s for s, st in status.items() if st != ServiceState.READY]
+        self._log_state_message("CRITICAL", f"TIMEOUT after {timeout_seconds}s - Services not ready: {', '.join(not_ready)}")
+        return False
+    
+    def set_system_ready_for_fq_samplers(self, ready: bool) -> None:
+        """
+        Mark the system as ready (or not ready) for FQ sampler operations.
+        
+        This is set by the Process Manager once all critical services 
+        have been verified as operational.
+        
+        Args:
+            ready: True if system is ready for FQ samplers, False otherwise
+        """
+        old_value = self.get_brain_readiness()
+        self.set_brain_readiness(ready)
+        
+        if ready and not old_value:
+            self._log_state_message("CRITICAL", "System now READY for FQ sampler registration")
+        elif not ready and old_value:
+            self._log_state_message("CRITICAL", "System BLOCKED from FQ sampler registration")
+    
+    def is_system_ready_for_fq_samplers(self) -> bool:
+        """
+        Check if the system is ready for FQ sampler operations.
+        
+        This combines both critical service readiness AND explicit 
+        system readiness flag set by Process Manager.
+        
+        Returns:
+            bool: True if ready for FQ samplers, False otherwise
+        """
+        return self.are_critical_services_ready() and self.get_brain_readiness()
+
+    # ===== END CRITICAL SERVICE READINESS GATE =====
 
 def get_state_manager():
     """Get the singleton instance of FeagiStateManager"""
