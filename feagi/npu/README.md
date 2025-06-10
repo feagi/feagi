@@ -699,3 +699,17 @@ Special areas enable several advanced neural simulation patterns:
 2. **Learning Signals**: Modulator areas inject reward/punishment signals across the brain
 3. **Synchronization**: Provide timing signals for coordinated activity
 4. **Debugging**: Force specific neurons to fire for testing and validation 
+
+## Developer Resources
+
+### Module Dependencies
+
+For information about NPU module dependencies and safe import patterns, see:
+- **[DEPENDENCIES.md](DEPENDENCIES.md)** - Internal dependency map and import guidelines
+- **[example-fcl.md](example-fcl.md)** - Comprehensive FCL usage examples and data structure explanations
+
+### Architecture Documentation
+
+- **[arch-npu.md](arch-npu.md)** - High-level NPU architecture overview
+- **[arch-burst-engine.md](arch-burst-engine.md)** - Detailed burst engine design documentation
+- **[burst_engine.md](burst_engine.md)** - Burst engine usage patterns and examples 
