@@ -67,36 +67,44 @@ PRIORITY_BACKGROUND = 3  # Best effort processes
 
 class ProcessManager:
     """
-    FEAGI Process Manager - Rust/RTOS Compatible Architecture.
+    FEAGI Process Manager - Orchestrates all FEAGI services with OS/platform agnostic design.
     
-    Responsible for:
-    1. Task Creation: Launches async tasks with appropriate resources and parameters.
-    2. Task Monitoring: Monitors task health and performance without subprocess overhead.
-    3. Resource Allocation: Distributes computing resources based on priority.
-    4. Fault Tolerance: Restarts failed tasks and maintains system integrity.
+    Manages the lifecycle of critical services using a three-tier priority system:
+    - Priority 1 (Critical): Core brain services that must start first
+    - Priority 2 (Important): Network services that depend on Priority 1
+    - Priority 3 (Background): Optional services for monitoring and management
     
-    RUST/RTOS COMPATIBLE FEATURES:
-    - Singleton ConnectomeManager for consistent state access
-    - Direct task spawning eliminates subprocess boundaries  
-    - Memory-mapped state for instant synchronization
-    - No environment variable IPC dependencies
+    RUST/RTOS COMPATIBLE: Uses direct imports and shared memory instead of subprocesses.
     """
     
     def __init__(self):
-        """Initialize the Process Manager with singleton ConnectomeManager."""
+        """Initialize ProcessManager with empty state."""
         self._processes = {}
-        self._resource_allocations = {}
-        self._running = False
-        self._monitor_thread = None
         self._core_api = None
-        self._zmq_server = None
+        self._burst_engine = None
+        self._viz_fq_sampler = None
+        self._motor_fq_sampler = None
+        self._viz_fq_thread = None
+        self._motor_fq_thread = None
+        self._fq_sampler_config = {}
+        self._monitoring_active = False
+        self._zmq_server = None  # Add missing _zmq_server attribute
+        
+        # Add startup phase tracking
+        self._startup_phase = True  # True during initial startup, False during runtime
+        
+        # Set up logging
+        from feagi.utils.logger import setup_logger
+        global logger
+        logger = setup_logger("feagi.process_manager")
+        
+        logger.info("[SINGLETON] ProcessManager initialized")
         
         # CRITICAL: Use ConnectomeManager singleton for mission-critical reliability
         from feagi.bdu.connectome_manager import ConnectomeManager
         self._connectome_manager = ConnectomeManager.instance()
         
         # Internal references for critical components
-        self._burst_engine = None
         self._fcl_manager = None
         self._memory_manager = None
         
@@ -236,8 +244,17 @@ class ProcessManager:
             # --- Initialize Connectome Manager ---
             logger.info("Initializing connectome manager...")
             from feagi.bdu.connectome_manager import ConnectomeManager
+            from feagi.core.state_manager import ConnectomeState, GenomeState
             self._connectome_manager = ConnectomeManager.instance(config, backend=backend_name)
-            logger.info("Connectome Manager initialized")
+            
+            # Set connectome state to READY - it's operational even without genome
+            state_manager.set_connectome_state(ConnectomeState.READY)
+            logger.info("Connectome Manager initialized and ready")
+            
+            # Initialize genome state to LOADED (basic system ready for operation)
+            # The genome service will update this when actual genomes are loaded
+            state_manager.set_genome_state(GenomeState.LOADED)
+            logger.info("Basic genome state initialized as LOADED")
             
             # Import here to avoid circular imports
             from feagi.core import create_core_api
@@ -252,33 +269,41 @@ class ProcessManager:
                 self._fcl_manager = self._core_api.get_fcl_manager()
                 self._memory_manager = self._core_api.get_memory_manager()
                 
-                # [ARCHITECTURE FIX] Initialize burst engine in STANDBY mode
-                # This ensures the burst engine singleton is always available for FQ sampler registration
-                # even before a genome is loaded. The engine will transition to READY when genome loads.
-                logger.info("🔥 BURST ENGINE: Initializing in STANDBY mode for early FQ sampler registration...")
-                try:
-                    # Set the burst engine to STANDBY state - available but not processing
-                    state_manager.set_burst_engine_state(ServiceState.INITIALIZING)
+                # Initialize burst engine in STANDBY mode for early FQ sampler registration
+                burst_engine = self._core_api.get_burst_engine()
+                if burst_engine:
+                    # Set burst engine state to READY since it's operational in STANDBY mode
+                    # and ready to accept FQ sampler registrations
+                    state_manager.set_burst_engine_state(ServiceState.READY)
                     
-                    # The burst engine is now initialized and available as a singleton
-                    # It can accept FQ sampler registrations even without a genome
-                    if self._burst_engine:
-                        logger.info(f"🔥 BURST ENGINE: Singleton instance [{self._burst_engine._instance_id}] available in STANDBY mode")
-                        logger.info("🔥 BURST ENGINE: Ready to accept FQ sampler registrations")
-                        
-                        # Set to standby state - engine exists but not actively processing
-                        state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)  # Will transition to READY when genome loads
-                        
-                        logger.info("🔥 BURST ENGINE: STANDBY mode initialized - FQ samplers can now register")
-                    else:
-                        logger.error("❌ Failed to get burst engine instance - FQ sampler registration will fail!")
-                        return False
-                        
-                except Exception as e:
-                    logger.error(f"❌ Error initializing burst engine in STANDBY mode: {e}")
+                    logger.info("🔥 BURST ENGINE: STANDBY mode initialized - FQ samplers can now register")
+                else:
+                    logger.error("❌ Failed to get burst engine instance - FQ sampler registration will fail!")
                     return False
             
             logger.info("[OK] Critical processes initialized successfully", status="[OK] ")
+            
+            # ===== CRITICAL SERVICE READINESS GATE =====
+            # Mark system as ready for FQ sampler operations ONLY after all critical services are initialized
+            try:
+                # Verify all critical services are actually ready before setting the flag
+                critical_status = state_manager.get_critical_services_status()
+                all_ready = all(status.value == "READY" for status in critical_status.values())
+                
+                if all_ready:
+                    state_manager.set_system_ready_for_fq_samplers(True)
+                    logger.info("✅ CRITICAL SERVICES READY: System now accepts FQ sampler registration")
+                else:
+                    not_ready = [service for service, status in critical_status.items() if status.value != "READY"]
+                    logger.warning(f"⚠️  Some critical services not ready: {', '.join(not_ready)} - FQ sampler registration blocked")
+                    state_manager.set_system_ready_for_fq_samplers(False)
+                    
+            except Exception as e:
+                logger.error(f"❌ Error setting system readiness flag: {e}")
+                # Default to safe mode - block FQ sampler registration
+                state_manager.set_system_ready_for_fq_samplers(False)
+            # ===== END CRITICAL SERVICE READINESS GATE =====
+            
             return True
             
         except Exception as e:
@@ -301,6 +326,37 @@ class ProcessManager:
             True if successfully initialized, False otherwise
         """
         logger.info("Initializing important (Priority 2) processes...")
+        
+        # ===== CRITICAL SERVICE READINESS GATE =====
+        # BLOCK ZMQ server (and agent connections) until ALL core critical services are ready
+        # Note: We don't check zmq_server and api_server since those are what we're starting here
+        try:
+            from feagi.core.state_manager import get_state_manager, ServiceState
+            state_manager = get_state_manager()
+            
+            # Check only CORE critical services (not the ones we're about to start)
+            core_critical_services = ['burst_engine', 'connectome', 'genome', 'state_manager']
+            critical_status = state_manager.get_critical_services_status()
+            
+            # Filter to only check core services
+            core_status = {k: v for k, v in critical_status.items() if k in core_critical_services}
+            core_ready = all(status.value == "READY" or status.value == "LOADED" for status in core_status.values())
+            
+            if not core_ready:
+                not_ready = [k for k, v in core_status.items() if v.value != "READY" and v.value != "LOADED"]
+                logger.error(f"[ERR] BLOCKED: Cannot start ZMQ services - core critical services not ready")
+                logger.error(f"[ERR] Core services not ready: {', '.join(not_ready)}")
+                for service, state in core_status.items():
+                    if state.value != "READY" and state.value != "LOADED":
+                        logger.error(f"[ERR]   {service}: {state.value}")
+                return False
+            
+            logger.info("[OK] Core critical services ready - proceeding with ZMQ server initialization")
+            
+        except Exception as e:
+            logger.error(f"[ERR] Failed to check critical service readiness: {e}")
+            return False
+        # ===== END CRITICAL SERVICE READINESS GATE =====
         
         # Check if embedded mode is enabled
         embedded_mode = config.get('system', {}).get('embedded', False)
@@ -425,6 +481,7 @@ class ProcessManager:
                 # Start ZMQ server
                 if zmq_server.start():
                     self._processes['zmq_server'] = zmq_server
+                    self._zmq_server = zmq_server  # Store for registration manager access
                     state_manager.set_zmq_state(ServiceState.READY)
                     logger.info("ZMQ Message Broker initialized successfully")
                 else:
@@ -746,6 +803,12 @@ class ProcessManager:
         # Start monitoring thread
         self._start_monitoring()
         
+        # Transition from startup phase to runtime phase
+        # This allows FQ samplers to be created without critical service checks during runtime
+        self._startup_phase = False
+        logger.info("🚀 FEAGI startup phase completed - transitioning to runtime phase")
+        logger.info("🔄 FQ samplers can now be created on-demand during agent registration")
+        
         logger.info("FEAGI Process Manager started successfully")
         return True
     
@@ -1008,6 +1071,48 @@ class ProcessManager:
         """
         logger.info(f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz")
         
+        # ===== CRITICAL SERVICE READINESS GATE (STARTUP ONLY) =====
+        # ONLY block FQ sampler creation during initial startup phase
+        # During runtime, agents should be able to register immediately
+        if self._startup_phase:
+            logger.debug(f"🔄 Startup phase: Checking critical service readiness for FQ sampler creation")
+            try:
+                from feagi.core.state_manager import get_state_manager
+                state_manager = get_state_manager()
+                
+                # Check if system is ready for FQ samplers
+                if not state_manager.is_system_ready_for_fq_samplers():
+                    logger.warning(f"🚨 BLOCKED: FQ sampler creation for mode '{mode}' - critical services not ready")
+                    
+                    # Get detailed status for debugging
+                    critical_status = state_manager.get_critical_services_status()
+                    not_ready = [service for service, status in critical_status.items() if status.value != "READY"]
+                    
+                    if not_ready:
+                        logger.warning(f"🚨 Services not ready: {', '.join(not_ready)}")
+                        for service, status in critical_status.items():
+                            if status.value != "READY":
+                                logger.warning(f"🚨   {service}: {status.value}")
+                    
+                    # Wait briefly for services to become ready (non-blocking timeout)
+                    logger.info(f"🔄 Waiting up to 10 seconds for critical services to become ready...")
+                    if state_manager.wait_for_critical_services(timeout_seconds=10.0, check_interval=0.5):
+                        logger.info(f"✅ Critical services now ready - proceeding with FQ sampler creation")
+                    else:
+                        logger.error(f"❌ TIMEOUT: Critical services still not ready after 10 seconds")
+                        logger.error(f"❌ FQ sampler creation DENIED for mode '{mode}'")
+                        return False
+                else:
+                    logger.debug(f"✅ Critical services ready - proceeding with FQ sampler creation for mode '{mode}'")
+                    
+            except Exception as gate_error:
+                logger.error(f"🚨 Error in critical service readiness gate: {gate_error}")
+                logger.error(f"🚨 Proceeding with FQ sampler creation anyway to maintain backward compatibility")
+        else:
+            logger.debug(f"🔄 Runtime phase: Skipping critical service check for FQ sampler creation (services already verified)")
+        
+        # ===== END CRITICAL SERVICE READINESS GATE =====
+        
         try:
             # Check if sampler already exists for this mode
             if mode == 'visualization' and self._viz_fq_sampler is not None:
@@ -1018,13 +1123,14 @@ class ProcessManager:
                 return True
             
             # Import FQ sampler
-            from feagi.npu.unified_fq_sampler import UnifiedFQSampler
+            from feagi.npu.fq_sampler import UnifiedFQSampler
             
             # Create the sampler
             fq_sampler = UnifiedFQSampler(
-                frequency=frequency,
-                mode=mode,
-                core_api=self._core_api
+                fire_queue_provider=self._core_api,
+                sample_frequency_hz=frequency,
+                sampling_mode=mode,
+                connectome_manager=self._core_api.get_connectome_manager() if self._core_api else None
             )
             
             # Store the sampler based on mode
@@ -1040,16 +1146,36 @@ class ProcessManager:
                 
             # [ARCHITECTURE FIX] Register with burst engine for data flow coordination
             # The burst engine should always be available in STANDBY mode for registration
+            logger.debug(f"🔥 [DEBUG] Attempting to register FQ sampler [{fq_sampler.instance_id}] with burst engine")
+            logger.debug(f"🔥 [DEBUG] Burst engine available: {self._burst_engine is not None}")
             if self._burst_engine:
+                logger.debug(f"🔥 [DEBUG] Burst engine type: {type(self._burst_engine)}")
+                logger.debug(f"🔥 [DEBUG] Burst engine has register method: {hasattr(self._burst_engine, 'register_fq_sampler')}")
                 try:
                     self._burst_engine.register_fq_sampler(fq_sampler)
                     logger.info(f"🔥 FQ sampler [{fq_sampler.instance_id}] registered with burst engine successfully")
+                    logger.debug(f"🔥 [DEBUG] Registration completed - checking burst engine FQ sampler count")
+                    if hasattr(self._burst_engine, '_fq_samplers'):
+                        sampler_count = len(self._burst_engine._fq_samplers)
+                        logger.debug(f"🔥 [DEBUG] Burst engine now has {sampler_count} registered FQ samplers")
+                    else:
+                        logger.warning(f"🔥 [DEBUG] Burst engine has no _fq_samplers attribute - registration may have failed")
                 except Exception as reg_error:
                     logger.error(f"🔥 Failed to register FQ sampler [{fq_sampler.instance_id}] with burst engine: {reg_error}")
+                    import traceback
+                    logger.error(f"🔥 Registration error traceback: {traceback.format_exc()}")
                     # Continue anyway - FQ sampler can still function without registration
             else:
                 logger.error(f"🔥 Could not register FQ sampler [{fq_sampler.instance_id}] - burst engine not available")
                 logger.error("🔥 This should not happen if burst engine is properly initialized in STANDBY mode")
+                logger.error(f"🔥 [DEBUG] Process manager state: _burst_engine={self._burst_engine}")
+                logger.error(f"🔥 [DEBUG] Core API state: {self._core_api is not None}")
+                if self._core_api:
+                    try:
+                        be_from_api = self._core_api.get_burst_engine()
+                        logger.error(f"🔥 [DEBUG] Burst engine from core API: {be_from_api is not None}")
+                    except Exception as api_error:
+                        logger.error(f"🔥 [DEBUG] Error getting burst engine from core API: {api_error}")
                 # Continue anyway - the system should still function
             
             # Start the sampler
