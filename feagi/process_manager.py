@@ -1178,25 +1178,26 @@ class ProcessManager:
                         logger.error(f"🔥 [DEBUG] Error getting burst engine from core API: {api_error}")
                 # Continue anyway - the system should still function
             
-            # Start the sampler
-            import threading
-            
-            def run_fq_sampler():
+            # Start FQ sampler in a separate thread  
+            def fq_sampler_thread():
                 try:
-                    fq_sampler.start()
+                    fq_sampler.run()  # Call run() method instead of start()
                 except Exception as e:
-                    logger.error(f"🔥 Error in FQ sampler thread: {e}")
+                    logger.error(f"Error in FQ sampler thread: {e}")
             
+            thread = threading.Thread(target=fq_sampler_thread, daemon=True)
+            thread.start()
+            
+            # Store thread reference based on mode
             if mode == 'visualization':
-                self._viz_fq_thread = threading.Thread(target=run_fq_sampler, daemon=True)
-                self._viz_fq_thread.start()
-                logger.info(f"🎨 Visualization FQ Sampler thread started")
+                self._viz_fq_thread = thread
+                logger.info(f"[RENDER] Visualization FQ Sampler thread started")
             elif mode == 'opu':
-                self._motor_fq_thread = threading.Thread(target=run_fq_sampler, daemon=True)
-                self._motor_fq_thread.start()
-                logger.info(f"🚗 Motor FQ Sampler thread started")
+                self._motor_fq_thread = thread
+                logger.info(f"[MOTOR] Motor FQ Sampler thread started")
             
-            logger.info(f"🔥 FQ Sampler created and started successfully: mode={mode}")
+            logger.info(f"[DEBUG] FQ Sampler created and started successfully: mode={mode}")
+            
             return True
             
         except Exception as e:
