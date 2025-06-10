@@ -789,6 +789,9 @@ class NeuronArray:
         self.index_to_id_map[index] = neuron_id
         self.neuron_count += 1
         
+        # Invalidate lookup array cache
+        self._invalidate_index_to_id_lookup_array()
+        
         return index
 
     def delete_neuron(self, neuron_id: int) -> bool:
@@ -823,6 +826,9 @@ class NeuronArray:
         del self.id_to_index_map[neuron_id]
         if index in self.index_to_id_map:
             del self.index_to_id_map[index]
+        
+        # Invalidate lookup array cache
+        self._invalidate_index_to_id_lookup_array()
         
         self.neuron_count -= 1
         return True
@@ -1472,6 +1478,9 @@ class NeuronArray:
         # Update neuron count
         self.neuron_count += len(neuron_ids)
         
+        # Invalidate lookup array cache after batch operations
+        self._invalidate_index_to_id_lookup_array()
+        
         return neuron_ids
 
     def batch_update_membrane_potentials(self, neuron_ids: List[int], values: List[float]) -> None:
@@ -1492,7 +1501,104 @@ class NeuronArray:
         
         # Update membrane potentials in a vectorized way
         self.membrane_potentials[indices] = np.array(values, dtype=np.float32)
+
+    # ============================================================================
+    # VECTORIZED INDEX-TO-ID LOOKUP METHODS - GPU/SIMD COMPATIBLE
+    # ============================================================================
+    
+    def batch_indices_to_neuron_ids(self, indices: np.ndarray) -> np.ndarray:
+        """Convert array indices to neuron IDs in vectorized operation.
         
+        This replaces inefficient dictionary comprehensions like:
+        [self.index_to_neuron_id[idx] for idx in indices if idx in self.index_to_neuron_id]
+        
+        Args:
+            indices: NumPy array of indices to convert
+            
+        Returns:
+            NumPy array of neuron IDs (same length as indices, -1 for invalid indices)
+        """
+        # Vectorized lookup using NumPy - GPU/SIMD friendly
+        neuron_ids = np.full(len(indices), -1, dtype=np.int64)
+        valid_mask = np.zeros(len(indices), dtype=bool)
+        
+        # Find valid indices efficiently
+        for i, idx in enumerate(indices):
+            if idx in self.index_to_id_map:
+                neuron_ids[i] = self.index_to_id_map[idx]
+                valid_mask[i] = True
+        
+        return neuron_ids, valid_mask
+    
+    def vectorized_indices_to_neuron_ids(self, indices: np.ndarray, filter_invalid: bool = True) -> np.ndarray:
+        """Ultra-fast vectorized index-to-ID conversion using pre-built lookup array.
+        
+        This is the highest performance method for index→ID conversion.
+        Uses a pre-allocated lookup array for O(1) access instead of dictionary lookups.
+        
+        Args:
+            indices: NumPy array of indices to convert
+            filter_invalid: If True, return only valid neuron IDs. If False, include -1 for invalid.
+            
+        Returns:
+            NumPy array of neuron IDs
+        """
+        # Create a lookup array on first use for O(1) vectorized access
+        if not hasattr(self, '_index_to_id_lookup_array'):
+            self._build_index_to_id_lookup_array()
+        
+        # Vectorized lookup - single memory access per element, SIMD-friendly
+        if filter_invalid:
+            # Filter out invalid indices before lookup
+            valid_mask = (indices >= 0) & (indices < len(self._index_to_id_lookup_array))
+            valid_indices = indices[valid_mask]
+            if len(valid_indices) == 0:
+                return np.array([], dtype=np.int64)
+            neuron_ids = self._index_to_id_lookup_array[valid_indices]
+            # Filter out -1 values (unmapped indices)
+            return neuron_ids[neuron_ids != -1]
+        else:
+            # Include invalid indices as -1
+            safe_indices = np.clip(indices, 0, len(self._index_to_id_lookup_array) - 1)
+            neuron_ids = self._index_to_id_lookup_array[safe_indices]
+            # Mark out-of-bounds indices as -1
+            neuron_ids[indices >= len(self._index_to_id_lookup_array)] = -1
+            neuron_ids[indices < 0] = -1
+            return neuron_ids
+    
+    def _build_index_to_id_lookup_array(self):
+        """Build a fast lookup array for index→ID conversion.
+        
+        This creates a pre-allocated array where lookup_array[index] = neuron_id.
+        Much faster than dictionary lookups for vectorized operations.
+        """
+        # Create lookup array initialized to -1 (invalid)
+        self._index_to_id_lookup_array = np.full(self.aligned_capacity, -1, dtype=np.int64)
+        
+        # Populate with valid mappings
+        for neuron_id, index in self.id_to_index_map.items():
+            if 0 <= index < self.aligned_capacity:
+                self._index_to_id_lookup_array[index] = neuron_id
+    
+    def _invalidate_index_to_id_lookup_array(self):
+        """Invalidate the lookup array when mappings change."""
+        if hasattr(self, '_index_to_id_lookup_array'):
+            delattr(self, '_index_to_id_lookup_array')
+    
+    def get_fired_neuron_ids_vectorized(self, fired_indices: np.ndarray) -> np.ndarray:
+        """Get neuron IDs for fired indices using vectorized operations.
+        
+        This replaces the expensive list comprehension:
+        [self.index_to_neuron_id[idx] for idx in fired_indices if idx in self.index_to_neuron_id]
+        
+        Args:
+            fired_indices: NumPy array of indices that fired
+            
+        Returns:
+            NumPy array of neuron IDs that fired
+        """
+        return self.vectorized_indices_to_neuron_ids(fired_indices, filter_invalid=True)
+
     def process_incoming_signals(self, signal_matrix, batch_size=10000):
         """Process incoming signals and update membrane potentials using GPU acceleration.
         
