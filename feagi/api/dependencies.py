@@ -279,23 +279,13 @@ def check_cortical_area_exists(
     Raises HTTPException if the area doesn't exist.
     """
     try:
-        # Try as cortical_idx (integer ID)
-        try:
-            cortical_idx = int(cortical_id)
-            areas = core_api_service.get_cortical_areas()
-            
-            if not any(area["id"] == str(cortical_idx) for area in areas):
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Cortical area with ID {cortical_id} not found"
-                )
-        except ValueError:
-            # Try as cortical_id (6-char ID)
-            if not core_api_service.get_cortical_area_properties(cortical_id):
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Cortical area with ID {cortical_id} not found"
-                )
+        # Check if cortical area exists using the proper cortical_id (string)
+        area_data = core_api_service.get_cortical_area(cortical_id)
+        if not area_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Cortical area with ID {cortical_id} not found"
+            )
     except HTTPException:
         # Re-raise HTTPExceptions
         raise

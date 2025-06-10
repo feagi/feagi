@@ -612,67 +612,80 @@ class CoreAPIService:
     # =================================================================
     
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the global fire queue data for FQSampler from t-1 where content is finalized."""
+        """Get the global fire queue data for FQSampler from FCL with real neuron coordinates."""
         try:
             if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
                 fcl_manager = self._connectome_manager.fcl_manager
                 
-                # CRITICAL FIX: Cortical FCL history is empty, but global FCL has firing neurons
-                # Read from global FCL and filter by cortical area
-                current_timestep = fcl_manager.current_timestep
-                
-                self.logger.debug(f"🔥 [CORE API] Reading from global FCL at timestep {current_timestep}")
-                
-                # Get global firing neurons from current timestep (t=0)
-                global_fcl = fcl_manager.get_global_fcl()
+                # Get global firing neurons from FCL
+                global_fcl = fcl_manager.get_fcl()
                 
                 if global_fcl and not global_fcl.is_empty():
                     global_firing_neurons = list(global_fcl)
-                    self.logger.info(f"🔥 [CORE API] Global FCL has {len(global_firing_neurons)} firing neurons: {global_firing_neurons[:10]}{'...' if len(global_firing_neurons) > 10 else ''}")
+                    self.logger.debug(f"🔥 [CORE API] Global fire queue has {len(global_firing_neurons)} firing neurons")
                     
-                    # Filter neurons by cortical area
-                    area_neurons = []
-                    
-                    # Get neuron-to-area mapping from connectome manager
-                    if hasattr(self._connectome_manager, 'connectome') and self._connectome_manager.connectome:
-                        connectome = self._connectome_manager.connectome
+                    if global_firing_neurons:
+                        # Get real neuron coordinates instead of placeholders
+                        neuron_coordinates = []
+                        neuron_ids = []
                         
-                        for neuron_id in global_firing_neurons:
-                            # Check if this neuron belongs to the requested cortical area
-                            if hasattr(connectome, 'get_neuron_cortical_area'):
-                                neuron_area = connectome.get_neuron_cortical_area(neuron_id)
-                                if neuron_area == cortical_id:
-                                    area_neurons.append(neuron_id)
-                            elif hasattr(connectome, 'neurons') and neuron_id in connectome.neurons:
-                                neuron_data = connectome.neurons[neuron_id]
-                                if neuron_data.get('cortical_area') == cortical_id:
-                                    area_neurons.append(neuron_id)
+                        if hasattr(self._connectome_manager, 'neuron_array'):
+                            neuron_array = self._connectome_manager.neuron_array
+                            for neuron_id in global_firing_neurons:
+                                try:
+                                    if neuron_id < len(neuron_array):
+                                        neuron = neuron_array[neuron_id]
+                                        # Only extract coordinates if they actually exist - NO FALLBACKS
+                                        if 'coordinate_3d_x' in neuron and 'coordinate_3d_y' in neuron and 'coordinate_3d_z' in neuron:
+                                            x = int(neuron['coordinate_3d_x'])
+                                            y = int(neuron['coordinate_3d_y'])
+                                            z = int(neuron['coordinate_3d_z'])
+                                            neuron_coordinates.append((x, y, z))
+                                            neuron_ids.append(neuron_id)
+                                except (IndexError, KeyError, TypeError) as e:
+                                    # Skip invalid neurons
+                                    continue
+                        
+                        if neuron_ids:
+                            # Extract REAL neuron data - NO FAKE DATA ALLOWED
+                            membrane_potentials = []
+                            thresholds = []
+                            consecutive_fire_counts = []
+                            refractory_counters = []
+                            
+                            for i, neuron_id in enumerate(neuron_ids):
+                                if neuron_id < len(neuron_array):
+                                    neuron = neuron_array[neuron_id]
+                                    # Only extract exact properties that exist - NO FALLBACKS AT ALL
+                                    if 'membrane_potential' in neuron:
+                                        membrane_potentials.append(float(neuron['membrane_potential']))
+                                    if 'firing_threshold' in neuron:
+                                        thresholds.append(float(neuron['firing_threshold']))
+                                    if 'consecutive_fire_count' in neuron:
+                                        consecutive_fire_counts.append(int(neuron['consecutive_fire_count']))
+                                    if 'refractory_counter' in neuron:
+                                        refractory_counters.append(int(neuron['refractory_counter']))
+                            
+                            result = {
+                                'neuron_ids': neuron_ids,
+                                'membrane_potentials': membrane_potentials,  # REAL data
+                                'thresholds': thresholds,  # REAL data
+                                'consecutive_fire_counts': consecutive_fire_counts,  # REAL data
+                                'refractory_counters': refractory_counters,  # REAL data
+                                'coordinates': neuron_coordinates  # REAL coordinates
+                            }
+                            self.logger.debug(f"🔥 [CORE API] Returning global fire queue: {len(result['neuron_ids'])} neurons with REAL data (no placeholders)")
+                            return result
                     
-                    self.logger.info(f"🔥 [CORE API] Found {len(area_neurons)} neurons firing in area {cortical_id}: {area_neurons}")
-                    
-                    if area_neurons:
-                        # Create the expected dictionary format for FQ sampler
-                        result = {
-                            'neuron_ids': area_neurons,
-                            'membrane_potentials': [0.0] * len(area_neurons),  # Neurons just fired (reset to 0)
-                            'thresholds': [1.0] * len(area_neurons),  # Placeholder
-                            'consecutive_fire_counts': [1] * len(area_neurons),  # Just fired
-                            'refractory_counters': [0] * len(area_neurons),  # Placeholder
-                            'coordinates': [(0, 0, 0)] * len(area_neurons)  # Placeholder
-                        }
-                        self.logger.debug(f"🔥 [CORE API] Returning fire queue data for {cortical_id}: {len(result['neuron_ids'])} neurons from global FCL")
-                        return result
-                    else:
-                        # No neurons firing in this specific area
-                        self.logger.debug(f"🔥 [CORE API] No neurons firing in area {cortical_id} (filtered from global FCL)")
-                        return {
-                            'neuron_ids': [],
-                            'membrane_potentials': [],
-                            'thresholds': [],
-                            'consecutive_fire_counts': [],
-                            'refractory_counters': [],
-                            'coordinates': []
-                        }
+                    # No valid neurons found
+                    return {
+                        'neuron_ids': [],
+                        'membrane_potentials': [],
+                        'thresholds': [],
+                        'consecutive_fire_counts': [],
+                        'refractory_counters': [],
+                        'coordinates': []
+                    }
                 else:
                     self.logger.debug(f"🔥 [CORE API] Global FCL is empty - no neurons firing globally")
                     return {
@@ -685,7 +698,7 @@ class CoreAPIService:
                     }
             return None
         except Exception as e:
-            self.logger.error(f"Error getting fire queue: {str(e)}")
+            self.logger.error(f"Error getting global fire queue: {str(e)}")
             return None
     
 
@@ -1553,9 +1566,11 @@ class CoreAPIService:
             self.logger.debug(f"🔥 [CORE API] Looking up cortical_id '{cortical_id}' in {len(self._connectome_manager.cortical_areas)} cortical areas")
             self.logger.debug(f"🔥 [CORE API] Available cortical_areas keys (first 10): {list(self._connectome_manager.cortical_areas.keys())[:10]}")
                 
-            for cortical_idx, area in self._connectome_manager.cortical_areas.items():
-                self.logger.debug(f"🔥 [CORE API] Checking cortical_idx={cortical_idx} (type={type(cortical_idx)}), area={area}")
+            for area_key, area in self._connectome_manager.cortical_areas.items():
+                self.logger.debug(f"🔥 [CORE API] Checking area_key={area_key} (type={type(area_key)}), area={area}")
                 if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
+                    # CRITICAL FIX: Return the integer cortical_idx attribute, not the string key
+                    cortical_idx = getattr(area, 'cortical_idx', None)
                     self.logger.debug(f"🔥 [CORE API] FOUND MATCH: cortical_id '{cortical_id}' maps to cortical_idx {cortical_idx} (type={type(cortical_idx)})")
                     return cortical_idx
                 elif hasattr(area, 'cortical_id'):
@@ -1848,20 +1863,58 @@ class CoreAPIService:
                 return None
                 
             if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
-                area_fcl = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_id)
+                # CRITICAL FIX: Read from global FCL and filter by cortical area
+                # instead of reading from cortical FCL history which is empty
+                global_fcl = self._connectome_manager.fcl_manager.get_fcl()
                 
-                if area_fcl.is_empty():
+                if global_fcl.is_empty():
+                    self.logger.debug(f"Global FCL is empty for area {cortical_id}")
                     return None
                 
-                # Direct FCL to numpy array
-                firing_indices = np.array(list(area_fcl), dtype=np.int32)
+                self.logger.debug(f"Global FCL has {len(global_fcl)} total firing neurons")
                 
-                if len(firing_indices) == 0:
+                # CRITICAL FIX: Get cortical_idx for the requested cortical_id
+                target_cortical_idx = self._get_cortical_idx_for_id(cortical_id)
+                if target_cortical_idx is None:
+                    self.logger.error(f"Could not map cortical_id '{cortical_id}' to cortical_idx")
                     return None
                 
-                # Direct SoA access - NO FALLBACKS
+                self.logger.debug(f"Mapped cortical_id '{cortical_id}' to cortical_idx {target_cortical_idx}")
+                
+                # Filter global FCL by cortical_idx using neuron array mapping
+                firing_indices = []
                 neuron_array = self._connectome_manager.neuron_array
                 
+                if not hasattr(neuron_array, 'cortical_idxs'):
+                    self.logger.error(f"Neuron array missing cortical_idxs attribute")
+                    return None
+                
+                # Use vectorized filtering for performance
+                firing_neuron_ids = np.array(list(global_fcl), dtype=np.int32)
+                
+                # Get cortical indices for all firing neurons
+                valid_mask = firing_neuron_ids < len(neuron_array.cortical_idxs)
+                valid_firing_neurons = firing_neuron_ids[valid_mask]
+                
+                if len(valid_firing_neurons) == 0:
+                    self.logger.debug(f"No valid firing neurons found in range")
+                    return None
+                
+                # Filter by target cortical_idx
+                neuron_cortical_idxs = neuron_array.cortical_idxs[valid_firing_neurons]
+                area_mask = neuron_cortical_idxs == target_cortical_idx
+                firing_indices = valid_firing_neurons[area_mask]
+                
+                self.logger.debug(f"Found {len(firing_indices)} firing neurons in area {cortical_id} (cortical_idx={target_cortical_idx})")
+                
+                if len(firing_indices) == 0:
+                    self.logger.debug(f"No firing neurons found in area {cortical_id}")
+                    return None
+                
+                # Convert to numpy array
+                firing_indices = np.array(firing_indices, dtype=np.int32)
+                
+                # Direct SoA access - NO FALLBACKS
                 # Vectorized extraction - all properties must exist
                 if (hasattr(neuron_array, 'membrane_potentials') and 
                     hasattr(neuron_array, 'coordinates_x') and 
@@ -1876,6 +1929,7 @@ class CoreAPIService:
                         neuron_array.coordinates_z[firing_indices].astype(np.uint32)   # ✅ FIXED: Use uint32 coordinates
                     ))
                     
+                    self.logger.debug(f"Successfully extracted {len(firing_indices)} firing neurons for area {cortical_id}")
                     return brain_data
                 else:
                     # ❌ NO FALLBACK - Neuron array must have all required properties
@@ -1884,6 +1938,56 @@ class CoreAPIService:
             return None
         except Exception as e:
             self.logger.error(f"Error getting direct area fire queue for {cortical_id}: {str(e)}")
+            return None
+
+    def get_area_fire_queue(self, cortical_id: str) -> Optional[Dict[str, Any]]:
+        """Get fire queue data for specific area in dictionary format (FQ sampler compatible).
+        
+        This method provides the interface expected by the FQ sampler, converting the direct
+        numpy array data to the dictionary format that the sampler expects.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            
+        Returns:
+            Dictionary with neuron_ids, membrane_potentials, coordinates, etc. or None if no data
+        """
+        try:
+            # Get the direct numpy array data
+            fire_queue_data = self.get_area_fire_queue_direct(cortical_id)
+            
+            if fire_queue_data is None or len(fire_queue_data) == 0:
+                return None
+            
+            # Convert numpy array to dictionary format expected by FQ sampler
+            # Array columns: [neuron_ids, membrane_potentials, x, y, z]
+            neuron_ids = fire_queue_data[:, 0].astype(int).tolist()
+            membrane_potentials = fire_queue_data[:, 1].tolist()
+            coordinates_x = fire_queue_data[:, 2].astype(int).tolist()
+            coordinates_y = fire_queue_data[:, 3].astype(int).tolist()
+            coordinates_z = fire_queue_data[:, 4].astype(int).tolist()
+            
+            # Package coordinates as list of (x, y, z) tuples  
+            coordinates = list(zip(coordinates_x, coordinates_y, coordinates_z))
+            
+            # CRITICAL FIX: Remove problematic neuron property extraction
+            # The essential data (neuron_ids, membrane_potentials, coordinates) is already available
+            # Additional properties can be empty arrays - NO FAKE DATA
+            thresholds = []
+            consecutive_fire_counts = []
+            refractory_counters = []
+            
+            return {
+                'neuron_ids': neuron_ids,
+                'membrane_potentials': membrane_potentials,
+                'coordinates': coordinates,
+                'thresholds': thresholds,  # Empty - will not provide fake data
+                'consecutive_fire_counts': consecutive_fire_counts,  # Empty - will not provide fake data  
+                'refractory_counters': refractory_counters  # Empty - will not provide fake data
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting area fire queue for {cortical_id}: {str(e)}")
             return None
 
     # =================================================================

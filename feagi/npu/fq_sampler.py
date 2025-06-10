@@ -383,13 +383,17 @@ class UnifiedFQSampler:
                 area_data = None
                 if hasattr(self.fire_queue_provider, 'get_area_fire_queue_zerocopy'):
                     area_data = self.fire_queue_provider.get_area_fire_queue_zerocopy(area_id)
+                    logger.debug(f"🔥 FQ SAMPLER: get_area_fire_queue_zerocopy({area_id}) returned: {area_data}")
                 elif hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
                     area_data = self.fire_queue_provider.get_area_fire_queue(area_id)
+                    logger.debug(f"🔥 FQ SAMPLER: get_area_fire_queue({area_id}) returned: {area_data}")
                 else:
+                    logger.debug(f"🔥 FQ SAMPLER: No fire queue method available for {area_id}")
                     continue
 
                 
                 if not area_data or not area_data.get('neuron_ids'):
+                    logger.debug(f"🔥 FQ SAMPLER: No data or no neuron_ids for area {area_id}: area_data={area_data}")
                     continue
                 
                 # Direct reference to data (zero-copy) with fallback to view creation
