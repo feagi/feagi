@@ -61,23 +61,16 @@ class SystemService(BaseService):
                     self.logger.info("State synchronization successful")
                 
             # Basic health metrics
-            # ENFORCE DESIGN PRINCIPLE: If genome is loaded, burst engine MUST be running
+            # REPORT ACTUAL STATE: Health check should only report current status, not change it
             genome_loaded = self.state_manager.is_genome_loaded()
             burst_state = self.state_manager.get_burst_engine_state()
             
-            # Allow ON_HOLD as a valid state when genome is loaded (user intentionally paused)
+            # Log design violation but don't auto-fix in health check
+            # This should be handled by the process manager event system
             valid_states_with_genome = [ServiceState.READY, ServiceState.ON_HOLD]
-            
             if genome_loaded and burst_state not in valid_states_with_genome:
-                self.logger.warning("DESIGN VIOLATION: Genome loaded but burst engine not running - auto-fixing")
-                try:
-                    # Auto-start burst engine to enforce design principle
-                    self.state_manager.exit_condition = False
-                    self.state_manager.set_burst_engine_state(ServiceState.READY)
-                    self.logger.info("Auto-started burst engine to enforce design principle")
-                    burst_state = ServiceState.READY
-                except Exception as e:
-                    self.logger.error(f"Failed to auto-start burst engine: {str(e)}")
+                self.logger.warning(f"DESIGN VIOLATION: Genome loaded but burst engine not running (state: {burst_state.name})")
+                self.logger.warning("This should be handled by process manager auto-start after genome load")
             
             # Health check: burst engine is "healthy" if READY or ON_HOLD
             health["burst_engine"] = burst_state in [ServiceState.READY, ServiceState.ON_HOLD]

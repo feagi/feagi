@@ -259,11 +259,12 @@ class UnifiedFQSampler:
         visualization_areas = []
         
         if not self.connectome_manager:
-            logger.debug(f"🔥 FQ SAMPLER: No connectome manager available for visualization areas")
+            logger.info(f"🔥 FQ SAMPLER: No connectome manager available for visualization areas")
             return []
             
         try:
             if hasattr(self.connectome_manager, 'cortical_areas'):
+                logger.info(f"🔥 FQ SAMPLER: Found connectome manager with {len(self.connectome_manager.cortical_areas)} cortical areas")
                 for area_id, area_obj in self.connectome_manager.cortical_areas.items():
                     try:
                         # Default to True (opt-out model)
@@ -274,19 +275,22 @@ class UnifiedFQSampler:
                             visualization_enabled = area_obj.properties.get('visualization', True)
                         
                         if visualization_enabled:
-                            logger.debug(f"🔥 FQ SAMPLER: Area {area_id} included in visualization")
+                            logger.info(f"🔥 FQ SAMPLER: Area {area_id} included in visualization")
                             visualization_areas.append(area_id)
                         else:
-                            logger.debug(f"🔥 FQ SAMPLER: Area {area_id} excluded from visualization (visualization=false)")
+                            logger.info(f"🔥 FQ SAMPLER: Area {area_id} excluded from visualization (visualization=false)")
                             
                     except Exception as e:
-                        logger.debug(f"🔥 FQ SAMPLER: Error checking area {area_id} for visualization: {e}")
+                        logger.info(f"🔥 FQ SAMPLER: Error checking area {area_id} for visualization: {e}")
                         # Default to include in case of error
                         visualization_areas.append(area_id)
+            else:
+                logger.info(f"🔥 FQ SAMPLER: Connectome manager has no cortical_areas attribute")
                         
         except Exception as e:
             logger.error(f"🔥 FQ SAMPLER: Error getting visualization areas: {e}")
             
+        logger.info(f"🔥 FQ SAMPLER: Final visualization areas list: {visualization_areas}")
         return visualization_areas
 
     def _get_all_areas(self) -> List[str]:
@@ -383,17 +387,17 @@ class UnifiedFQSampler:
                 area_data = None
                 if hasattr(self.fire_queue_provider, 'get_area_fire_queue_zerocopy'):
                     area_data = self.fire_queue_provider.get_area_fire_queue_zerocopy(area_id)
-                    logger.debug(f"🔥 FQ SAMPLER: get_area_fire_queue_zerocopy({area_id}) returned: {area_data}")
+                    logger.info(f"🔥 FQ SAMPLER: get_area_fire_queue_zerocopy({area_id}) returned: {area_data}")
                 elif hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
                     area_data = self.fire_queue_provider.get_area_fire_queue(area_id)
-                    logger.debug(f"🔥 FQ SAMPLER: get_area_fire_queue({area_id}) returned: {area_data}")
+                    logger.info(f"🔥 FQ SAMPLER: get_area_fire_queue({area_id}) returned: {area_data}")
                 else:
-                    logger.debug(f"🔥 FQ SAMPLER: No fire queue method available for {area_id}")
+                    logger.info(f"🔥 FQ SAMPLER: No fire queue method available for {area_id}")
                     continue
 
                 
                 if not area_data or not area_data.get('neuron_ids'):
-                    logger.debug(f"🔥 FQ SAMPLER: No data or no neuron_ids for area {area_id}: area_data={area_data}")
+                    logger.info(f"🔥 FQ SAMPLER: No data or no neuron_ids for area {area_id}: area_data={area_data}")
                     continue
                 
                 # Direct reference to data (zero-copy) with fallback to view creation

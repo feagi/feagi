@@ -1560,25 +1560,25 @@ class CoreAPIService:
         """
         try:
             if not hasattr(self._connectome_manager, 'cortical_areas'):
-                self.logger.debug(f"🔥 [CORE API] connectome_manager has no cortical_areas attribute")
+                self.logger.info(f"🔥 [CORE API] connectome_manager has no cortical_areas attribute")
                 return None
                 
-            self.logger.debug(f"🔥 [CORE API] Looking up cortical_id '{cortical_id}' in {len(self._connectome_manager.cortical_areas)} cortical areas")
-            self.logger.debug(f"🔥 [CORE API] Available cortical_areas keys (first 10): {list(self._connectome_manager.cortical_areas.keys())[:10]}")
+            self.logger.info(f"🔥 [CORE API] Looking up cortical_id '{cortical_id}' in {len(self._connectome_manager.cortical_areas)} cortical areas")
+            self.logger.info(f"🔥 [CORE API] Available cortical_areas keys (first 10): {list(self._connectome_manager.cortical_areas.keys())[:10]}")
                 
             for area_key, area in self._connectome_manager.cortical_areas.items():
-                self.logger.debug(f"🔥 [CORE API] Checking area_key={area_key} (type={type(area_key)}), area={area}")
+                self.logger.info(f"🔥 [CORE API] Checking area_key={area_key} (type={type(area_key)}), area={area}")
                 if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
                     # CRITICAL FIX: Return the integer cortical_idx attribute, not the string key
                     cortical_idx = getattr(area, 'cortical_idx', None)
-                    self.logger.debug(f"🔥 [CORE API] FOUND MATCH: cortical_id '{cortical_id}' maps to cortical_idx {cortical_idx} (type={type(cortical_idx)})")
+                    self.logger.info(f"🔥 [CORE API] FOUND MATCH: cortical_id '{cortical_id}' maps to cortical_idx {cortical_idx} (type={type(cortical_idx)})")
                     return cortical_idx
                 elif hasattr(area, 'cortical_id'):
-                    self.logger.debug(f"🔥 [CORE API] No match: area.cortical_id='{area.cortical_id}' != '{cortical_id}'")
+                    self.logger.info(f"🔥 [CORE API] No match: area.cortical_id='{area.cortical_id}' != '{cortical_id}'")
                 else:
-                    self.logger.debug(f"🔥 [CORE API] Area has no cortical_id attribute: {area}")
+                    self.logger.info(f"🔥 [CORE API] Area has no cortical_id attribute: {area}")
                     
-            self.logger.debug(f"🔥 [CORE API] NO MATCH FOUND for cortical_id '{cortical_id}'")
+            self.logger.info(f"🔥 [CORE API] NO MATCH FOUND for cortical_id '{cortical_id}'")
             return None
         except Exception as e:
             self.logger.error(f"🔥 [CORE API] Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")

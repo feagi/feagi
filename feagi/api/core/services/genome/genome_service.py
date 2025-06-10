@@ -419,51 +419,30 @@ class GenomeService(BaseService):
                     self.state_manager.genome_validity = False
                     return {"success": False, "error": f"Failed to update state manager: {str(stats_error)}"}
                 
-                # Automatically start the burst engine if it's not already running
+                # Signal successful genome load to process manager for burst engine handling
                 try:
-                    # Check if we have access to the brain service through the core API
-                    # We need to import at runtime to avoid circular imports
-                    if hasattr(self.state_manager, 'get_burst_engine_state'):
-                        from feagi.core.state_manager import ServiceState
-                        burst_state = self.state_manager.get_burst_engine_state()
-                        
-                        if burst_state != ServiceState.READY:
-                            self.logger.info("Burst engine not running, starting automatically after genome load")
-                            
-                            # Properly start the burst engine through the brain service
-                            try:
-                                if self._brain_service:
-                                    self.logger.debug("GENOME SERVICE: Using existing brain service for auto-start")
-                                    success = self._brain_service.start_burst_engine()
-                                else:
-                                    self.logger.debug("GENOME SERVICE: Creating temporary brain service for auto-start")
-                                    from feagi.api.core.services.brain.brain_service import BrainService
-                                    brain_service = BrainService(self._connectome_manager, self.state_manager)
-                                    success = brain_service.start_burst_engine()
-                                    
-                                if success:
-                                    self.logger.info("Burst engine started automatically")
-                                else:
-                                    self.logger.warning("Failed to start burst engine automatically")
-                            except Exception as start_error:
-                                self.logger.warning(f"Error starting burst engine: {str(start_error)}")
-                                # Fallback: Set exit condition to False (legacy method)
-                                self.state_manager.exit_condition = False
-                                self.logger.info("Used fallback method to start burst engine")
-                        else:
-                            self.logger.info("Burst engine already running")
-                    else:
-                        # Fallback method - directly set exit_condition to False and set burst engine state
-                        self.logger.info("Starting burst engine using fallback method")
-                        self.state_manager.exit_condition = False
-                        # Also set the burst engine state to READY
-                        self.state_manager.set_burst_engine_state(ServiceState.READY)
-                        
-                except Exception as burst_error:
-                    # Don't fail the genome loading if burst engine auto-start fails
-                    # Just log the error and continue
-                    self.logger.warning(f"Failed to auto-start burst engine: {str(burst_error)}")
-                    self.logger.warning("You may need to start the burst engine manually")
+                    # Import event system here to avoid circular imports
+                    from feagi.api.shared_memory.events import EventNotificationSystem, EventType, EventPriority
+                    
+                    # Create event system if not already available
+                    if not hasattr(self, '_event_system'):
+                        self._event_system = EventNotificationSystem("genome_service")
+                        self._event_system.start()
+                    
+                    # Emit genome loaded event with high priority for process manager to handle
+                    self._event_system.send_event(
+                        EventType.GENOME_LOADED,
+                        data={"filename": filename, "cortical_areas": cortical_area_count},
+                        priority=EventPriority.HIGH
+                    )
+                    
+                    self.logger.info("Emitted GENOME_LOADED event to process manager for burst engine coordination")
+                    
+                except Exception as event_error:
+                    # Don't fail genome loading if event emission fails
+                    # The process manager can also monitor state manager for changes
+                    self.logger.warning(f"Failed to emit genome loaded event: {str(event_error)}")
+                    self.logger.warning("Process manager will need to detect genome load through state monitoring")
                 
             # Get cortical area count from connectome manager for return value
             cortical_area_count = len(getattr(self._connectome_manager, 'cortical_areas', {}))

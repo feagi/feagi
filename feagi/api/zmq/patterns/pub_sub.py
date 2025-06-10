@@ -137,7 +137,6 @@ class PublisherServer:
             content_type.encode(),
             serialized_data
         ])
-        logger.debug(f"Published message to topic: {topic}")
 
     async def _broadcast_simulation_status(self) -> None:
         """Periodically broadcast simulation status updates."""

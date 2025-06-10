@@ -703,8 +703,7 @@ class VisualizationStream:
             # Enhanced logging for debugging
             if viz_agent_count > 0:
                 logger.debug(f"🔍 AGENT REGISTRY: Found {viz_agent_count} registered visualization agents: {connected_viz_agents}")
-            else:
-                logger.debug(f"🔍 AGENT REGISTRY: No visualization agents found (registry returned: {agent_summary})")
+            # Note: Removed spam debug log for "no agents found" - this is normal when no agents are connected
             
             return viz_agent_count
             
