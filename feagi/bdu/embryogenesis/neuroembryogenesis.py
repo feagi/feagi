@@ -936,40 +936,23 @@ class NeuroEmbryogenesis:
                 area = self.connectome_manager.get_cortical_area(cortical_id)
                 cortical_idx = area.cortical_idx
                 
-                # PURE VECTORIZED APPROACH - No loops, no individual calls!
-                area_neuron_ids = self.connectome_manager.neuron_array.batch_create_neurons(
-                    cortical_idx=cortical_idx,
+                # PURE VECTORIZED APPROACH - Use ConnectomeManager's batch method for proper ID mapping
+                area_neuron_ids = self.connectome_manager.batch_create_neurons(
+                    cortical_id=cortical_id,
                     positions=positions,
-                    thresholds=area_specs["thresholds"],      # Pass as list for vectorized ops
-                    membrane_potentials=0.0,                  # Single value broadcasted
-                    resting_potentials=area_specs["resting_potentials"],
-                    decay_rates=area_specs["decay_rates"],
-                    refractory_periods=area_specs["refractory_periods"]
+                    threshold=area_specs["thresholds"][0] if len(set(area_specs["thresholds"])) == 1 else area_specs["thresholds"],
+                    membrane_potential=0.0,
+                    resting_potential=area_specs["resting_potentials"][0] if len(set(area_specs["resting_potentials"])) == 1 else area_specs["resting_potentials"],
+                    decay_rate=area_specs["decay_rates"][0] if len(set(area_specs["decay_rates"])) == 1 else area_specs["decay_rates"],
+                    refractory_period=area_specs["refractory_periods"][0] if len(set(area_specs["refractory_periods"])) == 1 else area_specs["refractory_periods"],
+                    cortical_idx=cortical_idx
                 )
                 
                 logger.debug(f"[OK] VECTORIZED SUCCESS for {cortical_id}: created {len(area_neuron_ids)} neurons in one operation")
                 
-                # Update ConnectomeManager ID mappings for the batch
+                # Since ConnectomeManager.batch_create_neurons already handles all the mappings,
+                # we don't need to manually update them here. Just construct the result.
                 for i, neuron_id in enumerate(area_neuron_ids):
-                    # Map neuron_id to index in ConnectomeManager
-                    index = self.connectome_manager.neuron_array.id_to_index_map[neuron_id]
-                    self.connectome_manager.neuron_id_to_index[neuron_id] = index
-                    self.connectome_manager.index_to_neuron_id[index] = neuron_id
-                    
-                    # Update area tracking efficiently
-                    if cortical_id not in self.connectome_manager.area_neuron_masks:
-                        self.connectome_manager.area_neuron_masks[cortical_id] = np.zeros(
-                            self.connectome_manager.max_neurons, dtype=np.bool_
-                        )
-                    self.connectome_manager.area_neuron_masks[cortical_id][index] = True
-                    
-                    # Add to area's neuron list
-                    area.add_neuron(neuron_id, positions[i])
-                    
-                    # Update backward compatibility tracking
-                    self.connectome_manager._neuron_to_position[neuron_id] = (cortical_id, *positions[i], index)
-                    
-                    # Construct result with voxel ID
                     neuron_ids.append((neuron_id, area_specs["voxel_ids"][i]))
                 
             except Exception as e:
@@ -1315,30 +1298,36 @@ class NeuroEmbryogenesis:
                 # Update ConnectomeManager mappings efficiently (vectorized where possible)
                 start_mapping_time = datetime.datetime.now()
                 
-                # Bulk update area tracking
+                # Bulk update area tracking with defensive checks
                 if cortical_id not in self.connectome_manager.area_neuron_masks:
+                    # Area mask doesn't exist - create it
                     self.connectome_manager.area_neuron_masks[cortical_id] = np.zeros(
                         self.connectome_manager.max_neurons, dtype=np.bool_
                     )
+                    logger.debug(f"[NEUROGENESIS] Created missing area mask for {cortical_id} with size {self.connectome_manager.max_neurons}")
+                else:
+                    # Area mask exists - verify it has the correct size
+                    existing_mask = self.connectome_manager.area_neuron_masks[cortical_id]
+                    if existing_mask.size == 0 or existing_mask.size != self.connectome_manager.max_neurons:
+                        # Mask is corrupted or wrong size - recreate it
+                        logger.warning(f"[NEUROGENESIS] CORRUPTED MASK DETECTED for {cortical_id}: size={existing_mask.size}, expected={self.connectome_manager.max_neurons}")
+                        self.connectome_manager.area_neuron_masks[cortical_id] = np.zeros(
+                            self.connectome_manager.max_neurons, dtype=np.bool_
+                        )
+                        logger.warning(f"[NEUROGENESIS] RECREATED mask for {cortical_id} with correct size {self.connectome_manager.max_neurons}")
                 
                 # Get all indices at once
                 indices = [self.connectome_manager.neuron_array.id_to_index_map[nid] for nid in area_neuron_ids]
                 indices_array = np.array(indices)
                 
+                # Validate indices before attempting vectorized update
+                max_index = np.max(indices_array)
+                mask_size = self.connectome_manager.area_neuron_masks[cortical_id].size
+                if max_index >= mask_size:
+                    raise IndexError(f"Index {max_index} is out of bounds for area_neuron_mask[{cortical_id}] with size {mask_size}. This indicates memory corruption or improper initialization.")
+                
                 # Vectorized mask update
                 self.connectome_manager.area_neuron_masks[cortical_id][indices_array] = True
-                
-                # Batch update mappings (unavoidable loop but minimized)
-                for j, (neuron_id, index) in enumerate(zip(area_neuron_ids, indices)):
-                    self.connectome_manager.neuron_id_to_index[neuron_id] = index
-                    self.connectome_manager.index_to_neuron_id[index] = neuron_id
-                    area.add_neuron(neuron_id, tuple(positions[j]))
-                    self.connectome_manager._neuron_to_position[neuron_id] = (cortical_id, *positions[j], index)
-                
-                end_mapping_time = datetime.datetime.now()
-                mapping_time = (end_mapping_time - start_mapping_time).total_seconds()
-                
-                logger.debug(f"[LINK] MAPPING COMPLETE for {cortical_id}: {len(area_neuron_ids)} mappings in {mapping_time:.3f}s")
                 
                 # Initialize voxel tracking for this area (vectorized)
                 if cortical_id not in self.voxel_neuron_map:
