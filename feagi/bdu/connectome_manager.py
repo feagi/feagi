@@ -145,15 +145,25 @@ class ConnectomeManager:
             backend=backend
         )
         
-        # Neuron ID management
-        self.next_neuron_id = 0
-        self.neuron_id_to_index: Dict[int, int] = {}
-        self.index_to_neuron_id: Dict[int, int] = {}
-        
-        # Cortical area management
+        # Initialize cortical areas and brain regions
         self.cortical_areas: Dict[str, CorticalArea] = {}
+        self.brain_regions: Dict[str, Dict[str, Any]] = {}
+        
+        # Translation layer - Single source of truth for cortical_id ↔ cortical_idx mapping
+        self.cortical_id_to_idx: Dict[str, int] = {}  # "CIHMot" → 3
+        self.cortical_idx_to_id: Dict[int, str] = {}  # 3 → "CIHMot"
+        
+        # Legacy compatibility - delegate to NeuronArray as single source of truth
+        self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = {}
+        
+        # Cache management for property-based access (prevents memory corruption)
+        self._cache_invalidated = True
+        
+        # Neuron ID management - delegate to NeuronArray
+        self.next_neuron_id = 1
+        
+        # Cortical area index management  
         self.next_cortical_idx = 2  # Start from 2, reserve 0 for "_death" and 1 for "___pwr"
-        self.area_neuron_masks: Dict[str, np.ndarray] = {}
         
         # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "___pwr"
         self.reserved_cortical_areas = {
@@ -162,15 +172,11 @@ class ConnectomeManager:
         }
         
         # Brain region management
-        self.brain_regions: Dict[str, Dict[str, Any]] = {}
         self.region_area_map: Dict[str, Set[str]] = {}
         
         # Initialize synapse storage with automatic sparsity detection
         self.max_synapses = max_synapses
         self._init_synapse_storage()
-        
-        # For backward compatibility with tests
-        self._neuron_to_position: Dict[int, Tuple] = {}
         
         # Initialize FCL manager and other missing attributes for BurstEngine compatibility
         from feagi.npu.fcl_manager import FCLManager
@@ -279,6 +285,9 @@ class ConnectomeManager:
             timestep=self.current_timestep
         )
         
+        # Initialize fired_indices to ensure it's always defined
+        fired_indices = []
+        
         # Update active neurons tracking
         if len(fired_neurons) > 0:
             # Convert neuron IDs to indices for active neurons mask
@@ -309,7 +318,18 @@ class ConnectomeManager:
             
             self.fcl_manager.update_fcl(self.current_timestep, neurons_by_cortical)
         
-        return fired_neurons
+        # Convert fired indices to neuron IDs - CRITICAL FIX: Use correct vectorized method
+        if fired_indices:
+            fired_neuron_ids = self._vectorized_index_to_neuron_id(np.array(fired_indices))
+            # Convert to Python list of integers for FCL compatibility
+            fired_neuron_ids = fired_neuron_ids.tolist()
+        else:
+            fired_neuron_ids = []
+        
+        # Increment timestep
+        self.current_timestep += 1
+        
+        return fired_neuron_ids
     
     #----------------------------------------------------------------------
     # Synapse Storage Methods
@@ -411,11 +431,6 @@ class ConnectomeManager:
         # Store mappings in ConnectomeManager (for legacy compatibility)
         self.neuron_id_to_index[neuron_id] = index
         self.index_to_neuron_id[index] = neuron_id
-        
-        # Update area tracking
-        if cortical_id not in self.area_neuron_masks:
-            self.area_neuron_masks[cortical_id] = np.zeros(self.max_neurons, dtype=np.bool_)
-        self.area_neuron_masks[cortical_id][index] = True
         
         # Update _neuron_to_position for test compatibility 
         # Format matches test expectation: (cortical_id, x, y, z, neuron_index)
@@ -525,7 +540,7 @@ class ConnectomeManager:
         self.neuron_array.set_neuron_property(neuron_id, property_name, value)
     
     def get_neurons_by_cortical_area(self, cortical_id: str) -> List[int]:
-        """Get all neurons in a specific cortical area.
+        """Get all neurons in a specific cortical area using NeuronArray as single source of truth.
         
         Args:
             cortical_id: ID of the cortical area
@@ -539,22 +554,30 @@ class ConnectomeManager:
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
-        if cortical_id not in self.area_neuron_masks:
+        # Get cortical_idx from translation layer
+        if cortical_id not in self.cortical_id_to_idx:
+            # This should not happen if everything is synchronized
             return []
         
-        # Get the mask for this area
-        mask = self.area_neuron_masks[cortical_id]
+        cortical_idx = self.cortical_id_to_idx[cortical_id]
         
-        # Get the indices where the mask is True
-        indices = np.where(mask)[0]
+        # Query NeuronArray directly for all neurons with this cortical_idx
+        # Use vectorized NumPy operation for O(1) performance
+        neuron_indices = np.where(self.neuron_array.cortical_idxs == cortical_idx)[0]
         
-        # Convert indices to neuron_ids
-        neuron_ids = [self.index_to_neuron_id[idx] for idx in indices]
+        # Convert indices to neuron_ids using NeuronArray mapping
+        neuron_ids = []
+        for idx in neuron_indices:
+            # Find neuron_id from NeuronArray's mapping
+            for neuron_id, index in self.neuron_array.id_to_index_map.items():
+                if index == idx:
+                    neuron_ids.append(neuron_id)
+                    break
         
         return neuron_ids
     
     def get_cortical_area_for_neuron(self, neuron_id: int) -> str:
-        """Get the ID of the cortical area containing a neuron.
+        """Get the ID of the cortical area containing a neuron using translation layer.
         
         Args:
             neuron_id: ID of the neuron
@@ -565,32 +588,27 @@ class ConnectomeManager:
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        if neuron_id not in self.neuron_array.id_to_index_map:
             raise KeyError(f"Neuron {neuron_id} does not exist")
         
-        index = self.neuron_id_to_index[neuron_id]
+        # Get index from NeuronArray
+        index = self.neuron_array.id_to_index_map[neuron_id]
         
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Find the corresponding cortical_id
-        for cortical_id, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                return cortical_id
-                
-        # If we can't find a matching area, return the TEST__ area if it exists
-        if "TEST__" in self.cortical_areas:
-            logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using TEST__ area.")
-            return "TEST__"
-                
-        # If no match found and no TEST__ area, use the first available area
-        if self.cortical_areas:
-            first_cortical_id = next(iter(self.cortical_areas.keys()))
-            logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using {first_cortical_id} area.")
-            return first_cortical_id
+        # Use translation layer to find cortical_id
+        if cortical_idx in self.cortical_idx_to_id:
+            return self.cortical_idx_to_id[cortical_idx]
         
-        # This should not happen, but just in case
-        raise RuntimeError(f"Could not find any cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}")
+        # Fallback for core areas (if not in translation layer yet)
+        if cortical_idx == 0:
+            return "_death"
+        elif cortical_idx == 1:
+            return "___pwr"
+                
+        # This should not happen with proper synchronization
+        raise RuntimeError(f"Could not find cortical_id for neuron {neuron_id} with cortical_idx {cortical_idx}")
 
     # For backward compatibility, maintain the old method name
     def get_area_for_neuron(self, neuron_id: int) -> str:
@@ -673,17 +691,10 @@ class ConnectomeManager:
         cortical_id = self.get_cortical_area_for_neuron(neuron_id)
         self.neuron_array.delete_neuron(neuron_id)
         
-        # Remove neuron from area-to-neuron mappings if it exists
-        if cortical_id in self.area_neuron_masks:
-            # Create a temporary copy as a numpy array
-            mask = np.array(self.area_neuron_masks[cortical_id])
-            if neuron_index < len(mask):
-                mask[neuron_index] = False
-                self.area_neuron_masks[cortical_id] = mask
-        
-        # Remove from ID-to-index mapping
-        del self.neuron_id_to_index[neuron_id]
-        if neuron_index in self.index_to_neuron_id:
+        # Remove from ID-to-index mapping (legacy compatibility)
+        if hasattr(self, 'neuron_id_to_index') and neuron_id in self.neuron_id_to_index:
+            del self.neuron_id_to_index[neuron_id]
+        if hasattr(self, 'index_to_neuron_id') and neuron_index in self.index_to_neuron_id:
             del self.index_to_neuron_id[neuron_index]
     
     def get_neuron_position(self, neuron_id: int) -> Tuple[int, int, int]:
@@ -944,12 +955,17 @@ class ConnectomeManager:
             
             # Build result list
             result = []
-            for col_idx in non_zero_indices:
-                col_idx_int = int(col_idx.item())
-                if col_idx_int in self.index_to_neuron_id:
-                    target_id = self.index_to_neuron_id[col_idx_int]
-                    weight = float(row[col_idx].item())
-                    result.append((target_id, weight))
+            if len(non_zero_indices) > 0:
+                # Vectorized conversion of indices to neuron IDs
+                col_indices_np = non_zero_indices.cpu().numpy()
+                neuron_ids = self._vectorized_index_to_neuron_id(col_indices_np)
+                
+                # Since vectorized method now returns only valid IDs, use them directly
+                if len(neuron_ids) > 0:
+                    # Get corresponding weights for valid neuron IDs
+                    valid_weights = row[non_zero_indices[:len(neuron_ids)]].cpu().numpy()
+                    result = list(zip(neuron_ids.astype(int), valid_weights.astype(float)))
+            
             return result
         else:
             # Get the row for this neuron
@@ -958,12 +974,19 @@ class ConnectomeManager:
             # Get the non-zero column indices and data
             col_indices, data = row.indices, row.data
             
-            # Map column indices back to neuron IDs and build result
-            result = []
-            for col_idx, weight in zip(col_indices, data):
-                if col_idx in self.index_to_neuron_id:
-                    target_id = self.index_to_neuron_id[col_idx]
-                    result.append((target_id, float(weight)))
+            # Map column indices back to neuron IDs and build result - VECTORIZED
+            if len(col_indices) > 0:
+                neuron_ids = self._vectorized_index_to_neuron_id(col_indices)
+                
+                # Since vectorized method now returns only valid IDs, use them directly
+                if len(neuron_ids) > 0:
+                    # Get corresponding weights for valid neuron IDs  
+                    valid_weights = data[:len(neuron_ids)]
+                    result = list(zip(neuron_ids.astype(int), valid_weights.astype(float)))
+                else:
+                    result = []
+            else:
+                result = []
             
             return result
     
@@ -1054,8 +1077,13 @@ class ConnectomeManager:
         if len(fired_indices):
             self.fcl_manager.add_to_current_fcl(fired_indices)
         
-        # Convert fired indices to neuron IDs
-        fired_neuron_ids = [self.index_to_neuron_id[idx] for idx in fired_indices if idx in self.index_to_neuron_id]
+        # Convert fired indices to neuron IDs - CRITICAL FIX: Use correct vectorized method
+        if fired_indices:
+            fired_neuron_ids = self._vectorized_index_to_neuron_id(np.array(fired_indices))
+            # Convert to Python list of integers for FCL compatibility
+            fired_neuron_ids = fired_neuron_ids.tolist()
+        else:
+            fired_neuron_ids = []
         
         # Increment timestep
         self.current_timestep += 1
@@ -1118,8 +1146,9 @@ class ConnectomeManager:
         # Add to cortical areas dict
         self.cortical_areas[area.id] = area
         
-        # Initialize area neuron mask
-        self.area_neuron_masks[area.id] = np.zeros(self.max_neurons, dtype=np.bool_)
+        # Update translation layer mappings - Single source of truth
+        self.cortical_id_to_idx[area.id] = cortical_idx
+        self.cortical_idx_to_id[cortical_idx] = area.id
         
         logger.debug(f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}")
         return area.id
@@ -1200,9 +1229,12 @@ class ConnectomeManager:
                 area_set.discard(cortical_id)
                 break
         
-        # Remove area neuron mask
-        if cortical_id in self.area_neuron_masks:
-            del self.area_neuron_masks[cortical_id]
+        # Clean up translation layer mappings
+        if cortical_id in self.cortical_id_to_idx:
+            cortical_idx = self.cortical_id_to_idx[cortical_id]
+            del self.cortical_id_to_idx[cortical_id]
+            if cortical_idx in self.cortical_idx_to_id:
+                del self.cortical_idx_to_id[cortical_idx]
         
         # Remove area
         area_name = area.name
@@ -1592,27 +1624,17 @@ class ConnectomeManager:
         # Use the IDs generated by NeuronArray directly - no separate ID system
         neuron_ids = created_neuron_ids
         
-        # Map neuron IDs to indices using NeuronArray's own mapping
-        for neuron_id in neuron_ids:
+        # Update for test compatibility
+        for i, neuron_id in enumerate(neuron_ids):
             # Get the actual index from NeuronArray's mapping
             actual_idx = self.neuron_array.id_to_index_map[neuron_id]
             
-            # Store mappings in ConnectomeManager (for legacy compatibility)
-            self.neuron_id_to_index[neuron_id] = actual_idx
-            self.index_to_neuron_id[actual_idx] = neuron_id
-            
-            # Update area tracking with correct index
-            if cortical_id not in self.area_neuron_masks:
-                self.area_neuron_masks[cortical_id] = np.zeros(self.max_neurons, dtype=np.bool_)
-            self.area_neuron_masks[cortical_id][actual_idx] = True
-            
-        # Add neurons to cortical area
+            # Update for test compatibility - maintain same format as legacy
+            self._neuron_to_position[neuron_id] = (cortical_id, *positions[i], actual_idx)
+        
+        # Store neuron-area relationship for each created neuron
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
-            
-            # Update for test compatibility
-            actual_idx = self.neuron_id_to_index[neuron_id]
-            self._neuron_to_position[neuron_id] = (cortical_id, *positions[i], actual_idx)
         
         return neuron_ids
 
@@ -2767,3 +2789,37 @@ class ConnectomeManager:
             "capacity_results": capacity_results,
             "message": "Connectome prepared for new genome loading"
         }
+
+    @property
+    def neuron_id_to_index(self):
+        """Legacy compatibility - delegates to NeuronArray as single source of truth"""
+        return self.neuron_array.id_to_index_map
+            
+    @property  
+    def index_to_neuron_id(self):
+        """Legacy compatibility - delegates to NeuronArray as single source of truth"""
+        return self.neuron_array.index_to_id_map
+    
+    def _invalidate_mapping_cache(self):
+        """Cache invalidation no longer needed - direct delegation to NeuronArray"""
+        pass
+    
+    def _vectorized_index_to_neuron_id(self, indices):
+        """Vectorized index-to-neuron-ID conversion for performance-critical paths.
+        
+        Args:
+            indices: Single index (int) or array of indices (np.ndarray)
+            
+        Returns:
+            Single neuron ID (int) or array of neuron IDs (np.ndarray)
+        """
+        if isinstance(indices, (int, np.integer)):
+            # Single index lookup
+            return self.neuron_array.index_to_id_map.get(indices, -1)
+        else:
+            # Batch lookup using vectorized method - CRITICAL: Ensure proper data types
+            result = self.neuron_array.vectorized_indices_to_neuron_ids(
+                np.asarray(indices), filter_invalid=True  # Only return valid IDs
+            )
+            # CRITICAL: Convert to Python integers to prevent segfault in FCL processing
+            return result.astype(np.int64)

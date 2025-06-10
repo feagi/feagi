@@ -1298,36 +1298,9 @@ class NeuroEmbryogenesis:
                 # Update ConnectomeManager mappings efficiently (vectorized where possible)
                 start_mapping_time = datetime.datetime.now()
                 
-                # Bulk update area tracking with defensive checks
-                if cortical_id not in self.connectome_manager.area_neuron_masks:
-                    # Area mask doesn't exist - create it
-                    self.connectome_manager.area_neuron_masks[cortical_id] = np.zeros(
-                        self.connectome_manager.max_neurons, dtype=np.bool_
-                    )
-                    logger.debug(f"[NEUROGENESIS] Created missing area mask for {cortical_id} with size {self.connectome_manager.max_neurons}")
-                else:
-                    # Area mask exists - verify it has the correct size
-                    existing_mask = self.connectome_manager.area_neuron_masks[cortical_id]
-                    if existing_mask.size == 0 or existing_mask.size != self.connectome_manager.max_neurons:
-                        # Mask is corrupted or wrong size - recreate it
-                        logger.warning(f"[NEUROGENESIS] CORRUPTED MASK DETECTED for {cortical_id}: size={existing_mask.size}, expected={self.connectome_manager.max_neurons}")
-                        self.connectome_manager.area_neuron_masks[cortical_id] = np.zeros(
-                            self.connectome_manager.max_neurons, dtype=np.bool_
-                        )
-                        logger.warning(f"[NEUROGENESIS] RECREATED mask for {cortical_id} with correct size {self.connectome_manager.max_neurons}")
-                
-                # Get all indices at once
+                # Get all indices at once from NeuronArray (single source of truth)
                 indices = [self.connectome_manager.neuron_array.id_to_index_map[nid] for nid in area_neuron_ids]
                 indices_array = np.array(indices)
-                
-                # Validate indices before attempting vectorized update
-                max_index = np.max(indices_array)
-                mask_size = self.connectome_manager.area_neuron_masks[cortical_id].size
-                if max_index >= mask_size:
-                    raise IndexError(f"Index {max_index} is out of bounds for area_neuron_mask[{cortical_id}] with size {mask_size}. This indicates memory corruption or improper initialization.")
-                
-                # Vectorized mask update
-                self.connectome_manager.area_neuron_masks[cortical_id][indices_array] = True
                 
                 # Initialize voxel tracking for this area (vectorized)
                 if cortical_id not in self.voxel_neuron_map:

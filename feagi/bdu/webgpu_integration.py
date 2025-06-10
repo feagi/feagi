@@ -756,10 +756,12 @@ class ConnectomeManagerWebGPU:
         fired_neurons_data = np.frombuffer(fired_neurons_staging.get_mapped_range(), 
                                           dtype=np.uint32, 
                                           count=min(fired_count, 1_000_000))
-        fired_neuron_ids = [
-            self.connectome.index_to_neuron_id.get(int(idx), int(idx)) 
-            for idx in fired_neurons_data
-        ]
+        
+        # OPTIMIZED: Use vectorized conversion instead of dictionary comprehension
+        fired_neuron_ids = self.connectome.neuron_array.vectorized_indices_to_neuron_ids(
+            fired_neurons_data.astype(np.int64), filter_invalid=True
+        ).tolist()
+        
         fired_neurons_staging.unmap()
         
         # Update FCL manager
