@@ -43,23 +43,29 @@ class BrainService(BaseService):
         """Get current burst engine status."""
         try:
             if not self.state_manager:
-                return {"status": "unknown", "error": "State manager not available"}
+                return {"status": "unknown", "error": "State manager not available", "is_running": False}
             
-            # Check if burst engine is running
-            is_running = not getattr(self.state_manager, 'exit_condition', False)
-            
-            # Get current burst statistics
-            current_burst = getattr(self.state_manager, 'current_burst_id', 0)
+            # Get the actual burst engine instance to check its _running flag
+            burst_engine = self._get_burst_engine()
+            if burst_engine:
+                # Check the actual burst engine's _running flag (the correct source of truth)
+                is_running = burst_engine._running
+                current_burst = getattr(burst_engine, 'burst_count', 0)
+            else:
+                # Fallback to state manager if burst engine not available
+                is_running = not getattr(self.state_manager, 'exit_condition', False)
+                current_burst = getattr(self.state_manager, 'current_burst_id', 0)
             
             return {
                 "status": "running" if is_running else "stopped",
+                "is_running": is_running,  # ✅ FIXED: Include the is_running field
                 "current_burst": current_burst,
                 "brain_ready": self.state_manager.get_brain_readiness(),
                 "genome_loaded": self.state_manager.is_genome_loaded()
             }
         except Exception as e:
             self.logger.error(f"Error getting burst engine status: {str(e)}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": str(e), "is_running": False}
 
     def start_burst_engine(self) -> bool:
         """Start the burst engine."""

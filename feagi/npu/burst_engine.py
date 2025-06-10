@@ -294,7 +294,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     fcl_t_minus_1 = self.fcl_manager.get_fcl(offset=-1)
                     if fcl_t_minus_1 and not fcl_t_minus_1.is_empty():
                         neuron_list = list(fcl_t_minus_1)[:10]  # Show first 10 neurons
-                        logger.debug(f"🔥 FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}")
+                        logger.debug(f"🔥 🔥 FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}")
                         
                         # Show which cortical areas these neurons belong to
                         if hasattr(self.connectome_manager, 'neuron_array') and hasattr(self.connectome_manager.neuron_array, 'cortical_area_id'):
@@ -307,7 +307,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                                     elif not isinstance(area, str):
                                         area = str(area)
                                     area_count[area] = area_count.get(area, 0) + 1
-                            logger.debug(f"🔥 FCL t-1 AREAS: {dict(list(area_count.items())[:5])}...")  # Show first 5 areas
+                            logger.debug(f"🔥 🔥 FCL t-1 AREAS: {dict(list(area_count.items())[:5])}...")  # Show first 5 areas
                     else:
                         logger.debug(f"🔥 FCL t-1 CONTENT: EMPTY")
                 except Exception as e:

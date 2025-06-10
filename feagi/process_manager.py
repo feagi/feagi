@@ -116,6 +116,9 @@ class ProcessManager:
         self._motor_fq_sampler = None
         self._viz_fq_sampler = None
         
+        # Initialize event system for genome load coordination
+        self._setup_genome_load_event_handling()
+        
     def load_and_validate_ports(self, cli_args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Load and validate port configuration from TOML configuration.
@@ -251,10 +254,10 @@ class ProcessManager:
             state_manager.set_connectome_state(ConnectomeState.READY)
             logger.info("Connectome Manager initialized and ready")
             
-            # Initialize genome state to LOADED (basic system ready for operation)
-            # The genome service will update this when actual genomes are loaded
-            state_manager.set_genome_state(GenomeState.LOADED)
-            logger.info("Basic genome state initialized as LOADED")
+            # CORRECT: Initialize genome state to MISSING since no genome is loaded at startup
+            # The genome service will update this to LOADED when actual genomes are loaded
+            state_manager.set_genome_state(GenomeState.MISSING)
+            logger.info("Genome state initialized as MISSING (no genome loaded at startup)")
             
             # Import here to avoid circular imports
             from feagi.core import create_core_api
@@ -272,11 +275,11 @@ class ProcessManager:
                 # Initialize burst engine in STANDBY mode for early FQ sampler registration
                 burst_engine = self._core_api.get_burst_engine()
                 if burst_engine:
-                    # Set burst engine state to READY since it's operational in STANDBY mode
-                    # and ready to accept FQ sampler registrations
-                    state_manager.set_burst_engine_state(ServiceState.READY)
+                    # CORRECT: Set burst engine state to UNAVAILABLE since no genome is loaded
+                    # It will transition to READY when a genome is loaded and auto-start is triggered
+                    state_manager.set_burst_engine_state(ServiceState.UNAVAILABLE)
                     
-                    logger.info("🔥 BURST ENGINE: STANDBY mode initialized - FQ samplers can now register")
+                    logger.info("🔥 BURST ENGINE: UNAVAILABLE state initialized - will start when genome loads")
                 else:
                     logger.error("❌ Failed to get burst engine instance - FQ sampler registration will fail!")
                     return False
@@ -284,24 +287,37 @@ class ProcessManager:
             logger.info("[OK] Critical processes initialized successfully", status="[OK] ")
             
             # ===== CRITICAL SERVICE READINESS GATE =====
-            # Mark system as ready for FQ sampler operations ONLY after all critical services are initialized
+            # ZMQ services can start unless there are actual ERROR states
+            # MISSING genome and UNAVAILABLE burst engine are CORRECT states for fresh startup
             try:
-                # Verify all critical services are actually ready before setting the flag
-                critical_status = state_manager.get_critical_services_status()
-                all_ready = all(status.value == "READY" for status in critical_status.values())
+                from feagi.core.state_manager import get_state_manager, ServiceState, GenomeState
+                state_manager = get_state_manager()
                 
-                if all_ready:
-                    state_manager.set_system_ready_for_fq_samplers(True)
-                    logger.info("✅ CRITICAL SERVICES READY: System now accepts FQ sampler registration")
-                else:
-                    not_ready = [service for service, status in critical_status.items() if status.value != "READY"]
-                    logger.warning(f"⚠️  Some critical services not ready: {', '.join(not_ready)} - FQ sampler registration blocked")
-                    state_manager.set_system_ready_for_fq_samplers(False)
-                    
+                # Check for actual ERROR states that would block ZMQ services
+                critical_status = state_manager.get_critical_services_status()
+                
+                # Only block on actual ERROR states, not on correct initial states
+                error_states = []
+                for service, state in critical_status.items():
+                    if service in ['burst_engine', 'connectome', 'genome', 'state_manager']:
+                        if state.value == "ERROR":
+                            error_states.append(f"{service}: {state.value}")
+                
+                if error_states:
+                    logger.error(f"[ERR] BLOCKED: Cannot start ZMQ services - critical services in ERROR state")
+                    for error in error_states:
+                        logger.error(f"[ERR]   {error}")
+                    return False
+                
+                # Log the current states (these are correct for fresh startup)
+                logger.info("[OK] Core critical services healthy - proceeding with ZMQ server initialization")
+                for service, state in critical_status.items():
+                    if service in ['burst_engine', 'connectome', 'genome', 'state_manager']:
+                        logger.info(f"[OK]   {service}: {state.value}")
+                
             except Exception as e:
-                logger.error(f"❌ Error setting system readiness flag: {e}")
-                # Default to safe mode - block FQ sampler registration
-                state_manager.set_system_ready_for_fq_samplers(False)
+                logger.error(f"[ERR] Failed to check critical service readiness: {e}")
+                return False
             # ===== END CRITICAL SERVICE READINESS GATE =====
             
             return True
@@ -340,18 +356,24 @@ class ProcessManager:
             
             # Filter to only check core services
             core_status = {k: v for k, v in critical_status.items() if k in core_critical_services}
-            core_ready = all(status.value == "READY" or status.value == "LOADED" for status in core_status.values())
             
-            if not core_ready:
-                not_ready = [k for k, v in core_status.items() if v.value != "READY" and v.value != "LOADED"]
-                logger.error(f"[ERR] BLOCKED: Cannot start ZMQ services - core critical services not ready")
-                logger.error(f"[ERR] Core services not ready: {', '.join(not_ready)}")
-                for service, state in core_status.items():
-                    if state.value != "READY" and state.value != "LOADED":
-                        logger.error(f"[ERR]   {service}: {state.value}")
+            # Only block on actual ERROR states, not on correct initial states
+            # MISSING genome and UNAVAILABLE burst engine are CORRECT for fresh startup
+            error_states = []
+            for service, state in core_status.items():
+                if state.value == "ERROR":
+                    error_states.append(f"{service}: {state.value}")
+            
+            if error_states:
+                logger.error(f"[ERR] BLOCKED: Cannot start ZMQ services - critical services in ERROR state")
+                for error in error_states:
+                    logger.error(f"[ERR]   {error}")
                 return False
             
-            logger.info("[OK] Core critical services ready - proceeding with ZMQ server initialization")
+            # Log current states (MISSING genome and UNAVAILABLE burst engine are correct for fresh startup)
+            logger.info("[OK] Core critical services healthy - proceeding with ZMQ server initialization")
+            for service, state in core_status.items():
+                logger.info(f"[OK]   {service}: {state.value}")
             
         except Exception as e:
             logger.error(f"[ERR] Failed to check critical service readiness: {e}")
@@ -866,8 +888,9 @@ class ProcessManager:
                         exit_code = service.poll()
                         logger.error(f"Process {name} exited with code {exit_code}")
                 else:
-                    # Service type we can't monitor - just log debug info
-                    logger.debug(f"Service {name} doesn't support health checking (type: {type(service).__name__})")
+                    # Service type we can't monitor - silently skip
+                    # (Expected for HealthMonitor, ZmqServer, ResourceManager etc.)
+                    pass
                     
             except Exception as e:
                 logger.warning(f"Error checking service {name}: {e}")
@@ -1252,6 +1275,78 @@ class ProcessManager:
                 
         except Exception as e:
             logger.error(f"Error disabling FQ sampler ({mode}): {e}")
+
+    def _setup_genome_load_event_handling(self):
+        """
+        Set up event handling for genome load events.
+        
+        When a genome is successfully loaded, this will automatically start the burst engine.
+        This implements the design requirement: "upon genome load, burst engine transitions to running"
+        """
+        try:
+            # Import event system here to avoid circular imports
+            from feagi.api.shared_memory.events import EventNotificationSystem, EventType
+            
+            # Create event system for this process manager
+            self._event_system = EventNotificationSystem("process_manager")
+            
+            # Register handler for genome loaded events
+            self._event_system.register_handler(EventType.GENOME_LOADED, self._handle_genome_loaded_event)
+            
+            # Start the event system
+            self._event_system.start()
+            
+            logger.info("📡 Event system initialized - listening for GENOME_LOADED events")
+            
+        except Exception as e:
+            logger.warning(f"Failed to initialize genome load event handling: {e}")
+            logger.warning("Process manager will need to monitor state changes manually")
+    
+    def _handle_genome_loaded_event(self, event):
+        """
+        Handle genome loaded event by starting the burst engine.
+        
+        Args:
+            event: The genome loaded event containing filename and cortical area count
+        """
+        try:
+            logger.info(f"🧬 GENOME_LOADED event received: {event.data.get('filename', 'unknown')} "
+                       f"with {event.data.get('cortical_areas', 0)} cortical areas")
+            
+            # Check if burst engine is available and not already running
+            from feagi.core.state_manager import ServiceState, FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
+            current_state = state_manager.get_burst_engine_state()
+            
+            if current_state == ServiceState.READY:
+                logger.info("⚡ Burst engine already running - no action needed")
+                return
+            
+            # Start burst engine through the SAME exact method as the REST API
+            logger.info("⚡ Starting burst engine after genome load...")
+            
+            try:
+                # Use the CoreAPIService start method (same as REST API) instead of brain service directly
+                # This ensures identical behavior between manual start and automatic genome start
+                core_api = self.get_core_api()
+                if not core_api:
+                    logger.error("❌ Core API service not available for burst engine start")
+                    return
+                
+                success = core_api.start_burst_engine()
+                
+                if success:
+                    logger.info("✅ Burst engine started successfully after genome load")
+                else:
+                    logger.error("❌ Failed to start burst engine after genome load")
+                    
+            except Exception as start_error:
+                logger.error(f"❌ Error starting burst engine after genome load: {start_error}")
+                
+        except Exception as e:
+            logger.error(f"Error handling genome loaded event: {e}")
+            # Don't re-raise - event handling should not crash the process manager
 
 # Global instance for the process manager
 _process_manager = None
