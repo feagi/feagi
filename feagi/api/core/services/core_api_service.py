@@ -612,61 +612,69 @@ class CoreAPIService:
     # =================================================================
     
     def get_fire_queue(self) -> Optional[Dict[str, Any]]:
-        """Get the current global fire queue data for FQSampler."""
+        """Get the global fire queue data for FQSampler from t-1 where content is finalized."""
         try:
             if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
                 fcl_manager = self._connectome_manager.fcl_manager
-                global_fcl = fcl_manager.get_global_fcl()  # This should return a BitMap
                 
-                if global_fcl and hasattr(global_fcl, '__iter__'):
-                    neuron_ids = list(global_fcl)
-                else:
-                    neuron_ids = []
+                # CRITICAL FIX: Cortical FCL history is empty, but global FCL has firing neurons
+                # Read from global FCL and filter by cortical area
+                current_timestep = fcl_manager.current_timestep
                 
-                return {
-                    'neuron_ids': neuron_ids,
-                    'membrane_potentials': [1.0] * len(neuron_ids),
-                    'thresholds': [1.0] * len(neuron_ids),
-                    'consecutive_fire_counts': [0] * len(neuron_ids),
-                    'refractory_counters': [0] * len(neuron_ids)
-                }
-            return None
-        except Exception as e:
-            self.logger.error(f"Error getting fire queue: {str(e)}")
-            return None
-    
-    def get_area_fire_queue(self, cortical_id: str) -> Optional[Dict[str, Any]]:
-        """Get fire queue data for a specific cortical area."""
-        try:
-            if not self._validate_genome_loaded():
-                return None
+                self.logger.debug(f"🔥 [CORE API] Reading from global FCL at timestep {current_timestep}")
                 
-            # CRITICAL FIX: Convert cortical_id (string) to cortical_idx (integer)
-            cortical_idx = self._get_cortical_idx_for_id(cortical_id)
-            if cortical_idx is None:
-                self.logger.debug(f"Could not find cortical_idx for cortical_id '{cortical_id}'")
-                return None
+                # Get global firing neurons from current timestep (t=0)
+                global_fcl = fcl_manager.get_global_fcl()
                 
-            if hasattr(self._connectome_manager, 'fcl_manager') and self._connectome_manager.fcl_manager:
-                # Get the BitMap from FCL manager
-                fcl_bitmap = self._connectome_manager.fcl_manager.get_cortical_fcl(cortical_idx)
-                
-                # Convert BitMap to the expected dictionary format
-                if fcl_bitmap and not fcl_bitmap.is_empty():
-                    # Convert BitMap to list of neuron IDs
-                    neuron_ids = list(fcl_bitmap)
+                if global_fcl and not global_fcl.is_empty():
+                    global_firing_neurons = list(global_fcl)
+                    self.logger.info(f"🔥 [CORE API] Global FCL has {len(global_firing_neurons)} firing neurons: {global_firing_neurons[:10]}{'...' if len(global_firing_neurons) > 10 else ''}")
                     
-                    # Create the expected dictionary format for FQ sampler
-                    return {
-                        'neuron_ids': neuron_ids,
-                        'membrane_potentials': [0.0] * len(neuron_ids),  # Placeholder - neurons just fired
-                        'thresholds': [1.0] * len(neuron_ids),  # Placeholder
-                        'consecutive_fire_counts': [1] * len(neuron_ids),  # Just fired
-                        'refractory_counters': [0] * len(neuron_ids),  # Placeholder
-                        'coordinates': [(0, 0, 0)] * len(neuron_ids)  # Placeholder
-                    }
+                    # Filter neurons by cortical area
+                    area_neurons = []
+                    
+                    # Get neuron-to-area mapping from connectome manager
+                    if hasattr(self._connectome_manager, 'connectome') and self._connectome_manager.connectome:
+                        connectome = self._connectome_manager.connectome
+                        
+                        for neuron_id in global_firing_neurons:
+                            # Check if this neuron belongs to the requested cortical area
+                            if hasattr(connectome, 'get_neuron_cortical_area'):
+                                neuron_area = connectome.get_neuron_cortical_area(neuron_id)
+                                if neuron_area == cortical_id:
+                                    area_neurons.append(neuron_id)
+                            elif hasattr(connectome, 'neurons') and neuron_id in connectome.neurons:
+                                neuron_data = connectome.neurons[neuron_id]
+                                if neuron_data.get('cortical_area') == cortical_id:
+                                    area_neurons.append(neuron_id)
+                    
+                    self.logger.info(f"🔥 [CORE API] Found {len(area_neurons)} neurons firing in area {cortical_id}: {area_neurons}")
+                    
+                    if area_neurons:
+                        # Create the expected dictionary format for FQ sampler
+                        result = {
+                            'neuron_ids': area_neurons,
+                            'membrane_potentials': [0.0] * len(area_neurons),  # Neurons just fired (reset to 0)
+                            'thresholds': [1.0] * len(area_neurons),  # Placeholder
+                            'consecutive_fire_counts': [1] * len(area_neurons),  # Just fired
+                            'refractory_counters': [0] * len(area_neurons),  # Placeholder
+                            'coordinates': [(0, 0, 0)] * len(area_neurons)  # Placeholder
+                        }
+                        self.logger.debug(f"🔥 [CORE API] Returning fire queue data for {cortical_id}: {len(result['neuron_ids'])} neurons from global FCL")
+                        return result
+                    else:
+                        # No neurons firing in this specific area
+                        self.logger.debug(f"🔥 [CORE API] No neurons firing in area {cortical_id} (filtered from global FCL)")
+                        return {
+                            'neuron_ids': [],
+                            'membrane_potentials': [],
+                            'thresholds': [],
+                            'consecutive_fire_counts': [],
+                            'refractory_counters': [],
+                            'coordinates': []
+                        }
                 else:
-                    # No neurons firing in this area
+                    self.logger.debug(f"🔥 [CORE API] Global FCL is empty - no neurons firing globally")
                     return {
                         'neuron_ids': [],
                         'membrane_potentials': [],
@@ -675,13 +683,12 @@ class CoreAPIService:
                         'refractory_counters': [],
                         'coordinates': []
                     }
-            else:
-                self.logger.debug(f"FCL manager not available for area '{cortical_id}'")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"Error getting fire queue for area '{cortical_id}': {e}")
             return None
+        except Exception as e:
+            self.logger.error(f"Error getting fire queue: {str(e)}")
+            return None
+    
+
 
     def genome_is_loaded(self) -> bool:
         """Check if a genome is currently loaded - CRITICAL for state management."""
@@ -1540,14 +1547,26 @@ class CoreAPIService:
         """
         try:
             if not hasattr(self._connectome_manager, 'cortical_areas'):
+                self.logger.debug(f"🔥 [CORE API] connectome_manager has no cortical_areas attribute")
                 return None
                 
+            self.logger.debug(f"🔥 [CORE API] Looking up cortical_id '{cortical_id}' in {len(self._connectome_manager.cortical_areas)} cortical areas")
+            self.logger.debug(f"🔥 [CORE API] Available cortical_areas keys (first 10): {list(self._connectome_manager.cortical_areas.keys())[:10]}")
+                
             for cortical_idx, area in self._connectome_manager.cortical_areas.items():
+                self.logger.debug(f"🔥 [CORE API] Checking cortical_idx={cortical_idx} (type={type(cortical_idx)}), area={area}")
                 if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
+                    self.logger.debug(f"🔥 [CORE API] FOUND MATCH: cortical_id '{cortical_id}' maps to cortical_idx {cortical_idx} (type={type(cortical_idx)})")
                     return cortical_idx
+                elif hasattr(area, 'cortical_id'):
+                    self.logger.debug(f"🔥 [CORE API] No match: area.cortical_id='{area.cortical_id}' != '{cortical_id}'")
+                else:
+                    self.logger.debug(f"🔥 [CORE API] Area has no cortical_id attribute: {area}")
+                    
+            self.logger.debug(f"🔥 [CORE API] NO MATCH FOUND for cortical_id '{cortical_id}'")
             return None
         except Exception as e:
-            self.logger.error(f"Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
+            self.logger.error(f"🔥 [CORE API] Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
             return None
 
     def _validate_genome_loaded(self) -> bool:
