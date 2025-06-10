@@ -320,6 +320,23 @@ class VisualizationStream:
                         time.sleep(0.5)  # @architecture:acceptable - standby mode
                         continue
                 
+                # RTOS/RUST COMPATIBLE: Fail fast if FQ sampler dependency not satisfied
+                # Instead of dynamic discovery, require explicit dependency injection at startup
+                if not self.fq_sampler:
+                    if self.process_manager:
+                        # Single attempt to resolve dependency - no polling/waiting
+                        viz_fq_sampler = self.process_manager.get_viz_fq_sampler()
+                        if viz_fq_sampler:
+                            self.fq_sampler = viz_fq_sampler
+                            self._fq_sampler_enabled = True  # CRITICAL: Enable the FQ sampler
+                            logger.info(f"🎨 Visualization FQ sampler dependency resolved: {viz_fq_sampler.instance_id}")
+                        else:
+                            # RTOS: Log dependency failure but continue (fail gracefully)
+                            logger.debug("🔧 Visualization FQ sampler not available - visualization disabled")
+                    else:
+                        # RTOS: Dependency injection failure - this should be caught at startup
+                        logger.warning("⚠️ Process manager not available - visualization stream dependency not satisfied")
+                
                 # RUST/RTOS COMPATIBLE: FQ sampler exists but may be disabled
                 # Skip processing if no FQ sampler exists (stream disabled) OR if sampler is disabled (no clients)
                 if not self.fq_sampler or not self._fq_sampler_enabled:
