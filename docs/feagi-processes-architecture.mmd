@@ -1,0 +1,194 @@
+graph TB
+    %% External Clients
+    BV[Brain Visualizer<br/>Godot Client]
+    AG[Agents<br/>External Apps]
+    SIM[Simulators<br/>Gazebo/Custom]
+    
+    %% FEAGI Bridge Layer
+    subgraph BRIDGE["FEAGI Bridge"]
+        BVP[Brain Visualizer Plugin]
+        ZMQ_CLIENT[ZMQ Client]
+        WS_SERVER[WebSocket Server]
+        REST_CLIENT[REST Client]
+    end
+    
+    %% FEAGI Core - Entry Point
+    subgraph MAIN["FEAGI Main Process"]
+        MAIN_ENTRY[main.py<br/>Entry Point]
+        CONFIG[Configuration<br/>Loader]
+        DEP_CHECK[Dependency<br/>Checker]
+    end
+    
+    %% State Management Layer (Critical!)
+    subgraph STATE_MGR["State Management Layer"]
+        STATE_MANAGER[FeagiStateManager<br/>Singleton]
+        STATE_FILE[State File<br/>Binary Storage]
+        SERVICE_STATES[Service States<br/>BurstEngine, etc.]
+    end
+    
+    %% Connectome Management Layer (Critical!)
+    subgraph CONNECTOME_MGR["Connectome Management"]
+        CONNECTOME_MANAGER[ConnectomeManager<br/>Singleton]
+        ARRAY_BACKEND[ArrayBackend<br/>PyTorch/CPU]
+        NEURON_ARRAY[NeuronArray<br/>10M Capacity]
+        CONNECTIVITY[Connectivity<br/>SoA Structure]
+    end
+    
+    %% Process Management Layer
+    subgraph PROC_MGR["Process Manager"]
+        PM[Process Manager<br/>Core Orchestrator]
+        PM_CRITICAL[Priority 1<br/>Critical Processes]
+        PM_IMPORTANT[Priority 2<br/>Important Processes]
+        PM_OPTIONAL[Priority 3<br/>Optional Processes]
+    end
+    
+    %% Core Services
+    subgraph CORE_SERVICES["Core Services"]
+        BURST_ENGINE[Burst Engine<br/>10Hz Neural Processing]
+        GENOME_SERVICE[Genome Service<br/>Brain Configuration]
+        BRAIN_SERVICE[Brain Service<br/>Coordination]
+        CORE_API[Core API Service<br/>REST Endpoints]
+    end
+    
+    %% NPU Layer
+    subgraph NPU_LAYER["Neural Processing Unit"]
+        NPU[NPU Core<br/>Neural Computation]
+        INJECTION[Injection Service<br/>Power Area Management]
+        FQ_MOTOR[Motor FQ Sampler<br/>100Hz OPU]
+        FQ_VIZ[Visualization FQ Sampler<br/>30Hz Sampling]
+    end
+    
+    %% ZMQ Communication Layer
+    subgraph ZMQ_LAYER["ZMQ Communication"]
+        ZMQ_SERVER[ZMQ Server<br/>Multi-Port Manager]
+        REQ_REP[REQ/REP Pattern<br/>Port 5555]
+        PUB_SUB[PUB/SUB Pattern<br/>Port 5556]
+        PUSH_PULL[PUSH/PULL Pattern<br/>Port 5557]
+    end
+    
+    %% Stream Processing
+    subgraph STREAMS["Data Streams"]
+        SENSORY_STREAM[Sensory Neural Stream<br/>Port 5558]
+        MOTOR_STREAM[Motor Stream<br/>Port 5564]
+        VIZ_STREAM[Visualization Stream<br/>Port 5562]
+        REST_STREAM[REST Stream<br/>Port 5563]
+    end
+    
+    %% Agent Management
+    subgraph AGENT_MGR["Agent Management"]
+        AGENT_REGISTRY[Agent Registry<br/>Connected Clients]
+        AGENT_API[Agent API<br/>Registration/Health]
+        FQ_CONTROL[FQ Sampler Control<br/>Enable/Disable]
+    end
+    
+    %% REST API Layer
+    subgraph REST_API["REST API Layer"]
+        FASTAPI[FastAPI Server<br/>Port 8000]
+        V1_ENDPOINTS[v1 Endpoints<br/>System Control]
+        HEALTH_CHECK[Health Check<br/>Status Monitoring]
+    end
+    
+    %% Backend Services
+    subgraph BACKEND["Backend Services"]
+        RESOURCE_MGR[Resource Manager<br/>System Resources]
+        HEALTH_MONITOR[Health Monitor<br/>System Status]
+        LOG_MANAGER[Log Manager<br/>Centralized Logging]
+    end
+    
+    %% External Connections
+    BV --> WS_SERVER
+    AG --> ZMQ_CLIENT
+    SIM --> REST_CLIENT
+    
+    %% Bridge to Core
+    BVP --> AGENT_API
+    ZMQ_CLIENT --> ZMQ_SERVER
+    REST_CLIENT --> FASTAPI
+    
+    %% Main Process Flow
+    MAIN_ENTRY --> CONFIG
+    CONFIG --> DEP_CHECK
+    DEP_CHECK --> PM
+    
+    %% State Management Connections
+    STATE_MANAGER --> STATE_FILE
+    STATE_MANAGER --> SERVICE_STATES
+    PM --> STATE_MANAGER
+    BURST_ENGINE --> STATE_MANAGER
+    
+    %% Connectome Management Connections
+    CONNECTOME_MANAGER --> ARRAY_BACKEND
+    ARRAY_BACKEND --> NEURON_ARRAY
+    NEURON_ARRAY --> CONNECTIVITY
+    BURST_ENGINE --> CONNECTOME_MANAGER
+    
+    %% Process Manager Control
+    PM --> PM_CRITICAL
+    PM --> PM_IMPORTANT
+    PM --> PM_OPTIONAL
+    
+    %% Critical Process Assignment
+    PM_CRITICAL --> BURST_ENGINE
+    PM_CRITICAL --> STATE_MANAGER
+    PM_CRITICAL --> CONNECTOME_MANAGER
+    
+    %% Important Process Assignment
+    PM_IMPORTANT --> ZMQ_SERVER
+    PM_IMPORTANT --> FQ_MOTOR
+    PM_IMPORTANT --> FQ_VIZ
+    
+    %% Optional Process Assignment
+    PM_OPTIONAL --> HEALTH_MONITOR
+    PM_OPTIONAL --> LOG_MANAGER
+    
+    %% Core Service Interactions
+    BRAIN_SERVICE --> BURST_ENGINE
+    GENOME_SERVICE --> CONNECTOME_MANAGER
+    CORE_API --> GENOME_SERVICE
+    CORE_API --> BRAIN_SERVICE
+    
+    %% NPU Connections
+    BURST_ENGINE --> NPU
+    NPU --> INJECTION
+    INJECTION --> CONNECTOME_MANAGER
+    
+    %% FQ Sampler Management
+    AGENT_API --> FQ_CONTROL
+    FQ_CONTROL --> FQ_MOTOR
+    FQ_CONTROL --> FQ_VIZ
+    FQ_MOTOR --> MOTOR_STREAM
+    FQ_VIZ --> VIZ_STREAM
+    
+    %% ZMQ Server Management
+    ZMQ_SERVER --> REQ_REP
+    ZMQ_SERVER --> PUB_SUB
+    ZMQ_SERVER --> PUSH_PULL
+    
+    %% Stream Connections
+    REQ_REP --> SENSORY_STREAM
+    PUB_SUB --> MOTOR_STREAM
+    PUSH_PULL --> VIZ_STREAM
+    ZMQ_SERVER --> REST_STREAM
+    
+    %% Agent Registry Management
+    AGENT_API --> AGENT_REGISTRY
+    AGENT_REGISTRY --> FQ_CONTROL
+    VIZ_STREAM --> AGENT_REGISTRY
+    
+    %% REST API Connections
+    FASTAPI --> V1_ENDPOINTS
+    V1_ENDPOINTS --> CORE_API
+    V1_ENDPOINTS --> AGENT_API
+    FASTAPI --> HEALTH_CHECK
+    
+    %% Backend Service Connections
+    PM --> RESOURCE_MGR
+    PM --> HEALTH_MONITOR
+    STATE_MANAGER --> LOG_MANAGER
+    
+    %% Data Flow
+    SENSORY_STREAM --> NPU
+    NPU --> MOTOR_STREAM
+    NPU --> VIZ_STREAM
+    BURST_ENGINE --> FQ_MOTOR
+    BURST_ENGINE --> FQ_VIZ 

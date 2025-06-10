@@ -242,7 +242,7 @@ class CorticalAreaService(BaseService):
                 return None
             
             # Return area information
-            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_idx))
+            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_id))
             
             # Format response
             return {
@@ -372,7 +372,7 @@ class CorticalAreaService(BaseService):
                 area.properties.update(parameters)
             
             # Return the updated area
-            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_idx))
+            neuron_count = len(self._connectome_manager.get_neurons_by_area(cortical_id))
             return {
                 "cortical_id": cortical_id,  # Return original cortical_id
                 "cortical_idx": cortical_idx,  # Also include cortical_idx for reference
@@ -421,7 +421,7 @@ class CorticalAreaService(BaseService):
                 return False
             
             # Get all neurons in this area
-            neurons = self._connectome_manager.get_neurons_by_area(cortical_idx)
+            neurons = self._connectome_manager.get_neurons_by_area(cortical_id)
             
             # Delete all neurons in the area
             for neuron_id in neurons:
@@ -478,7 +478,7 @@ class CorticalAreaService(BaseService):
                 return None
             
             # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_idx)
+            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_id)
             result = []
             
             for neuron_id in neuron_ids:
@@ -541,7 +541,7 @@ class CorticalAreaService(BaseService):
                 return None
             
             # Get all neurons in this area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_idx)
+            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_id)
             
             # Current timestep
             current_time = self._connectome_manager.current_timestep
@@ -610,7 +610,7 @@ class CorticalAreaService(BaseService):
                 raise ValueError(f"Cortical area with cortical_idx {cortical_idx} not found in connectome")
             
             # Get neurons in the area
-            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_idx)
+            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_id)
             if not neuron_ids:
                 raise ValueError(f"No neurons found in cortical area with cortical_id '{cortical_id}'")
             

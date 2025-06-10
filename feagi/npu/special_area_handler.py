@@ -94,8 +94,23 @@ class SpecialAreaHandler:
                 logger.debug(f"[POWER DETECTION] No neurons found in core power area (cortical_idx=1)")
                 
             return power_neurons if power_neurons else []
+        except KeyError as e:
+            # cortical_idx=1 (___pwr area) doesn't exist - likely neurogenesis failed
+            # Use DEBUG level to avoid log spam, only warn once per minute
+            if not hasattr(self, '_last_pwr_warning_time'):
+                self._last_pwr_warning_time = 0
+            
+            current_time = time.perf_counter()
+            if current_time - self._last_pwr_warning_time > 60.0:  # Only warn once per minute
+                logger.warning("[POWER DETECTION] Core power area (___pwr) not found - neurogenesis may have failed")
+                self._last_pwr_warning_time = current_time
+            else:
+                logger.debug(f"[POWER DETECTION] Core power area (___pwr) not found: {e}")
+            
+            return []
         except Exception as e:
-            logger.error(f"[POWER DETECTION] Error accessing core power area (cortical_idx=1): {e}")
+            # Other errors - reduce log spam by using debug level
+            logger.debug(f"[POWER DETECTION] Error accessing core power area (cortical_idx=1): {e}")
             return []
     
     def get_all_power_neurons(self) -> Dict[CorticalId, List[NeuronId]]:

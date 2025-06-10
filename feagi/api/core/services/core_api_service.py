@@ -65,6 +65,7 @@ class CoreAPIService:
             connectome_manager: ConnectomeManager instance
             state_manager: FeagiStateManager instance (optional)
         """
+        # Initialize connectome manager
         self._connectome_manager = connectome_manager
         self.state_manager = state_manager
         self.logger = logger
@@ -533,13 +534,21 @@ class CoreAPIService:
     # UTILITY METHODS
     # =================================================================
     
-    def refresh_caches(self):
-        """Refresh all cached data across services."""
+    def refresh_cached_data(self):
+        """
+        Refresh any cached data when connectome changes.
+        This can be called when the genome is reloaded or modified.
+        """
+        # Build cortical_id -> cortical_idx cache for optimal performance
+        # But ONLY if genome is loaded to prevent corruption
         try:
-            self._cortical_area_service.refresh_cache()
-            self.logger.info("All service caches refreshed")
+            if hasattr(self._connectome_manager, 'cortical_areas') and self._connectome_manager.cortical_areas:
+                self._build_cortical_id_cache()
+                self.logger.debug("Cached data refreshed after connectome changes")
+            else:
+                self.logger.debug("Skipping cache refresh - genome not ready")
         except Exception as e:
-            self.logger.error(f"Error refreshing caches: {str(e)}")
+            self.logger.error(f"Error refreshing cached data: {str(e)}")
     
     def get_service_health(self) -> Dict[str, Any]:
         """Get health information about all domain services."""
@@ -1539,8 +1548,92 @@ class CoreAPIService:
         pass
     
     def refresh_cached_data(self):
-        """Refresh cached data (legacy method name)."""
-        self.refresh_caches()
+        """
+        Refresh any cached data when connectome changes.
+        This can be called when the genome is reloaded or modified.
+        """
+        # Build cortical_id -> cortical_idx cache for optimal performance
+        # But ONLY if genome is loaded to prevent corruption
+        try:
+            if hasattr(self._connectome_manager, 'cortical_areas') and self._connectome_manager.cortical_areas:
+                self._build_cortical_id_cache()
+                self.logger.debug("Cached data refreshed after connectome changes")
+            else:
+                self.logger.debug("Skipping cache refresh - genome not ready")
+        except Exception as e:
+            self.logger.error(f"Error refreshing cached data: {str(e)}")
+
+    def _build_cortical_id_cache(self):
+        """
+        Build cache mapping cortical_id -> cortical_idx for O(1) lookups.
+        
+        This replaces the previous O(n) linear search through all cortical areas
+        with ultra-fast hash map lookups.
+        """
+        try:
+            self._cortical_id_to_idx_cache.clear()
+            self._cortical_idx_to_id_cache.clear()
+            
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                self.logger.debug("Connectome manager has no cortical_areas - cache will be empty")
+                return
+                
+            # Build both directions for maximum efficiency
+            for area_key, area in self._connectome_manager.cortical_areas.items():
+                if hasattr(area, 'cortical_id') and hasattr(area, 'cortical_idx'):
+                    cortical_id = area.cortical_id  # String like "___pwr"
+                    cortical_idx = area.cortical_idx  # Integer like 0, 1, 2
+                    
+                    # Cache both directions: cortical_id -> cortical_idx AND cortical_idx -> cortical_id
+                    self._cortical_id_to_idx_cache[cortical_id] = cortical_idx
+                    self._cortical_idx_to_id_cache[cortical_idx] = cortical_id
+                         
+            self.logger.debug(f"Built cortical_id cache with {len(self._cortical_id_to_idx_cache)} mappings")
+                         
+        except Exception as e:
+            self.logger.error(f"Error building cortical_id cache: {str(e)}")
+            self._cortical_id_to_idx_cache.clear()
+            self._cortical_idx_to_id_cache.clear()
+
+    def _build_static_lookup_safe(self):
+        """
+        MEMORY-SAFE builder for Rust/RTOS/SIMD compatible static lookup arrays.
+        Only runs after genome is loaded and cortical areas are stable.
+        Creates arrays lazily to prevent construction-time memory corruption.
+        """
+        try:
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                return
+                
+            # LAZY CREATION: Only create arrays when first needed
+            if self._cortical_idx_to_id_static is None:
+                self._cortical_idx_to_id_static = np.full(self._max_cortical_areas, "", dtype='U8')
+                self._cortical_lookup_valid = np.zeros(self._max_cortical_areas, dtype=np.bool_)
+                self.logger.debug("Created static lookup arrays lazily")
+            else:
+                # SAFE: Clear existing arrays
+                self._cortical_idx_to_id_static.fill("")
+                self._cortical_lookup_valid.fill(False)
+            
+            valid_mappings = 0
+            for area_key, area in self._connectome_manager.cortical_areas.items():
+                if hasattr(area, 'cortical_id') and hasattr(area, 'cortical_idx'):
+                    cortical_idx = area.cortical_idx
+                    cortical_id = area.cortical_id
+                    
+                    # BOUNDS CHECK: Prevent memory corruption
+                    if isinstance(cortical_idx, int) and 0 <= cortical_idx < self._max_cortical_areas:
+                        self._cortical_idx_to_id_static[cortical_idx] = cortical_id
+                        self._cortical_lookup_valid[cortical_idx] = True
+                        valid_mappings += 1
+                        
+            self._static_lookup_built = True
+            self.logger.debug(f"MEMORY-SAFE: Built static lookup with {valid_mappings} mappings")
+                         
+        except Exception as e:
+            self.logger.error(f"Error in memory-safe static lookup build: {str(e)}")
+            # SAFE FALLBACK: Mark as not built
+            self._static_lookup_built = False
 
     # =================================================================
     # UTILITY AND HELPER METHODS
@@ -2719,21 +2812,60 @@ class CoreAPIService:
             return {}
             
     def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
+        """Configure an agent with the given configuration."""
+        return self._agents_service.configure_agent(agent_id, config)
+
+    def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
         """
-        Configure agent settings (placeholder for future implementation).
+        Get cortical index for a cortical ID.
+        
+        IMPORTANT: Maps cortical_id (6-character string) to cortical_idx (integer).
         
         Args:
-            agent_id: Agent identifier
-            config: Configuration dictionary
+            cortical_id: 6-character string identifier
             
         Returns:
-            bool: True if configuration successful
+            Integer index if found, None otherwise
         """
         try:
-            # For now, just log the configuration request
-            # Future implementation will handle agent-specific configuration
-            self.logger.info(f"Configuration request for agent {agent_id}: {config}")
-            return True
+            if not hasattr(self._connectome_manager, 'cortical_areas'):
+                self.logger.info(f"🔥 [CORE API] connectome_manager has no cortical_areas attribute")
+                return None
+                
+            self.logger.info(f"🔥 [CORE API] Looking up cortical_id '{cortical_id}' in {len(self._connectome_manager.cortical_areas)} cortical areas")
+            self.logger.info(f"🔥 [CORE API] Available cortical_areas keys (first 10): {list(self._connectome_manager.cortical_areas.keys())[:10]}")
+                
+            for area_key, area in self._connectome_manager.cortical_areas.items():
+                self.logger.info(f"🔥 [CORE API] Checking area_key={area_key} (type={type(area_key)}), area={area}")
+                if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
+                    # CRITICAL FIX: Return the integer cortical_idx attribute, not the string key
+                    cortical_idx = getattr(area, 'cortical_idx', None)
+                    self.logger.info(f"🔥 [CORE API] FOUND MATCH: cortical_id '{cortical_id}' maps to cortical_idx {cortical_idx} (type={type(cortical_idx)})")
+                    return cortical_idx
+                elif hasattr(area, 'cortical_id'):
+                    self.logger.info(f"🔥 [CORE API] No match: area.cortical_id='{area.cortical_id}' != '{cortical_id}'")
+                else:
+                    self.logger.info(f"🔥 [CORE API] Area has no cortical_id attribute: {area}")
+                    
+            self.logger.info(f"🔥 [CORE API] NO MATCH FOUND for cortical_id '{cortical_id}'")
+            return None
         except Exception as e:
-            self.logger.error(f"Failed to configure agent {agent_id}: {e}")
-            return False
+            self.logger.error(f"🔥 [CORE API] Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
+            return None
+
+    def get_service_health(self) -> Dict[str, Any]:
+        """Get health information about all domain services."""
+        try:
+            return {
+                "system_service": "healthy" if self._system_service else "unavailable",
+                "genome_service": "healthy" if self._genome_service else "unavailable",
+                "cortical_area_service": "healthy" if self._cortical_area_service else "unavailable",
+                "connectome_service": "healthy" if self._connectome_service else "unavailable",
+                "brain_service": "healthy" if self._brain_service else "unavailable",
+                "agents_service": "healthy" if self._agents_service else "unavailable",
+                "network_service": "healthy" if self._network_service else "unavailable",
+                "facade_status": "operational"
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting service health: {str(e)}")
+            return {"facade_status": "error", "error": str(e)}
