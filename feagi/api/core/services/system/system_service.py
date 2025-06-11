@@ -24,6 +24,8 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 from ..shared.base_service import BaseService
 from feagi.core.state_manager import ServiceState
+import os
+import numpy as np
 
 
 class SystemService(BaseService):
@@ -202,8 +204,8 @@ class SystemService(BaseService):
             
             # Add additional component versions if available
             try:
-                import numpy
-                versions["numpy"] = numpy.__version__
+                import numpy as np
+                versions["numpy"] = np.__version__
             except ImportError:
                 pass
                 
@@ -453,4 +455,46 @@ class SystemService(BaseService):
                 
         except Exception as e:
             self.logger.error(f"Error getting FQ sampler status: {str(e)}")
-            return {'error': str(e)} 
+            return {'error': str(e)}
+
+    def get_resource_usage(self) -> Dict[str, Any]:
+        """Get system resource usage information."""
+        try:
+            # Use psutil to get system resource usage
+            import psutil
+            
+            # Get CPU usage
+            cpu_usage = psutil.cpu_percent()
+            
+            # Get memory usage
+            memory_usage = psutil.virtual_memory().percent
+            
+            # Get available memory in GB
+            memory_available_gb = psutil.virtual_memory().available / (1024 ** 3)
+            
+            # Suggested frequency scale based on CPU usage
+            suggested_frequency_scale = 1.0 + (cpu_usage / 100) * 0.25
+            
+            # Performance tier based on CPU usage
+            if cpu_usage < 50:
+                performance_tier = "Low"
+            elif cpu_usage < 75:
+                performance_tier = "Medium"
+            else:
+                performance_tier = "High"
+            
+            logger.debug(f"System resource usage: {cpu_usage}% CPU, {memory_usage:.1f}% Memory")
+            
+        except Exception as e:
+            logger.warning(f"Failed to retrieve resource usage: {e}")
+            # Fallback to basic CPU count 
+            available_workers = max(1, np.ceil(os.cpu_count() * 0.75))  # Use 75% of available cores
+            
+        return {
+            "available_workers": int(available_workers),
+            "cpu_usage_percent": cpu_usage,
+            "memory_usage_percent": memory_usage,
+            "memory_available_gb": memory_available_gb,
+            "suggested_frequency_scale": suggested_frequency_scale,
+            "performance_tier": performance_tier
+        } 

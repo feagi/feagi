@@ -255,59 +255,87 @@ class UnifiedFQSampler:
         return []
 
     def _get_visualization_areas(self) -> List[str]:
-        """Get all cortical areas for visualization (opt-out model: all areas unless visualization=false)."""
+        """Get cortical areas that have firing neurons AND visualization enabled."""
         visualization_areas = []
         
-        if not self.connectome_manager:
-            logger.info(f"🔥 FQ SAMPLER: No connectome manager available for visualization areas")
+        if not self.fire_queue_provider:
+            logger.info(f"🔥 FQ SAMPLER: No fire queue provider available for visualization areas")
             return []
             
         try:
+            # STEP 1: Get areas that actually have firing neurons
+            areas_with_activity = []
+            
             if hasattr(self.connectome_manager, 'cortical_areas'):
-                logger.info(f"🔥 FQ SAMPLER: Found connectome manager with {len(self.connectome_manager.cortical_areas)} cortical areas")
-                # Vectorized cortical area processing
-                area_items = list(self.connectome_manager.cortical_areas.items())
-                area_ids = [item[0] for item in area_items]
-                area_objs = [item[1] for item in area_items]
+                total_areas = len(self.connectome_manager.cortical_areas)
+                logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Checking {total_areas} cortical areas for neural activity")
                 
-                # Vectorized visualization property checking
-                visualization_flags = []
-                for area_obj in area_objs:
+                # Check each cortical area for actual neural activity
+                for area_id in self.connectome_manager.cortical_areas.keys():
                     try:
-                        # Default to True (opt-out model)
-                        visualization_enabled = True
+                        # Check if this area has firing neurons
+                        area_data = None
+                        if hasattr(self.fire_queue_provider, 'get_area_fire_queue_zerocopy'):
+                            area_data = self.fire_queue_provider.get_area_fire_queue_zerocopy(area_id)
+                            logger.debug(f"🔥 FQ SAMPLER [{self.instance_id}]: get_area_fire_queue_zerocopy({area_id}) = {area_data}")
+                        elif hasattr(self.fire_queue_provider, 'get_area_fire_queue'):
+                            area_data = self.fire_queue_provider.get_area_fire_queue(area_id)
+                            logger.debug(f"🔥 FQ SAMPLER [{self.instance_id}]: get_area_fire_queue({area_id}) = {area_data}")
+                        else:
+                            logger.warning(f"🔥 FQ SAMPLER [{self.instance_id}]: Fire queue provider has no get_area_fire_queue method!")
+                            break
                         
-                        # Check if area properties explicitly disable visualization
-                        if hasattr(area_obj, 'properties') and area_obj.properties:
-                            visualization_enabled = area_obj.properties.get('visualization', True)
+                        # Only include areas with actual neuron activity
+                        if area_data and area_data.get('neuron_ids') and len(area_data['neuron_ids']) > 0:
+                            areas_with_activity.append(area_id)
+                            logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} has {len(area_data['neuron_ids'])} firing neurons")
+                        else:
+                            # Debug why area has no activity
+                            if not area_data:
+                                logger.debug(f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} - no area_data returned")
+                            elif not area_data.get('neuron_ids'):
+                                logger.debug(f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} - no neuron_ids in area_data: {area_data}")
+                            elif len(area_data['neuron_ids']) == 0:
+                                logger.debug(f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} - empty neuron_ids list")
                         
-                        visualization_flags.append(visualization_enabled)
-                    except Exception:
-                        # Default to include in case of error
-                        visualization_flags.append(True)
-                
-                # Vectorized filtering using NumPy
-                visualization_mask = np.array(visualization_flags)
-                enabled_indices = np.where(visualization_mask)[0]
-                
-                # Bulk addition to visualization areas
-                for idx in enabled_indices:
-                    area_id = area_ids[idx]
-                    logger.info(f"🔥 FQ SAMPLER: Area {area_id} included in visualization")
-                    visualization_areas.append(area_id)
-                
-                # Log excluded areas
-                excluded_indices = np.where(~visualization_mask)[0]
-                for idx in excluded_indices:
-                    area_id = area_ids[idx]
-                    logger.info(f"🔥 FQ SAMPLER: Area {area_id} excluded from visualization (visualization=false)")
+                    except Exception as e:
+                        logger.error(f"🔥 FQ SAMPLER [{self.instance_id}]: Error checking activity for area {area_id}: {e}")
+                        continue
             else:
-                logger.info(f"🔥 FQ SAMPLER: Connectome manager has no cortical_areas attribute")
+                logger.error(f"🔥 FQ SAMPLER [{self.instance_id}]: Connectome manager has no cortical_areas attribute!")
+            
+            logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Found {len(areas_with_activity)} areas with neural activity: {areas_with_activity}")
+            
+            # STEP 2: Among active areas, filter by visualization properties
+            for area_id in areas_with_activity:
+                try:
+                    area_obj = self.connectome_manager.cortical_areas.get(area_id)
+                    if not area_obj:
+                        # If no area object, default to include (backward compatibility)
+                        visualization_areas.append(area_id)
+                        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} included (no area object, defaulting to visible)")
+                        continue
+                    
+                    # Check visualization property (default to True - opt-out model)
+                    visualization_enabled = True
+                    if hasattr(area_obj, 'properties') and area_obj.properties:
+                        visualization_enabled = area_obj.properties.get('visualization', True)
+                    
+                    if visualization_enabled:
+                        visualization_areas.append(area_id)
+                        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} included (has activity + visualization enabled)")
+                    else:
+                        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} excluded (has activity but visualization=false)")
+                        
+                except Exception as e:
+                    # Default to include in case of error
+                    visualization_areas.append(area_id)
+                    logger.warning(f"🔥 FQ SAMPLER [{self.instance_id}]: Error checking visualization for area {area_id}: {e}, defaulting to include")
                         
         except Exception as e:
-            logger.error(f"🔥 FQ SAMPLER: Error getting visualization areas: {e}")
+            logger.error(f"🔥 FQ SAMPLER [{self.instance_id}]: Error getting visualization areas: {e}")
             
-        logger.info(f"🔥 FQ SAMPLER: Final visualization areas list: {visualization_areas}")
+        logger.info(f"🔥 FQ SAMPLER [{self.instance_id}]: Final visualization areas list: {visualization_areas}")
         return visualization_areas
 
     def _get_all_areas(self) -> List[str]:

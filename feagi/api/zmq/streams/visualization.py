@@ -51,6 +51,9 @@ from feagi.utils.zmq_debug import log_outbound, MessageType
 from feagi.utils.compression import create_lz4_compressor
 from ...core.services.core_api_service import CoreAPIService
 
+# CRITICAL FIX: Import numpy at module level to prevent scoping issues
+import numpy as np
+
 logger = setup_logger(__name__)
 
 
@@ -152,6 +155,14 @@ class VisualizationStream:
         
         # Sample rate for data processing timing
         self.sample_rate = 30.0  # 30 Hz default sample rate
+
+        # State management
+        self.running = False
+        self._stop_event = threading.Event()
+        self._client_lock = threading.Lock()
+        
+        # Add flag to prevent duplicate logging
+        self._fq_sampler_unavailable_logged = False
 
     def _setup_socket(self) -> None:
         """Set up the ZMQ PUB socket with optimal settings."""
@@ -332,7 +343,10 @@ class VisualizationStream:
                             logger.info(f"🎨 Visualization FQ sampler dependency resolved: {viz_fq_sampler.instance_id}")
                         else:
                             # RTOS: Log dependency failure but continue (fail gracefully)
-                            logger.debug("🔧 Visualization FQ sampler not available - visualization disabled")
+                            # Only log once to prevent spam
+                            if not self._fq_sampler_unavailable_logged:
+                                logger.debug("🔧 Visualization FQ sampler not available - visualization disabled")
+                                self._fq_sampler_unavailable_logged = True
                     else:
                         # RTOS: Dependency injection failure - this should be caught at startup
                         logger.warning("⚠️ Process manager not available - visualization stream dependency not satisfied")
@@ -826,7 +840,6 @@ class VisualizationStream:
         try:
             # Encode using feagi_data_processing binary format - USE HIGH-PERFORMANCE NUMPY APPROACH
             import feagi_data_processing as fdp
-            import numpy as np
             
             # Create the main mapped neuron data container
             generated_mapped_neuron_data = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()

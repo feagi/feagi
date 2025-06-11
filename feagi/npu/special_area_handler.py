@@ -25,6 +25,7 @@ during neural simulation, such as power areas that inject neurons into the FCL.
 """
 
 import time
+import numpy as np
 from typing import Dict, List, Optional, Set, Any, Union
 from dataclasses import dataclass
 from collections import defaultdict
@@ -87,10 +88,93 @@ class SpecialAreaHandler:
             # Direct access to cortical_idx=1 (core power area ___pwr)
             power_neurons = self.connectome_manager.get_neurons_by_cortical_idx(1)
             
-            # DEBUG level logging to avoid log spam during burst cycles
-            if power_neurons:
-                logger.debug(f"[POWER DETECTION] Found {len(power_neurons)} power area neurons: {power_neurons}")
-            else:
+            # 🚨 CRITICAL DEBUG: Trace neuron corruption issue
+            if power_neurons and len(power_neurons) != 1:
+                logger.error(f"🚨 POWER NEURON CORRUPTION DETECTED!")
+                logger.error(f"   Expected: 1 neuron (as per essential genome: 1 neuron/voxel × 1×1×1 voxels)")
+                logger.error(f"   Found: {len(power_neurons)} neurons in cortical_idx=1")
+                logger.error(f"   Neuron IDs: {power_neurons[:20]}...")  # Show first 20
+                
+                # Check cortical area mapping - is cortical_idx=1 actually ___pwr?
+                try:
+                    if hasattr(self.connectome_manager, 'cortical_areas'):
+                        logger.error(f"🔍 MAPPING VERIFICATION:")
+                        
+                        # Find what area cortical_idx=1 maps to
+                        for area_id, area_obj in self.connectome_manager.cortical_areas.items():
+                            if hasattr(area_obj, 'cortical_idx') and area_obj.cortical_idx == 1:
+                                logger.error(f"   cortical_idx=1 maps to area_id='{area_id}'")
+                                logger.error(f"   Area name: {getattr(area_obj, 'name', 'unknown')}")
+                                logger.error(f"   Area dimensions: {getattr(area_obj, 'dimensions', 'unknown')}")
+                                logger.error(f"   Area position: {getattr(area_obj, 'position', 'unknown')}")
+                                
+                                # Check if this is really the power area
+                                if area_id != "___pwr":
+                                    logger.error(f"🚨 CRITICAL: cortical_idx=1 maps to '{area_id}', NOT '___pwr'!")
+                                    logger.error(f"   This indicates severe cortical mapping corruption during neurogenesis")
+                                break
+                        else:
+                            logger.error(f"🚨 CRITICAL: No area found with cortical_idx=1!")
+                            
+                        # Also check where ___pwr actually maps to
+                        for area_id, area_obj in self.connectome_manager.cortical_areas.items():
+                            if area_id == "___pwr":
+                                actual_cortical_idx = getattr(area_obj, 'cortical_idx', 'unknown')
+                                logger.error(f"   '___pwr' area maps to cortical_idx={actual_cortical_idx}")
+                                if actual_cortical_idx != 1:
+                                    logger.error(f"🚨 CRITICAL: '___pwr' has wrong cortical_idx! Expected 1, got {actual_cortical_idx}")
+                                break
+                        else:
+                            logger.error(f"🚨 CRITICAL: '___pwr' area not found in cortical_areas!")
+                    
+                    # Check individual neuron cortical assignments
+                    if hasattr(self.connectome_manager, 'neuron_array') and len(power_neurons) > 0:
+                        logger.error(f"🔍 NEURON ANALYSIS:")
+                        neuron_array = self.connectome_manager.neuron_array
+                        
+                        # Sample first 10 neurons to check their actual cortical assignments
+                        sample_neurons = power_neurons[:10]
+                        for neuron_id in sample_neurons:
+                            try:
+                                if hasattr(neuron_array, 'cortical_idxs') and neuron_id < len(neuron_array.cortical_idxs):
+                                    actual_cortical_idx = neuron_array.cortical_idxs[neuron_id]
+                                    logger.error(f"   Neuron {neuron_id}: cortical_idx={actual_cortical_idx}")
+                                    if actual_cortical_idx != 1:
+                                        logger.error(f"🚨 Neuron {neuron_id} has wrong cortical_idx! Expected 1, got {actual_cortical_idx}")
+                            except Exception as e:
+                                logger.error(f"   Error checking neuron {neuron_id}: {e}")
+                        
+                        # Check for duplicate cortical_idx assignments
+                        if hasattr(neuron_array, 'cortical_idxs'):
+                            idx_1_count = sum(1 for idx in neuron_array.cortical_idxs if idx == 1)
+                            logger.error(f"   Total neurons with cortical_idx=1: {idx_1_count}")
+                            if idx_1_count != len(power_neurons):
+                                logger.error(f"🚨 MISMATCH: get_neurons_by_cortical_idx(1) returned {len(power_neurons)} but neuron_array has {idx_1_count} with cortical_idx=1")
+                        
+                except Exception as debug_error:
+                    logger.error(f"Error during corruption debug: {debug_error}")
+                
+                # Write corruption report to file for detailed analysis
+                try:
+                    import json
+                    import time
+                    corruption_report = {
+                        "timestamp": time.time(),
+                        "expected_neurons": 1,
+                        "found_neurons": len(power_neurons),
+                        "neuron_ids": power_neurons,
+                        "issue": "Power area has wrong number of neurons - indicates neurogenesis corruption"
+                    }
+                    with open("/tmp/power_neuron_corruption_report.json", "w") as f:
+                        json.dump(corruption_report, f, indent=2)
+                    logger.error(f"🔍 Detailed corruption report written to /tmp/power_neuron_corruption_report.json")
+                except Exception as e:
+                    logger.error(f"Failed to write corruption report: {e}")
+            
+            # Normal logging for expected case
+            if power_neurons and len(power_neurons) == 1:
+                logger.debug(f"[POWER DETECTION] ✅ Found correct number of power neurons: {len(power_neurons)} (neuron IDs: {power_neurons})")
+            elif not power_neurons:
                 logger.debug(f"[POWER DETECTION] No neurons found in core power area (cortical_idx=1)")
                 
             return power_neurons if power_neurons else []

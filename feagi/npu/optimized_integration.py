@@ -24,6 +24,7 @@ implementations when optimized versions are not available.
 
 import logging
 from typing import Dict, List, Optional, Set, Tuple, Union, Any
+import numpy as np
 
 # Try to import optimized structures
 try:
