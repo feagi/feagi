@@ -237,11 +237,18 @@ if NUMBA_AVAILABLE:
     @njit(parallel=True, fastmath=True)
     def simd_membrane_decay(potentials: np.ndarray, decay_rates: np.ndarray, 
                            valid_mask: np.ndarray) -> None:
-        """SIMD-optimized membrane potential decay."""
-        n = potentials.shape[0]
-        for i in prange(n):
-            if valid_mask[i]:
-                potentials[i] *= decay_rates[i]
+        # CRITICAL FIX: Ensure all arrays have compatible sizes before broadcast operations
+        min_size = min(len(potentials), len(decay_rates), len(valid_mask))
+        if min_size == 0:
+            return
+        
+        # CRITICAL FIX: Create bounds-safe mask instead of slicing arrays (which creates unstable views)
+        # Only apply to neurons within the safe bounds of all arrays
+        safe_bounds_mask = np.arange(len(valid_mask)) < min_size
+        combined_mask = valid_mask & safe_bounds_mask
+        
+        # Apply decay only to valid neurons within safe bounds - no array slicing
+        potentials[combined_mask] *= decay_rates[combined_mask]
     
     @njit(parallel=True, fastmath=True)
     def simd_refractory_update(refractory_counters: np.ndarray, 
@@ -290,7 +297,18 @@ else:
     # Fallback implementations
     def simd_membrane_decay(potentials: np.ndarray, decay_rates: np.ndarray, 
                            valid_mask: np.ndarray) -> None:
-        potentials[valid_mask] *= decay_rates[valid_mask]
+        # CRITICAL FIX: Ensure all arrays have compatible sizes before broadcast operations
+        min_size = min(len(potentials), len(decay_rates), len(valid_mask))
+        if min_size == 0:
+            return
+        
+        # CRITICAL FIX: Create bounds-safe mask instead of slicing arrays (which creates unstable views)
+        # Only apply to neurons within the safe bounds of all arrays
+        safe_bounds_mask = np.arange(len(valid_mask)) < min_size
+        combined_mask = valid_mask & safe_bounds_mask
+        
+        # Apply decay only to valid neurons within safe bounds - no array slicing
+        potentials[combined_mask] *= decay_rates[combined_mask]
     
     def simd_refractory_update(refractory_counters: np.ndarray, 
                               valid_mask: np.ndarray) -> None:
@@ -300,15 +318,35 @@ else:
     def simd_threshold_check(potentials: np.ndarray, thresholds: np.ndarray, 
                             refractory_counters: np.ndarray, valid_mask: np.ndarray,
                             fired_mask: np.ndarray) -> None:
-        can_fire = valid_mask & (refractory_counters == 0)
+        # CRITICAL FIX: Ensure all arrays have compatible sizes
+        min_size = min(len(potentials), len(thresholds), len(refractory_counters), len(valid_mask), len(fired_mask))
+        if min_size == 0:
+            fired_mask[:] = False
+            return
+        
+        # CRITICAL FIX: Use bounds-safe mask instead of array slicing
+        safe_bounds_mask = np.arange(len(valid_mask)) < min_size
+        safe_valid_mask = valid_mask & safe_bounds_mask
+        can_fire = safe_valid_mask & (refractory_counters[:min_size] == 0)
+        
         fired_mask[:] = False
         fired_mask[can_fire] = potentials[can_fire] >= thresholds[can_fire]
     
     def simd_fire_neurons(potentials: np.ndarray, resting_potentials: np.ndarray,
                          refractory_counters: np.ndarray, refractory_periods: np.ndarray,
                          fired_mask: np.ndarray) -> None:
-        potentials[fired_mask] = resting_potentials[fired_mask]
-        refractory_counters[fired_mask] = refractory_periods[fired_mask]
+        # CRITICAL FIX: Ensure all arrays have compatible sizes
+        min_size = min(len(potentials), len(resting_potentials), len(refractory_counters), 
+                      len(refractory_periods), len(fired_mask))
+        if min_size == 0:
+            return
+        
+        # CRITICAL FIX: Use bounds-safe mask instead of array slicing
+        safe_bounds_mask = np.arange(len(fired_mask)) < min_size
+        safe_fired_mask = fired_mask & safe_bounds_mask
+        
+        potentials[safe_fired_mask] = resting_potentials[safe_fired_mask]
+        refractory_counters[safe_fired_mask] = refractory_periods[safe_fired_mask]
     
     def simd_synaptic_integration(targets: np.ndarray, weights: np.ndarray, 
                                  potentials: np.ndarray) -> None:
@@ -1543,16 +1581,58 @@ class NeuronArray:
                 valid_mask = self.backend.to_numpy(self.valid_mask)
                 # MEMORY SAFETY: Bounds check for valid_mask updates
                 numpy_indices = idx_array[:safe_count]
-                if len(numpy_indices) > 0 and np.max(numpy_indices) < len(valid_mask):
+                
+                # CRITICAL FIX: Validate valid_mask array integrity before update
+                if not isinstance(valid_mask, np.ndarray):
+                    raise RuntimeError("valid_mask is not a numpy array, memory corruption detected")
+                
+                if len(valid_mask) != self.aligned_capacity:
+                    raise RuntimeError(f"valid_mask size mismatch: expected {self.aligned_capacity}, got {len(valid_mask)}")
+                
+                # CRITICAL FIX: Only update indices that are within bounds
+                if len(numpy_indices) > 0:
+                    max_idx = np.max(numpy_indices)
+                    if max_idx >= len(valid_mask):
+                        raise ValueError(f"Valid mask update would be out of bounds: max_idx={max_idx}, mask_size={len(valid_mask)}")
+                    
+                    # Ensure valid_mask is writable and not a read-only view
+                    if not valid_mask.flags.writeable:
+                        valid_mask = valid_mask.copy()
+                    
+                    # Safe update with bounds-checked indices
                     valid_mask[numpy_indices] = True
                     self.valid_mask = self.backend.array(valid_mask)
                 else:
-                    raise ValueError(f"Valid mask update would be out of bounds: max_idx={np.max(numpy_indices) if len(numpy_indices) > 0 else 0}, mask_size={len(valid_mask)}")
+                    # No indices to update, but ensure valid_mask remains consistent
+                    self.valid_mask = self.backend.array(valid_mask)
                 
             except Exception as e:
                 raise RuntimeError(f"PyTorch tensor operation failed during neuron creation: {e}. This may indicate memory corruption or incompatible tensor shapes.")
         else:
-            # For NumPy arrays, use standard indexing
+            # For NumPy arrays, use standard indexing with CRITICAL BOUNDS CHECKING
+            # MEMORY SAFETY: Validate all array operations to prevent corruption
+            if len(idx_array) > 0:
+                max_idx = np.max(idx_array)
+                if max_idx >= len(self.membrane_potentials):
+                    raise ValueError(f"Index out of bounds in NumPy path: max_idx={max_idx}, array_size={len(self.membrane_potentials)}")
+                
+                min_idx = np.min(idx_array)
+                if min_idx < 0:
+                    raise ValueError(f"Negative index in NumPy path: min_idx={min_idx}")
+            
+            # CRITICAL FIX: Validate array sizes before assignment
+            expected_size = len(idx_array)
+            if (len(membrane_potentials) != expected_size or 
+                len(resting_potentials) != expected_size or
+                len(thresholds) != expected_size or
+                len(decay_rates) != expected_size or
+                len(refractory_periods) != expected_size or
+                len(coordinates_x) != expected_size or
+                len(coordinates_y) != expected_size or
+                len(coordinates_z) != expected_size):
+                raise ValueError(f"Array size mismatch in NumPy path: expected {expected_size}")
+            
+            # Safe array updates with bounds checking
             self.membrane_potentials[idx_array] = membrane_potentials
             self.resting_potentials[idx_array] = resting_potentials
             self.thresholds[idx_array] = thresholds
@@ -1562,7 +1642,18 @@ class NeuronArray:
             self.coordinates_y[idx_array] = coordinates_y
             self.coordinates_z[idx_array] = coordinates_z
             self.cortical_idxs[idx_array] = cortical_idx
-            self.valid_mask[idx_array] = True
+            
+            # CRITICAL FIX: Safe valid_mask update with bounds checking
+            if len(idx_array) > 0:
+                max_idx = np.max(idx_array)
+                if max_idx >= len(self.valid_mask):
+                    raise ValueError(f"Valid mask index out of bounds: max_idx={max_idx}, mask_size={len(self.valid_mask)}")
+                
+                # Ensure valid_mask is writable
+                if not self.valid_mask.flags.writeable:
+                    raise RuntimeError("valid_mask is not writable, memory corruption detected")
+                
+                self.valid_mask[idx_array] = True
         
         # Update mappings
         for i, neuron_id in enumerate(neuron_ids):
