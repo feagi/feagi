@@ -424,8 +424,14 @@ class CorticalAreaAPI:
             Dict keyed by cortical_id containing complete cortical area data
         """
         try:
-            # Get all cortical area IDs
+            # Get the list of cortical area IDs first (we know this works)
             cortical_ids = self.core_api_service.get_cortical_area_id_list()
+            
+            # If no cortical areas exist, return empty result
+            if not cortical_ids:
+                return {}
+            
+            # Build geometry data for each cortical area
             geometry_data = {}
             
             for cortical_id in cortical_ids:

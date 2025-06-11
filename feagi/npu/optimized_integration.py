@@ -180,13 +180,11 @@ def step_simulation_with_fire_queue(
         # Get current FCL neurons - all FCL objects support to_list()
         current_fcl = fcl.to_list()
         
-        # 1. Process each firing neuron
-        for neuron_id in current_fcl:
-            # Update source neuron parameters
-            # a. Reset membrane potential
-            gna.set_membrane_potential(neuron_id, 0.0)
-            
-            # b. Set refractory counter (handled in process_fired_neurons)
+        # 1. Process firing neurons using vectorized operations
+        if current_fcl:
+            # Vectorized membrane potential reset
+            current_fcl_array = np.array(current_fcl, dtype=np.int32)
+            gna.set_membrane_potentials_vectorized(current_fcl_array, 0.0)
             
             # Note: Consecutive fire count tracking would be added here in a full implementation
         

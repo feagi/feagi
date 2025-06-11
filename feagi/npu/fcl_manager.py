@@ -464,16 +464,23 @@ class FCLManager:
         # Track firing statistics
         burst_total = 0
         
-        # Process each cortical
-        for cortical_idx, neuron_ids in neurons_by_cortical.items():
-            # Convert to bitmap if needed
-            neuron_collection = NeuronCollection.from_any(neuron_ids)
-            cortical_bitmap = neuron_collection.to_bitmap()
-            
-            # Count neurons in this cortical
-            cortical_neuron_count = len(cortical_bitmap)
-            burst_total += cortical_neuron_count
-            self.neurons_per_cortical[cortical_idx] = cortical_neuron_count
+        # Process cortical areas using vectorized operations
+        cortical_indices = list(neurons_by_cortical.keys())
+        neuron_collections = [neurons_by_cortical[idx] for idx in cortical_indices]
+        
+        # Vectorized bitmap conversion
+        cortical_bitmaps = [NeuronCollection.from_any(neurons).to_bitmap() for neurons in neuron_collections]
+        cortical_neuron_counts = np.array([len(bitmap) for bitmap in cortical_bitmaps])
+        
+        # Bulk update neuron counts
+        for idx, cortical_idx in enumerate(cortical_indices):
+            self.neurons_per_cortical[cortical_idx] = cortical_neuron_counts[idx]
+        
+        burst_total = int(np.sum(cortical_neuron_counts))
+        
+        # Process each cortical area efficiently
+        for idx, cortical_idx in enumerate(cortical_indices):
+            cortical_bitmap = cortical_bitmaps[idx]
             
             # Check if this is a memory cortical with custom window size
             if self.is_memory_cortical(cortical_idx):

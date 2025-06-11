@@ -358,124 +358,133 @@ def setup_logger(
             return f"{status_block}  {timestamp} {tag_str}{message}"
 
     logger = logging.getLogger(name)
-    logger.setLevel(final_level)
-    logger.handlers.clear()
-    logger.propagate = False
+    
+    # CRITICAL FIX: Only configure logger if not already configured
+    # This prevents duplicate handlers when setup_logger is called multiple times
+    if not logger.handlers or len(logger.handlers) == 0:
+        logger.setLevel(final_level)
+        logger.propagate = False
 
-    formatter = ASCIIFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+        formatter = ASCIIFormatter(datefmt="%Y-%m-%d %H:%M:%S")
 
-    # ALWAYS create a log file in feagi_core/feagi/logs/run_TIMESTAMP/ directory
-    try:
-        # Get the feagi_core directory - look for it in the current working directory or parents
-        feagi_core_dir = None
-        current_path = Path.cwd()
-        
-        # Look for feagi_core directory up the directory tree
-        for path in [current_path] + list(current_path.parents):
-            potential_feagi_core = path / "feagi_core"
-            if potential_feagi_core.exists() and potential_feagi_core.is_dir():
-                feagi_core_dir = potential_feagi_core
-                break
-        
-        # If not found, check if we're already in feagi_core
-        if feagi_core_dir is None and current_path.name == "feagi_core":
-            feagi_core_dir = current_path
-        
-        # If still not found, use current directory
-        if feagi_core_dir is None:
-            feagi_core_dir = current_path
-        
-        # Create base logs directory under feagi/
-        base_logs_dir = feagi_core_dir / "feagi" / "logs"
-        base_logs_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Create run-specific directory
-        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_dir = base_logs_dir / f"run_{run_timestamp}"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Generate timestamped log filename
-        file_timestamp = datetime.now().strftime("%H%M%S")
-        
-        # Use provided log_file or generate one based on logger name
-        if log_file:
-            log_filename = Path(log_file).name
-        else:
-            safe_name = name.replace(".", "_").replace("/", "_")
-            log_filename = f"{safe_name}_{file_timestamp}.log"
-        
-        # Full path for the log file
-        full_log_path = run_dir / log_filename
-        
-        # Create file handler
-        file_handler = logging.FileHandler(full_log_path, encoding='utf-8')
-        file_handler.setLevel(final_level)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        
-        # Create a symlink to "latest" run for easy access
-        latest_run_link = base_logs_dir / "latest_run"
+        # ALWAYS create a log file in feagi_core/feagi/logs/run_TIMESTAMP/ directory
         try:
-            if latest_run_link.exists() or latest_run_link.is_symlink():
-                latest_run_link.unlink()
-            latest_run_link.symlink_to(f"run_{run_timestamp}")
-        except (OSError, NotImplementedError):
-            # Symlinks might not be supported on all platforms
-            pass
-        
-        # Create individual file symlink within the run directory
-        latest_file_link = run_dir / f"{safe_name}_latest.log"
-        try:
-            if latest_file_link.exists() or latest_file_link.is_symlink():
-                latest_file_link.unlink()
-            latest_file_link.symlink_to(log_filename)
-        except (OSError, NotImplementedError):
-            # Symlinks might not be supported on all platforms
-            pass
-        
-        # Store setup info for later display after CLI parsing
-        if console and name == "feagi":
-            if not _MAIN_LOGGER_SETUP_SHOWN:
-                # Store the setup information globally for later display
-                global _DEFERRED_SETUP_INFO
-                _DEFERRED_SETUP_INFO = {
-                    'run_dir': run_dir,
-                    'log_path': full_log_path,
-                    'formatter': formatter
-                }
-                _MAIN_LOGGER_SETUP_SHOWN = True
+            # Get the feagi_core directory - look for it in the current working directory or parents
+            feagi_core_dir = None
+            current_path = Path.cwd()
             
-    except Exception as e:
-        # If log file creation fails, just continue with console logging
-        if console and name == "feagi":
-            if not _MAIN_LOGGER_SETUP_SHOWN:
-                # Check if CLI override will suppress these messages
-                cli_level_str = os.environ.get('FEAGI_CLI_LOG_LEVEL')
-                should_show_warning = True
-                if cli_level_str:
-                    cli_level = getattr(logging, cli_level_str.upper(), logging.INFO)
-                    should_show_warning = cli_level <= logging.WARNING
-                else:
-                    # Use current final_level if no CLI override
-                    should_show_warning = final_level <= logging.WARNING
+            # Look for feagi_core directory up the directory tree
+            for path in [current_path] + list(current_path.parents):
+                potential_feagi_core = path / "feagi_core"
+                if potential_feagi_core.exists() and potential_feagi_core.is_dir():
+                    feagi_core_dir = potential_feagi_core
+                    break
+            
+            # If not found, check if we're already in feagi_core
+            if feagi_core_dir is None and current_path.name == "feagi_core":
+                feagi_core_dir = current_path
+            
+            # If still not found, use current directory
+            if feagi_core_dir is None:
+                feagi_core_dir = current_path
+            
+            # Create base logs directory under feagi/
+            base_logs_dir = feagi_core_dir / "feagi" / "logs"
+            base_logs_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create run-specific directory
+            run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_dir = base_logs_dir / f"run_{run_timestamp}"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate timestamped log filename
+            file_timestamp = datetime.now().strftime("%H%M%S")
+            
+            # Use provided log_file or generate one based on logger name
+            if log_file:
+                log_filename = Path(log_file).name
+            else:
+                safe_name = name.replace(".", "_").replace("/", "_")
+                log_filename = f"{safe_name}_{file_timestamp}.log"
+            
+            # Full path for the log file
+            full_log_path = run_dir / log_filename
+            
+            # Create file handler
+            file_handler = logging.FileHandler(full_log_path, encoding='utf-8')
+            file_handler.setLevel(final_level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+            
+            # Create a symlink to "latest" run for easy access
+            latest_run_link = base_logs_dir / "latest_run"
+            try:
+                if latest_run_link.exists() or latest_run_link.is_symlink():
+                    latest_run_link.unlink()
+                latest_run_link.symlink_to(f"run_{run_timestamp}")
+            except (OSError, NotImplementedError):
+                # Symlinks might not be supported on all platforms
+                pass
+            
+            # Create individual file symlink within the run directory
+            latest_file_link = run_dir / f"{safe_name}_latest.log"
+            try:
+                if latest_file_link.exists() or latest_file_link.is_symlink():
+                    latest_file_link.unlink()
+                latest_file_link.symlink_to(log_filename)
+            except (OSError, NotImplementedError):
+                # Symlinks might not be supported on all platforms
+                pass
+            
+            # Store setup info for later display after CLI parsing
+            if console and name == "feagi":
+                if not _MAIN_LOGGER_SETUP_SHOWN:
+                    # Store the setup information globally for later display
+                    global _DEFERRED_SETUP_INFO
+                    _DEFERRED_SETUP_INFO = {
+                        'run_dir': run_dir,
+                        'log_path': full_log_path,
+                        'formatter': formatter
+                    }
+                    _MAIN_LOGGER_SETUP_SHOWN = True
                 
-                if should_show_warning:
-                    temp_console = logging.StreamHandler(sys.stdout)
-                    temp_console.setFormatter(formatter)
-                    temp_logger = logging.getLogger("temp_setup")
-                    temp_logger.addHandler(temp_console)
-                    temp_logger.setLevel(final_level)  # Use the same level as final_level
-                    temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
-                    temp_adapter.warning(f"Failed to create log file: {e}", status="[WARN]")
-                    temp_logger.removeHandler(temp_console)
-                _MAIN_LOGGER_SETUP_SHOWN = True
+        except Exception as e:
+            # If log file creation fails, just continue with console logging
+            if console and name == "feagi":
+                if not _MAIN_LOGGER_SETUP_SHOWN:
+                    # Check if CLI override will suppress these messages
+                    cli_level_str = os.environ.get('FEAGI_CLI_LOG_LEVEL')
+                    should_show_warning = True
+                    if cli_level_str:
+                        cli_level = getattr(logging, cli_level_str.upper(), logging.INFO)
+                        should_show_warning = cli_level <= logging.WARNING
+                    else:
+                        # Use current final_level if no CLI override
+                        should_show_warning = final_level <= logging.WARNING
+                    
+                    if should_show_warning:
+                        temp_console = logging.StreamHandler(sys.stdout)
+                        temp_console.setFormatter(formatter)
+                        temp_logger = logging.getLogger("temp_setup")
+                        temp_logger.addHandler(temp_console)
+                        temp_logger.setLevel(final_level)  # Use the same level as final_level
+                        temp_adapter = StatusAdapter(temp_logger, {"label": "logger_setup"})
+                        temp_adapter.warning(f"Failed to create log file: {e}", status="[WARN]")
+                        temp_logger.removeHandler(temp_console)
+                    _MAIN_LOGGER_SETUP_SHOWN = True
 
-    # Add console handler if requested
-    if console:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(final_level)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+        # Add console handler if requested
+        if console:
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setLevel(final_level)
+            console_handler.setFormatter(formatter)
+            logger.addHandler(console_handler)
+    else:
+        # Logger already configured - just update level if provided explicitly
+        if level is not None:
+            logger.setLevel(level)
+            for handler in logger.handlers:
+                handler.setLevel(level)
 
     return StatusAdapter(logger, {"label": tag or name})
 

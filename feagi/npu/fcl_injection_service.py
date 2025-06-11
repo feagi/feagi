@@ -139,36 +139,41 @@ class FCLInjectionService:
             
             logger.info(f"Preparing injection batches for {len(power_neurons)} power areas: {list(power_neurons.keys())}")
             
-            # Create injection batches for each power area
-            for cortical_id, neuron_ids in power_neurons.items():
-                logger.debug(f"Processing power area {cortical_id} with {len(neuron_ids)} neurons")
+            # Create injection batches using vectorized operation
+            cortical_ids = list(power_neurons.keys())
+            if cortical_ids:
+                # Vectorized config validation
+                configs = [self.special_area_handler.get_special_config(cid) for cid in cortical_ids]
+                enabled_mask = [config and config.enabled for config in configs]
                 
-                config = self.special_area_handler.get_special_config(cortical_id)
-                if not config:
-                    logger.warning(f"No config found for power area {cortical_id}")
-                    continue
-                if not config.enabled:
-                    logger.info(f"Power area {cortical_id} is disabled, skipping")
-                    continue
+                # Filter to enabled power areas only
+                enabled_indices = np.where(enabled_mask)[0]
                 
-                # Determine timing
-                timing_str = config.injection_timing
-                try:
-                    timing = InjectionTiming(timing_str)
-                    logger.debug(f"Power area {cortical_id} uses {timing_str} timing")
-                except ValueError:
-                    logger.warning(f"Invalid injection timing '{timing_str}' for area {cortical_id}, using PRE_BURST")
-                    timing = InjectionTiming.PRE_BURST
-                
-                # Create single batch (simplified - no batch splitting needed for core power area)
-                batch = InjectionBatch(
-                    cortical_id=cortical_id,
-                    neuron_ids=neuron_ids.copy(),
-                    timing=timing,
-                    probability=config.injection_probability
-                )
-                self._injection_batches[timing].append(batch)
-                logger.info(f"Created batch for {cortical_id}: {len(neuron_ids)} neurons, timing={timing.value}, prob={config.injection_probability}")
+                for idx in enabled_indices:
+                    cortical_id = cortical_ids[idx]
+                    neuron_ids = power_neurons[cortical_id]
+                    config = configs[idx]
+                    
+                    logger.debug(f"Processing power area {cortical_id} with {len(neuron_ids)} neurons")
+                    
+                    # Determine timing
+                    timing_str = config.injection_timing
+                    try:
+                        timing = InjectionTiming(timing_str)
+                        logger.debug(f"Power area {cortical_id} uses {timing_str} timing")
+                    except ValueError:
+                        logger.warning(f"Invalid injection timing '{timing_str}' for area {cortical_id}, using PRE_BURST")
+                        timing = InjectionTiming.PRE_BURST
+                    
+                    # Create single batch (simplified - no batch splitting needed for core power area)
+                    batch = InjectionBatch(
+                        cortical_id=cortical_id,
+                        neuron_ids=neuron_ids.copy(),
+                        timing=timing,
+                        probability=config.injection_probability
+                    )
+                    self._injection_batches[timing].append(batch)
+                    logger.info(f"Created batch for {cortical_id}: {len(neuron_ids)} neurons, timing={timing.value}, prob={config.injection_probability}")
             
             # Log preparation results
             total_batches = sum(len(batches) for batches in self._injection_batches.values())

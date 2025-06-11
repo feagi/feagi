@@ -33,7 +33,7 @@ MIGRATION PATH: Python → Rust
 """
 import asyncio
 from feagi.utils.logger import setup_logger
-logger = setup_logger(name="Process Manager")
+logger = setup_logger(name="feagi.process_manager")
 
 import os
 import signal
@@ -92,11 +92,6 @@ class ProcessManager:
         
         # Add startup phase tracking
         self._startup_phase = True  # True during initial startup, False during runtime
-        
-        # Set up logging
-        from feagi.utils.logger import setup_logger
-        global logger
-        logger = setup_logger("feagi.process_manager")
         
         logger.info("[SINGLETON] ProcessManager initialized")
         

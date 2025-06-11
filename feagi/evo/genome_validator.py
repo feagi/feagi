@@ -122,84 +122,115 @@ def morphology_validator(genome):
     return genome_validity
 
 
-def blueprint_validator(genome):
-    valid_genome = False
-    blueprint = genome["blueprint"]
-    try:
-        neuron_morphologies = genome["neuron_morphologies"]
-        cortical_list = cortical_list_gen(blueprint)
-        valid_genome = True
-    except KeyError as e:
-        logger.error(f'Error during blueprint validation: {e}')
-
-    def gene_segments(gene_):
-        guide = \
-            genome_properties["structure"]["segment_guide"].split(genome_properties["structure"]["segment_seperator"])
-        segments = gene_.split(genome_properties["structure"]["segment_seperator"])
-        if len(segments) != genome_properties["structure"]["segment_count"]:
+def _gene_segments_validator(gene_, verbose=True):
+    """Validate gene segment structure. Returns True if valid, False otherwise."""
+    guide = genome_properties["structure"]["segment_guide"].split(genome_properties["structure"]["segment_seperator"])
+    segments = gene_.split(genome_properties["structure"]["segment_seperator"])
+    
+    if len(segments) != genome_properties["structure"]["segment_count"]:
+        if verbose:
             logger.error(f'INVALID GENE STRUCTURE: {gene_}')
             logger.error(f'  → PROBLEM: Gene has {len(segments)} segments but requires exactly {genome_properties["structure"]["segment_count"]} segments')
             logger.error(f'  → EXPECTED FORMAT: {genome_properties["structure"]["segment_seperator"].join(guide)}')
             logger.error(f'  → CURRENT SEGMENTS: {segments}')
             logger.error(f'  → FIX: Ensure gene follows proper segment structure with {genome_properties["structure"]["segment_seperator"]} separators')
-            return False
+        return False
 
-        for index in range(len(guide)):
-            if len(guide[index]) != len(segments[index]):
+    for index in range(len(guide)):
+        if len(guide[index]) != len(segments[index]):
+            if verbose:
                 logger.error(f'INVALID SEGMENT LENGTH: {gene_}')
                 logger.error(f'  → PROBLEM: Segment "{segments[index]}" has length {len(segments[index])} but requires length {len(guide[index])}')
                 logger.error(f'  → EXPECTED: Segment {index+1} should be "{guide[index]}" (length {len(guide[index])})')
                 logger.error(f'  → CURRENT: Segment {index+1} is "{segments[index]}" (length {len(segments[index])})')
                 logger.error(f'  → FIX: Adjust segment length to match expected format')
-                return False
+            return False
 
-        return True
+    return True
 
-    def destination_rules(gene_):
-        segments = gene_.split(genome_properties["structure"]["segment_seperator"])
-        if segments[3] == "dstmap":
-            for destination in blueprint[gene_]:
-                # Check for a valid destination cortical area reference
-                if destination not in cortical_list:
+
+def _destination_rules_validator(gene_, blueprint, cortical_list, neuron_morphologies, verbose=True):
+    """Validate destination rules for a gene. Returns True if valid, False otherwise."""
+    segments = gene_.split(genome_properties["structure"]["segment_seperator"])
+    if segments[3] == "dstmap":
+        for destination in blueprint[gene_]:
+            # Check for a valid destination cortical area reference
+            if destination not in cortical_list:
+                if verbose:
                     logger.error(f'INVALID DESTINATION CORTICAL AREA: {gene_}')
                     logger.error(f'  → PROBLEM: Destination "{destination}" does not exist in the genome')
                     logger.error(f'  → AVAILABLE AREAS: {sorted(list(cortical_list))}')
                     logger.error(f'  → FIX: Use an existing cortical area ID or define the cortical area "{destination}" first')
-                    return False
+                return False
 
-                # Check for a valid destination rule usage
-                for rule in blueprint[gene_][destination]:
-                    if rule[0] not in neuron_morphologies:
+            # Check for a valid destination rule usage
+            for rule in blueprint[gene_][destination]:
+                if rule[0] not in neuron_morphologies:
+                    if verbose:
                         logger.error(f'INVALID MORPHOLOGY REFERENCE: {gene_}')
                         logger.error(f'  → PROBLEM: Morphology "{rule[0]}" is not defined in neuron_morphologies section')
                         logger.error(f'  → RULE: {rule}')
                         logger.error(f'  → AVAILABLE MORPHOLOGIES: {sorted(list(neuron_morphologies.keys()))}')
                         logger.error(f'  → FIX: Define morphology "{rule[0]}" in neuron_morphologies or use an existing morphology')
-                        return False
-        return True
+                    return False
+    return True
 
-    def special_areas(gene_):
-        segments = gene_.split(genome_properties["structure"]["segment_seperator"])
-        special_core_types = {"IPU", "OPU", "CORE"}
-        cortical_area = segments[1]
-        if segments[3] == "_group":
-            defined_cortical_type = blueprint[gene_]
-            
-            # CUSTOM areas are allowed with any cortical area ID - skip validation
-            if defined_cortical_type == "CUSTOM":
+
+def _special_areas_validator(gene_, blueprint, verbose=True):
+    """Validate special areas for a gene. Returns True if valid, False otherwise."""
+    segments = gene_.split(genome_properties["structure"]["segment_seperator"])
+    special_core_types = {"IPU", "OPU", "CORE"}
+    cortical_area = segments[1]
+    if segments[3] == "_group":
+        defined_cortical_type = blueprint[gene_]
+        
+        # CUSTOM areas are allowed with any cortical area ID - skip validation
+        if defined_cortical_type == "CUSTOM":
+            if verbose:
                 logger.info(f'CUSTOM AREA ALLOWED: {gene_} → Custom cortical area "{cortical_area}" with type "{defined_cortical_type}" is valid')
-                return True
-            
-            # For IPU, OPU, CORE types, check if cortical area ID is supported
-            if defined_cortical_type in special_core_types:
-                if cortical_area not in cortical_types[defined_cortical_type]["supported_devices"]:
+            return True
+        
+        # For IPU, OPU, CORE types, check if cortical area ID is supported
+        if defined_cortical_type in special_core_types:
+            if cortical_area not in cortical_types[defined_cortical_type]["supported_devices"]:
+                if verbose:
                     logger.error(f'UNSUPPORTED SPECIAL AREA: {gene_}')
                     logger.error(f'  → PROBLEM: Cortical area "{cortical_area}" is not supported for type "{defined_cortical_type}"')
                     logger.error(f'  → SUPPORTED AREAS FOR {defined_cortical_type}: {list(cortical_types[defined_cortical_type]["supported_devices"].keys())}')
                     logger.error(f'  → FIX: Use a supported cortical area ID or change the cortical type to CUSTOM')
-                    return False
+                return False
 
-        return True
+    return True
+
+
+def blueprint_validator(genome):
+    """
+    Responsible for validating integrity of genome by checking correctness of
+    segments and references.
+    
+    This function ensures:
+    - Gene structure follows expected format
+    - Destination cortical areas exist 
+    - Morphology references are valid
+    - Special area types are supported
+    """
+    try:
+        blueprint = genome["blueprint"]
+        neuron_morphologies = genome["neuron_morphologies"]
+        cortical_list = cortical_list_gen(blueprint)
+        valid_genome = True
+    except KeyError as e:
+        logger.error(f'Error during blueprint validation: {e}')
+        return False
+
+    def gene_segments(gene_):
+        return _gene_segments_validator(gene_)
+
+    def destination_rules(gene_):
+        return _destination_rules_validator(gene_, blueprint, cortical_list, neuron_morphologies)
+
+    def special_areas(gene_):
+        return _special_areas_validator(gene_, blueprint)
 
     # Skip invalid cortical area IDs with warnings instead of failing validation
     def check_cortical_area_validity():
@@ -1080,49 +1111,13 @@ def blueprint_validator_silent(genome):
         return False
 
     def gene_segments(gene_):
-        guide = \
-            genome_properties["structure"]["segment_guide"].split(genome_properties["structure"]["segment_seperator"])
-        segments = gene_.split(genome_properties["structure"]["segment_seperator"])
-        if len(segments) != genome_properties["structure"]["segment_count"]:
-            return False
-
-        for index in range(len(guide)):
-            if len(guide[index]) != len(segments[index]):
-                return False
-
-        return True
+        return _gene_segments_validator(gene_)
 
     def destination_rules(gene_):
-        segments = gene_.split(genome_properties["structure"]["segment_seperator"])
-        if segments[3] == "dstmap":
-            for destination in blueprint[gene_]:
-                # Check for a valid destination cortical area reference
-                if destination not in cortical_list:
-                    return False
-
-                # Check for a valid destination rule usage
-                for rule in blueprint[gene_][destination]:
-                    if rule[0] not in neuron_morphologies:
-                        return False
-        return True
+        return _destination_rules_validator(gene_, blueprint, cortical_list, neuron_morphologies)
 
     def special_areas(gene_):
-        segments = gene_.split(genome_properties["structure"]["segment_seperator"])
-        special_core_types = {"IPU", "OPU", "CORE"}
-        cortical_area = segments[1]
-        if segments[3] == "_group":
-            defined_cortical_type = blueprint[gene_]
-            
-            # CUSTOM areas are allowed with any cortical area ID - skip validation
-            if defined_cortical_type == "CUSTOM":
-                return True
-            
-            # For IPU, OPU, CORE types, check if cortical area ID is supported
-            if defined_cortical_type in special_core_types:
-                if cortical_area not in cortical_types[defined_cortical_type]["supported_devices"]:
-                    return False
-
-        return True
+        return _special_areas_validator(gene_, blueprint)
 
     # Check for invalid cortical areas but don't fail validation
     invalid_areas = []

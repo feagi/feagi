@@ -265,7 +265,14 @@ class UnifiedFQSampler:
         try:
             if hasattr(self.connectome_manager, 'cortical_areas'):
                 logger.info(f"🔥 FQ SAMPLER: Found connectome manager with {len(self.connectome_manager.cortical_areas)} cortical areas")
-                for area_id, area_obj in self.connectome_manager.cortical_areas.items():
+                # Vectorized cortical area processing
+                area_items = list(self.connectome_manager.cortical_areas.items())
+                area_ids = [item[0] for item in area_items]
+                area_objs = [item[1] for item in area_items]
+                
+                # Vectorized visualization property checking
+                visualization_flags = []
+                for area_obj in area_objs:
                     try:
                         # Default to True (opt-out model)
                         visualization_enabled = True
@@ -274,16 +281,26 @@ class UnifiedFQSampler:
                         if hasattr(area_obj, 'properties') and area_obj.properties:
                             visualization_enabled = area_obj.properties.get('visualization', True)
                         
-                        if visualization_enabled:
-                            logger.info(f"🔥 FQ SAMPLER: Area {area_id} included in visualization")
-                            visualization_areas.append(area_id)
-                        else:
-                            logger.info(f"🔥 FQ SAMPLER: Area {area_id} excluded from visualization (visualization=false)")
-                            
-                    except Exception as e:
-                        logger.info(f"🔥 FQ SAMPLER: Error checking area {area_id} for visualization: {e}")
+                        visualization_flags.append(visualization_enabled)
+                    except Exception:
                         # Default to include in case of error
-                        visualization_areas.append(area_id)
+                        visualization_flags.append(True)
+                
+                # Vectorized filtering using NumPy
+                visualization_mask = np.array(visualization_flags)
+                enabled_indices = np.where(visualization_mask)[0]
+                
+                # Bulk addition to visualization areas
+                for idx in enabled_indices:
+                    area_id = area_ids[idx]
+                    logger.info(f"🔥 FQ SAMPLER: Area {area_id} included in visualization")
+                    visualization_areas.append(area_id)
+                
+                # Log excluded areas
+                excluded_indices = np.where(~visualization_mask)[0]
+                for idx in excluded_indices:
+                    area_id = area_ids[idx]
+                    logger.info(f"🔥 FQ SAMPLER: Area {area_id} excluded from visualization (visualization=false)")
             else:
                 logger.info(f"🔥 FQ SAMPLER: Connectome manager has no cortical_areas attribute")
                         

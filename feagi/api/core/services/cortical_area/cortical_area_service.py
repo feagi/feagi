@@ -120,6 +120,7 @@ class CorticalAreaService(BaseService):
     def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
         """
         Map a cortical_id (6-character string) to its corresponding cortical_idx (integer).
+        Uses O(1) BiDirectionalCorticalMap instead of O(N) linear search.
         
         Args:
             cortical_id: 6-character string identifier
@@ -142,6 +143,7 @@ class CorticalAreaService(BaseService):
     def _get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
         """
         Map a cortical_idx (integer) to its corresponding cortical_id (6-character string).
+        Uses O(1) BiDirectionalCorticalMap instead of O(N) linear search.
         
         Args:
             cortical_idx: Integer index
@@ -149,17 +151,8 @@ class CorticalAreaService(BaseService):
         Returns:
             6-character string identifier if found, None otherwise
         """
-        try:
-            if not hasattr(self._connectome_manager, 'cortical_areas'):
-                return None
-                
-            area = self._connectome_manager.cortical_areas.get(cortical_idx)
-            if area and hasattr(area, 'cortical_id'):
-                return area.cortical_id
-            return None
-        except Exception as e:
-            self.logger.error(f"Error mapping cortical_idx {cortical_idx} to cortical_id: {str(e)}")
-            return None
+        # Use O(1) lookup from BiDirectionalCorticalMap - no more O(N) disaster!
+        return self._connectome_manager.get_cortical_id_for_idx(cortical_idx)
 
     def get_all_areas(self) -> List[Dict[str, Any]]:
         """Get all cortical areas."""
