@@ -52,6 +52,141 @@ thread_join_timeout = timeout_config.thread_join
 - `.join(timeout=\d+)` hardcoded values
 - `\.get(timeout=\d+)` for ZMQ operations
 
+## 🚨 CRITICAL: RTOS/GPU/SIMD COMPLIANCE ENFORCEMENT
+
+### ❌ FORBIDDEN ANTI-PATTERNS - NEVER ALLOW THESE:
+
+#### Python For-Loops in Hot Paths (Performance Disasters)
+- ❌ `for.*in.*cortical_areas.*items()` - O(N) linear search
+- ❌ `for.*neuron_id.*in.*id_to_index_map.*items()` - Dictionary iteration
+- ❌ `for.*area.*in.*areas.*if.*cortical_id.*==` - Linear search with comparison
+- ❌ `hasattr(.*cortical_id.*) and.*cortical_id.*==` - Attribute checking in loops
+
+#### Threading/Locking Anti-Patterns (RTOS Incompatible)
+- ❌ `import threading` in core neural processing paths
+- ❌ `with.*lock:` in burst engine or connectome manager
+- ❌ `threading.RLock()` or `threading.Lock()` in performance-critical code
+- ❌ `thread.join()` without timeout configuration
+
+#### Non-Vectorized Operations (SIMD Incompatible)
+- ❌ `for.*if.*condition.*array[i] =` - Scalar assignment in loops
+- ❌ Branching inside tight loops (`if` statements in `for` loops over arrays)
+- ❌ `list(.*\.items())` followed by loops instead of vectorized operations
+
+### ✅ REQUIRED RTOS/GPU/SIMD PATTERNS:
+
+#### Vectorized NumPy Operations
+```python
+# ✅ CORRECT: Vectorized operations
+indices = np.array(list(id_to_index_map.values()))
+valid_indices = indices[(indices >= 0) & (indices < max_len)]
+result_array[valid_indices] = True
+
+# ✅ CORRECT: O(1) hash lookups
+cortical_idx = cortical_mapping.get_idx(cortical_id)  # BiDirectionalCorticalMap
+```
+
+#### Lock-Free Atomic Operations
+```python
+# ✅ CORRECT: Atomic dictionary operations (no threading)
+mapping = self.__id_to_idx.get(cortical_id)  # Atomic read
+self.__id_to_idx[cortical_id] = cortical_idx  # Atomic write
+```
+
+#### GPU-Memory Layout Friendly
+```python
+# ✅ CORRECT: Contiguous memory, simple data structures
+positions = np.zeros((neuron_count, 3), dtype=np.float32)  # GPU-friendly
+cortical_mapping = Dict[str, int]  # Simple, transferable to GPU arrays
+```
+
+## 🔍 MANDATORY VERIFICATION PROTOCOLS
+
+### ❌ NEVER MAKE BROAD CLAIMS WITHOUT EVIDENCE
+**Before claiming "fixed", "compliant", or "optimized", MUST provide:**
+
+#### 1. Comprehensive Scan Results
+```bash
+# REQUIRED: Run these commands and show output
+grep -r "for.*cortical_areas.*items" feagi/npu/ feagi/bdu/ feagi/api/core/
+grep -r "threading\." feagi/npu/ feagi/bdu/
+grep -r "\.items()" feagi/npu/ | grep -E "(for|while)"
+```
+
+#### 2. Performance Verification
+```python
+# REQUIRED: Benchmark before/after for performance claims
+import time
+start = time.time()
+# ... operation ...
+duration = time.time() - start
+print(f"Operation took {duration:.4f}s for {item_count} items")
+```
+
+#### 3. Architecture Compliance Check
+```bash
+# REQUIRED: Run compliance tests
+cd feagi_core && pytest tests/system/test_architecture_compliance.py -v
+python -c "import ast; [print(f'{f}:{n.lineno}') for f in files for n in ast.walk(ast.parse(open(f).read())) if isinstance(n, ast.For)]"
+```
+
+### 🚫 FORBIDDEN OVERCONFIDENCE CLAIMS
+
+#### ❌ NEVER say these without verification:
+- "All violations fixed" → MUST show comprehensive scan results
+- "SIMD-compatible" → MUST show vectorized NumPy operations
+- "GPU-friendly" → MUST show memory layout analysis
+- "Throughout the codebase" → MUST specify exact directories scanned
+- "Performance optimized" → MUST show benchmark results
+
+#### ✅ REQUIRED Evidence-Based Claims:
+- "Fixed 3 violations in core_api_service.py (verified by grep)"
+- "Converted O(N) to O(1) in these 2 methods (benchmarked)"
+- "Scanned feagi/npu/ and feagi/bdu/ - found 0 threading imports"
+
+### 📋 INCREMENTAL VERIFICATION PROTOCOL
+
+#### Before proceeding to next fix:
+1. ✅ **Fix ONE violation**
+2. ✅ **Verify it's gone** (show grep/search results)
+3. ✅ **Test the fix** (show test passing)
+4. ✅ **Document the change** (one-line summary)
+5. ✅ **Only then proceed** to next violation
+
+#### NEVER batch fixes without individual verification
+
+### 🔄 SYSTEMATIC AUDIT REQUIREMENTS
+
+#### When claiming "compliance" - MUST show:
+```bash
+# Performance anti-pattern audit
+find feagi -name "*.py" -path "*/npu/*" -o -path "*/bdu/*" -o -path "*/api/core/*" | \
+  xargs grep -l "for.*cortical_areas\|for.*\.items()"
+
+# Threading violations audit
+find feagi -name "*.py" -path "*/npu/*" -o -path "*/bdu/*" | \
+  xargs grep -l "import threading\|threading\.\|with.*lock"
+
+# SIMD violations audit
+find feagi -name "*.py" -path "*/npu/*" -o -path "*/bdu/*" | \
+  xargs grep -A3 -B3 "for.*:" | grep -E "(if|elif).*array\[.*\].*="
+```
+
+### 🚨 STOP-AND-ASK TRIGGERS
+
+#### MUST ask permission before:
+- Adding more than 3 lines of new functionality
+- Modifying core neural processing algorithms
+- Adding any backward compatibility code
+- Implementing fallback patterns
+- Making architectural changes to data structures
+
+#### MUST get approval for claims about:
+- System-wide compliance status
+- Performance improvements without benchmarks
+- Architectural compatibility without evidence
+- "Fixed all violations" without comprehensive scans
+
 ## CRITICAL: Configuration System Usage
 
 ### ✅ ALWAYS import and use FEAGI configuration system
@@ -59,7 +194,7 @@ thread_join_timeout = timeout_config.thread_join
 # ✅ REQUIRED imports for any network/timeout configuration
 from feagi.config.toml_loader import (
     load_feagi_config,
-    get_host_config, 
+    get_host_config,
     get_timeout_config,
     get_port_config
 )
@@ -78,7 +213,7 @@ from feagi.config.toml_loader import (
 - NEVER hardcode shutdown timeouts
 - NEVER use `time.sleep()` with hardcoded values
 
-### api/gateway/api_gateway.py  
+### api/gateway/api_gateway.py
 - MUST use configuration system, not environment fallbacks
 - NEVER use `os.environ.get("HOST", "127.0.0.1")`
 - ALWAYS validate configuration before use
@@ -87,6 +222,17 @@ from feagi.config.toml_loader import (
 - MUST use `get_host_config()` for ZMQ hosts
 - MUST use `get_timeout_config()` for ZMQ timeouts
 - NEVER hardcode socket timeouts
+
+### npu/*.py files (Neural Processing)
+- MUST use O(1) lookups for cortical_id ↔ cortical_idx mapping
+- MUST use vectorized NumPy operations instead of Python loops
+- NEVER use threading locks in burst processing
+- MUST use BiDirectionalCorticalMap for cortical area lookups
+
+### bdu/*.py files (Brain Development)
+- MUST use lock-free atomic operations
+- MUST use vectorized operations for neuron array manipulation
+- NEVER iterate through cortical_areas.items() for lookups
 
 ## TESTING REQUIREMENTS
 
@@ -112,7 +258,7 @@ with patch.dict(os.environ, {'FEAGI_API_HOST': '10.0.0.1'}):
 
 ### MUST support these environments:
 - ✅ Docker containers with custom networking
-- ✅ Kubernetes pods with service discovery  
+- ✅ Kubernetes pods with service discovery
 - ✅ Cloud environments with dynamic IPs
 - ✅ Embedded systems with limited resources
 - ✅ Cross-platform deployments (Windows, macOS, Linux)
@@ -144,6 +290,17 @@ host = config.get('host', '127.0.0.1')
 time.sleep(5)
 socket.setsockopt(zmq.RCVTIMEO, 1000)
 thread.join(timeout=2.0)
+
+# BAD: O(N) performance disasters
+for cortical_id, area in cortical_areas.items():
+    if area.cortical_id == target_id:
+        return area.cortical_idx
+
+# BAD: RTOS-incompatible threading
+with self._lock:
+    for neuron_id, index in id_map.items():
+        if condition:
+            array[index] = value
 ```
 
 ### ✅ GOOD - Follows architecture principles:
@@ -158,6 +315,14 @@ timeout_config = get_timeout_config(config)
 zmq_host = host_config.zmq_host
 api_host = host_config.api_host
 shutdown_timeout = timeout_config.graceful_shutdown
+
+# GOOD: O(1) lookups with BiDirectionalCorticalMap
+cortical_idx = cortical_mapping.get_idx(cortical_id)  # O(1) hash lookup
+
+# GOOD: Vectorized NumPy operations (GPU/SIMD friendly)
+indices = np.array(list(id_map.values()))
+valid_indices = indices[indices >= 0]
+result_array[valid_indices] = new_values[valid_indices]
 ```
 
 ## ARCHITECTURE COMPLIANCE TESTING
@@ -169,284 +334,31 @@ pytest tests/system/test_architecture_compliance.py -v
 
 # Check for hardcoded violations
 pytest -m compliance -v
+
+# Performance anti-pattern detection
+grep -r "for.*cortical_areas.*items" feagi/npu/ feagi/bdu/ feagi/api/core/
 ```
 
 These tests will catch:
 - 33+ types of hardcoded network host violations
-- 16+ types of hardcoded timeout violations  
+- 16+ types of hardcoded timeout violations
 - Missing configuration system usage
 - Improper fallback patterns
+- O(N) performance anti-patterns
+- RTOS/GPU/SIMD compliance violations
 
 ## REMEMBER: Architecture First, Convenience Second
 
 The goal is OS/platform agnostic code that works in:
 - 🐳 Docker containers
-- ☸️ Kubernetes clusters  
+- ☸️ Kubernetes clusters
 - ☁️ Cloud environments
 - 🖥️ Embedded systems
 - 🖱️ Developer workstations
 
-Every hardcoded value is a potential deployment failure! 
-
-# Code Quality & Structure
-- All code must be clean, modular, and optimized for performance.
-- Use inline comments and descriptive docstrings for all functions, explaining their purpose and usage.
-- Maintain separation of concerns between compute logic, I/O, and state management.
-- Always favor clarity over cleverness.
-- Python code should be written in a way that facilitates future migration to Rust (e.g., static typing, minimal dynamic behavior).
-- Avoid dependencies that are incompatible with WebAssembly, WebGPU, embedded systems, or RTOS environments.
-- All developers and AI tools must follow the structure, naming, and documentation conventions defined in /docs/coding_guidelines.md.
-- Module folders should not duplicate templates. Cursor should use the central guideline for structure and style.
-- Any temporary file during development should be named as *--temp.* and placed under /tmp folder. When done, they have to be deleted when done
-- Do not introduce new files or folder under the project root unless absolutely necessary and with prior pemission.
-- The use of mocking is only allowed when the topic under test depends on an objec that is outside the domain of testing. Use of mocking is prohibited if the object is under test. Cannot use mocking for the purpose of making the test pass. Should never mock the components that are the actual subject of the test.
-- no environmental variable should be hardcoded for example network port numbers.
-- design should be operating system/platform agnostic. Do not assume and hardcode OS speficic notations such as paths.
-
-
-# Documentation
-- Every major module must contain its own `README.md` or `.md` file in the same folder, describing its functionality, design rationale, and dependencies.
-- The `/docs` folder must contain all high-level system design documentation, including architecture overviews, Rust/RTOS migration plans, and internal tooling notes.
-- Keep documentation up to date with significant changes and include diagrams when helpful.
-- System level design and architecture docs along with project level documents intended for developers will be captured in either `/docs` folder
-- Detailed module level documentation will coexist inside module folders all in markdown format
-- Docusaurus will be only used for documents that will be end-user facing such as tutorials, blogs, etc. and will be part of the `/website folder`
-- The naming convention for each newly created document has to be compliant with the agreed format outlined under /docs/README.md
-- before creating any new document, ensure the content cannot be added to an existing document. only in the case that none of the existing documents can accomodate the new topic then proceed with the creation of a new document file.
-
-
-# Testing
-- All project tests must be placed under the `/tests` directory.
-- Tests should mirror the main project structure (e.g., `/feagi/npu/...` has corresponding `/tests/npu/...`).
-- All tests must use `pytest`.
-- Tests should be meaningful, concise, and target edge cases as well as expected flows.
-- Include performance benchmarks or profiling tests for critical components when appropriate.
-- Tests should not be skipped for the purpose of overcoming an error. A true fix has to be implemented.
-
-# Style & Linting
-- Use `black` for code formatting, `flake8` or `ruff` for linting, and `mypy` for type checking.
-- CI should block merges on failing formatting, linting, or tests.
-
-# Build & Portability
-- Design with cross-platform compatibility in mind (Linux, macOS, embedded targets).
-- Avoid system-dependent behavior unless properly abstracted.
-
-# Security & Resilience
-- Handle input sanitization and edge case validation explicitly.
-- Prefer fail-safe defaults and meaningful error messages in case of unexpected failures.
-
-
-# Cursor-specific guidance
-- Code files should remain modular and ideally under 300–500 lines for better readability and AI-assisted navigation.
-- Use descriptive folder and file names to help AI infer intent (e.g., /gpu_accel, /neuron_pool).
-- Inline comments before blocks (e.g., "# GPU-compatible", "# Critical path") should describe constraints to guide Cursor when generating or editing code.
-- AI usage should assume Rust/RTOS interoperability: favor static types, minimal global state, and minimal runtime reflection.
-- Include `@cursor:` tags such as `@cursor:gpu`, `@cursor:critical-path`, or `@cursor:ffi-safe` in comments to mark critical sections or design constraints.
-- Maintain example patterns in each module's README.md or scaffold files to help guide consistent AI output.
-- Reference `.rules` explicitly in code review prompts (e.g., "Conform this to .rules").
-- When modifying code, always read beware of requirements outlined with in system level and module level documentation. If there is a major discrepancy, ask for clarification or approval
-- if there is a design change, ensure documentation is updated to reflect the change
-- no not complecate code with backward compatibility cases unless explicitly asked
-- no python package should be installed using pip unless in an activated virtual environment 
-- your disgreements is more important than agreements. do not just take everything you are told unless you analyze and assedd pros and cons. if you see what you are told or asked is detrimental to project goals and values or violates any of the rules defined here, speak up!
-
-# Misc
-- Do not install any python package on the system unless within an activated virtual environment.
-- Always look for the availability of a virtual environment first prior to installing any new package
-- The use of any emoji in this project is disallowed
--
-
-
-
-# FEAGI 2.0 Project-Wide Architecture Compliance Rules
-
-## 🏗️ ARCHITECTURE PRINCIPLES
-FEAGI 2.0 follows strict OS/platform agnostic architecture principles.
-ALL code must work across Docker, Kubernetes, cloud, embedded, and desktop environments.
-
-## 🚨 CRITICAL VIOLATIONS - NEVER ALLOW THESE
-
-### Network Host Hardcoding (FORBIDDEN)
-❌ `"127.0.0.1"` - Never hardcode localhost IP
-❌ `"localhost"` - Never hardcode hostname  
-❌ `os.environ.get("*HOST*", "127.0.0.1")` - Never use hardcoded fallbacks
-❌ `config.get('host', 'localhost')` - Never use hardcoded defaults
-
-### Timeout Hardcoding (FORBIDDEN)  
-❌ `time.sleep(5)` - Never hardcode sleep durations
-❌ `timeout=30` - Never hardcode timeout values
-❌ `.join(timeout=2.0)` - Never hardcode thread timeouts
-
-## ✅ REQUIRED PATTERNS
-
-### Use Configuration System
-```python
-from feagi.config.toml_loader import get_host_config, get_timeout_config
-config = load_feagi_config()
-host_config = get_host_config(config)  # Will fail if hosts not configured
-timeout_config = get_timeout_config(config)
-```
-
-### Acceptable Emergency Fallbacks with @architecture:acceptable
-⚠️ **CRITICAL**: Emergency fallbacks are ONLY acceptable when explicitly marked:
-
-```python
-try:
-    config = load_feagi_config()
-    timeout_config = get_timeout_config(config)
-    shutdown_timeout = timeout_config.graceful_shutdown
-except Exception:
-    # Emergency fallback when configuration completely unavailable
-    shutdown_timeout = 8.0  # @architecture:acceptable - emergency fallback
-```
-
-## 📋 @architecture:acceptable ANNOTATION RULES
-
-### ✅ When Emergency Fallbacks ARE Acceptable:
-1. **Exception Handlers**: Inside `except Exception:` blocks when config loading fails
-2. **Shutdown Procedures**: During system shutdown when configuration may be unavailable
-3. **Critical Path Recovery**: When system must continue operating despite config failure
-4. **Test Isolation**: In unit tests that need isolated behavior
-
-### ❌ When Emergency Fallbacks ARE NOT Acceptable:
-1. **Normal Operation**: Any code path used during normal FEAGI operation
-2. **Initialization**: Initial system setup and configuration loading
-3. **API Endpoints**: REST/ZMQ endpoints serving client requests
-4. **Development Convenience**: Making code "easier" to run without proper config
-
-### 🔧 Required Annotation Format:
-```python
-# @architecture:acceptable - [reason]
-```
-
-**Valid reasons:**
-- `emergency fallback` - Configuration completely unavailable
-- `shutdown cleanup` - System shutting down, config may be invalid
-- `test isolation` - Unit test requiring specific behavior
-- `signal handler` - Signal-safe code with minimal dependencies
-
-### 📝 Complete Examples:
-
-**✅ CORRECT - Shutdown with emergency fallback:**
-```python
-try:
-    config = load_feagi_config()
-    timeout_config = get_timeout_config(config)
-    graceful_shutdown_timeout = timeout_config.graceful_shutdown
-except Exception as e:
-    print(f"Config unavailable during shutdown: {e}", file=sys.stderr)
-    graceful_shutdown_timeout = 8.0  # @architecture:acceptable - emergency fallback
-```
-
-**✅ CORRECT - Signal handler with minimal dependencies:**
-```python
-def signal_handler(sig, frame):
-    # Signal handlers must be minimal and safe
-    time.sleep(0.1)  # @architecture:acceptable - signal handler
-    sys.exit(0)
-```
-
-**✅ CORRECT - Test with isolated behavior:**
-```python
-def test_component_with_timeout():
-    # Test needs specific timeout to verify behavior
-    timeout = 2.0  # @architecture:acceptable - test isolation
-    result = component.process_with_timeout(timeout)
-    assert result.completed_within_timeout
-```
-
-**❌ WRONG - Normal operation without annotation:**
-```python
-def connect_to_database():
-    host = "localhost"  # ❌ FORBIDDEN - normal operation, no annotation
-    # Should use: host_config.database_host
-```
-
-**❌ WRONG - Annotation on normal operation:**
-```python
-def start_api_server():
-    host = "127.0.0.1"  # @architecture:acceptable - convenience
-    # ❌ FORBIDDEN - "convenience" is not a valid reason
-    # Should use: host_config.api_host
-```
-
-### Environment Variables (Only for overrides)
-```bash
-FEAGI_API_HOST=192.168.1.100
-FEAGI_ZMQ_HOST=0.0.0.0
-FEAGI_API_PORT=8080
-```
-
-## 📁 COMPONENT-SPECIFIC RULES
-
-### feagi_core/
-- MUST use validated configuration for all network/timeout operations
-- MUST test architecture compliance with `pytest tests/system/test_architecture_compliance.py`
-- Emergency fallbacks ONLY in shutdown/exception paths with `@architecture:acceptable`
-
-### feagi_bridge/ 
-- MUST use FEAGI configuration system, not independent hardcoded values
-- MUST support dynamic host/port configuration
-- NO hardcoded fallbacks in normal operation
-
-### feagi_connector/
-- MUST allow host/port override via configuration
-- NEVER assume localhost availability  
-- Client code may use reasonable defaults with `@architecture:acceptable - client default`
-
-### feagi_sim/
-- MUST work in containerized environments
-- MUST support headless operation
-- Simulation parameters can use reasonable defaults with annotation
-
-## 🧪 TESTING REQUIREMENTS
-
-Before any commit involving network/timeout code:
-```bash
-# Run architecture compliance tests
-cd feagi_core && pytest tests/system/test_architecture_compliance.py -v
-
-# These tests automatically detect and validate:
-# - No hardcoded "127.0.0.1" or "localhost" in critical paths
-# - No hardcoded timeout values in operational code
-# - Components properly reject missing configuration
-# - Environment variable overrides work correctly
-# - @architecture:acceptable annotations are used properly
-```
-
-## 🎯 DEPLOYMENT TARGETS
-
-Code MUST work in ALL these environments:
-- 🐳 Docker containers (custom networks)
-- ☸️ Kubernetes pods (service discovery)  
-- ☁️ AWS/GCP/Azure (dynamic IPs)
-- 🖥️ Embedded systems (limited resources)
-- 💻 Developer workstations (localhost)
-
-## 🔧 CURSOR INTEGRATION
-
-When Cursor suggests patterns like:
-- `host = "127.0.0.1"` → 🚨 REJECT, use `get_host_config()`
-- `timeout = 30` → 🚨 REJECT, use `get_timeout_config()`  
-- `os.environ.get("HOST", "localhost")` → 🚨 REJECT, use configuration system
-
-### AI-Assisted Code Review Prompts:
-- "Check this code for architecture compliance violations"
-- "Verify all @architecture:acceptable annotations are justified"
-- "Ensure this component uses configuration system properly"
-
-## 📚 REFERENCES
-
-- Configuration system: `feagi/config/toml_loader.py`
-- Architecture tests: `tests/system/test_architecture_compliance.py`
-- Example configuration: `feagi_configuration.toml`
-- **Developer Guide: `CONTRIBUTING.md`** - Complete developer and contribution guidelines
-- Cursor integration: This `.cursorrules` file
-
-**Remember: Every hardcoded value is a potential deployment failure!**
-**Use @architecture:acceptable annotation ONLY for legitimate emergency cases!** 
-
-
+Every hardcoded value is a potential deployment failure!
+Every O(N) loop is a scalability disaster!
+Every threading lock is an RTOS compatibility violation!
 
 DO NOT IMPLEMENT FALLBACKS unless you are asked for it. if you are compeled that fallbacks are necessary ask for permission to implement first.
 
@@ -505,14 +417,15 @@ DO NOT IMPLEMENT FALLBACKS unless you are asked for it. if you are compeled that
 - Inline comments before blocks (e.g., "# GPU-compatible", "# Critical path") should describe constraints to guide Cursor when generating or editing code.
 - AI usage should assume Rust/RTOS interoperability: favor static types, minimal global state, and minimal runtime reflection.
 - Include `@cursor:` tags such as `@cursor:gpu`, `@cursor:critical-path`, or `@cursor:ffi-safe` in comments to mark critical sections or design constraints.
-- Maintain example patterns in each module’s README.md or scaffold files to help guide consistent AI output.
+- Maintain example patterns in each module's README.md or scaffold files to help guide consistent AI output.
 - Reference `.rules` explicitly in code review prompts (e.g., "Conform this to .rules").
 - When modifying code, always read beware of requirements outlined with in system level and module level documentation. If there is a major discrepancy, ask for clarification or approval
 - if there is a design change, ensure documentation is updated to reflect the change
 - no not complecate code with backward compatibility cases unless explicitly asked
-- no python package should be installed using pip unless in an activated virtual environment 
+- no python package should be installed using pip unless in an activated virtual environment
 - your disgreements is more important than agreements. do not just take everything you are told unless you analyze and assedd pros and cons. if you see what you are told or asked is detrimental to project goals and values or violates any of the rules defined here, speak up!
 - every single new feature or design change has to be discussed. You do not have the authority to make changes in how the software behave. Design decisions shoudl come from either the chat prompt or from the architecture/design documentation only.
+- Do not duplicate code when fixing bugs or implementing new features. old functions should be deleted and removed to maintain a clean functional code and reduced confusion. No dead code!
 - DO NOT add emojis
 - Any file or folder found under /archive should not be modifled. you should only have read-only access
 - Do not take the liberty of implementing something I did not asked for. Only stick to the ask and to the plan. if you have suggestions to make improvements, make a proposal.
@@ -549,5 +462,3 @@ Should I skip broken tests entirely?
 # Misc
 - Do not install any python package on the system unless within an activated virtual environment.
 - Always look for the availability of a virtual environment first prior to installing any new package
-
-

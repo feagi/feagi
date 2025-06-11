@@ -1,0 +1,59 @@
+repos:
+  # Ruff linter and formatter - catches undefined names, import issues, etc.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
+    hooks:
+      - id: ruff
+        name: ruff (critical issues)
+        args: [--fix, --exit-non-zero-on-fix, --select=F821,F401,F402,E402,E9,F63,F7,F82]
+        description: "Catch critical issues: undefined names (F821), import errors, syntax errors"
+      - id: ruff-format
+        name: ruff (format)
+        description: "Format code with ruff"
+
+  # Black code formatter
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        name: black
+        description: "Format code with black"
+
+  # isort import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort
+        args: ["--profile", "black"]
+        description: "Sort imports with isort"
+
+  # Basic file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        description: "Remove trailing whitespace"
+      - id: end-of-file-fixer
+        description: "Ensure files end with newline"
+      - id: check-yaml
+        description: "Check YAML syntax"
+      - id: check-toml
+        description: "Check TOML syntax"
+      - id: check-merge-conflict
+        description: "Check for merge conflict markers"
+      - id: debug-statements
+        description: "Check for debugger imports and breakpoints"
+
+# Global configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
