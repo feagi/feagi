@@ -516,24 +516,33 @@ class ProcessManager:
                 return False
                 
             # --- Resource Manager ---
-            try:
-                from feagi.core.resource_mgr import ResourceManager
-                resource_manager = ResourceManager.get_instance(config.get('resources', {}))
-                
-                if resource_manager.initialize_critical_structures():
-                    self._processes['resource_manager'] = resource_manager
-                    # Resource manager doesn't have a specific state in FeagiStateManager
-                    logger.info("Resource Manager initialized successfully")
-                else:
-                    logger.error("Failed to initialize Resource Manager")
-                    return False
+            # CRITICAL SAFETY: Skip ResourceManager during brain development
+            # ResourceManager uses multiprocessing which causes resource leaks and heap corruption
+            # during neurogenesis when the heap is under stress
+            skip_resource_manager = os.environ.get('FEAGI_SKIP_RESOURCE_MANAGER', '').lower() in ('true', '1', 'yes')
+            
+            if skip_resource_manager:
+                logger.warning("Skipping Resource Manager initialization (FEAGI_SKIP_RESOURCE_MANAGER=true)")
+                logger.warning("This is a safety measure to prevent multiprocessing resource leaks during brain development")
+            else:
+                try:
+                    from feagi.core.resource_mgr import ResourceManager
+                    resource_manager = ResourceManager.get_instance(config.get('resources', {}))
                     
-            except Exception as e:
-                logger.error(f"Failed to initialize Resource Manager: {e}")
-                logger.debug(traceback.format_exc())
-                # Non-critical - continue without resource manager
-                logger.warning("Continuing without Resource Manager")
-                
+                    if resource_manager.initialize_critical_structures():
+                        self._processes['resource_manager'] = resource_manager
+                        # Resource manager doesn't have a specific state in FeagiStateManager
+                        logger.info("Resource Manager initialized successfully")
+                    else:
+                        logger.error("Failed to initialize Resource Manager")
+                        return False
+                        
+                except Exception as e:
+                    logger.error(f"Failed to initialize Resource Manager: {e}")
+                    logger.debug(traceback.format_exc())
+                    # Non-critical - continue without resource manager
+                    logger.warning("Continuing without Resource Manager")
+            
             # --- Health Check Service ---
             try:
                 health_enabled = config.get('resources', {}).get('enable_health_check', True)

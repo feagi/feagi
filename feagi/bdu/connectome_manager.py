@@ -145,6 +145,11 @@ class ConnectomeManager:
             backend=backend
         )
         
+        # CRITICAL FIX: Initialize neuron ID counter properly to prevent ID/index conflicts
+        # This prevents memory corruption from reusing IDs as indices
+        if not hasattr(self.neuron_array, '_next_neuron_id'):
+            self.neuron_array._next_neuron_id = 1  # Start from 1, 0 reserved for invalid
+        
         # Initialize cortical areas and brain regions
         self.cortical_areas: Dict[str, CorticalArea] = {}
         self.brain_regions: Dict[str, Dict[str, Any]] = {}
@@ -565,14 +570,12 @@ class ConnectomeManager:
         # Use vectorized NumPy operation for O(1) performance
         neuron_indices = np.where(self.neuron_array.cortical_idxs == cortical_idx)[0]
         
-        # Convert indices to neuron_ids using NeuronArray mapping
+        # Convert indices to neuron_ids using fast reverse lookup - PERFORMANCE FIX
         neuron_ids = []
         for idx in neuron_indices:
-            # Find neuron_id from NeuronArray's mapping
-            for neuron_id, index in self.neuron_array.id_to_index_map.items():
-                if index == idx:
-                    neuron_ids.append(neuron_id)
-                    break
+            neuron_id = self.neuron_array.index_to_id_map.get(idx)
+            if neuron_id is not None:
+                neuron_ids.append(neuron_id)
         
         return neuron_ids
     

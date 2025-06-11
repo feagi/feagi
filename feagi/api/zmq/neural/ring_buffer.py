@@ -64,6 +64,20 @@ class ZeroCopyRingBuffer:
             slot_size: Size of each slot in bytes
             use_shared_memory: Whether to use shared memory (for multi-process)
         """
+        # CRITICAL SAFETY CHECK: Prevent initialization during brain development
+        # Brain development should not initialize multiprocessing components
+        import threading
+        current_thread = threading.current_thread()
+        if 'neurogenesis' in current_thread.name.lower() or 'embryogenesis' in current_thread.name.lower():
+            raise RuntimeError("ZeroCopyRingBuffer cannot be initialized during brain development to prevent memory corruption")
+        
+        # Check if we're in a context where multiprocessing might cause issues
+        import os
+        if os.environ.get('FEAGI_DISABLE_MULTIPROCESSING', '').lower() in ('true', '1', 'yes'):
+            use_shared_memory = False
+            import logging
+            logging.warning("Multiprocessing disabled via FEAGI_DISABLE_MULTIPROCESSING - using anonymous mmap")
+        
         # Round up to power of 2 for efficient modulo
         self.slots = 1 << (slots - 1).bit_length()
         self.slot_size = slot_size

@@ -121,6 +121,9 @@ class CacheAlignedArray:
         if end_element > len(self._oversized):
             raise RuntimeError(f"Array alignment calculation error: end_element={end_element}, oversized_length={len(self._oversized)}")
             
+        # CRITICAL FIX: Keep a strong reference to the underlying array to prevent garbage collection
+        # This prevents use-after-free memory corruption when the _oversized array is GC'd
+        self._underlying_array = self._oversized  # Strong reference to prevent GC
         self.array = self._oversized[offset_elements:end_element]
         
         # Verify alignment
@@ -131,6 +134,14 @@ class CacheAlignedArray:
     
     def __setitem__(self, key, value):
         self.array[key] = value
+    
+    def __del__(self):
+        """Explicit cleanup to prevent memory leaks."""
+        # MEMORY SAFETY: Explicit cleanup to prevent resource leaks
+        if hasattr(self, '_underlying_array'):
+            del self._underlying_array
+        if hasattr(self, '_oversized'):
+            del self._oversized
 
 class BlockSparseMatrix:
     """Block-sparse matrix for cache-friendly connectivity storage."""
@@ -368,33 +379,65 @@ class NeuronArray:
         self.backend = ArrayBackend(backend)
         self.backend_type = self.backend.backend_type
         
-        # Create cache-aligned arrays for neural properties
-        self.membrane_potentials = CacheAlignedArray(self.aligned_capacity, np.float32).array
-        self.resting_potentials = CacheAlignedArray(self.aligned_capacity, np.float32).array
-        self.thresholds = CacheAlignedArray(self.aligned_capacity, np.float32).array
-        self.decay_rates = CacheAlignedArray(self.aligned_capacity, np.float32).array
-        self.refractory_periods = CacheAlignedArray(self.aligned_capacity, np.int32).array
-        self.refractory_counters = CacheAlignedArray(self.aligned_capacity, np.int32).array
+        # CRITICAL FIX: Create cache-aligned arrays and keep strong references to prevent GC
+        # Store both the CacheAlignedArray objects AND their .array views to prevent premature GC
+        self._aligned_membrane_potentials = CacheAlignedArray(self.aligned_capacity, np.float32)
+        self.membrane_potentials = self._aligned_membrane_potentials.array
+        
+        self._aligned_resting_potentials = CacheAlignedArray(self.aligned_capacity, np.float32)
+        self.resting_potentials = self._aligned_resting_potentials.array
+        
+        self._aligned_thresholds = CacheAlignedArray(self.aligned_capacity, np.float32)
+        self.thresholds = self._aligned_thresholds.array
+        
+        self._aligned_decay_rates = CacheAlignedArray(self.aligned_capacity, np.float32)
+        self.decay_rates = self._aligned_decay_rates.array
+        
+        self._aligned_refractory_periods = CacheAlignedArray(self.aligned_capacity, np.int32)
+        self.refractory_periods = self._aligned_refractory_periods.array
+        
+        self._aligned_refractory_counters = CacheAlignedArray(self.aligned_capacity, np.int32)
+        self.refractory_counters = self._aligned_refractory_counters.array
         
         # Coordinate arrays (cache-aligned SoA)
-        self.coordinates_x = CacheAlignedArray(self.aligned_capacity, np.uint32).array
-        self.coordinates_y = CacheAlignedArray(self.aligned_capacity, np.uint32).array
-        self.coordinates_z = CacheAlignedArray(self.aligned_capacity, np.uint32).array
+        self._aligned_coordinates_x = CacheAlignedArray(self.aligned_capacity, np.uint32)
+        self.coordinates_x = self._aligned_coordinates_x.array
+        
+        self._aligned_coordinates_y = CacheAlignedArray(self.aligned_capacity, np.uint32)
+        self.coordinates_y = self._aligned_coordinates_y.array
+        
+        self._aligned_coordinates_z = CacheAlignedArray(self.aligned_capacity, np.uint32)
+        self.coordinates_z = self._aligned_coordinates_z.array
         
         # Area mapping and activation
-        self.cortical_idxs = CacheAlignedArray(self.aligned_capacity, np.int32).array
-        self.is_active = CacheAlignedArray(self.aligned_capacity, np.bool_).array
-        self.valid_mask = CacheAlignedArray(self.aligned_capacity, np.bool_).array
+        self._aligned_cortical_idxs = CacheAlignedArray(self.aligned_capacity, np.int32)
+        self.cortical_idxs = self._aligned_cortical_idxs.array
+        
+        self._aligned_is_active = CacheAlignedArray(self.aligned_capacity, np.bool_)
+        self.is_active = self._aligned_is_active.array
+        
+        self._aligned_valid_mask = CacheAlignedArray(self.aligned_capacity, np.bool_)
+        self.valid_mask = self._aligned_valid_mask.array
         
         # Additional optimization arrays
-        self.last_fired = CacheAlignedArray(self.aligned_capacity, np.int32).array
-        self.neuron_types = CacheAlignedArray(self.aligned_capacity, np.int32).array
-        self.enabled_flags = CacheAlignedArray(self.aligned_capacity, np.int32).array
+        self._aligned_last_fired = CacheAlignedArray(self.aligned_capacity, np.int32)
+        self.last_fired = self._aligned_last_fired.array
+        
+        self._aligned_neuron_types = CacheAlignedArray(self.aligned_capacity, np.int32)
+        self.neuron_types = self._aligned_neuron_types.array
+        
+        self._aligned_enabled_flags = CacheAlignedArray(self.aligned_capacity, np.int32)
+        self.enabled_flags = self._aligned_enabled_flags.array
         
         # Working arrays for SIMD operations (pre-allocated)
-        self._temp_fired_mask = CacheAlignedArray(self.aligned_capacity, np.bool_).array
-        self._temp_targets = CacheAlignedArray(self.aligned_capacity * 10, np.int32).array  # Pool for targets
-        self._temp_weights = CacheAlignedArray(self.aligned_capacity * 10, np.float32).array  # Pool for weights
+        self._aligned_temp_fired_mask = CacheAlignedArray(self.aligned_capacity, np.bool_)
+        self._temp_fired_mask = self._aligned_temp_fired_mask.array
+        
+        self._aligned_temp_targets = CacheAlignedArray(self.aligned_capacity * 10, np.int32)
+        self._temp_targets = self._aligned_temp_targets.array  # Pool for targets
+        
+        self._aligned_temp_weights = CacheAlignedArray(self.aligned_capacity * 10, np.float32)
+        self._temp_weights = self._aligned_temp_weights.array  # Pool for weights
         
         # Initialize default values
         self.thresholds.fill(1.0)
@@ -872,18 +915,16 @@ class NeuronArray:
         if self.next_index >= self.max_neurons:
             raise ValueError(f"Maximum number of neurons ({self.max_neurons}) exceeded")
 
-        # Assign a unique ID
-        neuron_id = self.next_index
-        self.next_index += 1
-
-        # Get the next available index
-        idx = self.next_index - 1
-
-        # Record the mapping
-        self.id_to_index_map[neuron_id] = idx
-        if cortical_idx not in self.cortical_id_to_indices:
-            self.cortical_id_to_indices[cortical_idx] = []
-        self.cortical_id_to_indices[cortical_idx].append(idx)
+        # Generate unique neuron ID - CRITICAL FIX: Keep IDs separate from indices
+        if not hasattr(self, '_next_neuron_id'):
+            # Initialize the neuron ID counter if it doesn't exist yet
+            self._next_neuron_id = max(self.id_to_index_map.keys(), default=0) + 1
+        
+        neuron_id = self._next_neuron_id
+        self._next_neuron_id += 1
+        
+        # Allocate space for the neuron in the array
+        idx = self.allocate_neuron(neuron_id)
 
         # Set valid flag
         self.valid_mask[idx] = True
@@ -1312,6 +1353,42 @@ class NeuronArray:
             
         num_neurons = len(positions)
         
+        # CRITICAL SAFETY LIMIT: Prevent segmentation faults with huge batches
+        # The segfault occurs around 12,288 neurons due to multiprocessing issues
+        MAX_SAFE_BATCH_SIZE = 8192  # Power of 2, well below the crash threshold
+        
+        if num_neurons > MAX_SAFE_BATCH_SIZE:
+            # Split large batches into smaller safe chunks to prevent segfaults
+            all_neuron_ids = []
+            for i in range(0, num_neurons, MAX_SAFE_BATCH_SIZE):
+                end_idx = min(i + MAX_SAFE_BATCH_SIZE, num_neurons)
+                batch_positions = positions[i:end_idx]
+                batch_size = len(batch_positions)
+                
+                # Handle parameter slicing for each batch
+                def slice_param(param, start, end):
+                    if isinstance(param, list):
+                        return param[start:end]
+                    else:
+                        return param  # Single value used for entire batch
+                
+                batch_neuron_ids = self.batch_create_neurons(
+                    cortical_idx=cortical_idx,
+                    positions=batch_positions,
+                    thresholds=slice_param(thresholds, i, end_idx),
+                    membrane_potentials=slice_param(membrane_potentials, i, end_idx),
+                    resting_potentials=slice_param(resting_potentials, i, end_idx),
+                    decay_rates=slice_param(decay_rates, i, end_idx),
+                    refractory_periods=slice_param(refractory_periods, i, end_idx)
+                )
+                all_neuron_ids.extend(batch_neuron_ids)
+                
+                # CRITICAL: Force garbage collection after each batch to prevent resource buildup
+                import gc
+                gc.collect()
+            
+            return all_neuron_ids
+        
         # Validate lengths of parameters if they are lists
         for param_name, param_value in [
             ("thresholds", thresholds),
@@ -1413,6 +1490,11 @@ class NeuronArray:
             if max_idx >= self.membrane_potentials.shape[0]:
                 raise ValueError(f"Index out of bounds: max_idx={max_idx}, tensor_size={self.membrane_potentials.shape[0]}")
             
+            # CRITICAL: Check for negative indices which cause undefined behavior
+            min_idx = torch.min(idx_tensor).item() if len(idx_tensor) > 0 else 0
+            if min_idx < 0:
+                raise ValueError(f"Negative index detected: min_idx={min_idx}, this causes memory corruption")
+            
             # Verify tensor compatibility before index_copy operations
             expected_size = len(idx_array)
             if (membrane_potentials.shape[0] != expected_size or 
@@ -1434,6 +1516,18 @@ class NeuronArray:
                 if safe_count != len(idx_tensor):
                     raise ValueError(f"Unsafe indices detected: {len(idx_tensor) - safe_count} indices out of bounds")
                 
+                # CRITICAL FIX: Ensure tensors are on the same device before operations
+                device = self.membrane_potentials.device
+                safe_indices = safe_indices.to(device)
+                membrane_potentials = membrane_potentials.to(device)
+                resting_potentials = resting_potentials.to(device)
+                thresholds = thresholds.to(device)
+                decay_rates = decay_rates.to(device)
+                refractory_periods = refractory_periods.to(device)
+                coordinates_x = coordinates_x.to(device)
+                coordinates_y = coordinates_y.to(device)
+                coordinates_z = coordinates_z.to(device)
+                
                 # Use PyTorch indexing for tensors - ensure matching dtypes and safe operations
                 self.membrane_potentials[safe_indices] = membrane_potentials[:safe_count].to(dtype=target_dtype)
                 self.resting_potentials[safe_indices] = resting_potentials[:safe_count].to(dtype=target_dtype)
@@ -1447,8 +1541,14 @@ class NeuronArray:
                 
                 # Set valid mask - use safe numpy operations to avoid tensor issues
                 valid_mask = self.backend.to_numpy(self.valid_mask)
-                valid_mask[idx_array[:safe_count]] = True
-                self.valid_mask = self.backend.array(valid_mask)
+                # MEMORY SAFETY: Bounds check for valid_mask updates
+                numpy_indices = idx_array[:safe_count]
+                if len(numpy_indices) > 0 and np.max(numpy_indices) < len(valid_mask):
+                    valid_mask[numpy_indices] = True
+                    self.valid_mask = self.backend.array(valid_mask)
+                else:
+                    raise ValueError(f"Valid mask update would be out of bounds: max_idx={np.max(numpy_indices) if len(numpy_indices) > 0 else 0}, mask_size={len(valid_mask)}")
+                
             except Exception as e:
                 raise RuntimeError(f"PyTorch tensor operation failed during neuron creation: {e}. This may indicate memory corruption or incompatible tensor shapes.")
         else:
@@ -1572,18 +1672,43 @@ class NeuronArray:
         This creates a pre-allocated array where lookup_array[index] = neuron_id.
         Much faster than dictionary lookups for vectorized operations.
         """
-        # Create lookup array initialized to -1 (invalid)
-        self._index_to_id_lookup_array = np.full(self.aligned_capacity, -1, dtype=np.int64)
+        # MEMORY SAFETY: Guard against double-allocation and ensure proper cleanup
+        if hasattr(self, '_index_to_id_lookup_array'):
+            # Clean up existing array to prevent memory leaks
+            del self._index_to_id_lookup_array
         
-        # Populate with valid mappings
+        # Create lookup array initialized to -1 (invalid) with bounds checking
+        try:
+            self._index_to_id_lookup_array = np.full(self.aligned_capacity, -1, dtype=np.int64)
+        except MemoryError:
+            # Fallback to smaller allocation if memory is tight
+            self._index_to_id_lookup_array = np.full(self.max_neurons, -1, dtype=np.int64)
+        
+        # MEMORY SAFETY: Populate with valid mappings using bounds checking
         for neuron_id, index in self.id_to_index_map.items():
-            if 0 <= index < self.aligned_capacity:
+            if 0 <= index < len(self._index_to_id_lookup_array):
                 self._index_to_id_lookup_array[index] = neuron_id
+            else:
+                # Log warning about out-of-bounds index but don't crash
+                logger.warning(f"Index {index} for neuron {neuron_id} is out of bounds (max: {len(self._index_to_id_lookup_array)-1})")
     
     def _invalidate_index_to_id_lookup_array(self):
-        """Invalidate the lookup array when mappings change."""
+        """Invalidate the lookup array when mappings change - with memory safety."""
+        # MEMORY SAFETY: Guard against double-free and use-after-free
         if hasattr(self, '_index_to_id_lookup_array'):
-            delattr(self, '_index_to_id_lookup_array')
+            try:
+                # Explicitly delete the array to free memory immediately
+                del self._index_to_id_lookup_array
+            except Exception as e:
+                # Log but don't crash on cleanup errors
+                logger.warning(f"Error cleaning up lookup array: {e}")
+            finally:
+                # Ensure the attribute is removed even if deletion fails
+                if hasattr(self, '_index_to_id_lookup_array'):
+                    try:
+                        delattr(self, '_index_to_id_lookup_array')
+                    except AttributeError:
+                        pass  # Already cleaned up
     
     def get_fired_neuron_ids_vectorized(self, fired_indices: np.ndarray) -> np.ndarray:
         """Get neuron IDs for fired indices using vectorized operations.
