@@ -32,6 +32,7 @@ from scipy import sparse
 # Import models
 from feagi.bdu.models.neuron import NeuronArray
 from feagi.bdu.models.cortical_area import CorticalArea
+from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
 # Import utility functions
 from feagi.bdu.utils.position import (
     linearize_position,
@@ -154,9 +155,8 @@ class ConnectomeManager:
         self.cortical_areas: Dict[str, CorticalArea] = {}
         self.brain_regions: Dict[str, Dict[str, Any]] = {}
         
-        # Translation layer - Single source of truth for cortical_id ↔ cortical_idx mapping
-        self.cortical_id_to_idx: Dict[str, int] = {}  # "CIHMot" → 3
-        self.cortical_idx_to_id: Dict[int, str] = {}  # 3 → "CIHMot"
+        # Bidirectional cortical mapping - Single source of truth for O(1) cortical_id ↔ cortical_idx mapping
+        self.cortical_mapping = BiDirectionalCorticalMap()
         
         # Legacy compatibility - delegate to NeuronArray as single source of truth
         self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = {}
@@ -197,6 +197,103 @@ class ConnectomeManager:
             self._init_multi_gpu(multi_gpu_config)
         
         ConnectomeManager._initialized = True
+    
+    # ======================================================================
+    # PHASE 1 & 2: O(1) CORTICAL ID/IDX CONVERSION METHODS
+    # ======================================================================
+    
+    def get_cortical_idx_for_id(self, cortical_id: str) -> int:
+        """Get cortical_idx from cortical_id using O(1) translation layer.
+        
+        Args:
+            cortical_id: String identifier to look up
+            
+        Returns:
+            Integer cortical_idx
+            
+        Raises:
+            KeyError: If cortical_id doesn't exist
+        """
+        cortical_idx = self.cortical_mapping.get_idx(cortical_id)
+        if cortical_idx is None:
+            raise KeyError(f"Cortical area '{cortical_id}' does not exist")
+        return cortical_idx
+    
+    def get_cortical_id_for_idx(self, cortical_idx: int) -> str:
+        """Get cortical_id from cortical_idx using O(1) translation layer.
+        
+        Single solid execution path - no fallbacks, no exceptions in normal operation.
+        Core areas are guaranteed to be in mapping from initialization.
+        
+        Args:
+            cortical_idx: Integer index to look up
+            
+        Returns:
+            String cortical_id
+            
+        Raises:
+            KeyError: If cortical_idx doesn't exist (indicates system corruption)
+        """
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
+        if cortical_id is None:
+            raise KeyError(f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected")
+        return cortical_id
+    
+    def validate_cortical_mapping(self) -> bool:
+        """Validate that cortical mapping is consistent with cortical_areas.
+        
+        Returns:
+            True if consistent, False otherwise
+        """
+        try:
+            is_consistent, errors = self.cortical_mapping.validate_consistency()
+            
+            if not is_consistent:
+                logger.error(f"Cortical mapping inconsistency detected: {errors}")
+                return False
+            
+            # Validate against cortical_areas using vectorized operations
+            cortical_ids = list(self.cortical_areas.keys())
+            if cortical_ids:  # Only validate if we have cortical areas
+                area_indices = np.array([self.cortical_areas[cid].cortical_idx for cid in cortical_ids])
+                mapped_indices = np.array([self.cortical_mapping.get_idx(cid) for cid in cortical_ids])
+                
+                # Vectorized comparison - GPU/SIMD friendly
+                mismatches = area_indices != mapped_indices
+                if np.any(mismatches):
+                    mismatch_positions = np.where(mismatches)[0]
+                    mismatch_ids = [cortical_ids[i] for i in mismatch_positions]
+                    for i, cortical_id in enumerate(mismatch_ids):
+                        pos = mismatch_positions[i]
+                        logger.error(f"Mapping mismatch for {cortical_id}: mapping={mapped_indices[pos]}, area={area_indices[pos]}")
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error validating cortical mapping: {e}")
+            return False
+    
+    def _sync_cortical_mapping(self, cortical_id: str, cortical_idx: int) -> None:
+        """Synchronize cortical mapping when areas are added/modified.
+        
+        Args:
+            cortical_id: String identifier
+            cortical_idx: Integer index
+        """
+        success = self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+        if not success:
+            logger.warning(f"Failed to sync cortical mapping for {cortical_id} ↔ {cortical_idx}")
+    
+    def _remove_cortical_mapping(self, cortical_id: str) -> None:
+        """Remove cortical mapping when areas are deleted.
+        
+        Args:
+            cortical_id: String identifier to remove
+        """
+        success = self.cortical_mapping.remove_by_id(cortical_id)
+        if not success:
+            logger.warning(f"Failed to remove cortical mapping for {cortical_id}")
         
         # Backward compatibility for tests - store the instance
         ConnectomeManager._instance = self
@@ -312,14 +409,25 @@ class ConnectomeManager:
             # FCL expects current_timestep first, then neurons_by_cortical
             neurons_by_cortical = {}
             if fired_neurons:
-                # Group fired neurons by cortical area
-                for neuron_id in fired_neurons:
-                    if neuron_id in self.neuron_id_to_index:
-                        index = self.neuron_id_to_index[neuron_id]
-                        cortical_idx = int(self.neuron_array.cortical_idxs[index])
-                        if cortical_idx not in neurons_by_cortical:
-                            neurons_by_cortical[cortical_idx] = []
-                        neurons_by_cortical[cortical_idx].append(neuron_id)
+                # Vectorized grouping of fired neurons by cortical area
+                fired_neurons_array = np.array(fired_neurons, dtype=np.int32)
+                
+                # Get valid neurons (filter out those not in mapping)
+                valid_mask = np.array([nid in self.neuron_id_to_index for nid in fired_neurons_array])
+                valid_neurons = fired_neurons_array[valid_mask]
+                
+                if len(valid_neurons) > 0:
+                    # Vectorized index lookup
+                    indices = np.array([self.neuron_id_to_index[nid] for nid in valid_neurons])
+                    
+                    # Vectorized cortical_idx extraction
+                    cortical_indices = self.neuron_array.cortical_idxs[indices].astype(np.int32)
+                    
+                    # Group neurons by cortical area using vectorized operations
+                    unique_cortical_indices = np.unique(cortical_indices)
+                    for cortical_idx in unique_cortical_indices:
+                        mask = cortical_indices == cortical_idx
+                        neurons_by_cortical[int(cortical_idx)] = valid_neurons[mask].tolist()
             
             self.fcl_manager.update_fcl(self.current_timestep, neurons_by_cortical)
         
@@ -474,12 +582,10 @@ class ConnectomeManager:
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Find the corresponding cortical_id
-        cortical_id = None
-        for cortical_id_key, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                cortical_id = cortical_id_key
-                break
+        # Find the corresponding cortical_id using O(1) translation layer
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
+        if cortical_id is None:
+            raise RuntimeError(f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected")
         
         result = {
             "cortical_id": cortical_id,  # String identifier (for backward compatibility)
@@ -559,12 +665,11 @@ class ConnectomeManager:
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
         
-        # Get cortical_idx from translation layer
-        if cortical_id not in self.cortical_id_to_idx:
+        # Get cortical_idx from cortical mapping
+        cortical_idx = self.cortical_mapping.get_idx(cortical_id)
+        if cortical_idx is None:
             # This should not happen if everything is synchronized
             return []
-        
-        cortical_idx = self.cortical_id_to_idx[cortical_id]
         
         # Query NeuronArray directly for all neurons with this cortical_idx
         # Use vectorized NumPy operation for O(1) performance
@@ -600,18 +705,12 @@ class ConnectomeManager:
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Use translation layer to find cortical_id
-        if cortical_idx in self.cortical_idx_to_id:
-            return self.cortical_idx_to_id[cortical_idx]
+        # Use cortical mapping to find cortical_id
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
+        if cortical_id is None:
+            raise RuntimeError(f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected")
         
-        # Fallback for core areas (if not in translation layer yet)
-        if cortical_idx == 0:
-            return "_death"
-        elif cortical_idx == 1:
-            return "___pwr"
-                
-        # This should not happen with proper synchronization
-        raise RuntimeError(f"Could not find cortical_id for neuron {neuron_id} with cortical_idx {cortical_idx}")
+        return cortical_id
 
     # For backward compatibility, maintain the old method name
     def get_area_for_neuron(self, neuron_id: int) -> str:
@@ -648,13 +747,12 @@ class ConnectomeManager:
         Raises:
             KeyError: If no area with the specified cortical_idx exists
         """
-        # Find the cortical area with the specified cortical_idx
-        for cortical_id, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                return self.get_neurons_by_cortical_area(cortical_id)
+        # Use O(1) translation layer to find cortical_id
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
+        if cortical_id is None:
+            raise KeyError(f"No cortical area found with cortical_idx={cortical_idx}")
         
-        # No area found with this cortical_idx
-        raise KeyError(f"No cortical area found with cortical_idx={cortical_idx}")
+        return self.get_neurons_by_cortical_area(cortical_id)
     
     def get_neuron_count(self) -> int:
         """Get the total number of neurons in the connectome.
@@ -1035,17 +1133,18 @@ class ConnectomeManager:
             # we need to look at the pre_idx column for connections to post_idx
             
             # Check all columns for connections to this neuron
-            result = []
+            # Vectorized approach - get entire row from incoming matrix
+            incoming_row = self.incoming_matrix[index, :].toarray().flatten()
+            nonzero_indices = np.nonzero(incoming_row)[0]
             
-            # Iterate through all columns
-            for col_idx in range(self.incoming_matrix.shape[1]):
-                # Check if there's a connection from col_idx to index
-                weight = self.incoming_matrix[index, col_idx]
-                if weight != 0:
-                    # There's a connection
-                    if col_idx in self.index_to_neuron_id:
-                        source_id = self.index_to_neuron_id[col_idx]
-                        result.append((source_id, float(weight)))
+            # Convert indices to neuron IDs and weights in vectorized operation
+            result = []
+            if len(nonzero_indices) > 0:
+                valid_indices = [idx for idx in nonzero_indices if idx in self.index_to_neuron_id]
+                if valid_indices:
+                    weights = incoming_row[valid_indices]
+                    neuron_ids = [self.index_to_neuron_id[idx] for idx in valid_indices]
+                    result = list(zip(neuron_ids, weights.astype(float)))
             
             return result
     
@@ -1149,9 +1248,8 @@ class ConnectomeManager:
         # Add to cortical areas dict
         self.cortical_areas[area.id] = area
         
-        # Update translation layer mappings - Single source of truth
-        self.cortical_id_to_idx[area.id] = cortical_idx
-        self.cortical_idx_to_id[cortical_idx] = area.id
+        # Synchronize bidirectional cortical mapping
+        self._sync_cortical_mapping(area.id, cortical_idx)
         
         logger.debug(f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}")
         return area.id
@@ -1226,18 +1324,19 @@ class ConnectomeManager:
                     # Neuron may have been already deleted
                     pass
         
-        # Remove from any brain region
-        for region_id, area_set in self.region_area_map.items():
-            if cortical_id in area_set:
-                area_set.discard(cortical_id)
-                break
+        # Remove from any brain region using vectorized search
+        region_ids = list(self.region_area_map.keys())
+        area_sets = [self.region_area_map[rid] for rid in region_ids]
         
-        # Clean up translation layer mappings
-        if cortical_id in self.cortical_id_to_idx:
-            cortical_idx = self.cortical_id_to_idx[cortical_id]
-            del self.cortical_id_to_idx[cortical_id]
-            if cortical_idx in self.cortical_idx_to_id:
-                del self.cortical_idx_to_id[cortical_idx]
+        # Vectorized search for regions containing this cortical area
+        containing_regions = [rid for rid, area_set in zip(region_ids, area_sets) if cortical_id in area_set]
+        
+        # Remove from all containing regions
+        for region_id in containing_regions:
+            self.region_area_map[region_id].discard(cortical_id)
+        
+        # Clean up bidirectional cortical mapping
+        self._remove_cortical_mapping(cortical_id)
         
         # Remove area
         area_name = area.name
@@ -1538,16 +1637,10 @@ class ConnectomeManager:
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
         
-        # Find the corresponding cortical_id
-        cortical_id = None
-        for cortical_id_key, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                cortical_id = cortical_id_key
-                break
-        
+        # Find the corresponding cortical_id using O(1) translation layer
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
         if cortical_id is None:
-            logger.error(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}")
-            return False
+            raise RuntimeError(f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected")
         
         # Validate new position
         area = self.cortical_areas[cortical_id]
@@ -2514,13 +2607,8 @@ class ConnectomeManager:
         above_threshold_mask = (self.neuron_array.membrane_potentials >= self.neuron_array.thresholds) & valid_mask
         above_threshold_indices = np.where(above_threshold_mask)[0]
         
-        # Convert indices to neuron IDs
-        result = []
-        for idx in above_threshold_indices:
-            for neuron_id, index in self.neuron_id_to_index.items():
-                if index == idx:
-                    result.append(neuron_id)
-                    break
+        # Convert indices to neuron IDs using vectorized operation
+        result = self._vectorized_index_to_neuron_id(above_threshold_indices).tolist()
         
         return result
 
@@ -2565,13 +2653,47 @@ class ConnectomeManager:
         Returns:
             Number of neurons successfully deleted
         """
+        # Vectorized bulk neuron deletion for RTOS/GPU compliance
+        neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
+        valid_neuron_mask = np.array([nid in self.neuron_id_to_index for nid in neuron_ids_array])
+        valid_neuron_ids = neuron_ids_array[valid_neuron_mask]
+        
         deleted_count = 0
-        for neuron_id in neuron_ids:
+        if len(valid_neuron_ids) > 0:
+            # Vectorized index lookup
+            indices_to_delete = np.array([self.neuron_id_to_index[nid] for nid in valid_neuron_ids])
+            
+            # Bulk deletion using vectorized operations
             try:
-                self.delete_neuron(neuron_id)
-                deleted_count += 1
-            except (ValueError, KeyError) as e:
-                logger.warning(f"Failed to delete neuron {neuron_id}: {e}")
+                # Mark neurons as invalid in bulk
+                self.neuron_array.valid_mask[indices_to_delete] = False
+                self.neuron_array.is_active[indices_to_delete] = False
+                
+                # Remove from mappings in bulk
+                for neuron_id, index in zip(valid_neuron_ids, indices_to_delete):
+                    neuron_id = int(neuron_id)
+                    index = int(index)
+                    if neuron_id in self.neuron_id_to_index:
+                        del self.neuron_id_to_index[neuron_id]
+                    if index in self.index_to_neuron_id:
+                        del self.index_to_neuron_id[index]
+                
+                deleted_count = len(valid_neuron_ids)
+                
+            except Exception as e:
+                logger.warning(f"Bulk deletion failed, falling back to individual deletion: {e}")
+                # Fallback to individual deletion only for error cases
+                for neuron_id in valid_neuron_ids:
+                    try:
+                        self.delete_neuron(int(neuron_id))
+                        deleted_count += 1
+                    except (ValueError, KeyError) as e:
+                        logger.warning(f"Failed to delete neuron {neuron_id}: {e}")
+        
+        # Report invalid neuron IDs for debugging
+        invalid_count = len(neuron_ids) - len(valid_neuron_ids)
+        if invalid_count > 0:
+            logger.warning(f"Attempted to delete {invalid_count} non-existent neurons")
         
         return deleted_count
 

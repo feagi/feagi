@@ -296,18 +296,31 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         neuron_list = list(fcl_t_minus_1)[:10]  # Show first 10 neurons
                         logger.debug(f"🔥 🔥 FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}")
                         
-                        # Show which cortical areas these neurons belong to
+                        # Show which cortical areas these neurons belong to using vectorized operation
                         if hasattr(self.connectome_manager, 'neuron_array') and hasattr(self.connectome_manager.neuron_array, 'cortical_area_id'):
-                            area_count = {}
-                            for neuron_id in fcl_t_minus_1:
-                                if neuron_id < len(self.connectome_manager.neuron_array.cortical_area_id):
-                                    area = self.connectome_manager.neuron_array.cortical_area_id[neuron_id]
-                                    if isinstance(area, bytes):
-                                        area = area.decode('utf-8')
-                                    elif not isinstance(area, str):
-                                        area = str(area)
-                                    area_count[area] = area_count.get(area, 0) + 1
-                            logger.debug(f"🔥 🔥 FCL t-1 AREAS: {dict(list(area_count.items())[:5])}...")  # Show first 5 areas
+                            # Convert FCL to numpy array for vectorized processing
+                            neuron_ids_array = np.array(list(fcl_t_minus_1), dtype=np.int32)
+                            max_idx = len(self.connectome_manager.neuron_array.cortical_area_id)
+                            
+                            # Vectorized bounds checking and area extraction
+                            valid_mask = neuron_ids_array < max_idx
+                            valid_neuron_ids = neuron_ids_array[valid_mask]
+                            
+                            if len(valid_neuron_ids) > 0:
+                                # Vectorized area extraction
+                                areas = self.connectome_manager.neuron_array.cortical_area_id[valid_neuron_ids]
+                                
+                                # Vectorized string conversion
+                                area_strs = np.array([
+                                    area.decode('utf-8') if isinstance(area, bytes) else str(area)
+                                    for area in areas
+                                ])
+                                
+                                # Count unique areas using NumPy
+                                unique_areas, counts = np.unique(area_strs, return_counts=True)
+                                area_count = dict(zip(unique_areas[:5], counts[:5]))  # First 5 areas
+                                
+                                logger.debug(f"🔥 🔥 FCL t-1 AREAS: {area_count}...")  # Show first 5 areas
                     else:
                         logger.debug(f"🔥 FCL t-1 CONTENT: EMPTY")
                 except Exception as e:
@@ -571,6 +584,47 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             pass
         
         try:
+            # CRITICAL FIX: Synchronize neuron array data to prevent size mismatches
+            # This fixes the "(13452,) (13846,) (13452,)" broadcasting error
+            if hasattr(self.connectome_manager, 'neuron_array'):
+                neuron_array = self.connectome_manager.neuron_array
+                actual_neuron_count = neuron_array.neuron_count
+                valid_neurons = int(np.sum(neuron_array.valid_mask)) if hasattr(neuron_array, 'valid_mask') else actual_neuron_count
+                
+                logger.info(f"[SYNC FIX] Neuron array sync: {actual_neuron_count} total neurons, {valid_neurons} valid neurons")
+                
+                # CRITICAL: Ensure valid_mask consistency with neuron_count
+                if valid_neurons != actual_neuron_count:
+                    logger.warning(f"[SYNC FIX] Valid mask mismatch detected: {valid_neurons} valid vs {actual_neuron_count} total")
+                    
+                    # Force valid_mask synchronization
+                    valid_mask = self.connectome_manager.neuron_array.backend.to_numpy(neuron_array.valid_mask)
+                    
+                    # Count actual valid entries in ID mapping as source of truth
+                    actual_valid_count = len(neuron_array.id_to_index_map)
+                    logger.info(f"[SYNC FIX] ID mapping reports {actual_valid_count} neurons")
+                    
+                    # Rebuild valid_mask based on actual ID mappings (source of truth)
+                    corrected_valid_mask = np.zeros_like(valid_mask, dtype=bool)
+                    # GPU/SIMD-friendly vectorized operation - no Python loops!
+                    indices = np.array(list(neuron_array.id_to_index_map.values()))
+                    valid_indices = indices[(indices >= 0) & (indices < len(corrected_valid_mask))]
+                    corrected_valid_mask[valid_indices] = True
+                    
+                    # Update the valid_mask in the neuron array
+                    neuron_array.valid_mask = neuron_array.backend.array(corrected_valid_mask)
+                    neuron_array.neuron_count = actual_valid_count
+                    
+                    logger.info(f"[SYNC FIX] Corrected valid_mask: {np.sum(corrected_valid_mask)} valid neurons")
+                    
+                # CRITICAL: Invalidate any cached arrays in burst engine to force refresh
+                if hasattr(self, '_cached_valid_neurons'):
+                    delattr(self, '_cached_valid_neurons')
+                if hasattr(self, '_cached_neuron_count'):
+                    delattr(self, '_cached_neuron_count')
+                    
+                logger.info(f"[SYNC FIX] Neuron array synchronization completed", status="[OK]")
+            
             # Get current cortical areas for comparison
             new_cortical_areas = list(self.connectome_manager.cortical_areas.values()) if hasattr(self.connectome_manager, 'cortical_areas') else []
             new_shed_areas = set(area.id for area in new_cortical_areas if area.properties.get('__shed', False))

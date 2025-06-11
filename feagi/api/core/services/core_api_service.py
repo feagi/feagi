@@ -1347,6 +1347,87 @@ class CoreAPIService:
             self.logger.error(f"Full traceback: {traceback.format_exc()}")
             raise ValueError(f"Failed to get morphology usage: {str(e)}")
     
+    def get_cortical_mapping(self) -> Dict[str, Any]:
+        """
+        Get the complete cortical mapping structure from the genome blueprint.
+        
+        Returns:
+            Dictionary containing all cortical area mappings in the expected format
+        """
+        try:
+            # Use the existing get_detailed_cortical_map method for consistent behavior
+            return self.get_detailed_cortical_map()
+            
+        except Exception as e:
+            self.logger.error(f"Error getting cortical mapping: {str(e)}")
+            return {}
+    
+    def update_cortical_mapping(self, mapping: Dict[str, Any]) -> bool:
+        """
+        Update the cortical mapping structure by converting formatted data back to genome format.
+        
+        Args:
+            mapping: Dictionary containing updated cortical area mappings in the formatted structure
+                    Format: {area_id: {target_area_id: [connection_objects]}}
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Convert the formatted mapping data back to the genome array format
+            # and update each cortical area's parameters
+            for area_id, area_mappings in mapping.items():
+                # Convert the formatted connections back to array format
+                genome_mapping = {}
+                
+                for target_area_id, connections in area_mappings.items():
+                    if not connections:
+                        continue
+                        
+                    # Convert each connection object back to array format
+                    connection_arrays = []
+                    for connection in connections:
+                        if isinstance(connection, dict):
+                            # Convert from object format to array format
+                            # Expected array: [morphology_id, scalar, multiplier, plasticity_flag, constant, ltp, ltd]
+                            connection_array = [
+                                connection.get("morphology_id", ""),
+                                connection.get("morphology_scalar", [1, 1, 1]),
+                                connection.get("postSynapticCurrent_multiplier", 1),
+                                connection.get("plasticity_flag", False),
+                                connection.get("plasticity_constant", 1),
+                                connection.get("ltp_multiplier", 1),
+                                connection.get("ltd_multiplier", 1)
+                            ]
+                            connection_arrays.append(connection_array)
+                    
+                    if connection_arrays:
+                        genome_mapping[target_area_id] = connection_arrays
+                
+                # Update the cortical area's parameters with the new mapping
+                area_data = self._cortical_area_service.get_area(area_id)
+                if area_data:
+                    parameters = area_data.get('parameters', {})
+                    parameters['mapping'] = genome_mapping
+                    
+                    # Update the area with new parameters
+                    success = self._cortical_area_service.update_area_properties(area_id, parameters)
+                    if not success:
+                        self.logger.warning(f"Failed to update mapping for area {area_id}")
+                        return False
+                else:
+                    self.logger.warning(f"Cortical area '{area_id}' not found, skipping")
+            
+            # Mark genome as modified if state manager exists
+            if self.state_manager:
+                self.state_manager.set_genome_state(self.state_manager.GenomeState.LOADED)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error updating cortical mapping: {str(e)}")
+            return False
+
     def get_cortical_mapping_properties(self, src_cortical_area: str, dst_cortical_area: str) -> List[Dict[str, Any]]:
         """Get cortical mapping properties between two cortical areas."""
         try:
@@ -1546,22 +1627,6 @@ class CoreAPIService:
         """Handle sync state changes."""
         # This would need implementation
         pass
-    
-    def refresh_cached_data(self):
-        """
-        Refresh any cached data when connectome changes.
-        This can be called when the genome is reloaded or modified.
-        """
-        # Build cortical_id -> cortical_idx cache for optimal performance
-        # But ONLY if genome is loaded to prevent corruption
-        try:
-            if hasattr(self._connectome_manager, 'cortical_areas') and self._connectome_manager.cortical_areas:
-                self._build_cortical_id_cache()
-                self.logger.debug("Cached data refreshed after connectome changes")
-            else:
-                self.logger.debug("Skipping cache refresh - genome not ready")
-        except Exception as e:
-            self.logger.error(f"Error refreshing cached data: {str(e)}")
 
     def _build_cortical_id_cache(self):
         """
@@ -1578,15 +1643,10 @@ class CoreAPIService:
                 self.logger.debug("Connectome manager has no cortical_areas - cache will be empty")
                 return
                 
-            # Build both directions for maximum efficiency
-            for area_key, area in self._connectome_manager.cortical_areas.items():
-                if hasattr(area, 'cortical_id') and hasattr(area, 'cortical_idx'):
-                    cortical_id = area.cortical_id  # String like "___pwr"
-                    cortical_idx = area.cortical_idx  # Integer like 0, 1, 2
-                    
-                    # Cache both directions: cortical_id -> cortical_idx AND cortical_idx -> cortical_id
-                    self._cortical_id_to_idx_cache[cortical_id] = cortical_idx
-                    self._cortical_idx_to_id_cache[cortical_idx] = cortical_id
+            # Use O(1) BiDirectionalCorticalMap directly - no more O(N) cache building!
+            all_mappings = self._connectome_manager.cortical_mapping.get_all_mappings()
+            self._cortical_id_to_idx_cache = all_mappings.copy()
+            self._cortical_idx_to_id_cache = {idx: id for id, idx in all_mappings.items()}
                          
             self.logger.debug(f"Built cortical_id cache with {len(self._cortical_id_to_idx_cache)} mappings")
                          
@@ -1615,17 +1675,15 @@ class CoreAPIService:
                 self._cortical_idx_to_id_static.fill("")
                 self._cortical_lookup_valid.fill(False)
             
+            # Use O(1) BiDirectionalCorticalMap directly - no more O(N) array building!
+            all_mappings = self._connectome_manager.cortical_mapping.get_all_mappings()
             valid_mappings = 0
-            for area_key, area in self._connectome_manager.cortical_areas.items():
-                if hasattr(area, 'cortical_id') and hasattr(area, 'cortical_idx'):
-                    cortical_idx = area.cortical_idx
-                    cortical_id = area.cortical_id
-                    
-                    # BOUNDS CHECK: Prevent memory corruption
-                    if isinstance(cortical_idx, int) and 0 <= cortical_idx < self._max_cortical_areas:
-                        self._cortical_idx_to_id_static[cortical_idx] = cortical_id
-                        self._cortical_lookup_valid[cortical_idx] = True
-                        valid_mappings += 1
+            for cortical_id, cortical_idx in all_mappings.items():
+                # BOUNDS CHECK: Prevent memory corruption
+                if isinstance(cortical_idx, int) and 0 <= cortical_idx < self._max_cortical_areas:
+                    self._cortical_idx_to_id_static[cortical_idx] = cortical_id
+                    self._cortical_lookup_valid[cortical_idx] = True
+                    valid_mappings += 1
                         
             self._static_lookup_built = True
             self.logger.debug(f"MEMORY-SAFE: Built static lookup with {valid_mappings} mappings")
@@ -1641,9 +1699,7 @@ class CoreAPIService:
     
     def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
         """
-        Get cortical index for a cortical ID.
-        
-        IMPORTANT: Maps cortical_id (6-character string) to cortical_idx (integer).
+        Get cortical index for a cortical ID using O(1) BiDirectionalCorticalMap.
         
         Args:
             cortical_id: 6-character string identifier
@@ -1651,31 +1707,8 @@ class CoreAPIService:
         Returns:
             Integer index if found, None otherwise
         """
-        try:
-            if not hasattr(self._connectome_manager, 'cortical_areas'):
-                self.logger.info(f"🔥 [CORE API] connectome_manager has no cortical_areas attribute")
-                return None
-                
-            self.logger.info(f"🔥 [CORE API] Looking up cortical_id '{cortical_id}' in {len(self._connectome_manager.cortical_areas)} cortical areas")
-            self.logger.info(f"🔥 [CORE API] Available cortical_areas keys (first 10): {list(self._connectome_manager.cortical_areas.keys())[:10]}")
-                
-            for area_key, area in self._connectome_manager.cortical_areas.items():
-                self.logger.info(f"🔥 [CORE API] Checking area_key={area_key} (type={type(area_key)}), area={area}")
-                if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
-                    # CRITICAL FIX: Return the integer cortical_idx attribute, not the string key
-                    cortical_idx = getattr(area, 'cortical_idx', None)
-                    self.logger.info(f"🔥 [CORE API] FOUND MATCH: cortical_id '{cortical_id}' maps to cortical_idx {cortical_idx} (type={type(cortical_idx)})")
-                    return cortical_idx
-                elif hasattr(area, 'cortical_id'):
-                    self.logger.info(f"🔥 [CORE API] No match: area.cortical_id='{area.cortical_id}' != '{cortical_id}'")
-                else:
-                    self.logger.info(f"🔥 [CORE API] Area has no cortical_id attribute: {area}")
-                    
-            self.logger.info(f"🔥 [CORE API] NO MATCH FOUND for cortical_id '{cortical_id}'")
-            return None
-        except Exception as e:
-            self.logger.error(f"🔥 [CORE API] Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
-            return None
+        # Use O(1) lookup from BiDirectionalCorticalMap - no more O(N) linear search!
+        return self._connectome_manager.get_cortical_idx_for_id(cortical_id)
 
     def _validate_genome_loaded(self) -> bool:
         """Check if a genome is currently loaded - helper method for service consistency."""
@@ -2814,44 +2847,6 @@ class CoreAPIService:
     def configure_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
         """Configure an agent with the given configuration."""
         return self._agents_service.configure_agent(agent_id, config)
-
-    def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
-        """
-        Get cortical index for a cortical ID.
-        
-        IMPORTANT: Maps cortical_id (6-character string) to cortical_idx (integer).
-        
-        Args:
-            cortical_id: 6-character string identifier
-            
-        Returns:
-            Integer index if found, None otherwise
-        """
-        try:
-            if not hasattr(self._connectome_manager, 'cortical_areas'):
-                self.logger.info(f"🔥 [CORE API] connectome_manager has no cortical_areas attribute")
-                return None
-                
-            self.logger.info(f"🔥 [CORE API] Looking up cortical_id '{cortical_id}' in {len(self._connectome_manager.cortical_areas)} cortical areas")
-            self.logger.info(f"🔥 [CORE API] Available cortical_areas keys (first 10): {list(self._connectome_manager.cortical_areas.keys())[:10]}")
-                
-            for area_key, area in self._connectome_manager.cortical_areas.items():
-                self.logger.info(f"🔥 [CORE API] Checking area_key={area_key} (type={type(area_key)}), area={area}")
-                if hasattr(area, 'cortical_id') and area.cortical_id == cortical_id:
-                    # CRITICAL FIX: Return the integer cortical_idx attribute, not the string key
-                    cortical_idx = getattr(area, 'cortical_idx', None)
-                    self.logger.info(f"🔥 [CORE API] FOUND MATCH: cortical_id '{cortical_id}' maps to cortical_idx {cortical_idx} (type={type(cortical_idx)})")
-                    return cortical_idx
-                elif hasattr(area, 'cortical_id'):
-                    self.logger.info(f"🔥 [CORE API] No match: area.cortical_id='{area.cortical_id}' != '{cortical_id}'")
-                else:
-                    self.logger.info(f"🔥 [CORE API] Area has no cortical_id attribute: {area}")
-                    
-            self.logger.info(f"🔥 [CORE API] NO MATCH FOUND for cortical_id '{cortical_id}'")
-            return None
-        except Exception as e:
-            self.logger.error(f"🔥 [CORE API] Error mapping cortical_id '{cortical_id}' to cortical_idx: {str(e)}")
-            return None
 
     def get_service_health(self) -> Dict[str, Any]:
         """Get health information about all domain services."""

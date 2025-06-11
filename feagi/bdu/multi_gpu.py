@@ -403,14 +403,18 @@ class MultiGPUManager:
             self.partitions[partition_id].add_area(area_id)
             self.area_to_partition[area_id] = partition_id
         
-        # Assign neurons based on their areas
-        for neuron_id, index in self.connectome.neuron_id_to_index.items():
-            # Find the area this neuron belongs to
-            area_id = self.connectome.get_area_for_neuron(neuron_id)
-            if area_id in self.area_to_partition:
-                partition_id = self.area_to_partition[area_id]
-                self.partitions[partition_id].add_neuron(neuron_id)
-                self.neuron_to_partition[neuron_id] = partition_id
+        # Assign neurons based on their areas using vectorized operations
+        neuron_ids = list(self.connectome.neuron_id_to_index.keys())
+        if neuron_ids:
+            # Vectorized area lookup for all neurons
+            area_ids_for_neurons = [self.connectome.get_area_for_neuron(nid) for nid in neuron_ids]
+            
+            # Vectorized partition assignment
+            for neuron_id, area_id in zip(neuron_ids, area_ids_for_neurons):
+                if area_id in self.area_to_partition:
+                    partition_id = self.area_to_partition[area_id]
+                    self.partitions[partition_id].add_neuron(neuron_id)
+                    self.neuron_to_partition[neuron_id] = partition_id
     
     def _partition_balanced(self):
         """Partition the brain with balanced workload."""
@@ -476,11 +480,17 @@ class MultiGPUManager:
         dimension = 0  # X dimension
         region_size = (max_coords[dimension] - min_coords[dimension]) / len(self.partitions)
         
-        # Assign neurons to partitions based on their position
-        for neuron_id, position in neuron_positions.items():
-            region_idx = int((position[dimension] - min_coords[dimension]) / region_size)
-            if region_idx >= len(self.partitions):
-                region_idx = len(self.partitions) - 1
+        # Assign neurons to partitions using vectorized operations
+        neuron_ids = list(neuron_positions.keys())
+        positions = np.array(list(neuron_positions.values()))
+        
+        # Vectorized region calculation
+        region_indices = ((positions[:, dimension] - min_coords[dimension]) / region_size).astype(int)
+        region_indices = np.clip(region_indices, 0, len(self.partitions) - 1)
+        
+        # Bulk assignment
+        for neuron_id, region_idx in zip(neuron_ids, region_indices):
+            region_idx = int(region_idx)  # Convert from numpy int
             
             # Assign neuron to partition
             self.partitions[region_idx].add_neuron(neuron_id)

@@ -163,9 +163,15 @@ def genome_2_hierarchifier(flat_genome):
 
 
 def genome_1_cortical_list(genome):
+    """Extract cortical areas list from genome v1 format."""
     cortical_list = list()
-    for cortical_area in genome:
-        cortical_list.append(cortical_area)
+    # Handle both blueprint key and direct cortical area access
+    if 'blueprint' in genome:
+        for cortical_area in genome['blueprint']:
+            cortical_list.append(cortical_area)
+    else:
+        for cortical_area in genome:
+            cortical_list.append(cortical_area)
     return cortical_list
 
 
@@ -183,14 +189,6 @@ def genome_2_cortical_list(flat_genome):
         return cortical_list
     except Exception as e:
         logger.error("Exception during genome_2_cortical_list", e, traceback.print_exc())
-
-
-def genome_1_cortical_list(genome):
-    cortical_list = list()
-    for cortical_area in genome['blueprint']:
-        cortical_list.append(cortical_area)
-
-    return cortical_list
 
 
 def json_comment_catcher(key):
