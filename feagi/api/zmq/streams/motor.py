@@ -55,6 +55,9 @@ from ...core.services.core_api_service import CoreAPIService
 from ...utils.rate_limit import RateLimiter
 from feagi.core.state_manager import GenomeState
 
+# CRITICAL FIX: Import numpy at module level to prevent scoping issues
+import numpy as np
+
 logger = setup_logger()
 
 class MotorStream:
@@ -322,7 +325,6 @@ class MotorStream:
                 # Encode using feagi_data_processing for motor data - USE HIGH-PERFORMANCE NUMPY APPROACH
                 try:
                     import feagi_data_processing as fdp
-                    import numpy as np
                     
                     # Create the main mapped neuron data container
                     generated_mapped_neuron_data = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()

@@ -70,52 +70,22 @@ class CorticalAreaService(BaseService):
     
     def _sync_state_if_needed(self) -> bool:
         """
-        Attempt to synchronize state manager with actual connectome state.
+        REMOVED: Pre-existing connectome fallback mechanism.
+        
+        This method previously attempted to retroactively set genome state to LOADED
+        when finding existing cortical areas. This bypassed proper embryogenesis
+        and caused neurogenesis corruption by loading connectomes without BiDirectionalCorticalMap
+        synchronization.
+        
+        ARCHITECTURE COMPLIANCE: All brain development must go through proper neuroembryogenesis.
+        No fallbacks that bypass the validated genome loading process are permitted.
         
         Returns:
-            bool: True if synchronization was successful, False otherwise
+            bool: Always False - no synchronization should occur
         """
-        try:
-            if not self.state_manager:
-                return False
-            
-            # Check if connectome has cortical areas
-            if hasattr(self._connectome_manager, 'cortical_areas') and self._connectome_manager.cortical_areas:
-                cortical_count = len(self._connectome_manager.cortical_areas)
-                
-                if cortical_count > 0:
-                    # Connectome has data, ensure state manager reflects this
-                    from feagi.core.state_manager import GenomeState
-                    
-                    current_state = self.state_manager.get_genome_state()
-                    if current_state != GenomeState.LOADED:
-                        self.logger.info(f"Syncing state manager: setting genome state to LOADED (found {cortical_count} cortical areas)")
-                        self.state_manager.set_genome_state(GenomeState.LOADED)
-                        self.state_manager.set_brain_readiness(True)
-                        
-                        # Update brain stats if missing
-                        if not self.state_manager.brain_stats or self.state_manager.brain_stats.get('cortical_area_count', 0) == 0:
-                            self.state_manager.brain_stats = {
-                                "cortical_area_count": cortical_count,
-                                "neuron_count": getattr(self._connectome_manager, 'neuron_count', 0),
-                                "synapse_count": 0  # Will be updated by other processes
-                            }
-                        
-                        return True
-                else:
-                    # No cortical areas, ensure state manager reflects this
-                    current_state = self.state_manager.get_genome_state()
-                    if current_state == GenomeState.LOADED:
-                        self.logger.info("Syncing state manager: no cortical areas found, setting state to NOT_LOADED")
-                        self.state_manager.set_genome_state(GenomeState.NOT_LOADED)
-                        self.state_manager.set_brain_readiness(False)
-                        return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error synchronizing state: {e}")
-            return False
+        self.logger.warning("_sync_state_if_needed() called - this fallback mechanism has been REMOVED")
+        self.logger.warning("All brain development must go through proper neuroembryogenesis")
+        return False
 
     def _get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
         """
@@ -240,6 +210,7 @@ class CorticalAreaService(BaseService):
             # Format response
             return {
                 "id": cortical_id,  # Return the original cortical_id
+                "cortical_idx": cortical_idx,  # CRITICAL FIX: Include cortical_idx for neurogenesis consistency
                 "name": area.name,
                 "coordinates": {
                     "x": area.position[0],

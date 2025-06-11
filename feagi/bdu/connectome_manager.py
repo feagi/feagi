@@ -152,10 +152,17 @@ class ConnectomeManager:
             self.neuron_array._next_neuron_id = 1  # Start from 1, 0 reserved for invalid
         
         # Initialize cortical areas and brain regions
-        self.cortical_areas: Dict[str, CorticalArea] = {}
-        self.brain_regions: Dict[str, Dict[str, Any]] = {}
+        self.cortical_areas = {}
+        self.brain_regions = {}
+        self.region_area_map = {}
         
-        # Bidirectional cortical mapping - Single source of truth for O(1) cortical_id ↔ cortical_idx mapping
+        # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "___pwr"
+        self.reserved_cortical_areas = {
+            "_death": 0,
+            "___pwr": 1
+        }
+        
+        # Initialize bidirectional cortical mapping
         self.cortical_mapping = BiDirectionalCorticalMap()
         
         # Legacy compatibility - delegate to NeuronArray as single source of truth
@@ -166,18 +173,6 @@ class ConnectomeManager:
         
         # Neuron ID management - delegate to NeuronArray
         self.next_neuron_id = 1
-        
-        # Cortical area index management  
-        self.next_cortical_idx = 2  # Start from 2, reserve 0 for "_death" and 1 for "___pwr"
-        
-        # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "___pwr"
-        self.reserved_cortical_areas = {
-            "_death": 0,
-            "___pwr": 1
-        }
-        
-        # Brain region management
-        self.region_area_map: Dict[str, Set[str]] = {}
         
         # Initialize synapse storage with automatic sparsity detection
         self.max_synapses = max_synapses
@@ -281,19 +276,124 @@ class ConnectomeManager:
             cortical_id: String identifier
             cortical_idx: Integer index
         """
+        logger.info(f"🔧 CORTICAL MAPPING: Syncing {cortical_id} ↔ {cortical_idx}")
         success = self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
         if not success:
-            logger.warning(f"Failed to sync cortical mapping for {cortical_id} ↔ {cortical_idx}")
+            logger.error(f"❌ CORTICAL MAPPING: Failed to sync {cortical_id} ↔ {cortical_idx}")
+        else:
+            logger.info(f"✅ CORTICAL MAPPING: Successfully synced {cortical_id} ↔ {cortical_idx}")
+            
+        # Validate the mapping was actually added
+        retrieved_idx = self.cortical_mapping.get_idx(cortical_id)
+        if retrieved_idx != cortical_idx:
+            logger.error(f"❌ CORTICAL MAPPING: Validation failed! {cortical_id} → {retrieved_idx}, expected {cortical_idx}")
     
     def _remove_cortical_mapping(self, cortical_id: str) -> None:
-        """Remove cortical mapping when areas are deleted.
-        
-        Args:
-            cortical_id: String identifier to remove
+        """Remove cortical mapping for a cortical area"""
+        if hasattr(self, 'cortical_id_to_idx') and cortical_id in self.cortical_id_to_idx:
+            cortical_idx = self.cortical_id_to_idx[cortical_id]
+            del self.cortical_id_to_idx[cortical_id]
+            if hasattr(self, 'cortical_idx_to_id') and cortical_idx in self.cortical_idx_to_id:
+                del self.cortical_idx_to_id[cortical_idx]
+    
+    def _find_next_available_cortical_idx(self) -> int:
         """
-        success = self.cortical_mapping.remove_by_id(cortical_id)
-        if not success:
-            logger.warning(f"Failed to remove cortical mapping for {cortical_id}")
+        Dynamically find the next available cortical_idx using proper state management.
+        
+        This method scans existing cortical areas to find the next available index,
+        respecting reserved cortical_idx constraints (0 for _death, 1 for ___pwr).
+        
+        Returns:
+            Next available cortical_idx starting from 2 (after reserved indices)
+        """
+        try:
+            # Collect all currently used cortical_idx values
+            used_indices = set()
+            
+            # Add reserved indices (always reserved regardless of whether areas exist)
+            reserved_indices = set(self.reserved_cortical_areas.values())
+            used_indices.update(reserved_indices)
+            
+            # Scan existing cortical areas to find used indices
+            if hasattr(self, 'cortical_areas') and self.cortical_areas:
+                for area in self.cortical_areas.values():
+                    if hasattr(area, 'cortical_idx') and area.cortical_idx is not None:
+                        used_indices.add(area.cortical_idx)
+            
+            # Find the next available index starting from the minimum allowed (2)
+            min_non_reserved_idx = max(reserved_indices) + 1 if reserved_indices else 0
+            next_idx = min_non_reserved_idx
+            
+            while next_idx in used_indices:
+                next_idx += 1
+            
+            logger.debug(f"[STATE] cortical_idx allocation: reserved={reserved_indices}, "
+                        f"used={sorted(used_indices)}, next_available={next_idx}")
+            
+            return next_idx
+            
+        except Exception as e:
+            # Fallback to safe default if state scanning fails
+            logger.warning(f"Failed to scan cortical_idx state, using safe fallback: {e}")
+            return max(self.reserved_cortical_areas.values()) + 1 if self.reserved_cortical_areas else 2
+    
+    def rebuild_cortical_mapping_from_existing_areas(self) -> bool:
+        """
+        Retroactively synchronize BiDirectionalCorticalMap from existing cortical areas.
+        
+        This fixes systems that were loaded from disk before BiDirectionalCorticalMap
+        was implemented, ensuring mapping consistency.
+        
+        Returns:
+            True if rebuild was successful, False otherwise
+        """
+        logger.info("🔧 RETROACTIVE MAPPING: Rebuilding BiDirectionalCorticalMap from existing cortical areas")
+        
+        if not hasattr(self, 'cortical_areas') or not self.cortical_areas:
+            logger.warning("❌ RETROACTIVE MAPPING: No cortical areas found to rebuild mapping from")
+            return False
+        
+        rebuild_count = 0
+        failed_count = 0
+        
+        for cortical_id, area_obj in self.cortical_areas.items():
+            try:
+                # Get cortical_idx from the area object
+                cortical_idx = getattr(area_obj, 'cortical_idx', None)
+                
+                if cortical_idx is None:
+                    # Area doesn't have cortical_idx assigned - assign one
+                    if cortical_id in self.reserved_cortical_areas:
+                        cortical_idx = self.reserved_cortical_areas[cortical_id]
+                        logger.info(f"🔧 RETROACTIVE MAPPING: Assigning reserved cortical_idx={cortical_idx} to core area '{cortical_id}'")
+                    else:
+                        cortical_idx = self._find_next_available_cortical_idx()
+                        logger.info(f"🔧 RETROACTIVE MAPPING: Assigning new cortical_idx={cortical_idx} to area '{cortical_id}' (dynamically allocated)")
+                    
+                    # Update the area object
+                    area_obj.cortical_idx = cortical_idx
+                
+                # Synchronize the mapping
+                success = self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+                if success:
+                    rebuild_count += 1
+                    logger.info(f"✅ RETROACTIVE MAPPING: Synchronized {cortical_id} ↔ {cortical_idx}")
+                else:
+                    failed_count += 1
+                    logger.error(f"❌ RETROACTIVE MAPPING: Failed to sync {cortical_id} ↔ {cortical_idx}")
+                    
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"❌ RETROACTIVE MAPPING: Exception syncing {cortical_id}: {e}")
+        
+        # Validate the mapping
+        is_consistent, errors = self.cortical_mapping.validate_consistency()
+        if not is_consistent:
+            logger.error(f"❌ RETROACTIVE MAPPING: Validation failed: {errors}")
+            return False
+        
+        logger.info(f"✅ RETROACTIVE MAPPING: Successfully rebuilt {rebuild_count} mappings, {failed_count} failed")
+        return failed_count == 0
         
         # Backward compatibility for tests - store the instance
         ConnectomeManager._instance = self
@@ -1224,15 +1324,40 @@ class ConnectomeManager:
             if area.name == name:
                 raise ValueError(f"Cortical area with name '{name}' already exists")
         
+        # CRITICAL FIX: Check if an area with this cortical_id already exists
+        # This prevents duplicate creation of core areas (___pwr, _death) which would
+        # cause multiple areas to share the same cortical_idx, leading to neuron corruption
+        if cortical_id and cortical_id in self.cortical_areas:
+            logger.info(f"Cortical area '{cortical_id}' already exists, returning existing area ID")
+            return cortical_id
+        
         # Check for reserved core areas and assign appropriate cortical_idx
         if cortical_id in self.reserved_cortical_areas:
             # This is a core area (___pwr or _death) - use reserved cortical_idx
             cortical_idx = self.reserved_cortical_areas[cortical_id]
             logger.info(f"Assigning reserved cortical_idx={cortical_idx} to core area '{cortical_id}'")
         else:
-            # Regular area - assign next available cortical_idx
-            cortical_idx = self.next_cortical_idx
-            self.next_cortical_idx += 1
+            # Regular area - find next available cortical_idx dynamically
+            cortical_idx = self._find_next_available_cortical_idx()
+            logger.debug(f"Assigned cortical_idx={cortical_idx} to area '{cortical_id}' (dynamically allocated)")
+        
+        # CRITICAL COLLISION DETECTION: Ensure no two areas can share the same cortical_idx
+        # This is essential for one-to-one mapping between cortical_id and cortical_idx
+        existing_area_with_same_idx = None
+        for existing_cortical_id, existing_area in self.cortical_areas.items():
+            if hasattr(existing_area, 'cortical_idx') and existing_area.cortical_idx == cortical_idx:
+                existing_area_with_same_idx = existing_cortical_id
+                break
+        
+        if existing_area_with_same_idx:
+            error_msg = (f"🚨 CRITICAL cortical_idx COLLISION DETECTED!\n"
+                        f"   Attempted: cortical_id='{cortical_id}' → cortical_idx={cortical_idx}\n" 
+                        f"   Existing: cortical_id='{existing_area_with_same_idx}' → cortical_idx={cortical_idx}\n"
+                        f"   This would corrupt neuron assignments and break the one-to-one mapping!\n"
+                        f"   Reserved areas: {self.reserved_cortical_areas}\n"
+                        f"   next_cortical_idx: {self.next_cortical_idx}")
+            logger.error(error_msg, status="[CRITICAL]")
+            raise ValueError(f"cortical_idx collision: cortical_idx={cortical_idx} already assigned to '{existing_area_with_same_idx}'")
         
         # Create the cortical area with assigned cortical_idx
         area = CorticalArea(
@@ -2734,8 +2859,10 @@ class ConnectomeManager:
             self.cortical_areas.clear()
         if hasattr(self, 'area_neuron_masks'):
             self.area_neuron_masks.clear()
-        if hasattr(self, 'next_cortical_idx'):
-            self.next_cortical_idx = 0
+        
+        # NOTE: No longer managing next_cortical_idx counter since we use dynamic allocation
+        # The _find_next_available_cortical_idx() method handles cortical_idx assignment by
+        # scanning existing areas and respecting reserved indices
             
         # 3. Clear brain regions
         if hasattr(self, 'brain_regions'):

@@ -170,6 +170,7 @@ class CorticalAreaAPI:
             # Build legacy format response using template defaults for neural properties and structural defaults for spatial/organizational properties
             legacy_properties = {
                 "cortical_id": area_data.get("id", request.cortical_id),
+                "cortical_idx": area_data.get("cortical_idx"),  # CRITICAL FIX: Include cortical_idx in API response
                 "cortical_name": area_data.get("name", request.cortical_id),
                 "parent_region_id": parameters.get("parent_region_id", self._get_structural_default("parent_region_id")),
                 "parent_region_title": parameters.get("parent_region_title", self._get_structural_default("parent_region_title")),

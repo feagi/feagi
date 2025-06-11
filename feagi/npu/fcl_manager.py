@@ -36,6 +36,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import numpy as np
 try:
     import pyroaring
     PYROARING_AVAILABLE = True

@@ -563,9 +563,23 @@ else:
         
         async def _handle_get_connectome_cortical_areas(self, params, query, body, headers):
             """Handler for GET /v1/connectome/cortical_areas"""
-            # This endpoint doesn't exist in v1 API yet, use detailed list instead
-            result = await self.connectome_api.get_cortical_areas_detailed()
-            return result.areas if hasattr(result, 'areas') else result
+            # Use the working cortical area service method like the working endpoint
+            cortical_area_ids = self.cortical_area_api.get_cortical_area_id_list_legacy()
+            
+            # Build cortical_areas dict with basic info for each area
+            cortical_areas = {}
+            for area_id in cortical_area_ids:
+                try:
+                    # Get basic properties for each area
+                    from feagi.api.core.models.cortical_area_models import CorticalIdRequest
+                    request = CorticalIdRequest(cortical_id=area_id)
+                    area_properties = self.cortical_area_api.get_cortical_area_properties(request)
+                    cortical_areas[area_id] = area_properties
+                except Exception as e:
+                    # If properties fail, include basic info
+                    cortical_areas[area_id] = {"cortical_id": area_id, "error": str(e)}
+            
+            return {"cortical_areas": cortical_areas}
         
         async def _handle_get_cortical_areas_summary(self, params, query, body, headers):
             """Handler for GET /v1/connectome/cortical_areas/list/summary"""

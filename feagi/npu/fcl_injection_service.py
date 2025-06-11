@@ -31,6 +31,7 @@ This service implements the unified FCL candidate model:
 """
 
 import time
+import numpy as np
 from typing import Dict, List, Optional, Set, Any, Union
 from enum import Enum
 from dataclasses import dataclass
