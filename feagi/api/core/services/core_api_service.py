@@ -2072,9 +2072,10 @@ class CoreAPIService:
                     )
                     return None
 
-                self.logger.info(
-                    f"🔥 [FIRE QUEUE] Global FCL has {len(global_fcl)} total firing neurons: {list(global_fcl)}"
-                )
+                if self.state_manager.is_debug_npu_enabled():
+                    self.logger.debug(
+                        f"🔥 [FIRE QUEUE] Global FCL has {len(global_fcl)} total firing neurons: {list(global_fcl)}"
+                    )
 
                 # CRITICAL FIX: Get cortical_idx for the requested cortical_id
                 target_cortical_idx = self._get_cortical_idx_for_id(cortical_id)
@@ -2084,9 +2085,10 @@ class CoreAPIService:
                     )
                     return None
 
-                self.logger.info(
-                    f"🔥 [FIRE QUEUE] Mapped cortical_id '{cortical_id}' to cortical_idx {target_cortical_idx}"
-                )
+                if self.state_manager.is_debug_npu_enabled():
+                    self.logger.debug(
+                        f"🔥 [FIRE QUEUE] Mapped cortical_id '{cortical_id}' to cortical_idx {target_cortical_idx}"
+                    )
 
                 # Filter global FCL by cortical_idx using neuron array mapping
                 firing_indices = []
@@ -2224,9 +2226,10 @@ class CoreAPIService:
             Dictionary with neuron_ids, membrane_potentials, coordinates, etc. or None if no data
         """
         try:
-            self.logger.info(
-                f"🔥 [FIRE QUEUE API] get_area_fire_queue called for area: {cortical_id}"
-            )
+            if self.state_manager.is_debug_npu_enabled():
+                self.logger.debug(
+                    f"🔥 [FIRE QUEUE API] get_area_fire_queue called for area: {cortical_id}"
+                )
             # Get the direct numpy array data
             fire_queue_data = self.get_area_fire_queue_direct(cortical_id)
 

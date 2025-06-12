@@ -386,25 +386,21 @@ def main():
         if args.log_level is not None:
             cli_overrides["log_level"] = args.log_level
         if args.debug_api:
-            # Set environment variable for API debug logging middleware
-            os.environ["FEAGI_DEBUG_API"] = "1"
+            cli_overrides["debug_api"] = True
             logger.info("API debug logging enabled via --debug-api flag")
 
         if args.debug_npu:
-            # Set environment variable for NPU fire queue debugging
-            os.environ["FEAGI_DEBUG_NPU"] = "1"
+            cli_overrides["debug_npu"] = True
             logger.info("[DEBUG] NPU fire queue debugging enabled via --debug-npu flag")
 
         if args.debug_zmq_outbound:
-            # Set environment variable for ZMQ outbound traffic debugging
-            os.environ["FEAGI_DEBUG_ZMQ_OUTBOUND"] = "1"
+            cli_overrides["debug_zmq_outbound"] = True
             logger.info(
                 "ZMQ outbound traffic debugging enabled via --debug-zmq-outbound flag"
             )
 
         if args.debug_zmq_inbound:
-            # Set environment variable for ZMQ inbound traffic debugging
-            os.environ["FEAGI_DEBUG_ZMQ_INBOUND"] = "1"
+            cli_overrides["debug_zmq_inbound"] = True
             logger.info(
                 "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
             )
@@ -472,6 +468,12 @@ def main():
     if not check_dependencies():
         logger.error("Dependency check failed. Please install required dependencies.")
         return 1
+
+    # Initialize state manager and set debug configuration
+    from feagi.core.state_manager import FeagiStateManager
+
+    state_manager = FeagiStateManager.instance()
+    state_manager.set_debug_config(config)
 
     # Initialize the main connectome instance using singleton pattern
     from feagi.bdu.connectome_manager import ConnectomeManager

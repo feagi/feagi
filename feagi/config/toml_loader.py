@@ -299,6 +299,10 @@ def apply_cli_overrides(
         "log_level": ("system", "log_level"),
         "profile": ("system", "profile"),
         "embedded": ("system", "embedded"),
+        "debug_api": ("debug", "api"),
+        "debug_npu": ("debug", "npu"),
+        "debug_zmq_outbound": ("debug", "zmq_outbound"),
+        "debug_zmq_inbound": ("debug", "zmq_inbound"),
     }
 
     for cli_arg, (section, key) in cli_mappings.items():
