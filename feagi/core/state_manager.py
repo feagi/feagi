@@ -1110,7 +1110,7 @@ class FeagiStateManager:
         self.state_ptr.contents.state_version += 1
 
         # Only log detailed frequency measurements when debugging NPU
-        if os.environ.get("FEAGI_DEBUG_NPU") == "1":
+        if self.is_debug_npu_enabled():
             logger.info(
                 f"Frequency measurement recorded - Actual: {actual_frequency_hz:.1f}Hz, Potential: {potential_frequency_hz:.1f}Hz ({status})",
                 status="[STATS]",
@@ -1198,7 +1198,7 @@ class FeagiStateManager:
                 raise RuntimeError("Burst engine is not running")
 
             # Only log detailed measurement triggers when debugging NPU
-            if os.environ.get("FEAGI_DEBUG_NPU") == "1":
+            if self.is_debug_npu_enabled():
                 logger.info(
                     f"Starting frequency measurement ({measurement_duration_s}s, {sample_count} samples)",
                     status="[DEBUG]",

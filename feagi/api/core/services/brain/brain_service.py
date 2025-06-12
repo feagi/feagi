@@ -88,14 +88,14 @@ class BrainService(BaseService):
 
         try:
             if not self.state_manager:
-                if os.environ.get("FEAGI_DEBUG_NPU") == "1":
-                    print(f"[DEBUG] BRAIN SERVICE: No state manager available")
+                # Can't check debug flag without state manager
+                print(f"[DEBUG] BRAIN SERVICE: No state manager available")
                 return False
 
             # Get the singleton burst engine instance
             burst_engine = self._get_burst_engine()
             if not burst_engine:
-                if os.environ.get("FEAGI_DEBUG_NPU") == "1":
+                if self.state_manager.is_debug_npu_enabled():
                     print(f"[DEBUG] BRAIN SERVICE: No burst engine instance available")
                 self.logger.error("No burst engine instance available")
                 return False

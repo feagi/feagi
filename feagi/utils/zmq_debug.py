@@ -158,8 +158,34 @@ class ZMQDebugger:
         )
 
     def _init_from_environment(self):
-        """Initialize from environment variables (called once at startup)."""
-        # Check environment variables once at startup
+        """Initialize from state manager or environment variables (called once at startup)."""
+        # Try to get configuration from state manager first
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            state_manager = FeagiStateManager.instance()
+
+            # Use state manager debug configuration
+            self._inbound_enabled = state_manager.is_debug_zmq_inbound_enabled()
+            self._outbound_enabled = state_manager.is_debug_zmq_outbound_enabled()
+
+            # For console output, check if any ZMQ debugging is enabled
+            self._console_output = self._inbound_enabled or self._outbound_enabled
+
+            # Use default debug level when using state manager
+            self._debug_level = DebugLevel.SUMMARY
+
+            logger.debug("ZMQ debug configuration loaded from state manager")
+            return
+
+        except (ImportError, RuntimeError, Exception):
+            # Fall back to environment variables if state manager not available
+            logger.debug(
+                "State manager not available, falling back to environment variables for ZMQ debug"
+            )
+            pass
+
+        # Fallback: Check environment variables once at startup
         inbound_env = os.environ.get("FEAGI_DEBUG_ZMQ_INBOUND", "").lower()
         outbound_env = os.environ.get("FEAGI_DEBUG_ZMQ_OUTBOUND", "").lower()
 

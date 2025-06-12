@@ -240,14 +240,15 @@ app.add_middleware(
 async def log_requests(request: Request, call_next):
     """
     Conditional API request logging middleware.
-    Only logs when FEAGI_DEBUG_API environment variable is set to '1'.
+    Only logs when debug API mode is enabled via state manager configuration.
     When enabled, provides detailed request/response information for debugging.
 
     Credit: Phil Girard (original middleware)
     Enhanced to capture request body and response details for comprehensive debugging.
     """
     # Check if debug API logging is enabled
-    debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+    state_manager = FeagiStateManager.instance()
+    debug_api_enabled = state_manager.is_debug_api_enabled()
 
     if not debug_api_enabled:
         # If debug is not enabled, just pass through without logging
