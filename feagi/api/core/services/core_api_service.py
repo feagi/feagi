@@ -2104,21 +2104,25 @@ class CoreAPIService:
                     f"🔥 [FIRE QUEUE] Firing neuron IDs: {firing_neuron_ids}"
                 )
 
-                # Get cortical indices for all firing neurons
-                valid_mask = firing_neuron_ids < len(neuron_array.cortical_idxs)
-                valid_firing_neurons = firing_neuron_ids[valid_mask]
-                self.logger.debug(
-                    f"🔥 [FIRE QUEUE] Valid firing neurons (in range): {valid_firing_neurons}"
-                )
+                # CRITICAL FIX: Convert neuron IDs to indices for array access
+                firing_indices = []
+                for neuron_id in firing_neuron_ids:
+                    if neuron_id in neuron_array.id_to_index_map:
+                        firing_indices.append(neuron_array.id_to_index_map[neuron_id])
 
-                if len(valid_firing_neurons) == 0:
+                if len(firing_indices) == 0:
                     self.logger.debug(
-                        "🔥 [FIRE QUEUE] No valid firing neurons found in range"
+                        "🔥 [FIRE QUEUE] No valid firing neuron indices found"
                     )
                     return None
 
-                # Filter by target cortical_idx
-                neuron_cortical_idxs = neuron_array.cortical_idxs[valid_firing_neurons]
+                firing_indices = np.array(firing_indices, dtype=np.int32)
+                self.logger.debug(
+                    f"🔥 [FIRE QUEUE] Converted {len(firing_neuron_ids)} neuron IDs to {len(firing_indices)} indices: {firing_indices}"
+                )
+
+                # Filter by target cortical_idx using the correct indices
+                neuron_cortical_idxs = neuron_array.cortical_idxs[firing_indices]
                 self.logger.debug(
                     f"🔥 [FIRE QUEUE] Neuron cortical indices: {neuron_cortical_idxs}"
                 )
@@ -2129,23 +2133,22 @@ class CoreAPIService:
                 area_mask = neuron_cortical_idxs == target_cortical_idx
                 self.logger.debug(f"🔥 [FIRE QUEUE] Area mask: {area_mask}")
 
-                firing_indices = valid_firing_neurons[area_mask]
+                area_firing_indices = firing_indices[area_mask]
                 self.logger.debug(
-                    f"🔥 [FIRE QUEUE] Firing indices in target area: {firing_indices}"
+                    f"🔥 [FIRE QUEUE] Firing indices in target area: {area_firing_indices}"
                 )
 
                 self.logger.debug(
-                    f"🔥 [FIRE QUEUE] Found {len(firing_indices)} firing neurons in area {cortical_id} (cortical_idx={target_cortical_idx})"
+                    f"🔥 [FIRE QUEUE] Found {len(area_firing_indices)} firing neurons in area {cortical_id} (cortical_idx={target_cortical_idx})"
                 )
 
-                if len(firing_indices) == 0:
+                if len(area_firing_indices) == 0:
                     self.logger.debug(
                         f"🔥 [FIRE QUEUE] No firing neurons found in area {cortical_id}"
                     )
                     return None
 
-                # Convert to numpy array
-                firing_indices = np.array(firing_indices, dtype=np.int32)
+                # area_firing_indices is already a numpy array
 
                 # Direct SoA access - NO FALLBACKS
                 # Vectorized extraction - all properties must exist
@@ -2157,15 +2160,15 @@ class CoreAPIService:
                 ):
                     # CRITICAL FIX: Convert firing indices to actual neuron IDs
                     # The FQ sampler expects neuron IDs, not array indices!
-                    firing_neuron_ids = neuron_array.vectorized_indices_to_neuron_ids(
-                        firing_indices, filter_invalid=True
+                    final_neuron_ids = neuron_array.vectorized_indices_to_neuron_ids(
+                        area_firing_indices, filter_invalid=True
                     )
 
                     self.logger.debug(
-                        f"🔥 [FIRE QUEUE] Converted {len(firing_indices)} indices to {len(firing_neuron_ids)} neuron IDs"
+                        f"🔥 [FIRE QUEUE] Converted {len(area_firing_indices)} indices to {len(final_neuron_ids)} neuron IDs"
                     )
 
-                    if len(firing_neuron_ids) == 0:
+                    if len(final_neuron_ids) == 0:
                         self.logger.debug(
                             f"🔥 [FIRE QUEUE] No valid neuron IDs after conversion for area {cortical_id}"
                         )
@@ -2173,26 +2176,26 @@ class CoreAPIService:
 
                     brain_data = np.column_stack(
                         (
-                            firing_neuron_ids.astype(
+                            final_neuron_ids.astype(
                                 np.int32
                             ),  # ✅ FIXED: Use actual neuron IDs, not indices!
                             neuron_array.membrane_potentials[
-                                firing_indices
+                                area_firing_indices
                             ],  # Keep float32 for potentials
-                            neuron_array.coordinates_x[firing_indices].astype(
+                            neuron_array.coordinates_x[area_firing_indices].astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
-                            neuron_array.coordinates_y[firing_indices].astype(
+                            neuron_array.coordinates_y[area_firing_indices].astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
-                            neuron_array.coordinates_z[firing_indices].astype(
+                            neuron_array.coordinates_z[area_firing_indices].astype(
                                 np.uint32
                             ),  # ✅ FIXED: Use uint32 coordinates
                         )
                     )
 
                     self.logger.debug(
-                        f"🔥 [FIRE QUEUE] Successfully extracted {len(firing_indices)} firing neurons for area {cortical_id}"
+                        f"🔥 [FIRE QUEUE] Successfully extracted {len(area_firing_indices)} firing neurons for area {cortical_id}"
                     )
                     return brain_data
                 else:
