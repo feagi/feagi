@@ -10,7 +10,7 @@ This section contains practical tutorials to help you learn FEAGI through hands-
 
 ### 1. Pattern Recognition
 
-**Level**: Beginner  
+**Level**: Beginner
 **Time**: 30 minutes
 
 Learn how to create a simple pattern recognition network:
@@ -21,7 +21,7 @@ Learn how to create a simple pattern recognition network:
 
 ### 2. Sensorimotor Integration
 
-**Level**: Beginner  
+**Level**: Beginner
 **Time**: 45 minutes
 
 Connect sensory input to motor output:
@@ -34,7 +34,7 @@ Connect sensory input to motor output:
 
 ### 3. Learning & Adaptation
 
-**Level**: Intermediate  
+**Level**: Intermediate
 **Time**: 1 hour
 
 Implement basic learning mechanisms:
@@ -45,7 +45,7 @@ Implement basic learning mechanisms:
 
 ### 4. Working Memory
 
-**Level**: Intermediate  
+**Level**: Intermediate
 **Time**: 1.5 hours
 
 Create a network with memory capabilities:
@@ -58,7 +58,7 @@ Create a network with memory capabilities:
 
 ### 5. Multi-Modal Integration
 
-**Level**: Advanced  
+**Level**: Advanced
 **Time**: 2 hours
 
 Combine multiple sensory modalities:
@@ -69,7 +69,7 @@ Combine multiple sensory modalities:
 
 ### 6. Reinforcement Learning
 
-**Level**: Advanced  
+**Level**: Advanced
 **Time**: 3 hours
 
 Implement a reward-based learning system:
@@ -82,7 +82,7 @@ Implement a reward-based learning system:
 
 ### 7. Robotic Control
 
-**Level**: Advanced  
+**Level**: Advanced
 **Time**: 4 hours
 
 Control a simulated robot:
@@ -93,7 +93,7 @@ Control a simulated robot:
 
 ### 8. Computer Vision
 
-**Level**: Advanced  
+**Level**: Advanced
 **Time**: 5 hours
 
 Process and recognize images:
@@ -119,10 +119,10 @@ def process_image(image_path, target_size=(28, 28)):
     # Open and resize image
     img = Image.open(image_path).convert('L')  # Convert to grayscale
     img = img.resize(target_size)
-    
+
     # Convert to normalized numpy array
     img_array = np.array(img) / 255.0
-    
+
     return img_array
 
 # Connect to FEAGI
@@ -154,4 +154,4 @@ If you have questions or get stuck with any of these tutorials:
 
 - Check our [GitHub repository](https://github.com/feagi/feagi) for additional examples
 - Join our [Discord community](https://discord.gg/feagi) to ask questions
-- Post specific issues on our [GitHub Issues page](https://github.com/feagi/feagi/issues) 
+- Post specific issues on our [GitHub Issues page](https://github.com/feagi/feagi/issues)

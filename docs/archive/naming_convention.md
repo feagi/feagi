@@ -54,7 +54,7 @@ To maintain stable interfaces while implementing consistent naming:
 def my_function(cortical_idx: int, neuron_count: int) -> None:
     """
     Process neurons in a cortical area.
-    
+
     Args:
         cortical_idx: The internal integer ID of the cortical area
         neuron_count: Number of neurons to process
@@ -94,8 +94,8 @@ def get_cortical_area(self, area_id: str) -> Dict[str, Any]:
 For improved code readability and type checking, we've added type aliases:
 
 ```python
-CorticalId = str  # 6-character genome ID 
+CorticalId = str  # 6-character genome ID
 CorticalIdx = int  # internal integer index
 ```
 
-These should be used in type hints throughout the codebase where possible. 
+These should be used in type hints throughout the codebase where possible.

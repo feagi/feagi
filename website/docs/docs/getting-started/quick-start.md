@@ -84,4 +84,4 @@ Now that you've created your first brain in FEAGI:
 - Check out the [Visualization Guide](/user-guide/visualization) to understand how to visualize neural activity
 - Learn about [Agents](/user-guide/agents) to connect external systems to your FEAGI brain
 
-For more detailed information, refer to our [System Documentation](/system/arch-system-overview). 
+For more detailed information, refer to our [System Documentation](/system/arch-system-overview).

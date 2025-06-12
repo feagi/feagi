@@ -252,7 +252,7 @@ custom_data = sampler.sample_custom_areas(['area1', 'area2'])  # Specific areas
 - Automatic heartbeat-based subscriber detection
 
 **Motor Stream (Port 5564):**
-- Processes OPU area-organized data from FQ sampler  
+- Processes OPU area-organized data from FQ sampler
 - Data format: `{motor_area_id: [neuron_ids], ...}` (only OPU areas)
 - Optimized format for real-time motor control with minimal latency
 - Fast subscriber detection with shorter timeouts
@@ -272,7 +272,7 @@ data = viz_socket.recv_json()
 # }
 
 # Motor client example
-motor_socket = zmq_context.socket(zmq.SUB) 
+motor_socket = zmq_context.socket(zmq.SUB)
 motor_socket.connect("tcp://localhost:5564")
 motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
 
@@ -354,7 +354,7 @@ power_neurons = connectome_manager.get_neurons_by_cortical_idx(1)
 
 This approach provides:
 - **Ultra-fast access**: No string lookups or detection logic
-- **100kHz compatibility**: Optimized for high-frequency burst operations  
+- **100kHz compatibility**: Optimized for high-frequency burst operations
 - **Guaranteed availability**: Core areas always exist in every genome
 
 ## Neural Processing Architecture
@@ -372,12 +372,12 @@ FEAGI 2.0 implements a clean separation between two fundamental neural processin
 
 **Process Flow**:
 ```
-Active neurons → Synaptic weights → Membrane potential updates → 
+Active neurons → Synaptic weights → Membrane potential updates →
 Threshold detection → New fired neurons → Added to FCL
 ```
 
 ### 2. Special Area Injection (External Behaviors)
-**Handled by**: `FCLInjectionService`  
+**Handled by**: `FCLInjectionService`
 **Purpose**: External/special behaviors that bypass normal neural computation
 **Characteristics**:
 - Relatively few operations per burst
@@ -401,15 +401,15 @@ def _process_burst(self) -> List[int]:
     # 1. External candidates → FCL (special areas)
     if self.injection_service:
         self.injection_service.inject_pre_burst(self.burst_count)
-    
+
     # 2. Process ALL candidates (internal + external) in unified sweep
     fired_neurons = self.connectome_manager.update_membrane_potentials()
-    
+
     # 3. Additional external candidates if needed
     if self.injection_service:
         self.injection_service.inject_during_burst(self.burst_count)
         self.injection_service.inject_post_burst(self.burst_count)
-    
+
     return fired_neurons  # All neurons that actually fired
 ```
 
@@ -436,7 +436,7 @@ def _process_burst(self) -> List[int]:
 ### 5. Key Architectural Benefits
 
 ✅ **Single Source of Truth**: FCL is the unified pool for all firing candidates
-✅ **Clean Separation**: External injection vs. synaptic propagation clearly separated  
+✅ **Clean Separation**: External injection vs. synaptic propagation clearly separated
 ✅ **Performance**: Core synaptic computation remains GPU-optimized
 ✅ **Extensibility**: New special area types can be added without touching core components
 ✅ **Area-Agnostic**: Burst engine has no knowledge of specific area types
@@ -678,7 +678,7 @@ python3 -m feagi.main --debug-npu
 ```
 This displays:
 - Total firing neurons per burst
-- Per-cortical area breakdown with neuron IDs  
+- Per-cortical area breakdown with neuron IDs
 - Special area injection statistics (all types)
 - Recent firing activity trends
 
@@ -698,7 +698,7 @@ Special areas enable several advanced neural simulation patterns:
 1. **Global Attention Mechanisms**: Power areas can provide persistent background activation
 2. **Learning Signals**: Modulator areas inject reward/punishment signals across the brain
 3. **Synchronization**: Provide timing signals for coordinated activity
-4. **Debugging**: Force specific neurons to fire for testing and validation 
+4. **Debugging**: Force specific neurons to fire for testing and validation
 
 ## Developer Resources
 
@@ -712,4 +712,4 @@ For information about NPU module dependencies and safe import patterns, see:
 
 - **[arch-npu.md](arch-npu.md)** - High-level NPU architecture overview
 - **[arch-burst-engine.md](arch-burst-engine.md)** - Detailed burst engine design documentation
-- **[burst_engine.md](burst_engine.md)** - Burst engine usage patterns and examples 
+- **[burst_engine.md](burst_engine.md)** - Burst engine usage patterns and examples

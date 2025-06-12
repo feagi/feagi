@@ -5,7 +5,7 @@ This document outlines the plan for refactoring FEAGI's API routes to enforce th
 ## Current Architecture Issues
 
 1. Many API routes directly use `connectome = Depends(get_connectome)` which bypasses CoreAPIService
-2. Some routes reference an undefined global `connectome` variable 
+2. Some routes reference an undefined global `connectome` variable
 3. The pattern is inconsistently applied across different endpoint modules
 4. Error handling is inconsistent and duplicated across endpoints
 
@@ -33,9 +33,9 @@ For each API router module:
    @router.get("/endpoint")
    async def endpoint(connectome: ConnectomeManager = Depends(get_connectome)):
        # Direct access to connectome
-   
+
    # AFTER
-   @router.get("/endpoint") 
+   @router.get("/endpoint")
    async def endpoint(core_api: CoreAPIService = Depends(get_core_api)):
        # Access via service layer
    ```
@@ -62,7 +62,7 @@ For each API router module:
 
 ### Priority 1: Core Operation Endpoints
 - `/burst_engine/*` endpoints
-- `/cortical_area/*` endpoints 
+- `/cortical_area/*` endpoints
 - `/connectome/*` endpoints
 
 ### Priority 2: Genome Management
@@ -83,4 +83,4 @@ For each API router module:
 1. Implement request/response logging middleware
 2. Add API rate limiting to protect against abuse
 3. Implement request validation middleware
-4. Add comprehensive API documentation 
+4. Add comprehensive API documentation

@@ -2,4 +2,4 @@
 
 from .genome_service import GenomeService
 
-__all__ = ["GenomeService"] 
+__all__ = ["GenomeService"]

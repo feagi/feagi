@@ -93,7 +93,7 @@ class MyResponse(BaseModel):
 class MyModuleAPI:
     def __init__(self, core_api_service: CoreAPIService):
         self.core_api_service = core_api_service
-    
+
     def process_request(self, request: MyRequest) -> MyResponse:
         # Pure business logic here
         result = self.core_api_service.do_something(request.name, request.value)
@@ -237,4 +237,4 @@ When adding new endpoints:
 5. **Verify transport compatibility**
 6. **Update documentation**
 
-This architecture ensures that FEAGI's API remains consistent, maintainable, and extensible as the system grows. 
+This architecture ensures that FEAGI's API remains consistent, maintainable, and extensible as the system grows.

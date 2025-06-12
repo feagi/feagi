@@ -9,7 +9,7 @@ const apiSidebar: SidebarsConfig = {
       type: 'category',
       label: 'API',
       items: [
-        'README', 
+        'README',
         'arch-api-design',
         'spec-implementation',
         'arch-server',
@@ -39,4 +39,4 @@ const apiSidebar: SidebarsConfig = {
   ],
 };
 
-export default apiSidebar; 
+export default apiSidebar;

@@ -90,13 +90,6 @@ class BaseService:
         )
         return False
 
-    def _get_current_genome(self) -> Optional[dict]:
-        """Get the currently loaded genome data."""
-        if not self.state_manager:
-            return None
-
-        return getattr(self.state_manager, "genome", None)
-
     def _safe_execute(self, operation, error_message: str, default_return=None):
         """
         Safely execute an operation with error handling.

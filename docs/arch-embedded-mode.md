@@ -1,9 +1,9 @@
 # FEAGI Embedded Mode Architecture
 
-**Document Version:** 1.0  
-**Created:** 2025-01-26  
-**Status:** Implemented  
-**Author:** AI Assistant + Engineering Team  
+**Document Version:** 1.0
+**Created:** 2025-01-26
+**Status:** Implemented
+**Author:** AI Assistant + Engineering Team
 
 ## Overview
 
@@ -112,7 +112,7 @@ app.include_router(system_router)  # Executed during import!
 def create_rest_app():
     if EMBEDDED_MODE:
         return None
-    
+
     app = FastAPI()
     # ✅ Moved all router includes inside function
     from feagi.api.v1.system.router import router as system_router
@@ -258,7 +258,7 @@ socket.connect("tcp://localhost:5563")
 # Register agent via ZMQ REST
 request = {
     "method": "POST",
-    "route": "/v1/agents/register", 
+    "route": "/v1/agents/register",
     "body": {
         "agent_id": "embedded_agent",
         "agent_type": "embedded_device"
@@ -396,7 +396,7 @@ netstat -an | grep LISTEN | grep -E "(555[0-9]|556[0-9])"
    # Add to profiling tests
    from memory_profiler import profile
    from pympler import tracker, muppy
-   
+
    @profile
    def analyze_component_memory():
        # Detailed per-component analysis
@@ -539,12 +539,12 @@ The foundation is now in place for further embedded optimizations, eventual Rust
 ## References
 
 - [FEAGI Configuration System Documentation](./config-system.md)
-- [ZMQ Protocol Specifications](./zmq-protocols.md)  
+- [ZMQ Protocol Specifications](./zmq-protocols.md)
 - [Resource Profiling Guide](./profiling-guide.md)
 - [Rust Migration Planning](./rust-migration-plan.md)
 
 ---
 
-**Next Review:** Q2 2025  
-**Stakeholders:** Embedded Systems Team, Core Architecture Team, Performance Engineering  
-**Priority:** High - Critical for edge deployment strategy 
+**Next Review:** Q2 2025
+**Stakeholders:** Embedded Systems Team, Core Architecture Team, Performance Engineering
+**Priority:** High - Critical for edge deployment strategy

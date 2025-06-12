@@ -17,4 +17,4 @@ limitations under the License.
 from feagi.bdu import ConnectomeManager
 
 # Global singleton instance of ConnectomeManager
-# connectome = ConnectomeManager() 
+# connectome = ConnectomeManager()

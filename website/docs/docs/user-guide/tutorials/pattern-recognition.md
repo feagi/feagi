@@ -30,4 +30,4 @@ By the end of this tutorial, you will have a functional pattern recognition netw
 ## Resources
 
 - Sample code repository: [GitHub - Pattern Recognition Example](https://github.com/feagi/feagi/examples/pattern-recognition)
-- Reference images for training: [Download Dataset](https://github.com/feagi/feagi/datasets/simple-patterns) 
+- Reference images for training: [Download Dataset](https://github.com/feagi/feagi/datasets/simple-patterns)

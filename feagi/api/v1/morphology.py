@@ -24,21 +24,31 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
-from .schemas import (
-    MorphologyListResponse, MorphologyInfoResponse, CreateMorphologyRequest,
-    UpdateMorphologyRequest, SuccessResponse, ErrorResponse, MorphologyNameRequest,
-    MorphologyPropertiesResponse, MorphologyUsageResponse
-)
+
 from .decorators import endpoint
+from .schemas import (
+    CreateMorphologyRequest,
+    ErrorResponse,
+    MorphologyInfoResponse,
+    MorphologyListResponse,
+    MorphologyNameRequest,
+    MorphologyPropertiesResponse,
+    MorphologyUsageResponse,
+    SuccessResponse,
+    UpdateMorphologyRequest,
+)
 
 logger = setup_logger(__name__)
 
 
 # Define the convenience decorator for morphology endpoints
-def morphology_endpoint(methods, path, request_model=None, response_model=None, description=None):
+def morphology_endpoint(
+    methods, path, request_model=None, response_model=None, description=None
+):
     """Convenience decorator for morphology endpoints."""
     return endpoint(
         methods=methods,
@@ -46,27 +56,27 @@ def morphology_endpoint(methods, path, request_model=None, response_model=None, 
         request_model=request_model,
         response_model=response_model,
         description=description,
-        module='morphology'
+        module="morphology",
     )
 
 
 class MorphologyAPI:
     """
     Morphology API - Single Source of Truth for ALL Transports
-    
+
     Each method in this class is decorated to automatically register
     the endpoint for FastAPI, ZMQ, and any future transport protocols.
-    
+
     This ensures identical behavior across all transports with zero duplication.
     """
-    
+
     def __init__(self, core_api_service: CoreAPIService):
         """Initialize with core API service dependency."""
         self.core_api_service = core_api_service
-    
+
     # ===== Morphology Information =====
-    
-    @morphology_endpoint('GET', '/morphology_list', response_model=List[str])
+
+    @morphology_endpoint("GET", "/morphology_list", response_model=List[str])
     async def get_morphology_list(self) -> List[str]:
         """Get list of all morphology names."""
         try:
@@ -75,8 +85,8 @@ class MorphologyAPI:
         except Exception as e:
             logger.error(f"Error getting morphology list: {e}")
             raise ValueError(f"Failed to get morphology list: {str(e)}")
-    
-    @morphology_endpoint('GET', '/morphology_types', response_model=List[str])
+
+    @morphology_endpoint("GET", "/morphology_types", response_model=List[str])
     async def get_morphology_types(self) -> List[str]:
         """Get list of all morphology types."""
         try:
@@ -85,8 +95,8 @@ class MorphologyAPI:
         except Exception as e:
             logger.error(f"Error getting morphology types: {e}")
             raise ValueError(f"Failed to get morphology types: {str(e)}")
-    
-    @morphology_endpoint('GET', '/list/types', response_model=List[str])
+
+    @morphology_endpoint("GET", "/list/types", response_model=List[str])
     async def get_morphology_list_types(self) -> List[str]:
         """Get list of all morphology types (alias)."""
         try:
@@ -95,8 +105,8 @@ class MorphologyAPI:
         except Exception as e:
             logger.error(f"Error getting morphology list types: {e}")
             raise ValueError(f"Failed to get morphology list types: {str(e)}")
-    
-    @morphology_endpoint('GET', '/morphologies', response_model=Dict[str, Any])
+
+    @morphology_endpoint("GET", "/morphologies", response_model=Dict[str, Any])
     async def get_morphologies(self) -> Dict[str, Any]:
         """Get all morphologies with detailed information."""
         try:
@@ -105,8 +115,8 @@ class MorphologyAPI:
         except Exception as e:
             logger.error(f"Error getting morphologies: {e}")
             raise ValueError(f"Failed to get morphologies: {str(e)}")
-    
-    @morphology_endpoint('GET', '/list', response_model=MorphologyListResponse)
+
+    @morphology_endpoint("GET", "/list", response_model=MorphologyListResponse)
     async def get_morphologies_list(self) -> MorphologyListResponse:
         """Get list of all morphologies."""
         try:
@@ -115,8 +125,10 @@ class MorphologyAPI:
         except Exception as e:
             logger.error(f"Error getting morphologies list: {e}")
             raise ValueError(f"Failed to get morphologies list: {str(e)}")
-    
-    @morphology_endpoint('GET', '/info/{morphology_id}', response_model=MorphologyInfoResponse)
+
+    @morphology_endpoint(
+        "GET", "/info/{morphology_id}", response_model=MorphologyInfoResponse
+    )
     async def get_morphology_info(self, morphology_id: str) -> MorphologyInfoResponse:
         """Get information about a specific morphology."""
         try:
@@ -125,68 +137,94 @@ class MorphologyAPI:
         except Exception as e:
             logger.error(f"Error getting morphology info: {e}")
             raise ValueError(f"Failed to get morphology info: {str(e)}")
-    
+
     # ===== Morphology Management =====
-    
-    @morphology_endpoint('POST', '/create',
-                        request_model=CreateMorphologyRequest,
-                        response_model=SuccessResponse)
-    async def create_morphology(self, request: CreateMorphologyRequest) -> SuccessResponse:
+
+    @morphology_endpoint(
+        "POST",
+        "/create",
+        request_model=CreateMorphologyRequest,
+        response_model=SuccessResponse,
+    )
+    async def create_morphology(
+        self, request: CreateMorphologyRequest
+    ) -> SuccessResponse:
         """Create a new morphology."""
         try:
             success = self.core_api_service.create_morphology(request.morphology_data)
             if not success:
                 raise ValueError("Failed to create morphology")
-            
+
             return SuccessResponse(message="Morphology created successfully")
         except Exception as e:
             logger.error(f"Error creating morphology: {e}")
             raise ValueError(f"Failed to create morphology: {str(e)}")
-    
-    @morphology_endpoint('PUT', '/update',
-                        request_model=UpdateMorphologyRequest,
-                        response_model=SuccessResponse)
-    async def update_morphology(self, request: UpdateMorphologyRequest) -> SuccessResponse:
+
+    @morphology_endpoint(
+        "PUT",
+        "/update",
+        request_model=UpdateMorphologyRequest,
+        response_model=SuccessResponse,
+    )
+    async def update_morphology(
+        self, request: UpdateMorphologyRequest
+    ) -> SuccessResponse:
         """Update an existing morphology."""
         try:
-            success = self.core_api_service.update_morphology(request.morphology_id, request.updates)
+            success = self.core_api_service.update_morphology(
+                request.morphology_id, request.updates
+            )
             if not success:
                 raise ValueError("Failed to update morphology")
-            
+
             return SuccessResponse(message="Morphology updated successfully")
         except Exception as e:
             logger.error(f"Error updating morphology: {e}")
             raise ValueError(f"Failed to update morphology: {str(e)}")
-    
-    @morphology_endpoint('DELETE', '/delete/{morphology_id}', response_model=SuccessResponse)
+
+    @morphology_endpoint(
+        "DELETE", "/delete/{morphology_id}", response_model=SuccessResponse
+    )
     async def delete_morphology(self, morphology_id: str) -> SuccessResponse:
         """Delete a morphology."""
         try:
             success = self.core_api_service.delete_morphology(morphology_id)
             if not success:
                 raise ValueError("Failed to delete morphology")
-            
+
             return SuccessResponse(message="Morphology deleted successfully")
         except Exception as e:
             logger.error(f"Error deleting morphology: {e}")
             raise ValueError(f"Failed to delete morphology: {str(e)}")
-    
-    @morphology_endpoint('POST', '/morphology_properties', 
-                         request_model=MorphologyNameRequest,
-                         response_model=Dict[str, Any])
-    async def get_morphology_properties(self, request: MorphologyNameRequest) -> Dict[str, Any]:
+
+    @morphology_endpoint(
+        "POST",
+        "/morphology_properties",
+        request_model=MorphologyNameRequest,
+        response_model=Dict[str, Any],
+    )
+    async def get_morphology_properties(
+        self, request: MorphologyNameRequest
+    ) -> Dict[str, Any]:
         """Get properties of a specific morphology."""
         try:
-            properties = self.core_api_service.get_morphology_properties(request.morphology_name)
+            properties = self.core_api_service.get_morphology_properties(
+                request.morphology_name
+            )
             return properties
         except Exception as e:
             logger.error(f"Error getting morphology properties: {e}")
             raise ValueError(f"Failed to get morphology properties: {str(e)}")
-    
-    @morphology_endpoint('POST', '/morphology_usage', 
-                         request_model=MorphologyNameRequest,
-                         response_model=List[List[str]])
-    async def get_morphology_usage(self, request: MorphologyNameRequest) -> List[List[str]]:
+
+    @morphology_endpoint(
+        "POST",
+        "/morphology_usage",
+        request_model=MorphologyNameRequest,
+        response_model=List[List[str]],
+    )
+    async def get_morphology_usage(
+        self, request: MorphologyNameRequest
+    ) -> List[List[str]]:
         """Get usage report for a specific morphology."""
         try:
             usage = self.core_api_service.get_morphology_usage(request.morphology_name)
@@ -198,11 +236,12 @@ class MorphologyAPI:
 
 # ===== Factory Function =====
 
+
 def create_morphology_api(core_api_service: CoreAPIService) -> MorphologyAPI:
     """
     Factory function to create a MorphologyAPI instance.
-    
+
     This function can be used by transport adapters to get a configured
     MorphologyAPI instance with the required dependencies.
     """
-    return MorphologyAPI(core_api_service) 
+    return MorphologyAPI(core_api_service)

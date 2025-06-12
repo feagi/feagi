@@ -31,7 +31,7 @@ def my_callback_function(old_state, new_state):
 
 Available notification categories:
 - `genome`: Notifies when genome state changes
-- `connectome`: Notifies when connectome state changes 
+- `connectome`: Notifies when connectome state changes
 - `burst_engine`: Notifies when burst engine state changes
 - `simulation`: Notifies when simulation state changes
 
@@ -145,4 +145,4 @@ When working with the state management system:
 
 - [System Overview](arch-system-overview.md)
 - [IPC Architecture](arch-ipc.md)
-- [API Refactoring](adr-api-refactoring.md) 
+- [API Refactoring](adr-api-refactoring.md)

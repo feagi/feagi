@@ -5,15 +5,14 @@ This module provides a unified interface for different computational backends,
 enabling FEAGI to run on various hardware configurations including CPU and GPU.
 """
 
+# Import backend implementations
+from feagi.core.backend.cpu import CPUBackend
 from feagi.core.backend.interface import (
-    BackendType,
     BackendInterface,
+    BackendType,
     get_available_backends,
     get_backend,
 )
-
-# Import backend implementations
-from feagi.core.backend.cpu import CPUBackend
 
 try:
     from feagi.core.backend.webgpu import WebGPUBackend
@@ -28,4 +27,4 @@ __all__ = [
     "get_backend",
     "CPUBackend",
     "WebGPUBackend",
-] 
+]

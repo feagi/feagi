@@ -9,7 +9,7 @@ This document describes the **integrated** embedded performance optimizations in
 **Critical Change**: The embedded optimizations have been **fully integrated** into FEAGI's core architecture:
 
 - ✅ **NeuronArray**: Enhanced with cache-aligned arrays, SIMD operations, and block-sparse matrices
-- ✅ **ConnectomeManager**: Updated to use embedded-optimized neural processing by default  
+- ✅ **ConnectomeManager**: Updated to use embedded-optimized neural processing by default
 - ✅ **BurstEngine**: Modified to leverage high-performance neural updates automatically
 - ✅ **Unified Architecture**: No parallel implementations - one optimized codebase
 
@@ -19,7 +19,7 @@ This document describes the **integrated** embedded performance optimizations in
 
 **Architecture**: Single unified implementation that works optimally for:
 - 🎯 **Embedded single-core**: 10M neurons at 15Hz target
-- 🚀 **GPU acceleration**: Enhanced coalesced memory access  
+- 🚀 **GPU acceleration**: Enhanced coalesced memory access
 - 💻 **Desktop systems**: Improved SIMD utilization
 - ☁️ **Cloud deployment**: Better memory efficiency
 
@@ -32,14 +32,14 @@ This document describes the **integrated** embedded performance optimizations in
 ```python
 class CacheAlignedArray:
     """64-byte cache-aligned arrays for optimal SIMD performance."""
-    
+
     def __init__(self, size: int, dtype: np.dtype, alignment: int = 64):
         # Ensures perfect cache line alignment for SIMD operations
         self.array = self._create_aligned_array(size, dtype, alignment)
 ```
 
 **Benefits**:
-- Eliminates cache misses during SIMD operations  
+- Eliminates cache misses during SIMD operations
 - 2-4x performance improvement on vectorized operations
 - Optimal for AVX-512, AVX2, and ARM NEON instruction sets
 
@@ -58,7 +58,7 @@ def simd_membrane_decay(potentials, decay_rates, valid_mask):
 ```
 
 **Optimized Operations**:
-- **Membrane decay**: Vectorized potential × decay_rate  
+- **Membrane decay**: Vectorized potential × decay_rate
 - **Refractory updates**: Parallel counter decrements
 - **Threshold checking**: SIMD boolean mask operations
 - **Neuron firing**: Vectorized state resets
@@ -71,7 +71,7 @@ def simd_membrane_decay(potentials, decay_rates, valid_mask):
 ```python
 class BlockSparseMatrix:
     """Cache-friendly sparse matrix using 64×64 blocks."""
-    
+
     def __init__(self, shape, block_size=64):
         # Only stores active 64×64 blocks, improving cache locality
         self.active_blocks: Dict[Tuple[int, int], np.ndarray] = {}
@@ -79,7 +79,7 @@ class BlockSparseMatrix:
 
 **Benefits**:
 - **Cache locality**: 64×64 blocks fit in L1 cache (16KB)
-- **Memory efficiency**: Only stores non-zero connection blocks  
+- **Memory efficiency**: Only stores non-zero connection blocks
 - **SIMD-friendly**: Block operations utilize full vector width
 - **Scalability**: O(active_blocks) instead of O(total_connections)
 
@@ -92,13 +92,13 @@ class NeuronArray:
     def _init_optimized_backend(self, backend):
         # Pre-allocate working arrays to eliminate runtime allocation
         self._temp_fired_mask = CacheAlignedArray(capacity, np.bool_).array
-        self._temp_targets = CacheAlignedArray(capacity * 10, np.int32).array  
+        self._temp_targets = CacheAlignedArray(capacity * 10, np.int32).array
         self._temp_weights = CacheAlignedArray(capacity * 10, np.float32).array
 ```
 
 **Benefits**:
 - **Deterministic timing**: No garbage collection pauses
-- **Memory predictability**: Fixed memory footprint  
+- **Memory predictability**: Fixed memory footprint
 - **Cache efficiency**: Reused arrays stay hot in cache
 - **RTOS compatibility**: No dynamic allocation in critical paths
 
@@ -109,19 +109,19 @@ class NeuronArray:
 ```python
 def embedded_optimized_neural_update(self, timestep, connectivity_matrix=None):
     """Complete neural pipeline optimized for embedded systems."""
-    
+
     # PHASE 1: Membrane potential decay (SIMD)
     simd_membrane_decay(self.membrane_potentials, self.decay_rates, self.valid_mask)
-    
-    # PHASE 2: Refractory period updates (SIMD)  
+
+    # PHASE 2: Refractory period updates (SIMD)
     simd_refractory_update(self.refractory_counters, self.valid_mask)
-    
+
     # PHASE 3: Threshold checking (SIMD)
     simd_threshold_check(potentials, thresholds, refractory, valid_mask, fired_mask)
-    
+
     # PHASE 4: Neuron firing and reset (SIMD)
     simd_fire_neurons(potentials, resting, refractory_counters, refractory_periods, fired_mask)
-    
+
     # PHASE 5: Extract fired neuron IDs (minimal allocation)
     return [self.index_to_id_map[idx] for idx in np.where(fired_mask)[0]]
 ```
@@ -134,7 +134,7 @@ The main `NeuronArray` class now automatically provides:
 
 ```python
 # Embedded optimization is automatic - no special configuration needed
-neuron_array = NeuronArray(max_neurons=10_000_000)  
+neuron_array = NeuronArray(max_neurons=10_000_000)
 
 # High-performance neural update (SIMD + cache-aligned)
 fired_neurons = neuron_array.update_membrane_potentials(
@@ -143,7 +143,7 @@ fired_neurons = neuron_array.update_membrane_potentials(
 )
 ```
 
-### ConnectomeManager Integration  
+### ConnectomeManager Integration
 
 The `ConnectomeManager` now uses embedded optimizations by default:
 
@@ -178,7 +178,7 @@ def get_performance_summary(self) -> Dict[str, Any]:
     return {
         "avg_operation_time_ms": avg_time_ms,  # Target: <66.7ms for 15Hz
         "simd_enabled": NUMBA_AVAILABLE,
-        "alignment": MEMORY_ALIGNMENT,  # 64-byte alignment  
+        "alignment": MEMORY_ALIGNMENT,  # 64-byte alignment
         "vector_width": VECTOR_WIDTH,  # SIMD vector width
         "backend": self.backend_type   # numpy/pytorch/rust
     }
@@ -189,7 +189,7 @@ def get_performance_summary(self) -> Dict[str, Any]:
 ### SIMD Instruction Sets
 
 - ✅ **Intel AVX-512**: 512-bit vectors, 16 float32 operations/instruction
-- ✅ **Intel AVX2**: 256-bit vectors, 8 float32 operations/instruction  
+- ✅ **Intel AVX2**: 256-bit vectors, 8 float32 operations/instruction
 - ✅ **ARM NEON**: 128-bit vectors, 4 float32 operations/instruction
 - ✅ **Fallback**: Vectorized NumPy operations when SIMD unavailable
 
@@ -207,7 +207,7 @@ def get_performance_summary(self) -> Dict[str, Any]:
 The system automatically selects the best optimization path:
 
 1. **Rust backend** (if available): Lowest latency, maximum performance
-2. **SIMD + Numba**: JIT-compiled vectorized operations  
+2. **SIMD + Numba**: JIT-compiled vectorized operations
 3. **NumPy vectorized**: Highly optimized fallback
 4. **Pure Python**: Basic compatibility mode
 
@@ -227,7 +227,7 @@ burst_engine = BurstEngine(connectome_manager)
 # Check if optimizations are active
 perf_summary = connectome_manager.neuron_array.get_performance_summary()
 print(f"SIMD enabled: {perf_summary['simd_enabled']}")
-print(f"Memory alignment: {perf_summary['alignment']} bytes")  
+print(f"Memory alignment: {perf_summary['alignment']} bytes")
 print(f"Vector width: {perf_summary['vector_width']}")
 ```
 
@@ -235,7 +235,7 @@ print(f"Vector width: {perf_summary['vector_width']}")
 
 ### Backward Compatibility
 
-✅ **Full API compatibility**: All existing code continues to work  
+✅ **Full API compatibility**: All existing code continues to work
 ✅ **Test compatibility**: Existing tests pass without modification
 ✅ **GPU compatibility**: Enhanced GPU performance through better memory patterns
 ✅ **Legacy fallbacks**: Graceful degradation when optimizations unavailable
@@ -245,7 +245,7 @@ print(f"Vector width: {perf_summary['vector_width']}")
 **No migration required** - optimizations are integrated into existing components:
 
 - ✅ Existing `NeuronArray` calls use optimized implementation
-- ✅ Existing `ConnectomeManager` calls use optimized implementation  
+- ✅ Existing `ConnectomeManager` calls use optimized implementation
 - ✅ Existing `BurstEngine` calls use optimized implementation
 - ✅ All existing tests and applications work unchanged
 
@@ -274,7 +274,7 @@ neuron_array = NeuronArray(backend="webgpu")  # Browser-compatible GPU
 Zero-allocation paths enable real-time operating system deployment:
 
 - Fixed memory footprint
-- Deterministic execution timing  
+- Deterministic execution timing
 - No dynamic allocation in critical paths
 - Interrupt-safe operation
 

@@ -71,7 +71,7 @@ To fix the failing tests:
 4. **Documentation**:
    - Add OpenAPI/Swagger documentation for all endpoints
    - Create API reference documentation
-   - Update the implementation checklist 
+   - Update the implementation checklist
 
 ## API Compatibility Changes
 
@@ -100,4 +100,4 @@ The following changes have been made to ensure compatibility between the API imp
    - Updated parameter names to be consistent with the core API implementation
    - Fixed inconsistencies like `target_cortical_area` vs `target_area_id`
 
-These changes ensure that the API structure is consistent with the test expectations while maintaining the modular organization of the new implementation. 
+These changes ensure that the API structure is consistent with the test expectations while maintaining the modular organization of the new implementation.

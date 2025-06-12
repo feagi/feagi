@@ -51,7 +51,7 @@ The tests are organized into several compliance categories:
 
 ### Unit Tests (`@pytest.mark.unit`)
 - Configuration validation
-- Host requirement enforcement  
+- Host requirement enforcement
 - Timeout configuration loading
 - Port specification validation
 
@@ -65,11 +65,11 @@ The tests are organized into several compliance categories:
 
 When all tests pass, FEAGI is validated to be:
 
-✅ **Platform Agnostic** - No hardcoded OS-specific paths or behaviors  
-✅ **Network Configurable** - All hosts and ports come from explicit configuration  
-✅ **Deployment Flexible** - Configurable timeouts for different environments  
-✅ **Container Ready** - Works in Docker, Kubernetes, and cloud environments  
-✅ **Embedded Compatible** - Configurable for resource-constrained systems  
+✅ **Platform Agnostic** - No hardcoded OS-specific paths or behaviors
+✅ **Network Configurable** - All hosts and ports come from explicit configuration
+✅ **Deployment Flexible** - Configurable timeouts for different environments
+✅ **Container Ready** - Works in Docker, Kubernetes, and cloud environments
+✅ **Embedded Compatible** - Configurable for resource-constrained systems
 
 ## Adding New Compliance Tests
 
@@ -96,7 +96,7 @@ These tests should be run in continuous integration to prevent architecture regr
 ## Related Documentation
 
 - `/docs/coding_guidelines.md` - Overall coding standards
-- `/docs/deployment.md` - Deployment configuration guide  
+- `/docs/deployment.md` - Deployment configuration guide
 - `feagi_configuration.toml` - Main configuration file
 - `/docs/architecture.md` - System architecture overview
 
@@ -155,4 +155,4 @@ When adding new system tests:
 1. Place the test in the appropriate subdirectory based on its purpose (integration, performance)
 2. Focus on testing cross-module functionality rather than internal details
 3. Use descriptive test names that explain what system behavior is being tested
-4. Consider adding the test to the run script if it should be run regularly 
+4. Consider adding the test to the run script if it should be run regularly

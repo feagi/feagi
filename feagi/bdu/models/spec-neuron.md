@@ -1,10 +1,10 @@
 # NeuronModule Documentation
 
 ## Overview
-The **Neuron Module** manages neuron CRUD operations including the creation of neurons, reading neuron properties, 
-updating neuron parameters, and deleting neurons. 
+The **Neuron Module** manages neuron CRUD operations including the creation of neurons, reading neuron properties,
+updating neuron parameters, and deleting neurons.
 
-The **NeuronArrayManager** class maintains global neuron storage, while **Neuron** handles specific neuron instantiation 
+The **NeuronArrayManager** class maintains global neuron storage, while **Neuron** handles specific neuron instantiation
 and interactions.
 
 ## Data Structures

@@ -45,7 +45,7 @@ Located in `feagi/api/gateway/api_gateway.py`:
 
 1. Agent sends binary message via ZMQ
 2. Gateway receives and passes to ProtocolTranslator for decoding
-3. Translated message is queued for processing 
+3. Translated message is queued for processing
 4. Message is routed to CoreAPIService for handling
 5. Response is sent back via the same channels (in reverse)
 
@@ -101,4 +101,4 @@ The architecture includes comprehensive tests in `tests/api/protocols/test_proto
 2. Integrate ZMQ transport with the gateway for actual message delivery
 3. Implement more extensive testing including integration tests
 4. Add authentication and security measures
-5. Add monitoring and performance metrics for protocol operations 
+5. Add monitoring and performance metrics for protocol operations

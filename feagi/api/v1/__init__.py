@@ -7,4 +7,4 @@ These functions are transport-agnostic and can be called by any adapter
 
 The goal is to have a single source of truth for v1 API behavior that
 can be accessed through multiple transport protocols.
-""" 
+"""

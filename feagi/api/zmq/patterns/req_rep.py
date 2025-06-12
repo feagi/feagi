@@ -27,38 +27,40 @@ It provides:
 
 import asyncio
 import json
+
 from feagi.utils.logger import setup_logger
+
 logger = setup_logger(__name__)
 import time
 import uuid
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import zmq
 import zmq.asyncio
-from typing import Dict, Any, List, Callable, Optional, Union, Callable
 
 from ...core.services.core_api_service import CoreAPIService
-from ..serialization import serialize_message, deserialize_message
 from ...utils.auth import validate_token
 from ..rest_adapter import ZMQRestAPIAdapter
-
+from ..serialization import deserialize_message, serialize_message
 
 
 class RequestReplyServer:
     """
     ZeroMQ Request-Reply server implementation.
-    
+
     This server handles command requests from clients using the REQ/REP pattern.
     """
-    
+
     def __init__(
-        self, 
+        self,
         core_api: CoreAPIService,
-        host: str = "*", 
+        host: str = "*",
         port: int = 5555,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
     ):
         """
         Initialize a new Request-Reply server.
-        
+
         Args:
             core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to (default "*" to bind to all interfaces)
@@ -72,7 +74,7 @@ class RequestReplyServer:
         self.context = context or zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind(f"tcp://{host}:{port}")
-        
+
         # Command handlers
         self.command_handlers = {
             "ping": self._handle_ping,
@@ -84,10 +86,10 @@ class RequestReplyServer:
         """Start the request-reply server."""
         logger.info(f"Starting REP server on {self.host}:{self.port}")
         self.running = True
-        
+
         # Store the current event loop for this method
         self._event_loop = asyncio.get_event_loop()
-        
+
         # Start the request handler in the current loop
         self._handler_task = self._event_loop.create_task(self._request_handler())
 
@@ -103,16 +105,21 @@ class RequestReplyServer:
             try:
                 # Wait for request
                 request_data = await self.socket.recv_multipart()
-                
+
                 # Add compatibility layer for simple JSON messages (not multipart)
                 if len(request_data) == 1:
                     # Simple message format - try to parse as JSON
                     try:
                         simple_request = json.loads(request_data[0].decode())
-                        logger.debug(f"Received simple format request: {simple_request}")
-                        
+                        logger.debug(
+                            f"Received simple format request: {simple_request}"
+                        )
+
                         # Convert simple format to expected format
-                        if "type" in simple_request and simple_request["type"] == "status_request":
+                        if (
+                            "type" in simple_request
+                            and simple_request["type"] == "status_request"
+                        ):
                             # Handle status_request specially
                             result = await self._handle_get_status({"params": {}})
                             await self._send_response(result)
@@ -121,7 +128,9 @@ class RequestReplyServer:
                             # Already has command field, use as is
                             command = simple_request["command"]
                             if command in self.command_handlers:
-                                result = await self.command_handlers[command](simple_request)
+                                result = await self.command_handlers[command](
+                                    simple_request
+                                )
                                 await self._send_response(result)
                                 continue
                             else:
@@ -129,33 +138,35 @@ class RequestReplyServer:
                                 continue
                     except json.JSONDecodeError:
                         # Not JSON - continue with normal processing
-                        logger.debug("Received message is not JSON, continuing with standard processing")
+                        logger.debug(
+                            "Received message is not JSON, continuing with standard processing"
+                        )
                         pass
-                
+
                 # Standard processing - expecting [auth_token, content_type, request_data]
                 if len(request_data) < 3:
                     logger.error(f"Invalid request format: {request_data}")
                     await self._send_error("Invalid request format")
                     continue
-                
+
                 auth_token = request_data[0].decode()
                 content_type = request_data[1].decode()
                 request = deserialize_message(request_data[2], content_type)
-                
+
                 logger.debug(f"Received request: {request}")
-                
+
                 # Validate authentication if token is provided
                 if auth_token and not await validate_token(auth_token):
                     logger.warning(f"Invalid authentication token: {auth_token}")
                     await self._send_error("Authentication failed")
                     continue
-                
+
                 # Process command
                 command = request.get("command")
                 if not command:
                     await self._send_error("Missing command field")
                     continue
-                
+
                 # Handle command
                 if command in self.command_handlers:
                     try:
@@ -167,7 +178,7 @@ class RequestReplyServer:
                 else:
                     logger.warning(f"Unknown command: {command}")
                     await self._send_error(f"Unknown command: {command}")
-            
+
             except asyncio.CancelledError:
                 logger.debug("Request handler cancelled")
                 break
@@ -179,67 +190,55 @@ class RequestReplyServer:
                     pass
                 await asyncio.sleep(1)  # Avoid tight loop on errors
 
-    async def _send_response(self, data: Any, content_type: str = "application/json") -> None:
+    async def _send_response(
+        self, data: Any, content_type: str = "application/json"
+    ) -> None:
         """Send a response to the client."""
         try:
             serialized_data = serialize_message(data, content_type)
-            await self.socket.send_multipart([
-                content_type.encode(),
-                serialized_data
-            ])
+            await self.socket.send_multipart([content_type.encode(), serialized_data])
         except Exception as e:
             logger.error(f"Error sending response: {e}")
 
-    async def _send_error(self, error_message: str, content_type: str = "application/json") -> None:
+    async def _send_error(
+        self, error_message: str, content_type: str = "application/json"
+    ) -> None:
         """Send an error response to the client."""
-        error_data = {
-            "error": error_message,
-            "timestamp": time.time()
-        }
+        error_data = {"error": error_message, "timestamp": time.time()}
         await self._send_response(error_data, content_type)
 
     async def _handle_ping(self, request: Dict) -> Dict:
         """Handle ping command."""
-        return {
-            "pong": True,
-            "timestamp": time.time(),
-            "version": "1.0"
-        }
+        return {"pong": True, "timestamp": time.time(), "version": "1.0"}
 
     async def _handle_get_status(self, request: Dict) -> Dict:
         """Handle get_status command."""
         status = await self.core_api.get_simulation_status()
-        return {
-            "status": status,
-            "timestamp": time.time()
-        }
+        return {"status": status, "timestamp": time.time()}
 
     async def _handle_get_performance(self, request: Dict) -> Dict:
         """Handle get_performance command."""
         performance = await self.core_api.get_performance_stats()
-        return {
-            "performance": performance,
-            "timestamp": time.time()
-        }
+        return {"performance": performance, "timestamp": time.time()}
 
 
 class RequestReplyClient:
     """
     ZeroMQ Request-Reply client implementation.
-    
+
     This client connects to a Request-Reply server and sends command requests.
     """
-    
+
     def __init__(
-        self, 
+        self,
         host: str,  # Remove hardcoded default - must be provided from configuration
         port: int = 5555,
         timeout: int = 30,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
     ):
         """
         Initialize a new Request-Reply client.
-        
+
         Args:
             host: Server host address to connect to
             port: Server port to connect to
@@ -252,10 +251,10 @@ class RequestReplyClient:
         self.context = context or zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.REQ)
         self.socket.connect(f"tcp://{host}:{port}")
-        
+
         # Unique client ID
         self.client_id = str(uuid.uuid4())
-        
+
         # Auth token (if any)
         self.auth_token = None
 
@@ -270,19 +269,19 @@ class RequestReplyClient:
         self.socket.close()
 
     async def send_request(
-        self, 
-        command: str, 
+        self,
+        command: str,
         params: Optional[Dict] = None,
-        content_type: str = "application/json"
+        content_type: str = "application/json",
     ) -> Dict:
         """
         Send a command request to the server.
-        
+
         Args:
             command: Command to execute
             params: Command parameters
             content_type: Content type for serialization
-            
+
         Returns:
             Server response data
         """
@@ -290,34 +289,36 @@ class RequestReplyClient:
             "command": command,
             "params": params or {},
             "client_id": self.client_id,
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
-        
+
         serialized_data = serialize_message(request, content_type)
-        
-        await self.socket.send_multipart([
-            self.auth_token.encode() if self.auth_token else b"",
-            content_type.encode(),
-            serialized_data
-        ])
-        
+
+        await self.socket.send_multipart(
+            [
+                self.auth_token.encode() if self.auth_token else b"",
+                content_type.encode(),
+                serialized_data,
+            ]
+        )
+
         # Set timeout
         self.socket.setsockopt(zmq.RCVTIMEO, int(self.timeout * 1000))
-        
+
         # Receive response
         try:
             response = await self.socket.recv_multipart()
-            
+
             # Expecting [content_type, response_data]
             if len(response) < 2:
                 logger.error(f"Invalid response format: {response}")
                 return {"error": "Invalid response format"}
-            
+
             resp_content_type = response[0].decode()
             resp_data = deserialize_message(response[1], resp_content_type)
-            
+
             return resp_data
-            
+
         except zmq.error.Again:
             logger.error(f"Request timed out after {self.timeout} seconds")
             return {"error": "Request timed out"}
@@ -325,7 +326,7 @@ class RequestReplyClient:
     def set_auth_token(self, token: str) -> None:
         """
         Set the authentication token to use for requests.
-        
+
         Args:
             token: Authentication token
         """
@@ -335,21 +336,21 @@ class RequestReplyClient:
 class RequestReplyManager:
     """
     Manager class for coordinating Request-Reply servers and clients.
-    
+
     This class provides a unified interface for the FEAGI ZMQ server
     to manage REQ/REP patterns.
     """
-    
+
     def __init__(
-        self, 
+        self,
         core_api: CoreAPIService,
-        host: str = "*", 
+        host: str = "*",
         port: int = 5555,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
     ):
         """
         Initialize a new RequestReply Manager.
-        
+
         Args:
             core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to
@@ -359,21 +360,18 @@ class RequestReplyManager:
         self.context = context or zmq.asyncio.Context.instance()
         self._port = port
         self.request_reply_server = RequestReplyServer(
-            core_api=core_api,
-            host=host,
-            port=port,
-            context=self.context
+            core_api=core_api, host=host, port=port, context=self.context
         )
-    
+
     @property
     def port(self) -> int:
         """Get the port used by this manager's server."""
         return self._port
-    
+
     async def start(self) -> None:
         """Start the RequestReply manager."""
         await self.request_reply_server.start()
-    
+
     async def stop(self) -> None:
         """Stop the RequestReply manager."""
-        await self.request_reply_server.stop() 
+        await self.request_reply_server.stop()

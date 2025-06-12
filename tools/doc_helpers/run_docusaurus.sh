@@ -34,11 +34,11 @@ attempt=1
 
 while [ $attempt -le $max_attempts ]; do
     echo "Attempting to start Docusaurus on port $port (attempt $attempt/$max_attempts)..."
-    
+
     # Start Docusaurus in the background
     npm start -- --port $port &
     pid=$!
-    
+
     # Wait for server to start or fail
     for i in {1..20}; do
         if grep -q "Docusaurus website is running at" <(tail -n 20 /tmp/docusaurus_log.txt 2>/dev/null); then
@@ -48,20 +48,20 @@ while [ $attempt -le $max_attempts ]; do
             wait $pid
             exit 0
         fi
-        
+
         if ! ps -p $pid > /dev/null; then
             echo "Docusaurus process exited unexpectedly"
             break
         fi
-        
+
         sleep 1
     done
-    
+
     # Kill the process if it's still running
     if ps -p $pid > /dev/null; then
         kill $pid 2>/dev/null
     fi
-    
+
     port=$((port + 1))
     attempt=$((attempt + 1))
     sleep 2
@@ -69,4 +69,4 @@ done
 
 echo "Failed to start Docusaurus after $max_attempts attempts"
 echo "Check for error messages or try manually with: cd website/docs && npm start"
-exit 1 
+exit 1

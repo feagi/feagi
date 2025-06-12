@@ -18,12 +18,13 @@
 FEAGI Protocol package for binary communication with agents.
 """
 
-from feagi.api.protocols.base import ProtocolID, VersionedProtocol, ProtocolRegistry
+from feagi.api.protocols.base import ProtocolID, ProtocolRegistry, VersionedProtocol
+from feagi.api.protocols.fcp import register_protocols as register_fcp_protocols
 
 # Import protocol modules and their registration functions
 from feagi.api.protocols.fsmp import register_protocols as register_fsmp_protocols
-from feagi.api.protocols.fcp import register_protocols as register_fcp_protocols  
 from feagi.api.protocols.fvp import register_protocols as register_fvp_protocols
+
 
 def register_all_protocols():
     """Register all protocol versions with the registry."""
@@ -31,5 +32,6 @@ def register_all_protocols():
     register_fcp_protocols()
     register_fvp_protocols()
 
+
 # Run the registration on import
-register_all_protocols() 
+register_all_protocols()

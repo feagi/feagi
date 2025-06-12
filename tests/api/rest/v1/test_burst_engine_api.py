@@ -22,18 +22,20 @@ All tests in this file are automatically grouped with the 'burst_engine' marker
 which ensures they use a specialized client with proper mocks.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 # Mark all tests in this module as belonging to the burst_engine group
 pytestmark = [pytest.mark.api, pytest.mark.api_group("burst_engine")]
+
 
 def test_get_burst_engine_config(burst_engine_client):
     """Test getting the burst engine configuration."""
     response = burst_engine_client.get("/v1/burst_engine/config")
     # Accept both 200 and 400 since we're using lightweight mocks
     assert response.status_code in (200, 400)
-    
+
     # Only validate content for 200 responses
     if response.status_code == 200:
         data = response.json()
@@ -47,19 +49,15 @@ def test_get_burst_engine_config(burst_engine_client):
         assert data["inter_burst_interval"] == 5.0
         assert data["maximum_firing_rate"] == 100.0
 
+
 def test_update_burst_engine_config(burst_engine_client):
     """Test updating the burst engine configuration."""
-    update_data = {
-        "parameters": {
-            "burst_duration": 15,
-            "threshold": 0.6
-        }
-    }
-    
+    update_data = {"parameters": {"burst_duration": 15, "threshold": 0.6}}
+
     response = burst_engine_client.put("/v1/burst_engine/config", json=update_data)
     # Accept both 200 and 400 since we're using lightweight mocks
     assert response.status_code in (200, 400)
-    
+
     # Only validate content for 200 responses
     if response.status_code == 200:
         data = response.json()
@@ -70,26 +68,26 @@ def test_update_burst_engine_config(burst_engine_client):
         assert data["inter_burst_interval"] == 5.0
         assert data["maximum_firing_rate"] == 100.0
 
+
 def test_update_burst_engine_config_failure(burst_engine_client):
     """Test updating the burst engine configuration with invalid data."""
     # Use an invalid configuration that should be rejected
     update_data = {
-        "parameters": {
-            "burst_duration": -1  # Negative value should be rejected
-        }
+        "parameters": {"burst_duration": -1}  # Negative value should be rejected
     }
-    
+
     # Skip this test for now as our mock doesn't properly handle validations
     # Just make sure it doesn't crash
     response = burst_engine_client.put("/v1/burst_engine/config", json=update_data)
     assert response.status_code in (200, 400, 404, 500)
+
 
 def test_get_burst_engine_stats(burst_engine_client):
     """Test getting the burst engine statistics."""
     response = burst_engine_client.get("/v1/burst_engine/stats")
     # Accept both 200 and 400 since we're using lightweight mocks
     assert response.status_code in (200, 400)
-    
+
     # Only validate content for 200 responses
     if response.status_code == 200:
         data = response.json()
@@ -104,20 +102,22 @@ def test_get_burst_engine_stats(burst_engine_client):
         assert data["average_burst_time"] == 8.5
         assert data["total_bursts"] == 1000
 
+
 def test_start_burst_engine(burst_engine_client):
     """Test starting the burst engine."""
     response = burst_engine_client.post("/v1/burst_engine/start")
     assert response.status_code in (200, 404)
-    
+
     if response.status_code == 200:
         data = response.json()
         assert "status" in data
+
 
 def test_stop_burst_engine(burst_engine_client):
     """Test stopping the burst engine."""
     response = burst_engine_client.post("/v1/burst_engine/stop")
     assert response.status_code in (200, 404)
-    
+
     if response.status_code == 200:
         data = response.json()
-        assert "status" in data 
+        assert "status" in data

@@ -17,4 +17,4 @@ const coreSidebar: SidebarsConfig = {
   ],
 };
 
-export default coreSidebar; 
+export default coreSidebar;

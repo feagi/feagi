@@ -336,4 +336,4 @@ curl -s http://localhost:8000/v1/debug/info | jq
 
 ## Usage
 
-See `arch-zmq.md` for complete architecture documentation and usage examples. 
+See `arch-zmq.md` for complete architecture documentation and usage examples.

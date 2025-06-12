@@ -112,7 +112,7 @@ Security is built into FEAGI's design:
 │   ├── core/               # Core functionality and resource management
 │   ├── bdu/                # Brain Developmental Unit
 │   ├── npu/                # Neural Processing Unit
-│   ├── evo/                # Evolutionary Unit 
+│   ├── evo/                # Evolutionary Unit
 │   ├── pns/                # Peripheral Nervous System
 │   └── viz/                # Visualization data transformation
 ├── tests/                  # Unit, integration, and functional tests
@@ -153,4 +153,4 @@ Key performance optimizations include:
    - Dynamic kernel selection
    - Grouping by cortical area for locality
 
-These principles guide FEAGI's development to ensure it remains performant, maintainable, and adaptable to future needs. 
+These principles guide FEAGI's development to ensure it remains performant, maintainable, and adaptable to future needs.

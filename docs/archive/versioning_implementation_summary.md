@@ -16,7 +16,7 @@ SUPPORTED_VERSIONS = {
     ByteStructureID.JSON: [1],
     ByteStructureID.RAW_IMAGE: [1],
     ByteStructureID.MULTI_HOLDER: [1],
-    ByteStructureID.NEURON_FLAT: [1], 
+    ByteStructureID.NEURON_FLAT: [1],
     ByteStructureID.NEURON_CATEGORIES: [1],
 }
 ```
@@ -33,7 +33,7 @@ def encode_neuron_flat(self, cortical_ids, x_coords, y_coords, z_coords, potenti
     # Version validation and dispatch
     if version not in SUPPORTED_VERSIONS[ByteStructureID.NEURON_FLAT]:
         raise ValueError(f"Unsupported version {version}")
-        
+
     if version == 1:
         return self._encode_neuron_flat_v1(cortical_ids, x_coords, y_coords, z_coords, potentials)
     # Future versions would be handled here
@@ -47,7 +47,7 @@ Added a system in `ByteStructureTranslator` to track client capabilities and mak
 # In feagi/api/protocols/translator.py
 def register_client_capabilities(self, client_id, capabilities):
     self.client_capabilities[client_id] = capabilities
-    
+
 def get_supported_version(self, client_id, structure_id):
     # Logic to determine highest mutually supported version
 ```
@@ -61,7 +61,7 @@ Extended the handshake protocol to include structure version capabilities:
 capabilities = {
     # ...existing fields
     "structure_versions": {
-        str(structure_id): max(versions) 
+        str(structure_id): max(versions)
         for structure_id, versions in SUPPORTED_VERSIONS.items()
     }
 }
@@ -93,6 +93,6 @@ Added comprehensive tests in `test_versioning.py` to verify:
 ## Next Steps
 
 1. Implement a sample Version 2 format for one structure type
-2. Add compatibility matrices for more complex version relationships 
+2. Add compatibility matrices for more complex version relationships
 3. Create client reference implementations
-4. Implement monitoring for version usage statistics 
+4. Implement monitoring for version usage statistics

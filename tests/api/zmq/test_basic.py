@@ -18,6 +18,7 @@ limitations under the License.
 """Test script for ZMQ client functionality."""
 import time
 
+
 def main():
     print("========================================================")
     print("NOTE: This test has been converted to a compatibility stub")
@@ -25,5 +26,6 @@ def main():
     print("Update this test if it needs to be functional again")
     print("========================================================")
 
+
 if __name__ == "__main__":
-    main() 
+    main()

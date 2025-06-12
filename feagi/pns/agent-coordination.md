@@ -98,7 +98,7 @@ Capability Detection
 **Successful Response**:
 ```json
 {
-  "message": "Agent deregistered successfully", 
+  "message": "Agent deregistered successfully",
   "agent_id": "unique_agent_identifier",
   "fq_samplers_disabled": {
     "visualization": true,
@@ -132,7 +132,7 @@ Capability Detection
 
 **Detection Criteria**:
 - `capabilities.motor = true` OR
-- `capabilities.output = true` OR  
+- `capabilities.output = true` OR
 - `capabilities.sensorimotor = true`
 
 **Action**:
@@ -183,7 +183,7 @@ def should_disable_visualization_fq_sampler():
 **Configuration**:
 - **Sampling Rate**: 100Hz (matches burst frequency)
 - **Data Scope**: OPU areas only
-- **Port**: 5564  
+- **Port**: 5564
 - **Format**: Motor-optimized neural activity data
 
 **Enable Logic**:
@@ -234,12 +234,12 @@ The agent coordination system uses thread-safe operations with proper locking:
 class AgentCoordinator:
     def __init__(self):
         self._lock = threading.RLock()
-        
+
     def register_agent(self, agent_data):
         with self._lock:
             # Thread-safe registration and FQ coordination
             pass
-            
+
     def deregister_agent(self, agent_id):
         with self._lock:
             # Thread-safe deregistration and cleanup
@@ -313,7 +313,7 @@ class AgentCoordinator:
   },
   "motor_fq_sampler": {
     "enabled": false,
-    "reason": "0 motor agent(s) connected", 
+    "reason": "0 motor agent(s) connected",
     "agents_requiring": [],
     "sampling_rate": "100Hz",
     "port": 5564
@@ -515,4 +515,4 @@ curl -X GET "http://localhost:8000/v1/agent/fq_sampler_status"
 
 # Manual FQ sampler control (fallback)
 curl -X POST "http://localhost:8000/v1/system/enable_visualization_fq_sampler"
-``` 
+```

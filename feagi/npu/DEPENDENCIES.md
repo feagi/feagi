@@ -96,7 +96,7 @@ If you need to introduce new dependencies:
 - **Issue**: `FCLManager` and `EnhancedFCLManager` were duplicate classes
 - **Solution**: Consolidated into single `FCLManager` with all enhanced features
 - **Impact**: Simplified dependency graph, maintained backward compatibility with aliases
-- **Files Updated**: 
+- **Files Updated**:
   - `fcl_manager.py` - consolidated classes
   - `gpu_fcl_adapter.py` - updated imports to use `FCLManager`
 
@@ -121,4 +121,4 @@ grep -r "from feagi\.npu\." feagi/npu/*.py
 - **GPU Backend**: Consider extracting GPU functionality to separate backend module
 - **Performance**: Monitor for performance impact of dependency changes
 - **Testing**: Update test isolation when dependency structure changes
-- **Documentation**: Keep this file updated when adding new modules or dependencies 
+- **Documentation**: Keep this file updated when adding new modules or dependencies

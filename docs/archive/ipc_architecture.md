@@ -119,4 +119,4 @@ The shared memory IPC architecture is being implemented in phases:
 
 The shared memory IPC architecture significantly improves FEAGI's performance, stability, and resource utilization. By eliminating the complex ZMQ-based communication layer, the system becomes more maintainable and provides a clearer path for future Rust migration.
 
-This architecture maintains the process separation required for proper priority management while minimizing the overhead traditionally associated with inter-process communication. 
+This architecture maintains the process separation required for proper priority management while minimizing the overhead traditionally associated with inter-process communication.

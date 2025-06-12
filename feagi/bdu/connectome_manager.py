@@ -1589,6 +1589,72 @@ class ConnectomeManager:
         """
         return [area.name for area in self.cortical_areas.values()]
 
+    def get_all_cortical_ids(self) -> List[str]:
+        """Get all cortical area IDs (6-character strings).
+
+        Returns:
+            List of cortical area IDs
+        """
+        return list(self.cortical_areas.keys())
+
+    def get_all_cortical_indices(self) -> List[int]:
+        """Get all cortical area indices (integers) used by the FCL.
+
+        Returns:
+            List of cortical area indices
+        """
+        if hasattr(self, "cortical_mapping") and self.cortical_mapping:
+            all_mappings = self.cortical_mapping.get_all_mappings()
+            return sorted(list(all_mappings.values()))
+        return []
+
+    def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
+        """Get properties of a cortical area.
+
+        Args:
+            cortical_id: ID of the cortical area
+
+        Returns:
+            Dictionary with area properties
+
+        Raises:
+            KeyError: If cortical_id doesn't exist
+        """
+        area = self.get_cortical_area(cortical_id)
+        return {
+            "id": cortical_id,
+            "cortical_idx": self.get_cortical_idx_for_id(cortical_id),
+            "name": area.name,
+            "coordinates": {
+                "x": area.position[0],
+                "y": area.position[1],
+                "z": area.position[2],
+            },
+            "dimensions": {
+                "width": area.dimensions[0],
+                "height": area.dimensions[1],
+                "depth": area.dimensions[2],
+            },
+            "type": area.area_type,
+            "parameters": area.properties,
+            "neuron_count": len(self.get_neurons_by_cortical_area(cortical_id)),
+        }
+
+    def get_all_cortical_area_properties(self) -> List[Dict[str, Any]]:
+        """Get properties of all cortical areas.
+
+        Returns:
+            List of dictionaries with area properties
+        """
+        result = []
+        for cortical_id in self.cortical_areas.keys():
+            try:
+                area_props = self.get_cortical_area_properties(cortical_id)
+                result.append(area_props)
+            except Exception as e:
+                logger.error(f"Error getting properties for area {cortical_id}: {e}")
+        return result
+
     def delete_cortical_area(
         self, cortical_id: str, delete_neurons: bool = True
     ) -> bool:

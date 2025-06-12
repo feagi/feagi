@@ -263,4 +263,4 @@ Log entries include:
 1. **Cross-Machine Resource Management**: Extend resource management across multiple machines
 2. **Additional Backend Support**: Add support for specialized hardware like NPUs or TPUs
 3. **Fine-Grained Permission System**: Enhance security with role-based access control
-4. **Dynamic Backend Switching**: Allow switching backends at runtime based on workload 
+4. **Dynamic Backend Switching**: Allow switching backends at runtime based on workload

@@ -16,7 +16,8 @@ limitations under the License.
 
 import os
 import sys
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 # Always disable Rust extensions for testing
 HAS_SETUPTOOLS_RUST = False
@@ -58,7 +59,7 @@ setup(
         "toml",
         "numpy",
         "zmq",
-        "capnp", 
+        "capnp",
         "toml",
         "feagi-data-processing>=0.0.30",  # Replace feagi_bytes with high-performance feagi-data-processing
         "tomli",
@@ -91,4 +92,4 @@ setup(
             "feagi=feagi.main:main",
         ],
     },
-) 
+)

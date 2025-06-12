@@ -302,4 +302,4 @@ python -m cProfile -o feagi_profile.prof -m feagi.main --test --debug-npu
 - [NPU Documentation](../feagi/npu/README.md) - Neural Processing Unit details
 - [API Testing Guide](../feagi/api/guide-api-testing.md) - API-specific testing approaches
 - [Testing Documentation](../tests/README.md) - Test development and execution
-- [Contribution Guide](guide-contribution.md) - Development workflow and standards 
+- [Contribution Guide](guide-contribution.md) - Development workflow and standards

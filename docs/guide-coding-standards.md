@@ -37,4 +37,4 @@ cd feagi_core && pytest tests/system/test_architecture_compliance.py -v
 
 - **[DEVELOPERS.md](DEVELOPERS.md)** - Complete developer guide
 - [Documentation Standards](guide-documentation-standards.md)
-- [Naming Conventions](guide-naming-conventions.md) 
+- [Naming Conventions](guide-naming-conventions.md)

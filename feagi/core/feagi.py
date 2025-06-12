@@ -15,19 +15,23 @@ limitations under the License.
 """
 
 """Main FEAGI class implementation."""
-from typing import Dict, List, Optional, Union, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
+if TYPE_CHECKING:
+    from feagi.models.model import Model
+
 
 class FEAGI:
     """
     The main FEAGI class that represents the Framework for Evolutionary Artificial General Intelligence framework.
-    
+
     This class serves as the primary entry point for creating and managing AI models.
     """
-    
+
     def __init__(self, config_path: Optional[str] = None, use_gpu: bool = False):
         """
         Initialize a new FEAGI instance.
-        
+
         Args:
             config_path: Optional path to a configuration file.
             use_gpu: Whether to use GPU acceleration if available.
@@ -35,82 +39,82 @@ class FEAGI:
         self.models = {}
         self.config = self._load_config(config_path) if config_path else {}
         self.use_gpu = use_gpu
-        
+
     def _load_config(self, config_path: str) -> Dict:
         """
         Load configuration from a file.
-        
+
         Args:
             config_path: Path to the configuration file.
-            
+
         Returns:
             Dict containing configuration parameters.
         """
         # This is a placeholder for actual config loading
         return {}
-    
+
     def create_model(self, name: str, model_type: str = "default") -> "Model":
         """
         Create a new model.
-        
+
         Args:
             name: Name of the model.
             model_type: Type of model to create.
-            
+
         Returns:
             A new Model instance.
         """
         from feagi.models.model import Model
-        
+
         model = Model(name, model_type)
         self.models[name] = model
         return model
-    
+
     def load_model(self, path: str) -> "Model":
         """
         Load a model from disk.
-        
+
         Args:
             path: Path to the model file.
-            
+
         Returns:
             A loaded Model instance.
         """
         # This is a placeholder for actual model loading
         from feagi.models.model import Model
-        
+
         model = Model("loaded_model")
         self.models[model.name] = model
         return model
-    
+
     def list_models(self) -> List[str]:
         """
         List all models managed by this FEAGI instance.
-        
+
         Returns:
             List of model names.
         """
         return list(self.models.keys())
-    
+
     def get_model(self, name: str) -> Optional["Model"]:
         """
         Get a model by name.
-        
+
         Args:
             name: Name of the model.
-            
+
         Returns:
             The Model instance if found, otherwise None.
         """
         return self.models.get(name)
-    
+
     def remove_model(self, name: str) -> bool:
         """
         Remove a model from this FEAGI instance.
-        
+
         Args:
             name: Name of the model to remove.
-            
+
         Returns:
             True if the model was removed, False otherwise.
         """
@@ -118,13 +122,13 @@ class FEAGI:
             del self.models[name]
             return True
         return False
-    
+
     # Methods required for API compatibility
-    
+
     def get_brain_state(self) -> Dict[str, Any]:
         """
         Get the current brain state.
-        
+
         Returns:
             Dictionary containing the current brain state.
         """
@@ -133,23 +137,23 @@ class FEAGI:
             "status": "idle",
             "current_burst": 0,
             "neurons_total": 0,
-            "neurons_firing": 0
+            "neurons_firing": 0,
         }
-    
+
     def get_configuration(self) -> Dict[str, Any]:
         """
         Get the current configuration.
-        
+
         Returns:
             Dictionary containing the current configuration.
         """
         # Return a copy of the config to prevent direct mutation
         return dict(self.config)
-    
+
     def get_cortical_areas(self) -> List[Dict[str, Any]]:
         """
         Get a list of all cortical areas in the brain.
-        
+
         Returns:
             List of dictionaries containing cortical area information.
         """
@@ -159,46 +163,30 @@ class FEAGI:
             {
                 "id": "1",
                 "name": "Test Area 1",
-                "coordinates": {
-                    "x": 0,
-                    "y": 0,
-                    "z": 0
-                },
-                "dimensions": {
-                    "width": 10,
-                    "height": 10,
-                    "depth": 5
-                },
+                "coordinates": {"x": 0, "y": 0, "z": 0},
+                "dimensions": {"width": 10, "height": 10, "depth": 5},
                 "type": "interconnect",
                 "parameters": {},
-                "neuron_count": 500
+                "neuron_count": 500,
             },
             {
                 "id": "2",
                 "name": "Test Area 2",
-                "coordinates": {
-                    "x": 20,
-                    "y": 0,
-                    "z": 0
-                },
-                "dimensions": {
-                    "width": 15,
-                    "height": 10,
-                    "depth": 5
-                },
+                "coordinates": {"x": 20, "y": 0, "z": 0},
+                "dimensions": {"width": 15, "height": 10, "depth": 5},
                 "type": "sensory",
                 "parameters": {},
-                "neuron_count": 750
-            }
+                "neuron_count": 750,
+            },
         ]
-    
+
     def update_configuration(self, config: Dict[str, Any]) -> bool:
         """
         Update the configuration.
-        
+
         Args:
             config: New configuration parameters.
-            
+
         Returns:
             True if successful, False otherwise.
         """
@@ -207,37 +195,37 @@ class FEAGI:
             return True
         except Exception:
             return False
-    
+
     def save_brain_state(self, path: str) -> bool:
         """
         Save the current brain state to a file.
-        
+
         Args:
             path: Path to save the brain state.
-            
+
         Returns:
             True if successful, False otherwise.
         """
         # This is a placeholder implementation
         return True
-    
+
     def load_brain_state(self, path: str) -> bool:
         """
         Load a brain state from a file.
-        
+
         Args:
             path: Path to the brain state file.
-            
+
         Returns:
             True if successful, False otherwise.
         """
         # This is a placeholder implementation
         return True
-        
+
     def get_burst_engine_config(self) -> Dict[str, Any]:
         """
         Get the burst engine configuration.
-        
+
         Returns:
             Dictionary containing burst engine configuration.
         """
@@ -257,63 +245,63 @@ class FEAGI:
             "max_burst_time": 12.3,
             "min_burst_time": 7.1,
             "average_active_neurons": 500,
-            "memory_usage": 128.5
+            "memory_usage": 128.5,
         }
-        
+
     def get_genome_filename(self) -> str:
         """
         Get the filename of the currently loaded genome.
-        
+
         Returns:
             String containing the filename of the currently loaded genome.
         """
         # This is a placeholder implementation
         return "sample_genome.json"
-        
+
     def get_cortical_area_types(self) -> Dict[str, List[str]]:
         """
         Get available cortical area types.
-        
+
         Returns:
             Dictionary containing available cortical area types.
         """
         # Default cortical area types matching legacy FEAGI format
         return {
             "types": [
-                "ipu",       # Input Processing Unit
-                "opu",       # Output Processing Unit
-                "interconnect", # Interconnection
-                "memory",    # Memory
-                "sensory",   # Sensory processing
-                "motor",     # Motor control
-                "association", # Association areas
-                "prefrontal", # Prefrontal cortex
-                "custom"     # Custom area type
+                "ipu",  # Input Processing Unit
+                "opu",  # Output Processing Unit
+                "interconnect",  # Interconnection
+                "memory",  # Memory
+                "sensory",  # Sensory processing
+                "motor",  # Motor control
+                "association",  # Association areas
+                "prefrontal",  # Prefrontal cortex
+                "custom",  # Custom area type
             ],
             "parameters": {
                 "ipu": ["modality", "input_channels", "mapping"],
                 "opu": ["modality", "output_channels", "mapping"],
                 "memory": ["capacity", "decay_rate", "association_threshold"],
-                "custom": []  # Custom areas can have any parameters
-            }
+                "custom": [],  # Custom areas can have any parameters
+            },
         }
-        
+
     def start_simulation(self) -> bool:
         """
         Start the brain simulation.
-        
+
         Returns:
             True if successful, False otherwise.
         """
         # This is a placeholder implementation
         return True
-        
+
     def stop_simulation(self) -> bool:
         """
         Stop the brain simulation.
-        
+
         Returns:
             True if successful, False otherwise.
         """
         # This is a placeholder implementation
-        return True 
+        return True

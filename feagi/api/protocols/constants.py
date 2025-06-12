@@ -26,7 +26,7 @@ from enum import IntEnum
 
 class ProtocolID(IntEnum):
     """Protocol IDs for different FEAGI protocols."""
-    
+
     FCP = 1  # FEAGI Control Protocol
     FVP = 2  # FEAGI Visualization Protocol
     FSMP = 3  # FEAGI Sensorimotor Protocol
@@ -35,21 +35,21 @@ class ProtocolID(IntEnum):
 class ByteStructureID(IntEnum):
     """
     Byte structure IDs for different data types.
-    
-    These IDs correspond to the structure IDs defined in the 
+
+    These IDs correspond to the structure IDs defined in the
     FEAGI Byte Structures documentation.
     """
-    
-    JSON = 1            # JSON data (slower, for non-performance-critical operations)
-    RAW_IMAGE = 8       # Single raw image (BGR format)
-    MULTI_HOLDER = 9    # Container for multiple byte structures
-    NEURON_FLAT = 10    # Neuron potential data (flat format)
+
+    JSON = 1  # JSON data (slower, for non-performance-critical operations)
+    RAW_IMAGE = 8  # Single raw image (BGR format)
+    MULTI_HOLDER = 9  # Container for multiple byte structures
+    NEURON_FLAT = 10  # Neuron potential data (flat format)
     NEURON_CATEGORIES = 11  # Neuron potential data (categorized by cortical area)
 
 
 class FCPCommandType(IntEnum):
     """Command types for FEAGI Control Protocol."""
-    
+
     REGISTER = 1
     DEREGISTER = 2
     CONFIGURE = 3
@@ -61,7 +61,7 @@ class FCPCommandType(IntEnum):
 
 class FVPFrameType(IntEnum):
     """Frame types for FEAGI Visualization Protocol."""
-    
+
     STRUCTURE = 1
     ACTIVITY = 2
     CONFIG = 3
@@ -70,8 +70,8 @@ class FVPFrameType(IntEnum):
 
 class FSMPChannelType(IntEnum):
     """Channel types for FEAGI Sensorimotor Protocol."""
-    
+
     SENSORY = 1
     MOTOR = 2
     PROPRIOCEPTIVE = 3
-    ERROR = 255 
+    ERROR = 255

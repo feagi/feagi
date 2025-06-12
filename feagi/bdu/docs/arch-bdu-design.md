@@ -342,4 +342,4 @@ The BDU interacts with other FEAGI components as follows:
 1. **EVO Module**: Provides genomic information that BDU translates into connectome structures
 2. **NPU Module**: Consumes the connectome for neural simulation
 3. **API Module**: Exposes connectome operations through REST/gRPC interfaces
-4. **VIZ Module**: Reads connectome state for visualization 
+4. **VIZ Module**: Reads connectome state for visualization

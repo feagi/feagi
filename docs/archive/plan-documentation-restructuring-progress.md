@@ -160,4 +160,4 @@ We've also received new feedback on the Mermaid diagrams, which have been well-r
 | Module-level files standardized | 22/22 (100%) |
 | Total completion | 100% |
 
-The documentation restructuring project is now complete! The next phase will focus on integrating the documentation with Docusaurus. 
+The documentation restructuring project is now complete! The next phase will focus on integrating the documentation with Docusaurus.

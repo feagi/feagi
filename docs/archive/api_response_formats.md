@@ -28,7 +28,7 @@ All `/v2/*` endpoints use a standardized response structure:
     "load_time": 0.234
   },
   "message": "Optional human-readable message",
-  "metadata": { 
+  "metadata": {
     "additional_info": "any metadata"
   },
   "timestamp": "2023-05-20T12:34:56.789Z"
@@ -60,4 +60,4 @@ When developing FEAGI extensions, use these utilities:
 
 - `success_response(data, message, metadata)`: Creates a standardized success response
 - `error_response(message, error_code, metadata)`: Creates a standardized error response
-- `raw_response(data)`: (Advanced) Bypasses standardization when needed 
+- `raw_response(data)`: (Advanced) Bypasses standardization when needed

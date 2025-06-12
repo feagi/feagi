@@ -25,4 +25,4 @@ including heartbeat tracking, resource usage monitoring, and failure detection.
 from feagi.core.fault_tolerance import HealthMonitor
 
 # Re-export for compatibility
-__all__ = ['HealthMonitor'] 
+__all__ = ["HealthMonitor"]

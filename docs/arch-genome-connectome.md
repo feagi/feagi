@@ -28,7 +28,7 @@ The architecture follows this strict sequence:
 
 ```
 1. Genome Service: Complete sanitization first
-2. State Manager: Store sanitized genome as single source of truth  
+2. State Manager: Store sanitized genome as single source of truth
 3. State Manager: Notify Connectome Manager "new genome ready"
 4. Connectome Manager: Build brain from State Manager's genome (NOT temp files)
 5. REST API: Serve properties from State Manager's genome
@@ -37,7 +37,7 @@ The architecture follows this strict sequence:
 #### Previous Problematic Pattern:
 ```
 1. Genome Service: Auto-recovery sanitizes genome
-2. Genome Service: Immediately calls connectome manager  
+2. Genome Service: Immediately calls connectome manager
 3. Connectome Manager: Builds from temp file (race condition!)
 4. REST API: Reads from connectome's duplicate property storage
 5. Result: Client gets unsanitized null values, crashes
@@ -62,7 +62,7 @@ if self.state_manager:
     self.state_manager.genome = genome_data  # Single source of truth
     self.state_manager.genome_file_name = filename
     self.state_manager.set_genome_state(GenomeState.LOADING)
-    
+
 # ARCHITECTURE: Build brain from state manager genome (not temp file)
 embry = NeuroEmbryogenesis(connectome_manager=self._connectome_manager)
 success = embry.develop_brain_from_genome_data(genome_data)  # Direct data, no files
@@ -117,7 +117,7 @@ This ensures the editing loop maintains single source of truth.
 
 **Eliminated Patterns**:
 - Temp file creation during genome loading
-- Duplicate property storage in `area.properties` 
+- Duplicate property storage in `area.properties`
 - Race conditions between sanitization and brain development
 - Multiple sources of truth for cortical properties
 
@@ -210,7 +210,7 @@ Components can register to be notified of genome changes:
 class MyComponent:
     def __init__(self, state_manager):
         state_manager.register_sync_observer(self)
-        
+
     def on_sync_state_change(self, old_state, new_state, details):
         if new_state == ServiceState.SYNC_COMPLETE:
             # React to successful synchronization
@@ -254,4 +254,4 @@ This synchronization model is designed to be compatible with Rust and RTOS envir
 - Clear state boundaries with explicit transitions
 - Deterministic resource allocation
 - Avoidance of hidden side effects
-- Well-defined ownership model 
+- Well-defined ownership model

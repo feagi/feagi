@@ -24,13 +24,13 @@ use rayon::prelude::*;
 pub enum FeagiError {
     #[error("Invalid input dimensions: {0}")]
     InvalidDimensions(String),
-    
+
     #[error("Computation error: {0}")]
     ComputationError(String),
-    
+
     #[error("Neural processing error: {0}")]
     NeuralProcessingError(String),
-    
+
     #[error("Memory allocation error: {0}")]
     MemoryAllocationError(String),
 }
@@ -51,14 +51,14 @@ fn fast_matrix_vector_mul(matrix: Vec<Vec<f64>>, vector: Vec<f64>) -> PyResult<V
             "Empty matrix or vector provided",
         ));
     }
-    
+
     let n_cols = matrix[0].len();
     if vector.len() != n_cols {
         return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
             format!("Matrix columns ({}) and vector length ({}) must match", n_cols, vector.len()),
         ));
     }
-    
+
     // Convert to ndarray for better performance
     let mut ndmatrix = Vec::with_capacity(matrix.len());
     for row in &matrix {
@@ -69,7 +69,7 @@ fn fast_matrix_vector_mul(matrix: Vec<Vec<f64>>, vector: Vec<f64>) -> PyResult<V
         }
         ndmatrix.push(row.clone());
     }
-    
+
     // Perform the multiplication in parallel
     let result: Vec<f64> = ndmatrix
         .par_iter()
@@ -80,7 +80,7 @@ fn fast_matrix_vector_mul(matrix: Vec<Vec<f64>>, vector: Vec<f64>) -> PyResult<V
                 .sum()
         })
         .collect();
-    
+
     Ok(result)
 }
 
@@ -103,7 +103,7 @@ mod neural {
     use ndarray::{Array1, Array2, ArrayView1, Axis};
     use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
     use pyo3::Python;
-    
+
     /// Structure representing a neuron for efficient processing
     #[derive(Debug, Clone)]
     pub struct Neuron {
@@ -114,7 +114,7 @@ mod neural {
         pub refractory_period: u16,
         pub refractory_countdown: u16,
     }
-    
+
     impl Neuron {
         /// Create a new neuron
         pub fn new(id: usize, threshold: f32, decay_rate: f32, refractory_period: u16) -> Self {
@@ -127,7 +127,7 @@ mod neural {
                 refractory_countdown: 0,
             }
         }
-        
+
         /// Update the neuron's state
         pub fn update(&mut self, input: f32) -> bool {
             // If in refractory period, decrement countdown and don't fire
@@ -135,27 +135,27 @@ mod neural {
                 self.refractory_countdown -= 1;
                 return false;
             }
-            
+
             // Update membrane potential
             self.membrane_potential = self.membrane_potential * self.decay_rate + input;
-            
+
             // Check if neuron should fire
             if self.membrane_potential >= self.threshold {
                 // Reset membrane potential
                 self.membrane_potential = 0.0;
-                
+
                 // Enter refractory period
                 self.refractory_countdown = self.refractory_period;
-                
+
                 return true;
             }
-            
+
             false
         }
     }
-    
+
     /// Update membrane potentials for a batch of neurons
-    /// 
+    ///
     /// This is a high-performance implementation that can be called from Python
     #[pyfunction]
     pub fn update_membrane_potentials(
@@ -171,43 +171,43 @@ mod neural {
         let current_potentials = current_potentials.as_array();
         let synaptic_inputs = synaptic_inputs.as_array();
         let thresholds = thresholds.as_array();
-        
+
         // Validate input dimensions
-        if current_potentials.len() != synaptic_inputs.len() || 
+        if current_potentials.len() != synaptic_inputs.len() ||
            current_potentials.len() != neuron_ids.len() ||
            current_potentials.len() != thresholds.len() {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                 "Input arrays must have the same length",
             ));
         }
-        
+
         // Allocate output arrays
         let mut new_potentials = Array1::<f32>::zeros(current_potentials.len());
         let mut fired_neurons = Vec::new();
-        
+
         // Update potentials and check firing
         for i in 0..current_potentials.len() {
             // Update potential
             let new_potential = current_potentials[i] * decay_factor + synaptic_inputs[i];
             new_potentials[i] = new_potential;
-            
+
             // Check if neuron fired
             if new_potential >= thresholds[i] {
                 fired_neurons.push(neuron_ids[i]);
                 new_potentials[i] = 0.0;  // Reset potential after firing
             }
         }
-        
+
         // Convert fired neurons to array
         let fired_neurons_array = Array1::<usize>::from_vec(fired_neurons);
-        
+
         // Convert Rust arrays back to Python arrays
         Ok((
             new_potentials.into_pyarray(py).to_owned(),
             fired_neurons_array.into_pyarray(py).to_owned(),
         ))
     }
-    
+
     /// Implement synaptic plasticity
     #[pyfunction]
     pub fn apply_plasticity(
@@ -221,17 +221,17 @@ mod neural {
         let weights = synapse_weights.as_array();
         let factors = plasticity_factors.as_array();
         let types = plasticity_types.as_array();
-        
+
         // Validate input dimensions
         if weights.len() != factors.len() || weights.len() != types.len() {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                 "Input arrays must have the same length",
             ));
         }
-        
+
         // Allocate output array
         let mut new_weights = Array1::<f32>::zeros(weights.len());
-        
+
         // Apply plasticity based on type
         for i in 0..weights.len() {
             match types[i] {
@@ -256,7 +256,7 @@ mod neural {
                 }
             }
         }
-        
+
         // Convert Rust array back to Python array
         Ok(new_weights.into_pyarray(py).to_owned())
     }
@@ -270,15 +270,15 @@ fn feagi_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fast_matrix_vector_mul, m)?)?;
     m.add_function(wrap_pyfunction!(relu, m)?)?;
     m.add_function(wrap_pyfunction!(sigmoid, m)?)?;
-    
+
     // Neural module
     let neural_module = PyModule::new(_py, "neural")?;
     neural_module.add_function(wrap_pyfunction!(neural::update_membrane_potentials, neural_module)?)?;
     neural_module.add_function(wrap_pyfunction!(neural::apply_plasticity, neural_module)?)?;
     m.add_submodule(neural_module)?;
-    
+
     // Add version information
     m.add("__version__", "0.1.0")?;
-    
+
     Ok(())
-} 
+}

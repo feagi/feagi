@@ -189,4 +189,4 @@ For efficient processing of active neurons:
 - [BDU Module README](README.md)
 - [Connectome Management](docs/connectome.md)
 - [Connectivity Rules](docs/connectivity_rule.md)
-- [System Architecture](../../docs/arch-system-overview.md) 
+- [System Architecture](../../docs/arch-system-overview.md)

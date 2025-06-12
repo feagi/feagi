@@ -83,7 +83,7 @@ Mission-critical components that must maintain real-time performance:
 - **FCL Manager**: Fire Candidate List operations
 - **Memory & Learning Manager**: Plasticity rules
 
-### Priority 2 (Important - Near Real-time)  
+### Priority 2 (Important - Near Real-time)
 Important but less time-critical operations:
 - **FQSampler**: Fire Queue sampling
 - **ZMQ Server**: Inter-process communication
@@ -103,7 +103,7 @@ Background services as direct async tasks:
 - **Performance**: Zero-copy data access
 
 ### Concurrency
-- **Python**: `threading.Thread` and `asyncio` 
+- **Python**: `threading.Thread` and `asyncio`
 - **Rust**: `tokio::spawn` and `std::thread`
 - **Safety**: Thread-safe singleton patterns
 
@@ -238,4 +238,4 @@ python -m pytest tests/core/.benchmarks/ -v
 ### Phase 3: Full Rust Migration 📋
 - Complete async runtime with tokio
 - RTOS compatibility layer
-- Performance optimizations 
+- Performance optimizations

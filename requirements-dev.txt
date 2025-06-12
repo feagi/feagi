@@ -29,4 +29,4 @@ dataclasses-json>=0.5.7
 # No Python dependencies needed for docs generation
 
 # Optional GPU monitoring (uncomment if needed)
-# GPUtil>=1.4.0 
+# GPUtil>=1.4.0

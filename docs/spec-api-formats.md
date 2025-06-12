@@ -38,7 +38,7 @@ All `/v2/*` endpoints use a standardized response structure:
     "load_time": 0.234
   },
   "message": "Optional human-readable message",
-  "metadata": { 
+  "metadata": {
     "additional_info": "any metadata"
   },
   "timestamp": "2023-05-20T12:34:56.789Z"
@@ -108,7 +108,7 @@ async def standardize_response_format(request, call_next):
     Middleware that standardizes API responses.
     - Skips standardization for v1 routes
     - Applies standardization to v2+ routes
-    - Honors raw_response() markers 
+    - Honors raw_response() markers
     """
     # Implementation details...
 ```
@@ -191,10 +191,10 @@ async def get_cortical_areas():
     """Get all cortical areas using singleton ConnectomeManager"""
     # Access singleton instance - no process boundaries
     connectome = ConnectomeManager.instance()
-    
+
     # Direct access to brain state - no IPC overhead
     cortical_areas = connectome.get_cortical_areas()
-    
+
     return success_response(
         data=cortical_areas,
         message="Cortical areas retrieved successfully"
@@ -205,13 +205,13 @@ async def get_system_state():
     """Get system state using singleton FeagiStateManager"""
     # Memory-mapped state access - zero-copy operations
     state_manager = FeagiStateManager.instance()
-    
+
     system_state = {
         "genome_loaded": state_manager.get_genome_state(),
         "brain_ready": state_manager.get_brain_state(),
         "burst_engine": state_manager.get_burst_engine_state()
     }
-    
+
     return success_response(
         data=system_state,
         message="System state retrieved successfully"
@@ -241,17 +241,17 @@ All API responses reflect the current state of the singleton instances:
 async def get_neural_activity():
     """Stream current neural activity with zero-copy access"""
     connectome = ConnectomeManager.instance()
-    
+
     # Direct access to current firing neurons - no copying
     firing_neurons = connectome.get_current_firing_neurons()
-    
+
     # Memory-mapped neuron properties - zero latency
     activity_data = {
         "firing_neurons": firing_neurons,
         "timestamp": time.time(),
         "total_neurons": connectome.get_total_neuron_count()
     }
-    
+
     return success_response(
         data=activity_data,
         message="Neural activity retrieved successfully"
@@ -263,4 +263,4 @@ async def get_neural_activity():
 - [System Architecture](arch-system-overview.md)
 - [State Management](arch-state-management.md)
 - [ZMQ Architecture](arch-zmq.md)
-- [Usage Guide](guide-usage.md) 
+- [Usage Guide](guide-usage.md)

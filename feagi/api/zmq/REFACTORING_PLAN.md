@@ -229,4 +229,4 @@ Location: tests/integration/zmq/
 - No exceptions in critical paths - use error codes
 - Fixed-size structures throughout
 - Document all platform-specific optimizations
-- Maintain compatibility with existing FEAGI_Connector protocol 
+- Maintain compatibility with existing FEAGI_Connector protocol

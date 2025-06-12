@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import pytest
-import tempfile
 import os
+import tempfile
 from unittest.mock import Mock
+
+import pytest
+
 from feagi.core.state_manager import FeagiStateManager, GenomeState, ServiceState
+
 
 def test_register_notification_callback():
     """Test registering notification callbacks"""
@@ -26,16 +29,17 @@ def test_register_notification_callback():
         try:
             state_manager = FeagiStateManager(tmp_file.name)
             callback = Mock()
-            
+
             result = state_manager.register_notification_callback("genome", callback)
             assert result is True
             assert callback in state_manager._notification_callbacks["genome"]
-            
+
             # Test invalid category
             result = state_manager.register_notification_callback("invalid", callback)
             assert result is False
         finally:
             os.unlink(tmp_file.name)
+
 
 def test_notification_callback_execution():
     """Test that callbacks are executed when state changes"""
@@ -43,30 +47,31 @@ def test_notification_callback_execution():
         try:
             state_manager = FeagiStateManager(tmp_file.name)
             callback = Mock()
-            
+
             state_manager.register_notification_callback("genome", callback)
-            
+
             # Change state to trigger notification
             old_state = state_manager.get_genome_state()
             new_state = GenomeState.LOADED
             state_manager.set_genome_state(new_state)
-            
+
             callback.assert_called_once_with(old_state, new_state)
         finally:
             os.unlink(tmp_file.name)
+
 
 def test_notification_error_handling():
     """Test that errors in callbacks don't crash the state manager"""
     with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
         try:
             state_manager = FeagiStateManager(tmp_file.name)
-            
+
             def failing_callback(old, new):
                 raise RuntimeError("Test error")
-            
+
             state_manager.register_notification_callback("genome", failing_callback)
-            
+
             # Should not raise exception
             state_manager.set_genome_state(GenomeState.LOADED)
         finally:
-            os.unlink(tmp_file.name) 
+            os.unlink(tmp_file.name)

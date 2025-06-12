@@ -81,7 +81,7 @@ FEAGI → Bridge → Godot:
    Returns: { "cortical_id1": {...}, "cortical_id2": {...} }
 
 2. Bridge: Data transformation (FEAGI → Godot format)
-   
+
 3. Bridge → Godot: WebSocket transmission
    Format: {"cortical_areas": [{"id": "...", "name": "...", ...}]}
 
@@ -135,7 +135,7 @@ Continuous Flow:
     "cortical_areas": [
         {
             "id": "CIHMot",
-            "name": "M1_BW", 
+            "name": "M1_BW",
             "dimensions": [10, 10, 1],
             "position": [0, 0, 0],
             "type": "CUSTOM",
@@ -168,7 +168,7 @@ Continuous Flow:
 - `GET /v1/system/health` - **Brain state monitoring**
 - `POST /v1/cortical_area/multi/cortical_area_properties` - **Batch cortical properties**
 
-#### Supporting Endpoints  
+#### Supporting Endpoints
 - `GET /v1/cortical_area/cortical_area_id_list` - Cortical area enumeration
 - `GET /v1/region/regions_members` - Brain region hierarchy
 - `GET /v1/morphology/morphologies` - Neural morphologies
@@ -182,7 +182,7 @@ Continuous Flow:
 {
     "cortical_id1": {
         "cortical_id": "CIHMot",
-        "cortical_name": "M1_BW", 
+        "cortical_name": "M1_BW",
         "cortical_group": "interconnect",
         "coordinates_3d": [-45, 0, -14],
         "cortical_dimensions": [10, 10, 1],
@@ -199,11 +199,11 @@ Continuous Flow:
 {
     "cortical_id": {
         "cortical_id": "string",
-        "cortical_name": "string", 
+        "cortical_name": "string",
         "cortical_group": "string",      # → CORTICAL_AREA_TYPE enum
         "cortical_sub_group": "string",
         "coordinates_3d": [x, y, z],     # → Vector3i
-        "cortical_dimensions": [w, h, d], # → Vector3i  
+        "cortical_dimensions": [w, h, d], # → Vector3i
         "coordinates_2d": [x, y],        # → Vector2i (optional)
         "visualization": boolean,
         # ... neuron firing parameters
@@ -235,14 +235,14 @@ def transform_cortical_data(feagi_data):
     for cortical_id, area_data in feagi_data.items():
         godot_area = {
             "id": area_data["cortical_id"],           # Godot expects "id"
-            "name": area_data["cortical_name"],       # Godot expects "name"  
+            "name": area_data["cortical_name"],       # Godot expects "name"
             "dimensions": area_data["cortical_dimensions"],
             "position": area_data["coordinates_3d"],
             "type": map_cortical_type(area_data["cortical_group"]),
             "properties": area_data  # Full FEAGI data in properties
         }
         godot_areas.append(godot_area)
-    
+
     return {"cortical_areas": godot_areas}
 ```
 
@@ -252,7 +252,7 @@ def transform_cortical_data(feagi_data):
 
 **Issue**: Godot's genome loading expects complete, consistent data sets.
 
-**Solution**: 
+**Solution**:
 - Bridge waits for `brain_readiness: true` before data transmission
 - Immediate data send on WebSocket connection if brain already ready
 - Atomic data transmission (all cortical areas in single message)
@@ -261,7 +261,7 @@ def transform_cortical_data(feagi_data):
 
 **Issue**: Different transport protocols (HTTP vs ZMQ) were returning different data.
 
-**Solution**: 
+**Solution**:
 - Single Source of Truth API pattern in FEAGI v1 endpoints
 - All transports delegate to identical v1 API methods
 - Eliminated custom transport-specific implementations
@@ -284,7 +284,7 @@ def transform_cortical_data(feagi_data):
 **Fix**: Ensure FEAGI API returns correct field names
 **Debug**: Check raw WebSocket data for field presence
 
-#### 2. No Cortical Visualization  
+#### 2. No Cortical Visualization
 **Cause**: Data format incompatibility with Godot genome loader
 **Fix**: Verify dictionary structure matches `FEAGI_load_all_cortical_areas()` expectations
 **Debug**: Enable Godot cache logging for object creation
@@ -372,10 +372,10 @@ The architecture demonstrates the importance of understanding both ends of an in
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-05-24  
-**Contributors**: System Analysis Team  
-**Related Documents**: 
+**Document Version**: 1.0
+**Last Updated**: 2025-05-24
+**Contributors**: System Analysis Team
+**Related Documents**:
 - [API Decorator Architecture](arch-api-decorator-architecture.md)
 - [ZMQ Architecture](arch-zmq.md)
-- [System Overview](arch-system-overview.md) 
+- [System Overview](arch-system-overview.md)
