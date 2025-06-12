@@ -757,11 +757,65 @@ class GenomeService(BaseService):
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
         """Get the currently loaded genome data."""
-        if self._current_genome is None:
-            self.logger.warning("No genome has been loaded")
-            return None
+        # Check our internal state first
+        if self._current_genome is not None:
+            return self._current_genome
 
-        return self._current_genome
+        # If not in our cache, try to get from state manager
+        if (
+            self.state_manager
+            and hasattr(self.state_manager, "genome")
+            and self.state_manager.genome
+        ):
+            self._current_genome = self.state_manager.genome
+            return self._current_genome
+
+        # If no genome in cache/state manager, but connectome has areas,
+        # create a minimal genome structure to allow operations to proceed
+        if (
+            self._connectome_manager
+            and hasattr(self._connectome_manager, "cortical_areas")
+            and len(self._connectome_manager.cortical_areas) > 0
+        ):
+            self.logger.info(
+                "Creating minimal genome structure from existing connectome state"
+            )
+
+            # Create minimal genome with cortical_areas section
+            minimal_genome = {
+                "cortical_areas": {},
+                "physiology": {
+                    "burst_delay": 0.025,
+                    "max_age": 10000000,
+                    "evolution_burst_count": 50,
+                    "ipu_idle_threshold": 1000,
+                    "plasticity_queue_depth": 3,
+                    "lifespan_mgmt_interval": 10,
+                },
+            }
+
+            # Populate cortical areas from connectome
+            for cortical_id, area in self._connectome_manager.cortical_areas.items():
+                minimal_genome["cortical_areas"][cortical_id] = {
+                    "cortical_name": getattr(area, "name", cortical_id),
+                    "coordinates": {
+                        "x": getattr(area, "x", 0),
+                        "y": getattr(area, "y", 0),
+                        "z": getattr(area, "z", 0),
+                    },
+                    "dimensions": {
+                        "x": getattr(area, "width", 1),
+                        "y": getattr(area, "height", 1),
+                        "z": getattr(area, "depth", 1),
+                    },
+                    "parameters": {},
+                }
+
+            self._current_genome = minimal_genome
+            return self._current_genome
+
+        self.logger.warning("No genome has been loaded")
+        return None
 
     def get_genome_filename(self) -> Optional[str]:
         """Get the filename of the currently loaded genome."""
@@ -969,8 +1023,20 @@ class GenomeService(BaseService):
             return True
 
         # Then check the state manager
-        if self.state_manager:
-            return self.state_manager.is_genome_loaded()
+        if self.state_manager and self.state_manager.is_genome_loaded():
+            return True
+
+        # If state manager says no genome, but connectome has areas, consider it loaded
+        # This handles cases where genome was loaded but state wasn't properly synced
+        if (
+            self._connectome_manager
+            and hasattr(self._connectome_manager, "cortical_areas")
+            and len(self._connectome_manager.cortical_areas) > 0
+        ):
+            self.logger.info(
+                "Genome appears loaded (connectome has cortical areas) despite state manager saying otherwise"
+            )
+            return True
 
         return False
 
