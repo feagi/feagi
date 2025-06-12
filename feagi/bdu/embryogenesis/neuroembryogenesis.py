@@ -1628,31 +1628,27 @@ class NeuroEmbryogenesis:
             bool: True if mapping was updated successfully
         """
         try:
-            self.logger.info("Applying cortical mapping updates to connectome")
+            logger.info("Applying cortical mapping updates to connectome")
 
             if not self.connectome_manager:
-                self.logger.error(
-                    "Cannot update cortical mapping: No connectome manager"
-                )
+                logger.error("Cannot update cortical mapping: No connectome manager")
                 return False
 
             if not mapping:
-                self.logger.warning("No mapping data provided")
+                logger.warning("No mapping data provided")
                 return True
 
             # Process each source area mapping
             for src_area_id, target_mappings in mapping.items():
                 if not isinstance(target_mappings, dict):
-                    self.logger.warning(
-                        f"Invalid mapping format for area {src_area_id}"
-                    )
+                    logger.warning(f"Invalid mapping format for area {src_area_id}")
                     continue
 
                 # Process mappings to target areas
                 for dst_area_id, connection_data in target_mappings.items():
                     try:
                         # Apply the mapping update through connectome manager
-                        self.logger.info(
+                        logger.info(
                             f"Updating mapping from {src_area_id} to {dst_area_id}"
                         )
 
@@ -1661,22 +1657,22 @@ class NeuroEmbryogenesis:
                         # connectome operations that depend on the specific mapping format
                         # The genome has been updated and will be fully applied on next restart
 
-                        self.logger.info(
+                        logger.info(
                             f"Successfully applied mapping update from {src_area_id} to {dst_area_id}"
                         )
 
                     except Exception as e:
-                        self.logger.error(
+                        logger.error(
                             f"Failed to update mapping from {src_area_id} to {dst_area_id}: {e}"
                         )
                         # Don't fail the entire operation for one mapping
                         continue
 
-            self.logger.info("Cortical mapping updates completed successfully")
+            logger.info("Cortical mapping updates completed successfully")
             return True
 
         except Exception as e:
-            self.logger.error(f"Error updating cortical mapping: {e}")
+            logger.error(f"Error updating cortical mapping: {e}")
             return False
 
 
