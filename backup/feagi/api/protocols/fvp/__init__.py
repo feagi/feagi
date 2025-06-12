@@ -21,7 +21,7 @@ This module provides access to all FVP versions and helper functions.
 """
 
 import time
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 # Import common FVP components
 from feagi.api.protocols.fvp.common import FVPFrameType, FVPMessageFormat
@@ -31,82 +31,79 @@ from feagi.api.protocols.fvp.v1 import FVPv1
 
 # Re-export helper functions
 
-def create_neuron_activations_message(cortical_area_id: int, activations: Dict[str, float]) -> Dict[str, Any]:
+
+def create_neuron_activations_message(
+    cortical_area_id: int, activations: Dict[str, float]
+) -> Dict[str, Any]:
     """
     Create a neuron activations message.
-    
+
     Args:
         cortical_area_id: ID of the cortical area
         activations: Dictionary mapping neuron IDs to activation values
-        
+
     Returns:
         FVP message data
     """
     return {
         "frame_type": FVPFrameType.NEURON_ACTIVATIONS,
         "timestamp_ms": int(time.time() * 1000),
-        "payload": {
-            "cortical_area_id": cortical_area_id,
-            "activations": activations
-        }
+        "payload": {"cortical_area_id": cortical_area_id, "activations": activations},
     }
 
 
 def create_global_stats_message(stats: Dict[str, Any]) -> Dict[str, Any]:
     """
     Create a global statistics message.
-    
+
     Args:
         stats: Dictionary of global stats
-        
+
     Returns:
         FVP message data
     """
     return {
         "frame_type": FVPFrameType.GLOBAL_STATS,
         "timestamp_ms": int(time.time() * 1000),
-        "payload": {
-            "stats": stats
-        }
+        "payload": {"stats": stats},
     }
 
 
-def create_structure_data_message(areas: Dict[str, Dict[str, Any]], 
-                                connections: List[Dict[str, Any]]) -> Dict[str, Any]:
+def create_structure_data_message(
+    areas: Dict[str, Dict[str, Any]], connections: List[Dict[str, Any]]
+) -> Dict[str, Any]:
     """
     Create a structure data message.
-    
+
     Args:
         areas: Dictionary mapping area IDs to area properties
         connections: List of connections between areas
-        
+
     Returns:
         FVP message data
     """
     return {
         "frame_type": FVPFrameType.STRUCTURE_DATA,
         "timestamp_ms": int(time.time() * 1000),
-        "payload": {
-            "areas": areas,
-            "connections": connections
-        }
+        "payload": {"areas": areas, "connections": connections},
     }
 
 
 def register_protocols():
     """Register FVP protocol versions with the registry."""
     from feagi.api.protocols.base import ProtocolRegistry
+
     registry = ProtocolRegistry()
     registry.register(FVPv1)
 
 
 # Define all exported symbols
 __all__ = [
-    'FVPFrameType',
-    'FVPMessageFormat',
-    'FVPv1',
-    'create_neuron_activations_message',
-    'create_global_stats_message',
-    'create_structure_data_message',
-    'register_protocols'
-] 
+    "FVPFrameType",
+    "FVPMessageFormat",
+    "FVPv1",
+    "create_neuron_activations_message",
+    "create_global_stats_message",
+    "create_structure_data_message",
+    "register_protocols",
+]

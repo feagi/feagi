@@ -14,7 +14,7 @@ When developing internal FEAGI components, always use the CoreAPIService to acce
 from feagi.api.core.services import CoreAPIService
 
 # Create the service with required dependencies
-service = CoreAPIService(connectome_manager=connectome_manager, 
+service = CoreAPIService(connectome_manager=connectome_manager,
                          state_manager=state_manager)
 
 # Examples of common operations
@@ -155,7 +155,7 @@ async def main():
     # Connect to FEAGI
     client = FeagiClient(host="localhost")
     await client.connect()
-    
+
     # Send sensory data
     neuron_data = {
         (0, 0, 0): 0.8,
@@ -163,15 +163,15 @@ async def main():
         (0, 1, 0): 0.7
     }
     await client.send_sensory_data("iv00_C", neuron_data)
-    
+
     # Register a callback for motor data
     @client.on_motor_data
     async def handle_motor(cortical_id, data):
         print(f"Motor data from {cortical_id}: {data}")
-    
+
     # Wait for motor data
     await asyncio.sleep(10)
-    
+
     # Disconnect
     await client.disconnect()
 ```
@@ -195,4 +195,4 @@ The REST API follows semantic versioning with stable paths:
 
 - [API Module README](README.md)
 - [API Architecture Decision Record](../../docs/adr-api-refactoring.md)
-- [API Formats Specification](../../docs/spec-api-formats.md) 
+- [API Formats Specification](../../docs/spec-api-formats.md)

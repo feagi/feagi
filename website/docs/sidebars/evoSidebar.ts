@@ -15,4 +15,4 @@ const evoSidebar: SidebarsConfig = {
   ],
 };
 
-export default evoSidebar; 
+export default evoSidebar;

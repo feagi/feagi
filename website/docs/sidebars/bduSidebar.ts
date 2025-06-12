@@ -28,4 +28,4 @@ const bduSidebar: SidebarsConfig = {
   ],
 };
 
-export default bduSidebar; 
+export default bduSidebar;

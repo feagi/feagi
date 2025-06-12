@@ -2,4 +2,4 @@
 
 from .cortical_area_service import CorticalAreaService
 
-__all__ = ["CorticalAreaService"] 
+__all__ = ["CorticalAreaService"]

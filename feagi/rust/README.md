@@ -71,7 +71,7 @@ python tests/performance/bdu/benchmark_optimized_structures.py
 
 Typical performance improvements:
 - GNA operations: 10-50x faster
-- FCL operations: 5-20x faster 
+- FCL operations: 5-20x faster
 - Connectome propagation: 20-100x faster
 - Overall simulation: 15-70x faster
 
@@ -103,4 +103,4 @@ GPU processing uses the wgpu crate for WebGPU compute shaders:
 - Implement more neural models and plasticity rules
 - Add WebGPU texture support for sensorimotor processing
 - Improve zero-copy memory sharing between CPU and GPU
-- Optimize for heterogeneous computing (using both CPU and GPU simultaneously) 
+- Optimize for heterogeneous computing (using both CPU and GPU simultaneously)

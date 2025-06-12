@@ -99,4 +99,4 @@ If you encounter errors like:
 Image ../../../docs/assets/bdu-architecture.png used in ../../feagi/bdu/arch-bdu.md not found
 ```
 
-You should create the missing image file. 
+You should create the missing image file.

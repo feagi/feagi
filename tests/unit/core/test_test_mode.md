@@ -64,4 +64,4 @@ These tests use a combination of:
 - Partially mocked components for integration tests
 - Time manipulation to speed up tests
 
-Most external dependencies are mocked to ensure tests run quickly and reliably. 
+Most external dependencies are mocked to ensure tests run quickly and reliably.

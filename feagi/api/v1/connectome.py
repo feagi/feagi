@@ -24,26 +24,40 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
 
-import tempfile
 import json
-from typing import Dict, Any, Optional, List
+import tempfile
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
-from .schemas import (
-    BatchNeuronCreationRequest, BatchSynapseCreationRequest,
-    CorticalAreasListResponse, CorticalAreaInfoResponse, PlasticityInfoResponse,
-    ConnectomePathResponse, ConnectomeSnapshotResponse, ConnectomeDimensionsResponse,
-    CorticalStatsResponse, NeuronMappingsResponse, BatchNeuronCreationResponse,
-    BatchSynapseCreationResponse, SuccessResponse, ErrorResponse, FileUploadRequest
-)
+
 from .decorators import endpoint
+from .schemas import (
+    BatchNeuronCreationRequest,
+    BatchNeuronCreationResponse,
+    BatchSynapseCreationRequest,
+    BatchSynapseCreationResponse,
+    ConnectomeDimensionsResponse,
+    ConnectomePathResponse,
+    ConnectomeSnapshotResponse,
+    CorticalAreaInfoResponse,
+    CorticalAreasListResponse,
+    CorticalStatsResponse,
+    ErrorResponse,
+    FileUploadRequest,
+    NeuronMappingsResponse,
+    PlasticityInfoResponse,
+    SuccessResponse,
+)
 
 logger = setup_logger(__name__)
 
 
 # Define the convenience decorator for connectome endpoints
-def connectome_endpoint(methods, path, request_model=None, response_model=None, description=None):
+def connectome_endpoint(
+    methods, path, request_model=None, response_model=None, description=None
+):
     """Convenience decorator for connectome endpoints."""
     return endpoint(
         methods=methods,
@@ -51,27 +65,29 @@ def connectome_endpoint(methods, path, request_model=None, response_model=None, 
         request_model=request_model,
         response_model=response_model,
         description=description,
-        module='connectome'
+        module="connectome",
     )
 
 
 class ConnectomeAPI:
     """
     Connectome API - Single Source of Truth for ALL Transports
-    
+
     Each method in this class is decorated to automatically register
     the endpoint for FastAPI, ZMQ, and any future transport protocols.
-    
+
     This ensures identical behavior across all transports with zero duplication.
     """
-    
+
     def __init__(self, core_api_service: CoreAPIService):
         """Initialize with core API service dependency."""
         self.core_api_service = core_api_service
-    
+
     # ===== Cortical Areas Information =====
-    
-    @connectome_endpoint('GET', '/cortical_areas/list/summary', response_model=List[str])
+
+    @connectome_endpoint(
+        "GET", "/cortical_areas/list/summary", response_model=List[str]
+    )
     async def get_cortical_areas_summary(self) -> List[str]:
         """Get a summary list of cortical area IDs."""
         try:
@@ -82,8 +98,10 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting cortical areas summary: {e}")
             raise ValueError(f"Failed to get cortical areas summary: {str(e)}")
-    
-    @connectome_endpoint('GET', '/cortical_areas/list/transforming', response_model=List[str])
+
+    @connectome_endpoint(
+        "GET", "/cortical_areas/list/transforming", response_model=List[str]
+    )
     async def get_transforming_cortical_areas(self) -> List[str]:
         """Get a list of transforming cortical areas."""
         try:
@@ -91,8 +109,10 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting transforming cortical areas: {e}")
             raise ValueError(f"Failed to get transforming cortical areas: {str(e)}")
-    
-    @connectome_endpoint('GET', '/cortical_areas/list/detailed', response_model=CorticalAreasListResponse)
+
+    @connectome_endpoint(
+        "GET", "/cortical_areas/list/detailed", response_model=CorticalAreasListResponse
+    )
     async def get_cortical_areas_detailed(self) -> CorticalAreasListResponse:
         """Get detailed information about all cortical areas."""
         try:
@@ -103,8 +123,10 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting detailed cortical areas: {e}")
             raise ValueError(f"Failed to get detailed cortical areas: {str(e)}")
-    
-    @connectome_endpoint('GET', '/cortical_info', response_model=CorticalAreaInfoResponse)
+
+    @connectome_endpoint(
+        "GET", "/cortical_info", response_model=CorticalAreaInfoResponse
+    )
     async def get_cortical_info(self, cortical_area: str) -> CorticalAreaInfoResponse:
         """Get detailed information about a specific cortical area."""
         try:
@@ -115,10 +137,10 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting cortical info: {e}")
             raise ValueError(f"Failed to get cortical info: {str(e)}")
-    
+
     # ===== Plasticity and Properties =====
-    
-    @connectome_endpoint('GET', '/plasticity', response_model=PlasticityInfoResponse)
+
+    @connectome_endpoint("GET", "/plasticity", response_model=PlasticityInfoResponse)
     async def get_plasticity_info(self) -> PlasticityInfoResponse:
         """Get neuroplasticity information."""
         try:
@@ -127,8 +149,8 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting plasticity info: {e}")
             raise ValueError(f"Failed to get plasticity info: {str(e)}")
-    
-    @connectome_endpoint('GET', '/path', response_model=ConnectomePathResponse)
+
+    @connectome_endpoint("GET", "/path", response_model=ConnectomePathResponse)
     async def get_connectome_path(self) -> ConnectomePathResponse:
         """Get connectome file system path."""
         try:
@@ -137,8 +159,10 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting connectome path: {e}")
             raise ValueError(f"Failed to get connectome path: {str(e)}")
-    
-    @connectome_endpoint('GET', '/properties/dimensions', response_model=ConnectomeDimensionsResponse)
+
+    @connectome_endpoint(
+        "GET", "/properties/dimensions", response_model=ConnectomeDimensionsResponse
+    )
     async def get_connectome_dimensions(self) -> ConnectomeDimensionsResponse:
         """Get the overall dimensions of the connectome."""
         try:
@@ -147,8 +171,10 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting connectome dimensions: {e}")
             raise ValueError(f"Failed to get connectome dimensions: {str(e)}")
-    
-    @connectome_endpoint('GET', '/properties/mappings', response_model=NeuronMappingsResponse)
+
+    @connectome_endpoint(
+        "GET", "/properties/mappings", response_model=NeuronMappingsResponse
+    )
     async def get_connectome_mappings(self) -> NeuronMappingsResponse:
         """Get neuron mappings for connectome visualization."""
         try:
@@ -157,142 +183,168 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting connectome mappings: {e}")
             raise ValueError(f"Failed to get connectome mappings: {str(e)}")
-    
+
     # ===== Statistics =====
-    
-    @connectome_endpoint('GET', '/stats/cortical/cumulative', response_model=CorticalStatsResponse)
+
+    @connectome_endpoint(
+        "GET", "/stats/cortical/cumulative", response_model=CorticalStatsResponse
+    )
     async def get_cortical_stats(self, cortical_area: str) -> CorticalStatsResponse:
         """Get cumulative statistics for a specific cortical area."""
         try:
             stats = self.core_api_service.get_cortical_area_stats(cortical_area)
             if not stats:
-                raise ValueError(f"Statistics for cortical area {cortical_area} not found")
+                raise ValueError(
+                    f"Statistics for cortical area {cortical_area} not found"
+                )
             return CorticalStatsResponse(stats=stats)
         except Exception as e:
             logger.error(f"Error getting cortical stats: {e}")
             raise ValueError(f"Failed to get cortical stats: {str(e)}")
-    
+
     # ===== Snapshot Operations =====
-    
-    @connectome_endpoint('POST', '/snapshot', response_model=ConnectomeSnapshotResponse)
-    async def create_connectome_snapshot(self, connectome_storage_path: str) -> ConnectomeSnapshotResponse:
+
+    @connectome_endpoint("POST", "/snapshot", response_model=ConnectomeSnapshotResponse)
+    async def create_connectome_snapshot(
+        self, connectome_storage_path: str
+    ) -> ConnectomeSnapshotResponse:
         """Create a snapshot of the current connectome."""
         try:
-            success = self.core_api_service.save_connectome_snapshot(connectome_storage_path)
+            success = self.core_api_service.save_connectome_snapshot(
+                connectome_storage_path
+            )
             if not success:
                 raise ValueError("Failed to create connectome snapshot")
             return ConnectomeSnapshotResponse(
                 message="Connectome snapshot saved successfully",
-                path=connectome_storage_path
+                path=connectome_storage_path,
             )
         except Exception as e:
             logger.error(f"Error creating connectome snapshot: {e}")
             raise ValueError(f"Failed to create connectome snapshot: {str(e)}")
-    
+
     # ===== Download Operations =====
-    
-    @connectome_endpoint('GET', '/download-cortical-area', response_model=Dict[str, Any])
+
+    @connectome_endpoint(
+        "GET", "/download-cortical-area", response_model=Dict[str, Any]
+    )
     async def download_cortical_area(self, cortical_area: str) -> Dict[str, Any]:
         """Download a specific cortical area as a JSON file."""
         try:
             area = self.core_api_service.get_cortical_area(cortical_area)
             if not area:
                 raise ValueError("Requested cortical area not found!")
-                
+
             # Generate a filename with timestamp
             file_name = f"connectome_{cortical_area}_{datetime.now().strftime('%Y_%m_%d-%I:%M:%S_%p')}.json"
-            
+
             # Create a temporary file to store the cortical area data
             temp_dir = self.core_api_service.get_temp_path()
             temp_file_path = f"{temp_dir}/{file_name}"
-            
+
             # Serialize the cortical area to the temp file
-            with open(temp_file_path, 'w') as f:
+            with open(temp_file_path, "w") as f:
                 json.dump(area, f, indent=2)
-                
+
             # Return file info (transport adapters will handle actual file serving)
             return {
                 "file_path": temp_file_path,
                 "file_name": file_name,
                 "media_type": "application/json",
-                "area_data": area
+                "area_data": area,
             }
         except Exception as e:
             logger.error(f"Error downloading cortical area: {e}")
             raise ValueError(f"Failed to download cortical area: {str(e)}")
-    
-    @connectome_endpoint('GET', '/download', response_model=Dict[str, Any])
+
+    @connectome_endpoint("GET", "/download", response_model=Dict[str, Any])
     async def download_connectome(self) -> Dict[str, Any]:
         """Download the complete connectome."""
         # TODO: Implement connectome serialization in CoreAPIService
         raise NotImplementedError("Connectome download is not yet implemented.")
-    
+
     # ===== Upload Operations =====
-    
-    @connectome_endpoint('POST', '/upload-cortical-area', response_model=SuccessResponse)
-    async def upload_cortical_area(self, file_data: FileUploadRequest) -> SuccessResponse:
+
+    @connectome_endpoint(
+        "POST", "/upload-cortical-area", response_model=SuccessResponse
+    )
+    async def upload_cortical_area(
+        self, file_data: FileUploadRequest
+    ) -> SuccessResponse:
         """Upload a cortical area JSON file."""
         try:
             # Extract file content
-            content = file_data.file_data.get('content', '')
+            content = file_data.file_data.get("content", "")
             if not content:
                 raise ValueError("No file content provided")
-            
+
             # Parse the cortical area data
             if " = " in content:
                 connectome_str = content.split(" = ")[1]
                 from ast import literal_eval
+
                 cortical_area_data = literal_eval(connectome_str)
             else:
                 cortical_area_data = json.loads(content)
-            
+
             success = self.core_api_service.import_cortical_area(cortical_area_data)
             if not success:
                 raise ValueError("Failed to import cortical area")
-                
+
             return SuccessResponse(message="Cortical area imported successfully")
         except Exception as e:
             logger.error(f"Error uploading cortical area: {e}")
             raise ValueError(f"Failed to upload cortical area: {str(e)}")
-    
-    @connectome_endpoint('POST', '/upload', response_model=SuccessResponse)
+
+    @connectome_endpoint("POST", "/upload", response_model=SuccessResponse)
     async def upload_connectome(self, file_data: FileUploadRequest) -> SuccessResponse:
         """Upload a complete connectome file."""
         # TODO: Implement connectome upload/restore in CoreAPIService
         raise NotImplementedError("Connectome upload is not yet implemented.")
-    
+
     # ===== Batch Operations =====
-    
-    @connectome_endpoint('POST', '/neurons/batch', 
-                        request_model=BatchNeuronCreationRequest,
-                        response_model=BatchNeuronCreationResponse)
-    async def batch_create_neurons(self, request: BatchNeuronCreationRequest) -> BatchNeuronCreationResponse:
+
+    @connectome_endpoint(
+        "POST",
+        "/neurons/batch",
+        request_model=BatchNeuronCreationRequest,
+        response_model=BatchNeuronCreationResponse,
+    )
+    async def batch_create_neurons(
+        self, request: BatchNeuronCreationRequest
+    ) -> BatchNeuronCreationResponse:
         """Create multiple neurons in a batch operation."""
         try:
             neuron_ids = self.core_api_service.batch_create_neurons(
                 area_id=request.area_id,
                 positions=request.positions,
-                properties=request.properties
+                properties=request.properties,
             )
-            
+
             if not neuron_ids:
                 raise ValueError("Failed to create neurons")
-                
+
             return BatchNeuronCreationResponse(
-                created_neurons=neuron_ids,
-                count=len(neuron_ids)
+                created_neurons=neuron_ids, count=len(neuron_ids)
             )
         except Exception as e:
             logger.error(f"Error in batch neuron creation: {e}")
             raise ValueError(f"Failed to create neurons: {str(e)}")
-    
-    @connectome_endpoint('POST', '/synapses/batch',
-                        request_model=BatchSynapseCreationRequest,
-                        response_model=BatchSynapseCreationResponse)
-    async def batch_create_synapses(self, request: BatchSynapseCreationRequest) -> BatchSynapseCreationResponse:
+
+    @connectome_endpoint(
+        "POST",
+        "/synapses/batch",
+        request_model=BatchSynapseCreationRequest,
+        response_model=BatchSynapseCreationResponse,
+    )
+    async def batch_create_synapses(
+        self, request: BatchSynapseCreationRequest
+    ) -> BatchSynapseCreationResponse:
         """Create multiple synapses in a batch operation."""
         try:
-            success_count = self.core_api_service.batch_create_synapses(request.connections)
+            success_count = self.core_api_service.batch_create_synapses(
+                request.connections
+            )
             return BatchSynapseCreationResponse(created_synapses=success_count)
         except Exception as e:
             logger.error(f"Error in batch synapse creation: {e}")
@@ -301,11 +353,12 @@ class ConnectomeAPI:
 
 # ===== Factory Function =====
 
+
 def create_connectome_api(core_api_service: CoreAPIService) -> ConnectomeAPI:
     """
     Factory function to create a ConnectomeAPI instance.
-    
+
     This function can be used by transport adapters to get a configured
     ConnectomeAPI instance with the required dependencies.
     """
-    return ConnectomeAPI(core_api_service) 
+    return ConnectomeAPI(core_api_service)

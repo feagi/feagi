@@ -18,24 +18,24 @@ echo "========================================"
 # Function to find FEAGI processes
 find_feagi_processes() {
     echo -e "${YELLOW}Searching for FEAGI processes...${NC}"
-    
+
     # Find processes containing FEAGI-related patterns
     FEAGI_PIDS=$(ps aux | grep -E "(feagi|FEAGI)" | grep -v grep | grep -v "$0" | awk '{print $2}' || true)
-    
+
     # Also check for Python processes running FEAGI code
     PYTHON_FEAGI_PIDS=$(ps aux | grep -E "python.*feagi" | grep -v grep | grep -v "$0" | awk '{print $2}' || true)
-    
+
     # Combine and deduplicate PIDs
     ALL_PIDS=$(echo -e "$FEAGI_PIDS\n$PYTHON_FEAGI_PIDS" | sort -u | grep -v '^$' || true)
-    
+
     if [ -z "$ALL_PIDS" ]; then
         echo -e "${GREEN}✅ No FEAGI processes found running${NC}"
         exit 0
     fi
-    
+
     echo -e "${RED}Found the following FEAGI processes:${NC}"
     echo "========================================"
-    
+
     # Show detailed process information
     for pid in $ALL_PIDS; do
         if ps -p $pid > /dev/null 2>&1; then
@@ -44,7 +44,7 @@ find_feagi_processes() {
             echo ""
         fi
     done
-    
+
     echo "$ALL_PIDS"
 }
 
@@ -52,14 +52,14 @@ find_feagi_processes() {
 kill_processes_graceful() {
     local pids="$1"
     echo -e "${YELLOW}Attempting graceful shutdown (SIGTERM)...${NC}"
-    
+
     for pid in $pids; do
         if ps -p $pid > /dev/null 2>&1; then
             echo "  Sending SIGTERM to PID $pid"
             kill -TERM $pid 2>/dev/null || true
         fi
     done
-    
+
     # Wait a few seconds for graceful shutdown
     echo "  Waiting 5 seconds for graceful shutdown..."
     sleep 5
@@ -69,14 +69,14 @@ kill_processes_graceful() {
 kill_processes_force() {
     local pids="$1"
     echo -e "${RED}Force killing remaining processes (SIGKILL)...${NC}"
-    
+
     for pid in $pids; do
         if ps -p $pid > /dev/null 2>&1; then
             echo "  Force killing PID $pid"
             kill -KILL $pid 2>/dev/null || true
         fi
     done
-    
+
     sleep 2
 }
 
@@ -84,13 +84,13 @@ kill_processes_force() {
 check_remaining_processes() {
     local pids="$1"
     local remaining=""
-    
+
     for pid in $pids; do
         if ps -p $pid > /dev/null 2>&1; then
             remaining="$remaining $pid"
         fi
     done
-    
+
     echo "$remaining"
 }
 
@@ -98,36 +98,36 @@ check_remaining_processes() {
 main() {
     # Find FEAGI processes
     PIDS=$(find_feagi_processes)
-    
+
     if [ -z "$PIDS" ]; then
         exit 0
     fi
-    
+
     # Ask for confirmation unless --force flag is used
     if [ "$1" != "--force" ] && [ "$1" != "-f" ]; then
         echo -e "${YELLOW}Do you want to kill these FEAGI processes? (y/N):${NC}"
         read -r response
         case "$response" in
-            [yY][eE][sS]|[yY]) 
+            [yY][eE][sS]|[yY])
                 echo "Proceeding with process termination..."
                 ;;
-            *) 
+            *)
                 echo -e "${GREEN}Cancelled. No processes were killed.${NC}"
                 exit 0
                 ;;
         esac
     fi
-    
+
     # Kill processes gracefully first
     kill_processes_graceful "$PIDS"
-    
+
     # Check which processes are still running
     REMAINING=$(check_remaining_processes "$PIDS")
-    
+
     if [ -n "$REMAINING" ]; then
         echo -e "${YELLOW}Some processes are still running. Force killing...${NC}"
         kill_processes_force "$REMAINING"
-        
+
         # Final check
         FINAL_REMAINING=$(check_remaining_processes "$REMAINING")
         if [ -n "$FINAL_REMAINING" ]; then
@@ -140,9 +140,9 @@ main() {
             exit 1
         fi
     fi
-    
+
     echo -e "${GREEN}✅ All FEAGI processes have been terminated successfully${NC}"
-    
+
     # Check for any lingering FEAGI processes one more time
     echo -e "${BLUE}Final verification...${NC}"
     sleep 1
@@ -165,4 +165,4 @@ case "$1" in
     *)
         main "$1"
         ;;
-esac 
+esac

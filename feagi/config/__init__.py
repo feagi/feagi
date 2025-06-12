@@ -11,4 +11,4 @@ from feagi.config.validation import validate_config
 config = ConfigLoader().load_default()
 validate_config(config)
 
-__all__ = ["config", "ConfigLoader", "validate_config"] 
+__all__ = ["config", "ConfigLoader", "validate_config"]

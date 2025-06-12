@@ -66,4 +66,4 @@ Module-specific documentation should live alongside the code:
 2. Include a last-updated date
 3. Reference related documents where applicable
 4. Use consistent Markdown formatting
-5. Include diagrams where helpful (stored in a `/docs/assets` folder) 
+5. Include diagrams where helpful (stored in a `/docs/assets` folder)

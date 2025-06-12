@@ -27,9 +27,9 @@ This will start:
 ### Available Options
 
 ```
-usage: feagi [-h] [--api-host API_HOST] [--api-port API_PORT] [--api-reload] [--zmq-host ZMQ_HOST] 
-             [--zmq-pub-port ZMQ_PUB_PORT] [--zmq-sub-port ZMQ_SUB_PORT] 
-             [--zmq-topics ZMQ_TOPICS [ZMQ_TOPICS ...]] [--zmq-auth] [--zmq-encryption] 
+usage: feagi [-h] [--api-host API_HOST] [--api-port API_PORT] [--api-reload] [--zmq-host ZMQ_HOST]
+             [--zmq-pub-port ZMQ_PUB_PORT] [--zmq-sub-port ZMQ_SUB_PORT]
+             [--zmq-topics ZMQ_TOPICS [ZMQ_TOPICS ...]] [--zmq-auth] [--zmq-encryption]
              [--config CONFIG] [--api-only] [--zmq-only]
 ```
 
@@ -237,4 +237,4 @@ print(f"Execution time: {result.execution_time_ms} ms")
    pip install -r requirements.txt
    ```
 
-4. **ZMQ communication issues**: If ZMQ components aren't communicating, check firewall settings and ensure ports are open. 
+4. **ZMQ communication issues**: If ZMQ components aren't communicating, check firewall settings and ensure ports are open.

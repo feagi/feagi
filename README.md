@@ -58,7 +58,7 @@ zmq_visualization_port = 5562
 zmq_motor_port = 5564
 zmq_sensory_port = 5558
 
-[zmq]  
+[zmq]
 host = "0.0.0.0"
 ```
 
@@ -101,4 +101,4 @@ python -m feagi.main --debug-api --debug-npu --log-level DEBUG
 
 ## License
 
-Copyright 2025 Neuraville Inc. Licensed under the Apache License, Version 2.0. 
+Copyright 2025 Neuraville Inc. Licensed under the Apache License, Version 2.0.

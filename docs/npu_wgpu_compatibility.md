@@ -31,7 +31,7 @@ python -m pytest tests/npu/test_wgpu_compatibility.py::test_npu_wgpu_compatibili
 The test analyzes each NPU module and assigns a **compatibility score (0-100)** and **compatibility level**:
 
 - **🟢 EXCELLENT (90-100)**: Perfectly WGPU-ready, can use GPU acceleration immediately
-- **🟢 GOOD (75-89)**: WGPU-compatible with minor considerations  
+- **🟢 GOOD (75-89)**: WGPU-compatible with minor considerations
 - **🟡 MEDIUM (50-74)**: Requires adaptation for optimal WGPU performance
 - **🟠 POOR (25-49)**: Significant compatibility issues need addressing
 - **🔴 CRITICAL (0-24)**: Major blockers prevent WGPU usage
@@ -60,7 +60,7 @@ Based on the latest analysis:
 ```python
 # PERFECT for WGPU compute shaders:
 self.membrane_potentials = np.zeros(capacity, dtype=np.float32, order='C')
-self.coordinates_x = np.zeros(capacity, dtype=np.uint32, order='C') 
+self.coordinates_x = np.zeros(capacity, dtype=np.uint32, order='C')
 self.coordinates_y = np.zeros(capacity, dtype=np.uint32, order='C')
 self.coordinates_z = np.zeros(capacity, dtype=np.uint32, order='C')
 ```
@@ -80,7 +80,7 @@ if backend.backend_type == BackendType.WGPU:
 ```python
 # PERFECT alignment with WGPU shaders:
 dtype=np.float32  # Maps to WGSL f32
-dtype=np.uint32   # Maps to WGSL u32  
+dtype=np.uint32   # Maps to WGSL u32
 dtype=np.int32    # Maps to WGSL i32
 order='C'         # Contiguous memory for buffer uploads
 ```
@@ -261,4 +261,4 @@ The report shows:
 - [ ] Backend abstraction used for GPU operations
 - [ ] Fixed-size buffers used instead of dynamic allocation
 
-This monitoring system ensures that FEAGI's NPU remains ready for high-performance, cross-platform GPU acceleration through WGPU. 
+This monitoring system ensures that FEAGI's NPU remains ready for high-performance, cross-platform GPU acceleration through WGPU.

@@ -101,4 +101,4 @@ connectome.deserialize_brain_state("brain_state.npz")
 ## See Also
 - `feagi.bdu.synapse_manager.SynapseManager` for synapse logic
 - `feagi.npu.fcl_manager.HierarchicalFCL` for FCL logic
-- FEAGI API documentation for endpoints interacting with the connectome 
+- FEAGI API documentation for endpoints interacting with the connectome

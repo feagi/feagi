@@ -39,7 +39,7 @@ Critical components use singleton patterns for mission-critical reliability:
 # ConnectomeManager - Mission-critical singleton
 class ConnectomeManager:
     _instance = None
-    
+
     @classmethod
     def instance(cls, config_or_max_neurons=10_000_000, max_synapses=100_000_000):
         if cls._instance is None:
@@ -83,9 +83,9 @@ FEAGI 2.0 implements a strict burst engine lifecycle that enforces system integr
 
 **Engine-First Design Principle**: The burst engine MUST be started before any genome can be loaded.
 
-**State Management**: 
+**State Management**:
 - `UNAVAILABLE` → Engine not started (FEAGI launch state)
-- `READY` → Engine running and processing neurons  
+- `READY` → Engine running and processing neurons
 - `ON_HOLD` → Engine alive but paused (new feature for debugging/analysis)
 - `FAILED/ERROR` → Engine error states
 
@@ -134,7 +134,7 @@ These services run as async tasks in the same process space:
 │   ├── bdu/                # Brain Developmental Unit
 │   │   └── connectome_manager.py  # Singleton ConnectomeManager
 │   ├── npu/                # Neural Processing Unit
-│   ├── evo/                # Evolutionary Unit 
+│   ├── evo/                # Evolutionary Unit
 │   ├── pns/                # Peripheral Nervous System and sensorimotor IO modules
 │   ├── api/                # API implementations
 │   │   ├── rest/           # REST API with direct dependency injection
@@ -243,4 +243,4 @@ The architecture is designed for seamless Rust migration:
 - [GPU Architecture](arch-gpu.md)
 - [IPC Architecture](arch-ipc.md)
 - [State Management](arch-state-management.md)
-- [Process Architecture](archive/feagi_processes.md) 
+- [Process Architecture](archive/feagi_processes.md)

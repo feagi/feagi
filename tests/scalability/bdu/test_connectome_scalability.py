@@ -28,11 +28,17 @@ Note: These tests are expected to be slow and resource-intensive,
 and should be run separately from unit and functional tests.
 """
 
-import pytest
-import numpy as np
 import os
 import tempfile
-from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType, CorticalArea
+
+import numpy as np
+import pytest
+
+from feagi.bdu.connectome_manager import (
+    ConnectomeManager,
+    CorticalArea,
+    NeuronPropertyType,
+)
 from feagi.utils.config import FeagiConfig
 
 
@@ -40,8 +46,8 @@ from feagi.utils.config import FeagiConfig
 def large_config():
     """Create a FeagiConfig for large-scale testing."""
     config = FeagiConfig()
-    config.set('connectome.max_neurons', 1000000)  # 1M neurons
-    config.set('connectome.max_synapses_per_neuron', 1000)
+    config.set("connectome.max_neurons", 1000000)  # 1M neurons
+    config.set("connectome.max_synapses_per_neuron", 1000)
     return config
 
 
@@ -49,8 +55,8 @@ def large_config():
 def medium_config():
     """Create a FeagiConfig for medium-scale testing."""
     config = FeagiConfig()
-    config.set('connectome.max_neurons', 100000)  # 100K neurons
-    config.set('connectome.max_synapses_per_neuron', 100)
+    config.set("connectome.max_neurons", 100000)  # 100K neurons
+    config.set("connectome.max_synapses_per_neuron", 100)
     return config
 
 
@@ -75,7 +81,7 @@ def extreme_area(connectome_medium):
         name="Extreme Area",
         area_type="interconnect",
         dimensions=(20000, 1, 1),  # One extremely long dimension
-        position=(0, 0, 0)
+        position=(0, 0, 0),
     )
     return area_id, area
 
@@ -89,7 +95,7 @@ def dense_area(connectome_medium):
         name="Dense Area",
         area_type="interconnect",
         dimensions=(3, 3, 3),  # Small dimensions
-        position=(0, 0, 0)
+        position=(0, 0, 0),
     )
     return area_id, area
 
@@ -98,26 +104,31 @@ def dense_area(connectome_medium):
 def test_extreme_dimension_area(connectome_medium, extreme_area):
     """Test working with areas that have extreme dimensions."""
     area_id = extreme_area[0]
-    
+
     # Create neurons at different points along the extreme dimension
     neuron_ids = []
-    positions = [0, 100, 1000, 10000, 19999]  # Various positions including the extreme end
-    
+    positions = [
+        0,
+        100,
+        1000,
+        10000,
+        19999,
+    ]  # Various positions including the extreme end
+
     for pos in positions:
         neuron_id = connectome_medium.create_neuron(
-            area_id=area_id,
-            position=(pos, 0, 0)
+            area_id=area_id, position=(pos, 0, 0)
         )
         neuron_ids.append(neuron_id)
-    
+
     # Verify neurons were created
     assert len(neuron_ids) == len(positions)
-    
+
     # Verify positions
     for i, neuron_id in enumerate(neuron_ids):
         position = connectome_medium.get_neuron_position(neuron_id)
         assert position[0] == positions[i]
-    
+
     # Test retrieving neurons from a range
     middle_neurons = connectome_medium.query_neurons_by_area_and_position(
         area_id,
@@ -131,29 +142,26 @@ def test_extreme_dimension_area(connectome_medium, extreme_area):
 def test_multiple_neurons_per_voxel(connectome_medium, dense_area):
     """Test creating multiple neurons in the same voxel position."""
     area_id = dense_area[0]
-    
+
     # Create multiple neurons at the same position
     num_neurons_per_pos = 10
     positions = [(0, 0, 0), (1, 1, 1), (2, 2, 2)]
-    
+
     neuron_ids = []
     for pos in positions:
         for i in range(num_neurons_per_pos):
-            neuron_id = connectome_medium.create_neuron(
-                area_id=area_id,
-                position=pos
-            )
+            neuron_id = connectome_medium.create_neuron(area_id=area_id, position=pos)
             neuron_ids.append((neuron_id, pos, i))
-    
+
     # Verify total count
     total_neurons = len(positions) * num_neurons_per_pos
     assert len(neuron_ids) == total_neurons
-    
+
     # Verify we can get all neurons at a position
     for pos in positions:
         neurons_at_pos = connectome_medium.get_neurons_at_position(area_id, pos)
         assert len(neurons_at_pos) == num_neurons_per_pos
-        
+
         # Verify each index is represented
         for i in range(num_neurons_per_pos):
             neuron = connectome_medium.get_neuron_at_position(area_id, pos, i)
@@ -170,25 +178,22 @@ def test_many_neurons(connectome_large):
         name="Large Area",
         area_type="interconnect",
         dimensions=(100, 100, 10),  # 100,000 voxels
-        position=(0, 0, 0)
+        position=(0, 0, 0),
     )
-    
+
     # Create a large number of neurons
     num_neurons = 10000  # 10K neurons (adjust based on available memory/time)
-    
+
     neuron_ids = []
     for i in range(num_neurons):
         # Distribute evenly through the volume
         x = i % 100
         y = (i // 100) % 100
         z = (i // 10000) % 10
-        
-        neuron_id = connectome_large.create_neuron(
-            area_id=area_id,
-            position=(x, y, z)
-        )
+
+        neuron_id = connectome_large.create_neuron(area_id=area_id, position=(x, y, z))
         neuron_ids.append(neuron_id)
-    
+
     # Verify neuron count
     assert connectome_large.get_neuron_count() == num_neurons
     assert len(connectome_large.get_neurons_by_area(area_id)) == num_neurons
@@ -204,50 +209,46 @@ def test_many_synapses(connectome_medium):
         name="Medium Area",
         area_type="interconnect",
         dimensions=(20, 20, 5),  # 2,000 voxels
-        position=(0, 0, 0)
+        position=(0, 0, 0),
     )
-    
+
     # Create 100 source neurons and 100 target neurons
     num_sources = 100
     num_targets = 100
-    
+
     source_ids = []
     for i in range(num_sources):
         neuron_id = connectome_medium.create_neuron(
-            area_id=area_id,
-            position=(i % 20, i // 20, 0)
+            area_id=area_id, position=(i % 20, i // 20, 0)
         )
         source_ids.append(neuron_id)
-    
+
     target_ids = []
     for i in range(num_targets):
         neuron_id = connectome_medium.create_neuron(
-            area_id=area_id,
-            position=(i % 20, i // 20, 1)
+            area_id=area_id, position=(i % 20, i // 20, 1)
         )
         target_ids.append(neuron_id)
-    
+
     # Create a dense synaptic connection pattern (each source to all targets)
     synapse_count = 0
     for src_id in source_ids:
         for tgt_id in target_ids:
             result = connectome_medium.create_synapse(
-                pre_neuron_id=src_id,
-                post_neuron_id=tgt_id,
-                weight=0.5
+                pre_neuron_id=src_id, post_neuron_id=tgt_id, weight=0.5
             )
             if result:
                 synapse_count += 1
-    
+
     # Verify all synapses were created
     expected_synapses = num_sources * num_targets
     assert synapse_count == expected_synapses
-    
+
     # Verify outgoing connections
     for src_id in source_ids:
         outgoing = connectome_medium.get_outgoing_connections(src_id)
         assert len(outgoing) == num_targets
-    
+
     # Verify incoming connections
     for tgt_id in target_ids:
         incoming = connectome_medium.get_incoming_connections(tgt_id)
@@ -270,13 +271,10 @@ def test_serialization(connectome_medium, dense_area, medium_config):
         z = (i // 9) % 3
         pos = (x, y, z)
         idx = voxel_counters.get(pos, 0)
-        neuron_id = connectome_medium.create_neuron(
-            area_id=area_id,
-            position=pos
-        )
+        neuron_id = connectome_medium.create_neuron(area_id=area_id, position=pos)
         neuron_ids.append(neuron_id)
         voxel_counters[pos] = idx + 1
-    
+
     # Create some synapses (connect every 10th neuron to the next 5)
     for i in range(0, num_neurons, 10):
         for j in range(1, 6):
@@ -285,27 +283,27 @@ def test_serialization(connectome_medium, dense_area, medium_config):
                     pre_neuron_id=neuron_ids[i],
                     post_neuron_id=neuron_ids[i + j],
                     weight=0.5,
-                    is_plastic=True
+                    is_plastic=True,
                 )
-    
+
     # Save to a temporary file
-    with tempfile.NamedTemporaryFile(suffix='.npz', delete=False) as temp_file:
+    with tempfile.NamedTemporaryFile(suffix=".npz", delete=False) as temp_file:
         filename = temp_file.name
-    
+
     # Serialize
     connectome_medium.serialize_brain_state(filename)
-    
+
     new_connectome = ConnectomeManager(medium_config)
     new_connectome.deserialize_brain_state(filename)
-    
+
     # Verify neuron count
     assert new_connectome.get_neuron_count() == num_neurons
-    
+
     # Verify some synaptic connections
     for i in range(0, num_neurons, 10):
         outgoing = new_connectome.get_outgoing_connections(neuron_ids[i])
         expected_num_connections = min(5, num_neurons - i - 1)
         assert len(outgoing) == expected_num_connections
-    
+
     # Clean up
-    os.unlink(filename) 
+    os.unlink(filename)

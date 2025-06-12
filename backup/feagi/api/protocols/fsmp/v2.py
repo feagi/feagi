@@ -22,12 +22,12 @@ This module provides the implementation of version 2 of the FSMP protocol.
 
 import struct
 import time
-from typing import Dict, Any, ClassVar, List
+from typing import Any, ClassVar, Dict, List
 
-from feagi.utils.logger import setup_logger
-from feagi.api.protocols.base import VersionedProtocol, ProtocolID
+from feagi.api.protocols.base import ProtocolID, VersionedProtocol
 from feagi.api.protocols.fsmp.common import FSMPDataType, FSMPMessageFormat
 from feagi.api.protocols.fsmp.v1 import FSMPv1
+from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
 
@@ -35,59 +35,59 @@ logger = setup_logger()
 class FSMPv2(VersionedProtocol):
     """
     FEAGI Sensorimotor Protocol version 2.
-    
+
     This version extends v1 with additional features:
     - Compressed neuron data format
     - Support for additional data types
     - Better error handling
     """
-    
+
     PROTOCOL_ID: ClassVar[ProtocolID] = ProtocolID.FSMP
     VERSION: ClassVar[int] = 2
-    
+
     @classmethod
     def encode(cls, data: Dict[str, Any]) -> bytes:
         """
         Encode FSMP data to binary format.
-        
+
         This implementation would contain the v2 encoding logic.
         For now, it just forwards to v1 to demonstrate inheritance pattern.
-        
+
         Args:
             data: Dictionary containing message data
-                
+
         Returns:
             Binary FSMP data
         """
         # For demonstration, just use v1 encoding
         # In a real implementation, this would have v2-specific logic
         return FSMPv1.encode(data)
-    
+
     @classmethod
     def decode(cls, data: bytes) -> Dict[str, Any]:
         """
         Decode binary FSMP data.
-        
+
         This implementation would contain the v2 decoding logic.
         For now, it just forwards to v1 to demonstrate inheritance pattern.
-        
+
         Args:
             data: Binary FSMP data
-                
+
         Returns:
             Dictionary containing decoded message
-                
+
         Raises:
             ValueError: If the data format is invalid
         """
         # For demonstration, just use v1 decoding
         # In a real implementation, this would have v2-specific logic
         return FSMPv1.decode(data)
-    
+
     # In a real implementation, v2 would override specific methods or add new ones
     # For example:
     # @classmethod
     # def _encode_neuron_potential_data(cls, data: Dict[str, Any]) -> bytes:
     #     """Enhanced implementation with compression."""
     #     # Implement v2-specific compression algorithm
-    #     pass 
+    #     pass

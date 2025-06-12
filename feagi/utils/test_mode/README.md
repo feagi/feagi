@@ -137,4 +137,4 @@ feagi_core/feagi/utils/test_mode/
 ### General Guidelines
 - Start with short durations (`--test-duration 10-30`) for initial validation
 - Increase duration for stability and performance testing
-- Monitor system resources during large-scale tests (Mode 2) 
+- Monitor system resources during large-scale tests (Mode 2)

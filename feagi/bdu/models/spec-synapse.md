@@ -183,4 +183,3 @@ synapses.update_plasticity(dt=1)
 ## **Conclusion**
 
 `SynapseManager` is a **highly efficient**, **scalable**, and **parallelizable** neural network synapse manager. Its **sparse storage format**, **plasticity modeling**, and **performance optimizations** make it well-suited for large-scale **neuromorphic computing and AI applications**.
-

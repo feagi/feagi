@@ -28,203 +28,206 @@ NOTE: This module is completely disabled in embedded mode to prevent FastAPI imp
 import os
 
 # Check if embedded mode is enabled
-EMBEDDED_MODE = os.environ.get('FEAGI_EMBEDDED_MODE', '0') == '1'
+EMBEDDED_MODE = os.environ.get("FEAGI_EMBEDDED_MODE", "0") == "1"
 
 if EMBEDDED_MODE:
     # In embedded mode, provide stub functions that return None
     # This prevents any FastAPI imports and router creation
-    
+
     def create_system_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_genome_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_cortical_area_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_connectome_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_burst_engine_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_neuroplasticity_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_region_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_morphology_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_monitoring_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_simulation_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_feagi_agent_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_insights_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_training_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_cortical_mapping_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_network_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_inputs_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_outputs_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def create_evolution_router():
         """Stub function for embedded mode."""
         return None
-    
+
     # Stub functions for the get_* functions as well
     def get_system_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_genome_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_cortical_area_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_connectome_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_burst_engine_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_neuroplasticity_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_region_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_morphology_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_monitoring_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_simulation_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_feagi_agent_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_insights_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_training_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_cortical_mapping_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_network_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_inputs_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_outputs_router():
         """Stub function for embedded mode."""
         return None
-    
+
     def get_evolution_router():
         """Stub function for embedded mode."""
         return None
-    
+
     # Also need to provide the UniversalFastAPIWrapper class as a stub
     class UniversalFastAPIWrapper:
         """Stub class for embedded mode."""
+
         def __init__(self):
             self.router = None
-        
+
         def create_router_for_module(self, module_name: str):
             return None
-        
+
         def _add_endpoint_to_router(self, endpoint_data, module_name):
             pass
-        
+
         def _create_fastapi_handler(self, handler, module_name, request_model):
             return None
 
 else:
     # Normal mode - import all FastAPI dependencies and create actual routers
-    from fastapi import APIRouter, Depends, HTTPException, Request, Body, UploadFile
-    from fastapi.responses import JSONResponse
-    from typing import Dict, Any, Callable
-    import inspect
     import asyncio
+    import inspect
     import json
+    from typing import Any, Callable, Dict
 
-    from feagi.api.rest.dependencies import get_core_api_service
+    from fastapi import APIRouter, Body, Depends, HTTPException, Request, UploadFile
+    from fastapi.responses import JSONResponse
+
     from feagi.api.core.services.core_api_service import CoreAPIService
-    from feagi.api.v1.decorators import get_endpoint_registry
-    from feagi.api.v1.system import create_system_api
-    from feagi.api.v1.genome import create_genome_api
-    from feagi.api.v1.cortical_area import create_cortical_area_api
+    from feagi.api.rest.dependencies import get_core_api_service
+    from feagi.api.v1.burst_engine import create_burst_engine_api
+
     # Import all the new API modules
     from feagi.api.v1.connectome import create_connectome_api
-    from feagi.api.v1.burst_engine import create_burst_engine_api
-    from feagi.api.v1.neuroplasticity import create_neuroplasticity_api
-    from feagi.api.v1.region import create_region_api
-    from feagi.api.v1.morphology import create_morphology_api
-    from feagi.api.v1.monitoring import create_monitoring_api
-    from feagi.api.v1.simulation import create_simulation_api
-    from feagi.api.v1.feagi_agent import create_feagi_agent_api
-    from feagi.api.v1.insights import create_insights_api
-    from feagi.api.v1.training import create_training_api
+    from feagi.api.v1.cortical_area import create_cortical_area_api
     from feagi.api.v1.cortical_mapping import create_cortical_mapping_api
-    from feagi.api.v1.network import create_network_api
-    from feagi.api.v1.inputs import create_inputs_api
-    from feagi.api.v1.outputs import create_outputs_api
+    from feagi.api.v1.decorators import get_endpoint_registry
     from feagi.api.v1.evolution import create_evolution_api
+    from feagi.api.v1.feagi_agent import create_feagi_agent_api
+    from feagi.api.v1.genome import create_genome_api
+    from feagi.api.v1.inputs import create_inputs_api
+    from feagi.api.v1.insights import create_insights_api
+    from feagi.api.v1.monitoring import create_monitoring_api
+    from feagi.api.v1.morphology import create_morphology_api
+    from feagi.api.v1.network import create_network_api
+    from feagi.api.v1.neuroplasticity import create_neuroplasticity_api
+    from feagi.api.v1.outputs import create_outputs_api
+    from feagi.api.v1.region import create_region_api
+    from feagi.api.v1.simulation import create_simulation_api
+    from feagi.api.v1.system import create_system_api
+    from feagi.api.v1.training import create_training_api
     from feagi.utils.logger import setup_logger
 
     logger = setup_logger(__name__)
@@ -232,147 +235,199 @@ else:
     class UniversalFastAPIWrapper:
         """
         Universal FastAPI wrapper that auto-generates routes from v1 API decorators.
-        
+
         This wrapper scans the endpoint registry and automatically creates
         FastAPI routes for all decorated endpoints, ensuring perfect consistency
         with other transport protocols.
         """
-        
+
         def __init__(self):
             self.router = APIRouter()
             self._api_instances = {}
-        
+
         def create_router_for_module(self, module_name: str) -> APIRouter:
             """Create a FastAPI router for a specific v1 API module."""
             registry = get_endpoint_registry()
             endpoints = registry.get_endpoints_by_module(module_name)
-            
-            logger.info(f"Creating FastAPI router for module '{module_name}' with {len(endpoints)} endpoints")
-            
+
+            logger.info(
+                f"Creating FastAPI router for module '{module_name}' with {len(endpoints)} endpoints"
+            )
+
             for endpoint_id, endpoint_data in endpoints.items():
                 self._add_endpoint_to_router(endpoint_data, module_name)
-            
+
             return self.router
-        
-        def _add_endpoint_to_router(self, endpoint_data: Dict[str, Any], module_name: str):
+
+        def _add_endpoint_to_router(
+            self, endpoint_data: Dict[str, Any], module_name: str
+        ):
             """Add a single endpoint to the FastAPI router."""
-            methods = endpoint_data['methods']
-            path = endpoint_data['path']
-            handler = endpoint_data['handler']
-            request_model = endpoint_data.get('request_model')
-            response_model = endpoint_data.get('response_model')
-            description = endpoint_data.get('description')
-            
+            methods = endpoint_data["methods"]
+            path = endpoint_data["path"]
+            handler = endpoint_data["handler"]
+            request_model = endpoint_data.get("request_model")
+            response_model = endpoint_data.get("response_model")
+            description = endpoint_data.get("description")
+
             # Create FastAPI endpoint wrapper
-            fastapi_handler = self._create_fastapi_handler(handler, module_name, request_model)
-            
+            fastapi_handler = self._create_fastapi_handler(
+                handler, module_name, request_model
+            )
+
             # Register for each HTTP method
             for method in methods:
                 method_lower = method.lower()
-                
+
                 # Build route kwargs
                 route_kwargs = {
-                    'path': path,
-                    'response_model': response_model,
-                    'description': description,
-                    'name': f"{module_name}_{handler.__name__}"
+                    "path": path,
+                    "response_model": response_model,
+                    "description": description,
+                    "name": f"{module_name}_{handler.__name__}",
                 }
-                
+
                 # Remove None values
                 route_kwargs = {k: v for k, v in route_kwargs.items() if v is not None}
-                
+
                 # Register the route
-                if method_lower == 'get':
+                if method_lower == "get":
                     self.router.get(**route_kwargs)(fastapi_handler)
-                elif method_lower == 'post':
+                elif method_lower == "post":
                     self.router.post(**route_kwargs)(fastapi_handler)
-                elif method_lower == 'put':
+                elif method_lower == "put":
                     self.router.put(**route_kwargs)(fastapi_handler)
-                elif method_lower == 'delete':
+                elif method_lower == "delete":
                     self.router.delete(**route_kwargs)(fastapi_handler)
-                elif method_lower == 'patch':
+                elif method_lower == "patch":
                     self.router.patch(**route_kwargs)(fastapi_handler)
                 else:
                     logger.warning(f"Unsupported HTTP method: {method}")
-                
-                logger.debug(f"Registered FastAPI route: {method} {path} -> {handler.__name__}")
-        
-        def _create_fastapi_handler(self, 
-                                   original_handler: Callable, 
-                                   module_name: str,
-                                   request_model) -> Callable:
+
+                logger.debug(
+                    f"Registered FastAPI route: {method} {path} -> {handler.__name__}"
+                )
+
+        def _create_fastapi_handler(
+            self, original_handler: Callable, module_name: str, request_model
+        ) -> Callable:
             """Create a FastAPI-compatible handler wrapper."""
-            
-            def _get_api_instance(core_api_service: CoreAPIService = Depends(get_core_api_service)):
+
+            def _get_api_instance(
+                core_api_service: CoreAPIService = Depends(get_core_api_service),
+            ):
                 """Dependency to get the appropriate API instance."""
                 if module_name not in self._api_instances:
-                    if module_name == 'system':
-                        self._api_instances[module_name] = create_system_api(core_api_service)
-                    elif module_name == 'genome':
-                        self._api_instances[module_name] = create_genome_api(core_api_service)
-                    elif module_name == 'cortical_area':
-                        self._api_instances[module_name] = create_cortical_area_api(core_api_service)
-                    elif module_name == 'connectome':
-                        self._api_instances[module_name] = create_connectome_api(core_api_service)
-                    elif module_name == 'burst_engine':
-                        self._api_instances[module_name] = create_burst_engine_api(core_api_service)
-                    elif module_name == 'neuroplasticity':
-                        self._api_instances[module_name] = create_neuroplasticity_api(core_api_service)
-                    elif module_name == 'region':
-                        self._api_instances[module_name] = create_region_api(core_api_service)
-                    elif module_name == 'morphology':
-                        self._api_instances[module_name] = create_morphology_api(core_api_service)
-                    elif module_name == 'monitoring':
-                        self._api_instances[module_name] = create_monitoring_api(core_api_service)
-                    elif module_name == 'simulation':
-                        self._api_instances[module_name] = create_simulation_api(core_api_service)
-                    elif module_name == 'feagi_agent':
-                        self._api_instances[module_name] = create_feagi_agent_api(core_api_service)
-                    elif module_name == 'insights':
-                        self._api_instances[module_name] = create_insights_api(core_api_service)
-                    elif module_name == 'training':
-                        self._api_instances[module_name] = create_training_api(core_api_service)
-                    elif module_name == 'cortical_mapping':
-                        self._api_instances[module_name] = create_cortical_mapping_api(core_api_service)
-                    elif module_name == 'network':
-                        self._api_instances[module_name] = create_network_api(core_api_service)
-                    elif module_name == 'inputs':
-                        self._api_instances[module_name] = create_inputs_api(core_api_service)
-                    elif module_name == 'outputs':
-                        self._api_instances[module_name] = create_outputs_api(core_api_service)
-                    elif module_name == 'evolution':
-                        self._api_instances[module_name] = create_evolution_api(core_api_service)
+                    if module_name == "system":
+                        self._api_instances[module_name] = create_system_api(
+                            core_api_service
+                        )
+                    elif module_name == "genome":
+                        self._api_instances[module_name] = create_genome_api(
+                            core_api_service
+                        )
+                    elif module_name == "cortical_area":
+                        self._api_instances[module_name] = create_cortical_area_api(
+                            core_api_service
+                        )
+                    elif module_name == "connectome":
+                        self._api_instances[module_name] = create_connectome_api(
+                            core_api_service
+                        )
+                    elif module_name == "burst_engine":
+                        self._api_instances[module_name] = create_burst_engine_api(
+                            core_api_service
+                        )
+                    elif module_name == "neuroplasticity":
+                        self._api_instances[module_name] = create_neuroplasticity_api(
+                            core_api_service
+                        )
+                    elif module_name == "region":
+                        self._api_instances[module_name] = create_region_api(
+                            core_api_service
+                        )
+                    elif module_name == "morphology":
+                        self._api_instances[module_name] = create_morphology_api(
+                            core_api_service
+                        )
+                    elif module_name == "monitoring":
+                        self._api_instances[module_name] = create_monitoring_api(
+                            core_api_service
+                        )
+                    elif module_name == "simulation":
+                        self._api_instances[module_name] = create_simulation_api(
+                            core_api_service
+                        )
+                    elif module_name == "feagi_agent":
+                        self._api_instances[module_name] = create_feagi_agent_api(
+                            core_api_service
+                        )
+                    elif module_name == "insights":
+                        self._api_instances[module_name] = create_insights_api(
+                            core_api_service
+                        )
+                    elif module_name == "training":
+                        self._api_instances[module_name] = create_training_api(
+                            core_api_service
+                        )
+                    elif module_name == "cortical_mapping":
+                        self._api_instances[module_name] = create_cortical_mapping_api(
+                            core_api_service
+                        )
+                    elif module_name == "network":
+                        self._api_instances[module_name] = create_network_api(
+                            core_api_service
+                        )
+                    elif module_name == "inputs":
+                        self._api_instances[module_name] = create_inputs_api(
+                            core_api_service
+                        )
+                    elif module_name == "outputs":
+                        self._api_instances[module_name] = create_outputs_api(
+                            core_api_service
+                        )
+                    elif module_name == "evolution":
+                        self._api_instances[module_name] = create_evolution_api(
+                            core_api_service
+                        )
                     else:
                         raise ValueError(f"Unknown module: {module_name}")
-                
+
                 return self._api_instances[module_name]
-            
+
             # Inspect the original handler to understand its parameters
             sig = inspect.signature(original_handler)
             params = list(sig.parameters.keys())
-            param_annotations = {name: param.annotation for name, param in sig.parameters.items()}
-            
+            param_annotations = {
+                name: param.annotation for name, param in sig.parameters.items()
+            }
+
             # Remove 'self' from params for analysis
-            handler_params = [p for p in params if p != 'self']
-            
+            handler_params = [p for p in params if p != "self"]
+
             # Check if any parameter is UploadFile
             has_upload_file = any(
-                annotation == UploadFile or 
-                (hasattr(annotation, '__origin__') and getattr(annotation, '__origin__', None) is UploadFile)
+                annotation == UploadFile
+                or (
+                    hasattr(annotation, "__origin__")
+                    and getattr(annotation, "__origin__", None) is UploadFile
+                )
                 for annotation in param_annotations.values()
             )
-            
+
             # Determine handler characteristics
-            has_path_params = len(handler_params) > 0 and not request_model and not has_upload_file
+            has_path_params = (
+                len(handler_params) > 0 and not request_model and not has_upload_file
+            )
             has_request_body = request_model is not None
             is_async = asyncio.iscoroutinefunction(original_handler)
-            
+
             if has_upload_file:
                 # Special handling for file upload endpoints
                 if is_async:
+
                     async def fastapi_handler_with_file(
-                        file: UploadFile,
-                        api_instance = Depends(_get_api_instance)
+                        file: UploadFile, api_instance=Depends(_get_api_instance)
                     ):
                         try:
                             return await original_handler(api_instance, file)
@@ -380,13 +435,15 @@ else:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_file
                 else:
+
                     def fastapi_handler_with_file(
-                        file: UploadFile,
-                        api_instance = Depends(_get_api_instance)
+                        file: UploadFile, api_instance=Depends(_get_api_instance)
                     ):
                         try:
                             return original_handler(api_instance, file)
@@ -394,17 +451,20 @@ else:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_file
-            
+
             elif has_request_body and has_path_params:
                 # Handler has both path parameters AND request body
                 if is_async:
+
                     async def fastapi_handler_with_both(
                         request_data: request_model,
-                        api_instance = Depends(_get_api_instance),
-                        **path_params
+                        api_instance=Depends(_get_api_instance),
+                        **path_params,
                     ):
                         try:
                             # Pass path parameters first, then request body
@@ -414,14 +474,17 @@ else:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_both
                 else:
+
                     def fastapi_handler_with_both(
                         request_data: request_model,
-                        api_instance = Depends(_get_api_instance),
-                        **path_params
+                        api_instance=Depends(_get_api_instance),
+                        **path_params,
                     ):
                         try:
                             # Pass path parameters first, then request body
@@ -431,16 +494,19 @@ else:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_both
-            
+
             elif has_request_body:
                 # Handler expects request body only
                 if is_async:
+
                     async def fastapi_handler_with_request(
                         request_data: request_model,
-                        api_instance = Depends(_get_api_instance)
+                        api_instance=Depends(_get_api_instance),
                     ):
                         try:
                             return await original_handler(api_instance, request_data)
@@ -448,13 +514,16 @@ else:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_request
                 else:
+
                     def fastapi_handler_with_request(
                         request_data: request_model,
-                        api_instance = Depends(_get_api_instance)
+                        api_instance=Depends(_get_api_instance),
                     ):
                         try:
                             return original_handler(api_instance, request_data)
@@ -462,149 +531,160 @@ else:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_request
-            
+
             elif has_path_params:
                 # Handler expects path parameters only (like /properties/{agent_id})
                 if is_async:
+
                     async def fastapi_handler_with_path_params(
-                        api_instance = Depends(_get_api_instance),
-                        **path_params
+                        api_instance=Depends(_get_api_instance), **path_params
                     ):
                         try:
                             # Pass path parameters in the order they appear in the method signature
-                            args = [path_params[param] for param in handler_params if param in path_params]
+                            args = [
+                                path_params[param]
+                                for param in handler_params
+                                if param in path_params
+                            ]
                             return await original_handler(api_instance, *args)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_path_params
                 else:
+
                     def fastapi_handler_with_path_params(
-                        api_instance = Depends(_get_api_instance),
-                        **path_params
+                        api_instance=Depends(_get_api_instance), **path_params
                     ):
                         try:
                             # Pass path parameters in the order they appear in the method signature
-                            args = [path_params[param] for param in handler_params if param in path_params]
+                            args = [
+                                path_params[param]
+                                for param in handler_params
+                                if param in path_params
+                            ]
                             return original_handler(api_instance, *args)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_with_path_params
 
             else:
                 # Handler doesn't need parameters (simple GET endpoints)
                 if is_async:
-                    async def fastapi_handler_simple(api_instance = Depends(_get_api_instance)):
+
+                    async def fastapi_handler_simple(
+                        api_instance=Depends(_get_api_instance),
+                    ):
                         try:
                             return await original_handler(api_instance)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
+
                     return fastapi_handler_simple
                 else:
-                    def fastapi_handler_simple(api_instance = Depends(_get_api_instance)):
+
+                    def fastapi_handler_simple(api_instance=Depends(_get_api_instance)):
                         try:
                             return original_handler(api_instance)
                         except ValueError as e:
                             raise HTTPException(status_code=400, detail=str(e))
                         except Exception as e:
                             logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(status_code=500, detail="Internal server error")
-                            
-                    return fastapi_handler_simple
+                            raise HTTPException(
+                                status_code=500, detail="Internal server error"
+                            )
 
+                    return fastapi_handler_simple
 
     def create_system_router() -> APIRouter:
         """Create a FastAPI router for system endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('system')
-
+        return wrapper.create_router_for_module("system")
 
     def create_genome_router() -> APIRouter:
         """Create a FastAPI router for genome endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('genome')
-
+        return wrapper.create_router_for_module("genome")
 
     def create_cortical_area_router() -> APIRouter:
         """Create a FastAPI router for cortical area endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('cortical_area')
-
+        return wrapper.create_router_for_module("cortical_area")
 
     # === NEW ROUTER CREATION FUNCTIONS ===
 
     def create_connectome_router() -> APIRouter:
         """Create a FastAPI router for connectome endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('connectome')
-
+        return wrapper.create_router_for_module("connectome")
 
     def create_burst_engine_router() -> APIRouter:
         """Create a FastAPI router for burst engine endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('burst_engine')
-
+        return wrapper.create_router_for_module("burst_engine")
 
     def create_neuroplasticity_router() -> APIRouter:
         """Create a FastAPI router for neuroplasticity endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('neuroplasticity')
-
+        return wrapper.create_router_for_module("neuroplasticity")
 
     def create_region_router() -> APIRouter:
         """Create a FastAPI router for region endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('region')
-
+        return wrapper.create_router_for_module("region")
 
     def create_morphology_router() -> APIRouter:
         """Create a FastAPI router for morphology endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('morphology')
-
+        return wrapper.create_router_for_module("morphology")
 
     def create_monitoring_router() -> APIRouter:
         """Create a FastAPI router for monitoring endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('monitoring')
-
+        return wrapper.create_router_for_module("monitoring")
 
     def create_simulation_router() -> APIRouter:
         """Create a FastAPI router for simulation endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('simulation')
-
+        return wrapper.create_router_for_module("simulation")
 
     def create_feagi_agent_router() -> APIRouter:
         """Create a FastAPI router for feagi agent endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        router = wrapper.create_router_for_module('feagi_agent')
-        
+        router = wrapper.create_router_for_module("feagi_agent")
+
         # MANUAL ADDITION: Query parameter version of agent properties endpoint
         # The universal wrapper doesn't support query parameters, so we add this manually
+        from fastapi import Depends, HTTPException
+
         from feagi.api.rest.dependencies import get_core_api_service
         from feagi.api.v1.feagi_agent import create_feagi_agent_api
         from feagi.api.v1.schemas import AgentPropertiesResponse
-        from fastapi import Depends, HTTPException
-        
+
         @router.get("/properties", response_model=AgentPropertiesResponse)
         async def get_agent_properties_query(
-            agent_id: str,
-            core_api_service = Depends(get_core_api_service)
+            agent_id: str, core_api_service=Depends(get_core_api_service)
         ):
             """
             Get agent properties using query parameter format.
@@ -617,151 +697,126 @@ else:
                 raise HTTPException(status_code=400, detail=str(e))
             except Exception as e:
                 raise HTTPException(status_code=500, detail="Internal server error")
-        
-        return router
 
+        return router
 
     def create_insights_router() -> APIRouter:
         """Create a FastAPI router for insights endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('insights')
-
+        return wrapper.create_router_for_module("insights")
 
     def create_training_router() -> APIRouter:
         """Create a FastAPI router for training endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('training')
-
+        return wrapper.create_router_for_module("training")
 
     def create_cortical_mapping_router() -> APIRouter:
         """Create a FastAPI router for cortical mapping endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('cortical_mapping')
-
+        return wrapper.create_router_for_module("cortical_mapping")
 
     def create_network_router() -> APIRouter:
         """Create a FastAPI router for network endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('network')
-
+        return wrapper.create_router_for_module("network")
 
     def create_inputs_router() -> APIRouter:
         """Create a FastAPI router for inputs endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('inputs')
-
+        return wrapper.create_router_for_module("inputs")
 
     def create_outputs_router() -> APIRouter:
         """Create a FastAPI router for outputs endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('outputs')
-
+        return wrapper.create_router_for_module("outputs")
 
     def create_evolution_router() -> APIRouter:
         """Create a FastAPI router for evolution endpoints."""
         wrapper = UniversalFastAPIWrapper()
-        return wrapper.create_router_for_module('evolution')
-
+        return wrapper.create_router_for_module("evolution")
 
     # Create the router instance that can be imported
     def get_system_router() -> APIRouter:
         """Get the system router for use in main FastAPI app."""
         return create_system_router()
 
-
     def get_genome_router() -> APIRouter:
         """Get the genome router for use in main FastAPI app."""
         return create_genome_router()
-
 
     def get_cortical_area_router() -> APIRouter:
         """Get the cortical area router for use in main FastAPI app."""
         return create_cortical_area_router()
 
-
     def get_connectome_router() -> APIRouter:
         """Get the connectome router for use in main FastAPI app."""
         return create_connectome_router()
-
 
     def get_burst_engine_router() -> APIRouter:
         """Get the burst engine router for use in main FastAPI app."""
         return create_burst_engine_router()
 
-
     def get_neuroplasticity_router() -> APIRouter:
         """Get the neuroplasticity router for use in main FastAPI app."""
         return create_neuroplasticity_router()
-
 
     def get_region_router() -> APIRouter:
         """Get the region router for use in main FastAPI app."""
         return create_region_router()
 
-
     def get_morphology_router() -> APIRouter:
         """Get the morphology router for use in main FastAPI app."""
         return create_morphology_router()
-
 
     def get_monitoring_router() -> APIRouter:
         """Get the monitoring router for use in main FastAPI app."""
         return create_monitoring_router()
 
-
     def get_simulation_router() -> APIRouter:
         """Get the simulation router for use in main FastAPI app."""
         return create_simulation_router()
-
 
     def get_feagi_agent_router() -> APIRouter:
         """Get the feagi agent router for use in main FastAPI app."""
         return create_feagi_agent_router()
 
-
     def get_insights_router() -> APIRouter:
         """Get the insights router for use in main FastAPI app."""
         return create_insights_router()
-
 
     def get_training_router() -> APIRouter:
         """Get the training router for use in main FastAPI app."""
         return create_training_router()
 
-
     def get_cortical_mapping_router() -> APIRouter:
         """Get the cortical mapping router for use in main FastAPI app."""
         return create_cortical_mapping_router()
-
 
     def get_network_router() -> APIRouter:
         """Get the network router for use in main FastAPI app."""
         return create_network_router()
 
-
     def get_inputs_router() -> APIRouter:
         """Get the inputs router for use in main FastAPI app."""
         return create_inputs_router()
 
-
     def get_outputs_router() -> APIRouter:
         """Get the outputs router for use in main FastAPI app."""
         return create_outputs_router()
-
 
     def get_evolution_router() -> APIRouter:
         """Get the evolution router for use in main FastAPI app."""
         return create_evolution_router()
 
     # Force import of API classes to ensure endpoint registration
-    from feagi.api.v1.feagi_agent import FeagiAgentAPI
-    from feagi.api.v1.system import SystemAPI
-    from feagi.api.v1.genome import GenomeAPI
-    from feagi.api.v1.cortical_area import CorticalAreaAPI
-    from feagi.api.v1.connectome import ConnectomeAPI
     from feagi.api.v1.burst_engine import BurstEngineAPI
+    from feagi.api.v1.connectome import ConnectomeAPI
+    from feagi.api.v1.cortical_area import CorticalAreaAPI
+    from feagi.api.v1.feagi_agent import FeagiAgentAPI
+    from feagi.api.v1.genome import GenomeAPI
+    from feagi.api.v1.monitoring import MonitoringAPI
+    from feagi.api.v1.morphology import MorphologyAPI
     from feagi.api.v1.neuroplasticity import NeuroplasticityAPI
     from feagi.api.v1.region import RegionAPI
-    from feagi.api.v1.morphology import MorphologyAPI
-    from feagi.api.v1.monitoring import MonitoringAPI
-    from feagi.api.v1.simulation import SimulationAPI 
+    from feagi.api.v1.simulation import SimulationAPI
+    from feagi.api.v1.system import SystemAPI

@@ -19,7 +19,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 ### Modular Components
 
 1. **BurstEngine** (main class): Core neural simulation logic, area-agnostic
-2. **BurstEngineDebugMixin**: Debug and diagnostics functionality  
+2. **BurstEngineDebugMixin**: Debug and diagnostics functionality
 3. **BurstEnginePerformanceMixin**: SIMD acceleration and performance monitoring
 
 ## State Management
@@ -45,32 +45,32 @@ class BurstEngine:
         # Singleton pattern ensures only one instance
         self.connectome_manager = connectome_manager
         self.fcl_manager = fcl_manager
-        
+
         # Initialize generic injection service (area-agnostic)
         self._initialize_injection_service()
-        
+
         # Manually initialize mixins (avoids multiple inheritance issues)
         BurstEnginePerformanceMixin.__init__(self)
         BurstEngineDebugMixin.__init__(self)
-    
+
     def _process_burst(self):
         """Core burst processing with unified FCL candidate model."""
         # 1. External candidates injection (all special area types)
         if self.injection_service:
             self.injection_service.inject_pre_burst(self.burst_count)
-        
+
         # 2. Unified neural computation (internal + external candidates)
         fired_neurons = self.connectome_manager.update_membrane_potentials()
-        
+
         # 3. Additional injection phases if needed
         if self.injection_service:
             self.injection_service.inject_during_burst(self.burst_count)
             self.injection_service.inject_post_burst(self.burst_count)
-        
+
         # 4. Debug output if enabled
         if self.debug_npu:
             self._debug_fire_queue_output()
-        
+
         return fired_neurons
 ```
 
@@ -83,16 +83,16 @@ class BurstEngineDebugMixin:
     def _debug_fire_queue_output(self):
         """Detailed fire queue analysis when --debug-npu is enabled."""
         # Global FCL summary
-        # Per-cortical area breakdown  
+        # Per-cortical area breakdown
         # FQ Sampler status and data
         # Motor/visualization stream debugging
-    
+
     def register_fq_sampler(self, fq_sampler):
         """Register FQ samplers for debugging and monitoring."""
-    
+
     def get_debug_statistics(self):
         """Get comprehensive debug statistics."""
-    
+
     def debug_validate_state(self):
         """Validate internal state consistency."""
 ```
@@ -107,18 +107,18 @@ class BurstEnginePerformanceMixin:
         """Initialize SIMD detection and configuration."""
         # Uses centralized SIMD configuration from State Manager
         # Supports AVX, AVX2, AVX512, NEON, etc.
-    
+
     def measure_actual_frequency(self, duration_seconds=5.0):
         """Measure both actual and potential burst frequencies."""
         # Collects detailed timing data
         # Returns comprehensive performance metrics
-    
+
     def burst(self, burst_size=None, use_gpu=False):
         """Execute neural processing burst with SIMD optimization."""
         # SIMD-optimized fire candidate detection
         # Vectorized membrane potential updates
         # Performance profiling and statistics
-    
+
     def get_performance_metrics(self):
         """Get comprehensive performance statistics."""
 ```
@@ -187,7 +187,7 @@ Real-time frequency measurement and analysis:
 results = engine.measure_actual_frequency(duration_seconds=5.0)
 
 # Results include:
-# - actual_frequency_hz: Achieved frequency including delays  
+# - actual_frequency_hz: Achieved frequency including delays
 # - potential_frequency_hz: Maximum possible frequency
 # - efficiency_ratio: actual/potential performance ratio
 # - timing statistics and profiling data
@@ -240,7 +240,7 @@ The burst engine works closely with the Connectome Manager:
 # When genome changes
 engine.update_with_genome()
 
-# During burst processing  
+# During burst processing
 fired_neurons = connectome_manager.update_membrane_potentials()
 ```
 
@@ -316,4 +316,4 @@ config = {
 engine = BurstEngine(connectome_manager, fcl_manager, config)
 ```
 
-This modular architecture provides clean separation of concerns while maintaining high performance and comprehensive debugging capabilities for neural simulation research and development. 
+This modular architecture provides clean separation of concerns while maintaining high performance and comprehensive debugging capabilities for neural simulation research and development.

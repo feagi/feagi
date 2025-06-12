@@ -27,7 +27,7 @@ def my_callback_function(old_state, new_state):
 
 Available notification categories:
 - `genome`: Notifies when genome state changes
-- `connectome`: Notifies when connectome state changes 
+- `connectome`: Notifies when connectome state changes
 - `burst_engine`: Notifies when burst engine state changes
 - `simulation`: Notifies when simulation state changes
 
@@ -122,4 +122,4 @@ FEAGI uses a standardized approach to logging state changes:
    - Call logger directly with emoji parameter outside _log_state_change
    - Pass emoji parameter to notify methods
 
-This approach ensures consistent logging across all components. 
+This approach ensures consistent logging across all components.

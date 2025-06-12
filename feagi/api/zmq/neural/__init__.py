@@ -5,49 +5,36 @@ This package provides neural-specific data structures, protocols,
 and optimizations for high-performance neural data transmission.
 """
 
+from .headers import NeuralDataHeader, NeuralHeaderError, create_header, parse_header
 from .protocols import (
-    NeuralProtocolID,
+    MAX_CORTICAL_AREAS,
+    MAX_NEURONS_PER_MESSAGE,
+    NEURAL_HEADER_SIZE,
+    NEURAL_MAGIC,
     CompressionType,
     NeuralPrecision,
     NeuralPriority,
-    NEURAL_HEADER_SIZE,
-    MAX_NEURONS_PER_MESSAGE,
-    MAX_CORTICAL_AREAS,
-    NEURAL_MAGIC,
+    NeuralProtocolID,
 )
-
-from .headers import (
-    NeuralDataHeader,
-    NeuralHeaderError,
-    parse_header,
-    create_header,
-)
-
-from .ring_buffer import (
-    ZeroCopyRingBuffer,
-    BufferSlot,
-    RingBufferError,
-)
+from .ring_buffer import BufferSlot, RingBufferError, ZeroCopyRingBuffer
 
 __all__ = [
     # Protocols
-    'NeuralProtocolID',
-    'CompressionType',
-    'NeuralPrecision',
-    'NeuralPriority',
-    'NEURAL_HEADER_SIZE',
-    'MAX_NEURONS_PER_MESSAGE',
-    'MAX_CORTICAL_AREAS',
-    'NEURAL_MAGIC',
-    
+    "NeuralProtocolID",
+    "CompressionType",
+    "NeuralPrecision",
+    "NeuralPriority",
+    "NEURAL_HEADER_SIZE",
+    "MAX_NEURONS_PER_MESSAGE",
+    "MAX_CORTICAL_AREAS",
+    "NEURAL_MAGIC",
     # Headers
-    'NeuralDataHeader',
-    'NeuralHeaderError',
-    'parse_header',
-    'create_header',
-    
+    "NeuralDataHeader",
+    "NeuralHeaderError",
+    "parse_header",
+    "create_header",
     # Ring Buffer
-    'ZeroCopyRingBuffer',
-    'BufferSlot',
-    'RingBufferError',
-] 
+    "ZeroCopyRingBuffer",
+    "BufferSlot",
+    "RingBufferError",
+]

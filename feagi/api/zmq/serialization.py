@@ -22,25 +22,24 @@ different content types used in ZeroMQ communication.
 """
 
 import json
+
 from feagi.utils.logger import setup_logger
+
 logger = setup_logger(__name__)
-from typing import Any, Dict, List, Optional, Union, Callable
+from typing import Any, Callable, Dict, List, Optional, Union
 
 
-def serialize_message(
-    data: Any, 
-    content_type: str = "application/json"
-) -> bytes:
+def serialize_message(data: Any, content_type: str = "application/json") -> bytes:
     """
     Serialize a message according to the specified content type.
-    
+
     Args:
         data: Data to serialize
         content_type: Content type for serialization
-        
+
     Returns:
         Serialized data as bytes
-    
+
     Raises:
         ValueError: If content_type is not supported
     """
@@ -60,21 +59,19 @@ def serialize_message(
         return str(data).encode()
     else:
         raise ValueError(f"Unsupported content type: {content_type}")
-        
-def deserialize_message(
-    data: bytes, 
-    content_type: str = "application/json"
-) -> Any:
+
+
+def deserialize_message(data: bytes, content_type: str = "application/json") -> Any:
     """
     Deserialize a message according to the specified content type.
-    
+
     Args:
         data: Serialized data as bytes
         content_type: Content type for deserialization
-        
+
     Returns:
         Deserialized data
-        
+
     Raises:
         ValueError: If content_type is not supported
     """
@@ -90,4 +87,4 @@ def deserialize_message(
     elif content_type == "text/plain":
         return data.decode()
     else:
-        raise ValueError(f"Unsupported content type: {content_type}") 
+        raise ValueError(f"Unsupported content type: {content_type}")

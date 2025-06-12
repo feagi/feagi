@@ -63,10 +63,10 @@ class RuleType(Enum):
 
 ### 1. Vectors
 
-Vector rules are defined by one or many vectors in the form of [x, y, z] which defines a 3D vector in the cartesian 
-coordinate that translates the current neuron position to its destination. 
+Vector rules are defined by one or many vectors in the form of [x, y, z] which defines a 3D vector in the cartesian
+coordinate that translates the current neuron position to its destination.
 
-e.g., if a neuron is located at position [2, 4, 1] within a cortical area, the connectivity rule as [0, 1, 0] would 
+e.g., if a neuron is located at position [2, 4, 1] within a cortical area, the connectivity rule as [0, 1, 0] would
 target the voxel with address [2 + 0, 4 + 1, 1 + 0] as the destination for synaptic mapping.
 
 #### Technical Implementation
@@ -82,10 +82,10 @@ The `match_vectors` function handles vector-based connectivity with these steps:
 
 ```python
 def match_vectors(
-    src_voxel: Position, 
-    dst_area_id: AreaId, 
-    vector: List[int], 
-    morphology_scalar: List[Union[int, str]], 
+    src_voxel: Position,
+    dst_area_id: AreaId,
+    vector: List[int],
+    morphology_scalar: List[Union[int, str]],
     src_subregion: BoundingBox,
     connectome_manager
 ) -> List[Position]:
@@ -96,10 +96,10 @@ def match_vectors(
     # Determine ranges based on morphology_scalar
     x_range = range(dst_area_dims[0]) if "x" in morphology_scalar_string else [src_voxel[0]]
     y_range = range(dst_area_dims[1]) if "y" in morphology_scalar_string else [src_voxel[1]]
-    
+
     # Special handling for z-dimension
     z_range = range(dst_area_dims[2]) if "z" in morphology_scalar_string else [src_voxel[2]]
-    
+
     # For each coordinate in ranges:
     #   - Evaluate expressions with sympy
     #   - Scale vector by evaluated expressions
@@ -147,7 +147,7 @@ def evaluate_expression(expr: Union[str, int], x: int, y: int, z: int) -> int:
     """Evaluate an algebraic expression with the given x, y, z values."""
     if isinstance(expr, (int, float)):
         return int(expr)
-    
+
     try:
         result = sympify(preprocess_expression(expr)).subs({"x": x, "y": y, "z": z})
         return int(result)
@@ -173,7 +173,7 @@ Pattern handling is implemented in two main functions:
 1. `find_source_coordinates`: Generates all source coordinates matching a pattern
    ```python
    def find_source_coordinates(
-       src_pattern: List[Any], 
+       src_pattern: List[Any],
        src_cortical_boundary: Position
    ) -> Generator[Position, None, None]:
        """Generate coordinates within the cortical boundary that match the given pattern."""
@@ -181,7 +181,7 @@ Pattern handling is implemented in two main functions:
        x_range = range(src_cortical_boundary[0]) if src_pattern[0] == "*" else [src_pattern[0]]
        y_range = range(src_cortical_boundary[1]) if src_pattern[1] == "*" else [src_pattern[1]]
        z_range = range(src_cortical_boundary[2]) if src_pattern[2] == "*" else [src_pattern[2]]
-   
+
        # Yield matching coordinates using a generator for memory efficiency
        for x in x_range:
            for y in y_range:
@@ -254,12 +254,12 @@ These include:
 - `expander_x`: Maps source neurons to destination neurons where the binary representation has a set bit at the source neuron's x-position index or higher
   ```python
   def syn_expander_x(
-      src_area_id: AreaId, 
-      dst_area_id: AreaId, 
-      src_neuron_id: NeuronId, 
-      src_subregion: BoundingBox, 
+      src_area_id: AreaId,
+      dst_area_id: AreaId,
+      src_neuron_id: NeuronId,
+      src_subregion: BoundingBox,
       connectome_manager,
-      dst_y_index: int = 0, 
+      dst_y_index: int = 0,
       dst_z_index: int = 0
   ) -> List[Position]:
       """Implement the expander rule for x-dimension."""
@@ -272,12 +272,12 @@ These include:
 - `reducer_x`: Maps source neurons to destination neurons corresponding to the position of the highest set bit in the binary representation of the source x-position
   ```python
   def syn_reducer_x(
-      src_area_id: AreaId, 
-      dst_area_id: AreaId, 
-      src_neuron_id: NeuronId, 
-      src_subregion: BoundingBox, 
+      src_area_id: AreaId,
+      dst_area_id: AreaId,
+      src_neuron_id: NeuronId,
+      src_subregion: BoundingBox,
       connectome_manager,
-      dst_y_index: int = 0, 
+      dst_y_index: int = 0,
       dst_z_index: int = 0
   ) -> List[Position]:
       """Implement the reducer rule for x-dimension."""
@@ -290,9 +290,9 @@ These include:
 - `projector`: Maps neurons from source to destination areas while maintaining topological relationships
   ```python
   def syn_projector(
-      src_area_id: AreaId, 
-      dst_area_id: AreaId, 
-      src_neuron_id: NeuronId, 
+      src_area_id: AreaId,
+      dst_area_id: AreaId,
+      src_neuron_id: NeuronId,
       src_subregion: BoundingBox,
       connectome_manager,
       transpose: Optional[Tuple[str, str, str]] = None,
@@ -324,8 +324,8 @@ These include:
 - `lateral_pairs_x`: Creates lateral connections between neighboring neurons on the x-axis (0→1, 2→3, etc.)
   ```python
   def syn_lateral_pairs_x(
-      neuron_id: NeuronId, 
-      area_id: AreaId, 
+      neuron_id: NeuronId,
+      area_id: AreaId,
       src_subregion: BoundingBox,
       connectome_manager
   ) -> Optional[Position]:
@@ -338,9 +338,9 @@ These include:
 - `block_connection`: Maps blocks of neurons from source to destination areas based on a scaling factor
   ```python
   def syn_block_connection(
-      src_area_id: AreaId, 
-      dst_area_id: AreaId, 
-      src_neuron_id: NeuronId, 
+      src_area_id: AreaId,
+      dst_area_id: AreaId,
+      src_neuron_id: NeuronId,
       src_subregion: BoundingBox,
       connectome_manager,
       scaling_factor: int = 10
@@ -353,8 +353,8 @@ These include:
 - `memory`: Registers source-destination area relationships in a memory registry
   ```python
   def syn_memory(
-      src_area_id: AreaId, 
-      dst_area_id: AreaId, 
+      src_area_id: AreaId,
+      dst_area_id: AreaId,
       memory_register: Dict[AreaId, Set[AreaId]]
   ) -> None:
       """Register source-destination area relationships in memory registry."""
@@ -405,13 +405,13 @@ except ImportError:
         """Simple set-based fallback for environments without proper BitMap."""
         def __init__(self, elements=None):
             super().__init__(elements or [])
-            
+
         def add(self, element: int) -> None:
             super().add(element)
-            
+
         def copy(self) -> 'BitMap':
             return BitMap(self)
-        
+
         def is_empty(self) -> bool:
             return len(self) == 0
 ```
@@ -424,15 +424,15 @@ The `define_subregions` function creates patterns of connectivity based on "seed
 
 ```python
 def define_subregions(
-    area_id: AreaId, 
-    parameters: Dict[str, Any], 
+    area_id: AreaId,
+    parameters: Dict[str, Any],
     cortical_dimensions: Position
 ) -> Set[BoundingBox]:
     """Define subregions within a cortical area for targeted synaptogenesis."""
     # Extract seed and pattern parameters
     # seed: A 3D vector defining a unit cube [seed_x, seed_y, seed_z]
     # pattern: Format [[choose_x, skip_x], [choose_y, skip_y], [choose_z, skip_z]]
-    
+
     # Generate all possible subregions based on the pattern
     # Each subregion is defined as a tuple of ((min_x, min_y, min_z), (max_x, max_y, max_z))
     # Return the set of all subregions
@@ -522,7 +522,7 @@ for position in raw_candidate_positions:
         area_id=dst_area_id,
         position=position
     )
-    
+
     # Add each neuron with the appropriate weight (PSC)
     for neuron_id in dst_neurons:
         candidate_neuron_list.append((neuron_id, post_synaptic_current))
@@ -535,4 +535,4 @@ The synaptogenesis module interacts with:
 1. **ConnectomeManager**: Accesses cortical area and neuron information instead of directly using runtime_data
 2. **NeuronBitMap**: Uses efficient bitmap operations for handling large sets of neurons (with fallback implementation)
 3. **Sympy Library**: For evaluating algebraic expressions in vector rules
-4. **Memory Registry**: For morphologies that need to track relationships between areas 
+4. **Memory Registry**: For morphologies that need to track relationships between areas

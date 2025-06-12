@@ -58,4 +58,4 @@ Diagrams and other visual assets are stored in the `/docs/assets` directory.
 
 ## Documentation Standards
 
-Please follow the [Documentation Standards](guide-documentation-standards.md) when creating or updating documents. 
+Please follow the [Documentation Standards](guide-documentation-standards.md) when creating or updating documents.

@@ -75,7 +75,7 @@ This consistent naming makes it clear when we're dealing with string identifiers
 For improved code readability and type checking, use these type aliases:
 
 ```python
-CorticalId = str  # 6-character genome ID 
+CorticalId = str  # 6-character genome ID
 CorticalIdx = int  # internal integer index
 ```
 
@@ -88,7 +88,7 @@ CorticalIdx = int  # internal integer index
 def process_cortical_area(cortical_idx: int, neuron_count: int) -> None:
     """
     Process neurons in a cortical area.
-    
+
     Args:
         cortical_idx: The internal integer ID of the cortical area
         neuron_count: Number of neurons to process
@@ -115,10 +115,10 @@ For API endpoints that need to maintain backward compatibility:
 def get_cortical_area(self, area_id: str) -> Dict[str, Any]:
     """
     Get a cortical area by its index.
-    
+
     Args:
         area_id: String representation of cortical_idx (kept for backward compatibility)
-              
+
     Note:
         Despite the parameter name, this value represents the cortical_idx
     """
@@ -165,7 +165,7 @@ class CorticalAreaManager:
     def __init__(self):
         # Mapping from cortical_idx to cortical areas
         self.areas_by_idx = {}
-        
+
         # Mapping from cortical_id to cortical_idx
         self.idx_by_id = {}
 ```
@@ -176,16 +176,16 @@ class CorticalAreaManager:
 def get_neurons(self, cortical_idx: CorticalIdx) -> List[Neuron]:
     """
     Get all neurons in the specified cortical area.
-    
+
     Args:
         cortical_idx: The internal integer index of the cortical area
-        
+
     Returns:
         List of neurons in the cortical area
     """
     if cortical_idx not in self.areas_by_idx:
         raise ValueError(f"Cortical area with idx {cortical_idx} not found")
-        
+
     return self.areas_by_idx[cortical_idx].neurons
 ```
 
@@ -193,4 +193,4 @@ def get_neurons(self, cortical_idx: CorticalIdx) -> List[Neuron]:
 
 - [Coding Standards](guide-coding-standards.md)
 - [Architecture Overview](arch-system-overview.md)
-- [API Formats](spec-api-formats.md) 
+- [API Formats](spec-api-formats.md)

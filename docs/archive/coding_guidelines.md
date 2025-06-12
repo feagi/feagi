@@ -30,4 +30,3 @@
 - Keep modules < 500 lines where possible.
 - Use **clear, descriptive names** for files, classes, and functions.
 - Maintain consistent folder layout:
-

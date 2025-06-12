@@ -92,7 +92,7 @@ FEAGI neural data transmission is optimized for:
    - Coordinates (x, y, z) as int32 arrays
    - Membrane potentials (p) as float32 arrays
 
-4. **Performance focus:** 
+4. **Performance focus:**
    - No concern for human readability.
    - Maximum memory and transmission efficiency.
    - Avoid costly serialization formats like JSON.
@@ -234,7 +234,7 @@ For WGPU compute shaders:
   fn update_neurons(@builtin(global_invocation_id) id: vec3<u32>) {
       let neuron_id = id.x;
       if (neuron_id >= arrayLength(&membrane_potentials)) { return; }
-      
+
       // Process neuron state
       membrane_potentials[neuron_id] = membrane_potentials[neuron_id] * decay_factor;
   }
@@ -245,7 +245,7 @@ For WGPU compute shaders:
 - Use atomic operations for fire candidate list updates:
   ```wgsl
   @group(0) @binding(4) var<storage, read_write> fire_bitmap: array<atomic<u32>>;
-  
+
   fn set_fire_candidate(neuron_id: u32) {
       let word_index = neuron_id / 32u;
       let bit_position = neuron_id % 32u;

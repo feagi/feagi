@@ -85,7 +85,7 @@ async def get_health_check(self) -> HealthResponse:
 
 **Modules:**
 - **system.py**: System management (15 endpoints)
-- **genome.py**: Genome operations (18 endpoints)  
+- **genome.py**: Genome operations (18 endpoints)
 - **cortical_area.py**: Cortical area management (26 endpoints)
 - **connectome.py**: Connectome operations (17 endpoints)
 - **burst_engine.py**: Burst engine control (11 endpoints)
@@ -131,7 +131,7 @@ Transport-specific implementations are automatically generated:
 - Transport layers auto-generated
 - Changes propagate to all transports automatically
 
-### 2. **Perfect Transport Consistency**  
+### 2. **Perfect Transport Consistency**
 - Same business logic → identical responses across all protocols
 - No possibility of transport-specific inconsistencies
 - Guaranteed 1:1 compatibility
@@ -232,4 +232,4 @@ response = socket.recv_json()
 
 ---
 
-*This documentation reflects FEAGI's current decorator-based API architecture as of May 2025. The implementation provides a solid foundation for consistent, maintainable, and extensible API development.* 
+*This documentation reflects FEAGI's current decorator-based API architecture as of May 2025. The implementation provides a solid foundation for consistent, maintainable, and extensible API development.*

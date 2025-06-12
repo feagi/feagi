@@ -102,7 +102,7 @@ FEAGI provides specialized debugging flags for troubleshooting. For comprehensiv
 # API debugging
 python -m feagi.main --debug-api
 
-# NPU debugging  
+# NPU debugging
 python -m feagi.main --debug-npu
 
 # Combined debugging
@@ -134,4 +134,4 @@ For production environments, resolving the ZMQ and asyncio issues is recommended
 2. Properly initializing the ZMQ server with proper context management
 3. Using a structured startup and shutdown sequence for the server components
 
-Please refer to the main FEAGI documentation for production deployment guidelines. 
+Please refer to the main FEAGI documentation for production deployment guidelines.

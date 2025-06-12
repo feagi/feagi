@@ -136,6 +136,6 @@ This diagram serves as the definitive reference for:
 
 ---
 
-**Last Updated**: 2025-06-08  
-**Diagram Version**: 1.0  
-**Components**: 47 major processes and subsystems 
+**Last Updated**: 2025-06-08
+**Diagram Version**: 1.0
+**Components**: 47 major processes and subsystems

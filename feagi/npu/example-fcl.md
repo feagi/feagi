@@ -161,4 +161,4 @@ The use of Roaring Bitmaps provides:
 2. **Fast set operations**: Union, intersection, etc. are highly optimized
 3. **Compression**: RoaringBitmap automatically compresses ranges of consecutive integers
 
-This makes the FCL Manager efficient even with millions of neurons and long history windows. 
+This makes the FCL Manager efficient even with millions of neurons and long history windows.

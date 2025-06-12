@@ -14,7 +14,7 @@ The neuron coordinate extraction profiling suite tests the high-performance coor
 
 ### Latest Benchmark Results
 - **Setup Performance**: ~460,000 neurons/sec connectome creation
-- **Dictionary API**: ~22 million neurons/sec coordinate extraction 
+- **Dictionary API**: ~22 million neurons/sec coordinate extraction
 - **NumPy API**: ~44 million neurons/sec coordinate extraction (2x faster)
 - **Optimal Batch Size**: 10,000-25,000 neurons for peak performance
 - **Memory Efficiency**: <100 bytes per neuron
@@ -30,7 +30,7 @@ The neuron coordinate extraction profiling suite tests the high-performance coor
 ### Core Test File
 - **`test_neuron_coordinate_extraction.py`** - Main pytest suite with comprehensive profiling tests
 
-### Supporting Files  
+### Supporting Files
 - **`run_neuron_profiling.py`** - Convenient script to run all tests and display summary
 - **`logs/`** - Directory containing detailed profiling results in JSON format
 
@@ -109,7 +109,7 @@ python -m pytest tests/profiling/test_neuron_coordinate_extraction.py -m benchma
 
 ### Performance Thresholds:
 - **Minimum**: 10,000 neurons/sec (basic functionality)
-- **Target**: 50,000 neurons/sec (good performance)  
+- **Target**: 50,000 neurons/sec (good performance)
 - **Optimal**: 100,000+ neurons/sec (excellent performance)
 
 ## Detailed Output Files
@@ -152,7 +152,7 @@ The comprehensive benchmark saves detailed results to `logs/neuron_coordinate_ex
 ### CoreAPIService Integration
 The profiling tests validate the coordinate extraction methods added to `CoreAPIService`:
 - `get_neuron_coordinates()` - Dictionary-based API with validation
-- `get_neuron_coordinates_numpy()` - High-performance NumPy array API  
+- `get_neuron_coordinates_numpy()` - High-performance NumPy array API
 - `benchmark_neuron_coordinate_extraction()` - Built-in benchmarking
 
 ### Performance Impact
@@ -178,7 +178,7 @@ These coordinate extraction methods are critical for:
 
 ### Memory Profiling
 - Tracks memory usage patterns for different batch sizes
-- Validates memory efficiency improvements  
+- Validates memory efficiency improvements
 - Compares memory overhead between API methods
 - Ensures optimal memory layout for SIMD operations
 
@@ -198,4 +198,4 @@ These coordinate extraction methods are critical for:
 
 ---
 
-For questions or issues with the profiling tests, see the main FEAGI documentation or create an issue in the FEAGI repository. 
+For questions or issues with the profiling tests, see the main FEAGI documentation or create an issue in the FEAGI repository.

@@ -26,38 +26,40 @@ It provides:
 """
 
 import asyncio
+
 from feagi.utils.logger import setup_logger
+
 logger = setup_logger(__name__)
 import time
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import zmq
 import zmq.asyncio
-from typing import Dict, Any, List, Callable, Optional, Union, Tuple, Callable
 
 from ...core.services.core_api_service import CoreAPIService
-from ..serialization import serialize_message, deserialize_message
 from ...utils.rate_limit import RateLimiter
-
+from ..serialization import deserialize_message, serialize_message
 
 
 class PushServer:
     """
     ZeroMQ Push server implementation.
-    
+
     This server distributes work items to one or more Pull clients using the PUSH/PULL pattern.
     It's designed for load balancing work across multiple workers.
     """
-    
+
     def __init__(
-        self, 
+        self,
         core_api: CoreAPIService,
-        host: str = "*", 
+        host: str = "*",
         port: int = 5557,
         hwm: int = 1000,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
     ):
         """
         Initialize a new Push server.
-        
+
         Args:
             core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to (default "*" to bind to all interfaces)
@@ -74,16 +76,12 @@ class PushServer:
         self.socket.setsockopt(zmq.SNDHWM, hwm)
         self.socket.bind(f"tcp://{host}:{port}")
         self.rate_limiter = RateLimiter()
-        
+
         # Queue for pending work items
         self.work_queue = asyncio.Queue()
-        
+
         # Statistics
-        self.stats = {
-            "sent_items": 0,
-            "queued_items": 0,
-            "last_push_time": 0
-        }
+        self.stats = {"sent_items": 0, "queued_items": 0, "last_push_time": 0}
 
     async def start(self) -> None:
         """Start the push server."""
@@ -96,9 +94,9 @@ class PushServer:
         """Stop the push server with RTOS-friendly cleanup."""
         logger.info("Stopping PUSH server")
         self.running = False
-        
+
         # Cancel and wait for the processing task
-        if hasattr(self, '_process_task'):
+        if hasattr(self, "_process_task"):
             self._process_task.cancel()
             try:
                 await self._process_task
@@ -106,7 +104,7 @@ class PushServer:
                 logger.debug("Push server process task cancelled successfully")
             except Exception as e:
                 logger.warning(f"Error cancelling push server task: {e}")
-        
+
         # Close socket
         if self.socket:
             try:
@@ -115,15 +113,15 @@ class PushServer:
                 logger.warning(f"Error closing push server socket: {e}")
 
     async def push_item(
-        self, 
-        item: Any, 
+        self,
+        item: Any,
         work_type: str = "default",
         priority: int = 0,
-        content_type: str = "application/json"
+        content_type: str = "application/json",
     ) -> None:
         """
         Queue a work item for processing.
-        
+
         Args:
             item: The work item data to push
             work_type: Type of work for categorization
@@ -149,28 +147,24 @@ class PushServer:
                     if not self.running:
                         break
                     continue
-                
+
                 # Prepare the message
                 serialized_data = serialize_message(item, content_type)
-                message = [
-                    work_type.encode(),
-                    content_type.encode(),
-                    serialized_data
-                ]
-                
+                message = [work_type.encode(), content_type.encode(), serialized_data]
+
                 # Send the message
                 await self.socket.send_multipart(message)
-                
+
                 # Update statistics
                 self.stats["sent_items"] += 1
                 self.stats["queued_items"] = self.work_queue.qsize()
                 self.stats["last_push_time"] = time.time()
-                
+
                 logger.debug(f"Pushed work item of type {work_type}")
-                
+
                 # Mark task as done
                 self.work_queue.task_done()
-                
+
             except asyncio.CancelledError:
                 logger.debug("Process queue task cancelled")
                 break
@@ -181,20 +175,20 @@ class PushServer:
                     break
                 # Use asyncio.sleep for proper async error recovery
                 try:
-                    await asyncio.sleep(0.1)  # @architecture:acceptable - error recovery
+                    await asyncio.sleep(
+                        0.1
+                    )  # @architecture:acceptable - error recovery
                 except asyncio.CancelledError:
                     # Handle cancellation during error recovery
                     logger.debug("Process queue cancelled during error recovery")
                     break
 
     async def push_batch(
-        self, 
-        items: List[Tuple[Any, str, int]], 
-        content_type: str = "application/json"
+        self, items: List[Tuple[Any, str, int]], content_type: str = "application/json"
     ) -> None:
         """
         Queue multiple work items for processing.
-        
+
         Args:
             items: List of (item, work_type, priority) tuples
             content_type: Content type for serialization
@@ -206,20 +200,20 @@ class PushServer:
 class PullClient:
     """
     ZeroMQ Pull client implementation.
-    
+
     This client connects to a Push server and receives work items for processing.
     """
-    
+
     def __init__(
-        self, 
+        self,
         host: str,  # Remove hardcoded default - must be provided from configuration
         port: int = 5557,
         hwm: int = 100,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
     ):
         """
         Initialize a new Pull client.
-        
+
         Args:
             host: Push server host address to connect to
             port: Push server port to connect to
@@ -233,25 +227,25 @@ class PullClient:
         self.socket = self.context.socket(zmq.PULL)
         self.socket.setsockopt(zmq.RCVHWM, hwm)
         self.socket.connect(f"tcp://{host}:{port}")
-        
+
         # Handler registry
         self.handlers = {}
-        
+
         # Default handler
         self.default_handler = None
-        
+
         # Stats
         self.stats = {
             "received_items": 0,
             "processed_items": 0,
             "errors": 0,
-            "last_receive_time": 0
+            "last_receive_time": 0,
         }
 
     def register_handler(self, work_type: str, handler: Callable) -> None:
         """
         Register a handler for a specific work type.
-        
+
         Args:
             work_type: The work type to handle
             handler: Async callback function that takes the work item as an argument
@@ -261,7 +255,7 @@ class PullClient:
     def register_default_handler(self, handler: Callable) -> None:
         """
         Register a default handler for unknown work types.
-        
+
         Args:
             handler: Async callback function that takes (work_type, work_item) as arguments
         """
@@ -278,9 +272,9 @@ class PullClient:
         """Stop receiving work items with RTOS-friendly cleanup."""
         logger.info("Stopping PULL client")
         self.running = False
-        
+
         # Cancel and wait for the receive task
-        if hasattr(self, '_receive_task'):
+        if hasattr(self, "_receive_task"):
             self._receive_task.cancel()
             try:
                 await self._receive_task
@@ -288,7 +282,7 @@ class PullClient:
                 logger.debug("Pull client receive task cancelled successfully")
             except Exception as e:
                 logger.warning(f"Error cancelling pull client task: {e}")
-        
+
         # Close socket
         if self.socket:
             try:
@@ -301,23 +295,23 @@ class PullClient:
         while self.running:
             try:
                 multipart = await self.socket.recv_multipart()
-                
+
                 # Expecting [work_type, content_type, data]
                 if len(multipart) < 3:
                     logger.error(f"Received malformed message: {multipart}")
                     self.stats["errors"] += 1
                     continue
-                
+
                 work_type = multipart[0].decode()
                 content_type = multipart[1].decode()
                 data = deserialize_message(multipart[2], content_type)
-                
+
                 # Update statistics
                 self.stats["received_items"] += 1
                 self.stats["last_receive_time"] = time.time()
-                
+
                 logger.debug(f"Received work item of type: {work_type}")
-                
+
                 # Dispatch to handler
                 if work_type in self.handlers:
                     try:
@@ -331,11 +325,13 @@ class PullClient:
                         await self.default_handler(work_type, data)
                         self.stats["processed_items"] += 1
                     except Exception as e:
-                        logger.error(f"Error in default handler for work type {work_type}: {e}")
+                        logger.error(
+                            f"Error in default handler for work type {work_type}: {e}"
+                        )
                         self.stats["errors"] += 1
                 else:
                     logger.warning(f"No handler for work type: {work_type}")
-            
+
             except asyncio.CancelledError:
                 logger.debug("Receive loop cancelled")
                 break
@@ -347,7 +343,9 @@ class PullClient:
                     break
                 # Use asyncio.sleep for proper async error recovery
                 try:
-                    await asyncio.sleep(0.1)  # @architecture:acceptable - error recovery
+                    await asyncio.sleep(
+                        0.1
+                    )  # @architecture:acceptable - error recovery
                 except asyncio.CancelledError:
                     # Handle cancellation during error recovery
                     logger.debug("Receive loop cancelled during error recovery")
@@ -357,21 +355,21 @@ class PullClient:
 class PushPullManager:
     """
     Manager class for coordinating Push and Pull operations.
-    
+
     This class provides a unified interface for the FEAGI ZMQ server
     to manage PUSH/PULL patterns.
     """
-    
+
     def __init__(
-        self, 
+        self,
         core_api: CoreAPIService,
-        host: str = "*", 
+        host: str = "*",
         port: int = 5557,
-        context: Optional[zmq.asyncio.Context] = None
+        context: Optional[zmq.asyncio.Context] = None,
     ):
         """
         Initialize a new PushPull Manager.
-        
+
         Args:
             core_api: The CoreAPIService instance to delegate calls to
             host: Host address to bind to
@@ -381,16 +379,16 @@ class PushPullManager:
         self.context = context or zmq.asyncio.Context.instance()
         self._port = port
         self.push_server = PushServer(core_api, host, port, context=self.context)
-    
+
     @property
     def port(self) -> int:
         """Get the port used by this manager's server."""
         return self._port
-    
+
     async def start(self) -> None:
         """Start the PushPull manager."""
         await self.push_server.start()
-    
+
     async def stop(self) -> None:
         """Stop the PushPull manager with RTOS-friendly error handling."""
         try:
@@ -401,28 +399,25 @@ class PushPullManager:
                 await self.push_server.stop()
             except RuntimeError:
                 # No running loop, try to stop gracefully without await
-                if hasattr(self.push_server, 'running'):
+                if hasattr(self.push_server, "running"):
                     self.push_server.running = False
-                if hasattr(self.push_server, 'socket') and self.push_server.socket:
+                if hasattr(self.push_server, "socket") and self.push_server.socket:
                     try:
                         self.push_server.socket.close()
                     except Exception as e:
-                        logger.warning(f"Error closing push server socket during no-loop shutdown: {e}")
+                        logger.warning(
+                            f"Error closing push server socket during no-loop shutdown: {e}"
+                        )
         except Exception as e:
             logger.warning(f"Error stopping PushPull manager: {e}")
-    
-    async def queue_work(
-        self, 
-        work_type: str, 
-        data: Any, 
-        priority: int = 0
-    ) -> None:
+
+    async def queue_work(self, work_type: str, data: Any, priority: int = 0) -> None:
         """
         Queue a work item for processing.
-        
+
         Args:
             work_type: Type of work item
             data: Work item data
             priority: Priority level (higher is processed first)
         """
-        await self.push_server.push_item(data, work_type, priority) 
+        await self.push_server.push_item(data, work_type, priority)

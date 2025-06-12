@@ -99,4 +99,4 @@ The CoreAPIService serves as the central point for agent management with methods
 - Agent discovery protocol for automatic connection
 - Enhanced capability negotiation
 - Distributed agent networks with mesh topologies
-- Learning from agent interaction patterns 
+- Learning from agent interaction patterns

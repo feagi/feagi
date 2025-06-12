@@ -205,7 +205,7 @@ registration_request = {
 
 # Agent heartbeat via REST API
 heartbeat_request = {
-    "method": "POST", 
+    "method": "POST",
     "route": "/v1/agents/heartbeat",
     "body": {
         "agent_id": "my_agent"
@@ -357,11 +357,11 @@ if success:
 def test_feagi_functionality():
     # Test setup
     connectome = ConnectomeManager.instance()
-    
+
     # Test operations
     cortical_area = connectome.create_cortical_area("test_area")
     assert cortical_area is not None
-    
+
     # Cleanup for next test
     connectome.clear()  # Reset singleton state
 ```
@@ -421,4 +421,4 @@ ConnectomeManager._instance = None  # Force singleton reset
 - [ZMQ Architecture](arch-zmq.md)
 - [Installation Guide](guide-installation.md)
 - [Contribution Guide](guide-contribution.md)
-- [Rust/RTOS Migration](arch-rust-rtos-migration.md) 
+- [Rust/RTOS Migration](arch-rust-rtos-migration.md)

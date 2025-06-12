@@ -3,7 +3,7 @@
 #
 # This configuration file uses TOML format for:
 # - Rust/RTOS compatibility
-# - Cloud-native deployments  
+# - Cloud-native deployments
 # - Human-readable structure with comments
 
 [system]
@@ -31,7 +31,7 @@ reload = false      # Can be overridden with $FEAGI_API_RELOAD
 
 [ports]
 # ZMQ Communication Ports
-# 
+#
 # ⚠️  CRITICAL: All port values are REQUIRED and must be explicitly set
 # ⚠️  DO NOT change these ports while FEAGI is running
 # ⚠️  Restart FEAGI after making any port changes
@@ -42,7 +42,7 @@ reload = false      # Can be overridden with $FEAGI_API_RELOAD
 
 # Core ZMQ Communication Patterns
 zmq_req_rep_port = 5555      # Request-Reply pattern
-zmq_pub_sub_port = 5556      # Publish-Subscribe pattern  
+zmq_pub_sub_port = 5556      # Publish-Subscribe pattern
 zmq_push_pull_port = 5557    # Push-Pull pattern
 
 # Specialized Data Streams
@@ -62,7 +62,7 @@ enabled = true
 polling_timeout = 100        # ZMQ polling timeout
 message_buffer_size = 100    # max messages to buffer
 socket_connect_timeout = 1000  # Socket connection timeout
-socket_receive_timeout = 5000  # Socket receive timeout  
+socket_receive_timeout = 5000  # Socket receive timeout
 socket_send_timeout = 5000     # Socket send timeout
 client_heartbeat_timeout = 30000  # Client heartbeat timeout
 inactive_client_timeout = 60000   # Consider clients inactive after this
@@ -138,4 +138,4 @@ compress_sensory = false      # Disable compression for sensory input (typically
 
 # Cloud deployment example:
 # This file can be mounted as a ConfigMap in Kubernetes:
-# kubectl create configmap feagi-config --from-file=feagi_configuration.toml 
+# kubectl create configmap feagi-config --from-file=feagi_configuration.toml

@@ -18,11 +18,12 @@ limitations under the License.
 Tests for utility functions in the FEAGI codebase.
 """
 
+import logging
 import os
 import tempfile
-import logging
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from feagi.utils.logger import setup_logger
 
@@ -39,10 +40,7 @@ def test_setup_logger_with_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         log_file = os.path.join(temp_dir, "test.log")
         logger = setup_logger(
-            name="test_file", 
-            level=10,  
-            log_file=log_file,
-            console=True
+            name="test_file", level=10, log_file=log_file, console=True
         )
         assert logger.name == "test_file"
         assert len(logger.handlers) == 2  # Console and file handlers
@@ -53,10 +51,10 @@ def test_logger_reuse():
     """Test retrieving a logger instance."""
     logger1 = setup_logger("test_reuse")
     logger2 = logging.getLogger("test_reuse")
-    
+
     # Should return the same logger instance
     assert logger1 is logger2
     assert logger1.name == "test_reuse"
 
 
-# Add more test functions for other utility modules as needed 
+# Add more test functions for other utility modules as needed

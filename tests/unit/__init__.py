@@ -1,1 +1,1 @@
-"""Unit tests for FEAGI.""" 
+"""Unit tests for FEAGI."""
