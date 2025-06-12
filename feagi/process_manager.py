@@ -1409,6 +1409,9 @@ class ProcessManager:
                 connectome_manager=(
                     self._core_api.get_connectome_manager() if self._core_api else None
                 ),
+                state_manager=(
+                    self._core_api.get_state_manager() if self._core_api else None
+                ),
             )
 
             # Store the sampler based on mode

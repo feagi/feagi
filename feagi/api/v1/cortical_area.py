@@ -596,6 +596,22 @@ class CorticalAreaAPI:
                     coordinates = area_data.get("coordinates", {})
                     dimensions = area_data.get("dimensions", {})
 
+                    # Handle case where dimensions is a tuple
+                    if isinstance(dimensions, tuple):
+                        dimensions = {
+                            "width": dimensions[0],
+                            "height": dimensions[1],
+                            "depth": dimensions[2],
+                        }
+
+                    # Handle case where coordinates is a tuple
+                    if isinstance(coordinates, tuple):
+                        coordinates = {
+                            "x": coordinates[0],
+                            "y": coordinates[1],
+                            "z": coordinates[2],
+                        }
+
                     # Build complete cortical area data using template defaults for neural properties and structural defaults for spatial/organizational properties
                     geometry_data[cortical_id] = {
                         "cortical_id": area_data.get("id", cortical_id),
@@ -750,9 +766,7 @@ class CorticalAreaAPI:
                             "dev_count",
                             self._get_default_value("per_voxel_neuron_cnt", 1),
                         ),
-                        "cortical_dimensions_per_device": parameters.get(
-                            "cortical_dimensions_per_device", dimensions
-                        ),
+                        "cortical_dimensions_per_device": dimensions,
                     }
 
             return geometry_data

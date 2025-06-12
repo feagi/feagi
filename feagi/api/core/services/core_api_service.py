@@ -430,19 +430,61 @@ class CoreAPIService:
             geometry_info = {}
 
             for area in areas:
-                area_id = area.get("id")
-                if area_id:
-                    geometry_info[area_id] = {
-                        "coordinates": area.get("coordinates", {}),
-                        "dimensions": area.get("dimensions", {}),
-                        "type": area.get("type", "unknown"),
-                        "neuron_count": area.get("neuron_count", 0),
-                    }
+                try:
+                    # Handle all possible area formats
+                    if isinstance(area, dict):
+                        area_id = area.get("id")
+                    elif isinstance(area, tuple):
+                        area_id = str(area[0])  # Convert first element to string
+                    else:
+                        area_id = str(area)
+                    
+                    if not area_id:
+                        continue
+                        
+                    # Get complete properties including mapping information
+                    properties = self._connectome_manager.get_cortical_area_properties(
+                        area_id
+                    )
+                    if properties:
+                        # Handle dimensions - could be tuple or dict
+                        dimensions = properties.get("dimensions", {})
+                        if isinstance(dimensions, tuple):
+                            dimensions = {
+                                "width": dimensions[0],
+                                "height": dimensions[1],
+                                "depth": dimensions[2]
+                            }
+
+                        # Handle coordinates - could be tuple or dict
+                        coordinates = properties.get("coordinates", {})
+                        if isinstance(coordinates, tuple):
+                            coordinates = {
+                                "x": coordinates[0],
+                                "y": coordinates[1],
+                                "z": coordinates[2]
+                            }
+
+                        geometry_info[area_id] = {
+                            "coordinates": coordinates,
+                            "dimensions": dimensions,
+                            "type": properties.get("type", "unknown"),
+                            "neuron_count": properties.get("neuron_count", 0),
+                            "parameters": properties.get("parameters", {}),
+                            "name": properties.get("name", area_id),
+                            "cortical_idx": properties.get("cortical_idx"),
+                            "mapping": properties.get("parameters", {}).get(
+                                "mapping", {}
+                            )
+                        }
+                except Exception as e:
+                    self.logger.error(f"Error processing area {area}: {str(e)}")
+                    continue
 
             return geometry_info
         except Exception as e:
             self.logger.error(f"Error getting cortical area geometry: {str(e)}")
-            return {}
+            raise ValueError(f"Failed to get cortical area geometry: {str(e)}") from e
 
     def get_current_ipu_list(self) -> List[str]:
         """Get list of current IPU cortical areas."""

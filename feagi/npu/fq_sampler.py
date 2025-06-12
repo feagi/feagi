@@ -113,6 +113,7 @@ class UnifiedFQSampler:
         output_queue=None,
         connectome_manager=None,
         target_areas: Optional[List[str]] = None,
+        state_manager=None,
     ):
         """
         Initialize the unified FQ sampler.
@@ -124,6 +125,7 @@ class UnifiedFQSampler:
             output_queue: Optional output queue for samples
             connectome_manager: Optional connectome manager for area info
             target_areas: Required for 'custom_areas' mode
+            state_manager: Optional state manager for debug flag access
         """
         self.fire_queue_provider = fire_queue_provider
         self.sample_frequency = sample_frequency_hz
@@ -132,6 +134,7 @@ class UnifiedFQSampler:
         )
         self.output_queue = output_queue
         self.connectome_manager = connectome_manager
+        self.state_manager = state_manager
         self.running = False
 
         # Generate unique instance ID for debugging
@@ -248,9 +251,10 @@ class UnifiedFQSampler:
                 }
                 total_neurons = sum(area_counts.values())
                 if total_neurons > 0:
-                    logger.info(
-                        f"🔥🔥🔥🔥🔥 FQ SAMPLER: Sampled {total_neurons} neurons from {len(result)} areas: {area_counts}"
-                    )
+                    if self._is_debug_npu_enabled():
+                        logger.info(
+                            f"🔥🔥🔥🔥🔥 FQ SAMPLER: Sampled {total_neurons} neurons from {len(result)} areas: {area_counts}"
+                        )
 
             return result
 
@@ -296,9 +300,10 @@ class UnifiedFQSampler:
                     active_cortical_indices = (
                         self.connectome_manager.fcl_manager.get_active_corticals()
                     )
-                    logger.info(
-                        f"🔥 FQ SAMPLER [{self.instance_id}]: FCL reports {len(active_cortical_indices)} cortical areas with neural activity"
-                    )
+                    if self._is_debug_npu_enabled():
+                        logger.info(
+                            f"🔥 FQ SAMPLER [{self.instance_id}]: FCL reports {len(active_cortical_indices)} cortical areas with neural activity"
+                        )
 
                     # Translate cortical_idx -> cortical_id using BiDirectionalCorticalMap
                     for cortical_idx in active_cortical_indices:
@@ -315,9 +320,10 @@ class UnifiedFQSampler:
                                     cortical_idx
                                 )
                                 neuron_count = len(fcl_bitmap) if fcl_bitmap else 0
-                                logger.info(
-                                    f"🔥 FQ SAMPLER [{self.instance_id}]: Area {cortical_id} (idx={cortical_idx}) has {neuron_count} firing neurons"
-                                )
+                                if self._is_debug_npu_enabled():
+                                    logger.info(
+                                        f"🔥 FQ SAMPLER [{self.instance_id}]: Area {cortical_id} (idx={cortical_idx}) has {neuron_count} firing neurons"
+                                    )
                             else:
                                 logger.warning(
                                     f"🔥 FQ SAMPLER [{self.instance_id}]: Could not map cortical_idx={cortical_idx} to cortical_id"
@@ -340,9 +346,10 @@ class UnifiedFQSampler:
                 )
                 areas_with_activity = []
 
-            logger.info(
-                f"🔥 FQ SAMPLER [{self.instance_id}]: Found {len(areas_with_activity)} areas with neural activity: {areas_with_activity}"
-            )
+            if self._is_debug_npu_enabled():
+                logger.info(
+                    f"🔥 FQ SAMPLER [{self.instance_id}]: Found {len(areas_with_activity)} areas with neural activity: {areas_with_activity}"
+                )
 
             # STEP 2: Among active areas, filter by visualization properties
             for area_id in areas_with_activity:
@@ -351,9 +358,10 @@ class UnifiedFQSampler:
                     if not area_obj:
                         # If no area object, default to include (backward compatibility)
                         visualization_areas.append(area_id)
-                        logger.info(
-                            f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} included (no area object, defaulting to visible)"
-                        )
+                        if self._is_debug_npu_enabled():
+                            logger.info(
+                                f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} included (no area object, defaulting to visible)"
+                            )
                         continue
 
                     # Check visualization property (default to True - opt-out model)
@@ -365,13 +373,15 @@ class UnifiedFQSampler:
 
                     if visualization_enabled:
                         visualization_areas.append(area_id)
-                        logger.info(
-                            f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} included (has activity + visualization enabled)"
-                        )
+                        if self._is_debug_npu_enabled():
+                            logger.info(
+                                f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} included (has activity + visualization enabled)"
+                            )
                     else:
-                        logger.info(
-                            f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} excluded (has activity but visualization=false)"
-                        )
+                        if self._is_debug_npu_enabled():
+                            logger.info(
+                                f"🔥 FQ SAMPLER [{self.instance_id}]: Area {area_id} excluded (has activity but visualization=false)"
+                            )
 
                 except Exception as e:
                     # Default to include in case of error
@@ -385,9 +395,10 @@ class UnifiedFQSampler:
                 f"🔥 FQ SAMPLER [{self.instance_id}]: Error getting visualization areas: {e}"
             )
 
-        logger.info(
-            f"🔥 FQ SAMPLER [{self.instance_id}]: Final visualization areas list: {visualization_areas}"
-        )
+        if self._is_debug_npu_enabled():
+            logger.info(
+                f"🔥 FQ SAMPLER [{self.instance_id}]: Final visualization areas list: {visualization_areas}"
+            )
         return visualization_areas
 
     def _get_all_areas(self) -> List[str]:
@@ -474,9 +485,10 @@ class UnifiedFQSampler:
         self._opu_areas_cache = opu_areas
         self._cache_timestamp = current_time
 
-        logger.info(
-            f"🔥 FQ SAMPLER: Found {len(opu_areas)} OPU areas for motor sampling: {opu_areas}"
-        )
+        if self._is_debug_npu_enabled():
+            logger.info(
+                f"🔥 FQ SAMPLER: Found {len(opu_areas)} OPU areas for motor sampling: {opu_areas}"
+            )
         return opu_areas
 
     def _sample_areas_optimized(
@@ -706,6 +718,12 @@ class UnifiedFQSampler:
             self.sample_frequency = frequency_hz
             self.sample_interval = 1.0 / frequency_hz
             logger.info(f"Sample frequency updated to {frequency_hz}Hz")
+
+    def _is_debug_npu_enabled(self) -> bool:
+        """Check if debug NPU logging is enabled."""
+        if self.state_manager and hasattr(self.state_manager, "is_debug_npu_enabled"):
+            return self.state_manager.is_debug_npu_enabled()
+        return False
 
 
 # Public API

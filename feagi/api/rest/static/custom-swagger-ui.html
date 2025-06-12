@@ -61,6 +61,14 @@
       background-color: #005fa3;
     }
 
+    .header-button.load-essential {
+      background-color: #dc3545;
+    }
+
+    .header-button.load-essential:hover {
+      background-color: #c82333;
+    }
+
     .theme-selector {
       display: flex;
       align-items: center;
@@ -182,6 +190,7 @@
     <div class="header-actions">
       <button class="header-button" id="expand-all">Expand All</button>
       <button class="header-button" id="collapse-all">Collapse All</button>
+      <button class="header-button load-essential" id="load-essential">Load Essential</button>
       <div class="theme-selector">
         <span class="theme-selector-label">Theme:</span>
         <select id="theme-select">
@@ -356,6 +365,29 @@
         setTimeout(() => {
           setupFilter();
         }, 1000);
+
+        // Add Load Essential button functionality
+        document.getElementById('load-essential').addEventListener('click', async () => {
+          try {
+            const response = await fetch('/v1/genome/upload/essential', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            alert('Essential genome loaded successfully!');
+            console.log('Essential genome loaded:', result);
+          } catch (error) {
+            console.error('Error loading essential genome:', error);
+            alert('Failed to load essential genome. Check console for details.');
+          }
+        });
 
         function setupFilter() {
           const filterInput = document.getElementById('custom-filter-input');
