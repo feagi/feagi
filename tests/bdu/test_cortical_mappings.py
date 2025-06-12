@@ -27,41 +27,47 @@ from feagi.bdu.connectivity.cortical_mappings import CorticalMapping
 def cortical_mapping():
     """Create a basic cortical mapping for testing."""
     return CorticalMapping(
-        mapping_id="test_mapping",
+        source_cortical_id="source_area",
+        target_cortical_id="target_area",
+        mapping_type="topological",
+        parameters={
+            "morphology_id": "test_morphology",
+            "morphology_scalar": [1.0, 1.0, 1.0],
+            "plasticity_flag": True,
+            "psc_multiplier": 1.5,
+        },
         name="Test Mapping",
-        source_area_id="source_area",
-        target_area_id="target_area",
-        morphology_id="test_morphology",
-        morphology_scalar=[1.0, 1.0, 1.0],
-        plasticity_flag=True,
-        psc_multiplier=1.5,
+        mapping_id="test_mapping",
     )
 
 
 def test_cortical_mapping_init():
     """Test cortical mapping initialization."""
     mapping = CorticalMapping(
-        mapping_id="test_mapping",
+        source_cortical_id="source_area",
+        target_cortical_id="target_area",
+        mapping_type="topological",
+        parameters={
+            "morphology_id": "test_morphology",
+            "morphology_scalar": [1.0, 1.0, 1.0],
+            "plasticity_flag": True,
+            "psc_multiplier": 1.5,
+            "synapse_delay": 2.0,
+        },
         name="Test Mapping",
-        source_area_id="source_area",
-        target_area_id="target_area",
-        morphology_id="test_morphology",
-        morphology_scalar=[1.0, 1.0, 1.0],
-        plasticity_flag=True,
-        psc_multiplier=1.5,
-        properties={"synapse_delay": 2.0},
+        mapping_id="test_mapping",
     )
 
     # Check properties
     assert mapping.id == "test_mapping"
     assert mapping.name == "Test Mapping"
-    assert mapping.source_area_id == "source_area"
-    assert mapping.target_area_id == "target_area"
-    assert mapping.morphology_id == "test_morphology"
-    assert mapping.morphology_scalar == [1.0, 1.0, 1.0]
-    assert mapping.plasticity_flag == True
-    assert mapping.psc_multiplier == 1.5
-    assert mapping.properties["synapse_delay"] == 2.0
+    assert mapping.source_cortical_id == "source_area"
+    assert mapping.target_cortical_id == "target_area"
+    assert mapping.parameters["morphology_id"] == "test_morphology"
+    assert mapping.parameters["morphology_scalar"] == [1.0, 1.0, 1.0]
+    assert mapping.parameters["plasticity_flag"] == True
+    assert mapping.parameters["psc_multiplier"] == 1.5
+    assert mapping.parameters["synapse_delay"] == 2.0
 
 
 def test_cortical_mapping_to_dict(cortical_mapping):
