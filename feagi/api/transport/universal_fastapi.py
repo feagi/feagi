@@ -272,7 +272,7 @@ else:
 
             # Create FastAPI endpoint wrapper
             fastapi_handler = self._create_fastapi_handler(
-                handler, module_name, request_model
+                handler, module_name, request_model, endpoint_data
             )
 
             # Register for each HTTP method
@@ -309,7 +309,11 @@ else:
                 )
 
         def _create_fastapi_handler(
-            self, original_handler: Callable, module_name: str, request_model
+            self,
+            original_handler: Callable,
+            module_name: str,
+            request_model,
+            endpoint_data: Dict[str, Any],
         ) -> Callable:
             """Create a FastAPI-compatible handler wrapper."""
 
@@ -415,9 +419,16 @@ else:
                 for annotation in param_annotations.values()
             )
 
-            # Determine handler characteristics
+            # Get the path for this specific handler (need to access from endpoint_data)
+            endpoint_path = endpoint_data.get("path", "")
+
+            # Determine handler characteristics - check if path contains path parameters
             has_path_params = (
-                len(handler_params) > 0 and not request_model and not has_upload_file
+                "{" in endpoint_path
+                and "}" in endpoint_path
+                and len(handler_params) > 0
+                and not request_model
+                and not has_upload_file
             )
             has_request_body = request_model is not None
             is_async = asyncio.iscoroutinefunction(original_handler)

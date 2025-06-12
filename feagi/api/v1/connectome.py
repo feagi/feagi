@@ -125,7 +125,7 @@ class ConnectomeAPI:
             raise ValueError(f"Failed to get detailed cortical areas: {str(e)}")
 
     @connectome_endpoint(
-        "GET", "/cortical_info", response_model=CorticalAreaInfoResponse
+        "GET", "/cortical_info/{cortical_area}", response_model=CorticalAreaInfoResponse
     )
     async def get_cortical_info(self, cortical_area: str) -> CorticalAreaInfoResponse:
         """Get detailed information about a specific cortical area."""
@@ -187,7 +187,9 @@ class ConnectomeAPI:
     # ===== Statistics =====
 
     @connectome_endpoint(
-        "GET", "/stats/cortical/cumulative", response_model=CorticalStatsResponse
+        "GET",
+        "/stats/cortical/cumulative/{cortical_area}",
+        response_model=CorticalStatsResponse,
     )
     async def get_cortical_stats(self, cortical_area: str) -> CorticalStatsResponse:
         """Get cumulative statistics for a specific cortical area."""
@@ -226,7 +228,7 @@ class ConnectomeAPI:
     # ===== Download Operations =====
 
     @connectome_endpoint(
-        "GET", "/download-cortical-area", response_model=Dict[str, Any]
+        "GET", "/download-cortical-area/{cortical_area}", response_model=Dict[str, Any]
     )
     async def download_cortical_area(self, cortical_area: str) -> Dict[str, Any]:
         """Download a specific cortical area as a JSON file."""

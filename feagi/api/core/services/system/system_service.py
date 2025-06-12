@@ -554,12 +554,12 @@ class SystemService(BaseService):
             else:
                 performance_tier = "High"
 
-            self.logger.debug(
+            logger.debug(
                 f"System resource usage: {cpu_usage}% CPU, {memory_usage:.1f}% Memory"
             )
 
         except Exception as e:
-            self.logger.warning(f"Failed to retrieve resource usage: {e}")
+            logger.warning(f"Failed to retrieve resource usage: {e}")
             # Fallback to basic CPU count
             available_workers = max(
                 1, np.ceil(os.cpu_count() * 0.75)

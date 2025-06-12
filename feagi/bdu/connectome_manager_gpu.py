@@ -22,7 +22,7 @@ when GPU backends are available.
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -43,19 +43,29 @@ class GPUConnectomeManager(ConnectomeManager):
 
         super().__init__(*args, **kwargs)
 
-        # Verify GPU backend was selected
-        if hasattr(self.neuron_array, "backend") and hasattr(
-            self.neuron_array.backend, "backend_type"
+        # Verify GPU backend was selected (after parent initialization completes)
+        self._verify_gpu_backend()
+
+        logger.info(
+            f"Initialized GPU ConnectomeManager with backend: {self.get_backend_info()}"
+        )
+
+    def _verify_gpu_backend(self):
+        """Verify that a GPU backend was successfully selected."""
+        if (
+            hasattr(self, "neuron_array")
+            and hasattr(self.neuron_array, "backend")
+            and hasattr(self.neuron_array.backend, "backend_type")
         ):
             backend_type = self.neuron_array.backend.backend_type.value
             if backend_type not in ["pytorch", "cupy", "wgpu"]:
                 logger.warning(
                     f"GPU backend requested but {backend_type} selected - GPU may not be available"
                 )
-
-        logger.info(
-            f"Initialized GPU ConnectomeManager with backend: {self.get_backend_info()}"
-        )
+        else:
+            logger.warning(
+                "GPU backend verification failed - neuron_array or backend not properly initialized"
+            )
 
     def get_backend_info(self) -> Dict[str, Any]:
         """Get information about the current GPU backend.

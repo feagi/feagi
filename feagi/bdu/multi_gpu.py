@@ -22,11 +22,30 @@ neural network processing across multiple GPU devices.
 
 import threading
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
+
+
+class PartitionMethod(Enum):
+    """Methods for partitioning brain regions across GPUs."""
+
+    MEMORY_BASED = "memory_based"
+    CORTICAL_AREA = "cortical_area"
+    NEURON_COUNT = "neuron_count"
+    BALANCED = "balanced"
+
+
+class SyncMode(Enum):
+    """Synchronization modes for multi-GPU processing."""
+
+    ASYNC = "async"
+    SYNC = "sync"
+    BARRIER = "barrier"
+    PIPELINE = "pipeline"
 
 
 @dataclass
@@ -39,6 +58,28 @@ class GPUDevice:
     memory_available: int
     compute_capability: Optional[Tuple[int, int]] = None
     backend_type: str = "unknown"
+
+
+@dataclass
+class BrainPartition:
+    """Represents a partition of the brain assigned to a specific GPU."""
+
+    device_id: int
+    cortical_areas: List[str]
+    neuron_range: Tuple[int, int]  # (start_idx, end_idx)
+    synapse_count: int
+    memory_usage: int
+
+
+@dataclass
+class MultiGPUConfig:
+    """Configuration for multi-GPU processing."""
+
+    enabled: bool = False
+    device_count: Optional[int] = None
+    backend_preference: Optional[str] = None
+    memory_threshold: float = 0.8  # Use up to 80% of GPU memory
+    sync_frequency: int = 100  # Synchronize every N timesteps
 
 
 class MultiGPUManager:
