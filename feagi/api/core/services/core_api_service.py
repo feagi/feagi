@@ -1549,6 +1549,44 @@ class CoreAPIService:
             self.logger.error(f"Error getting cortical mapping properties: {str(e)}")
             raise ValueError(f"Failed to get cortical mapping properties: {str(e)}")
 
+    def update_cortical_mapping_properties(
+        self,
+        src_cortical_area: str,
+        dst_cortical_area: str,
+        mapping_string: List[Dict[str, Any]],
+    ) -> bool:
+        """Update cortical mapping properties between two cortical areas."""
+        try:
+            self.logger.info(
+                f"Updating cortical mapping properties from {src_cortical_area} to {dst_cortical_area}"
+            )
+
+            # Route through GenomeService for architecture compliance
+            update_data = {
+                "src_cortical_area": src_cortical_area,
+                "dst_cortical_area": dst_cortical_area,
+                "mapping_data": mapping_string,
+            }
+
+            success = self._genome_service.update_cortical_mapping_properties(
+                update_data
+            )
+
+            if success:
+                self.logger.info(
+                    f"Successfully updated mapping properties from {src_cortical_area} to {dst_cortical_area}"
+                )
+            else:
+                self.logger.error(
+                    f"Failed to update mapping properties from {src_cortical_area} to {dst_cortical_area}"
+                )
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"Error updating cortical mapping properties: {str(e)}")
+            return False
+
     def get_detailed_cortical_map(self) -> Dict[str, Any]:
         """
         Get detailed cortical mapping information in the expected format.
