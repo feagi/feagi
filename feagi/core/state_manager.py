@@ -422,6 +422,14 @@ class FeagiStateManager:
         }
         self._agent_registry_lock = threading.Lock()
 
+        # Debug configuration (RTOS-compatible, in-memory only)
+        self._debug_config = {
+            "api": False,
+            "npu": False,
+            "zmq_outbound": False,
+            "zmq_inbound": False,
+        }
+
     def cleanup(self):
         """Clean up resources and delete the state file on shutdown"""
         try:
@@ -1783,6 +1791,50 @@ class FeagiStateManager:
         return self.are_critical_services_ready() and self.get_brain_readiness()
 
     # ===== END CRITICAL SERVICE READINESS GATE =====
+
+    # ===== Debug Configuration =====
+    def set_debug_config(self, config: dict) -> None:
+        """
+        Set debug configuration from loaded FEAGI config.
+
+        RTOS-compatible: Stores flags in memory for zero-overhead access.
+
+        Args:
+            config: Configuration dictionary with debug section
+        """
+        debug_section = config.get("debug", {})
+        self._debug_config.update(
+            {
+                "api": debug_section.get("api", False),
+                "npu": debug_section.get("npu", False),
+                "zmq_outbound": debug_section.get("zmq_outbound", False),
+                "zmq_inbound": debug_section.get("zmq_inbound", False),
+            }
+        )
+
+        if any(self._debug_config.values()):
+            enabled_flags = [k for k, v in self._debug_config.items() if v]
+            logger.info(f"[DEBUG] Debug flags enabled: {enabled_flags}")
+
+    def is_debug_npu_enabled(self) -> bool:
+        """Check if NPU debug logging is enabled."""
+        return self._debug_config.get("npu", False)
+
+    def is_debug_api_enabled(self) -> bool:
+        """Check if API debug logging is enabled."""
+        return self._debug_config.get("api", False)
+
+    def is_debug_zmq_outbound_enabled(self) -> bool:
+        """Check if ZMQ outbound debug logging is enabled."""
+        return self._debug_config.get("zmq_outbound", False)
+
+    def is_debug_zmq_inbound_enabled(self) -> bool:
+        """Check if ZMQ inbound debug logging is enabled."""
+        return self._debug_config.get("zmq_inbound", False)
+
+    def get_debug_config(self) -> dict:
+        """Get current debug configuration."""
+        return self._debug_config.copy()
 
 
 def get_state_manager():
