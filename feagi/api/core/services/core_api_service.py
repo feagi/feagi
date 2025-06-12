@@ -664,11 +664,7 @@ class CoreAPIService:
                 )
 
                 # Check for debug NPU flag and pass through config
-                debug_npu = os.getenv("FEAGI_DEBUG_NPU", "").lower() in (
-                    "1",
-                    "true",
-                    "yes",
-                )
+                debug_npu = self.state_manager.is_debug_npu_enabled()
                 engine_config = {"debug_npu": debug_npu}
 
                 singleton_instance = BurstEngine(
