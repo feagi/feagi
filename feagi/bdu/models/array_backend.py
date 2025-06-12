@@ -916,22 +916,31 @@ class ArrayBackend:
         """Convert PyTorch tensor to NumPy array.
 
         Args:
-            array: PyTorch tensor
+            array: PyTorch tensor or NumPy array
 
         Returns:
             NumPy array
         """
-        # Handle half-precision tensors by converting to float32
-        if array.dtype == torch.float16:
-            array = array.float()  # Convert to float32 for CPU
+        # If it's already a NumPy array, return it directly
+        if isinstance(array, np.ndarray):
+            return array
 
-        numpy_array = array.detach().cpu().numpy()
+        # Handle PyTorch tensors
+        if hasattr(array, "detach"):  # Check if it's a PyTorch tensor
+            # Handle half-precision tensors by converting to float32
+            if array.dtype == torch.float16:
+                array = array.float()  # Convert to float32 for CPU
 
-        # If this was originally uint32, convert it back
-        if hasattr(array, "_feagi_dtype") and array._feagi_dtype == np.uint32:
-            numpy_array = numpy_array.astype(np.uint32)
+            numpy_array = array.detach().cpu().numpy()
 
-        return numpy_array
+            # If this was originally uint32, convert it back
+            if hasattr(array, "_feagi_dtype") and array._feagi_dtype == np.uint32:
+                numpy_array = numpy_array.astype(np.uint32)
+
+            return numpy_array
+        else:
+            # Fallback: try to convert to NumPy array
+            return np.array(array)
 
     def _cupy_to_numpy(self, array: Any) -> np.ndarray:
         """Convert CuPy array to NumPy array.

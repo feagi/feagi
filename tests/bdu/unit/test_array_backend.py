@@ -56,9 +56,9 @@ class TestArrayBackend(unittest.TestCase):
 
         # Test array creation
         shape = (10, 10)
-        zeros = backend.zeros(shape)
-        ones = backend.ones(shape)
-        full = backend.full(shape, 5.0)
+        zeros = backend.zeros(shape, dtype=np.float32)
+        ones = backend.ones(shape, dtype=np.float32)
+        full = backend.full(shape, 5.0, dtype=np.float32)
 
         # Verify arrays are correct
         self.assertEqual(zeros.shape, shape)
@@ -93,9 +93,9 @@ class TestArrayBackend(unittest.TestCase):
 
         # Test array creation
         shape = (10, 10)
-        zeros = backend.zeros(shape)
-        ones = backend.ones(shape)
-        full = backend.full(shape, 5.0)
+        zeros = backend.zeros(shape, dtype=np.float32)
+        ones = backend.ones(shape, dtype=np.float32)
+        full = backend.full(shape, 5.0, dtype=np.float32)
 
         # Verify arrays are correct
         self.assertEqual(tuple(zeros.shape), shape)
@@ -134,9 +134,9 @@ class TestArrayBackend(unittest.TestCase):
 
         # Test array creation
         shape = (10, 10)
-        zeros = backend.zeros(shape)
-        ones = backend.ones(shape)
-        full = backend.full(shape, 5.0)
+        zeros = backend.zeros(shape, dtype=np.float32)
+        ones = backend.ones(shape, dtype=np.float32)
+        full = backend.full(shape, 5.0, dtype=np.float32)
 
         # Verify arrays are correct
         self.assertEqual(zeros.shape, shape)
@@ -169,12 +169,12 @@ class TestArrayBackend(unittest.TestCase):
         """Test WebGPU backend operations."""
         # This is a simplified test since WebGPU operations are more complex
         try:
-            backend = ArrayBackend(BackendType.WEBGPU)
-            self.assertEqual(backend.backend_type, BackendType.WEBGPU)
+            backend = ArrayBackend(BackendType.WGPU)
+            self.assertEqual(backend.backend_type, BackendType.WGPU)
 
             # Test simple array creation
             shape = (10, 10)
-            zeros = backend.zeros(shape)
+            zeros = backend.zeros(shape, dtype=np.float32)
             numpy_zeros = backend.to_numpy(zeros)
             self.assertEqual(numpy_zeros.shape, shape)
             self.assertTrue(np.all(numpy_zeros == 0))
@@ -194,13 +194,13 @@ class TestArrayBackend(unittest.TestCase):
                 BackendType.NUMPY,
                 BackendType.PYTORCH,
                 BackendType.CUPY,
-                BackendType.WEBGPU,
+                BackendType.WGPU,
             ],
         )
 
         # Test basic operations with auto-selected backend
         shape = (5, 5)
-        zeros = backend.zeros(shape)
+        zeros = backend.zeros(shape, dtype=np.float32)
         numpy_zeros = backend.to_numpy(zeros)
         self.assertEqual(numpy_zeros.shape, shape)
         self.assertTrue(np.all(numpy_zeros == 0))

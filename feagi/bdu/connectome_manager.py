@@ -119,6 +119,16 @@ class ConnectomeManager:
             )
         return cls._instance
 
+    @classmethod
+    def reset_singleton(cls):
+        """Reset the singleton instance for testing purposes.
+
+        This method is used by tests to ensure clean state between test runs.
+        """
+        cls._instance = None
+        cls._initialized = False
+        logger.debug("Reset ConnectomeManager singleton for testing")
+
     def __new__(cls, *args, **kwargs):
         """Override __new__ to enforce singleton pattern."""
         if cls._instance is not None:
