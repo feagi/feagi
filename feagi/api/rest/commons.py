@@ -106,12 +106,23 @@ async def check_active_genome(request: Request):
     Dependency to check if there is an active genome.
     Raises an HTTPException if no genome is loaded.
     """
-    from feagi.api.rest.dependencies import get_connectome
+    from feagi.core.state_manager import FeagiStateManager
 
     try:
-        connectome = get_connectome()
-        if not connectome or not hasattr(connectome, "genome") or not connectome.genome:
+        # ARCHITECTURE COMPLIANCE: Check state manager for genome (single source of truth)
+        state_manager = FeagiStateManager.instance()
+
+        # Check if genome is loaded in state manager
+        if not state_manager.is_genome_loaded():
             raise HTTPException(status_code=400, detail="No genome loaded!")
+
+        # Additional check: ensure genome data is actually available
+        if not hasattr(state_manager, "genome") or not state_manager.genome:
+            raise HTTPException(status_code=400, detail="No genome loaded!")
+
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Genome access error: {str(e)}")
 
