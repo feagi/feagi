@@ -114,17 +114,28 @@ class ConnectomeService(BaseService):
     def get_connection_matrix(
         self, source_area: str, target_area: str
     ) -> Optional[Dict[str, Any]]:
-        """Get connection matrix between two cortical areas."""
+        """Get connection matrix between two cortical areas.
+
+        Args:
+            source_area: ID of the source cortical area
+            target_area: ID of the target cortical area
+
+        Returns:
+            Dictionary containing connection information between the areas:
+            - source_area: Source area ID
+            - target_area: Target area ID
+            - connection_count: Number of connections
+            - total_weight: Sum of all connection weights
+            - average_weight: Average connection weight
+            - connections: List of individual connections (limited to 100)
+        """
         if not self._validate_genome_loaded():
             return None
 
         try:
-            source_idx = int(source_area)
-            target_idx = int(target_area)
-
             # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
-            source_neurons = self._connectome_manager.get_neurons_by_area(source_idx)
-            target_neurons = self._connectome_manager.get_neurons_by_area(target_idx)
+            source_neurons = self._connectome_manager.get_neurons_by_area(source_area)
+            target_neurons = self._connectome_manager.get_neurons_by_area(target_area)
 
             if not source_neurons or not target_neurons:
                 return None

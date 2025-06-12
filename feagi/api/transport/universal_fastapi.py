@@ -550,48 +550,173 @@ else:
 
             elif has_path_params:
                 # Handler expects path parameters only (like /properties/{agent_id})
-                if is_async:
+                # Extract parameter names from the path
+                import re
 
-                    async def fastapi_handler_with_path_params(
-                        api_instance=Depends(_get_api_instance), **path_params
-                    ):
-                        try:
-                            # Pass path parameters in the order they appear in the method signature
-                            args = [
-                                path_params[param]
-                                for param in handler_params
-                                if param in path_params
-                            ]
-                            return await original_handler(api_instance, *args)
-                        except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
-                        except Exception as e:
-                            logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(
-                                status_code=500, detail="Internal server error"
-                            )
+                path_param_names = re.findall(r"\{(\w+)\}", endpoint_path)
+
+                if is_async:
+                    # Build handler function dynamically with explicit path parameters
+                    if len(path_param_names) == 1:
+                        param_name = path_param_names[0]
+
+                        # Create a proper function signature dynamically
+                        if param_name == "cortical_area":
+
+                            async def fastapi_handler_with_path_params(
+                                cortical_area: str,
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    return await original_handler(
+                                        api_instance, cortical_area
+                                    )
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+                        elif param_name == "agent_id":
+
+                            async def fastapi_handler_with_path_params(
+                                agent_id: str, api_instance=Depends(_get_api_instance)
+                            ):
+                                try:
+                                    return await original_handler(
+                                        api_instance, agent_id
+                                    )
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+                        else:
+                            # Generic parameter handling
+                            async def fastapi_handler_with_path_params(
+                                path_param: str, api_instance=Depends(_get_api_instance)
+                            ):
+                                try:
+                                    return await original_handler(
+                                        api_instance, path_param
+                                    )
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+                    else:
+                        # Handle multiple path parameters
+                        async def fastapi_handler_with_path_params(
+                            api_instance=Depends(_get_api_instance), **path_params
+                        ):
+                            try:
+                                # Pass path parameters in the order they appear in the method signature
+                                args = [
+                                    path_params[param]
+                                    for param in handler_params
+                                    if param in path_params
+                                ]
+                                return await original_handler(api_instance, *args)
+                            except ValueError as e:
+                                raise HTTPException(status_code=400, detail=str(e))
+                            except Exception as e:
+                                logger.error(
+                                    f"Error in {original_handler.__name__}: {e}"
+                                )
+                                raise HTTPException(
+                                    status_code=500, detail="Internal server error"
+                                )
 
                     return fastapi_handler_with_path_params
                 else:
+                    # Build handler function dynamically with explicit path parameters
+                    if len(path_param_names) == 1:
+                        param_name = path_param_names[0]
 
-                    def fastapi_handler_with_path_params(
-                        api_instance=Depends(_get_api_instance), **path_params
-                    ):
-                        try:
-                            # Pass path parameters in the order they appear in the method signature
-                            args = [
-                                path_params[param]
-                                for param in handler_params
-                                if param in path_params
-                            ]
-                            return original_handler(api_instance, *args)
-                        except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
-                        except Exception as e:
-                            logger.error(f"Error in {original_handler.__name__}: {e}")
-                            raise HTTPException(
-                                status_code=500, detail="Internal server error"
-                            )
+                        # Create a proper function signature dynamically
+                        if param_name == "cortical_area":
+
+                            def fastapi_handler_with_path_params(
+                                cortical_area: str,
+                                api_instance=Depends(_get_api_instance),
+                            ):
+                                try:
+                                    return original_handler(api_instance, cortical_area)
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+                        elif param_name == "agent_id":
+
+                            def fastapi_handler_with_path_params(
+                                agent_id: str, api_instance=Depends(_get_api_instance)
+                            ):
+                                try:
+                                    return original_handler(api_instance, agent_id)
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+                        else:
+                            # Generic parameter handling
+                            def fastapi_handler_with_path_params(
+                                path_param: str, api_instance=Depends(_get_api_instance)
+                            ):
+                                try:
+                                    return original_handler(api_instance, path_param)
+                                except ValueError as e:
+                                    raise HTTPException(status_code=400, detail=str(e))
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in {original_handler.__name__}: {e}"
+                                    )
+                                    raise HTTPException(
+                                        status_code=500, detail="Internal server error"
+                                    )
+                    else:
+                        # Handle multiple path parameters
+                        def fastapi_handler_with_path_params(
+                            api_instance=Depends(_get_api_instance), **path_params
+                        ):
+                            try:
+                                # Pass path parameters in the order they appear in the method signature
+                                args = [
+                                    path_params[param]
+                                    for param in handler_params
+                                    if param in path_params
+                                ]
+                                return original_handler(api_instance, *args)
+                            except ValueError as e:
+                                raise HTTPException(status_code=400, detail=str(e))
+                            except Exception as e:
+                                logger.error(
+                                    f"Error in {original_handler.__name__}: {e}"
+                                )
+                                raise HTTPException(
+                                    status_code=500, detail="Internal server error"
+                                )
 
                     return fastapi_handler_with_path_params
 

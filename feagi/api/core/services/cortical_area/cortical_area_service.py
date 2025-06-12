@@ -140,6 +140,8 @@ class CorticalAreaService(BaseService):
         try:
             # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
             result = self._connectome_manager.get_all_cortical_area_properties()
+            # Filter out empty dictionaries
+            result = [area for area in result if area]
             self.logger.debug(f"Retrieved {len(result)} areas from ConnectomeManager")
 
         except Exception as e:

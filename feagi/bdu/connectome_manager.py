@@ -21,6 +21,7 @@ using NumPy arrays and sparse matrices for efficient data processing and
 transfer to GPU memory.
 """
 
+import logging
 import os
 import uuid
 from enum import Enum
@@ -100,7 +101,7 @@ class ConnectomeManager:
         Args:
             config_or_max_neurons: Either a FeagiConfig object or the maximum number of neurons (only used on first call)
             max_synapses: Maximum number of synapses (only used if first parameter is an integer)
-            backend: Backend type to use (numpy, pytorch, cupy, webgpu, or auto) - only used on first call
+            backend: Backend type to use ('numpy', 'pytorch', 'cupy', 'wgpu', or auto) - only used on first call
 
         Returns:
             The singleton ConnectomeManager instance
@@ -141,19 +142,22 @@ class ConnectomeManager:
 
     def __init__(
         self,
-        config_or_max_neurons=10_000_000,
-        max_synapses=100_000_000,
-        backend=None,
+        config_or_max_neurons: Union[Dict[str, Any], int],
+        max_synapses: int = 100_000_000,
+        backend: str = "cpu",
         multi_gpu_config=None,
     ):
-        """Initialize the ConnectomeManager with optimized performance settings.
+        """Initialize the ConnectomeManager.
 
         Args:
-            config_or_max_neurons: Either a config dict or max number of neurons (backward compatibility)
-            max_synapses: Maximum number of synapses to support
-            backend: Specific backend to use ('pytorch', 'cupy', 'wgpu', 'numpy')
+            config_or_max_neurons: Either a configuration dictionary or maximum number of neurons
+            max_synapses: Maximum number of synapses per neuron (default: 100M)
+            backend: Backend to use for computations ("cpu" or "cuda")
             multi_gpu_config: Configuration for multi-GPU setup (optional)
         """
+        # Initialize logger
+        self.logger = logging.getLogger(__name__)
+
         if ConnectomeManager._initialized:
             return
 
@@ -227,44 +231,35 @@ class ConnectomeManager:
     # PHASE 1 & 2: O(1) CORTICAL ID/IDX CONVERSION METHODS
     # ======================================================================
 
-    def get_cortical_idx_for_id(self, cortical_id: str) -> int:
-        """Get cortical_idx from cortical_id using O(1) translation layer.
+    def get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
+        """
+        Get cortical_idx from cortical_id.
+
+        This method is the ONLY way to access the BiDirectionalCorticalMap.
+        It provides a clean interface for ID to index mapping.
 
         Args:
-            cortical_id: String identifier to look up
+            cortical_id: String identifier for cortical area
 
         Returns:
-            Integer cortical_idx
-
-        Raises:
-            KeyError: If cortical_id doesn't exist
+            Integer cortical_idx if found, None otherwise
         """
-        cortical_idx = self.cortical_mapping.get_idx(cortical_id)
-        if cortical_idx is None:
-            raise KeyError(f"Cortical area '{cortical_id}' does not exist")
-        return cortical_idx
+        return self.cortical_mapping.get_idx(cortical_id)
 
-    def get_cortical_id_for_idx(self, cortical_idx: int) -> str:
-        """Get cortical_id from cortical_idx using O(1) translation layer.
+    def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
+        """
+        Get cortical_id from cortical_idx.
 
-        Single solid execution path - no fallbacks, no exceptions in normal operation.
-        Core areas are guaranteed to be in mapping from initialization.
+        This method is the ONLY way to access the BiDirectionalCorticalMap.
+        It provides a clean interface for index to ID mapping.
 
         Args:
-            cortical_idx: Integer index to look up
+            cortical_idx: Integer index for cortical area
 
         Returns:
-            String cortical_id
-
-        Raises:
-            KeyError: If cortical_idx doesn't exist (indicates system corruption)
+            String cortical_id if found, None otherwise
         """
-        cortical_id = self.cortical_mapping.get_id(cortical_idx)
-        if cortical_id is None:
-            raise KeyError(
-                f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected"
-            )
-        return cortical_id
+        return self.cortical_mapping.get_id(cortical_idx)
 
     def validate_cortical_mapping(self) -> bool:
         """Validate that cortical mapping is consistent with cortical_areas.
@@ -308,43 +303,29 @@ class ConnectomeManager:
             return False
 
     def _sync_cortical_mapping(self, cortical_id: str, cortical_idx: int) -> None:
-        """Synchronize cortical mapping when areas are added/modified.
+        """
+        Synchronize cortical mapping between ID and index.
+
+        This is an internal method that should only be called by ConnectomeManager.
+        It ensures the BiDirectionalCorticalMap stays in sync with the connectome.
 
         Args:
-            cortical_id: String identifier
-            cortical_idx: Integer index
+            cortical_id: String identifier for cortical area
+            cortical_idx: Integer index for cortical area
         """
-        logger.info(f"🔧 CORTICAL MAPPING: Syncing {cortical_id} ↔ {cortical_idx}")
-        success = self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
-        if not success:
-            logger.error(
-                f"❌ CORTICAL MAPPING: Failed to sync {cortical_id} ↔ {cortical_idx}"
-            )
-        else:
-            logger.info(
-                f"✅ CORTICAL MAPPING: Successfully synced {cortical_id} ↔ {cortical_idx}"
-            )
-
-        # Validate the mapping was actually added
-        retrieved_idx = self.cortical_mapping.get_idx(cortical_id)
-        if retrieved_idx != cortical_idx:
-            logger.error(
-                f"❌ CORTICAL MAPPING: Validation failed! {cortical_id} → {retrieved_idx}, expected {cortical_idx}"
-            )
+        self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
 
     def _remove_cortical_mapping(self, cortical_id: str) -> None:
-        """Remove cortical mapping for a cortical area"""
-        if (
-            hasattr(self, "cortical_id_to_idx")
-            and cortical_id in self.cortical_id_to_idx
-        ):
-            cortical_idx = self.cortical_id_to_idx[cortical_id]
-            del self.cortical_id_to_idx[cortical_id]
-            if (
-                hasattr(self, "cortical_idx_to_id")
-                and cortical_idx in self.cortical_idx_to_id
-            ):
-                del self.cortical_idx_to_id[cortical_idx]
+        """
+        Remove cortical mapping for an area.
+
+        This is an internal method that should only be called by ConnectomeManager.
+        It ensures the BiDirectionalCorticalMap stays in sync with the connectome.
+
+        Args:
+            cortical_id: String identifier for cortical area to remove
+        """
+        self.cortical_mapping.remove_by_id(cortical_id)
 
     def _find_next_available_cortical_idx(self) -> int:
         """
@@ -1630,36 +1611,74 @@ class ConnectomeManager:
         return []
 
     def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
-        """Get properties of a cortical area.
+        """
+        Get properties of a cortical area.
+
+        This is the SINGLE SOURCE OF TRUTH for cortical area properties.
+        All other components must use this method to access cortical properties.
 
         Args:
-            cortical_id: ID of the cortical area
+            cortical_id: String identifier for cortical area
 
         Returns:
-            Dictionary with area properties
-
-        Raises:
-            KeyError: If cortical_id doesn't exist
+            Dictionary containing cortical area properties:
+            - id: Cortical area ID
+            - cortical_idx: Integer index for the area
+            - name: Area name
+            - coordinates: 3D position (x,y,z)
+            - dimensions: 3D dimensions (width,height,depth)
+            - type: Area type
+            - parameters: Area-specific parameters including mappings
+            - neuron_count: Number of neurons in the area
         """
-        area = self.get_cortical_area(cortical_id)
-        return {
-            "id": cortical_id,
-            "cortical_idx": self.get_cortical_idx_for_id(cortical_id),
-            "name": area.name,
-            "coordinates": {
-                "x": area.position[0],
-                "y": area.position[1],
-                "z": area.position[2],
-            },
-            "dimensions": {
-                "width": area.dimensions[0],
-                "height": area.dimensions[1],
-                "depth": area.dimensions[2],
-            },
-            "type": area.area_type,
-            "parameters": area.properties,
-            "neuron_count": len(self.get_neurons_by_cortical_area(cortical_id)),
-        }
+        try:
+            area = self.get_cortical_area(cortical_id)
+            if not area:
+                return {}
+
+            # Get cortical_idx through the mapping
+            cortical_idx = self.cortical_mapping.get_idx(cortical_id)
+
+            # Build complete properties dictionary
+            properties = {
+                "id": cortical_id,
+                "cortical_idx": cortical_idx,
+                "name": area.name,
+                "coordinates": area.position,
+                "dimensions": area.dimensions,
+                "type": area.area_type,
+                "parameters": area.properties.copy() if area.properties else {},
+                "neuron_count": len(self.get_neurons_by_area(cortical_id)),
+            }
+
+            # Ensure mapping information is included in parameters
+            if "mapping" not in properties["parameters"]:
+                properties["parameters"]["mapping"] = {}
+
+            # Get all outgoing connections for this area
+            outgoing_mappings = {}
+            for dst_area_id in self.cortical_areas.keys():
+                if dst_area_id != cortical_id:  # Skip self-connections
+                    # Get connection matrix between areas
+                    connection_matrix = self.get_connection_matrix(
+                        cortical_id, dst_area_id
+                    )
+                    if connection_matrix and connection_matrix.get("connections"):
+                        # Store mapping information
+                        outgoing_mappings[dst_area_id] = connection_matrix.get(
+                            "connections", []
+                        )
+
+            # Update mapping information in parameters
+            properties["parameters"]["mapping"] = outgoing_mappings
+
+            return properties
+        except KeyError:
+            self.logger.warning(f"Cortical area {cortical_id} not found")
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error getting properties for area {cortical_id}: {e}")
+            return {}
 
     def get_all_cortical_area_properties(self) -> List[Dict[str, Any]]:
         """Get properties of all cortical areas.
@@ -1671,9 +1690,13 @@ class ConnectomeManager:
         for cortical_id in self.cortical_areas.keys():
             try:
                 area_props = self.get_cortical_area_properties(cortical_id)
-                result.append(area_props)
+                if area_props:  # Only add non-empty dictionaries
+                    result.append(area_props)
             except Exception as e:
-                logger.error(f"Error getting properties for area {cortical_id}: {e}")
+                self.logger.error(
+                    f"Error getting properties for area {cortical_id}: {e}"
+                )
+                continue  # Skip this area and continue with others
         return result
 
     def delete_cortical_area(
@@ -3731,3 +3754,89 @@ class ConnectomeManager:
                 matching_neurons.append(neuron_id)
 
         return matching_neurons
+
+    def get_connection_matrix(
+        self, source_area_id: str, target_area_id: str
+    ) -> Dict[str, Any]:
+        """Get connection matrix between two cortical areas.
+
+        Args:
+            source_area_id: ID of the source cortical area
+            target_area_id: ID of the target cortical area
+
+        Returns:
+            Dictionary containing connection matrix information including:
+            - source_neurons: List of source neuron IDs
+            - target_neurons: List of target neuron IDs
+            - connections: List of (source_idx, target_idx, weight) tuples
+            - total_connections: Total number of connections
+            - total_weight: Sum of all connection weights
+        """
+        try:
+            # Get source and target neurons
+            source_neurons = self.get_neurons_by_area(source_area_id)
+            target_neurons = self.get_neurons_by_area(target_area_id)
+
+            if not source_neurons or not target_neurons:
+                return {
+                    "source_neurons": [],
+                    "target_neurons": [],
+                    "connections": [],
+                    "total_connections": 0,
+                    "total_weight": 0.0,
+                }
+
+            # Get source and target indices
+            source_indices = self._get_neuron_indices(source_neurons)
+            target_indices = self._get_neuron_indices(target_neurons)
+
+            # Get connection matrix
+            connections = []
+            total_weight = 0.0
+
+            for src_idx in source_indices:
+                # Get outgoing connections for this neuron
+                outgoing = self.get_outgoing_connections(src_idx)
+                if outgoing:
+                    for dst_idx, weight in outgoing:
+                        if dst_idx in target_indices:
+                            connections.append((src_idx, dst_idx, weight))
+                            total_weight += weight
+
+            return {
+                "source_neurons": source_neurons,
+                "target_neurons": target_neurons,
+                "connections": connections,
+                "total_connections": len(connections),
+                "total_weight": total_weight,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error getting connection matrix: {str(e)}")
+            return {
+                "source_neurons": [],
+                "target_neurons": [],
+                "connections": [],
+                "total_connections": 0,
+                "total_weight": 0.0,
+            }
+
+    def _get_neuron_indices(self, neuron_ids: List[str]) -> List[int]:
+        """Get neuron indices for a list of neuron IDs.
+
+        Args:
+            neuron_ids: List of neuron IDs to get indices for
+
+        Returns:
+            List of neuron indices
+        """
+        try:
+            # Use the neuron_id_to_index mapping to get indices
+            indices = []
+            for neuron_id in neuron_ids:
+                if neuron_id in self.neuron_id_to_index:
+                    indices.append(self.neuron_id_to_index[neuron_id])
+            return indices
+        except Exception as e:
+            self.logger.error(f"Error getting neuron indices: {str(e)}")
+            return []
