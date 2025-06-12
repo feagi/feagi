@@ -1739,20 +1739,77 @@ class GenomeService(BaseService):
                             genome_mapping[target_area_id] = connection_arrays
 
                     # Update the cortical area's parameters with the new mapping
-                    # Find the area in the genome
-                    if (
-                        "cortical_areas" in current_genome
-                        and area_id in current_genome["cortical_areas"]
-                    ):
+                    # Ensure cortical_areas section exists
+                    if "cortical_areas" not in current_genome:
+                        current_genome["cortical_areas"] = {}
+
+                    # Find or create the area in the genome
+                    if area_id in current_genome["cortical_areas"]:
                         area_def = current_genome["cortical_areas"][area_id]
-                        if "parameters" not in area_def:
-                            area_def["parameters"] = {}
-                        area_def["parameters"]["mapping"] = genome_mapping
                     else:
-                        self.logger.warning(
-                            f"Cortical area '{area_id}' not found in genome, skipping"
+                        # Create area definition from templates for system areas (like ___pwr)
+                        self.logger.info(
+                            f"Creating genome entry for system area '{area_id}' from templates"
                         )
-                        continue
+
+                        # Import templates to get proper area definition
+                        from feagi.evo.templates import cortical_types
+
+                        # Look for the area in CORE devices first
+                        area_template = None
+                        if (
+                            "CORE" in cortical_types
+                            and "supported_devices" in cortical_types["CORE"]
+                        ):
+                            if area_id in cortical_types["CORE"]["supported_devices"]:
+                                area_template = cortical_types["CORE"][
+                                    "supported_devices"
+                                ][area_id]
+
+                        if area_template:
+                            # Create area definition from template
+                            area_def = {
+                                "cortical_name": area_template.get(
+                                    "cortical_name", area_id
+                                ),
+                                "coordinates": {
+                                    "x": area_template.get("coordinate_3d", [0, 0, 0])[
+                                        0
+                                    ],
+                                    "y": area_template.get("coordinate_3d", [0, 0, 0])[
+                                        1
+                                    ],
+                                    "z": area_template.get("coordinate_3d", [0, 0, 0])[
+                                        2
+                                    ],
+                                },
+                                "dimensions": {
+                                    "x": area_template.get("resolution", [1, 1, 1])[0],
+                                    "y": area_template.get("resolution", [1, 1, 1])[1],
+                                    "z": area_template.get("resolution", [1, 1, 1])[2],
+                                },
+                                "parameters": {},
+                            }
+                        else:
+                            # Fallback for unknown system areas
+                            self.logger.warning(
+                                f"System area '{area_id}' not found in templates, using minimal definition"
+                            )
+                            area_def = {
+                                "cortical_name": area_id,
+                                "coordinates": {"x": 0, "y": 0, "z": 0},
+                                "dimensions": {"x": 1, "y": 1, "z": 1},
+                                "parameters": {},
+                            }
+
+                        current_genome["cortical_areas"][area_id] = area_def
+
+                    # Ensure parameters section exists
+                    if "parameters" not in area_def:
+                        area_def["parameters"] = {}
+
+                    # Update the mapping
+                    area_def["parameters"]["mapping"] = genome_mapping
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
@@ -1787,6 +1844,83 @@ class GenomeService(BaseService):
 
         except Exception as e:
             self.logger.error(f"Error updating cortical mapping: {str(e)}")
+            return False
+
+    def update_cortical_mapping_properties(self, update_data: Dict[str, Any]) -> bool:
+        """
+        Update cortical mapping properties between two specific cortical areas.
+
+        Args:
+            update_data: Dictionary containing:
+                - src_cortical_area: Source cortical area ID
+                - dst_cortical_area: Destination cortical area ID
+                - mapping_data: List of connection dictionaries
+
+        Returns:
+            bool: True if mapping properties were updated successfully
+        """
+        try:
+            src_area = update_data.get("src_cortical_area")
+            dst_area = update_data.get("dst_cortical_area")
+            mapping_data = update_data.get("mapping_data", [])
+
+            if not src_area or not dst_area:
+                self.logger.error(
+                    "Source and destination cortical areas must be specified"
+                )
+                return False
+
+            if not self.is_genome_loaded():
+                self.logger.error(
+                    "Cannot update cortical mapping properties: No genome loaded"
+                )
+                return False
+
+            self.logger.info(
+                f"Updating cortical mapping properties from {src_area} to {dst_area}"
+            )
+
+            # Begin genome transaction for atomic modification
+            if self.state_manager:
+                transaction = self.state_manager.begin_genome_transaction()
+            else:
+                transaction = None
+
+            try:
+                # Get current genome for modification
+                current_genome = self.get_genome()
+                if not current_genome:
+                    self.logger.error(
+                        "Cannot update cortical mapping properties: Genome data not available"
+                    )
+                    return False
+
+                # Convert mapping_data to the expected format
+                formatted_mapping = {src_area: {dst_area: mapping_data}}
+
+                # Use the existing update_cortical_mapping method
+                success = self.update_cortical_mapping(formatted_mapping)
+
+                if success and transaction:
+                    transaction.commit()
+                elif transaction:
+                    transaction.rollback()
+                    return False
+
+                if success:
+                    self.logger.info(
+                        f"Successfully updated mapping properties from {src_area} to {dst_area}"
+                    )
+
+                return success
+
+            except Exception as e:
+                if transaction:
+                    transaction.rollback()
+                raise e
+
+        except Exception as e:
+            self.logger.error(f"Error updating cortical mapping properties: {str(e)}")
             return False
 
     # ===== GENOME LOADING AND MANAGEMENT WRITE OPERATIONS =====

@@ -584,6 +584,14 @@ class CorticalMappingPropertiesResponse(BaseModel):
     connections: List[CorticalMappingConnection]
 
 
+class UpdateCorticalMappingPropertiesRequest(BaseModel):
+    """Request model for updating cortical mapping properties between two areas."""
+
+    src_cortical_area: str
+    dst_cortical_area: str
+    mapping_string: List[Dict[str, Any]]  # List of connection dictionaries
+
+
 # ===== Monitoring Schemas =====
 
 

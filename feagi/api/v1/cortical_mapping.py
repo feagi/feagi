@@ -24,6 +24,7 @@ from .schemas import (
     CorticalMappingConnection,
     CorticalMappingPropertiesRequest,
     SuccessResponse,
+    UpdateCorticalMappingPropertiesRequest,
 )
 
 
@@ -90,6 +91,33 @@ class CorticalMappingAPI:
             return connections
         except Exception as e:
             raise ValueError(f"Failed to get mapping properties: {str(e)}")
+
+    @cortical_mapping_endpoint(
+        "PUT",
+        "/mapping_properties",
+        request_model=UpdateCorticalMappingPropertiesRequest,
+        response_model=SuccessResponse,
+    )
+    async def update_mapping_properties(
+        self, request: UpdateCorticalMappingPropertiesRequest
+    ) -> SuccessResponse:
+        """Update cortical mapping properties between two cortical areas."""
+        try:
+            success = self.core_api_service.update_cortical_mapping_properties(
+                request.src_cortical_area,
+                request.dst_cortical_area,
+                request.mapping_string,
+            )
+
+            if not success:
+                raise ValueError("Failed to update cortical mapping properties")
+
+            return SuccessResponse(
+                message=f"Cortical mapping properties updated successfully from {request.src_cortical_area} to {request.dst_cortical_area}"
+            )
+
+        except Exception as e:
+            raise ValueError(f"Failed to update mapping properties: {str(e)}")
 
 
 def create_cortical_mapping_api(core_api_service: CoreAPIService) -> CorticalMappingAPI:
