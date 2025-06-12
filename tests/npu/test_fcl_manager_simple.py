@@ -136,7 +136,7 @@ def test_fcl_manager_membrane_updates():
     assert updates[1] == (20, -0.3)
 
     # Queue should be empty after processing
-    assert len(fcl_manager.mp_update_queue) == 0
+    assert len(fcl_manager.membrane_update_queue) == 0
 
 
 def test_enhanced_fcl_manager_initialization():

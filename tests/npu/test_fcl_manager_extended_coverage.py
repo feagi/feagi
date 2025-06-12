@@ -249,7 +249,7 @@ def test_enhanced_fcl_manager_memory_cortical_errors():
 
 def test_enhanced_fcl_manager_memory_cortical_window_validation():
     """Test window size validation for memory corticals."""
-    enhanced_fcl = EnhancedFCLManager(default_window_size=10)
+    enhanced_fcl = EnhancedFCLManager(window_size=10)
 
     # Should not allow window size less than default
     with pytest.raises(ValueError):

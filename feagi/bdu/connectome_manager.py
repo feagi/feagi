@@ -184,7 +184,7 @@ class ConnectomeManager:
             )
 
         # Initialize cortical areas and brain regions
-        self.cortical_areas = {}
+        self.cortical_areas: Dict[str, CorticalArea] = {}
         self.brain_regions = {}
         self.region_area_map = {}
 
@@ -3143,6 +3143,18 @@ class ConnectomeManager:
     def synapse_count(self) -> int:
         """Get the total number of synapses in the connectome."""
         return self.get_synapse_count()
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the connectome is initialized with cortical areas.
+
+        A connectome is considered initialized when:
+        1. It has cortical areas loaded
+        2. The basic structures are in place
+
+        This property is required for API brain running checks.
+        """
+        return len(self.cortical_areas) > 0
 
     def has_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
         """Check if a synapse exists between two neurons.

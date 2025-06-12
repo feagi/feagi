@@ -1140,8 +1140,14 @@ class FCLManager:
         self.global_fcl_history[self.current_window_index].clear()
 
         for cortical_idx in self.cortical_fcl_history:
-            window_size = self.get_cortical_window_size(cortical_idx)
-            idx = self._get_custom_cortical_index(cortical_idx, self.current_timestep)
+            # Only use custom index calculation for memory corticals
+            if self.is_memory_cortical(cortical_idx):
+                idx = self._get_custom_cortical_index(
+                    cortical_idx, self.current_timestep
+                )
+            else:
+                # For standard corticals, use the current window index
+                idx = self.current_window_index
             self.cortical_fcl_history[cortical_idx][idx].clear()
 
         # Reset update queue for new timestep
@@ -1151,7 +1157,6 @@ class FCLManager:
         """Reset the membrane potential update queue for a new timestep."""
         if not hasattr(self, "membrane_update_queue"):
             self.membrane_update_queue: List[MembraneUpdate] = []
-            self.updates_processed_count = 0
         else:
             self.membrane_update_queue = []
 
@@ -1179,7 +1184,6 @@ class FCLManager:
                 source_neuron_idx=source_neuron_idx,
             )
         )
-        self.updates_processed_count += 1
 
     def process_update_queue(self) -> List[Tuple[int, float]]:
         """

@@ -2155,11 +2155,27 @@ class CoreAPIService:
                     and hasattr(neuron_array, "coordinates_y")
                     and hasattr(neuron_array, "coordinates_z")
                 ):
+                    # CRITICAL FIX: Convert firing indices to actual neuron IDs
+                    # The FQ sampler expects neuron IDs, not array indices!
+                    firing_neuron_ids = neuron_array.vectorized_indices_to_neuron_ids(
+                        firing_indices, filter_invalid=True
+                    )
+
+                    self.logger.debug(
+                        f"🔥 [FIRE QUEUE] Converted {len(firing_indices)} indices to {len(firing_neuron_ids)} neuron IDs"
+                    )
+
+                    if len(firing_neuron_ids) == 0:
+                        self.logger.debug(
+                            f"🔥 [FIRE QUEUE] No valid neuron IDs after conversion for area {cortical_id}"
+                        )
+                        return None
+
                     brain_data = np.column_stack(
                         (
-                            firing_indices.astype(
+                            firing_neuron_ids.astype(
                                 np.int32
-                            ),  # ✅ FIXED: Keep as int32 for neuron IDs
+                            ),  # ✅ FIXED: Use actual neuron IDs, not indices!
                             neuron_array.membrane_potentials[
                                 firing_indices
                             ],  # Keep float32 for potentials

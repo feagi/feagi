@@ -193,8 +193,8 @@ class TestEnhancedFCLManagerAdvancedFeatures:
 
     @pytest.fixture
     def enhanced_fcl_manager(self):
-        """Create an enhanced FCL manager for testing."""
-        return EnhancedFCLManager(default_window_size=5)
+        """Create enhanced FCL manager for testing."""
+        return EnhancedFCLManager(window_size=5)
 
     @pytest.fixture
     def setup_memory_cortical(self, enhanced_fcl_manager):

@@ -1883,6 +1883,14 @@ class NeuronArray:
                     # Safe update with bounds-checked indices
                     valid_mask[numpy_indices] = True
                     self.valid_mask = self.backend.array(valid_mask)
+
+                    # CRITICAL FIX: Set neurons as active by default (was missing in batch method!)
+                    # This matches the behavior of individual create_neuron method
+                    active_mask = self.backend.to_numpy(self.is_active)
+                    if not active_mask.flags.writeable:
+                        active_mask = active_mask.copy()
+                    active_mask[numpy_indices] = True
+                    self.is_active = self.backend.array(active_mask)
                 else:
                     # No indices to update, but ensure valid_mask remains consistent
                     self.valid_mask = self.backend.array(valid_mask)
@@ -1947,6 +1955,10 @@ class NeuronArray:
                     )
 
                 self.valid_mask[idx_array] = True
+
+                # CRITICAL FIX: Set neurons as active by default (was missing in batch method!)
+                # This matches the behavior of individual create_neuron method
+                self.is_active[idx_array] = True
 
         # Update mappings
         for i, neuron_id in enumerate(neuron_ids):

@@ -276,7 +276,7 @@ async def run_test():
                     try:
                         debug_info = {
                             "type": "PUB",
-                            "bound_to": f"tcp://*:5571",
+                            "bound_to": f"tcp://*:{port}",
                             "linger": viz_stream.socket.getsockopt(zmq.LINGER),
                             "hwm": viz_stream.socket.getsockopt(zmq.SNDHWM),
                             "time": time.time(),

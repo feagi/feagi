@@ -445,51 +445,39 @@ class FCLInjectionService:
             # Extract cortical_id (remove batch suffix if present)
             cortical_id = batch.cortical_id.split("_batch_")[0]
 
-            # CRITICAL FIX: Use update_fcl with proper cortical area mapping
-            # This ensures neurons are associated with their correct cortical area
-            # so the FQ sampler can filter them properly
-            if hasattr(self.fcl_manager, "update_fcl"):
-                # Get the correct cortical_idx for this cortical_id
-                cortical_idx = None
-                if (
-                    hasattr(self.special_area_handler, "connectome_manager")
-                    and self.special_area_handler.connectome_manager
-                ):
-                    connectome = self.special_area_handler.connectome_manager
-                    if hasattr(connectome, "cortical_areas"):
-                        for area_id, area in connectome.cortical_areas.items():
-                            if area_id == cortical_id:
-                                cortical_idx = area.cortical_idx
-                                break
+            # REQUIREMENT: FCL manager MUST have update_fcl method - no fallbacks allowed
+            if not hasattr(self.fcl_manager, "update_fcl"):
+                raise RuntimeError(
+                    f"FCL manager does not have required update_fcl method. "
+                    f"FCL injection requires proper cortical area mapping for FQ sampler compatibility."
+                )
 
-                if cortical_idx is not None:
-                    # Use proper cortical area mapping so FQ sampler can filter correctly
-                    neurons_by_cortical = {cortical_idx: neurons_to_inject}
-                    self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
-                    logger.debug(
-                        f"FCL candidate addition (update): Added {len(neurons_to_inject)} candidates from {cortical_id} (cortical_idx={cortical_idx}) to FCL"
-                    )
-                else:
-                    # FAIL FAST - No fallbacks allowed
-                    logger.error(
-                        f"CRITICAL: Could not find cortical_idx for cortical_id '{cortical_id}' - injection FAILED"
-                    )
-                    logger.error(
-                        f"Available cortical areas: {list(connectome.cortical_areas.keys()) if hasattr(connectome, 'cortical_areas') else 'None'}"
-                    )
-                    return 0  # Fail the injection completely
-            elif hasattr(self.fcl_manager, "add_to_current_fcl"):
-                # Legacy direct injection - this BREAKS FQ sampler filtering!
-                logger.warning(
-                    f"Using add_to_current_fcl for {cortical_id} - this will break FQ sampler area filtering!"
+            # Get the correct cortical_idx for this cortical_id
+            cortical_idx = None
+            if (
+                hasattr(self.special_area_handler, "connectome_manager")
+                and self.special_area_handler.connectome_manager
+            ):
+                connectome = self.special_area_handler.connectome_manager
+                if hasattr(connectome, "cortical_areas"):
+                    for area_id, area in connectome.cortical_areas.items():
+                        if area_id == cortical_id:
+                            cortical_idx = area.cortical_idx
+                            break
+
+            if cortical_idx is None:
+                raise RuntimeError(
+                    f"CRITICAL: Could not find cortical_idx for cortical_id '{cortical_id}'. "
+                    f"Available cortical areas: {list(connectome.cortical_areas.keys()) if hasattr(connectome, 'cortical_areas') else 'None'}. "
+                    f"FCL injection requires valid cortical area mapping."
                 )
-                self.fcl_manager.add_to_current_fcl(neurons_to_inject)
-                logger.debug(
-                    f"FCL candidate addition (legacy): Added {len(neurons_to_inject)} candidates from {cortical_id} to FCL"
-                )
-            else:
-                logger.error("FCL manager does not support any known injection method")
-                return 0
+
+            # Use proper cortical area mapping so FQ sampler can filter correctly
+            neurons_by_cortical = {cortical_idx: neurons_to_inject}
+            self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
+            logger.debug(
+                f"FCL candidate addition: Added {len(neurons_to_inject)} candidates from {cortical_id} (cortical_idx={cortical_idx}) to FCL"
+            )
 
             # Record injection for special area handler statistics
             self.special_area_handler.record_injection()
