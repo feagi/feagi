@@ -744,31 +744,54 @@ class NeuronArray:
         can_update_mask = valid_neurons & (self.refractory_counters == 0)
 
         # PHASE 1: Membrane potential decay (SIMD-optimized) - use filtered mask
-        simd_membrane_decay(self.membrane_potentials, self.decay_rates, can_update_mask)
+        # Convert arrays to NumPy for SIMD functions
+        potentials_np = self.backend.to_numpy(self.membrane_potentials)
+        decay_rates_np = self.backend.to_numpy(self.decay_rates)
+        can_update_mask_np = self.backend.to_numpy(can_update_mask)
+        simd_membrane_decay(potentials_np, decay_rates_np, can_update_mask_np)
 
         # PHASE 2: Refractory period updates (SIMD-optimized) - use valid neurons mask
-        simd_refractory_update(self.refractory_counters, valid_neurons)
+        refractory_counters_np = self.backend.to_numpy(self.refractory_counters)
+        valid_neurons_np = self.backend.to_numpy(valid_neurons)
+        simd_refractory_update(refractory_counters_np, valid_neurons_np)
 
         # PHASE 3: Threshold checking and firing decision (SIMD-optimized) - use can_update mask
+        thresholds_np = self.backend.to_numpy(self.thresholds)
+        temp_fired_mask_np = self.backend.to_numpy(self._temp_fired_mask)
         simd_threshold_check(
-            self.membrane_potentials,
-            self.thresholds,
-            self.refractory_counters,
-            can_update_mask,
-            self._temp_fired_mask,
+            potentials_np,
+            thresholds_np,
+            refractory_counters_np,
+            can_update_mask_np,
+            temp_fired_mask_np,
         )
 
         # PHASE 4: Fire neurons and reset states (SIMD-optimized)
+        resting_potentials_np = self.backend.to_numpy(self.resting_potentials)
+        refractory_periods_np = self.backend.to_numpy(self.refractory_periods)
         simd_fire_neurons(
-            self.membrane_potentials,
-            self.resting_potentials,
-            self.refractory_counters,
-            self.refractory_periods,
-            self._temp_fired_mask,
+            potentials_np,
+            resting_potentials_np,
+            refractory_counters_np,
+            refractory_periods_np,
+            temp_fired_mask_np,
         )
 
+        # Copy modified arrays back to backend arrays
+        if self.backend.backend_type.value != "numpy":
+            # For non-NumPy backends, copy the modified data back
+            self.membrane_potentials[: len(potentials_np)] = self.backend.array(
+                potentials_np
+            )
+            self.refractory_counters[: len(refractory_counters_np)] = (
+                self.backend.array(refractory_counters_np)
+            )
+            self._temp_fired_mask[: len(temp_fired_mask_np)] = self.backend.array(
+                temp_fired_mask_np
+            )
+
         # PHASE 5: Extract fired neuron IDs (minimal allocation)
-        fired_indices = np.where(self._temp_fired_mask)[0]
+        fired_indices = np.where(temp_fired_mask_np)[0]
         fired_neurons = []
         for idx in fired_indices:
             if idx in self.index_to_id_map:
@@ -1626,9 +1649,12 @@ class NeuronArray:
                 )
 
         # Find indices for all neurons
-        if len(self.free_indices) >= num_neurons:
+        if num_neurons == 0:
+            # Handle empty case explicitly
+            indices = np.array([], dtype=np.int32)
+        elif len(self.free_indices) >= num_neurons:
             # We have enough free indices
-            indices = np.array(list(self.free_indices)[:num_neurons])
+            indices = np.array(list(self.free_indices)[:num_neurons], dtype=np.int32)
             self.free_indices = self.free_indices - set(indices)
         else:
             # Use free indices + new indices
@@ -1640,7 +1666,7 @@ class NeuronArray:
                 )
 
             free_indices = (
-                np.array(list(self.free_indices))
+                np.array(list(self.free_indices), dtype=np.int32)
                 if self.free_indices
                 else np.array([], dtype=np.int32)
             )

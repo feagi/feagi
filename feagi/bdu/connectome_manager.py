@@ -163,6 +163,11 @@ class ConnectomeManager:
             self.max_neurons = config.get("max_neurons", 10_000_000)
             max_synapses = config.get("max_synapses", max_synapses)
             backend = config.get("backend", backend)
+        elif hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
+            config = config_or_max_neurons
+            self.max_neurons = config.get("connectome.max_neurons", 10_000_000)
+            max_synapses = config.get("connectome.max_synapses", max_synapses)
+            backend = config.get("connectome.backend", backend)
         else:
             self.max_neurons = config_or_max_neurons
 
@@ -894,11 +899,17 @@ class ConnectomeManager:
 
         # ROBUST: Triple-mask filtering to handle deletion edge cases
         # GPU/SIMD friendly: uses element-wise boolean operations on arrays
-        active_mask = self.neuron_array.is_active[:valid_range]
-        valid_mask = self.neuron_array.valid_mask[
-            :valid_range
-        ]  # Additional safety check
-        cortical_mask = self.neuron_array.cortical_idxs[:valid_range] == cortical_idx
+        # Convert all arrays to NumPy to ensure compatibility across backends
+        active_mask = self.neuron_array.backend.to_numpy(
+            self.neuron_array.is_active[:valid_range]
+        )
+        valid_mask = self.neuron_array.backend.to_numpy(
+            self.neuron_array.valid_mask[:valid_range]
+        )
+        cortical_idxs = self.neuron_array.backend.to_numpy(
+            self.neuron_array.cortical_idxs[:valid_range]
+        )
+        cortical_mask = cortical_idxs == cortical_idx
 
         # Combined mask: must be active, valid, AND in correct cortical area
         combined_mask = active_mask & valid_mask & cortical_mask
@@ -3620,3 +3631,91 @@ class ConnectomeManager:
             )
             # CRITICAL: Convert to Python integers to prevent segfault in FCL processing
             return result.astype(np.int64)
+
+    # ======================================================================
+    # QUERY METHODS FOR TESTS
+    # ======================================================================
+
+    def query_neurons_by_threshold_range(
+        self, min_threshold: float, max_threshold: float
+    ) -> List[int]:
+        """Query neurons by threshold range.
+
+        Args:
+            min_threshold: Minimum threshold value (inclusive)
+            max_threshold: Maximum threshold value (inclusive)
+
+        Returns:
+            List of neuron IDs with thresholds in the specified range
+        """
+        neuron_ids = []
+        for neuron_id in self.neuron_array.id_to_index_map.keys():
+            threshold = self.get_neuron_property(
+                neuron_id, NeuronPropertyType.THRESHOLD
+            )
+            if min_threshold <= threshold <= max_threshold:
+                neuron_ids.append(neuron_id)
+        return neuron_ids
+
+    def query_neurons_by_area_and_position(
+        self,
+        cortical_id: str,
+        x_range: Tuple[int, int],
+        y_range: Tuple[int, int],
+        z_range: Tuple[int, int] = None,
+    ) -> List[int]:
+        """Query neurons by cortical area and position range.
+
+        Args:
+            cortical_id: ID of the cortical area
+            x_range: Tuple of (min_x, max_x) inclusive
+            y_range: Tuple of (min_y, max_y) inclusive
+            z_range: Optional tuple of (min_z, max_z) inclusive
+
+        Returns:
+            List of neuron IDs in the specified area and position range
+        """
+        neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+        matching_neurons = []
+
+        for neuron_id in neurons_in_area:
+            x, y, z = self.get_neuron_position(neuron_id)
+            if (
+                x_range[0] <= x <= x_range[1]
+                and y_range[0] <= y <= y_range[1]
+                and (z_range is None or z_range[0] <= z <= z_range[1])
+            ):
+                matching_neurons.append(neuron_id)
+
+        return matching_neurons
+
+    def check_neuron_index_uniqueness(self) -> bool:
+        """Check that all neuron indices are unique.
+
+        Returns:
+            True if all indices are unique, False otherwise
+        """
+        indices = list(self.neuron_array.id_to_index_map.values())
+        return len(indices) == len(set(indices))
+
+    def get_neurons_at_position(
+        self, cortical_id: str, position: Tuple[int, int, int]
+    ) -> List[int]:
+        """Get neurons at a specific position in a cortical area.
+
+        Args:
+            cortical_id: ID of the cortical area
+            position: Tuple of (x, y, z) coordinates
+
+        Returns:
+            List of neuron IDs at the specified position
+        """
+        neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+        matching_neurons = []
+
+        for neuron_id in neurons_in_area:
+            neuron_position = self.get_neuron_position(neuron_id)
+            if neuron_position == position:
+                matching_neurons.append(neuron_id)
+
+        return matching_neurons
