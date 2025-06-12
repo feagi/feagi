@@ -703,14 +703,14 @@ def test_coordinate_extraction_setup(coordinate_profiler):
     assert setup_results["neuron_count"] > 0, "Should create neurons"
     assert setup_results["cortical_area_count"] > 0, "Should create cortical areas"
     assert setup_results["setup_time_ms"] > 0, "Should record setup time"
-    assert (
-        setup_results["neurons_per_second_setup"] > 0
-    ), "Should have positive setup rate"
+    assert setup_results["neurons_per_second_setup"] > 0, (
+        "Should have positive setup rate"
+    )
 
     # Performance expectations for setup
-    assert (
-        setup_results["neurons_per_second_setup"] > 1000
-    ), "Setup should be reasonably fast (>1000 neurons/sec)"
+    assert setup_results["neurons_per_second_setup"] > 1000, (
+        "Setup should be reasonably fast (>1000 neurons/sec)"
+    )
 
     print(
         f"✅ Connectome setup: {setup_results['neuron_count']} neurons in {setup_results['setup_time_ms']:.1f}ms"
@@ -743,17 +743,17 @@ def test_small_batch_coordinate_extraction(coordinate_profiler):
         successful_methods = [
             name for name, data in results["methods"].items() if data.get("success")
         ]
-        assert (
-            len(successful_methods) > 0
-        ), f"At least one method should succeed for batch size {batch_size}"
+        assert len(successful_methods) > 0, (
+            f"At least one method should succeed for batch size {batch_size}"
+        )
 
         # Performance validation for successful methods
         for method_name in successful_methods:
             method_data = results["methods"][method_name]
             if "neurons_per_second" in method_data:
-                assert (
-                    method_data["neurons_per_second"] > 0
-                ), f"{method_name} should have positive performance"
+                assert method_data["neurons_per_second"] > 0, (
+                    f"{method_name} should have positive performance"
+                )
                 print(
                     f"✅ {method_name} (batch {batch_size}): {method_data['neurons_per_second']:.0f} neurons/sec"
                 )
@@ -763,9 +763,9 @@ def test_large_batch_coordinate_extraction(coordinate_profiler):
     """Test coordinate extraction performance for large batches (5000-50000 neurons)."""
     # Setup larger connectome
     setup_results = coordinate_profiler.setup_test_connectome(neuron_count=75000)
-    assert (
-        setup_results["neuron_count"] >= 50000
-    ), "Need sufficient neurons for large batch testing"
+    assert setup_results["neuron_count"] >= 50000, (
+        "Need sufficient neurons for large batch testing"
+    )
 
     # Test large batch sizes
     large_batch_sizes = [5000, 10000, 25000, 50000]
@@ -795,9 +795,9 @@ def test_large_batch_coordinate_extraction(coordinate_profiler):
             numpy_performance = numpy_method["neurons_per_second"]
 
             # Large batches should show good performance
-            assert (
-                numpy_performance > 1000
-            ), f"NumPy method should handle large batches efficiently (got {numpy_performance:.0f} neurons/sec)"
+            assert numpy_performance > 1000, (
+                f"NumPy method should handle large batches efficiently (got {numpy_performance:.0f} neurons/sec)"
+            )
             print(
                 f"✅ NumPy API (batch {batch_size}): {numpy_performance:.0f} neurons/sec"
             )
@@ -807,9 +807,9 @@ def test_large_batch_coordinate_extraction(coordinate_profiler):
                 memory_per_neuron = (
                     numpy_method["memory_mb"] / len(neuron_ids) * 1024 * 1024
                 )  # bytes per neuron
-                assert (
-                    memory_per_neuron < 100
-                ), f"Memory usage should be efficient (<100 bytes/neuron, got {memory_per_neuron:.1f})"
+                assert memory_per_neuron < 100, (
+                    f"Memory usage should be efficient (<100 bytes/neuron, got {memory_per_neuron:.1f})"
+                )
                 print(f"✅ Memory efficiency: {memory_per_neuron:.1f} bytes/neuron")
 
 
@@ -828,16 +828,16 @@ def test_coordinate_extraction_accuracy(coordinate_profiler):
     validation = results["validation"]
 
     if validation.get("coordinates_consistent") is not None:
-        assert validation[
-            "coordinates_consistent"
-        ], "Dictionary and NumPy methods should return consistent coordinates"
+        assert validation["coordinates_consistent"], (
+            "Dictionary and NumPy methods should return consistent coordinates"
+        )
         print(f"✅ Coordinate consistency validated")
 
         if "max_coordinate_difference" in validation:
             max_diff = validation["max_coordinate_difference"]
-            assert (
-                max_diff < 0.001
-            ), f"Coordinate differences should be minimal (got {max_diff})"
+            assert max_diff < 0.001, (
+                f"Coordinate differences should be minimal (got {max_diff})"
+            )
             print(f"✅ Max coordinate difference: {max_diff:.6f}")
 
     if validation.get("coordinate_count_match"):
@@ -879,9 +879,9 @@ def test_simd_optimization_effectiveness(coordinate_profiler):
             # SIMD should provide some benefit
             if "actual_speedup" in simd_analysis:
                 speedup = simd_analysis["actual_speedup"]
-                assert (
-                    speedup >= 1.0
-                ), f"SIMD should provide speedup >= 1.0x (got {speedup:.2f}x)"
+                assert speedup >= 1.0, (
+                    f"SIMD should provide speedup >= 1.0x (got {speedup:.2f}x)"
+                )
                 print(f"✅ SIMD Speedup: {speedup:.2f}x")
 
 
@@ -900,9 +900,9 @@ def test_performance_scaling_analysis(coordinate_profiler):
 
     # Should have tested multiple batch sizes
     tested_batches = len(scaling_results["results_by_batch"])
-    assert (
-        tested_batches >= 3
-    ), f"Should test multiple batch sizes (tested {tested_batches})"
+    assert tested_batches >= 3, (
+        f"Should test multiple batch sizes (tested {tested_batches})"
+    )
 
     # Check scaling analysis results
     scaling_analysis = scaling_results["scaling_analysis"]
@@ -917,15 +917,15 @@ def test_performance_scaling_analysis(coordinate_profiler):
         print(f"   Scaling efficiency: {analysis['scaling_efficiency']:.2f}")
 
         # Validate analysis results
-        assert (
-            analysis["optimal_batch_size"] > 0
-        ), "Should have valid optimal batch size"
-        assert (
-            analysis["optimal_performance"] > 0
-        ), "Should have positive optimal performance"
-        assert (
-            analysis["scaling_efficiency"] >= 0
-        ), "Should have non-negative scaling efficiency"
+        assert analysis["optimal_batch_size"] > 0, (
+            "Should have valid optimal batch size"
+        )
+        assert analysis["optimal_performance"] > 0, (
+            "Should have positive optimal performance"
+        )
+        assert analysis["scaling_efficiency"] >= 0, (
+            "Should have non-negative scaling efficiency"
+        )
 
 
 @pytest.mark.benchmark

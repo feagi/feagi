@@ -54,9 +54,9 @@ class TestIntegratedEmbeddedOptimization:
 
             # Verify alignment
             data_ptr = aligned_array.array.ctypes.data
-            assert (
-                data_ptr % MEMORY_ALIGNMENT == 0
-            ), f"Array not {MEMORY_ALIGNMENT}-byte aligned"
+            assert data_ptr % MEMORY_ALIGNMENT == 0, (
+                f"Array not {MEMORY_ALIGNMENT}-byte aligned"
+            )
 
             # Verify functionality
             aligned_array.array[0] = 3.14
@@ -386,16 +386,16 @@ class TestIntegratedEmbeddedOptimization:
         # Test cache alignment (if available)
         alignment = perf_summary.get("alignment")
         if alignment is not None:
-            assert (
-                alignment >= 16
-            ), f"Should have at least 16-byte alignment, got {alignment}"
+            assert alignment >= 16, (
+                f"Should have at least 16-byte alignment, got {alignment}"
+            )
 
         # Test that we have reasonable vector width (if available)
         vector_width = perf_summary.get("vector_width")
         if vector_width is not None:
-            assert (
-                vector_width >= 1
-            ), f"Should have at least 1-wide vectors, got {vector_width}"
+            assert vector_width >= 1, (
+                f"Should have at least 1-wide vectors, got {vector_width}"
+            )
 
         print(f"   ✅ All optimization features verified")
 

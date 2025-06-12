@@ -182,9 +182,7 @@ def test_create_optimized_core_without_rust():
         "feagi.npu.optimized_integration.GlobalNeuronArray", MockGlobalNeuronArray
     ), patch(
         "feagi.npu.optimized_integration.FireCandidateList", MockFireCandidateList
-    ), patch(
-        "feagi.npu.optimized_integration.Connectome", MockConnectome
-    ):
+    ), patch("feagi.npu.optimized_integration.Connectome", MockConnectome):
         core = create_optimized_core(1000, 5000, use_optimized=True)
 
         assert isinstance(core, dict)
@@ -200,9 +198,7 @@ def test_create_optimized_core_use_optimized_false():
         "feagi.npu.optimized_integration.GlobalNeuronArray", MockGlobalNeuronArray
     ), patch(
         "feagi.npu.optimized_integration.FireCandidateList", MockFireCandidateList
-    ), patch(
-        "feagi.npu.optimized_integration.Connectome", MockConnectome
-    ):
+    ), patch("feagi.npu.optimized_integration.Connectome", MockConnectome):
         core = create_optimized_core(1000, 5000, use_optimized=False)
 
         assert isinstance(core, dict)

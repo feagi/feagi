@@ -149,9 +149,9 @@ class TestFireQueueProcess:
         if isinstance(core, dict):
             fcl_neurons = core["fcl"].to_list()
             print(f"FCL neurons after step: {fcl_neurons}")
-            assert (
-                core["current_timestep"] == initial_ts + 1
-            ), "Timestep should increment"
+            assert core["current_timestep"] == initial_ts + 1, (
+                "Timestep should increment"
+            )
         else:
             fcl_neurons = core.fcl.to_list()
             print(f"FCL neurons after step: {fcl_neurons}")

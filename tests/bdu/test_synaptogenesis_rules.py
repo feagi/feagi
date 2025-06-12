@@ -381,9 +381,9 @@ def test_linearize_delinearize_position():
     for pos in positions:
         linear_pos = linearize_position(pos, dimensions)
         delinear_pos = delinearize_position(linear_pos, dimensions)
-        assert (
-            pos == delinear_pos
-        ), f"Position {pos} linearized to {linear_pos} then delinearized to {delinear_pos}"
+        assert pos == delinear_pos, (
+            f"Position {pos} linearized to {linear_pos} then delinearized to {delinear_pos}"
+        )
 
 
 def test_evaluate_expression():
@@ -403,9 +403,9 @@ def test_evaluate_expression():
 
     for expr, x, y, z, expected in test_cases:
         result = evaluate_expression(expr, x, y, z)
-        assert (
-            result == expected
-        ), f"Expression '{expr}' with x={x}, y={y}, z={z} expected {expected}, got {result}"
+        assert result == expected, (
+            f"Expression '{expr}' with x={x}, y={y}, z={z} expected {expected}, got {result}"
+        )
 
 
 def test_check_pattern_validity():
@@ -421,9 +421,9 @@ def test_check_pattern_validity():
 
     # Empty list is considered valid in the implementation (it just passes through the loop)
     # This is a quirk of the implementation, but we should test based on actual behavior
-    assert check_pattern_validity(
-        []
-    ), "Empty pattern should be valid according to implementation"
+    assert check_pattern_validity([]), (
+        "Empty pattern should be valid according to implementation"
+    )
 
     # Test all valid patterns
     for pattern in valid_patterns:
@@ -437,9 +437,9 @@ def test_check_pattern_validity():
 
     # Test invalid patterns
     for pattern in invalid_patterns:
-        assert not check_pattern_validity(
-            pattern
-        ), f"Pattern {pattern} should be invalid"
+        assert not check_pattern_validity(pattern), (
+            f"Pattern {pattern} should be invalid"
+        )
 
 
 @pytest.mark.skip(reason="cortical_idx/area_id mismatch")
@@ -477,9 +477,9 @@ def test_define_subregions(embryo, test_areas):
         and 0 <= simple_parameters["src_seed"][1] < cortical_dimensions[1]
         and 0 <= simple_parameters["src_seed"][2] < cortical_dimensions[2]
     ):
-        assert (
-            len(simple_subregions) > 0
-        ), "Valid simple pattern should produce at least one subregion"
+        assert len(simple_subregions) > 0, (
+            "Valid simple pattern should produce at least one subregion"
+        )
 
 
 @pytest.mark.skip(reason="cortical_idx/area_id mismatch")
@@ -504,9 +504,9 @@ def test_find_source_coordinates():
 
     for pattern, expected in zip(patterns, expected_counts):
         coordinates = list(find_source_coordinates(pattern, src_dimensions))
-        assert (
-            len(coordinates) == expected
-        ), f"Pattern {pattern} should match {expected} positions, got {len(coordinates)}"
+        assert len(coordinates) == expected, (
+            f"Pattern {pattern} should match {expected} positions, got {len(coordinates)}"
+        )
 
 
 @pytest.mark.skip(reason="cortical_idx/area_id mismatch")
@@ -531,9 +531,9 @@ def test_find_destination_coordinates():
             dst_dimensions, src_coordinate, src_pattern, dst_pattern
         )
     )
-    assert (
-        len(coordinates) > 0
-    ), f"Source {src_pattern} to dest {dst_pattern} should match some positions"
+    assert len(coordinates) > 0, (
+        f"Source {src_pattern} to dest {dst_pattern} should match some positions"
+    )
 
     # The other pattern pairs may not work due to implementation details
     # Let's skip them and focus on basic functionality testing
@@ -546,15 +546,15 @@ def test_find_destination_coordinates():
             )
             # If we got coordinates, good! Assert they match expectations
             if len(coordinates) > 0:
-                assert all(
-                    0 <= x < dst_dimensions[0] for x, _, _ in coordinates
-                ), "X coordinates should be within bounds"
-                assert all(
-                    0 <= y < dst_dimensions[1] for _, y, _ in coordinates
-                ), "Y coordinates should be within bounds"
-                assert all(
-                    0 <= z < dst_dimensions[2] for _, _, z in coordinates
-                ), "Z coordinates should be within bounds"
+                assert all(0 <= x < dst_dimensions[0] for x, _, _ in coordinates), (
+                    "X coordinates should be within bounds"
+                )
+                assert all(0 <= y < dst_dimensions[1] for _, y, _ in coordinates), (
+                    "Y coordinates should be within bounds"
+                )
+                assert all(0 <= z < dst_dimensions[2] for _, _, z in coordinates), (
+                    "Z coordinates should be within bounds"
+                )
         except Exception as e:
             # If we got an exception, log it and continue
             print(f"Error with pattern {src_pattern} -> {dst_pattern}: {e}")
@@ -704,9 +704,9 @@ def test_syn_randomizer(connectome_manager, test_areas):
 
         # With probability=1.0, all neurons should be included
         if probability == 1.0 and dst_neurons:
-            assert (
-                len(result) > 0
-            ), "With probability=1.0, some neurons should be selected"
+            assert len(result) > 0, (
+                "With probability=1.0, some neurons should be selected"
+            )
 
 
 @pytest.mark.skip(reason="cortical_idx/area_id mismatch")
@@ -843,12 +843,12 @@ def test_syn_memory(memory_register, test_areas):
 
     # Verify the memory register was updated according to actual implementation
     # The actual implementation adds dst_area_id to memory_register and then adds src_area_id to that set
-    assert (
-        dst_area_id in memory_register
-    ), "Destination area should be added to memory register"
-    assert (
-        src_area_id in memory_register[dst_area_id]
-    ), "Source area should be in memory register for destination"
+    assert dst_area_id in memory_register, (
+        "Destination area should be added to memory register"
+    )
+    assert src_area_id in memory_register[dst_area_id], (
+        "Source area should be in memory register for destination"
+    )
 
 
 @pytest.mark.skip(reason="cortical_idx/area_id mismatch")
@@ -981,9 +981,9 @@ def test_neighbor_finder_patterns(
     )
 
     # Function should return a list of (neuron_id, weight) tuples
-    assert isinstance(
-        result, list
-    ), "Neighbor finder with patterns should return a list"
+    assert isinstance(result, list), (
+        "Neighbor finder with patterns should return a list"
+    )
 
 
 @pytest.mark.skip(reason="cortical_idx/area_id mismatch")
@@ -1037,9 +1037,9 @@ def test_neighbor_finder_function_morphologies(
             )
 
             # Function should return a list
-            assert isinstance(
-                result, list
-            ), f"Neighbor finder with {function_name} should return a list"
+            assert isinstance(result, list), (
+                f"Neighbor finder with {function_name} should return a list"
+            )
         except Exception as e:
             print(f"Error testing {function_name}: {e}")
 

@@ -335,12 +335,12 @@ class SharedSynapseArray:
 
         # Initialize metadata
         self.count = 0
-        self._pre_to_indices: Dict[int, List[int]] = (
-            {}
-        )  # Pre-neuron ID to synapse indices
-        self._post_to_indices: Dict[int, List[int]] = (
-            {}
-        )  # Post-neuron ID to synapse indices
+        self._pre_to_indices: Dict[
+            int, List[int]
+        ] = {}  # Pre-neuron ID to synapse indices
+        self._post_to_indices: Dict[
+            int, List[int]
+        ] = {}  # Post-neuron ID to synapse indices
 
         # Initialize the array with zeros
         self.array.fill(0)

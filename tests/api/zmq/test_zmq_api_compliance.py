@@ -26,29 +26,29 @@ class TestZMQAPICompliance:
 
             try:
                 # These methods SHOULD exist
-                assert hasattr(
-                    socket, "recv"
-                ), f"Socket type {socket_type} missing recv method"
-                assert hasattr(
-                    socket, "send"
-                ), f"Socket type {socket_type} missing send method"
-                assert hasattr(
-                    socket, "bind"
-                ), f"Socket type {socket_type} missing bind method"
-                assert hasattr(
-                    socket, "connect"
-                ), f"Socket type {socket_type} missing connect method"
-                assert hasattr(
-                    socket, "close"
-                ), f"Socket type {socket_type} missing close method"
+                assert hasattr(socket, "recv"), (
+                    f"Socket type {socket_type} missing recv method"
+                )
+                assert hasattr(socket, "send"), (
+                    f"Socket type {socket_type} missing send method"
+                )
+                assert hasattr(socket, "bind"), (
+                    f"Socket type {socket_type} missing bind method"
+                )
+                assert hasattr(socket, "connect"), (
+                    f"Socket type {socket_type} missing connect method"
+                )
+                assert hasattr(socket, "close"), (
+                    f"Socket type {socket_type} missing close method"
+                )
 
                 # These methods should NOT exist (catch recv_into bug)
-                assert not hasattr(
-                    socket, "recv_into"
-                ), f"Socket type {socket_type} should not have recv_into"
-                assert not hasattr(
-                    socket, "send_into"
-                ), f"Socket type {socket_type} should not have send_into"
+                assert not hasattr(socket, "recv_into"), (
+                    f"Socket type {socket_type} should not have recv_into"
+                )
+                assert not hasattr(socket, "send_into"), (
+                    f"Socket type {socket_type} should not have send_into"
+                )
 
             finally:
                 socket.close()
@@ -71,9 +71,9 @@ class TestZMQAPICompliance:
         for socket_type, name in test_cases:
             socket = context.socket(socket_type)
             try:
-                assert (
-                    socket.socket_type == socket_type
-                ), f"Socket type mismatch for {name}"
+                assert socket.socket_type == socket_type, (
+                    f"Socket type mismatch for {name}"
+                )
             finally:
                 socket.close()
 
@@ -160,9 +160,9 @@ def test_zmq_version_compatibility():
     print(f"ZMQ version: {version}")
 
     # Verify we have a compatible version (basic check)
-    assert isinstance(
-        version, str
-    ), f"ZMQ version should be a string, got {type(version)}"
+    assert isinstance(version, str), (
+        f"ZMQ version should be a string, got {type(version)}"
+    )
     assert len(version) > 0, "ZMQ version should not be empty"
 
     # Print version info for debugging
@@ -176,9 +176,9 @@ def test_zmq_recv_into_error_prevention():
 
     try:
         # This is the specific test that would have caught the original bug
-        assert not hasattr(
-            socket, "recv_into"
-        ), "ZMQ socket should not have recv_into method"
+        assert not hasattr(socket, "recv_into"), (
+            "ZMQ socket should not have recv_into method"
+        )
 
         # Verify recv method exists and is callable
         assert hasattr(socket, "recv"), "ZMQ socket should have recv method"

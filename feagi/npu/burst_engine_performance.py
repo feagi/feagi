@@ -76,9 +76,7 @@ class BurstEnginePerformanceMixin:
 
         # Initialize frequency measurement system
         self._burst_timing_buffer = []  # Circular buffer for burst durations
-        self._processing_timing_buffer = (
-            []
-        )  # Circular buffer for pure processing durations
+        self._processing_timing_buffer = []  # Circular buffer for pure processing durations
         self._timing_buffer_size = 100  # Keep last 100 burst measurements
         self._last_frequency_update = 0.0
         self._frequency_measurement_enabled = (

@@ -162,9 +162,9 @@ class TestFCPv1(unittest.TestCase):
             agent_type="test",
             capabilities={"sensors": ["camera"], "motors": ["wheel"]},
         )
-        original_data["payload"][
-            "timestamp"
-        ] = "2023-01-01T00:00:00"  # Use fixed timestamp for testing
+        original_data["payload"]["timestamp"] = (
+            "2023-01-01T00:00:00"  # Use fixed timestamp for testing
+        )
 
         # Encode the message
         encoded = FCPv1.encode(original_data)

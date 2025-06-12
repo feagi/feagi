@@ -142,19 +142,19 @@ def validate_area_structure(area, genome_props):
     expected_name = genome_props.get("name", "")
 
     # Validate dimensions
-    assert (
-        area.dimensions == expected_dims
-    ), f"Area dimensions {area.dimensions} don't match expected {expected_dims}"
+    assert area.dimensions == expected_dims, (
+        f"Area dimensions {area.dimensions} don't match expected {expected_dims}"
+    )
 
     # Validate position
-    assert (
-        area.position == expected_pos
-    ), f"Area position {area.position} doesn't match expected {expected_pos}"
+    assert area.position == expected_pos, (
+        f"Area position {area.position} doesn't match expected {expected_pos}"
+    )
 
     # Validate name
-    assert (
-        area.name == expected_name
-    ), f"Area name '{area.name}' doesn't match expected '{expected_name}'"
+    assert area.name == expected_name, (
+        f"Area name '{area.name}' doesn't match expected '{expected_name}'"
+    )
 
 
 def test_extract_cortical_properties(embryo, test_genome_file):
@@ -191,15 +191,15 @@ def test_extract_cortical_properties(embryo, test_genome_file):
 
     # Verify essential properties are extracted
     assert "name" in props, f"Missing name property for cortical ID {cortical_id}"
-    assert (
-        "bbx" in props
-    ), f"Missing bounding box x dimension for cortical ID {cortical_id}"
-    assert (
-        "bby" in props
-    ), f"Missing bounding box y dimension for cortical ID {cortical_id}"
-    assert (
-        "bbz" in props
-    ), f"Missing bounding box z dimension for cortical ID {cortical_id}"
+    assert "bbx" in props, (
+        f"Missing bounding box x dimension for cortical ID {cortical_id}"
+    )
+    assert "bby" in props, (
+        f"Missing bounding box y dimension for cortical ID {cortical_id}"
+    )
+    assert "bbz" in props, (
+        f"Missing bounding box z dimension for cortical ID {cortical_id}"
+    )
     assert "rcordx" in props, f"Missing x coordinate for cortical ID {cortical_id}"
     assert "rcordy" in props, f"Missing y coordinate for cortical ID {cortical_id}"
     assert "rcordz" in props, f"Missing z coordinate for cortical ID {cortical_id}"
@@ -213,9 +213,9 @@ def test_extract_cortical_properties(embryo, test_genome_file):
         or k.endswith(f"-{cortical_id}-cx-__name-t")
     ][0]
     expected_name = blueprint.get(name_key, "")
-    assert (
-        props["name"] == expected_name
-    ), f"Extracted name '{props['name']}' doesn't match expected '{expected_name}'"
+    assert props["name"] == expected_name, (
+        f"Extracted name '{props['name']}' doesn't match expected '{expected_name}'"
+    )
 
     # Check numeric properties
     bbx_key = [
@@ -225,9 +225,9 @@ def test_extract_cortical_properties(embryo, test_genome_file):
         or k.endswith(f"-{cortical_id}-cx-___bbx-i")
     ][0]
     expected_bbx = blueprint.get(bbx_key, 1)
-    assert (
-        props["bbx"] == expected_bbx
-    ), f"Extracted bbx '{props['bbx']}' doesn't match expected '{expected_bbx}'"
+    assert props["bbx"] == expected_bbx, (
+        f"Extracted bbx '{props['bbx']}' doesn't match expected '{expected_bbx}'"
+    )
 
 
 @pytest.mark.skip(reason="Mismatched type for cortical_id validation")
@@ -260,15 +260,15 @@ def test_setup_cortical_areas(embryo, test_genome_file):
             expected_area_count += 1
 
     # Verify the number of areas matches
-    assert (
-        len(embryo.cortical_areas) == expected_area_count
-    ), f"Expected {expected_area_count} cortical areas, got {len(embryo.cortical_areas)}"
+    assert len(embryo.cortical_areas) == expected_area_count, (
+        f"Expected {expected_area_count} cortical areas, got {len(embryo.cortical_areas)}"
+    )
 
     # Verify all cortical IDs from genome are in the maps
     for cortical_id in cortical_ids:
-        assert (
-            cortical_id in embryo.cortical_id_map
-        ), f"Missing cortical ID: {cortical_id}"
+        assert cortical_id in embryo.cortical_id_map, (
+            f"Missing cortical ID: {cortical_id}"
+        )
 
     # Verify each area has a name and dimensions
     for area_id, area in embryo.cortical_areas.items():
@@ -277,9 +277,9 @@ def test_setup_cortical_areas(embryo, test_genome_file):
         assert hasattr(area, "dimensions"), f"Area {cortical_id} missing dimensions"
 
         # Verify dimensions are non-zero
-        assert all(
-            d > 0 for d in area.dimensions
-        ), f"Area {cortical_id} has zero dimensions"
+        assert all(d > 0 for d in area.dimensions), (
+            f"Area {cortical_id} has zero dimensions"
+        )
 
         # Verify area type
         assert hasattr(area, "area_type"), f"Area {cortical_id} missing area_type"
@@ -328,9 +328,9 @@ def test_perform_neurogenesis(embryo, test_genome_file):
     upper_bound = int(expected_neuron_count * (1 + tolerance))
 
     # Verify neuron count
-    assert (
-        lower_bound <= neuron_count <= upper_bound
-    ), f"Expected around {expected_neuron_count} neurons, got {neuron_count}"
+    assert lower_bound <= neuron_count <= upper_bound, (
+        f"Expected around {expected_neuron_count} neurons, got {neuron_count}"
+    )
 
     # Verify neurons per area
     for area_id, area in embryo.cortical_areas.items():
@@ -376,9 +376,9 @@ def test_perform_synaptogenesis(embryo, test_genome_file):
 
     # If there are no mappings in the genome, we expect synapse count to be 0
     if not has_mappings:
-        assert (
-            actual_synapse_count == 0
-        ), f"Expected 0 synapses with no mappings, got {actual_synapse_count}"
+        assert actual_synapse_count == 0, (
+            f"Expected 0 synapses with no mappings, got {actual_synapse_count}"
+        )
         return
 
     # Allow for a small difference due to rounding or implementation details
@@ -386,9 +386,9 @@ def test_perform_synaptogenesis(embryo, test_genome_file):
     lower_bound = int(expected_synapse_count * (1 - tolerance))
     upper_bound = int(expected_synapse_count * (1 + tolerance))
 
-    assert (
-        lower_bound <= actual_synapse_count <= upper_bound
-    ), f"Expected around {expected_synapse_count} synapses, got {actual_synapse_count}"
+    assert lower_bound <= actual_synapse_count <= upper_bound, (
+        f"Expected around {expected_synapse_count} synapses, got {actual_synapse_count}"
+    )
 
 
 @pytest.mark.skip(reason="Cortical area lookup failing")
@@ -421,9 +421,9 @@ def test_full_development_validation(embryo, test_genome_file):
         if key.endswith("__name-t"):
             expected_area_count += 1
 
-    assert (
-        stats["cortical_areas"] == expected_area_count
-    ), f"Expected {expected_area_count} cortical areas, got {stats['cortical_areas']}"
+    assert stats["cortical_areas"] == expected_area_count, (
+        f"Expected {expected_area_count} cortical areas, got {stats['cortical_areas']}"
+    )
 
     # 2. Validate neuron count
     expected_neuron_count = genome_data["stats"]["innate_neuron_count"]
@@ -431,9 +431,9 @@ def test_full_development_validation(embryo, test_genome_file):
     lower_bound = int(expected_neuron_count * (1 - tolerance))
     upper_bound = int(expected_neuron_count * (1 + tolerance))
 
-    assert (
-        lower_bound <= stats["neurons"] <= upper_bound
-    ), f"Expected around {expected_neuron_count} neurons, got {stats['neurons']}"
+    assert lower_bound <= stats["neurons"] <= upper_bound, (
+        f"Expected around {expected_neuron_count} neurons, got {stats['neurons']}"
+    )
 
     # 3. Validate synapse count
     expected_synapse_count = genome_data["stats"]["innate_synapse_count"]
@@ -444,13 +444,13 @@ def test_full_development_validation(embryo, test_genome_file):
     if has_mappings:
         lower_bound = int(expected_synapse_count * (1 - tolerance))
         upper_bound = int(expected_synapse_count * (1 + tolerance))
-        assert (
-            lower_bound <= stats["synapses"] <= upper_bound
-        ), f"Expected around {expected_synapse_count} synapses, got {stats['synapses']}"
+        assert lower_bound <= stats["synapses"] <= upper_bound, (
+            f"Expected around {expected_synapse_count} synapses, got {stats['synapses']}"
+        )
     else:
-        assert (
-            stats["synapses"] == 0
-        ), f"Expected 0 synapses with no mappings, got {stats['synapses']}"
+        assert stats["synapses"] == 0, (
+            f"Expected 0 synapses with no mappings, got {stats['synapses']}"
+        )
 
     # 4. Validate cortical area details
     for cortical_id, area_id in embryo.reverse_cortical_id_map.items():
@@ -493,9 +493,9 @@ def test_full_development_validation(embryo, test_genome_file):
     for stage in expected_stages:
         assert stage in stages_logged, f"Missing progress logs for stage {stage}"
 
-    assert (
-        DevelopmentStage.FAILED not in stages_logged
-    ), "Development failed according to progress logs"
+    assert DevelopmentStage.FAILED not in stages_logged, (
+        "Development failed according to progress logs"
+    )
 
 
 def test_morphology_handling(embryo, test_genome_file):
@@ -517,7 +517,7 @@ def test_morphology_handling(embryo, test_genome_file):
     # Check morphology entries
     for morphology_id, morphology in morphologies.items():
         assert "type" in morphology, f"Morphology {morphology_id} missing type"
-        assert (
-            "parameters" in morphology
-        ), f"Morphology {morphology_id} missing parameters"
+        assert "parameters" in morphology, (
+            f"Morphology {morphology_id} missing parameters"
+        )
         assert "class" in morphology, f"Morphology {morphology_id} missing class"

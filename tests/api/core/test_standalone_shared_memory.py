@@ -135,14 +135,14 @@ def test_shared_config_dict():
 
             for key, expected_value in test_data.items():
                 value = config_dict.get(key)
-                assert (
-                    value == expected_value
-                ), f"For key '{key}', expected '{expected_value}', got '{value}'"
+                assert value == expected_value, (
+                    f"For key '{key}', expected '{expected_value}', got '{value}'"
+                )
 
             # Test default values
-            assert (
-                config_dict.get("non_existent", "default") == "default"
-            ), "Default value not working"
+            assert config_dict.get("non_existent", "default") == "default", (
+                "Default value not working"
+            )
 
             # Clean up
             manager.cleanup()
@@ -240,12 +240,12 @@ def test_gateway():
             gateway.set_burst_engine_config(test_config)
             config = gateway.get_burst_engine_config()
 
-            assert (
-                config.get("burst_duration") == 15
-            ), f"Expected burst_duration=15, got {config.get('burst_duration')}"
-            assert (
-                config.get("inter_burst_interval") == 7
-            ), f"Expected inter_burst_interval=7, got {config.get('inter_burst_interval')}"
+            assert config.get("burst_duration") == 15, (
+                f"Expected burst_duration=15, got {config.get('burst_duration')}"
+            )
+            assert config.get("inter_burst_interval") == 7, (
+                f"Expected inter_burst_interval=7, got {config.get('inter_burst_interval')}"
+            )
 
             # Clean up
             gateway.shutdown()
@@ -359,9 +359,9 @@ def test_standalone_shared_memory_integration():
         p_writer.join()
         p_reader.join()
         value, event_received = result_queue.get()
-        assert (
-            value == "integration_value"
-        ), f"Expected 'integration_value', got {value}"
+        assert value == "integration_value", (
+            f"Expected 'integration_value', got {value}"
+        )
         assert event_received, "Integration event was not received"
         logger.info("Standalone shared memory integration test passed")
 

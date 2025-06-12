@@ -503,9 +503,7 @@ class ByteStructureTranslator:
 
                 if structure_type == 11:  # NeuronCategoricalXYZP
                     # Create CorticalMappedXYZPNeuronData from the byte structure
-                    cortical_mapped = (
-                        self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
-                    )
+                    cortical_mapped = self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
                     cortical_mapped.from_feagi_byte_structure(byte_structure)
 
                     # Extract neuron data

@@ -70,9 +70,9 @@ def test_router_structure(client):
     prefixes = ["/v1", "/v2"]
 
     for prefix in prefixes:
-        assert any(
-            path.startswith(prefix) for path in paths
-        ), f"No paths start with {prefix}"
+        assert any(path.startswith(prefix) for path in paths), (
+            f"No paths start with {prefix}"
+        )
 
 
 def test_routes_exist(client):

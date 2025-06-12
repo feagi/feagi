@@ -714,9 +714,9 @@ def test_15hz_burst_capacity():
         )
 
         # Assertions based on embedded mode expectations
-        assert (
-            max_capacity > 0
-        ), "Should be able to process at least some neurons in embedded mode"
+        assert max_capacity > 0, (
+            "Should be able to process at least some neurons in embedded mode"
+        )
 
         if target_progress >= 100:
             logger.info(

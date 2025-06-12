@@ -36,9 +36,9 @@ class RateLimiter:
         """
         self.requests_per_minute = requests_per_minute
         self.window_size = 60  # seconds
-        self.clients: Dict[str, Tuple[float, int]] = (
-            {}
-        )  # client_id -> (window_start, count)
+        self.clients: Dict[
+            str, Tuple[float, int]
+        ] = {}  # client_id -> (window_start, count)
 
     def check_limit(self, client_id: str) -> bool:
         """

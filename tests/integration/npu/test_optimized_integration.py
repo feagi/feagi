@@ -124,9 +124,9 @@ class TestOptimizedIntegration:
                 hidden_neurons_active = True
                 break
 
-        assert (
-            hidden_neurons_active
-        ), "Hidden neurons should be active after propagation"
+        assert hidden_neurons_active, (
+            "Hidden neurons should be active after propagation"
+        )
 
     def test_multi_step_simulation(self, small_network):
         """Test a multi-step simulation."""

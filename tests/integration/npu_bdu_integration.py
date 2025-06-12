@@ -160,15 +160,15 @@ def test_fcl_manager_with_standard_connectome(test_brain_structure):
     assert len(fcl_manager.get_queue()) > 0, "FCL should contain at least one event"
 
     # Visual neurons should have fired in the first timestep
-    assert all(
-        neuron_id in fired_neurons[0] for neuron_id in visual_neurons
-    ), "Visual neurons should fire in the first timestep"
+    assert all(neuron_id in fired_neurons[0] for neuron_id in visual_neurons), (
+        "Visual neurons should fire in the first timestep"
+    )
 
     # Some hidden neurons should fire in later timesteps due to connections
     hidden_neurons = brain["neurons"][brain["areas"][1]]
-    assert any(
-        neuron_id in fired_neurons[1] for neuron_id in hidden_neurons
-    ), "Some hidden neurons should fire in the second timestep"
+    assert any(neuron_id in fired_neurons[1] for neuron_id in hidden_neurons), (
+        "Some hidden neurons should fire in the second timestep"
+    )
 
     # Motor neurons should fire in even later timesteps
     motor_neurons = brain["neurons"][brain["areas"][2]]
@@ -203,15 +203,15 @@ def test_fcl_manager_with_gpu_connectome(test_gpu_brain_structure):
     assert len(fcl_manager.get_queue()) > 0, "FCL should contain at least one event"
 
     # Visual neurons should have fired in the first timestep
-    assert all(
-        neuron_id in fired_neurons[0] for neuron_id in visual_neurons
-    ), "Visual neurons should fire in the first timestep"
+    assert all(neuron_id in fired_neurons[0] for neuron_id in visual_neurons), (
+        "Visual neurons should fire in the first timestep"
+    )
 
     # Some hidden neurons should fire in later timesteps due to connections
     hidden_neurons = brain["neurons"][brain["areas"][1]]
-    assert any(
-        neuron_id in fired_neurons[1] for neuron_id in hidden_neurons
-    ), "Some hidden neurons should fire in the second timestep"
+    assert any(neuron_id in fired_neurons[1] for neuron_id in hidden_neurons), (
+        "Some hidden neurons should fire in the second timestep"
+    )
 
     # Motor neurons should fire in even later timesteps
     motor_neurons = brain["neurons"][brain["areas"][2]]
@@ -240,18 +240,18 @@ def test_burst_engine_with_gpu_connectome(test_gpu_brain_structure):
 
     # Check that some neurons fired
     assert len(fired_neurons) > 0, "At least some neurons should have fired"
-    assert all(
-        neuron_id in fired_neurons for neuron_id in visual_neurons
-    ), "All stimulated visual neurons should fire"
+    assert all(neuron_id in fired_neurons for neuron_id in visual_neurons), (
+        "All stimulated visual neurons should fire"
+    )
 
     # Run another burst cycle to see propagation effects
     fired_neurons = burst_engine.process_burst_cycle()
 
     # Should see some hidden neurons firing due to connections
     hidden_neurons = brain["neurons"][brain["areas"][1]]
-    assert any(
-        neuron_id in fired_neurons for neuron_id in hidden_neurons
-    ), "Some hidden neurons should fire in the second burst cycle"
+    assert any(neuron_id in fired_neurons for neuron_id in hidden_neurons), (
+        "Some hidden neurons should fire in the second burst cycle"
+    )
 
 
 @pytest.mark.integration
@@ -289,14 +289,14 @@ def test_converting_standard_to_gpu_maintains_fcl(test_brain_structure):
     }
 
     # Compare FCL states
-    assert (
-        fcl_before["current_index"] == fcl_after["current_index"]
-    ), "FCL current index should be preserved"
+    assert fcl_before["current_index"] == fcl_after["current_index"], (
+        "FCL current index should be preserved"
+    )
 
     for idx in range(std_cm.fcl_manager.window_size):
-        assert set(fcl_before["events"][idx]) == set(
-            fcl_after["events"][idx]
-        ), f"FCL events at index {idx} should be preserved"
+        assert set(fcl_before["events"][idx]) == set(fcl_after["events"][idx]), (
+            f"FCL events at index {idx} should be preserved"
+        )
 
 
 @pytest.mark.integration
@@ -390,9 +390,9 @@ def test_performance_comparison():
 
     # Just to avoid test failures, we'll use a loose comparison
     # In real usage, we'd want to investigate significant differences
-    assert (
-        abs(len(std_fired) - len(gpu_fired)) < len(std_fired) * 0.2
-    ), "Number of fired neurons should be roughly similar between implementations"
+    assert abs(len(std_fired) - len(gpu_fired)) < len(std_fired) * 0.2, (
+        "Number of fired neurons should be roughly similar between implementations"
+    )
 
 
 if __name__ == "__main__":

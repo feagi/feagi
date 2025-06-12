@@ -373,9 +373,9 @@ class APIGateway:
                     elif command_type == 6:  # HEARTBEAT
                         # Update last heartbeat time
                         if agent_id in self._agent_connections:
-                            self._agent_connections[agent_id].last_heartbeat = (
-                                time.time()
-                            )
+                            self._agent_connections[
+                                agent_id
+                            ].last_heartbeat = time.time()
 
                     # Other command types...
 

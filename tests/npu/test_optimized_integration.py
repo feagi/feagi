@@ -86,9 +86,7 @@ def test_create_optimized_core(rust_available):
         "feagi.npu.optimized_integration.OptimizedFeagiCore", return_value=mock_core
     ), patch("feagi.npu.optimized_integration.GlobalNeuronArray"), patch(
         "feagi.npu.optimized_integration.FireCandidateList"
-    ), patch(
-        "feagi.npu.optimized_integration.Connectome"
-    ):
+    ), patch("feagi.npu.optimized_integration.Connectome"):
         # Call the function
         result = create_optimized_core(1000, 5000)
 
