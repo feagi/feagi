@@ -163,9 +163,7 @@ class MemoryAnalyzer:
             # Sort by total size
             sorted_types = sorted(
                 obj_types.items(), key=lambda x: x[1]["total_size"], reverse=True
-            )[
-                :20
-            ]  # Top 20
+            )[:20]  # Top 20
 
             breakdown = {
                 "total_objects": len(gc.get_objects()),

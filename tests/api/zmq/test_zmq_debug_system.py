@@ -530,9 +530,9 @@ class TestDebugRegressionPrevention:
 
         # Should be extremely fast (less than 10 microseconds per call on modern systems)
         time_per_call = timeit.timeit(fast_path_test, number=10000) / 10000
-        assert (
-            time_per_call < 0.00001
-        ), f"Fast path too slow: {time_per_call:.6f}s per call"
+        assert time_per_call < 0.00001, (
+            f"Fast path too slow: {time_per_call:.6f}s per call"
+        )
 
     def test_memory_efficiency(self):
         """Test that debugging doesn't cause memory leaks or excessive usage."""

@@ -75,9 +75,9 @@ class TestMacM4GPUAcceleration:
             backend = ArrayBackend("auto")
 
             # Should select PyTorch if available
-            assert (
-                backend.backend_type == BackendType.PYTORCH
-            ), f"Expected PyTorch backend, got {backend.backend_type.value}"
+            assert backend.backend_type == BackendType.PYTORCH, (
+                f"Expected PyTorch backend, got {backend.backend_type.value}"
+            )
 
             # Should use MPS device
             assert hasattr(backend, "device"), "Backend should have device attribute"
@@ -85,12 +85,12 @@ class TestMacM4GPUAcceleration:
 
             # Test array creation
             test_array = backend.zeros((10, 10))
-            assert isinstance(
-                test_array, torch.Tensor
-            ), f"Expected torch.Tensor, got {type(test_array)}"
-            assert "mps" in str(
-                test_array.device
-            ), f"Expected MPS device, tensor is on {test_array.device}"
+            assert isinstance(test_array, torch.Tensor), (
+                f"Expected torch.Tensor, got {type(test_array)}"
+            )
+            assert "mps" in str(test_array.device), (
+                f"Expected MPS device, tensor is on {test_array.device}"
+            )
 
             print("✅ FEAGI ArrayBackend correctly uses MPS for GPU acceleration")
 
@@ -181,13 +181,13 @@ class TestMacM4GPUAcceleration:
             if torch.cuda.is_available():
                 assert backend.device == "cuda", "Should use CUDA if available"
             elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                assert (
-                    backend.device == "mps"
-                ), "Should use MPS if CUDA not available but MPS is"
+                assert backend.device == "mps", (
+                    "Should use MPS if CUDA not available but MPS is"
+                )
             else:
-                assert (
-                    backend.device == "cpu"
-                ), "Should fall back to CPU if neither CUDA nor MPS available"
+                assert backend.device == "cpu", (
+                    "Should fall back to CPU if neither CUDA nor MPS available"
+                )
 
             print(f"✅ Device selection working correctly: {backend.device}")
 

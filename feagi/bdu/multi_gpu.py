@@ -220,12 +220,12 @@ class BrainPartition:
         self.neuron_ids: Set[int] = set()
 
         # Boundary connections (connections to neurons in other partitions)
-        self.boundary_outgoing: Dict[int, List[Tuple[int, float]]] = (
-            {}
-        )  # source_id -> [(target_id, weight), ...]
-        self.boundary_incoming: Dict[int, List[Tuple[int, float]]] = (
-            {}
-        )  # target_id -> [(source_id, weight), ...]
+        self.boundary_outgoing: Dict[
+            int, List[Tuple[int, float]]
+        ] = {}  # source_id -> [(target_id, weight), ...]
+        self.boundary_incoming: Dict[
+            int, List[Tuple[int, float]]
+        ] = {}  # target_id -> [(source_id, weight), ...]
 
         # Performance metrics
         self.metrics = {

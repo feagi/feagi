@@ -334,14 +334,14 @@ class SIMDCompatibilityTester:
 
         # Run performance tests
         print("🧪 Running NumPy vectorization test...")
-        results["performance_tests"][
-            "numpy_vectorization"
-        ] = self.test_numpy_vectorization_performance()
+        results["performance_tests"]["numpy_vectorization"] = (
+            self.test_numpy_vectorization_performance()
+        )
 
         print("🧪 Running membrane potential SIMD test...")
-        results["performance_tests"][
-            "membrane_potential"
-        ] = self.test_membrane_potential_simd()
+        results["performance_tests"]["membrane_potential"] = (
+            self.test_membrane_potential_simd()
+        )
 
         print("🧪 Testing Rust SIMD availability...")
         results["compatibility"]["rust_simd"] = self.test_rust_simd_availability()
@@ -429,17 +429,17 @@ class TestSIMDCompatibility:
         numpy_info = simd_tester.numpy_info
 
         assert isinstance(numpy_info, dict)
-        assert numpy_info.get(
-            "config_available", False
-        ), "NumPy config should be available"
+        assert numpy_info.get("config_available", False), (
+            "NumPy config should be available"
+        )
 
     def test_vectorization_performance(self, simd_tester):
         """Test that vectorized operations are faster than scalar."""
         perf_results = simd_tester.test_numpy_vectorization_performance(size=10000)
 
-        assert (
-            perf_results["speedup"] > 1.0
-        ), "Vectorized operations should be faster than scalar"
+        assert perf_results["speedup"] > 1.0, (
+            "Vectorized operations should be faster than scalar"
+        )
         assert perf_results["vectorized_time"] > 0
         assert perf_results["scalar_time"] > 0
 
@@ -447,9 +447,9 @@ class TestSIMDCompatibility:
         """Test membrane potential SIMD performance."""
         membrane_results = simd_tester.test_membrane_potential_simd(neuron_count=1000)
 
-        assert (
-            membrane_results["speedup"] > 1.0
-        ), "SIMD membrane updates should be faster"
+        assert membrane_results["speedup"] > 1.0, (
+            "SIMD membrane updates should be faster"
+        )
         assert membrane_results["simd_time"] > 0
         assert membrane_results["scalar_time"] > 0
 
@@ -458,12 +458,12 @@ class TestSIMDCompatibility:
         """Test Rust SIMD availability."""
         rust_results = simd_tester.test_rust_simd_availability()
 
-        assert rust_results[
-            "available"
-        ], "Rust SIMD should be available when module is imported"
-        assert rust_results.get(
-            "gna_created", False
-        ), "Should be able to create Rust GNA"
+        assert rust_results["available"], (
+            "Rust SIMD should be available when module is imported"
+        )
+        assert rust_results.get("gna_created", False), (
+            "Should be able to create Rust GNA"
+        )
 
     def test_roaring_bitmap_operations(self, simd_tester):
         """Test Roaring Bitmap SIMD operations."""

@@ -587,9 +587,9 @@ class TestRegistrationManagerArchitectureCompliance:
                     if "@architecture:acceptable" in context:
                         continue
                     else:
-                        assert (
-                            False
-                        ), f"Found forbidden hardcoded pattern '{pattern}' without @architecture:acceptable annotation at line {i + 1}: {line.strip()}"
+                        assert False, (
+                            f"Found forbidden hardcoded pattern '{pattern}' without @architecture:acceptable annotation at line {i + 1}: {line.strip()}"
+                        )
 
     def test_cross_platform_compatibility(self, registration_manager):
         """Test that Registration Manager works across different platforms."""

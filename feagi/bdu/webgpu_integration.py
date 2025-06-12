@@ -480,16 +480,16 @@ class ConnectomeManagerWebGPU:
         # First map the staging buffers
         staging_membrane = self.staging_buffers["membrane_potentials"]
         staging_membrane.map_write()
-        staging_membrane.write_mapped_view().reshape(membrane_potentials.shape)[
-            :
-        ] = membrane_potentials
+        staging_membrane.write_mapped_view().reshape(membrane_potentials.shape)[:] = (
+            membrane_potentials
+        )
         staging_membrane.unmap()
 
         staging_resting = self.staging_buffers["resting_potentials"]
         staging_resting.map_write()
-        staging_resting.write_mapped_view().reshape(resting_potentials.shape)[
-            :
-        ] = resting_potentials
+        staging_resting.write_mapped_view().reshape(resting_potentials.shape)[:] = (
+            resting_potentials
+        )
         staging_resting.unmap()
 
         staging_thresholds = self.staging_buffers["thresholds"]
@@ -499,9 +499,9 @@ class ConnectomeManagerWebGPU:
 
         staging_ref_periods = self.staging_buffers["refractory_periods"]
         staging_ref_periods.map_write()
-        staging_ref_periods.write_mapped_view().reshape(refractory_periods.shape)[
-            :
-        ] = refractory_periods
+        staging_ref_periods.write_mapped_view().reshape(refractory_periods.shape)[:] = (
+            refractory_periods
+        )
         staging_ref_periods.unmap()
 
         staging_ref_counters = self.staging_buffers["refractory_counters"]

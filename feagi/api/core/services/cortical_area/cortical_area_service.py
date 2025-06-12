@@ -32,9 +32,10 @@ class CorticalAreaService(BaseService):
     - cortical_idx: integer index used internally by connectome manager (e.g., 0, 1, 2)
     """
 
-    def __init__(self, connectome_manager, state_manager=None):
+    def __init__(self, connectome_manager, state_manager=None, genome_service=None):
         """Initialize cortical area service."""
         super().__init__(connectome_manager, state_manager)
+        self._genome_service = genome_service
         # Cache for frequently accessed data
         self._cortical_areas_cache = None
         self._cortical_areas_cache_timestamp = 0
@@ -192,40 +193,25 @@ class CorticalAreaService(BaseService):
         area_type: str,
         parameters: Dict[str, Any] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Create a new cortical area."""
+        """
+        Create a new cortical area.
+
+        ARCHITECTURE COMPLIANCE: WRITE operation routes through GenomeService
+        to maintain proper data flow and ensure genome consistency.
+        """
+        if not self._genome_service:
+            self.logger.error("GenomeService not available for WRITE operations")
+            return None
 
         try:
-            # Generate a unique ID for the new area
-            # In a real implementation, this might be more sophisticated
-            existing_ids = set(self._connectome_manager.cortical_areas.keys())
-            new_id = 1
-            while new_id in existing_ids:
-                new_id += 1
-
-            # Convert API format to internal representation
-            position = (coordinates["x"], coordinates["y"], coordinates["z"])
-            dims = (dimensions["width"], dimensions["height"], dimensions["depth"])
-
-            # Create the area in the connectome manager
-            area = self._connectome_manager.add_cortical_area(
+            # ARCHITECTURE COMPLIANCE: Route WRITE operation through GenomeService
+            return self._genome_service.create_cortical_area(
                 name=name,
-                dimensions=dims,
-                position=position,
+                coordinates=coordinates,
+                dimensions=dimensions,
                 area_type=area_type,
-                properties=parameters or {},
-                cortical_id=new_id,
+                parameters=parameters,
             )
-
-            # Return the created area information
-            return {
-                "id": str(new_id),
-                "name": area.name,
-                "coordinates": coordinates,
-                "dimensions": dimensions,
-                "type": area.area_type,
-                "parameters": area.properties,
-                "neuron_count": 0,  # New area has no neurons yet
-            }
         except Exception as e:
             self.logger.error(f"Failed to create cortical area: {str(e)}")
             return None
@@ -242,6 +228,9 @@ class CorticalAreaService(BaseService):
         """
         Update an existing cortical area.
 
+        ARCHITECTURE COMPLIANCE: WRITE operation routes through GenomeService
+        to maintain proper data flow and ensure genome consistency.
+
         Args:
             cortical_id: 6-character string identifier
             name: New name (optional)
@@ -253,62 +242,20 @@ class CorticalAreaService(BaseService):
         Returns:
             Updated area information or None if not found
         """
-
-        # Map cortical_id to cortical_idx
-        cortical_idx = self._get_cortical_idx_for_id(cortical_id)
-        if cortical_idx is None:
-            self.logger.warning(
-                f"Cortical area with cortical_id '{cortical_id}' not found for update"
-            )
+        if not self._genome_service:
+            self.logger.error("GenomeService not available for WRITE operations")
             return None
 
         try:
-            area = self._connectome_manager.cortical_areas.get(cortical_idx)
-            if not area:
-                return None
-
-            # Update the area properties
-            if name is not None:
-                area.name = name
-
-            if coordinates is not None:
-                area.position = (coordinates["x"], coordinates["y"], coordinates["z"])
-
-            if dimensions is not None:
-                area.dimensions = (
-                    dimensions["width"],
-                    dimensions["height"],
-                    dimensions["depth"],
-                )
-
-            if area_type is not None:
-                area.area_type = area_type
-
-            if parameters is not None:
-                area.properties.update(parameters)
-
-            # Return the updated area
-            neuron_count = len(
-                self._connectome_manager.get_neurons_by_area(cortical_id)
+            # ARCHITECTURE COMPLIANCE: Route WRITE operation through GenomeService
+            return self._genome_service.update_cortical_area(
+                cortical_id=cortical_id,
+                name=name,
+                coordinates=coordinates,
+                dimensions=dimensions,
+                area_type=area_type,
+                parameters=parameters,
             )
-            return {
-                "cortical_id": cortical_id,  # Return original cortical_id
-                "cortical_idx": cortical_idx,  # Also include cortical_idx for reference
-                "name": area.name,
-                "coordinates": {
-                    "x": area.position[0],
-                    "y": area.position[1],
-                    "z": area.position[2],
-                },
-                "dimensions": {
-                    "width": area.dimensions[0],
-                    "height": area.dimensions[1],
-                    "depth": area.dimensions[2],
-                },
-                "type": area.area_type,
-                "parameters": area.properties,
-                "neuron_count": neuron_count,
-            }
         except Exception as e:
             self.logger.error(
                 f"Error updating cortical area with cortical_id '{cortical_id}': {str(e)}"
@@ -319,53 +266,22 @@ class CorticalAreaService(BaseService):
         """
         Delete a cortical area.
 
+        ARCHITECTURE COMPLIANCE: WRITE operation routes through GenomeService
+        to maintain proper data flow and ensure genome consistency.
+
         Args:
             cortical_id: 6-character string identifier
 
         Returns:
             True if successfully deleted, False otherwise
         """
-
-        # Map cortical_id to cortical_idx
-        cortical_idx = self._get_cortical_idx_for_id(cortical_id)
-        if cortical_idx is None:
-            self.logger.warning(
-                f"Cortical area with cortical_id '{cortical_id}' not found for deletion"
-            )
+        if not self._genome_service:
+            self.logger.error("GenomeService not available for WRITE operations")
             return False
 
         try:
-            if cortical_idx not in self._connectome_manager.cortical_areas:
-                return False
-
-            # Get all neurons in this area
-            neurons = self._connectome_manager.get_neurons_by_area(cortical_id)
-
-            # Delete all neurons in the area
-            for neuron_id in neurons:
-                self._connectome_manager.delete_neuron(neuron_id)
-
-            # Remove the area
-            del self._connectome_manager.cortical_areas[cortical_idx]
-
-            # Clean up any area-specific data structures
-            if cortical_idx in self._connectome_manager._occupied_voxels:
-                del self._connectome_manager._occupied_voxels[cortical_idx]
-
-            if cortical_idx in self._connectome_manager._area_lookup_tables:
-                del self._connectome_manager._area_lookup_tables[cortical_idx]
-
-            # Remove from area classification sets
-            if cortical_idx in self._connectome_manager._small_regular_areas:
-                self._connectome_manager._small_regular_areas.remove(cortical_idx)
-
-            if cortical_idx in self._connectome_manager._large_regular_areas:
-                self._connectome_manager._large_regular_areas.remove(cortical_idx)
-
-            if cortical_idx in self._connectome_manager._extreme_dimension_areas:
-                self._connectome_manager._extreme_dimension_areas.remove(cortical_idx)
-
-            return True
+            # ARCHITECTURE COMPLIANCE: Route WRITE operation through GenomeService
+            return self._genome_service.delete_cortical_area(cortical_id)
         except Exception as e:
             self.logger.error(
                 f"Error deleting cortical area with cortical_id '{cortical_id}': {str(e)}"

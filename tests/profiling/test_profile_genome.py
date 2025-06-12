@@ -364,15 +364,15 @@ def test_profile_genome_performance(genome_path, logs_dir):
 
             # Assertions for basic sanity checks
             assert memory_avg > 0, "Memory usage should be greater than 0"
-            assert (
-                memory_avg < 5000
-            ), f"Memory usage ({memory_avg:.1f}MB) is suspiciously high"
+            assert memory_avg < 5000, (
+                f"Memory usage ({memory_avg:.1f}MB) is suspiciously high"
+            )
             assert memory_per_neuron > 0, "Memory per neuron should be greater than 0"
 
         # Process should have run successfully (or at least not crashed immediately)
-        assert (
-            len(runner.resource_snapshots) > 0
-        ), "No resource snapshots were collected"
+        assert len(runner.resource_snapshots) > 0, (
+            "No resource snapshots were collected"
+        )
 
         logger.info("[OK] Profiling test completed successfully")
 

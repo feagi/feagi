@@ -261,9 +261,7 @@ class BaseService:
                 not hasattr(self.state_manager, "connected_agents")
                 or self.state_manager.connected_agents is None
             ):
-                self.state_manager.connected_agents = (
-                    {}
-                )  # Dictionary of connected agents, not a count
+                self.state_manager.connected_agents = {}  # Dictionary of connected agents, not a count
 
             if not hasattr(self.state_manager, "changes_saved_externally"):
                 self.state_manager.changes_saved_externally = False

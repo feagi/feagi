@@ -305,9 +305,9 @@ class TestCoreAPIService:
         ]
 
         # We should have at least 130 public methods (original had 107, we added more)
-        assert (
-            len(public_methods) >= 130
-        ), f"Expected at least 130 public methods, got {len(public_methods)}"
+        assert len(public_methods) >= 130, (
+            f"Expected at least 130 public methods, got {len(public_methods)}"
+        )
 
     def test_basic_method_calls(self, core_api_service):
         """Test that basic methods can be called without errors."""

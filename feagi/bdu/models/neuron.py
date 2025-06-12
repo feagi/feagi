@@ -143,9 +143,9 @@ class CacheAlignedArray:
         self.array = self._oversized[offset_elements:end_element]
 
         # Verify alignment
-        assert (
-            self.array.ctypes.data % alignment == 0
-        ), f"Failed to achieve {alignment}-byte alignment"
+        assert self.array.ctypes.data % alignment == 0, (
+            f"Failed to achieve {alignment}-byte alignment"
+        )
 
     def __getitem__(self, key):
         return self.array[key]
@@ -207,9 +207,9 @@ class BlockSparseMatrix:
                 )
                 self.block_map[block_row, block_col] = True
 
-            self.active_blocks[(block_row, block_col)][
-                in_block_row, in_block_col
-            ] = value
+            self.active_blocks[(block_row, block_col)][in_block_row, in_block_col] = (
+                value
+            )
         else:
             # Remove zero values
             if (block_row, block_col) in self.active_blocks:

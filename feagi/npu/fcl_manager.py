@@ -551,9 +551,9 @@ class FCLManager:
 
                 # Clear and update the standard cortical bitmap
                 self.cortical_fcl_history[cortical_idx][standard_index].clear()
-                self.cortical_fcl_history[cortical_idx][
-                    standard_index
-                ] = cortical_bitmap
+                self.cortical_fcl_history[cortical_idx][standard_index] = (
+                    cortical_bitmap
+                )
 
             # Always update the global FCL (for all corticals)
             self.global_fcl_history[standard_index] = (

@@ -191,9 +191,9 @@ def test_shared_memory_integration():
         p_writer.join()
         p_reader.join()
         value, event_received = result_queue.get()
-        assert (
-            value == "integration_value"
-        ), f"Expected 'integration_value', got {value}"
+        assert value == "integration_value", (
+            f"Expected 'integration_value', got {value}"
+        )
 
 
 if __name__ == "__main__":

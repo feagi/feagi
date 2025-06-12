@@ -12,12 +12,13 @@ repos:
         description: "Format code with ruff"
 
   # Black code formatter
-  - repo: https://github.com/psf/black
-    rev: 25.1.0
-    hooks:
-      - id: black
-        name: black
-        description: "Format code with black"
+  # DISABLED: Conflicts with ruff-format. Using ruff-format instead.
+  # - repo: https://github.com/psf/black
+  #   rev: 25.1.0
+  #   hooks:
+  #     - id: black
+  #       name: black
+  #       description: "Format code with black"
 
   # isort import sorting
   - repo: https://github.com/pycqa/isort

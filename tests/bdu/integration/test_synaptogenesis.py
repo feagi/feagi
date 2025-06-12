@@ -140,15 +140,15 @@ def test_blueprint_structure(genome):
 
     # Check for iv00BM entries
     iv00BM_entries = [k for k in genome["blueprint"].keys() if "iv00BM" in k]
-    assert (
-        len(iv00BM_entries) > 0
-    ), "Genome should contain entries for iv00BM cortical area"
+    assert len(iv00BM_entries) > 0, (
+        "Genome should contain entries for iv00BM cortical area"
+    )
 
     # Check for m__bac entries
     m__bac_entries = [k for k in genome["blueprint"].keys() if "m__bac" in k]
-    assert (
-        len(m__bac_entries) > 0
-    ), "Genome should contain entries for m__bac cortical area"
+    assert len(m__bac_entries) > 0, (
+        "Genome should contain entries for m__bac cortical area"
+    )
 
 
 @pytest.mark.skip(reason="Test genome file not found")
@@ -179,9 +179,9 @@ def test_mapping_in_blueprint(genome):
 
     # The first element in the morphology entry should be the morphology ID (usually "projector" for this mapping)
     morphology_id = morphology_entries[0][0]
-    assert (
-        morphology_id == "projector"
-    ), f"Expected morphology type 'projector', got '{morphology_id}'"
+    assert morphology_id == "projector", (
+        f"Expected morphology type 'projector', got '{morphology_id}'"
+    )
 
 
 @pytest.mark.skip(reason="Rust bindings needed")

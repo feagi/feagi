@@ -57,9 +57,9 @@ class TestBackpressureRegression:
             assert result == StreamResult.NO_DATA
 
             # CRITICAL: No slot should have been committed
-            assert (
-                len(commit_calls) == 0
-            ), "Slots should not be committed when no data is available"
+            assert len(commit_calls) == 0, (
+                "Slots should not be committed when no data is available"
+            )
 
             # Buffer should be unchanged
             assert stream.ring_buffer.used_slots == 0
@@ -103,14 +103,14 @@ class TestBackpressureRegression:
 
             # Buffer overruns should not increase due to no-data calls
             final_overruns = stream._stats["buffer_overruns"]
-            assert (
-                final_overruns == initial_overruns
-            ), "No-data calls should not cause buffer overruns"
+            assert final_overruns == initial_overruns, (
+                "No-data calls should not cause buffer overruns"
+            )
 
             # Buffer should still be available
-            assert (
-                stream.ring_buffer.available_slots > 0
-            ), "Buffer should not be exhausted by no-data calls"
+            assert stream.ring_buffer.available_slots > 0, (
+                "Buffer should not be exhausted by no-data calls"
+            )
 
 
 def test_backpressure_scenario_simulation():
@@ -156,9 +156,9 @@ def test_backpressure_scenario_simulation():
         buffer_overruns = stream._stats["buffer_overruns"] - initial_overruns
 
         # With the fix, buffer overruns should be zero for no-data calls
-        assert (
-            buffer_overruns == 0
-        ), f"No-data calls should not cause buffer overruns, got: {buffer_overruns}"
+        assert buffer_overruns == 0, (
+            f"No-data calls should not cause buffer overruns, got: {buffer_overruns}"
+        )
         assert no_data_results > 0, "Should have processed some no-data calls"
 
 
@@ -200,9 +200,9 @@ class TestBackpressureFixValidation:
             assert result == StreamResult.NO_DATA
 
         # Should have no commits for no-data scenario
-        assert (
-            len(stream.commit_attempts) == 0
-        ), "No commits should occur for no-data scenario"
+        assert len(stream.commit_attempts) == 0, (
+            "No commits should occur for no-data scenario"
+        )
 
     def test_fix_prevents_original_bug_scenario(self):
         """Test that specifically validates the original bug scenario is fixed."""
@@ -236,6 +236,6 @@ class TestBackpressureFixValidation:
 
             # All calls should have been NO_DATA, none should have been BUFFER_FULL
             assert consecutive_no_data == stream.ring_buffer.slots * 2
-            assert (
-                stream.ring_buffer.available_slots > 0
-            ), "Buffer should not be exhausted by no-data calls"
+            assert stream.ring_buffer.available_slots > 0, (
+                "Buffer should not be exhausted by no-data calls"
+            )

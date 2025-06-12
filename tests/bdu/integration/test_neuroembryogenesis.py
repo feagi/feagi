@@ -361,9 +361,9 @@ def test_synapse_manager_use_in_development(embryo, genome_file):
 
     # Check that synapses were created if mappings exist
     if has_mappings:
-        assert (
-            synapse_count > 0
-        ), "Expected synapses to be created with cortical mappings"
+        assert synapse_count > 0, (
+            "Expected synapses to be created with cortical mappings"
+        )
     else:
         # No mappings, so it's expected to have 0 synapses
         assert synapse_count == 0, "Expected 0 synapses with no cortical mappings"

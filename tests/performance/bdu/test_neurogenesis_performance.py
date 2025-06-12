@@ -159,9 +159,9 @@ class NeurogenesisPerformanceBenchmark:
                 genome["benchmark_settings"] = {}
 
             genome["benchmark_settings"]["test_area_dimensions"] = dimensions
-            genome["benchmark_settings"][
-                "test_area_neurons_per_voxel"
-            ] = neurons_per_voxel
+            genome["benchmark_settings"]["test_area_neurons_per_voxel"] = (
+                neurons_per_voxel
+            )
 
             # Update stats (these will be used for informational purposes only)
             total_neurons = (

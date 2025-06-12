@@ -23,9 +23,16 @@ from ..shared.base_service import BaseService
 
 class ConnectomeService(BaseService):
     """
-    Connectome service handles connectome operations including
-    synapse management, connection analysis, and network structure.
+    Connectome service handles connectome READ operations following the architectural principle:
+
+    READ Operations: API → Service → ConnectomeManager (direct access)
+
+    Note: This service primarily handles READ operations for connectome analysis.
+    Granular synaptic connection modifications are not exposed at the API level
+    as they are too low-level for typical use cases.
     """
+
+    # ===== READ OPERATIONS (Direct ConnectomeManager Access) =====
 
     def get_neuron_connectivity(
         self, neuron_id: str, direction: str = "both"
@@ -37,7 +44,7 @@ class ConnectomeService(BaseService):
         try:
             neuron_id_int = int(neuron_id)
 
-            # Check if neuron exists
+            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
             if neuron_id_int not in self._connectome_manager._neuron_id_to_index:
                 return None
 
@@ -72,7 +79,7 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # Get basic statistics
+            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
             total_neurons = len(self._connectome_manager._neuron_id_to_index)
             total_synapses = sum(
                 len(connections)
@@ -115,7 +122,7 @@ class ConnectomeService(BaseService):
             source_idx = int(source_area)
             target_idx = int(target_area)
 
-            # Get neurons in both areas
+            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
             source_neurons = self._connectome_manager.get_neurons_by_area(source_idx)
             target_neurons = self._connectome_manager.get_neurons_by_area(target_idx)
 
@@ -151,73 +158,13 @@ class ConnectomeService(BaseService):
             self.logger.error(f"Error getting connection matrix: {str(e)}")
             return None
 
-    def add_connection(
-        self, source_neuron: str, target_neuron: str, weight: float = 1.0
-    ) -> bool:
-        """Add a new synaptic connection."""
-        if not self._validate_genome_loaded():
-            return False
-
-        try:
-            src_id = int(source_neuron)
-            tgt_id = int(target_neuron)
-
-            # Check if neurons exist
-            if (
-                src_id not in self._connectome_manager._neuron_id_to_index
-                or tgt_id not in self._connectome_manager._neuron_id_to_index
-            ):
-                return False
-
-            # Add the connection
-            self._connectome_manager.add_connection(src_id, tgt_id, weight)
-            return True
-        except Exception as e:
-            self.logger.error(f"Error adding connection: {str(e)}")
-            return False
-
-    def remove_connection(self, source_neuron: str, target_neuron: str) -> bool:
-        """Remove a synaptic connection."""
-        if not self._validate_genome_loaded():
-            return False
-
-        try:
-            src_id = int(source_neuron)
-            tgt_id = int(target_neuron)
-
-            # Remove the connection
-            self._connectome_manager.remove_connection(src_id, tgt_id)
-            return True
-        except Exception as e:
-            self.logger.error(f"Error removing connection: {str(e)}")
-            return False
-
-    def update_connection_weight(
-        self, source_neuron: str, target_neuron: str, new_weight: float
-    ) -> bool:
-        """Update the weight of an existing connection."""
-        if not self._validate_genome_loaded():
-            return False
-
-        try:
-            src_id = int(source_neuron)
-            tgt_id = int(target_neuron)
-
-            # Update the weight
-            self._connectome_manager.update_connection_weight(
-                src_id, tgt_id, new_weight
-            )
-            return True
-        except Exception as e:
-            self.logger.error(f"Error updating connection weight: {str(e)}")
-            return False
-
     def get_area_to_area_connectivity(self) -> Dict[str, Any]:
         """Get connectivity matrix between all cortical areas."""
         if not self._validate_genome_loaded():
             return {}
 
         try:
+            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
             areas = list(self._connectome_manager.cortical_areas.keys())
             connectivity_matrix = {}
 
@@ -263,7 +210,7 @@ class ConnectomeService(BaseService):
             return {}
 
         try:
-            # Basic network analysis
+            # ARCHITECTURE COMPLIANCE: READ operation uses ConnectomeManager directly
             total_neurons = len(self._connectome_manager._neuron_id_to_index)
             total_connections = sum(
                 len(connections)

@@ -84,8 +84,8 @@ def test_rust_all(build_rust_tests, rust_test_dir):
             text=True,
         )
         print(result.stdout)
-        assert (
-            result.returncode == 0
-        ), f"Rust tests failed:\n{result.stdout}\n{result.stderr}"
+        assert result.returncode == 0, (
+            f"Rust tests failed:\n{result.stdout}\n{result.stderr}"
+        )
     finally:
         os.chdir(cwd)

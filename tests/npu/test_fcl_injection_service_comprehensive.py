@@ -200,9 +200,9 @@ def test_prepare_large_batches(mock_fcl_manager, mock_special_area_handler):
 
 def test_prepare_batches_invalid_timing(mock_fcl_manager, mock_special_area_handler):
     """Test preparation with invalid timing configuration."""
-    mock_special_area_handler.special_configs["power_area_1"].injection_timing = (
-        "invalid_timing"
-    )
+    mock_special_area_handler.special_configs[
+        "power_area_1"
+    ].injection_timing = "invalid_timing"
 
     with patch("feagi.npu.fcl_injection_service.logger") as mock_logger:
         service = FCLInjectionService(

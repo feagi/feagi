@@ -1014,9 +1014,9 @@ class NeuroEmbryogenesis:
                                     if pos_idx < len(area_neuron_ids):
                                         voxel_neurons.append(area_neuron_ids[pos_idx])
                                         pos_idx += 1
-                                self.voxel_neuron_map[cortical_id][
-                                    position
-                                ] = voxel_neurons
+                                self.voxel_neuron_map[cortical_id][position] = (
+                                    voxel_neurons
+                                )
 
                     area_neuron_count = len(area_neuron_ids)
                     total_neurons += area_neuron_count
