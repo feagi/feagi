@@ -27,33 +27,33 @@ from feagi.bdu.connectivity.connectivity_rules import ConnectivityRule
 def connectivity_rule():
     """Create a basic connectivity rule for testing."""
     return ConnectivityRule(
-        rule_id="test_rule",
-        name="Test Rule",
-        source_area_id="source_area",
-        target_area_id="target_area",
+        source_cortical_id="source_area",
+        target_cortical_id="target_area",
         rule_type="one_to_one",
         parameters={"weight": 0.5},
+        name="Test Rule",
         description="A test connectivity rule",
+        rule_id="test_rule",
     )
 
 
 def test_connectivity_rule_init():
     """Test connectivity rule initialization."""
     rule = ConnectivityRule(
-        rule_id="test_rule",
-        name="Test Rule",
-        source_area_id="source_area",
-        target_area_id="target_area",
+        source_cortical_id="source_area",
+        target_cortical_id="target_area",
         rule_type="one_to_one",
         parameters={"weight": 0.5, "probability": 0.8},
+        name="Test Rule",
         description="A test connectivity rule",
+        rule_id="test_rule",
     )
 
     # Check properties
     assert rule.id == "test_rule"
     assert rule.name == "Test Rule"
-    assert rule.source_area_id == "source_area"
-    assert rule.target_area_id == "target_area"
+    assert rule.source_cortical_id == "source_area"
+    assert rule.target_cortical_id == "target_area"
     assert rule.rule_type == "one_to_one"
     assert rule.parameters["weight"] == 0.5
     assert rule.parameters["probability"] == 0.8
@@ -67,8 +67,8 @@ def test_connectivity_rule_to_dict(connectivity_rule):
     # Check dictionary contents
     assert rule_dict["id"] == "test_rule"
     assert rule_dict["name"] == "Test Rule"
-    assert rule_dict["source_area_id"] == "source_area"
-    assert rule_dict["target_area_id"] == "target_area"
+    assert rule_dict["source_cortical_id"] == "source_area"
+    assert rule_dict["target_cortical_id"] == "target_area"
     assert rule_dict["rule_type"] == "one_to_one"
     assert rule_dict["parameters"]["weight"] == 0.5
     assert rule_dict["description"] == "A test connectivity rule"
@@ -79,8 +79,8 @@ def test_connectivity_rule_from_dict():
     rule_dict = {
         "id": "test_rule_2",
         "name": "Test Rule 2",
-        "source_area_id": "area1",
-        "target_area_id": "area2",
+        "source_cortical_id": "area1",
+        "target_cortical_id": "area2",
         "rule_type": "probabilistic",
         "parameters": {"probability": 0.3, "weight": 1.0},
         "description": "Another test rule",
@@ -91,8 +91,8 @@ def test_connectivity_rule_from_dict():
     # Check properties
     assert rule.id == "test_rule_2"
     assert rule.name == "Test Rule 2"
-    assert rule.source_area_id == "area1"
-    assert rule.target_area_id == "area2"
+    assert rule.source_cortical_id == "area1"
+    assert rule.target_cortical_id == "area2"
     assert rule.rule_type == "probabilistic"
     assert rule.parameters["probability"] == 0.3
     assert rule.parameters["weight"] == 1.0
@@ -119,8 +119,8 @@ def test_connectivity_rule_update(connectivity_rule):
 
     # Check that non-updated properties remain the same
     assert connectivity_rule.id == "test_rule"
-    assert connectivity_rule.source_area_id == "source_area"
-    assert connectivity_rule.target_area_id == "target_area"
+    assert connectivity_rule.source_cortical_id == "source_area"
+    assert connectivity_rule.target_cortical_id == "target_area"
 
 
 def test_connectivity_rule_update_invalid_property(connectivity_rule):
@@ -133,60 +133,60 @@ def test_connectivity_rule_validate():
     """Test rule validation."""
     # Valid rule
     valid_rule = ConnectivityRule(
-        rule_id="test_rule",
-        name="Test Rule",
-        source_area_id="source_area",
-        target_area_id="target_area",
+        source_cortical_id="source_area",
+        target_cortical_id="target_area",
         rule_type="one_to_one",
         parameters={"weight": 0.5},
+        name="Test Rule",
         description="A test connectivity rule",
+        rule_id="test_rule",
     )
     assert valid_rule.validate() == True
 
     # Invalid rule: missing name
     invalid_rule = ConnectivityRule(
-        rule_id="test_rule",
-        name="",  # Empty name
-        source_area_id="source_area",
-        target_area_id="target_area",
+        source_cortical_id="source_area",
+        target_cortical_id="target_area",
         rule_type="one_to_one",
         parameters={"weight": 0.5},
+        name="",  # Empty name
         description="A test connectivity rule",
+        rule_id="test_rule",
     )
     assert invalid_rule.validate() == False
 
     # Invalid rule: missing source area
     invalid_rule = ConnectivityRule(
-        rule_id="test_rule",
-        name="Test Rule",
-        source_area_id="",  # Empty source area
-        target_area_id="target_area",
+        source_cortical_id="",  # Empty source area
+        target_cortical_id="target_area",
         rule_type="one_to_one",
         parameters={"weight": 0.5},
+        name="Test Rule",
         description="A test connectivity rule",
+        rule_id="test_rule",
     )
     assert invalid_rule.validate() == False
 
     # Invalid rule: missing target area
     invalid_rule = ConnectivityRule(
-        rule_id="test_rule",
-        name="Test Rule",
-        source_area_id="source_area",
-        target_area_id="",  # Empty target area
+        source_cortical_id="source_area",
+        target_cortical_id="",  # Empty target area
         rule_type="one_to_one",
         parameters={"weight": 0.5},
+        name="Test Rule",
         description="A test connectivity rule",
+        rule_id="test_rule",
     )
     assert invalid_rule.validate() == False
 
     # Invalid rule: missing rule type
     invalid_rule = ConnectivityRule(
-        rule_id="test_rule",
-        name="Test Rule",
-        source_area_id="source_area",
-        target_area_id="target_area",
+        source_cortical_id="source_area",
+        target_cortical_id="target_area",
         rule_type="",  # Empty rule type
         parameters={"weight": 0.5},
+        name="Test Rule",
         description="A test connectivity rule",
+        rule_id="test_rule",
     )
     assert invalid_rule.validate() == False
