@@ -2905,7 +2905,7 @@ class ConnectomeManager:
                 # Calculate distances (still O(n²) but vectorized)
                 synapse_specs = []
 
-                for i, (source_id, source_pos) in enumerate(
+                for _i, (source_id, source_pos) in enumerate(
                     zip(source_ids, source_pos_array)
                 ):
                     # Calculate distances to all targets at once
@@ -2919,7 +2919,7 @@ class ConnectomeManager:
                     valid_distances = distances[within_distance]
 
                     # Add connections
-                    for j, (target_id, distance) in enumerate(
+                    for _j, (target_id, distance) in enumerate(
                         zip(valid_targets, valid_distances)
                     ):
                         if scale_by_distance:
