@@ -240,7 +240,7 @@ class HealthMonitor:
             return
 
         cpu_usage = health.resource_usage.get("cpu", 0.0)
-        memory_usage = health.resource_usage.get("memory", 0)
+        # memory_usage = health.resource_usage.get("memory", 0)  # Unused variable removed
 
         # Check for CRITICAL condition
         if cpu_usage >= health.cpu_warning_threshold:

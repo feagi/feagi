@@ -139,18 +139,18 @@ class WebGPUBackend(BackendInterface):
         size = int(np.prod(shape))
 
         # Map numpy dtypes to WebGPU format
-        format_map = {
-            np.float32: "float32",
-            np.float16: "float16",
-            np.int32: "int32",
-            np.uint32: "uint32",
-            np.int16: "int16",
-            np.uint16: "uint16",
-            np.int8: "int8",
-            np.uint8: "uint8",
-        }
+        # format_map = {
+        #     np.float32: "float32",
+        #     np.float16: "float16",
+        #     np.int32: "int32",
+        #     np.uint32: "uint32",
+        #     np.int16: "int16",
+        #     np.uint16: "uint16",
+        #     np.int8: "int8",
+        #     np.uint8: "uint8",
+        # }  # Unused variable removed
 
-        buffer_format = format_map.get(np.dtype(dtype), "float32")
+        # buffer_format = format_map.get(np.dtype(dtype), "float32")  # Unused variable removed
 
         # Create a buffer on the GPU
         buffer_size = size * np.dtype(dtype).itemsize
