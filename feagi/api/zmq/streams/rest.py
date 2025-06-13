@@ -255,7 +255,7 @@ class RestStream:
                             logger.info(
                                 f"[CONFIG] DEBUG: Part {i}: '{decoded}' ({len(part)} bytes)"
                             )
-                        except:
+                        except Exception:
                             logger.info(
                                 f"[CONFIG] DEBUG: Part {i}: <binary data> ({len(part)} bytes)"
                             )
@@ -370,7 +370,7 @@ class RestStream:
                             logger.info(
                                 f"[CONFIG] DEBUG: Response body preview: {str(response_json.get('body', {}))[:200]}..."
                             )
-                        except:
+                        except Exception:
                             logger.info(
                                 f"[CONFIG] DEBUG: Response (non-JSON): {response_data[:100]}..."
                             )

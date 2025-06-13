@@ -319,7 +319,7 @@ class DistanceBasedConnectivityRule(ConnectivityRule):
         )
 
         # max_dist = self.parameters["max_distance"]  # Unused variable removed
-        prob = self.parameters["connection_probability"]
+        # prob = self.parameters["connection_probability"]  # Unused variable removed
 
         # Implementation details would depend on how positions are stored in the connectome
         # This is a placeholder for the actual implementation
@@ -367,7 +367,7 @@ def create_connectivity_rule(
     if rule_type not in RULE_TYPES:
         raise ValueError(f"Unknown connectivity rule type: {rule_type}")
 
-    rule_class = RULE_TYPES[rule_type]
+    # rule_class = RULE_TYPES[rule_type]  # Unused variable removed
 
     if rule_type == "probabilistic":
         connection_prob = parameters.get("connection_probability", 0.1)
