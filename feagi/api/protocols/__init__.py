@@ -44,7 +44,8 @@ class ByteStructureEncoder:
         return json_bytes
 
     def encode_neuron_data(self, neuron_data: list) -> bytes:
-        """Encode neuron data to FeagiByteStructure format using high-performance NumPy arrays"""
+        """Encode neuron data to FeagiByteStructure format using
+        high-performance NumPy arrays"""
         try:
             import numpy as np
 
@@ -101,7 +102,7 @@ class ByteStructureEncoder:
 
             # Create the final byte structure from the mapped data
             byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
-            return byte_structure.get_data_as_bytes()
+            return byte_structure.copy_out_as_byte_vector()
 
         except Exception:
             # Fallback to simple JSON encoding
