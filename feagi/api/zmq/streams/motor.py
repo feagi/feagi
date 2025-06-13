@@ -524,7 +524,7 @@ class MotorStream:
             now = time.time()
             active_clients = 0
 
-            for client_id, last_heartbeat in self.client_last_heartbeat.items():
+            for _client_id, last_heartbeat in self.client_last_heartbeat.items():
                 if now - last_heartbeat < self.client_heartbeat_timeout:
                     active_clients += 1
 
