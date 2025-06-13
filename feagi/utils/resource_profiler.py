@@ -108,13 +108,13 @@ class ResourceProfiler:
                 fd_count = (
                     self.process.num_fds() if hasattr(self.process, "num_fds") else 0
                 )
-            except:
+            except Exception:
                 fd_count = 0
 
             # Network connections
             try:
                 connections = len(self.process.connections())
-            except:
+            except Exception:
                 connections = 0
 
             usage = ComponentResourceUsage(

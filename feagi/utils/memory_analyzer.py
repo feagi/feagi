@@ -155,7 +155,7 @@ class MemoryAnalyzer:
                             obj_types[obj_type] = {"count": 0, "total_size": 0}
                         obj_types[obj_type]["count"] += 1
                         obj_types[obj_type]["total_size"] += size
-                except:
+                except Exception:
                     pass
 
             # Sort by total size

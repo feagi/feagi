@@ -187,7 +187,7 @@ def check_zmq_installation() -> Tuple[bool, Optional[str]]:
         try:
             zmq_version = importlib.metadata.version("pyzmq")
             debug_info.append(f"PyZMQ version from metadata: {zmq_version}")
-        except:
+        except Exception:
             zmq_version = "unknown"
             debug_info.append("Could not get PyZMQ version from metadata")
 

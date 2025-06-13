@@ -438,7 +438,7 @@ def test_neuron_array_init():
     # Check default values
     assert np.all(na.membrane_potentials == 0.0)
     assert np.all(na.thresholds == 1.0)
-    assert np.all(na.valid_mask == False)
+    assert np.all(~na.valid_mask)
 
 
 def test_create_neuron(neuron_array):
@@ -456,7 +456,7 @@ def test_create_neuron(neuron_array):
 
     # Check if the neuron was created successfully
     assert neuron_id == 0  # First neuron has ID 0
-    assert na.valid_mask[0] == True
+    assert na.valid_mask[0]
 
     # Check if properties were set correctly
     assert na.area_ids[0] == 1
@@ -525,7 +525,7 @@ def test_delete_neuron(populated_neuron_array):
     result = na.delete_neuron(0)
 
     # Check result
-    assert result == True
+    assert result
 
     # Check if neuron was deleted
     assert np.sum(na.valid_mask) == 2
