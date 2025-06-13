@@ -6,3 +6,5 @@ the formation of the brain's architecture.
 """
 
 from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+
+__all__ = ["NeuroEmbryogenesis"]

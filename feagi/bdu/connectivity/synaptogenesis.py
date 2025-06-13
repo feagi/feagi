@@ -186,9 +186,9 @@ class ProximityRule(SynaptogenesisRule):
 
         logger.info("Applying proximity-based synaptogenesis rule")
 
-        max_dist = self.parameters["max_distance"]
-        base_prob = self.parameters["connection_probability"]
-        fall_off = self.parameters["fall_off_factor"]
+        # max_dist = self.parameters["max_distance"]  # Unused variable removed
+        # base_prob = self.parameters["connection_probability"]  # Unused variable removed
+        # fall_off = self.parameters["fall_off_factor"]  # Unused variable removed
 
         # Implementation depends on how neurons and positions are stored
         # This is a placeholder for actual implementation
