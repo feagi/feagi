@@ -240,8 +240,8 @@ class StochasticRule(SynaptogenesisRule):
 
         logger.info("Applying stochastic synaptogenesis rule")
 
-        prob = self.parameters["connection_probability"]
-        max_conn = self.parameters.get("max_connections_per_neuron")
+        # prob = self.parameters["connection_probability"]  # Unused variable removed
+        # max_conn = self.parameters.get("max_connections_per_neuron")  # Unused variable removed
 
         # Implementation depends on connectome structure
         # This is a placeholder for actual implementation

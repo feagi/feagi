@@ -219,12 +219,12 @@ def define_subregions(
         seed_pointer = [0, 0, 0]
 
         while seed_pointer[0] <= width:
-            for x_i in range(pattern[0][0]):
+            for _x_i in range(pattern[0][0]):
                 while seed_pointer[1] <= height:
-                    for y_i in range(pattern[1][0]):
+                    for _y_i in range(pattern[1][0]):
                         while seed_pointer[2] <= depth:
                             # Chosen regions
-                            for z_i in range(pattern[2][0]):
+                            for _z_i in range(pattern[2][0]):
                                 if (
                                     seed_pointer[0] + seed[0] <= width
                                     and seed_pointer[1] + seed[1] <= height

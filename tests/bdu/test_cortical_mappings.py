@@ -128,9 +128,9 @@ def test_cortical_mapping_update(cortical_mapping):
     # Check updated properties
     assert cortical_mapping.name == "Updated Mapping"
     assert cortical_mapping.morphology_id == "new_morphology"
-    assert cortical_mapping.plasticity_flag == False
+    assert not cortical_mapping.plasticity_flag
     assert cortical_mapping.psc_multiplier == 2.0
-    assert cortical_mapping.properties["update_flag"] == True
+    assert cortical_mapping.properties["update_flag"]
 
     # Check that non-updated properties remain the same
     assert cortical_mapping.id == "test_mapping"
@@ -158,7 +158,7 @@ def test_cortical_mapping_validate():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert valid_mapping.validate() == True
+    assert valid_mapping.validate()
 
     # Invalid mapping: missing name
     invalid_mapping = CorticalMapping(
@@ -171,7 +171,7 @@ def test_cortical_mapping_validate():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert invalid_mapping.validate() == False
+    assert not invalid_mapping.validate()
 
     # Invalid mapping: missing source area
     invalid_mapping = CorticalMapping(

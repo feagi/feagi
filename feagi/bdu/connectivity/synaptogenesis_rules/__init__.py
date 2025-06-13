@@ -109,7 +109,7 @@ def define_subregions(area_id, parameters, cortical_dimensions):
     # Extract parameters
     try:
         seed = parameters["src_seed"]
-        pattern = parameters["src_pattern"]
+        # pattern = parameters["src_pattern"]  # Unused variable removed
 
         # Create a simple 1x1x1 subregion at the specified seed
         # This is a simplified implementation for testing purposes
