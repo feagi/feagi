@@ -1965,13 +1965,13 @@ class NeuroEmbryogenesis:
 
                         # Find neurons at candidate positions and create connections
                         for candidate_pos in candidate_positions:
-                            # Get neuron at this position
-                            neuron_at_pos = (
-                                self.connectome_manager.get_neuron_at_position(
+                            # Get neurons at this position
+                            neurons_at_pos = (
+                                self.connectome_manager.get_neurons_at_position(
                                     dst_area_id, candidate_pos
                                 )
                             )
-                            if neuron_at_pos:
+                            for neuron_at_pos in neurons_at_pos:
                                 synapse_connections.append(
                                     (src_neuron_id, neuron_at_pos, psc_multiplier)
                                 )
@@ -2140,12 +2140,12 @@ class NeuroEmbryogenesis:
 
                             # Find neurons at candidate positions and create connections
                             for candidate_pos in candidate_positions:
-                                neuron_at_pos = (
-                                    self.connectome_manager.get_neuron_at_position(
+                                neurons_at_pos = (
+                                    self.connectome_manager.get_neurons_at_position(
                                         dst_area_id, candidate_pos
                                     )
                                 )
-                                if neuron_at_pos:
+                                for neuron_at_pos in neurons_at_pos:
                                     synapse_connections.append(
                                         (src_neuron_id, neuron_at_pos, psc_multiplier)
                                     )
