@@ -82,7 +82,7 @@ class BrainService(BaseService):
                 f.write(
                     f"{datetime.datetime.now()}: Brain service start_burst_engine() called\n"
                 )
-        except:
+        except Exception:
             pass
 
         try:
@@ -230,7 +230,7 @@ class BrainService(BaseService):
                         f.write(
                             f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n"
                         )
-                except:
+                except Exception:
                     pass
 
                 if genome_loaded:
@@ -259,7 +259,7 @@ class BrainService(BaseService):
                                 f.write(
                                     f"{datetime.datetime.now()}: Brain service error: {str(e)}\n"
                                 )
-                        except:
+                        except Exception:
                             pass
 
                 return True
