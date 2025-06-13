@@ -757,15 +757,12 @@ class RegistrationManager:
             has_clients: True if visualization clients are connected, False otherwise
         """
         logger.info(
-            f"🔔 NOTIFYING ALL FQ SAMPLERS: Visualization clients connected = {has_clients}"
+            f"Notifying all FQ samplers: Visualization clients connected = {has_clients}"
         )
 
         # Notify Process Manager's FQ samplers
         if self._process_manager:
-            if (
-                hasattr(self._process_manager, "_viz_fq_sampler")
-                and self._process_manager._viz_fq_sampler
-            ):
+            if hasattr(self._process_manager, "_viz_fq_sampler"):
                 try:
                     self._process_manager._viz_fq_sampler.set_visualization_subscribers(
                         has_clients
@@ -775,9 +772,6 @@ class RegistrationManager:
                     )
                 except Exception as e:
                     logger.error(f"Error notifying Process Manager viz FQ sampler: {e}")
-
-            # NOTE: Motor FQ sampler operates in OPU mode and should NOT be notified about visualization clients
-            # This prevents double logging and ensures proper separation of concerns
 
         # Notify ZMQ Server's FQ samplers
         zmq_server = None
@@ -803,12 +797,6 @@ class RegistrationManager:
                         )
                     except Exception as e:
                         logger.error(f"Error notifying ZMQ viz stream FQ sampler: {e}")
-
-            # NOTE: ZMQ motor stream FQ sampler operates in OPU mode and should NOT be notified about visualization clients
-            # This prevents double logging and ensures motor samplers only focus on OPU areas
-
-        # Try to find any other FQ samplers that might exist
-        self._find_and_notify_legacy_fq_samplers_visualization(has_clients)
 
     def _notify_existing_fq_samplers_motor(self, has_clients: bool) -> None:
         """
@@ -838,123 +826,6 @@ class RegistrationManager:
                     logger.error(
                         f"Error notifying Process Manager motor FQ sampler: {e}"
                     )
-
-            if (
-                hasattr(self._process_manager, "_viz_fq_sampler")
-                and self._process_manager._viz_fq_sampler
-            ):
-                try:
-                    # Visualization samplers also need to know about motor clients
-                    self._process_manager._viz_fq_sampler.set_motor_subscribers(
-                        has_clients
-                    )
-                    logger.info(
-                        f"🎨 Notified Process Manager viz FQ sampler about motor clients: {has_clients}"
-                    )
-                except Exception as e:
-                    logger.error(f"Error notifying Process Manager viz FQ sampler: {e}")
-
-    def _find_and_notify_legacy_fq_samplers_visualization(
-        self, has_clients: bool
-    ) -> None:
-        """
-        Try to find and notify any legacy FQ samplers that might exist.
-
-        This is a best-effort attempt to find FQ samplers that were created
-        outside of the Process Manager (like during startup or by other processes).
-
-        CRITICAL FIX: Skip FQ samplers that were already notified by Process Manager
-        to prevent duplicate notifications and double logging.
-        """
-        try:
-            # Get Process Manager FQ sampler instance IDs to avoid duplicate notifications
-            notified_instance_ids = set()
-
-            if self._process_manager:
-                # Track Process Manager FQ samplers that were already notified
-                if (
-                    hasattr(self._process_manager, "_viz_fq_sampler")
-                    and self._process_manager._viz_fq_sampler
-                ):
-                    viz_instance_id = getattr(
-                        self._process_manager._viz_fq_sampler, "instance_id", None
-                    )
-                    if viz_instance_id:
-                        notified_instance_ids.add(viz_instance_id)
-
-                if (
-                    hasattr(self._process_manager, "_motor_fq_sampler")
-                    and self._process_manager._motor_fq_sampler
-                ):
-                    motor_instance_id = getattr(
-                        self._process_manager._motor_fq_sampler, "instance_id", None
-                    )
-                    if motor_instance_id:
-                        notified_instance_ids.add(motor_instance_id)
-
-            # Try to access core API to find FQ samplers
-            if self._process_manager:
-                core_api = self._process_manager.get_core_api()
-                if core_api:
-                    # Try to get burst engine and its FQ samplers
-                    try:
-                        burst_engine = core_api.get_burst_engine()
-                        if burst_engine and hasattr(burst_engine, "_fq_samplers"):
-                            for fq_sampler in burst_engine._fq_samplers:
-                                if hasattr(fq_sampler, "set_visualization_subscribers"):
-                                    instance_id = getattr(
-                                        fq_sampler, "instance_id", "unknown"
-                                    )
-
-                                    # CRITICAL FIX: Skip if already notified by Process Manager
-                                    if instance_id in notified_instance_ids:
-                                        logger.debug(
-                                            f"🔄 Skipping burst engine FQ sampler [{instance_id}] - already notified by Process Manager"
-                                        )
-                                        continue
-
-                                    fq_sampler.set_visualization_subscribers(
-                                        has_clients
-                                    )
-                                    logger.info(
-                                        f"🔥 Notified legacy burst engine FQ sampler [{instance_id}]: viz_clients={has_clients}"
-                                    )
-                    except Exception as e:
-                        logger.debug(f"Could not notify burst engine FQ samplers: {e}")
-
-                    # Try to get connectome manager and its FQ samplers
-                    try:
-                        connectome_manager = core_api.get_connectome_manager()
-                        if connectome_manager and hasattr(
-                            connectome_manager, "fq_sampler"
-                        ):
-                            if hasattr(
-                                connectome_manager.fq_sampler,
-                                "set_visualization_subscribers",
-                            ):
-                                instance_id = getattr(
-                                    connectome_manager.fq_sampler,
-                                    "instance_id",
-                                    "unknown",
-                                )
-
-                                # CRITICAL FIX: Skip if already notified by Process Manager
-                                if instance_id not in notified_instance_ids:
-                                    connectome_manager.fq_sampler.set_visualization_subscribers(
-                                        has_clients
-                                    )
-                                    logger.info(
-                                        f"🧠 Notified legacy connectome FQ sampler [{instance_id}]: viz_clients={has_clients}"
-                                    )
-                                else:
-                                    logger.debug(
-                                        f"🔄 Skipping connectome FQ sampler [{instance_id}] - already notified by Process Manager"
-                                    )
-                    except Exception as e:
-                        logger.debug(f"Could not notify connectome FQ samplers: {e}")
-
-        except Exception as e:
-            logger.debug(f"Error finding legacy FQ samplers: {e}")
 
     def _update_state_manager(self) -> None:
         """Update State Manager with current agent registry."""
