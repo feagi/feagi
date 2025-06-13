@@ -221,9 +221,10 @@ def compare_backends(
         pass
 
     try:
-        import cupy
+        import importlib.util
 
-        backends_to_test.append(BackendType.CUPY)
+        if importlib.util.find_spec("cupy") is not None:
+            backends_to_test.append(BackendType.CUPY)
     except ImportError:
         pass
 
@@ -278,7 +279,7 @@ def print_results(results: Dict[str, Dict[str, float]]):
     # Print results for each operation
     for op in operations:
         row = op.ljust(30)
-        for backend, backend_results in results.items():
+        for _backend, backend_results in results.items():
             if op in backend_results:
                 row += f"{backend_results[op]:.6f}".ljust(15)
             else:

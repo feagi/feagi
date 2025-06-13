@@ -78,7 +78,8 @@ def benchmark_standard_vs_gpu(num_neurons=10000, num_synapses=100000):
     # Convert to GPU-optimized ConnectomeManager
     print("\nConverting to GPU-optimized ConnectomeManager...")
     start_time = time.time()
-    gpu_cm = std_cm.to_gpu_optimized()
+    # gpu_cm = std_cm.to_gpu_optimized()  # Unused variable removed
+    std_cm.to_gpu_optimized()
     gpu_conversion_time = time.time() - start_time
     print(f"GPU conversion time: {gpu_conversion_time:.2f} seconds")
 
