@@ -346,7 +346,7 @@ def check_monitoring_available(
     Monitoring endpoints might work even without a full genome/connectome.
     """
     # Even without a genome, we should be able to monitor system stats
-    state_manager = get_state_manager()
+    # state_manager = get_state_manager()  # Unused variable removed
 
     # Check if basic monitoring is available
     try:

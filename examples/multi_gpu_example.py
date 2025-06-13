@@ -75,7 +75,7 @@ def create_test_brain(connectome, num_neurons=10_000, density=0.01):
     neuron_ids = []
 
     for _i, area in enumerate(areas):
-        for j in range(neurons_per_area):
+        for _j in range(neurons_per_area):
             # Create a position within the area's dimensions
             position = [
                 np.random.randint(0, area.dimensions[0]),
@@ -341,7 +341,7 @@ def main():
                     ArrayBackend(backend_type)
                     if ArrayBackend._is_backend_available(backend_type):
                         backends.append(backend_type)
-                except:
+                except Exception:
                     pass
     elif args.backend:
         # Use specified backend

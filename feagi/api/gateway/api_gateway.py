@@ -359,7 +359,7 @@ class APIGateway:
                 # For FCP, route based on command type
                 if isinstance(message, dict):
                     command_type = message.get("command_type")
-                    payload = message.get("payload", {})
+                    # payload = message.get("payload", {})  # Unused variable removed
 
                     if command_type == 1:  # REGISTER
                         # Handle registration via CoreAPIService

@@ -41,6 +41,9 @@ __all__ = [
     "CorticalMapping",
     "SynaptogenesisRule",
     "SynapseRule",
+    # Mapping utilities
+    "build_power_connections",
+    "get_detailed_cortical_map",
     # Neuroembryogenesis
     "NeuroEmbryogenesis",
 ]
