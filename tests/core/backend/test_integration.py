@@ -21,9 +21,7 @@ Tests for the integration between ResourceManager and backend selection.
 import unittest
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from feagi.core.backend import BackendType, get_available_backends, get_backend
+from feagi.core.backend import BackendType, get_available_backends
 from feagi.core.backend.interface import determine_best_backend
 from feagi.core.resource_mgr import ResourceManager
 

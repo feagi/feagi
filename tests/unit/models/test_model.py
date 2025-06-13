@@ -16,7 +16,6 @@ limitations under the License.
 
 """Tests for the FEAGI Model class."""
 import numpy as np
-import pytest
 
 from feagi.models.model import Model
 

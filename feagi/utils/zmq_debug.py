@@ -38,7 +38,7 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Set, Union
 
 from feagi.utils.logger import setup_logger
 

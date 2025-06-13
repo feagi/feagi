@@ -21,15 +21,11 @@ This module contains tests focused specifically on comprehensive coverage
 of the run_with_fire_queue method in the BurstEngine class.
 """
 
-import signal
 import sys
-import threading
-import time
-from unittest.mock import ANY, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from feagi.core.state_manager import FeagiStateManager
 from feagi.npu.burst_engine import BurstEngine, ServiceState
 from feagi.utils.logger import setup_logger
 

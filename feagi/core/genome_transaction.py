@@ -21,7 +21,7 @@ import time
 import uuid
 from contextlib import contextmanager
 
-from feagi.core.state_manager import GenomeState, ServiceState
+from feagi.core.state_manager import GenomeState
 
 
 class GenomeTransaction:

@@ -6,7 +6,7 @@ performance for neural data transmission.
 """
 
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import zmq
 
@@ -173,7 +173,6 @@ class WindowsOptimizer(PlatformOptimizer):
         """Apply Windows-specific optimizations."""
         try:
             # Windows-specific socket options
-            import socket as pysocket
 
             # Set socket to non-blocking mode explicitly
             if hasattr(socket, "FD"):

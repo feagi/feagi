@@ -19,12 +19,9 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 import copy
-import datetime
-import os
 import traceback
 from time import time
 
-from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.core.state_manager import FeagiStateManager, GenomeState
 from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_validator import genome_validator
@@ -324,7 +321,7 @@ def genome_2_1_convertor(flat_genome):
                                                     temp_dict["ltd_multiplier"] = (
                                                         mapping_recipe[6]
                                                     )
-                                                except Exception as e:
+                                                except Exception:
                                                     temp_dict["plasticity_constant"] = 1
                                                     temp_dict["ltp_multiplier"] = 1
                                                     temp_dict["ltd_multiplier"] = 1

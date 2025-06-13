@@ -18,11 +18,8 @@ limitations under the License.
 Tests for FEAGI resource management functionality.
 """
 
-import multiprocessing
-import os
 from unittest.mock import MagicMock, patch
 
-import psutil
 import pytest
 
 
@@ -121,7 +118,7 @@ def test_resource_manager_process_management():
     NOTE: This test is skipped because it requires complex mocking
     of the multiprocessing functionality to test properly.
     """
-    from feagi.core.resource_mgr import ProcessInfo, ResourceManager
+    from feagi.core.resource_mgr import ResourceManager
 
     # Use get_instance() instead of direct instantiation
     manager = ResourceManager.get_instance()

@@ -37,12 +37,8 @@ This stream does NOT handle:
 """
 
 import asyncio
-import json
-import logging
-import threading
 import time
-import uuid
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 # CRITICAL FIX: Import numpy at module level to prevent scoping issues
 import numpy as np
@@ -404,13 +400,13 @@ class MotorStream:
                             f"MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes for area {area_id}"
                         )
                         logger.debug(
-                            f"   High-performance NumPy approach used (neuron_c pattern)"
+                            "   High-performance NumPy approach used (neuron_c pattern)"
                         )
                         logger.debug(
                             f"   First 8 bytes: {list(binary_data[: min(8, len(binary_data))])}"
                         )
                         logger.debug(
-                            f"   ✅ Generated using NeuronXYZPArrays.new_from_numpy() - high performance!"
+                            "   ✅ Generated using NeuronXYZPArrays.new_from_numpy() - high performance!"
                         )
 
                     await self._send_motor_binary_data(binary_data, channel=area_id)
@@ -436,7 +432,7 @@ class MotorStream:
                 data=[channel.encode("utf-8"), binary_data],
                 message_type=MessageType.MOTOR,
                 topic=channel,
-                context=f"motor_cmd",
+                context="motor_cmd",
             )
 
             # Send data on specified motor channel
@@ -483,7 +479,7 @@ class MotorStream:
                 data=[channel_id.encode("utf-8"), data],
                 message_type=MessageType.MOTOR,
                 topic=channel_id,
-                context=f"external_motor_cmd",
+                context="external_motor_cmd",
             )
 
             # Send multipart message with topic (channel_id) and data

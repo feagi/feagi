@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 """Bridge module for Python to Rust functions."""
-from typing import List, Optional, Union
+from typing import List, Union
 
 import numpy as np
 

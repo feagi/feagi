@@ -25,10 +25,8 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 """
 
 import json
-import os
-import tempfile
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from fastapi import HTTPException, UploadFile
 from pydantic import BaseModel
@@ -43,7 +41,6 @@ from .schemas import (
     AmalgamationResponse,
     CircuitLibraryResponse,
     CorticalTemplateResponse,
-    ErrorResponse,
     GenomeDefaultFilesResponse,
     GenomeDownloadResponse,
     GenomeFileNameResponse,

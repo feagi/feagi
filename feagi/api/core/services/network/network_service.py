@@ -16,7 +16,7 @@ limitations under the License.
 
 """Network service for managing FEAGI network operations."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from ..shared.base_service import BaseService
 

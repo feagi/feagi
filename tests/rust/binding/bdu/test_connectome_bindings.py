@@ -21,7 +21,6 @@ These tests verify that the Rust implementation of ConnectomeManager
 can be correctly accessed from Python through bindings.
 """
 
-import numpy as np
 import pytest
 
 # Import both Python and Rust implementations

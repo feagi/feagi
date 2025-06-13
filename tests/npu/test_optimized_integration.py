@@ -22,10 +22,8 @@ with the rest of the FEAGI codebase, including fallback to pure Python implement
 when the optimized versions are not available.
 """
 
-from typing import Dict
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 
 # Import the module to test
@@ -34,7 +32,6 @@ from feagi.npu.optimized_integration import (
     create_optimized_core,
     get_core_property,
     get_membrane_potential,
-    propagate_activations,
     set_core_property,
     set_membrane_potential,
     step_simulation,

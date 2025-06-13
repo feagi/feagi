@@ -21,14 +21,7 @@ Test script for the SharedMemoryFEAGIGateway
 
 import logging
 import multiprocessing
-import os
-import sys
 import tempfile
-import threading
-import time
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 # Configure logging
 logging.basicConfig(
@@ -36,12 +29,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("test_shared_memory")
 
-from feagi.api.shared_memory.data_structures import SharedConfigDict
-from feagi.api.shared_memory.events import EventNotificationSystem, EventType
 
 # Import shared memory components
 from feagi.api.shared_memory.feagi_gateway import SharedMemoryFEAGIGateway
-from feagi.api.shared_memory.manager import SharedMemoryManager
 
 
 def test_basic_initialization():
@@ -96,7 +86,6 @@ def reader_process(temp_dir, result_queue, ready_event):
         import time
 
         logging.basicConfig(level=logging.INFO)
-        from feagi.api.shared_memory.feagi_gateway import SharedMemoryFEAGIGateway
 
         print("Reader process started", file=sys.stderr)
 
@@ -144,7 +133,6 @@ def writer_process(temp_dir, ready_event):
         # This is a fresh process, so we need all imports
         import logging
         import sys
-        import time
 
         logging.basicConfig(level=logging.INFO)
 

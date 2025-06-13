@@ -22,14 +22,12 @@ high code coverage, including GlobalNeuronArray, FireCandidateList,
 Connectome, and OptimizedFeagiCore classes with both Rust and NumPy implementations.
 """
 
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
 from feagi.npu.optimized_structures import (
-    RUST_AVAILABLE,
     Connectome,
     FireCandidateList,
     GlobalNeuronArray,

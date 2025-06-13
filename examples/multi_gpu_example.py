@@ -35,7 +35,7 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
-from feagi.bdu.models.array_backend import ArrayBackend, BackendType, PrecisionType
+from feagi.bdu.models.array_backend import ArrayBackend, BackendType
 from feagi.bdu.models.cortical_area import CorticalArea, CorticalFunction
 from feagi.bdu.multi_gpu import MultiGPUConfig, PartitionMethod
 
@@ -199,7 +199,7 @@ def run_simulation(connectome, input_neurons, num_timesteps=100):
 
     # Calculate statistics
     elapsed_time = time.time() - start_time
-    logger.info(f"Simulation complete")
+    logger.info("Simulation complete")
     logger.info(f"  Total time: {elapsed_time:.2f} seconds")
     logger.info(f"  Total fired: {total_fired} neurons")
     logger.info(
@@ -298,7 +298,7 @@ def run_comparison(num_neurons=10_000, density=0.01, num_timesteps=100, backends
             logger.info(f"  Multi-GPU:  {result['multi_gpu']:.2f} seconds")
             logger.info(f"  Speedup:    {result['speedup']:.2f}x")
         else:
-            logger.info(f"  Multi-GPU:  Not available")
+            logger.info("  Multi-GPU:  Not available")
 
 
 def main():

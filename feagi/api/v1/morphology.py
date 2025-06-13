@@ -32,12 +32,9 @@ from feagi.utils.logger import setup_logger
 from .decorators import endpoint
 from .schemas import (
     CreateMorphologyRequest,
-    ErrorResponse,
     MorphologyInfoResponse,
     MorphologyListResponse,
     MorphologyNameRequest,
-    MorphologyPropertiesResponse,
-    MorphologyUsageResponse,
     SuccessResponse,
     UpdateMorphologyRequest,
 )

@@ -12,9 +12,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
-"""Example demonstrating the use of different array backends with ConnectomeManagerGPU.
+Example demonstrating the use of different array backends with ConnectomeManagerGPU.
 
 This script creates a simple neural network and compares the performance of
 different array backends (NumPy, PyTorch, CuPy, WebGPU) for common operations.
@@ -23,7 +22,7 @@ different array backends (NumPy, PyTorch, CuPy, WebGPU) for common operations.
 import argparse
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Dict
 
 import numpy as np
 

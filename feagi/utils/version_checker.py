@@ -30,7 +30,7 @@ import importlib.metadata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from packaging import specifiers, version
+from packaging import specifiers
 
 
 class VersionMismatchError(Exception):

@@ -38,7 +38,6 @@ For full documentation, see: feagi_core/feagi/utils/test_mode/README.md
 This legacy module will be removed in a future version.
 """
 
-import logging
 import warnings
 
 from feagi.utils.logger import setup_logger

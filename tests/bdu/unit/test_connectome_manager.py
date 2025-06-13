@@ -21,14 +21,9 @@ These tests focus on verifying the correctness of ConnectomeManager functionalit
 with minimal resource usage for fast execution during development.
 """
 
-import numpy as np
 import pytest
 
-from feagi.bdu.connectome_manager import (
-    ConnectomeManager,
-    CorticalArea,
-    NeuronPropertyType,
-)
+from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
 from feagi.utils.config import FeagiConfig
 
 

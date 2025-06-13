@@ -23,7 +23,7 @@ for common operations in FEAGI, including neuron updates and synaptic propagatio
 import argparse
 import logging
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -403,13 +403,13 @@ def run_benchmarks(config: BenchmarkConfig) -> Dict[str, Dict[str, List[float]]]
                 data = setup_benchmark_data(config, neuron_count, backend)
 
                 # Neuron update benchmark
-                logger.info(f"    Running neuron update benchmark")
+                logger.info("    Running neuron update benchmark")
                 neuron_time = benchmark_neuron_update(config, data, backend)
                 results["neuron_update"][backend_type.value].append(neuron_time)
                 logger.info(f"    Neuron update: {neuron_time:.6f} seconds")
 
                 # Synapse propagation benchmark
-                logger.info(f"    Running synapse propagation benchmark")
+                logger.info("    Running synapse propagation benchmark")
                 synapse_time = benchmark_synapse_propagation(config, data, backend)
                 results["synapse_propagation"][backend_type.value].append(synapse_time)
                 logger.info(f"    Synapse propagation: {synapse_time:.6f} seconds")

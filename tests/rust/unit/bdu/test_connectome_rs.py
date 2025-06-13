@@ -23,10 +23,8 @@ not through the Python bindings.
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 # Skip all tests if Rust is not available

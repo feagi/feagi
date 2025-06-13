@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 """Tests for the FEAGI core functionality."""
-import pytest
 
 from feagi.core.feagi import FEAGI
 

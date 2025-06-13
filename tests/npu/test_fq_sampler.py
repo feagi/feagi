@@ -20,13 +20,11 @@ Tests for the FQ Sampler.
 This module contains tests for the FQSampler class from feagi.npu.burst_engine.
 """
 
-import logging
-import threading
 import time
 import types
 import unittest
-from queue import Empty, Full, Queue
-from unittest.mock import MagicMock, Mock, call, patch
+from queue import Queue
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 

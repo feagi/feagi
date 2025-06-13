@@ -24,7 +24,6 @@ retrieval, update, deletion, and plasticity rules.
 
 import os
 import sys
-from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pytest

@@ -23,9 +23,7 @@ on port 5570 to help diagnose visualization connection issues.
 """
 
 import logging
-import os
 import random
-import sys
 import time
 
 import zmq

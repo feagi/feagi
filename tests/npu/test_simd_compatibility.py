@@ -28,8 +28,7 @@ this provides comprehensive validation of SIMD features.
 import platform
 import subprocess
 import time
-from typing import Dict, List, Optional, Tuple
-from unittest.mock import Mock, patch
+from typing import Dict, List
 
 import numpy as np
 import psutil

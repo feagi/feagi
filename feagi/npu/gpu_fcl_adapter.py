@@ -25,20 +25,13 @@ is available.
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Dict, List, Optional, Set, Union
 
 import numpy as np
 
-from feagi.core.backend import BackendType, get_backend
+from feagi.core.backend import get_backend
 from feagi.core.backend.interface import BackendInterface
-from feagi.npu.fcl_manager import (
-    BitMap,
-    BitMapProtocol,
-    CorticalIdx,
-    FCLManager,
-    MembraneUpdate,
-    NeuronId,
-)
+from feagi.npu.fcl_manager import BitMap, CorticalIdx, FCLManager
 
 
 class GPUBitMap:
@@ -383,7 +376,6 @@ def create_gpu_accelerated_fcl(window_size: int = 20):
         An FCL manager instance that uses GPU acceleration if available,
         otherwise returns a standard FCL manager.
     """
-    from feagi.npu.fcl_manager import FCLManager
 
     # Check if GPU backend is available
     backend = get_backend()
@@ -425,7 +417,6 @@ class GPUAcceleratedFCL:
             backend: GPU backend to use for operations
             default_window_size: Default window size for FCL history
         """
-        from feagi.npu.fcl_manager import FCLManager
 
         # Get backend if not provided
         self.backend = backend or get_backend()

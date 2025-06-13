@@ -22,13 +22,12 @@ high code coverage, including special area detection, configuration, caching,
 and statistics.
 """
 
-import time
 from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
-from feagi.npu.special_area_handler import SpecialAreaConfig, SpecialAreaHandler
+from feagi.npu.special_area_handler import SpecialAreaHandler
 
 
 class MockCorticalArea:

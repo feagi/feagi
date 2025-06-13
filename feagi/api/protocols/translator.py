@@ -31,10 +31,8 @@ to use the appropriate structure version. This allows for backward and
 forward compatibility between clients and servers with different versions.
 """
 
-import asyncio
 import json
 import logging
-import struct
 import time
 import zlib
 from typing import Any, Dict, List, Optional, Union

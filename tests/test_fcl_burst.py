@@ -29,7 +29,6 @@ import sys
 import threading
 import time
 from queue import Queue
-from typing import Any, Dict, List, Set
 
 import zmq
 
@@ -41,7 +40,7 @@ from feagi.api.zmq.streams.visualization import VisualizationStream
 
 # Import FEAGI components
 from feagi.npu.burst_engine import BurstEngine, UnifiedFQSampler
-from feagi.npu.fcl_manager import BitMap, FCLManager
+from feagi.npu.fcl_manager import FCLManager
 from feagi.utils.logger import setup_logger
 
 # Set up logging
@@ -68,7 +67,7 @@ class MockConnectomeManager:
     def _setup_test_neurons(self):
         # Create test neurons for each area
         neuron_id_counter = 1
-        for area_id, area in self.cortical_areas.items():
+        for area_id, _area in self.cortical_areas.items():
             for i in range(20):
                 neuron_id = neuron_id_counter
                 neuron_id_counter += 1
@@ -93,7 +92,7 @@ class MockConnectomeManager:
         fired_neurons = []
         neurons_by_cortical = {}
 
-        for area_id, area in self.cortical_areas.items():
+        for area_id, _area in self.cortical_areas.items():
             area_neurons = [
                 n
                 for n in self.neuron_positions.keys()
@@ -201,7 +200,7 @@ async def run_test():
 
     # Monkey-patch the send_visualization_data method to use the "activity" topic
     # This is needed because the test_viz_agent.py is subscribing to "activity"
-    original_send_viz_data = viz_stream.send_visualization_data
+    # original_send_viz_data = viz_stream.send_visualization_data  # Unused variable removed
 
     async def patched_send_viz_data(data: bytes) -> None:
         """Patched version that sends on 'activity' topic instead of 'fcl'"""
@@ -269,14 +268,14 @@ async def run_test():
                     ]
                 )
                 await viz_stream.socket.send_multipart([b"activity", test_data])
-                print(f"VISUALIZATION STREAM: Sent test activity data")
+                print("VISUALIZATION STREAM: Sent test activity data")
 
                 # Let's also send a detailed debug info message about our socket
                 if hasattr(viz_stream.socket, "getsockopt"):
                     try:
                         debug_info = {
                             "type": "PUB",
-                            "bound_to": f"tcp://*:{port}",
+                            "bound_to": f"tcp://*:{viz_stream.port}",
                             "linger": viz_stream.socket.getsockopt(zmq.LINGER),
                             "hwm": viz_stream.socket.getsockopt(zmq.SNDHWM),
                             "time": time.time(),
@@ -285,7 +284,7 @@ async def run_test():
                         await viz_stream.socket.send_multipart(
                             [b"system", debug_msg.encode("utf-8")]
                         )
-                        print(f"VISUALIZATION STREAM: Sent socket debug info")
+                        print("VISUALIZATION STREAM: Sent socket debug info")
                     except Exception as e:
                         print(
                             f"VISUALIZATION STREAM: Error getting socket debug info: {e}"
@@ -296,7 +295,7 @@ async def run_test():
             await asyncio.sleep(2.0)  # Send every 2 seconds
 
     # Start welcome message task
-    welcome_task = asyncio.create_task(send_welcome_messages())
+    # welcome_task = asyncio.create_task(send_welcome_messages())  # Unused variable removed
 
     # Run the burst engine for some cycles
     logger.info("Running burst engine for 60 seconds...")

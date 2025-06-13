@@ -22,7 +22,6 @@ isn't covered by the simple tests, including error handling, temporal patterns,
 memory corticals, and statistical methods.
 """
 
-from unittest.mock import Mock, patch
 
 import pytest
 
@@ -426,14 +425,14 @@ def test_example_functions():
     # These functions might have issues, so let's test them more carefully
     try:
         example_fcl_usage()
-    except Exception as e:
+    except Exception:
         # If there are issues in the example functions, we can skip them
         # since they're not critical for coverage
         pass
 
     try:
         example_enhanced_fcl_usage()
-    except Exception as e:
+    except Exception:
         # Same for enhanced example
         pass
 

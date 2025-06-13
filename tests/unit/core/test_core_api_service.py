@@ -18,7 +18,6 @@ limitations under the License.
 
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 
 from feagi.api.core.services.core_api_service import CoreAPIService

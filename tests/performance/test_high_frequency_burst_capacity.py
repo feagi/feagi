@@ -13,18 +13,14 @@ Test objectives:
 4. Generate performance curves for different neuron counts
 """
 
-import json
-import statistics
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pytest
 
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.core.state_manager import FeagiStateManager
 from feagi.npu.burst_engine import BurstEngine
 from feagi.utils.logger import setup_logger
 
@@ -577,7 +573,7 @@ class HighFrequencyBurstCapacityTest:
                 memory_gb = max_result.get("estimated_memory_10m_gb", 0)
 
                 report.append("")
-                report.append(f"🔮 SCALABILITY TO 10M TARGET:")
+                report.append("🔮 SCALABILITY TO 10M TARGET:")
                 report.append(f"   Estimated time at 10M: {est_time_10m:.1f}ms")
                 report.append(
                     f"   Within time budget: {'✅ YES' if feasible else '❌ NO'}"

@@ -21,13 +21,10 @@ This module provides complete test coverage for both FCLManager and EnhancedFCLM
 classes in the feagi.npu.fcl_manager module.
 """
 
-import time
-from queue import Queue
-from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from feagi.npu.fcl_manager import BitMap, CorticalIdx, EnhancedFCLManager, FCLManager
+from feagi.npu.fcl_manager import EnhancedFCLManager, FCLManager
 
 
 @pytest.fixture

@@ -21,17 +21,12 @@ This module provides complete test coverage for the optimized data structures
 defined in feagi.npu.optimized_structures for both CPU and mocked Rust implementations.
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
-from feagi.npu.optimized_structures import (
-    Connectome,
-    FireCandidateList,
-    GlobalNeuronArray,
-    OptimizedFeagiCore,
-)
+from feagi.npu.optimized_structures import FireCandidateList, GlobalNeuronArray
 
 
 class MockRustGNA:

@@ -33,14 +33,13 @@ from feagi.utils.logger import setup_logger
 logger = setup_logger(__name__)
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 import zmq
 import zmq.asyncio
 
 from ...core.services.core_api_service import CoreAPIService
 from ...utils.auth import validate_token
-from ..rest_adapter import ZMQRestAPIAdapter
 from ..serialization import deserialize_message, serialize_message
 
 

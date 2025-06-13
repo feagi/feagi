@@ -22,11 +22,9 @@ performance-critical components to Rust.
 """
 import importlib.util
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
-
-from feagi.utils.logger import setup_logger
 
 logger = logging.getLogger("feagi.rust.bindings")
 

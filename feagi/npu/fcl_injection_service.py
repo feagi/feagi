@@ -33,11 +33,11 @@ This service implements the unified FCL candidate model:
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List
 
 import numpy as np
 
-from feagi.npu.special_area_handler import CorticalId, NeuronId, SpecialAreaHandler
+from feagi.npu.special_area_handler import CorticalId, NeuronId
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
@@ -448,8 +448,8 @@ class FCLInjectionService:
             # REQUIREMENT: FCL manager MUST have update_fcl method - no fallbacks allowed
             if not hasattr(self.fcl_manager, "update_fcl"):
                 raise RuntimeError(
-                    f"FCL manager does not have required update_fcl method. "
-                    f"FCL injection requires proper cortical area mapping for FQ sampler compatibility."
+                    "FCL manager does not have required update_fcl method. "
+                    "FCL injection requires proper cortical area mapping for FQ sampler compatibility."
                 )
 
             # Get the correct cortical_idx for this cortical_id
@@ -636,11 +636,11 @@ class FCLInjectionService:
                                     )
                         else:
                             logger.warning(
-                                f"NeuronArray does not support set_neuron_property method - external neurons may not fire"
+                                "NeuronArray does not support set_neuron_property method - external neurons may not fire"
                             )
                     else:
                         logger.warning(
-                            f"ConnectomeManager or neuron_array not available - external neurons may not fire"
+                            "ConnectomeManager or neuron_array not available - external neurons may not fire"
                         )
 
                     # Create injection batch for this area

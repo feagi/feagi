@@ -10,7 +10,7 @@ This module provides the critical (Priority 1) components of the FEAGI framework
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 def create_core_api(connectome, config: Dict[str, Any] = None):
@@ -40,7 +40,7 @@ def create_core_api(connectome, config: Dict[str, Any] = None):
         config = {}
 
     # Get GPU settings
-    use_gpu = config.get("core", {}).get("use_gpu", False)
+    # use_gpu = config.get("core", {}).get("use_gpu", False)  # Unused variable removed
 
     # Create the CoreAPIService wrapper around the FEAGI core
     core_api = CoreAPIService(connectome)

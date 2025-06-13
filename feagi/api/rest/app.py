@@ -26,24 +26,19 @@ logger = setup_logger(name="api__server")
 logger.info("...")
 import json
 from pathlib import Path
-from threading import Thread
 from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from feagi.api.core.services.core_api_service import CoreAPIService
-
 # Remove the old router imports - no longer needed since we use universal wrapper directly
 from feagi.api.dependencies import *
 from feagi.api.models import *
-from feagi.api.rest.dependencies import get_connectome
 
 # Import the universal FastAPI wrapper directly instead of individual router files
 from feagi.api.transport.universal_fastapi import (
@@ -74,11 +69,9 @@ from feagi.core.state_manager import FeagiStateManager, ServiceState
 
 from .commons import (
     CustomError,
-    api_queue,
     check_active_genome,
     check_brain_running,
     check_burst_engine,
-    check_burst_engine_or_allow_config_ops,
     check_burst_engine_or_allow_genome_ops,
 )
 from .config import settings

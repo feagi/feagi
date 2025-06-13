@@ -27,7 +27,7 @@ data access patterns for maximum performance on CPU and GPU.
 """
 
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple
 
 import numpy as np
 

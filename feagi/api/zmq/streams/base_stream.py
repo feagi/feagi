@@ -275,7 +275,7 @@ class UnidirectionalStream(BaseZMQStream):
             # Atomic socket reference to prevent mid-operation changes
             socket_ref = socket
             if not socket_ref:
-                logger.debug(f"Socket became None during operation")
+                logger.debug("Socket became None during operation")
                 return None
 
             # Perform the operation

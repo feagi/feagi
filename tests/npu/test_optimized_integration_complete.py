@@ -22,13 +22,12 @@ feagi.npu.optimized_integration module, with a focus on the dict-based
 implementation path.
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
 
 from feagi.npu.optimized_integration import (
-    RUST_AVAILABLE,
     add_connection,
     create_optimized_core,
     get_core_property,

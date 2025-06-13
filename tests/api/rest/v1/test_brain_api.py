@@ -23,11 +23,8 @@ brain functionality and handles requests properly.
 They use the 'brain_state' test group to ensure appropriate mocking.
 """
 
-import json
-from unittest.mock import MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
 
 # Mark all tests in this module as belonging to the brain_state group
 pytestmark = [pytest.mark.api, pytest.mark.api_group("brain_state")]

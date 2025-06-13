@@ -20,8 +20,6 @@ Tests for the Hierarchical Fire Candidate List (FCL) Manager
 This module contains tests for the HierarchicalFCL class from feagi.npu.fcl_manager.
 """
 
-from collections import defaultdict
-from typing import Dict, List, Optional, Set
 
 import pytest
 
@@ -34,11 +32,10 @@ except ImportError:
 
 # Import the code to test, handling potential import errors
 try:
-    from feagi.npu.fcl_manager import (
+    from feagi.npu.fcl_manager import (  # MembraneUpdate,  # Unused import removed
         BitMap,
         EnhancedFCLManager,
         FCLManager,
-        MembraneUpdate,
         TimestepOutOfRangeError,
     )
 except ImportError:

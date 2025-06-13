@@ -30,13 +30,7 @@ from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 
 from .decorators import endpoint
-from .schemas import (
-    ErrorResponse,
-    NeuroplasticityRulesResponse,
-    NeuroplasticityStatsResponse,
-    SuccessResponse,
-    UpdateNeuroplasticityRequest,
-)
+from .schemas import SuccessResponse
 
 logger = setup_logger(__name__)
 

@@ -18,27 +18,13 @@ limitations under the License.
 Tests for the ConnectomeManager implementation.
 """
 
-import logging
 import os
-import pickle
-import sys
 import tempfile
-import threading
-import time
 import unittest
-import uuid
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
 
-from feagi.bdu.connectome_manager import (
-    ConnectomeManager,
-    CorticalArea,
-    NeuronPropertyType,
-)
-from feagi.utils.config import FeagiConfig
+from feagi.bdu.connectome_manager import ConnectomeManager
 
 
 class TestConnectomeManager(unittest.TestCase):

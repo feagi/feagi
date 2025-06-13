@@ -22,8 +22,7 @@ import pytest
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.core.genome_transaction import GenomeTransaction
-from feagi.core.state_manager import FeagiStateManager, GenomeState, ServiceState
+from feagi.core.state_manager import FeagiStateManager
 
 
 @pytest.fixture

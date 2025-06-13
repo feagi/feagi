@@ -71,7 +71,7 @@ def construct_genome_from_region(region_id):
             area_list.update(set(direct_region_cortical_areas(sub_region_id)))
         return area_list
 
-    region_cortical_list = direct_region_cortical_areas(region_id)
+    # region_cortical_list = direct_region_cortical_areas(region_id)  # Unused variable removed
     comprehensive_subregion_list = recursive_sub_regions(region_id)
     comprehensive_area_list = recursive_region_cortical_areas(region_id)
 

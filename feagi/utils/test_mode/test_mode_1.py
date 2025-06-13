@@ -6,9 +6,7 @@ test_mode_activations.json for predictable neuron injection.
 """
 
 import json
-import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from feagi.utils.logger import setup_logger
 
@@ -184,12 +182,12 @@ class TestMode1Handler:
                 self.valid_areas_count = valid_areas
                 self.total_neurons_to_activate = total_neurons
 
-                logger.info(f"✅ Predictable neuron injection enabled:")
+                logger.info("✅ Predictable neuron injection enabled:")
                 logger.info(
                     f"   📊 {valid_areas} cortical areas with {total_neurons} total neurons to activate"
                 )
                 logger.info(
-                    f"   🎯 Will inject ONLY these neurons (no random selection)"
+                    "   🎯 Will inject ONLY these neurons (no random selection)"
                 )
                 return True
             else:

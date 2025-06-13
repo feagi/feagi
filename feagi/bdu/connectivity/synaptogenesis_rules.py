@@ -28,24 +28,10 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 import random
-import traceback
 from enum import Enum
-from math import prod
 from random import randrange
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
-import numpy as np
 from sympy import sympify
 
 # Import bitmap implementation for efficient set operations
@@ -554,7 +540,7 @@ def syn_expander_x(
         src_area_id not in connectome_manager._areas
         or dst_area_id not in connectome_manager._areas
     ):
-        logger.error(f"Source or destination area not found")
+        logger.error("Source or destination area not found")
         return set()
 
     src_area = connectome_manager._areas[src_area_id]

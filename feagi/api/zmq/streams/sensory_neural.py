@@ -6,10 +6,9 @@ with pre-allocated buffers and platform-specific optimizations.
 """
 
 import asyncio
-import logging
 import time
 from enum import IntEnum
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 import zmq
@@ -18,14 +17,8 @@ import zmq.asyncio
 from feagi.utils.logger import setup_logger
 from feagi.utils.zmq_debug import MessageType, log_inbound
 
-from ..memory import Buffer, NeuralBufferPool
-from ..neural import (
-    BufferSlot,
-    NeuralDataHeader,
-    NeuralProtocolID,
-    ZeroCopyRingBuffer,
-    parse_header,
-)
+from ..memory import NeuralBufferPool
+from ..neural import NeuralDataHeader, NeuralProtocolID, ZeroCopyRingBuffer
 from ..platform import optimize_socket_for_neural_data
 
 logger = setup_logger()

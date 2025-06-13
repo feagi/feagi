@@ -19,7 +19,7 @@ from feagi.api.shared_memory.events import (
     EventPriority,
     EventType,
 )
-from feagi.core.state_manager import GenomeState, ServiceState
+from feagi.core.state_manager import ServiceState
 from feagi.process_manager import ProcessManager
 
 

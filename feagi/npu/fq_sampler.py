@@ -41,10 +41,9 @@ import threading
 import time
 import traceback
 import uuid  # Add UUID import for unique instance IDs
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -231,7 +230,7 @@ class UnifiedFQSampler:
             # Get target areas based on strategy
             target_areas = self._get_target_areas()
             if not target_areas:
-                logger.debug(f"🔥 FQ SAMPLER: No target areas found for sampling")
+                logger.debug("🔥 FQ SAMPLER: No target areas found for sampling")
                 return None
 
             # High-performance sampling with zero-copy operations
@@ -282,7 +281,7 @@ class UnifiedFQSampler:
 
         if not self.fire_queue_provider:
             logger.info(
-                f"🔥 FQ SAMPLER: No fire queue provider available for visualization areas"
+                "🔥 FQ SAMPLER: No fire queue provider available for visualization areas"
             )
             return []
 
@@ -420,9 +419,7 @@ class UnifiedFQSampler:
         # Refresh cache with optimized lookup
         opu_areas = []
         if not self.connectome_manager:
-            logger.debug(
-                f"🔥 FQ SAMPLER: No connectome manager available for OPU areas"
-            )
+            logger.debug("🔥 FQ SAMPLER: No connectome manager available for OPU areas")
             self._opu_areas_cache = []
             self._cache_timestamp = current_time
             return []
@@ -667,8 +664,6 @@ class UnifiedFQSampler:
         self._has_visualization_subscribers = has_subscribers
 
         # Debug: Add stack trace to identify caller with more detailed info
-        import threading
-        import traceback
 
         # Get just the immediate caller (2 levels up)
         stack = traceback.extract_stack()

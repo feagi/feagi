@@ -20,8 +20,6 @@ Test module for mapping utility functions.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from feagi.bdu.connectivity.mapping_utils import (
     build_power_connections,
     get_detailed_cortical_map,
@@ -144,7 +142,7 @@ def test_build_power_connections(mock_state_manager):
         assert call_args["dst_cortical_area"] == "target_area"
 
         # Check that the morphology was created in the genome
-        morphology_name = f"system-___pwr-target_area"
+        morphology_name = "system-___pwr-target_area"
         assert morphology_name in mock_instance.genome["neuron_morphologies"]
 
         # Check patterns in the morphology
@@ -217,5 +215,5 @@ def test_build_power_connections_new_area(mock_state_manager):
         connectome.update_cortical_mappings.assert_called_once()
 
         # Check that a pattern was created
-        morphology_name = f"system-___pwr-new_area"
+        morphology_name = "system-___pwr-new_area"
         assert morphology_name in mock_instance.genome["neuron_morphologies"]

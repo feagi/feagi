@@ -28,18 +28,12 @@ pytest.skip(
 
 import json
 import struct
-import time
 
 # Original imports and tests below - kept for reference
 import unittest
-from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
-from feagi.api.protocols.base import (
-    ProtocolManager,
-    ProtocolRegistry,
-    VersionedProtocol,
-)
+from feagi.api.protocols.base import ProtocolManager, ProtocolRegistry
 from feagi.api.protocols.fcp import FCPCommandType, FCPv1
 
 

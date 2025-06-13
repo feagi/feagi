@@ -16,7 +16,7 @@ limitations under the License.
 
 """Tests for the ConnectomeService class."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

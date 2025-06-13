@@ -21,15 +21,12 @@ This module provides fixtures for testing the FEAGI REST API,
 including mocks for the connectome manager, core API service, etc.
 """
 
-import json
 import logging
 import os
-import sys
 import tempfile
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
-from unittest.mock import MagicMock, create_autospec, patch
+from typing import Callable, Dict, Optional
+from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 from fastapi import FastAPI
 
@@ -250,17 +247,9 @@ async def async_mock(*args, **kwargs):
     return MagicMock()
 
 
-from feagi.api.core.services.core_api_service import CoreAPIService
-
 # Import needed components including create_rest_app before it's needed
 from feagi.api.rest.app import create_rest_app
-from feagi.api.rest.dependencies import (
-    get_connectome,
-    get_core_api,
-    set_connectome_instance,
-    set_core_api_service,
-)
-from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.api.rest.dependencies import get_connectome, get_core_api
 
 # Configure test logging
 logging.basicConfig(level=logging.WARNING)

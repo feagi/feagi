@@ -175,7 +175,6 @@ class BurstEnginePerformanceMixin:
         Returns:
             Dictionary with measurement results including both actual and potential frequencies
         """
-        import statistics
         import time
 
         running = getattr(self, "_running", False)

@@ -6,7 +6,6 @@ Safely finds and terminates all FEAGI-related processes across platforms
 
 import argparse
 import os
-import signal
 import sys
 import time
 from typing import List, Tuple
@@ -72,7 +71,7 @@ def find_feagi_processes() -> List[Tuple[int, str]]:
             try:
                 proc_info = proc.info
                 pid = proc_info["pid"]
-                name = proc_info["name"]
+                # name = proc_info["name"]  # Unused variable removed
                 cmdline = proc_info["cmdline"]
 
                 if not cmdline:

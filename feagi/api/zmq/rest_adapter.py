@@ -44,13 +44,12 @@ This approach provides a unified API experience regardless of transport,
 ensuring identical behavior between HTTP and ZMQ clients.
 """
 
-import asyncio
 import inspect
 import json
 import os
 import time
 import traceback
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional
 
 from feagi.utils.logger import setup_logger
 
@@ -251,7 +250,7 @@ class ZMQRestAPIAdapter:
                 return {
                     "client_id": client_id,
                     "success": False,
-                    "message": f"Visualization disabled in embedded mode",
+                    "message": "Visualization disabled in embedded mode",
                     "embedded_mode": True,
                 }
 
@@ -313,7 +312,7 @@ class ZMQRestAPIAdapter:
                 )
                 return {
                     "success": False,
-                    "message": f"Visualization disabled in embedded mode",
+                    "message": "Visualization disabled in embedded mode",
                     "embedded_mode": True,
                 }
 
@@ -394,7 +393,7 @@ class ZMQRestAPIAdapter:
                 # Check if the visualization stream has the heartbeat method
                 if not hasattr(viz_stream, "heartbeat_visualization_client"):
                     logger.error(
-                        f"[ERR] Visualization stream does not have heartbeat_visualization_client method"
+                        "[ERR] Visualization stream does not have heartbeat_visualization_client method"
                     )
                     raise ValueError(
                         "Visualization stream heartbeat method not available"

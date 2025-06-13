@@ -16,7 +16,6 @@ limitations under the License.
 """
 
 """Test script for ZMQ client functionality."""
-import time
 
 
 def main():

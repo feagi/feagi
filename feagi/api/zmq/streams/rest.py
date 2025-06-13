@@ -39,7 +39,7 @@ import asyncio
 import json
 import time
 import uuid
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 import zmq
 import zmq.asyncio

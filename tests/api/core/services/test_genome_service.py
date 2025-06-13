@@ -18,7 +18,6 @@ limitations under the License.
 
 import json
 import os
-import tempfile
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest

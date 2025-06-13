@@ -18,12 +18,11 @@ limitations under the License.
 Tests for the GPU FCL adapter.
 """
 
-import random
 import unittest
 
 # Helper to skip tests if backend is mocked
 import unittest.mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -31,11 +30,7 @@ import pytest
 from feagi.core.backend import BackendType
 from feagi.core.backend.interface import get_backend
 from feagi.npu.fcl_manager import BitMap
-from feagi.npu.gpu_fcl_adapter import (
-    GPUAcceleratedFCL,
-    GPUBitMap,
-    create_gpu_accelerated_fcl,
-)
+from feagi.npu.gpu_fcl_adapter import GPUAcceleratedFCL, GPUBitMap
 
 
 def skip_if_mocked_backend(bitmap_or_fcl):

@@ -22,7 +22,6 @@ the GPU-optimized Brain Development Unit (BDU).
 
 import logging
 import time
-from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pytest
@@ -30,7 +29,6 @@ import pytest
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
 from feagi.npu.burst_engine import BurstEngine
-from feagi.npu.fcl_manager import FCLManager
 
 # Configure logging
 logging.basicConfig(

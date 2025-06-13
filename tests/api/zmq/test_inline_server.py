@@ -18,13 +18,8 @@ limitations under the License.
 """Test script for inline ZMQ server."""
 import asyncio
 import logging
-import os
-import sys
 import threading
 import time
-from typing import Dict, Tuple
-
-import pytest
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

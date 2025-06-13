@@ -28,12 +28,11 @@ import os
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
-import tempfile
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from .manager import SharedMemoryManager, SharedMemoryRegion
+from .manager import SharedMemoryManager
 
 
 class SharedNeuronArray:

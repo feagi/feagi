@@ -7,8 +7,8 @@ the 'NoneType' object has no attribute 'send' error and other race conditions.
 
 import threading
 import time
-from queue import Empty, Queue
-from unittest.mock import MagicMock, Mock, patch
+from queue import Queue
+from unittest.mock import Mock
 
 import pytest
 import zmq

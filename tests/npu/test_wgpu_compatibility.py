@@ -33,12 +33,11 @@ The goal is to maintain WGPU-ready code for cross-platform GPU acceleration.
 
 import ast
 import os
-import re
 import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import Dict, List, Optional
 
 import pytest
 
@@ -571,7 +570,7 @@ class NPUWGPUCompatibilityMonitor:
         report = []
         report.append("[START] NPU WGPU COMPATIBILITY ANALYSIS REPORT")
         report.append("=" * 60)
-        report.append(f"[STATS] SUMMARY:")
+        report.append("[STATS] SUMMARY:")
         report.append(f"   Total modules analyzed: {total_modules}")
         report.append(f"   Average compatibility score: {avg_score:.1f}/100")
         report.append("")
@@ -744,7 +743,7 @@ def test_npu_wgpu_compatibility():
             score = analyses[module].compatibility_score
             print(f"   🟢 {module} ({score:.1f}/100)")
 
-    print(f"\n📄 Detailed report saved to: tmp/npu_wgpu_compatibility_report.txt")
+    print("\n📄 Detailed report saved to: tmp/npu_wgpu_compatibility_report.txt")
 
     # Failure conditions
     failure_reasons = []
@@ -785,18 +784,18 @@ def test_npu_wgpu_compatibility():
     # Fail test if there are critical compatibility issues
     if failure_reasons:
         failure_message = (
-            f"\n🔴 NPU WGPU COMPATIBILITY TEST FAILED!\n\n"
-            f"FAILURE REASONS:\n"
+            "\n🔴 NPU WGPU COMPATIBILITY TEST FAILED!\n\n"
+            "FAILURE REASONS:\n"
             + "\n".join(f"  • {reason}" for reason in failure_reasons)
-            + f"\n\nCRITICAL WGPU compatibility issues must be fixed before enabling WGPU support.\n"
-            f"These issues prevent WGPU from running on Metal/DirectX 12/Vulkan backends.\n"
-            f"See report for detailed recommendations: tmp/npu_wgpu_compatibility_report.txt"
+            + "\n\nCRITICAL WGPU compatibility issues must be fixed before enabling WGPU support.\n"
+            "These issues prevent WGPU from running on Metal/DirectX 12/Vulkan backends.\n"
+            "See report for detailed recommendations: tmp/npu_wgpu_compatibility_report.txt"
         )
         pytest.fail(failure_message)
 
-    print(f"\n[OK] NPU WGPU COMPATIBILITY TEST PASSED!")
+    print("\n[OK] NPU WGPU COMPATIBILITY TEST PASSED!")
     print(
-        f"[START] NPU modules are ready for WGPU acceleration on Metal/DirectX 12/Vulkan!"
+        "[START] NPU modules are ready for WGPU acceleration on Metal/DirectX 12/Vulkan!"
     )
 
 

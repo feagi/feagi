@@ -27,8 +27,7 @@ Use Cap'n Proto based implementations from the translator module instead.
 import struct
 import time
 import warnings
-from enum import IntEnum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 from feagi.utils.logger import setup_logger
 

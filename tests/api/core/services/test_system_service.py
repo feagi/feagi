@@ -16,8 +16,6 @@ limitations under the License.
 
 """Tests for the SystemService class."""
 
-import sys
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest

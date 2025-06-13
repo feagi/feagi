@@ -13,7 +13,7 @@ Features:
 
 import threading
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from feagi.utils.logger import setup_logger
 

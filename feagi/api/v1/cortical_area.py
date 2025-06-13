@@ -24,11 +24,10 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.v1.schemas import (
-    CoordinateUpdateRequest,
     CorticalAreaIdListResponse,
     CorticalAreaIndexListResponse,
     CorticalAreaMappingRestrictionRequest,
@@ -36,13 +35,11 @@ from feagi.api.v1.schemas import (
     CorticalAreaNameListResponse,
     CorticalAreaPropertiesResponse,
     CorticalAreaTypesResponse,
-    CorticalGeometryResponse,
     CorticalIdListRequest,
     CorticalIdNameMappingResponse,
     CorticalIdRequest,
     CorticalLocationResponse,
     CorticalNameRequest,
-    ErrorResponse,
     MappingRestrictionsRequest,
     MappingRestrictionsResponse,
     NeuronCountResponse,

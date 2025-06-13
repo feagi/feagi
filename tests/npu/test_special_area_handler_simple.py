@@ -21,7 +21,7 @@ This module tests the Special Area Handler simplified functionality
 for direct core power area access (cortical_idx=1).
 """
 
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 

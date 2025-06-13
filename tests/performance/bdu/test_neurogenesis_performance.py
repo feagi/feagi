@@ -34,8 +34,7 @@ import pstats
 import sys
 import tempfile
 import time
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import psutil
 
@@ -51,10 +50,7 @@ sys.path.insert(0, project_root)
 
 # Import FEAGI modules
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.embryogenesis.neuroembryogenesis import (
-    DevelopmentStage,
-    NeuroEmbryogenesis,
-)
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 from feagi.core.backend import BackendType, get_available_backends, get_backend
 from feagi.utils.config import FeagiConfig
 

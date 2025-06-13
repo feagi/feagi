@@ -24,17 +24,14 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
 
-from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 
 from .decorators import endpoint
 from .schemas import (
-    ErrorResponse,
     MonitoringDataResponse,
     PerformanceStatsResponse,
-    SuccessResponse,
     SystemMetricsResponse,
 )
 

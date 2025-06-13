@@ -26,8 +26,6 @@ Usage:
 """
 
 import argparse
-import multiprocessing
-import os
 import sys
 import time
 from pathlib import Path
@@ -37,12 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from feagi.config.toml_loader import TomlLoader
 from feagi.utils.logger import setup_logger
-from feagi.utils.resource_profiler import (
-    ResourceProfiler,
-    generate_resource_report,
-    start_profiling,
-    stop_profiling,
-)
+from feagi.utils.resource_profiler import ResourceProfiler
 
 logger = setup_logger(__name__)
 

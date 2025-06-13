@@ -21,7 +21,6 @@ A simple example demonstrating how to use FEAGI to create and train a model.
 This example creates a simple model and demonstrates basic operations like
 training, prediction, and evaluation.
 """
-import numpy as np
 
 from feagi import FEAGI
 

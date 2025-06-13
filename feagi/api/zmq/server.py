@@ -23,13 +23,10 @@ Provides ZeroMQ-based API access to FEAGI functionality.
 import asyncio
 import json
 import logging
-import os
 import sys
 import threading
 import time
-import traceback
-import uuid
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, Optional
 
 import zmq
 import zmq.asyncio
@@ -39,26 +36,15 @@ from feagi.utils.logger import setup_logger
 # Set up logger early so it's available for imports
 logger = setup_logger()
 
-from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Core dependencies
-from feagi.core.state_manager import FeagiStateManager, GenomeState
 
 # Import the unified CoreAPIService
 from ..core.services.core_api_service import CoreAPIService
 
 # Import connection manager
-from .connection_manager import ConnectionManager
-from .patterns.pub_sub import PubSubManager
-from .patterns.push_pull import PushPullManager
-
 # Import pattern handlers
-from .patterns.req_rep import RequestReplyManager
-from .streams.motor import MotorStream
-from .streams.rest import RestStream
-
 # Import all stream handlers
-from .streams.sensory_neural import SensoryNeuralStream as SensoryStream
 from .streams.visualization import VisualizationStream
 
 # Import visualization streams conditionally
@@ -93,24 +79,13 @@ except ImportError:
     logger.warning("zmq package not available - server functionality will be limited")
     import zmq
 
-from zmq.auth.thread import ThreadAuthenticator
 
 # Import protocol definitions
-from feagi.api.protocols.constants import (
-    FCPCommandType,
-    FSMPChannelType,
-    FVPFrameType,
-    ProtocolID,
-)
+from feagi.api.protocols.constants import FSMPChannelType, FVPFrameType, ProtocolID
 from feagi.api.protocols.translator import ByteStructureTranslator
 
 # Import ConnectionManager from the new, corrected file
-from feagi.api.zmq.connection_manager import ConnectionManager
-from feagi.api.zmq.message_handlers import (
-    MessageHandler,
-    start_message_handlers,
-    stop_message_handlers,
-)
+from feagi.api.zmq.message_handlers import MessageHandler, start_message_handlers
 
 from .rest_adapter import ZMQRestAPIAdapter  # Import the REST API adapter
 
@@ -732,7 +707,6 @@ class ZmqServer:
             # Handle visualization stream separately with timeout
             if self._visualization:
                 import asyncio as asyncio_module
-                import threading
 
                 def stop_visualization_with_timeout():
                     """Stop visualization in a separate thread with timeout."""

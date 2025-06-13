@@ -28,11 +28,9 @@ from feagi.utils.logger import setup_logger
 logger = setup_logger("feagi.core.backend")
 import threading
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 import numpy as np
-
-from feagi.config import config
 
 
 class BackendType(enum.Enum):
@@ -308,7 +306,7 @@ def get_backend(
                 return None
             else:
                 # Try fallback to CPU
-                logger.warning(f"Falling back to CPU backend.")
+                logger.warning("Falling back to CPU backend.")
                 backend_type = BackendType.CPU
                 if backend_type not in _BACKENDS:
                     logger.error(
@@ -344,7 +342,7 @@ def get_backend(
             logger.error(f"Error initializing {backend_type.value} backend: {e}")
             # Try fallback to CPU if there was an error
             if backend_type != BackendType.CPU:
-                logger.warning(f"Falling back to CPU backend.")
+                logger.warning("Falling back to CPU backend.")
                 return get_backend(BackendType.CPU)
             else:
                 logger.error(

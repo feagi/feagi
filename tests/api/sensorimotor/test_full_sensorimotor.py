@@ -27,10 +27,8 @@ optimized socket configurations for minimal latency.
 
 import asyncio
 import logging
-import os
 import random
 import sys
-import time
 import uuid
 
 import numpy as np
@@ -39,7 +37,6 @@ import zmq.asyncio
 
 # Import feagi_bytes for binary serialization
 from feagi_bytes import ByteStructureEncoder, ByteStructureTranslator
-from feagi_bytes.constants import ByteStructureID
 
 # Configure logging
 logging.basicConfig(

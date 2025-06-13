@@ -25,9 +25,8 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 """
 
 import json
-import tempfile
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -44,7 +43,6 @@ from .schemas import (
     CorticalAreaInfoResponse,
     CorticalAreasListResponse,
     CorticalStatsResponse,
-    ErrorResponse,
     FileUploadRequest,
     NeuronMappingsResponse,
     PlasticityInfoResponse,

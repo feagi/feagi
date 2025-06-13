@@ -22,7 +22,7 @@ and metrics about the connectome structure.
 
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 

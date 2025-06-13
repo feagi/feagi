@@ -18,9 +18,7 @@ import os
 import tempfile
 from unittest.mock import Mock
 
-import pytest
-
-from feagi.core.state_manager import FeagiStateManager, GenomeState, ServiceState
+from feagi.core.state_manager import FeagiStateManager, GenomeState
 
 
 def test_register_notification_callback():

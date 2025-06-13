@@ -22,15 +22,12 @@ ConnectomeManager functionality with minimal resource usage.
 """
 
 import unittest
-from typing import Any, Dict, List
 
 import numpy as np
 import pytest
-import torch
 
 from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU, NeuronPropertyType
 from feagi.bdu.models.array_backend import ArrayBackend, BackendType
-from feagi.utils.config import FeagiConfig
 
 
 @pytest.fixture

@@ -38,11 +38,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from feagi.utils.logger import setup_logger
-from feagi.utils.resource_profiler import (
-    ResourceProfiler,
-    start_profiling,
-    stop_profiling,
-)
+from feagi.utils.resource_profiler import ResourceProfiler
 
 logger = setup_logger(__name__)
 
@@ -357,7 +353,7 @@ def test_profile_genome_performance(genome_path, logs_dir):
             ]
             cpu_avg = report["resource_usage"]["cpu"]["avg_percent"]
 
-            logger.info(f"[STATS] PERFORMANCE SUMMARY:")
+            logger.info("[STATS] PERFORMANCE SUMMARY:")
             logger.info(f"   Average Memory: {memory_avg:.1f}MB")
             logger.info(f"   Memory per Neuron: {memory_per_neuron:.1f}KB")
             logger.info(f"   Average CPU: {cpu_avg:.1f}%")

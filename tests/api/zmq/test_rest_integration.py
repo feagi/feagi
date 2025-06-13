@@ -32,7 +32,7 @@ pytest.skip(
 import asyncio
 import json
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import zmq
 import zmq.asyncio

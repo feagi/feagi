@@ -23,10 +23,9 @@ including ZMQ traffic debugging, performance monitoring, and log control.
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from feagi.api.rest.dependencies import get_core_api
 from feagi.utils.zmq_debug import (
     DebugLevel,
     MessageType,
@@ -168,7 +167,7 @@ async def configure_zmq_debug(config: ZMQDebugConfig):
                 filters = [MessageType(f.lower()) for f in config.message_filters]
                 set_message_filters(filters)
                 configured_fields.append(f"message_filters={config.message_filters}")
-            except ValueError as e:
+            except ValueError:
                 valid_types = [mt.value for mt in MessageType]
                 raise HTTPException(
                     status_code=400,

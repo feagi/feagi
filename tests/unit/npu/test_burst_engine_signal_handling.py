@@ -15,11 +15,9 @@ limitations under the License.
 """
 
 import signal
-import threading
 import unittest
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-from feagi.core.state_manager import ServiceState
 from feagi.npu.burst_engine import BurstEngine
 
 

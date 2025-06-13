@@ -16,7 +16,7 @@ limitations under the License.
 
 """Tests for the BrainService class."""
 
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 

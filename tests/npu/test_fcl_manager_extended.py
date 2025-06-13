@@ -21,14 +21,11 @@ This module provides additional test coverage for the FCLManager and EnhancedFCL
 classes in the feagi.npu.fcl_manager module, focusing on advanced features and error handling.
 """
 
-from unittest.mock import Mock, patch
 
-import numpy as np
 import pytest
 
 from feagi.npu.fcl_manager import (
     BitMap,
-    CorticalIdx,
     EnhancedFCLManager,
     FCLManager,
     TimestepOutOfRangeError,

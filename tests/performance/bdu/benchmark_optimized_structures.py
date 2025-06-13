@@ -23,13 +23,10 @@ against the standard Python implementations.
 
 import argparse
 import logging
-import os
 import random
 import sys
 import time
 from pathlib import Path
-
-import numpy as np
 
 # Add the project root directory to the Python path
 project_root = Path(__file__).parent.parent.parent.parent

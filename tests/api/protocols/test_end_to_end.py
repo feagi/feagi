@@ -26,23 +26,15 @@ import time
 
 import pytest
 import zmq.asyncio
-from protocol.common.constants_pb2 import ProtocolID, Timestamp
+from protocol.common.constants_pb2 import Timestamp
 from protocol.fcp.v1.fcp_pb2 import Message as FCPMessage
 from protocol.fcp.v1.fcp_pb2 import MessageType as FCPMessageType
 from protocol.fcp.v1.fcp_pb2 import RegisterConfirmMessage
 from protocol.fsmp.v1.fsmp_pb2 import Message as FSMPMessage
 from protocol.fsmp.v1.fsmp_pb2 import MessageType as FSMPMessageType
-from protocol.fsmp.v1.fsmp_pb2 import MotorData, SensoryData
-from protocol.fvp.v1.fvp_pb2 import ActivityData
 from protocol.fvp.v1.fvp_pb2 import Message as FVPMessage
 from protocol.fvp.v1.fvp_pb2 import MessageType as FVPMessageType
-from protocol.fvp.v1.fvp_pb2 import StructureData
-from protocol.handshake.v1.handshake_pb2 import (
-    HandshakeMessage,
-    HandshakeMessageType,
-    HelloMessage,
-    ProtocolVersion,
-)
+from protocol.handshake.v1.handshake_pb2 import ProtocolVersion
 
 # Test Constants
 HOST = "127.0.0.1"

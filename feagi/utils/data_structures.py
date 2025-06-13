@@ -23,18 +23,7 @@ import inspect
 import json
 from dataclasses import asdict, dataclass, field, is_dataclass
 from enum import Enum, auto
-from typing import (
-    Any,
-    ClassVar,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import ClassVar, Dict, List, Type, TypeVar, Union
 
 # Type variable for generic types
 T = TypeVar("T")
@@ -165,7 +154,7 @@ class RustCompatible:
 
             # Add thread-safety annotation if applicable
             if field_info.thread_safe:
-                lines.append(f"    // This field is thread-safe")
+                lines.append("    // This field is thread-safe")
 
             # Add field declaration
             lines.append(f"    pub {field_name}: {rust_type},")

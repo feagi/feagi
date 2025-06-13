@@ -20,11 +20,9 @@ Tests for FEAGI byte structures implementation.
 This module contains unit tests for the byte structure encoder and decoder.
 """
 
-import json
 import unittest
 
 import numpy as np
-import pytest
 from feagi_bytes import ByteStructureDecoder, ByteStructureEncoder
 from feagi_bytes.utils import is_compressed, validate_cortical_id
 

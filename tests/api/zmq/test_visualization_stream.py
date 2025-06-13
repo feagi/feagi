@@ -27,8 +27,7 @@ This module tests all new features of the enhanced VisualizationStream:
 
 import threading
 import time
-from queue import Empty, Queue
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import zmq

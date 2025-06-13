@@ -21,9 +21,6 @@ Tests for FEAGI logging utilities.
 import logging
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from feagi.utils.logger import setup_logger
 

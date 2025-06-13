@@ -23,7 +23,7 @@ This module provides functions for validating configuration settings.
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger("feagi.config")
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 
 def validate_config(config: Dict[str, Any]) -> bool:

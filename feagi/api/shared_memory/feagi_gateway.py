@@ -22,17 +22,16 @@ using shared memory instead of ZMQ for higher performance and lower resource usa
 """
 
 import logging
-import os
 import time
 
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
 import threading
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 from .data_structures import SharedConfigDict
-from .events import Event, EventNotificationSystem, EventType
+from .events import EventNotificationSystem, EventType
 from .manager import SharedMemoryManager
 
 

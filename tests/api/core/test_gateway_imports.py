@@ -19,8 +19,6 @@ limitations under the License.
 Test script for verifying API Gateway imports from different locations.
 """
 
-import os
-import sys
 import unittest
 
 

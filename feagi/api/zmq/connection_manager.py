@@ -25,22 +25,20 @@ It handles:
 """
 
 import asyncio
-import logging
 import time
 
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import zmq
 import zmq.asyncio
 
 # Use TYPE_CHECKING to avoid circular imports
 if TYPE_CHECKING:
-    from .server import ZMQServer
+    pass
 
-from feagi.api.protocols import ProtocolID
 from feagi.core.state_manager import GenomeState
 
 from ..core.services.core_api_service import CoreAPIService

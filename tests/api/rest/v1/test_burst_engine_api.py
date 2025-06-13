@@ -22,7 +22,6 @@ All tests in this file are automatically grouped with the 'burst_engine' marker
 which ensures they use a specialized client with proper mocks.
 """
 
-from unittest.mock import patch
 
 import pytest
 

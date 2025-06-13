@@ -22,17 +22,16 @@ verifying that CoreAPIService can properly handle requests from ZMQ REST API cli
 """
 
 import asyncio
-import json
 import threading
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import zmq
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.zmq.rest_adapter import ZMQRestAPIAdapter
-from feagi.core.state_manager import FeagiStateManager, ServiceState
+from feagi.core.state_manager import FeagiStateManager
 
 
 class MockConnectomeManager:

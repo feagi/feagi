@@ -31,8 +31,6 @@ This test suite validates:
 """
 
 import json
-import os
-import tempfile
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -831,7 +829,7 @@ def test_coordinate_extraction_accuracy(coordinate_profiler):
         assert validation["coordinates_consistent"], (
             "Dictionary and NumPy methods should return consistent coordinates"
         )
-        print(f"✅ Coordinate consistency validated")
+        print("✅ Coordinate consistency validated")
 
         if "max_coordinate_difference" in validation:
             max_diff = validation["max_coordinate_difference"]
@@ -841,7 +839,7 @@ def test_coordinate_extraction_accuracy(coordinate_profiler):
             print(f"✅ Max coordinate difference: {max_diff:.6f}")
 
     if validation.get("coordinate_count_match"):
-        print(f"✅ Coordinate count consistency validated")
+        print("✅ Coordinate count consistency validated")
 
     # Check for validation errors
     if "validation_error" in validation:

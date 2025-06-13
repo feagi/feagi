@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 """Main FEAGI class implementation."""
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from feagi.models.model import Model

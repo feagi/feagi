@@ -24,7 +24,6 @@ Tests the functionality of synapse creation during brain development.
 import json
 import os
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -36,10 +35,7 @@ if project_root not in sys.path:
 from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import the modules to test
-from feagi.bdu.embryogenesis.neuroembryogenesis import (
-    DevelopmentStage,
-    NeuroEmbryogenesis,
-)
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 from feagi.utils.config import FeagiConfig
 
 # Import genome processing modules

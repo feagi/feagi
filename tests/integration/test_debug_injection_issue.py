@@ -58,10 +58,10 @@ def test_debug_injection_lookup():
         connectome.fcl_manager, special_area_handler
     )
 
-    print(f"\n=== DEBUGGING CORTICAL AREA LOOKUP ===")
+    print("\n=== DEBUGGING CORTICAL AREA LOOKUP ===")
 
     # Debug available cortical areas
-    print(f"Available cortical areas in connectome:")
+    print("Available cortical areas in connectome:")
     if hasattr(connectome, "cortical_areas"):
         for area_id, area in connectome.cortical_areas.items():
             print(
@@ -71,7 +71,7 @@ def test_debug_injection_lookup():
         print("  No cortical_areas attribute found!")
 
     # Debug what the injection service is looking for
-    print(f"\nDebug injection batch lookup:")
+    print("\nDebug injection batch lookup:")
     for timing, batches in fcl_injection_service._injection_batches.items():
         for batch in batches:
             cortical_id = batch.cortical_id.split("_batch_")[0]
@@ -95,12 +95,12 @@ def test_debug_injection_lookup():
                 print(f"    ❌ NO MATCH FOUND for '{cortical_id}'")
 
     # Try the actual injection
-    print(f"\n=== TESTING ACTUAL INJECTION ===")
+    print("\n=== TESTING ACTUAL INJECTION ===")
     result = fcl_injection_service.inject_pre_burst(current_timestep=0)
     print(f"inject_pre_burst result: {result}")
 
     # Check FCL manager capabilities
-    print(f"\n=== FCL MANAGER CAPABILITIES ===")
+    print("\n=== FCL MANAGER CAPABILITIES ===")
     fcl_manager = connectome.fcl_manager
     print(f"Has update_fcl: {hasattr(fcl_manager, 'update_fcl')}")
     print(f"Has add_to_current_fcl: {hasattr(fcl_manager, 'add_to_current_fcl')}")

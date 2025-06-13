@@ -22,14 +22,11 @@ focusing on edge cases, error handling, and behavior variations not covered
 in the existing tests.
 """
 
-from unittest.mock import MagicMock, Mock, PropertyMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
-import numpy as np
 import pytest
 
 from feagi.npu.optimized_integration import (
-    RUST_AVAILABLE,
-    add_connection,
     create_optimized_core,
     get_core_property,
     get_membrane_potential,

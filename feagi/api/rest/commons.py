@@ -166,7 +166,6 @@ async def check_burst_engine_or_allow_config_ops(request: Request):
     Similar to check_burst_engine, but also allows configuration operations
     like getting stimulation_period when the burst engine is not yet running.
     """
-    from feagi.core.state_manager import FeagiStateManager, ServiceState
 
     # Allow configuration/read-only operations even when burst engine not READY
     config_read_endpoints = [

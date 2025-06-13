@@ -25,7 +25,7 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger("feagi.core.backend.cpu")
 import platform
-from typing import Any, Optional, Set, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 

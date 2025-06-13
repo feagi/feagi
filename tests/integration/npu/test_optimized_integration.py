@@ -20,11 +20,8 @@ Integration test for optimized data structures.
 This test demonstrates how to use the optimized data structures in a real-world simulation.
 """
 
-import logging
 import random
-from typing import Any, Dict, List, Union
 
-import numpy as np
 import pytest
 
 # Try to import optimized integration

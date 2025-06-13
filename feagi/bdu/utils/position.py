@@ -20,7 +20,7 @@ This module provides functions for handling 3D positions of neurons,
 including linearization, delinearization, and coordinate transformations.
 """
 
-from typing import Any, Dict, List, Tuple, Union
+from typing import List, Tuple
 
 import numpy as np
 

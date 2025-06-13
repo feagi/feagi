@@ -16,10 +16,7 @@ limitations under the License.
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from feagi.core.genome_transaction import GenomeTransaction
-from feagi.core.state_manager import GenomeState, ServiceState
 
 
 def test_transaction_creation():

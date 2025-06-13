@@ -30,7 +30,7 @@ import platform
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -146,16 +146,16 @@ class SIMDDetector:
         try:
             import cpufeature
 
-            capabilities.sse = getattr(cpufeature, "CPUFeature")["SSE"]
-            capabilities.sse2 = getattr(cpufeature, "CPUFeature")["SSE2"]
-            capabilities.sse3 = getattr(cpufeature, "CPUFeature")["SSE3"]
-            capabilities.ssse3 = getattr(cpufeature, "CPUFeature")["SSSE3"]
-            capabilities.sse4_1 = getattr(cpufeature, "CPUFeature")["SSE4_1"]
-            capabilities.sse4_2 = getattr(cpufeature, "CPUFeature")["SSE4_2"]
-            capabilities.avx = getattr(cpufeature, "CPUFeature")["AVX"]
-            capabilities.avx2 = getattr(cpufeature, "CPUFeature")["AVX2"]
-            capabilities.avx512f = getattr(cpufeature, "CPUFeature")["AVX512F"]
-            capabilities.fma = getattr(cpufeature, "CPUFeature")["FMA"]
+            capabilities.sse = cpufeature.CPUFeature["SSE"]
+            capabilities.sse2 = cpufeature.CPUFeature["SSE2"]
+            capabilities.sse3 = cpufeature.CPUFeature["SSE3"]
+            capabilities.ssse3 = cpufeature.CPUFeature["SSSE3"]
+            capabilities.sse4_1 = cpufeature.CPUFeature["SSE4_1"]
+            capabilities.sse4_2 = cpufeature.CPUFeature["SSE4_2"]
+            capabilities.avx = cpufeature.CPUFeature["AVX"]
+            capabilities.avx2 = cpufeature.CPUFeature["AVX2"]
+            capabilities.avx512f = cpufeature.CPUFeature["AVX512F"]
+            capabilities.fma = cpufeature.CPUFeature["FMA"]
             return
         except (ImportError, KeyError, AttributeError):
             pass
