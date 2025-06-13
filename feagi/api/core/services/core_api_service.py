@@ -1084,7 +1084,7 @@ class CoreAPIService:
             )
         except Exception as e:
             self.logger.error(f"Error getting membrane potentials: {str(e)}")
-            raise ValueError(f"Failed to get membrane potentials: {str(e)}")
+            raise ValueError(f"Failed to get membrane potentials: {str(e)}") from e
 
     def update_membrane_potentials(self, potentials: Dict[int, float]) -> bool:
         """Update membrane potentials for specific neurons."""
@@ -1137,7 +1137,7 @@ class CoreAPIService:
             )
         except Exception as e:
             self.logger.error(f"Error getting area FQ sample rate: {str(e)}")
-            raise ValueError(f"Failed to get area FQ sample rate: {str(e)}")
+            raise ValueError(f"Failed to get area FQ sample rate: {str(e)}") from e
 
     def get_burst_counter(self) -> int:
         """Get current burst counter - RTOS-safe."""
@@ -1227,7 +1227,7 @@ class CoreAPIService:
             return sorted(morphology_names)
         except Exception as e:
             self.logger.error(f"Error getting morphology list: {str(e)}")
-            raise ValueError(f"Failed to retrieve morphology list: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology list: {str(e)}") from e
 
     def get_morphology_types(self) -> List[str]:
         """Get list of available morphology types."""

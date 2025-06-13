@@ -1350,7 +1350,7 @@ class NeuroEmbryogenesis:
                 for x in range(width):
                     for y in range(height):
                         for z in range(depth):
-                            for n_idx in range(neurons_per_voxel):
+                            for _n_idx in range(neurons_per_voxel):
                                 positions.append((x, y, z))
                                 voxel_indices.append(x * height * depth + y * depth + z)
 
@@ -1372,7 +1372,7 @@ class NeuroEmbryogenesis:
                 )
 
                 # Get cortical_idx
-                cortical_idx = area.cortical_idx
+                # cortical_idx = area.cortical_idx  # Unused variable removed
 
                 # [START] SINGLE VECTORIZED CALL - NO LOOPS!
                 # CRITICAL FIX: Use ConnectomeManager's batch method instead of direct NeuronArray call
@@ -1412,13 +1412,13 @@ class NeuroEmbryogenesis:
                 )
 
                 # Update ConnectomeManager mappings efficiently (vectorized where possible)
-                start_mapping_time = datetime.datetime.now()
+                # start_mapping_time = datetime.datetime.now()  # Unused variable removed
 
                 # Get all indices at once from NeuronArray (single source of truth)
-                indices = [
-                    self.connectome_manager.neuron_array.id_to_index_map[nid]
-                    for nid in area_neuron_ids
-                ]
+                # indices = [
+                #     self.connectome_manager.neuron_array.id_to_index_map[nid]
+                #     for nid in area_neuron_ids
+                # ]  # Unused variable removed
                 # indices_array = np.array(indices)  # Unused variable removed
 
                 # Initialize voxel tracking for this area (vectorized)
@@ -1427,7 +1427,7 @@ class NeuroEmbryogenesis:
 
                 # Group neurons by position efficiently
                 position_to_neurons = {}
-                for j, (neuron_id, pos) in enumerate(zip(area_neuron_ids, positions)):
+                for _j, (neuron_id, pos) in enumerate(zip(area_neuron_ids, positions)):
                     pos_tuple = tuple(pos)
                     if pos_tuple not in position_to_neurons:
                         position_to_neurons[pos_tuple] = []
