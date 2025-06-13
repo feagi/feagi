@@ -1889,6 +1889,16 @@ class GenomeService(BaseService):
                     self._connectome_manager, self.state_manager
                 )
 
+                # CRITICAL FIX: Load the genome data into the NeuroEmbryogenesis instance
+                # This ensures the morphology definitions are available for cortical mapping
+                if not embryogenesis._load_genome_data(current_genome):
+                    self.logger.error(
+                        "Failed to load genome data into NeuroEmbryogenesis"
+                    )
+                    if transaction:
+                        transaction.rollback()
+                    return False
+
                 # Apply the cortical mapping update
                 success = embryogenesis.update_cortical_mapping(mapping)
 
@@ -2033,8 +2043,9 @@ class GenomeService(BaseService):
                     self._connectome_manager, self.state_manager
                 )
 
-                # Apply the genome loading
-                success = embryogenesis.load_genome(genome_data, filename)
+                # CRITICAL FIX: Use develop_brain_from_genome_data instead of load_genome
+                # This properly loads the genome data and develops the brain
+                success = embryogenesis.develop_brain_from_genome_data(genome_data)
 
                 if success and transaction:
                     transaction.commit()
