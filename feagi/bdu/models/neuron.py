@@ -1605,7 +1605,7 @@ class NeuronArray:
             for i in range(0, num_neurons, MAX_SAFE_BATCH_SIZE):
                 end_idx = min(i + MAX_SAFE_BATCH_SIZE, num_neurons)
                 batch_positions = positions[i:end_idx]
-                batch_size = len(batch_positions)
+                # batch_size = len(batch_positions)  # Unused variable removed
 
                 # Handle parameter slicing for each batch
                 def slice_param(param, start, end):
