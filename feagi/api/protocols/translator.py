@@ -115,8 +115,9 @@ class ByteStructureTranslator:
             byte_structure = cortical_mapped.as_new_feagi_byte_structure()
 
             # For now, we'll store the JSON as metadata in the structure
-            # This is a simplified approach - in practice you might want a more sophisticated mapping
-            return byte_structure.get_data_as_bytes()
+            # This is a simplified approach - in practice you might want a more
+            # sophisticated mapping
+            return byte_structure.copy_out_as_byte_vector()
         except Exception as e:
             logger.error(f"Failed to encode JSON with feagi_data_processing: {e}")
             # Fallback to simple JSON encoding
@@ -125,7 +126,8 @@ class ByteStructureTranslator:
     def _encode_neuron_data(
         self, cortical_data: Dict[str, Dict[str, Any]], version: int = 1
     ) -> bytes:
-        """Encode neuron data using feagi_data_processing with high-performance NumPy arrays"""
+        """Encode neuron data using feagi_data_processing with
+        high-performance NumPy arrays"""
         try:
             import numpy as np
 
@@ -134,7 +136,8 @@ class ByteStructureTranslator:
                 self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
             )
 
-            # Process cortical data format: {cortical_id: {x: [...], y: [...], z: [...], potentials: [...]}}
+            # Process cortical data format:
+            # {cortical_id: {x: [...], y: [...], z: [...], potentials: [...]}}
             for cortical_id, neuron_arrays in cortical_data.items():
                 if isinstance(neuron_arrays, dict):
                     x_vals = neuron_arrays.get("x", [])
@@ -151,7 +154,8 @@ class ByteStructureTranslator:
                     if max_len == 0:
                         continue
 
-                    # Pad arrays to same length if needed and convert to NumPy with proper dtypes
+                    # Pad arrays to same length if needed and convert to NumPy
+                    # with proper dtypes
                     x_vals.extend([0] * (max_len - len(x_vals)))
                     y_vals.extend([0] * (max_len - len(y_vals)))
                     z_vals.extend([0] * (max_len - len(z_vals)))
@@ -168,7 +172,8 @@ class ByteStructureTranslator:
                         str(cortical_id)
                     )
 
-                    # Use high-performance NumPy approach to create neuron arrays (no cortical_id parameter)
+                    # Use high-performance NumPy approach to create neuron arrays
+                    # (no cortical_id parameter)
                     neurons_array = self.fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
                         neurons_x, neurons_y, neurons_z, neurons_p
                     )
@@ -178,7 +183,7 @@ class ByteStructureTranslator:
 
             # Create the final byte structure from the mapped data
             byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
-            return byte_structure.get_data_as_bytes()
+            return byte_structure.copy_out_as_byte_vector()
 
         except Exception as e:
             logger.error(
@@ -457,10 +462,12 @@ class ByteStructureTranslator:
             client_id: Optional client ID for version negotiation
 
         Returns:
-            Encoded neuron data using Type 11 (NEURON_CATEGORIES) format for DPR compatibility
+            Encoded neuron data using Type 11 (NEURON_CATEGORIES) format for
+            DPR compatibility
         """
         # ALWAYS use NEURON_CATEGORIES format (Type 11) for DPR compatibility
-        # This ensures Direct Point Rendering gets the right format regardless of cortical area count
+        # This ensures Direct Point Rendering gets the right format regardless
+        # of cortical area count
         structure_id = ByteStructureID.NEURON_CATEGORIES
 
         # Get appropriate version based on client capabilities
@@ -555,7 +562,7 @@ class ByteStructureTranslator:
 
         except Exception as e:
             logger.error(f"Failed to decode message: {e}")
-            raise ValueError(f"Failed to decode message: {e}")
+            raise ValueError(f"Failed to decode message: {e}") from e
 
     def extract_capabilities(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -590,7 +597,8 @@ class ByteStructureTranslator:
             Compressed message data
         """
         # Simple zlib compression for now
-        # In a real implementation with feagi_data_processing, you might use built-in compression
+        # In a real implementation with feagi_data_processing, you might use
+        # built-in compression
         try:
             return zlib.compress(message_data)
         except Exception as e:

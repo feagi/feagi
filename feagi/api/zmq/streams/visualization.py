@@ -76,10 +76,13 @@ class VisualizationStream:
         stream_config: Optional[Dict[str, Any]] = None,
         core_api: Optional[Any] = None,
         connectome_manager=None,
-        fq_sampler=None,  # Accept pre-existing FQ sampler from process manager
-        process_manager=None,  # Accept process manager for on-demand FQ sampler creation
+        # Accept pre-existing FQ sampler from process manager
+        fq_sampler=None,
+        # Accept process manager for on-demand FQ sampler creation
+        process_manager=None,
     ):
-        """Initialize the visualization stream with existing FQ sampler (Rust/RTOS compatible)."""
+        """Initialize the visualization stream with existing FQ sampler
+        (Rust/RTOS compatible)."""
         # Core API integration for genome state management
         self.core_api = core_api
         self.process_manager = process_manager  # Store process manager reference
@@ -92,16 +95,19 @@ class VisualizationStream:
         # ALWAYS create a NEW sync context - NEVER use shared contexts
         self.context = zmq.Context()
 
-        # RUST/RTOS COMPATIBLE: Use FQ sampler from Process Manager (created on-demand)
+        # RUST/RTOS COMPATIBLE: Use FQ sampler from Process Manager
+        # (created on-demand)
         self.fq_sampler = fq_sampler  # Use provided FQ sampler instance
 
         if self.fq_sampler:
             logger.info(
-                "VisualizationStream using FQ sampler from Process Manager (created on-demand when visualization agents connect)"
+                "VisualizationStream using FQ sampler from Process Manager "
+                "(created on-demand when visualization agents connect)"
             )
         else:
             logger.info(
-                "No visualization FQ sampler available - will be created on-demand when visualization agents connect"
+                "No visualization FQ sampler available - will be created "
+                "on-demand when visualization agents connect"
             )
 
         # Stream configuration
@@ -258,7 +264,8 @@ class VisualizationStream:
             logger.debug("Subscriber monitoring thread started")
 
         logger.info(
-            f"[OK] Visualization stream started with {len(self.worker_threads)} worker threads"
+            f"[OK] Visualization stream started with "
+            f"{len(self.worker_threads)} worker threads"
         )
 
     def stop(self) -> None:
@@ -274,7 +281,8 @@ class VisualizationStream:
         total_threads = len(self.worker_threads)
         if total_threads > 0:
             logger.debug(
-                f"Waiting for {total_threads} worker threads to stop before socket cleanup..."
+                f"Waiting for {total_threads} worker threads to stop "
+                "before socket cleanup..."
             )
 
             MAX_TOTAL_WAIT = 3.0  # Maximum 3 seconds total wait
@@ -289,7 +297,8 @@ class VisualizationStream:
                 elapsed = time.time() - start_time
                 if elapsed >= MAX_TOTAL_WAIT:
                     logger.warning(
-                        f"Global timeout reached, abandoning remaining {total_threads - i + 1} threads"
+                        f"Global timeout reached, abandoning remaining "
+                        f"{total_threads - i + 1} threads"
                     )
                     break
 
@@ -298,14 +307,16 @@ class VisualizationStream:
                         PER_THREAD_TIMEOUT, MAX_TOTAL_WAIT - elapsed
                     )
                     logger.debug(
-                        f"Waiting for thread {i}/{total_threads}: {thread.name} (timeout: {remaining_timeout:.1f}s)"
+                        f"Waiting for thread {i}/{total_threads}: {thread.name} "
+                        f"(timeout: {remaining_timeout:.1f}s)"
                     )
 
                     thread.join(timeout=remaining_timeout)
 
                     if thread.is_alive():
                         logger.warning(
-                            f"Thread {thread.name} didn't stop after {remaining_timeout:.1f}s - continuing anyway"
+                            f"Thread {thread.name} didn't stop after "
+                            f"{remaining_timeout:.1f}s - continuing anyway"
                         )
                     else:
                         logger.debug(f"Thread {thread.name} stopped gracefully")
@@ -333,7 +344,8 @@ class VisualizationStream:
     def _data_worker(self) -> None:
         """
         Data processing worker using UnifiedFQSampler cortical area format only.
-        RUST/RTOS COMPATIBLE: FQ sampler exists from startup, uses enable/disable states.
+        RUST/RTOS COMPATIBLE: FQ sampler exists from startup, uses
+        enable/disable states.
         """
         logger.debug("Visualization data worker started")
 
@@ -351,36 +363,40 @@ class VisualizationStream:
                         time.sleep(0.5)  # @architecture:acceptable - standby mode
                         continue
 
-                # RTOS/RUST COMPATIBLE: Fail fast if FQ sampler dependency not satisfied
-                # Instead of dynamic discovery, require explicit dependency injection at startup
+                # RTOS/RUST COMPATIBLE: Fail fast if FQ sampler dependency not
+                # satisfied. Instead of dynamic discovery, require explicit
+                # dependency injection at startup
                 if not self.fq_sampler:
                     if self.process_manager:
-                        # Single attempt to resolve dependency - no polling/waiting
-                        viz_fq_sampler = self.process_manager.get_viz_fq_sampler()
+                        # Try to get FQ sampler from process manager
+                        viz_fq_sampler = self.process_manager.get_or_create_visualization_fq_sampler()
                         if viz_fq_sampler:
                             self.fq_sampler = viz_fq_sampler
-                            self._fq_sampler_enabled = (
-                                True  # CRITICAL: Enable the FQ sampler
-                            )
                             logger.info(
-                                f"🎨 Visualization FQ sampler dependency resolved: {viz_fq_sampler.instance_id}"
+                                f"🎨 Visualization FQ sampler dependency resolved: "
+                                f"{viz_fq_sampler.instance_id}"
                             )
                         else:
-                            # RTOS: Log dependency failure but continue (fail gracefully)
-                            # Only log once to prevent spam
+                            # RTOS: Log dependency failure but continue
+                            # (fail gracefully). Only log once to prevent spam
                             if not self._fq_sampler_unavailable_logged:
                                 logger.debug(
-                                    "🔧 Visualization FQ sampler not available - visualization disabled"
+                                    "🔧 Visualization FQ sampler not available - "
+                                    "visualization disabled"
                                 )
                                 self._fq_sampler_unavailable_logged = True
                     else:
-                        # RTOS: Dependency injection failure - this should be caught at startup
+                        # RTOS: Dependency injection failure - this should be
+                        # caught at startup
                         logger.warning(
-                            "⚠️ Process manager not available - visualization stream dependency not satisfied"
+                            "⚠️ Process manager not available - visualization "
+                            "stream dependency not satisfied"
                         )
+                    continue
 
                 # RUST/RTOS COMPATIBLE: FQ sampler exists but may be disabled
-                # Skip processing if no FQ sampler exists (stream disabled) OR if sampler is disabled (no clients)
+                # Skip processing if no FQ sampler exists (stream disabled) OR
+                # if sampler is disabled (no clients)
                 if not self.fq_sampler or not self._fq_sampler_enabled:
                     # Brief wait to avoid busy-waiting when no clients connected
                     time.sleep(0.1)  # @architecture:acceptable - no clients connected
@@ -423,60 +439,72 @@ class VisualizationStream:
         try:
             logger.debug(f"Processing cortical area format: {len(cortical_data)} areas")
 
-            # Encode using feagi_data_processing binary format - USE TYPE 11 (NEURON_CATEGORIES)
+            # Encode using feagi_data_processing binary format - USE TYPE 11
+            # (NEURON_CATEGORIES)
             try:
                 import feagi_data_processing as fdp
 
-                # Create cortical mapped neuron data
-                cortical_mapped = (
+                # Create the main mapped neuron data container
+                generated_mapped_neuron_data = (
                     fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
                 )
 
-                # Convert cortical area data to the format expected by the new encoder
-                total_neurons_added = 0
+                total_neurons = 0
                 for area_id, area_data in cortical_data.items():
-                    if area_data and area_data.get("neuron_ids"):
-                        neuron_ids = area_data.get("neuron_ids", [])
-                        membrane_potentials = area_data.get("membrane_potentials", [])
+                    if not area_data or not area_data.get("neuron_ids"):
+                        continue
 
-                        # Use high-performance coordinate extraction - real data only
-                        coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
-                        if coords_result and "coordinates_x" in coords_result:
-                            x_coords = coords_result["coordinates_x"]
-                            y_coords = coords_result["coordinates_y"]
-                            z_coords = coords_result["coordinates_z"]
-                        else:
-                            # ❌ NO FALLBACKS - Coordinates must exist
-                            raise ValueError(
-                                f"Failed to get coordinates for {len(neuron_ids)} neurons in area {area_id}"
-                            )
+                    neuron_ids = area_data["neuron_ids"]
+                    coordinates = area_data.get("coordinates", [])
+                    membrane_potentials = area_data.get("membrane_potentials", [])
 
-                        # Add neurons to the cortical mapping
-                        for i in range(len(neuron_ids)):
-                            x = int(x_coords[i]) if i < len(x_coords) else 0
-                            y = int(y_coords[i]) if i < len(y_coords) else 0
-                            z = int(z_coords[i]) if i < len(z_coords) else 0
-                            p = (
-                                int(membrane_potentials[i])
-                                if i < len(membrane_potentials)
-                                else 0
-                            )
+                    # Validate coordinates exist
+                    if not coordinates or len(coordinates) != len(neuron_ids):
+                        # ❌ NO FALLBACKS - Coordinates must exist
+                        raise ValueError(
+                            f"Failed to get coordinates for {len(neuron_ids)} "
+                            f"neurons in area {area_id}"
+                        )
 
-                            neuron_obj = fdp.neuron_data.neurons.NeuronXYZP(
-                                x=x, y=y, z=z, p=p
-                            )
-                            cortical_id = (
-                                int(area_id)
-                                if area_id.isdigit()
-                                else hash(area_id) % 1000
-                            )
-                            cortical_mapped.insert(neuron_obj, cortical_id)
-                            total_neurons_added += 1
+                    # Use high-performance coordinate extraction - real data only
+                    coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
+                    if coords_result and "coordinates_x" in coords_result:
+                        x_coords = coords_result["coordinates_x"]
+                        y_coords = coords_result["coordinates_y"]
+                        z_coords = coords_result["coordinates_z"]
+                    else:
+                        # ❌ NO FALLBACKS - Coordinates must exist
+                        raise ValueError(
+                            f"Failed to get coordinates for {len(neuron_ids)} "
+                            f"neurons in area {area_id}"
+                        )
 
-                if total_neurons_added > 0:
+                    # Add neurons to the cortical mapping
+                    for i in range(len(neuron_ids)):
+                        x = int(x_coords[i]) if i < len(x_coords) else 0
+                        y = int(y_coords[i]) if i < len(y_coords) else 0
+                        z = int(z_coords[i]) if i < len(z_coords) else 0
+                        p = (
+                            int(membrane_potentials[i])
+                            if i < len(membrane_potentials)
+                            else 0
+                        )
+
+                        neuron_obj = fdp.neuron_data.neurons.NeuronXYZP(
+                            x=x, y=y, z=z, p=p
+                        )
+                        cortical_id = (
+                            int(area_id) if area_id.isdigit() else hash(area_id) % 1000
+                        )
+                        generated_mapped_neuron_data.insert(neuron_obj, cortical_id)
+                        total_neurons += 1
+
+                if total_neurons > 0:
                     # Create the byte structure
-                    byte_structure = cortical_mapped.as_new_feagi_byte_structure()
-                    binary_data = byte_structure.get_data_as_bytes()
+                    byte_structure = (
+                        generated_mapped_neuron_data.as_new_feagi_byte_structure()
+                    )
+                    binary_data = byte_structure.copy_out_as_byte_vector()
                     print("raw binary data:", binary_data)
                 else:
                     binary_data = b""
@@ -490,7 +518,8 @@ class VisualizationStream:
                     logger.debug(f"   Structure Type: {structure_type}")
                     logger.debug(f"   Version: {byte_structure.get_version()}")
                     logger.debug(
-                        f"   First 8 bytes: {list(binary_data[: min(8, len(binary_data))])}"
+                        f"   First 8 bytes: "
+                        f"{list(binary_data[: min(8, len(binary_data))])}"
                     )
 
                     if structure_type == 11:
@@ -499,18 +528,16 @@ class VisualizationStream:
                         logger.debug(f"   ❓ Unknown structure type: {structure_type}")
 
                 # Publish the binary data
-                total_neurons = sum(
-                    len(area_data.get("neuron_ids", []))
-                    for area_data in cortical_data.values()
-                )
                 self._publish_data(binary_data)
                 logger.debug(
-                    f"Published cortical area data: {len(cortical_data)} areas, {total_neurons} neurons, {len(binary_data)} bytes"
+                    f"Published cortical area data: {len(cortical_data)} areas, "
+                    f"{total_neurons} neurons, {len(binary_data)} bytes"
                 )
 
             except ImportError:
                 logger.error(
-                    "feagi_data_processing library not available - cannot encode binary data"
+                    "feagi_data_processing library not available - "
+                    "cannot encode binary data"
                 )
             except Exception as e:
                 logger.error(f"Error encoding cortical area binary data: {e}")
@@ -550,7 +577,8 @@ class VisualizationStream:
                     self.stats["bytes_saved_compression"] += bytes_saved
                     self.stats["compression_time_ms"] += compression_time_ms
 
-                    # Log compression stats for first few messages or significant savings
+                    # Log compression stats for first few messages or
+                    # significant savings
                     if (
                         self.stats["data_sent"] <= 3
                         or compression_ratio < 0.5  # 50%+ compression
@@ -558,7 +586,8 @@ class VisualizationStream:
                     ):  # Every 100 messages
                         logger.debug(
                             f"[LZ4] {len(data)} → {len(final_data)} bytes "
-                            f"({compression_ratio * 100:.1f}%) in {compression_time_ms:.1f}ms"
+                            f"({compression_ratio * 100:.1f}%) in "
+                            f"{compression_time_ms:.1f}ms"
                         )
                 else:
                     # Compression didn't help, use original data
@@ -603,8 +632,10 @@ class VisualizationStream:
                     self.stats["data_sent"], 1
                 )
                 logger.debug(
-                    f"Published {self.stats['data_sent']} messages, {self.stats['bytes_sent']} bytes total"
-                    f" (saved {total_saved} bytes via compression, avg {avg_compression_time:.1f}ms/msg)"
+                    f"Published {self.stats['data_sent']} messages, "
+                    f"{self.stats['bytes_sent']} bytes total "
+                    f"(saved {total_saved} bytes via compression, "
+                    f"avg {avg_compression_time:.1f}ms/msg)"
                 )
 
             # Log first few messages to confirm publishing is working
@@ -615,14 +646,16 @@ class VisualizationStream:
                     else ""
                 )
                 logger.info(
-                    f"Successfully published message #{self.stats['data_sent']} ({len(final_data)} bytes{savings_info})"
+                    f"Successfully published message #{self.stats['data_sent']} "
+                    f"({len(final_data)} bytes{savings_info})"
                 )
 
         except AttributeError as e:
             # Specific handling for socket = None race condition
             if "'NoneType' object has no attribute 'send'" in str(e):
                 logger.debug(
-                    "Socket became None during send operation (race condition during shutdown)"
+                    "Socket became None during send operation "
+                    "(race condition during shutdown)"
                 )
                 return
             else:
@@ -649,7 +682,8 @@ class VisualizationStream:
                         logger.info("Socket recreated and retry successful")
                     else:
                         logger.debug(
-                            "Cannot retry: socket or stream not available after recreation"
+                            "Cannot retry: socket or stream not available "
+                            "after recreation"
                         )
                 except Exception as retry_error:
                     logger.error(f"Socket recreation failed: {retry_error}")
@@ -757,7 +791,8 @@ class VisualizationStream:
             if was_new_client:
                 logger.info(f"💚 New visualization client connected: {client_id}")
                 logger.info(
-                    "ℹ️ Note: Agent registration must be done explicitly via REST API - no automatic registration"
+                    "ℹ️ Note: Agent registration must be done explicitly via "
+                    "REST API - no automatic registration"
                 )
             else:
                 logger.debug(f"💓 Heartbeat from visualization client: {client_id}")
@@ -786,7 +821,8 @@ class VisualizationStream:
                 except Exception as retry_e:
                     if attempt < max_retries - 1:
                         logger.debug(
-                            f"🔍 AGENT REGISTRY: Retry {attempt + 1}/{max_retries} after error: {retry_e}"
+                            f"🔍 AGENT REGISTRY: Retry {attempt + 1}/{max_retries} "
+                            f"after error: {retry_e}"
                         )
                         time.sleep(0.1)  # Brief delay before retry
                         continue
@@ -797,7 +833,8 @@ class VisualizationStream:
                 logger.debug("🔍 AGENT REGISTRY: No agent summary returned")
                 return 0
 
-            # Count agents with visualization capability - use the direct count from registry
+            # Count agents with visualization capability - use the direct count
+            # from registry
             viz_agent_count = agent_summary.get("agent_count_viz", 0)
             connected_viz_agents = agent_summary.get(
                 "connected_visualization_agents", []
@@ -806,9 +843,11 @@ class VisualizationStream:
             # Enhanced logging for debugging
             if viz_agent_count > 0:
                 logger.debug(
-                    f"🔍 AGENT REGISTRY: Found {viz_agent_count} registered visualization agents: {connected_viz_agents}"
+                    f"🔍 AGENT REGISTRY: Found {viz_agent_count} registered "
+                    f"visualization agents: {connected_viz_agents}"
                 )
-            # Note: Removed spam debug log for "no agents found" - this is normal when no agents are connected
+            # Note: Removed spam debug log for "no agents found" - this is normal
+            # when no agents are connected
 
             return viz_agent_count
 
@@ -831,7 +870,8 @@ class VisualizationStream:
         and the Agent API's FQ sampler management.
         """
         logger.debug(
-            f"🚫 FQ SAMPLER CONTROL: Ignoring call to _control_fq_sampler(enable={enable}) - handled by Agent API"
+            f"🚫 FQ SAMPLER CONTROL: Ignoring call to "
+            f"_control_fq_sampler(enable={enable}) - handled by Agent API"
         )
         return
 
@@ -865,7 +905,8 @@ class VisualizationStream:
                         del self.client_last_heartbeat[client_id]
                         logger.info(f"💔 Client {client_id} disconnected (timeout)")
                         logger.info(
-                            "ℹ️ Note: Agent deregistration must be done explicitly via REST API - no automatic deregistration"
+                            "ℹ️ Note: Agent deregistration must be done explicitly "
+                            "via REST API - no automatic deregistration"
                         )
 
                     # Log final client count
@@ -887,13 +928,22 @@ class VisualizationStream:
     def _subscriber_monitor_worker(self) -> None:
         """
         Subscriber monitoring worker thread.
-        \n        \n        DEPRECATED: FQ sampler management is now handled by the Agent API (feagi_agent.py)\n        based on agent registration/deregistration with visualization capabilities.\n        \n        This monitor now only tracks client connections for internal statistics\n        and does NOT control the FQ sampler to prevent conflicts.\n
+
+        DEPRECATED: FQ sampler management is now handled by the Agent API
+        (feagi_agent.py) based on agent registration/deregistration with
+        visualization capabilities.
+
+        This monitor now only tracks client connections for internal statistics
+        and does NOT control the FQ sampler to prevent conflicts.
         """
         logger.info(
-            "🔧 SUBSCRIBER MONITOR: Starting subscriber monitoring (FQ sampler control DISABLED - handled by Agent API)"
+            "🔧 SUBSCRIBER MONITOR: Starting subscriber monitoring "
+            "(FQ sampler control DISABLED - handled by Agent API)"
         )
         logger.info(
-            f"🔧 SUBSCRIBER MONITOR: core_api available: {self.core_api is not None}, check_interval: {self.subscriber_check_interval}s"
+            f"🔧 SUBSCRIBER MONITOR: core_api available: "
+            f"{self.core_api is not None}, check_interval: "
+            f"{self.subscriber_check_interval}s"
         )
 
         while self.running and not self._stop_event.is_set():
@@ -911,11 +961,15 @@ class VisualizationStream:
                 # Update internal statistics (no FQ sampler control)
                 if total_subscribers != self._last_subscriber_count:
                     logger.debug(
-                        f"🔧 SUBSCRIBER MONITOR: Subscriber count changed: {self._last_subscriber_count} -> {total_subscribers} (heartbeats: {heartbeat_count}, agents: {registered_viz_agents})"
+                        f"🔧 SUBSCRIBER MONITOR: Subscriber count changed: "
+                        f"{self._last_subscriber_count} -> {total_subscribers} "
+                        f"(heartbeats: {heartbeat_count}, "
+                        f"agents: {registered_viz_agents})"
                     )
                     self._last_subscriber_count = total_subscribers
 
-                # LONGER INTERVAL: Since we're not controlling FQ sampler, check less frequently
+                # LONGER INTERVAL: Since we're not controlling FQ sampler, check
+                # less frequently
                 wait_time = max(
                     self.subscriber_check_interval, 10.0
                 )  # Minimum 10 seconds between checks
@@ -940,17 +994,20 @@ class VisualizationStream:
     ) -> Dict[str, Any]:
         """
         Convert UnifiedFQSampler format to visualization format.
-        This is a pass-through since UnifiedFQSampler already provides the correct format.
+        This is a pass-through since UnifiedFQSampler already provides the
+        correct format.
         """
         return sample_data
 
     def _prepare_broadcast_data(self, for_visualization: Dict[str, Any]) -> bytes:
         """
         Prepare data for broadcasting to visualization clients.
-        Convert to binary format using feagi_data_processing with high-performance NumPy arrays.
+        Convert to binary format using feagi_data_processing with
+        high-performance NumPy arrays.
         """
         try:
-            # Encode using feagi_data_processing binary format - USE HIGH-PERFORMANCE NUMPY APPROACH
+            # Encode using feagi_data_processing binary format - USE
+            # HIGH-PERFORMANCE NUMPY APPROACH
             import feagi_data_processing as fdp
 
             # Create the main mapped neuron data container
@@ -973,7 +1030,8 @@ class VisualizationStream:
                     else:
                         # ❌ NO FALLBACKS - Coordinates must exist
                         raise ValueError(
-                            f"Failed to get coordinates for {len(neuron_ids)} neurons in area {area_id}"
+                            f"Failed to get coordinates for {len(neuron_ids)} "
+                            f"neurons in area {area_id}"
                         )
 
                     # Ensure all arrays are the same length
@@ -989,7 +1047,8 @@ class VisualizationStream:
                     elif len(membrane_potentials) > max_len:
                         membrane_potentials = membrane_potentials[:max_len]
 
-                    # Create NumPy arrays with proper dtypes for performance (following neuron_c example)
+                    # Create NumPy arrays with proper dtypes for performance
+                    # (following neuron_c example)
                     neurons_x = np.asarray(x_coords[:max_len], dtype=np.uint32)
                     neurons_y = np.asarray(y_coords[:max_len], dtype=np.uint32)
                     neurons_z = np.asarray(z_coords[:max_len], dtype=np.uint32)
@@ -1012,16 +1071,18 @@ class VisualizationStream:
 
             # Create the final byte structure from the mapped data
             byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
-            binary_data = byte_structure.get_data_as_bytes()
+            binary_data = byte_structure.copy_out_as_byte_vector()
 
             logger.debug(
-                f"Encoded {len(for_visualization)} areas into {len(binary_data)} bytes using high-performance NumPy approach (neuron_c pattern)"
+                f"Encoded {len(for_visualization)} areas into {len(binary_data)} "
+                f"bytes using high-performance NumPy approach (neuron_c pattern)"
             )
             return binary_data
 
         except ImportError:
             logger.error(
-                "feagi_data_processing library not available - cannot encode binary data"
+                "feagi_data_processing library not available - "
+                "cannot encode binary data"
             )
             return b""
         except Exception as e:

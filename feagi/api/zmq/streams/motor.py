@@ -110,17 +110,19 @@ class MotorStream:
         # Rate limiter for throttling high-frequency data
         self.rate_limiter = RateLimiter()
 
-        # Motor subscriber management and FQ Sampler integration - ONLY use FQ sampler from Process Manager
+        # Motor subscriber management and FQ Sampler integration - ONLY use FQ
+        # sampler from Process Manager
         if fq_sampler:
             self.fq_sampler = fq_sampler
             logger.info(
-                "MotorStream using FQ sampler from Process Manager (created on-demand when motor agents connect)"
+                "MotorStream using FQ sampler from Process Manager "
+                "(created on-demand when motor agents connect)"
             )
         else:
-            # No fallback creation - must use Process Manager's on-demand FQ sampler
             self.fq_sampler = None
             logger.info(
-                "No motor FQ sampler available - will be created on-demand when motor agents connect"
+                "No motor FQ sampler available - will be created on-demand "
+                "when motor agents connect"
             )
 
         self.client_last_heartbeat: Dict[str, float] = {}
@@ -278,7 +280,8 @@ class MotorStream:
                     motor_data = self.fq_sampler.sample()
                     if motor_data:
                         logger.debug(
-                            f"Got motor data from UnifiedFQSampler: {len(motor_data)} cortical areas"
+                            f"Got motor data from UnifiedFQSampler: "
+                            f"{len(motor_data)} cortical areas"
                         )
                 except Exception as e:
                     logger.debug(f"UnifiedFQSampler motor sampling error: {e}")
@@ -297,7 +300,8 @@ class MotorStream:
                     await self._process_cortical_area_motor_data(motor_data)
                 else:
                     logger.warning(
-                        f"Unexpected data type from UnifiedFQSampler: {type(motor_data)}"
+                        f"Unexpected data type from UnifiedFQSampler: "
+                        f"{type(motor_data)}"
                     )
 
             except asyncio.CancelledError:
@@ -319,7 +323,8 @@ class MotorStream:
                 return
 
             logger.debug(
-                f"Processing new cortical area format for motor: {len(cortical_data)} areas"
+                f"Processing new cortical area format for motor: "
+                f"{len(cortical_data)} areas"
             )
 
             # Process each cortical area separately for motor control
@@ -338,7 +343,8 @@ class MotorStream:
                 else:
                     potentials = [1.0] * len(neuron_ids)
 
-                # Encode using feagi_data_processing for motor data - USE HIGH-PERFORMANCE NUMPY APPROACH
+                # Encode using feagi_data_processing for motor data - USE
+                # HIGH-PERFORMANCE NUMPY APPROACH
                 try:
                     import feagi_data_processing as fdp
 
@@ -369,7 +375,8 @@ class MotorStream:
                     elif len(potentials) > max_len:
                         potentials = potentials[:max_len]
 
-                    # Create NumPy arrays with proper dtypes for performance (neuron_c pattern)
+                    # Create NumPy arrays with proper dtypes for performance
+                    # (neuron_c pattern)
                     neurons_x = np.asarray(x_values[:max_len], dtype=np.uint32)
                     neurons_y = np.asarray(y_values[:max_len], dtype=np.uint32)
                     neurons_z = np.asarray(z_values[:max_len], dtype=np.uint32)
@@ -392,21 +399,22 @@ class MotorStream:
                     byte_structure = (
                         generated_mapped_neuron_data.as_new_feagi_byte_structure()
                     )
-                    binary_data = byte_structure.get_data_as_bytes()
+                    binary_data = byte_structure.copy_out_as_byte_vector()
 
                     # DEBUG: Log the structure ID being generated
                     if binary_data and len(binary_data) > 0:
                         logger.debug(
-                            f"MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes for area {area_id}"
+                            f"MOTOR STREAM DEBUG: Generated {len(binary_data)} "
+                            "bytes via optimized path"
                         )
                         logger.debug(
-                            "   High-performance NumPy approach used (neuron_c pattern)"
+                            f"   Structure ID (bytes[0]): {binary_data[0]} "
+                            f"(0x{binary_data[0]:02X})"
                         )
+                        logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
                         logger.debug(
-                            f"   First 8 bytes: {list(binary_data[: min(8, len(binary_data))])}"
-                        )
-                        logger.debug(
-                            "   ✅ Generated using NeuronXYZPArrays.new_from_numpy() - high performance!"
+                            "   Generated Type 11 (NEURON_CATEGORIES) - "
+                            "optimized motor path!"
                         )
 
                     await self._send_motor_binary_data(binary_data, channel=area_id)
@@ -539,7 +547,8 @@ class MotorStream:
         self.client_last_heartbeat[client_id] = current_time
 
     async def _monitor_subscribers(self) -> None:
-        """Monitor ZMQ motor subscribers - removed FQ sampler control (handled by Registration Manager)."""
+        """Monitor ZMQ motor subscribers - removed FQ sampler control
+        (handled by Registration Manager)."""
         logger.info("Starting motor subscriber monitoring for logging/statistics only")
 
         # RTOS-friendly: Simple loop with small, bounded sleep intervals
@@ -551,10 +560,12 @@ class MotorStream:
                 # Update subscriber count for logging only
                 if current_count != self._last_subscriber_count:
                     logger.info(
-                        f"Motor subscriber count changed: {self._last_subscriber_count} -> {current_count}"
+                        f"Motor subscriber count changed: "
+                        f"{self._last_subscriber_count} -> {current_count}"
                     )
                     self._last_subscriber_count = current_count
-                    # NOTE: FQ sampler control is handled by Registration Manager when agents register/deregister
+                    # NOTE: FQ sampler control is handled by Registration Manager
+                    # when agents register/deregister
 
                 # RTOS-friendly: Use small bounded intervals for responsive shutdown
                 # Check running flag more frequently for deterministic cancellation
@@ -585,7 +596,8 @@ class MotorStream:
         current_count = self.get_connected_client_count()
         if current_count != self._last_subscriber_count:
             self._last_subscriber_count = current_count
-            # NOTE: FQ sampler control is handled by Registration Manager, not by streams
+            # NOTE: FQ sampler control is handled by Registration Manager,
+            # not by streams
 
     async def unregister_motor_client(self, client_id: str) -> None:
         """Unregister a motor client."""
@@ -597,7 +609,8 @@ class MotorStream:
             current_count = self.get_connected_client_count()
             if current_count != self._last_subscriber_count:
                 self._last_subscriber_count = current_count
-                # NOTE: FQ sampler control is handled by Registration Manager, not by streams
+                # NOTE: FQ sampler control is handled by Registration Manager,
+                # not by streams
 
     async def heartbeat_motor_client(self, client_id: str) -> None:
         """Update heartbeat for a motor client."""
@@ -709,14 +722,17 @@ def handle_motor_stream(burst_engine, subscriber_count: int) -> Optional[bytes]:
                 )
                 if binary_data:
                     logger.debug(
-                        f"MOTOR STREAM DEBUG: Generated {len(binary_data)} bytes via optimized path"
+                        f"MOTOR STREAM DEBUG: Generated {len(binary_data)} "
+                        "bytes via optimized path"
                     )
                     logger.debug(
-                        f"   Structure ID (bytes[0]): {binary_data[0]} (0x{binary_data[0]:02X})"
+                        f"   Structure ID (bytes[0]): {binary_data[0]} "
+                        f"(0x{binary_data[0]:02X})"
                     )
                     logger.debug(f"   First 8 bytes: {list(binary_data[:8])}")
                     logger.debug(
-                        "   Generated Type 11 (NEURON_CATEGORIES) - optimized motor path!"
+                        "   Generated Type 11 (NEURON_CATEGORIES) - "
+                        "optimized motor path!"
                     )
                     return binary_data
         except Exception as e:
