@@ -262,7 +262,7 @@ def genome_2_1_convertor(flat_genome):
                         cortical_id=gene[9:15]
                     )
                     exon = gene[19:]
-                    gene_type = gene[16:18]
+                    # gene_type = gene[16:18]  # Unused variable removed
                     if exon in genome_2_to_1:
                         if cortical_id == cortical_area:
                             if genome_2_to_1[exon] == "cortical_name":
