@@ -151,7 +151,7 @@ class GenomeTransaction:
         """Set a value at the specified path in the genome."""
         parts = path.split(".")
         current = genome
-        for i, part in enumerate(parts[:-1]):
+        for _i, part in enumerate(parts[:-1]):
             if part not in current:
                 current[part] = {}
             current = current[part]

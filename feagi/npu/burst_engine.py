@@ -580,7 +580,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                         except Exception:
                             pass
 
-                    fired_neurons = self._process_burst()
+                    # fired_neurons = self._process_burst()  # Unused variable removed
+                    self._process_burst()
                     processing_end = time.perf_counter()
                     processing_duration = processing_end - processing_start
 
@@ -611,7 +612,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
                 # Calculate sleep time to maintain target frequency
                 if cycle_duration < self.burst_interval:
-                    sleep_time = self.burst_interval - cycle_duration
+                    # sleep_time = self.burst_interval - cycle_duration  # Unused variable removed
                     # RTOS-COMPATIBLE: Use deterministic timing
                     target_time = burst_cycle_start + self.burst_interval
                     while time.perf_counter() < target_time:

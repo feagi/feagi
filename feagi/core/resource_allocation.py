@@ -126,7 +126,7 @@ class CPUAllocator:
 
         # Create a flattened list with physical cores first, then additional logical cores
         physical_cores = []
-        for physical_id, logical_ids in physical_core_map.items():
+        for _physical_id, logical_ids in physical_core_map.items():
             # Take one logical core from each physical core
             physical_cores.append(logical_ids[0])
 
@@ -295,7 +295,7 @@ class CPUAllocator:
             # Group allocations by priority
             by_priority = {1: [], 2: [], 3: []}
 
-            for process_name, allocation in self.allocations.items():
+            for _process_name, allocation in self.allocations.items():
                 by_priority[allocation.priority].append(allocation)
 
             # Start with highest priority processes

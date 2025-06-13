@@ -1250,7 +1250,7 @@ class CoreAPIService:
             return sorted(list(types))
         except Exception as e:
             self.logger.error(f"Error getting morphology types: {str(e)}")
-            raise ValueError(f"Failed to retrieve morphology types: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphology types: {str(e)}") from e
 
     def get_morphologies(self) -> Dict[str, Any]:
         """Get all morphologies with detailed information."""

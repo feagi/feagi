@@ -72,7 +72,7 @@ def _update_all_logger_levels(log_level_str: str):
 
     # Update all existing loggers in the logger registry
     logger_dict = logging.Logger.manager.loggerDict
-    for logger_name, logger_obj in logger_dict.items():
+    for _logger_name, logger_obj in logger_dict.items():
         if isinstance(logger_obj, logging.Logger):
             logger_obj.setLevel(level)
         # PlaceHolder objects don't need updating
