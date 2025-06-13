@@ -2635,10 +2635,10 @@ class CoreAPIService:
                 return None
 
             neuron_array = self._connectome_manager.neuron_array
-            neuron_count = len(neuron_ids)
+            # neuron_count = len(neuron_ids)  # Unused variable removed
 
             # Pre-allocate SIMD-aligned array for optimal performance
-            alignment = simd_config["alignment"]
+            # alignment = simd_config["alignment"]  # Unused variable removed
             neuron_indices = np.array(neuron_ids, dtype=np.int32)
 
             # SIMD-optimized filtering of valid indices

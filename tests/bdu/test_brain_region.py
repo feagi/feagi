@@ -88,7 +88,7 @@ def test_remove_area(brain_region):
     result = region.remove_area("area1")
 
     # Check updated state
-    assert result == True
+    assert result
     assert len(region.cortical_areas) == 2
     assert "area1" not in region.cortical_areas
     assert "area2" in region.cortical_areas
@@ -96,7 +96,7 @@ def test_remove_area(brain_region):
 
     # Try to remove a non-existent area
     result = region.remove_area("nonexistent_area")
-    assert result == False
+    assert not result
     assert len(region.cortical_areas) == 2
 
 
@@ -109,10 +109,10 @@ def test_contains_area(brain_region):
     region.add_area("area2")
 
     # Check containment
-    assert region.contains_area("area1") == True
-    assert region.contains_area("area2") == True
-    assert region.contains_area("area3") == False
-    assert region.contains_area("") == False
+    assert region.contains_area("area1")
+    assert region.contains_area("area2")
+    assert not region.contains_area("area3")
+    assert not region.contains_area("")
 
 
 def test_get_all_areas(brain_region):

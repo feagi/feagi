@@ -52,8 +52,8 @@ async def test_zmq_connection():
 
     # Ports from running FEAGI instance
     req_port = 5555
-    pub_port = 5556
-    push_port = 5557
+    # pub_port = 5556  # Unused variable removed
+    # push_port = 5557  # Unused variable removed
     sensorimotor_port = 5558
     vis_port = 5560
 
