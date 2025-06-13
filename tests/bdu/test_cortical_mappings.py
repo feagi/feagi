@@ -65,7 +65,7 @@ def test_cortical_mapping_init():
     assert mapping.target_cortical_id == "target_area"
     assert mapping.parameters["morphology_id"] == "test_morphology"
     assert mapping.parameters["morphology_scalar"] == [1.0, 1.0, 1.0]
-    assert mapping.parameters["plasticity_flag"] == True
+    assert mapping.parameters["plasticity_flag"]
     assert mapping.parameters["psc_multiplier"] == 1.5
     assert mapping.parameters["synapse_delay"] == 2.0
 
@@ -81,7 +81,7 @@ def test_cortical_mapping_to_dict(cortical_mapping):
     assert mapping_dict["target_area_id"] == "target_area"
     assert mapping_dict["morphology_id"] == "test_morphology"
     assert mapping_dict["morphology_scalar"] == [1.0, 1.0, 1.0]
-    assert mapping_dict["plasticity_flag"] == True
+    assert mapping_dict["plasticity_flag"]
     assert mapping_dict["psc_multiplier"] == 1.5
 
 
@@ -108,7 +108,7 @@ def test_cortical_mapping_from_dict():
     assert mapping.target_area_id == "area2"
     assert mapping.morphology_id == "morphology2"
     assert mapping.morphology_scalar == [2.0, 2.0, 2.0]
-    assert mapping.plasticity_flag == False
+    assert not mapping.plasticity_flag
     assert mapping.psc_multiplier == 0.8
     assert mapping.properties["synapse_type"] == "inhibitory"
 
