@@ -138,7 +138,7 @@ def test_delete_neuron(populated_neuron_array):
     result = na.delete_neuron(0)
 
     # Check result
-    assert result == True
+    assert result
 
     # Check if neuron was deleted
     if isinstance(na.valid_mask, torch.Tensor):

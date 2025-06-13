@@ -1680,7 +1680,7 @@ def reset_process_manager() -> None:
         logger.warning("[SINGLETON] Resetting ProcessManager instance")
         try:
             _process_manager.shutdown()
-        except:
+        except Exception:
             pass
         _process_manager = None
     else:

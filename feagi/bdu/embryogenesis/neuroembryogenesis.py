@@ -484,10 +484,10 @@ class NeuroEmbryogenesis:
             # Get the property key and value type
             if len(parts) >= 5:
                 property_key = parts[3]
-                value_type = parts[4]
+                # value_type = parts[4]  # Unused variable removed
             else:
                 property_key = parts[-2]
-                value_type = parts[-1]
+                # value_type = parts[-1]  # Unused variable removed
 
             value = blueprint[gene_key]
 
@@ -956,7 +956,7 @@ class NeuroEmbryogenesis:
 
                 # Create neurons for each voxel
                 width, height, depth = area.dimensions
-                voxel_count = width * height * depth
+                # voxel_count = width * height * depth  # Unused variable removed
                 area_neuron_count = 0
 
                 # Initialize voxel tracking for this area
@@ -1071,7 +1071,7 @@ class NeuroEmbryogenesis:
             if "cortical_mappings" in self.genome:
                 for mapping in self.genome["cortical_mappings"]:
                     src_id = mapping["source"]
-                    dst_id = mapping["destination"]
+                    # dst_id = mapping["destination"]  # Unused variable removed
 
                     if src_id not in mapping_data:
                         mapping_data[src_id] = []
@@ -1081,7 +1081,7 @@ class NeuroEmbryogenesis:
             for i, (src_cortical_id, src_area) in enumerate(
                 self.connectome_manager.cortical_areas.items()
             ):
-                properties = self._extract_cortical_properties(src_cortical_id)
+                # properties = self._extract_cortical_properties(src_cortical_id)  # Unused variable removed
 
                 # Get mappings for this area
                 if src_cortical_id not in mapping_data:
@@ -1100,7 +1100,7 @@ class NeuroEmbryogenesis:
                     if dst_cortical_id not in self.connectome_manager.cortical_areas:
                         continue
 
-                    dst_area = self.connectome_manager.cortical_areas[dst_cortical_id]
+                    # dst_area = self.connectome_manager.cortical_areas[dst_cortical_id]  # Unused variable removed
                     morphology = mapping["morphology"]
 
                     # Get source area neurons
@@ -1355,7 +1355,7 @@ class NeuroEmbryogenesis:
                                 voxel_indices.append(x * height * depth + y * depth + z)
 
                 # Convert to numpy arrays for efficiency
-                positions_array = np.array(positions)
+                # positions_array = np.array(positions)  # Unused variable removed
 
                 # Pre-calculate neuron properties (vectorized)
                 thresholds = np.full(
