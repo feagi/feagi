@@ -257,7 +257,7 @@ class BurstEngineDebugMixin:
                                 logger.debug(
                                     f"         Output queue: {queue_size} items"
                                 )
-                            except:
+                            except Exception:
                                 logger.debug("         Output queue: Status unknown")
 
                     except Exception as sampler_error:
