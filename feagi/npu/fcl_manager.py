@@ -1362,26 +1362,26 @@ def example_enhanced_fcl_usage() -> None:
     # selected_corticals_fcl = fcl_manager.get_neurons_by_corticals([100, 300])  # Unused variable removed
 
     # Check for temporal patterns in the memory cortical
-    temporal_pattern = fcl_manager.get_cortical_temporal_pattern(400, n_steps=5)
+    # temporal_pattern = fcl_manager.get_cortical_temporal_pattern(400, n_steps=5)  # Unused variable removed
 
     # For memory corticals, we can analyze consistency over time
-    pattern_consistency = fcl_manager.get_memory_cortical_consistency(
-        400,  # Memory cortical ID
-        pattern_duration=3,  # Length of the pattern to check
-        window_duration=8,  # Total window to analyze
-    )
+    # pattern_consistency = fcl_manager.get_memory_cortical_consistency(
+    #     400,  # Memory cortical ID
+    #     pattern_duration=3,  # Length of the pattern to check
+    #     window_duration=8,  # Total window to analyze
+    # )  # Unused variable removed
 
     # Get the most consistently active neurons in the memory cortical
-    consistent_neurons = fcl_manager.get_consistent_neurons_in_memory_cortical(
-        400, n_steps=5
-    )
+    # consistent_neurons = fcl_manager.get_consistent_neurons_in_memory_cortical(
+    #     400, n_steps=5
+    # )  # Unused variable removed
 
     # We can access firing history from the last n timesteps
     # Even for a mix of standard and memory corticals
     memory_corticals = [400, 500]
-    recent_memory_fcl = fcl_manager.get_neurons_fired_in_last_n_steps(
-        10, memory_corticals
-    )
+    # recent_memory_fcl = fcl_manager.get_neurons_fired_in_last_n_steps(
+    #     10, memory_corticals
+    # )  # Unused variable removed
 
     # WGPU-COMPATIBLE: Use logger instead of print for final output
     logger = setup_logger("feagi.npu.fcl_manager.enhanced_example")

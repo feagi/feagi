@@ -381,7 +381,7 @@ def get_lighting_threshold_values():
 
 
 def set_vision_configuration(vision_parameters):
-    central_vision_cortical_properties = {}
+    # central_vision_cortical_properties = {}  # Unused variable removed
 
     if "central_vision_resolution" in vision_parameters:
         pass

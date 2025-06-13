@@ -72,7 +72,7 @@ def analyze_running_feagi(runtime_seconds: int = 30, output_file: str = None) ->
             logger.info(f"[STATS] Snapshot {i + 1}/{intervals} taken")
 
         # Get neuron count from configuration
-        config = TomlLoader.get_default_config()
+        # config = TomlLoader.get_default_config()  # Unused variable removed
         # Estimate neuron count (this would need to be improved with actual neuron counting)
         estimated_neurons = 13845  # From test data, would need real counting
 
