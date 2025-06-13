@@ -57,11 +57,11 @@ def test_neuron_array_init():
     if isinstance(na.membrane_potentials, torch.Tensor):
         assert torch.all(na.membrane_potentials == 0.0).item()
         assert torch.all(na.thresholds == 1.0).item()
-        assert torch.all(na.valid_mask == False).item()
+        assert torch.all(~na.valid_mask).item()
     else:
         assert np.all(na.membrane_potentials == 0.0)
         assert np.all(na.thresholds == 1.0)
-        assert np.all(na.valid_mask == False)
+        assert np.all(~na.valid_mask)
 
 
 def test_create_neuron(neuron_array):
@@ -152,7 +152,7 @@ def test_delete_neuron(populated_neuron_array):
 
     # Try to delete the same neuron again
     result = na.delete_neuron(0)
-    assert result == False  # Should return False for non-existent neuron
+    assert not result  # Should return False for non-existent neuron
 
 
 def test_get_neurons_by_cortical_area(populated_neuron_array):

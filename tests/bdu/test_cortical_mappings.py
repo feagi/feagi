@@ -184,7 +184,7 @@ def test_cortical_mapping_validate():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert invalid_mapping.validate() == False
+    assert not invalid_mapping.validate()
 
     # Invalid mapping: missing target area
     invalid_mapping = CorticalMapping(
@@ -197,7 +197,7 @@ def test_cortical_mapping_validate():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert invalid_mapping.validate() == False
+    assert not invalid_mapping.validate()
 
     # Invalid mapping: missing morphology ID
     invalid_mapping = CorticalMapping(
@@ -210,7 +210,7 @@ def test_cortical_mapping_validate():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert invalid_mapping.validate() == False
+    assert not invalid_mapping.validate()
 
     # Invalid mapping: invalid morphology scalar
     invalid_mapping = CorticalMapping(
@@ -223,7 +223,7 @@ def test_cortical_mapping_validate():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert invalid_mapping.validate() == False
+    assert not invalid_mapping.validate()
 
 
 def test_cortical_mapping_morphology_scalar_validation():
@@ -239,7 +239,7 @@ def test_cortical_mapping_morphology_scalar_validation():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert valid_mapping.validate() == True
+    assert valid_mapping.validate()
 
     # Test with negative scalar (invalid)
     invalid_mapping = CorticalMapping(
@@ -252,7 +252,7 @@ def test_cortical_mapping_morphology_scalar_validation():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert invalid_mapping.validate() == False
+    assert not invalid_mapping.validate()
 
     # Test with too many values
     invalid_mapping = CorticalMapping(
@@ -265,4 +265,4 @@ def test_cortical_mapping_morphology_scalar_validation():
         plasticity_flag=True,
         psc_multiplier=1.5,
     )
-    assert invalid_mapping.validate() == False
+    assert not invalid_mapping.validate()

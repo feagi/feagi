@@ -806,8 +806,6 @@ class ConnectomeManager:
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        index = self.neuron_id_to_index[neuron_id]
-
         # Handle property name as either string or enum
         if isinstance(property_name, NeuronPropertyType):
             property_name = property_name.value
@@ -830,8 +828,6 @@ class ConnectomeManager:
         """
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-
-        index = self.neuron_id_to_index[neuron_id]
 
         # Handle property name as either string or enum
         if isinstance(property_name, NeuronPropertyType):
@@ -1008,7 +1004,6 @@ class ConnectomeManager:
             self.remove_synapse(source_id, neuron_id)
 
         # Mark neuron as inactive in neuron array
-        cortical_id = self.get_cortical_area_for_neuron(neuron_id)
         self.neuron_array.delete_neuron(neuron_id)
 
         # Remove from ID-to-index mapping (legacy compatibility)
@@ -2609,7 +2604,7 @@ class ConnectomeManager:
                 )
             else:
                 # Fallback to individual application
-                for rule_id, rule in rules:
+                for rule_id, _rule in rules:
                     created_count = self.apply_connectivity_rule(
                         rule_id, weight_override, max_synapses
                     )
@@ -3240,7 +3235,6 @@ class ConnectomeManager:
         """
         # Get valid neuron indices
         valid_mask = self.neuron_array.valid_mask
-        valid_indices = np.where(valid_mask)[0]
 
         # Find neurons above threshold
         above_threshold_mask = (
