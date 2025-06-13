@@ -198,7 +198,7 @@ class BinaryProtocol(Protocol):
         offset += 1
 
         shape = []
-        for i in range(dims):
+        for _i in range(dims):
             shape.append(struct.unpack(">I", data[offset : offset + 4])[0])
             offset += 4
 

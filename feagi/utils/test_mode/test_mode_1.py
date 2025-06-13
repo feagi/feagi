@@ -69,7 +69,7 @@ class TestMode1Handler:
             # Verify cortical areas actually have neurons (neuroembryogenesis completed)
             total_neurons = 0
             areas_with_neurons = 0
-            for cortical_id, area in self.connectome.cortical_areas.items():
+            for _cortical_id, area in self.connectome.cortical_areas.items():
                 neuron_count = len(area.get_all_neurons())
                 total_neurons += neuron_count
                 if neuron_count > 0:

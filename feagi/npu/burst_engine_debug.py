@@ -306,13 +306,13 @@ class BurstEngineDebugMixin:
                         ):
                             try:
                                 # Sample a few key areas (motor and sensory)
-                                sample_areas = [
-                                    "motor_",
-                                    "vision",
-                                    "sensor",
-                                    "output",
-                                    "input",
-                                ]  # Common prefixes
+                                # sample_areas = [
+                                #     "motor_",
+                                #     "vision",
+                                #     "sensor",
+                                #     "output",
+                                #     "input",
+                                # ]  # Common prefixes - Unused variable removed
                                 sampled_any = False
 
                                 # Get FCL by cortical areas for sampling

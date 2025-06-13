@@ -223,7 +223,7 @@ class SIMDProfiler:
         """Benchmark a specific operation multiple times."""
 
         with self.profile_session(f"benchmark_{operation_name}") as session:
-            for i in range(iterations):
+            for _i in range(iterations):
                 with self.measure(
                     operation_name, element_count=kwargs.get("element_count", 0)
                 ):
