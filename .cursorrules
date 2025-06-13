@@ -183,6 +183,58 @@ FEAGI_API_PORT=8080
 
 ---
 
+## 11. Other
+- Always follow PEP8/Ruff rules
+- do not use --unsafe-fix option with ruff
+- do not commit with --no-verify
+
+## 12. Incremental Code Quality Improvement
+
+### 12.1. Mandatory Ruff Check on Module Edits
+**CRITICAL RULE**: Before editing ANY module, you MUST:
+
+1. **Run ruff check on the specific module**:
+   ```bash
+   ruff check path/to/module.py --statistics
+   ```
+
+2. **Fix ALL violations in that module** before making your intended changes:
+   - F841 (unused variables)
+   - F401 (unused imports)
+   - B007 (unused loop control variables)
+   - B904 (raise without from)
+   - E722 (bare except clauses)
+   - E712 (true/false comparisons)
+   - Any other violations found
+
+3. **Commit the ruff fixes separately** with descriptive message:
+   ```bash
+   git commit -m "Fix ruff violations in module_name.py before feature work"
+   ```
+
+4. **Then proceed with your intended changes**
+
+### 12.2. Module-Level Quality Gates
+- No module may be edited without first achieving zero ruff violations
+- This ensures incremental improvement of the entire codebase
+- New code will be built on a solid, clean foundation
+- Prevents accumulation of technical debt
+
+### 12.3. Exception Handling
+Only skip ruff fixes if:
+- Module has >100 violations (document and create separate cleanup task)
+- Critical production hotfix (must create follow-up cleanup task)
+- Mark exceptions with: `# @ruff-skip: [reason] - cleanup task: [task-id]`
+
+### 12.4. Benefits
+- Gradual codebase improvement without dedicated cleanup sprints
+- Ensures all touched code meets quality standards
+- Prevents regression of code quality
+- Makes future maintenance easier
+- Builds developer habits for clean code
+
+---
+
 ## Final Reminder
 
 Every hardcoded value is a potential source of failure across platforms. No code may be merged unless it passes architecture compliance tests and adheres to all configuration rules.
