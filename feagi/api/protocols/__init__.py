@@ -135,13 +135,13 @@ class ByteStructureDecoder:
             else:
                 return {"type": "unknown", "structure_type": structure_type}
 
-        except Exception as e:
+        except Exception:
             # Fallback to JSON parsing
             try:
                 import json
 
                 return json.loads(data.decode("utf-8"))
-            except:
+            except Exception as e:
                 return {"error": f"Could not decode message: {e}"}
 
 

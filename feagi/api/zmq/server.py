@@ -1105,7 +1105,7 @@ class ZmqServer:
         """
         try:
             # Convert message to dictionary for easier handling
-            message_dict = self.translator.handshake_message_to_dict(message)
+            # message_dict = self.translator.handshake_message_to_dict(message)  # Unused variable removed
 
             # Handle different message types
             if message.type == message.type.hello:

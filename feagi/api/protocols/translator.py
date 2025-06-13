@@ -540,7 +540,7 @@ class ByteStructureTranslator:
 
                     decoded = json.loads(message_data.decode("utf-8"))
                     return decoded
-                except:
+                except Exception:
                     # Last resort - return raw data info
                     return {
                         "message_type": "raw_data",
