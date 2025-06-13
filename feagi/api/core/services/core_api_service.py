@@ -438,10 +438,10 @@ class CoreAPIService:
                         area_id = str(area[0])  # Convert first element to string
                     else:
                         area_id = str(area)
-                    
+
                     if not area_id:
                         continue
-                        
+
                     # Get complete properties including mapping information
                     properties = self._connectome_manager.get_cortical_area_properties(
                         area_id
@@ -453,7 +453,7 @@ class CoreAPIService:
                             dimensions = {
                                 "width": dimensions[0],
                                 "height": dimensions[1],
-                                "depth": dimensions[2]
+                                "depth": dimensions[2],
                             }
 
                         # Handle coordinates - could be tuple or dict
@@ -462,7 +462,7 @@ class CoreAPIService:
                             coordinates = {
                                 "x": coordinates[0],
                                 "y": coordinates[1],
-                                "z": coordinates[2]
+                                "z": coordinates[2],
                             }
 
                         geometry_info[area_id] = {
@@ -475,7 +475,7 @@ class CoreAPIService:
                             "cortical_idx": properties.get("cortical_idx"),
                             "mapping": properties.get("parameters", {}).get(
                                 "mapping", {}
-                            )
+                            ),
                         }
                 except Exception as e:
                     self.logger.error(f"Error processing area {area}: {str(e)}")
@@ -889,7 +889,8 @@ class CoreAPIService:
             import json
 
             with open(path, "r") as f:
-                brain_state = json.load(f)
+                # brain_state = json.load(f)  # Unused variable removed
+                json.load(f)
             # This would need implementation in brain service
             return True
         except Exception as e:
@@ -2435,7 +2436,7 @@ class CoreAPIService:
 
             # Convert to aligned numpy array for SIMD optimization
             neuron_count = len(neuron_ids)
-            alignment = simd_config["alignment"]
+            # alignment = simd_config["alignment"]  # Unused variable removed
 
             # Align memory to SIMD boundaries for optimal performance
             # ✅ CRITICAL FIX: Ensure aligned_size is never zero
