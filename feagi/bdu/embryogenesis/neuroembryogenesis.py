@@ -17,9 +17,10 @@ limitations under the License.
 """
 Neuroembryogenesis Module for FEAGI 2.1
 
-This module is responsible for reading instructions from the genome (genotype) and translating
-them into a functional connectome (phenotype). The process is biologically inspired by
-neuroembryogenesis, where genetic instructions guide brain development from the embryonic neural tube.
+This module is responsible for reading instructions from the genome
+(genotype) and translating them into a functional connectome (phenotype).
+The process is biologically inspired by neuroembryogenesis, where genetic
+instructions guide brain development from the embryonic neural tube.
 
 Naming Convention:
 -----------------
@@ -37,23 +38,23 @@ Key components:
 3. Neurogenesis - Generation of neurons within cortical areas
 4. Synaptogenesis - Formation of synaptic connections between neurons
 
-The implementation uses the ConnectomeManager API for efficient neuron and synapse management,
-and focuses on memory efficiency and thread-safety.
+The implementation uses the ConnectomeManager API for efficient neuron and
+synapse management, and focuses on memory efficiency and thread-safety.
 """
 
+import datetime
 import json
 import os
-
-from feagi.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
-import datetime
 import types
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
+from feagi.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # Custom types
 Position = Tuple[int, int, int]
@@ -65,6 +66,7 @@ BoundingBox = Tuple[
 
 from feagi.bdu.connectivity.synaptogenesis_rules import neighbor_finder
 from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.utils.config import FeagiConfig
 
 # Try both the old and new import paths for FCLbitmap
 try:
@@ -188,9 +190,6 @@ except ImportError:
             if "stats" not in genome:
                 genome["stats"] = {}
             return genome
-
-
-from feagi.utils.config import FeagiConfig
 
 
 class DevelopmentStage(Enum):
@@ -1818,6 +1817,10 @@ class NeuroEmbryogenesis:
         """
         Apply morphology-based synaptogenesis between two cortical areas.
 
+        ARCHITECTURE: Morphology-driven approach following FEAGI 2.0 principles.
+        Gets morphology definition from genome and routes to appropriate processor
+        based on morphology type ("vectors", "patterns", or "functions").
+
         PERFORMANCE: Vectorized operations for Rust/RTOS/SIMD/GPU compatibility.
 
         Args:
@@ -1825,7 +1828,7 @@ class NeuroEmbryogenesis:
             dst_area_id: Destination cortical area ID
             src_neurons: List of source neuron IDs
             dst_neurons: List of destination neuron IDs
-            morphology_id: Morphology template ID
+            morphology_id: Morphology template ID from genome
             morphology_scalar: Scaling factors [x, y, z]
             psc_multiplier: Post-synaptic current multiplier
             plasticity_flag: Whether plasticity is enabled
@@ -1837,31 +1840,30 @@ class NeuroEmbryogenesis:
             int: Number of synapses created
         """
         try:
-            synapses_created = 0
+            # Get morphology definition from genome
+            if not self.genome or "neuron_morphologies" not in self.genome:
+                logger.error("No genome or neuron_morphologies available")
+                return 0
 
-            # Get morphology registry for pattern lookup
-            morphology_registry = self._get_morphology_registry()
+            morphology_def = self.genome["neuron_morphologies"].get(morphology_id)
+            if not morphology_def:
+                logger.warning(f"Morphology {morphology_id} not found in genome")
+                return 0
 
-            # Handle different morphology types with vectorized operations
-            if morphology_id == "block_to_block":
-                # Direct 1:1 mapping between areas
-                synapses_created = self._create_block_to_block_synapses(
-                    src_neurons,
-                    dst_neurons,
-                    psc_multiplier,
-                    plasticity_flag,
-                    plasticity_constant,
-                    ltp_multiplier,
-                    ltd_multiplier,
-                )
+            # Get morphology type from genome definition
+            morphology_type = morphology_def.get("type")
+            if not morphology_type:
+                logger.warning(f"No type specified for morphology {morphology_id}")
+                return 0
 
-            elif morphology_id == "projector":
-                # Projection mapping (many-to-many with spatial constraints)
-                synapses_created = self._create_projector_synapses(
+            # Route to appropriate processor based on morphology type
+            if morphology_type == "vectors":
+                return self._process_vector_morphology(
                     src_area_id,
                     dst_area_id,
                     src_neurons,
                     dst_neurons,
+                    morphology_def,
                     morphology_scalar,
                     psc_multiplier,
                     plasticity_flag,
@@ -1870,12 +1872,29 @@ class NeuroEmbryogenesis:
                     ltd_multiplier,
                 )
 
-            elif morphology_id in morphology_registry:
-                # Custom morphology from registry
-                synapses_created = self._create_custom_morphology_synapses(
-                    morphology_id,
+            elif morphology_type == "patterns":
+                return self._process_pattern_morphology(
+                    src_area_id,
+                    dst_area_id,
                     src_neurons,
                     dst_neurons,
+                    morphology_def,
+                    morphology_scalar,
+                    psc_multiplier,
+                    plasticity_flag,
+                    plasticity_constant,
+                    ltp_multiplier,
+                    ltd_multiplier,
+                )
+
+            elif morphology_type == "functions":
+                return self._process_function_morphology(
+                    src_area_id,
+                    dst_area_id,
+                    src_neurons,
+                    dst_neurons,
+                    morphology_id,
+                    morphology_def,
                     morphology_scalar,
                     psc_multiplier,
                     plasticity_flag,
@@ -1885,67 +1904,23 @@ class NeuroEmbryogenesis:
                 )
 
             else:
-                logger.warning(f"Unknown morphology type: {morphology_id}")
+                logger.warning(
+                    f"Unknown morphology type '{morphology_type}' for "
+                    f"morphology {morphology_id}"
+                )
                 return 0
-
-            return synapses_created
 
         except Exception as e:
             logger.error(f"Error applying morphology mapping {morphology_id}: {e}")
             return 0
 
-    def _create_block_to_block_synapses(
-        self,
-        src_neurons: List[int],
-        dst_neurons: List[int],
-        psc_multiplier: float,
-        plasticity_flag: bool,
-        plasticity_constant: float,
-        ltp_multiplier: float,
-        ltd_multiplier: float,
-    ) -> int:
-        """
-        Create block-to-block synapses with vectorized operations.
-
-        PERFORMANCE: Optimized for SIMD/GPU processing.
-        """
-        try:
-            # Vectorized synapse creation for block-to-block connectivity
-            # Each source neuron connects to all destination neurons
-            synapse_connections = []
-
-            for src_neuron_id in src_neurons:
-                for dst_neuron_id in dst_neurons:
-                    # ConnectomeManager.batch_create_synapses expects (pre_id, post_id, weight)
-                    synapse_connections.append(
-                        (src_neuron_id, dst_neuron_id, psc_multiplier)
-                    )
-
-            # Batch create synapses for performance
-            if synapse_connections:
-                created_synapses = self.connectome_manager.batch_create_synapses(
-                    synapse_connections
-                )
-
-                # TODO: Apply plasticity parameters separately if needed
-                # For now, we focus on basic synapse creation
-                # Plasticity parameters: plasticity_flag, plasticity_constant, ltp_multiplier, ltd_multiplier
-                # These would need to be applied via separate ConnectomeManager methods
-
-                return created_synapses
-
-            return 0
-
-        except Exception as e:
-            logger.error(f"Error creating block-to-block synapses: {e}")
-            return 0
-
-    def _create_projector_synapses(
+    def _process_vector_morphology(
         self,
         src_area_id: str,
         dst_area_id: str,
         src_neurons: List[int],
         dst_neurons: List[int],
+        morphology_def: Dict[str, Any],
         morphology_scalar: List[int],
         psc_multiplier: float,
         plasticity_flag: bool,
@@ -1954,102 +1929,225 @@ class NeuroEmbryogenesis:
         ltd_multiplier: float,
     ) -> int:
         """
-        Create projector synapses with spatial constraints.
+        Process vector-based morphology using neighbor_finder with vectors.
 
-        PERFORMANCE: Vectorized spatial calculations for GPU compatibility.
+        ARCHITECTURE: Uses legacy-compatible vector processing via
+        synaptogenesis_rules.neighbor_finder for "vectors" type morphologies.
+
+        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
         """
         try:
-            # Get area dimensions for spatial calculations
-            src_area = self.connectome_manager.cortical_areas[src_area_id]
-            dst_area = self.connectome_manager.cortical_areas[dst_area_id]
+            total_synapses = 0
+            vectors = morphology_def.get("parameters", {}).get("vectors", [])
 
-            synapse_connections = []
-
-            # Spatial projection with morphology scaling
-            scale_x, scale_y, scale_z = morphology_scalar
-
-            # Get neuron positions for spatial mapping
-            for src_neuron_id in src_neurons:
-                src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
-                if src_pos is None:
-                    continue
-
-                # Calculate projection target region
-                target_region = self._calculate_projection_region(
-                    src_pos,
-                    src_area.dimensions,
-                    dst_area.dimensions,
-                    scale_x,
-                    scale_y,
-                    scale_z,
+            if not vectors:
+                logger.warning(
+                    "No vectors found in morphology definition for vector type"
                 )
-
-                # Find destination neurons in target region
-                target_neurons = self._get_neurons_in_region(dst_area_id, target_region)
-
-                # Create synapses to target neurons
-                for dst_neuron_id in target_neurons:
-                    # ConnectomeManager.batch_create_synapses expects (pre_id, post_id, weight)
-                    synapse_connections.append(
-                        (src_neuron_id, dst_neuron_id, psc_multiplier)
-                    )
-
-            # Batch create synapses
-            if synapse_connections:
-                created_synapses = self.connectome_manager.batch_create_synapses(
-                    synapse_connections
-                )
-
-                # TODO: Apply plasticity parameters separately if needed
-                # Plasticity parameters: plasticity_flag, plasticity_constant, ltp_multiplier, ltd_multiplier
-
-                return created_synapses
-
-            return 0
-
-        except Exception as e:
-            logger.error(f"Error creating projector synapses: {e}")
-            return 0
-
-    def _create_custom_morphology_synapses(
-        self,
-        morphology_id: str,
-        src_neurons: List[int],
-        dst_neurons: List[int],
-        morphology_scalar: List[int],
-        psc_multiplier: float,
-        plasticity_flag: bool,
-        plasticity_constant: float,
-        ltp_multiplier: float,
-        ltd_multiplier: float,
-    ) -> int:
-        """
-        Create synapses based on custom morphology patterns.
-
-        PERFORMANCE: Vectorized pattern application for RTOS compatibility.
-        """
-        try:
-            morphology_registry = self._get_morphology_registry()
-            morphology_def = morphology_registry.get(morphology_id)
-
-            if not morphology_def:
-                logger.warning(f"Morphology {morphology_id} not found in registry")
                 return 0
 
-            # Apply custom morphology pattern (implementation depends on morphology type)
-            # For now, default to block-to-block for unknown custom morphologies
-            return self._create_block_to_block_synapses(
-                src_neurons,
-                dst_neurons,
-                psc_multiplier,
-                plasticity_flag,
-                plasticity_constant,
-                ltp_multiplier,
-                ltd_multiplier,
-            )
+            # Process each source neuron with vector morphology
+            for src_neuron_id in src_neurons:
+                try:
+                    # Use neighbor_finder from synaptogenesis_rules
+                    # This maintains compatibility with legacy FEAGI architecture
+                    candidate_neurons = neighbor_finder(
+                        cortical_area_src=src_area_id,
+                        cortical_area_dst=dst_area_id,
+                        src_neuron_id=src_neuron_id,
+                        morphology_={
+                            "morphology_id": "vector_morphology",
+                            "morphology_scalar": morphology_scalar,
+                            "postSynapticCurrent_multiplier": psc_multiplier,
+                        },
+                        src_subregion=None,  # TODO: Calculate if needed
+                        morphology_id_overwrite=None,
+                    )
+
+                    if candidate_neurons:
+                        # Create synapses to candidate neurons
+                        synapse_connections = []
+                        for candidate_data in candidate_neurons:
+                            dst_neuron_id = candidate_data[0]  # Neuron ID
+                            weight = candidate_data[1]  # PSC value
+                            synapse_connections.append(
+                                (src_neuron_id, dst_neuron_id, weight)
+                            )
+
+                        if synapse_connections:
+                            created = self.connectome_manager.batch_create_synapses(
+                                synapse_connections
+                            )
+                            total_synapses += created
+
+                except Exception as e:
+                    logger.warning(
+                        f"Error processing vector morphology for neuron "
+                        f"{src_neuron_id}: {e}"
+                    )
+                    continue
+
+            return total_synapses
 
         except Exception as e:
-            logger.error(f"Error creating custom morphology synapses: {e}")
+            logger.error(f"Error in vector morphology processing: {e}")
+            return 0
+
+    def _process_pattern_morphology(
+        self,
+        src_area_id: str,
+        dst_area_id: str,
+        src_neurons: List[int],
+        dst_neurons: List[int],
+        morphology_def: Dict[str, Any],
+        morphology_scalar: List[int],
+        psc_multiplier: float,
+        plasticity_flag: bool,
+        plasticity_constant: float,
+        ltp_multiplier: float,
+        ltd_multiplier: float,
+    ) -> int:
+        """
+        Process pattern-based morphology using neighbor_finder with patterns.
+
+        ARCHITECTURE: Uses legacy-compatible pattern processing via
+        synaptogenesis_rules.neighbor_finder for "patterns" type morphologies.
+
+        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
+        """
+        try:
+            total_synapses = 0
+            patterns = morphology_def.get("parameters", {}).get("patterns", [])
+
+            if not patterns:
+                logger.warning(
+                    "No patterns found in morphology definition for pattern type"
+                )
+                return 0
+
+            # Process each source neuron with pattern morphology
+            for src_neuron_id in src_neurons:
+                try:
+                    # Use neighbor_finder from synaptogenesis_rules
+                    # This maintains compatibility with legacy FEAGI architecture
+                    candidate_neurons = neighbor_finder(
+                        cortical_area_src=src_area_id,
+                        cortical_area_dst=dst_area_id,
+                        src_neuron_id=src_neuron_id,
+                        morphology_={
+                            "morphology_id": "pattern_morphology",
+                            "morphology_scalar": morphology_scalar,
+                            "postSynapticCurrent_multiplier": psc_multiplier,
+                        },
+                        src_subregion=None,  # TODO: Calculate if needed
+                        morphology_id_overwrite=None,
+                    )
+
+                    if candidate_neurons:
+                        # Create synapses to candidate neurons
+                        synapse_connections = []
+                        for candidate_data in candidate_neurons:
+                            dst_neuron_id = candidate_data[0]  # Neuron ID
+                            weight = candidate_data[1]  # PSC value
+                            synapse_connections.append(
+                                (src_neuron_id, dst_neuron_id, weight)
+                            )
+
+                        if synapse_connections:
+                            created = self.connectome_manager.batch_create_synapses(
+                                synapse_connections
+                            )
+                            total_synapses += created
+
+                except Exception as e:
+                    logger.warning(
+                        f"Error processing pattern morphology for neuron "
+                        f"{src_neuron_id}: {e}"
+                    )
+                    continue
+
+            return total_synapses
+
+        except Exception as e:
+            logger.error(f"Error in pattern morphology processing: {e}")
+            return 0
+
+    def _process_function_morphology(
+        self,
+        src_area_id: str,
+        dst_area_id: str,
+        src_neurons: List[int],
+        dst_neurons: List[int],
+        morphology_id: str,
+        morphology_def: Dict[str, Any],
+        morphology_scalar: List[int],
+        psc_multiplier: float,
+        plasticity_flag: bool,
+        plasticity_constant: float,
+        ltp_multiplier: float,
+        ltd_multiplier: float,
+    ) -> int:
+        """
+        Process function-based morphology using neighbor_finder with functions.
+
+        ARCHITECTURE: Uses legacy-compatible function processing via
+        synaptogenesis_rules.neighbor_finder for "functions" type morphologies.
+        Supports all function morphologies: projector, expander_x, reducer_x,
+        randomizer, lateral_pairs_x, block_connection, etc.
+
+        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
+        """
+        try:
+            total_synapses = 0
+
+            # Process each source neuron with function morphology
+            for src_neuron_id in src_neurons:
+                try:
+                    # Use neighbor_finder from synaptogenesis_rules
+                    # Pass the actual morphology_id so it can route to the
+                    # correct function (projector, expander_x, etc.)
+                    candidate_neurons = neighbor_finder(
+                        cortical_area_src=src_area_id,
+                        cortical_area_dst=dst_area_id,
+                        src_neuron_id=src_neuron_id,
+                        morphology_={
+                            "morphology_id": morphology_id,
+                            "morphology_scalar": morphology_scalar,
+                            "postSynapticCurrent_multiplier": psc_multiplier,
+                        },
+                        src_subregion=None,  # TODO: Calculate if needed
+                        morphology_id_overwrite=None,
+                    )
+
+                    if candidate_neurons:
+                        # Create synapses to candidate neurons
+                        synapse_connections = []
+                        for candidate_data in candidate_neurons:
+                            dst_neuron_id = candidate_data[0]  # Neuron ID
+                            weight = candidate_data[1]  # PSC value
+                            synapse_connections.append(
+                                (src_neuron_id, dst_neuron_id, weight)
+                            )
+
+                        if synapse_connections:
+                            created = self.connectome_manager.batch_create_synapses(
+                                synapse_connections
+                            )
+                            total_synapses += created
+
+                except Exception as e:
+                    logger.warning(
+                        f"Error processing function morphology {morphology_id} "
+                        f"for neuron {src_neuron_id}: {e}"
+                    )
+                    continue
+
+            return total_synapses
+
+        except Exception as e:
+            logger.error(
+                f"Error in function morphology processing for {morphology_id}: {e}"
+            )
             return 0
 
     def _get_neuron_position(
