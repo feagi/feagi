@@ -265,7 +265,8 @@ class NeuroEmbryogenesis:
             self.verbose_logging = False
 
         self.genome = None
-        # ARCHITECTURAL FIX: Remove separate cortical_areas tracking - use connectome_manager directly
+        # ARCHITECTURAL FIX: Remove separate cortical_areas tracking
+        # Use connectome_manager directly
         self.error = None
 
         # Development statistics
@@ -290,7 +291,8 @@ class NeuroEmbryogenesis:
         self.voxel_neuron_map = {}  # Maps (area_id, position) to list of neuron IDs
 
         # Add temporary method to ConnectomeManager to provide morphology information
-        # Add this once at initialization instead of each time in _perform_synaptogenesis
+        # Add this once at initialization instead of each time in
+        # _perform_synaptogenesis
         def get_morphologies_registry(self):
             return self._neuroembryogenesis_morphologies_registry
 
@@ -352,7 +354,8 @@ class NeuroEmbryogenesis:
                 allow_auto_recovery = genome_config.auto_recovery_on_validation_failure
             except Exception as e:
                 logger.warning(
-                    f"Could not load FEAGI configuration, defaulting to allow auto-recovery: {e}"
+                    f"Could not load FEAGI configuration, "
+                    f"defaulting to allow auto-recovery: {e}"
                 )
                 allow_auto_recovery = (
                     True  # Default to allow auto-recovery if config fails
@@ -369,7 +372,8 @@ class NeuroEmbryogenesis:
                     return False
                 else:
                     logger.warning(
-                        "Genome validation failed - attempting auto-recovery with morphology sanitization"
+                        "Genome validation failed - attempting auto-recovery "
+                        "with morphology sanitization"
                     )
 
                     # Attempt morphology sanitization during auto-recovery
@@ -390,14 +394,16 @@ class NeuroEmbryogenesis:
                         logger.info(f"Auto-recovery completed: {recovery_summary}")
                         if removed_morphologies:
                             logger.info(
-                                f"Removed invalid morphologies: {', '.join(removed_morphologies)}"
+                                f"Removed invalid morphologies: "
+                                f"{', '.join(removed_morphologies)}"
                             )
 
                         # Re-validate after sanitization
                         is_valid_after_recovery = genome_validator(self.genome)
                         if is_valid_after_recovery:
                             logger.info(
-                                "Genome validation passed after auto-recovery sanitization"
+                                "Genome validation passed after "
+                                "auto-recovery sanitization"
                             )
                         else:
                             logger.warning(
