@@ -264,7 +264,7 @@ def example_usage():
     memory_profiler.snapshot("before_operation")
 
     # Perform a memory-intensive operation
-    big_array = np.zeros((1000, 1000))
+    # big_array = np.zeros((1000, 1000))  # Unused variable removed
 
     # Take a snapshot after the operation
     memory_profiler.snapshot("after_operation")

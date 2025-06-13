@@ -735,10 +735,10 @@ class ProcessManager:
             api_port = api_config.get("port", 8000)
 
             # Also get ZMQ host for embedded mode logging
-            zmq_host = host_config.zmq_host
+            # zmq_host = host_config.zmq_host  # Unused variable removed
 
             # Get port configuration for embedded mode logging
-            port_config = get_port_config(config)
+            # port_config = get_port_config(config)  # Unused variable removed
 
             if not embedded_mode:
                 try:
@@ -1085,9 +1085,9 @@ class ProcessManager:
                 process_join_timeout = (
                     2.0  # @architecture:acceptable - emergency fallback
                 )
-                fq_sampler_timeout = (
-                    2.0  # @architecture:acceptable - emergency fallback
-                )
+                # fq_sampler_timeout = (
+                #     2.0  # @architecture:acceptable - emergency fallback
+                # )  # Unused variable removed
 
             # Shutdown each service properly based on its type with configurable timeouts
             for name, service in self._processes.items():
