@@ -42,9 +42,7 @@ logger = setup_logger(__name__)
 
 # SIMD and performance imports
 try:
-    from ..utils.simd_detection import (
-        get_backend_selector,
-        get_simd_config,
+    from ..utils.simd_detection import (  # get_backend_selector,  # Unused import removed; get_simd_config,  # Unused import removed
         get_simd_detector,
     )
     from ..utils.simd_profiler import get_profiler, profile_simd_operation

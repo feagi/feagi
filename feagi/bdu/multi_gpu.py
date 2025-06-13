@@ -170,7 +170,7 @@ class MultiGPUManager:
 
         # Try WebGPU devices (placeholder - actual implementation would depend on wgpu-py)
         try:
-            import wgpu
+            # import wgpu  # Unused import removed
 
             # WebGPU device discovery would go here
             # This is a placeholder since WebGPU device enumeration is more complex
