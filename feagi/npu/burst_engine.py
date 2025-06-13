@@ -933,7 +933,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     f.write(
                         f"{datetime.datetime.now()}: run_with_fire_queue called, about to call _process_burst_with_power_injection\n"
                     )
-            except:
+            except Exception:
                 pass
 
             # FCL manager uses sliding window with current timestep always 0

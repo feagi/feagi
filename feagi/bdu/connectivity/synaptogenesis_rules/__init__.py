@@ -433,7 +433,8 @@ def syn_projector(
         and "parameters" in morphology
         and "projection_type" in morphology["parameters"]
     ):
-        projection_type = morphology["parameters"]["projection_type"]
+        # projection_type = morphology["parameters"]["projection_type"]  # Unused variable removed
+        pass
 
     # Get source neuron position
     position = connectome_manager.get_neuron_position(src_neuron_id)
