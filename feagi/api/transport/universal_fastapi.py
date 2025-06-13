@@ -252,7 +252,7 @@ else:
                 f"Creating FastAPI router for module '{module_name}' with {len(endpoints)} endpoints"
             )
 
-            for endpoint_id, endpoint_data in endpoints.items():
+            for _endpoint_id, endpoint_data in endpoints.items():
                 self._add_endpoint_to_router(endpoint_data, module_name)
 
             return self.router

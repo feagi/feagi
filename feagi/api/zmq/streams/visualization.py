@@ -707,7 +707,7 @@ class VisualizationStream:
     def get_stats(self) -> Dict[str, Any]:
         """Get visualization stream statistics including compression performance."""
         runtime = time.time() - self.stats["start_time"]
-        total_messages = max(self.stats["data_sent"], 1)  # Avoid division by zero
+        # total_messages = max(self.stats["data_sent"], 1)  # Unused variable removed
 
         base_stats = {
             "running": self.running,

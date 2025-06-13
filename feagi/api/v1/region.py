@@ -285,7 +285,7 @@ class RegionAPI:
         # Get cortical area IDs and return in legacy format
         try:
             cortical_area_ids = self.core_api_service.get_cortical_area_id_list()
-        except:
+        except Exception:
             cortical_area_ids = []
 
         # Return exact legacy format
