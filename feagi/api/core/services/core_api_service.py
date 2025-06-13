@@ -1026,7 +1026,7 @@ class CoreAPIService:
             )
             raise ValueError(
                 f"Failed to get membrane potential monitoring status: {str(e)}"
-            )
+            ) from e
 
     def set_membrane_potential_monitoring(
         self, cortical_areas: List[str], enabled: bool
@@ -1039,7 +1039,9 @@ class CoreAPIService:
             )
         except Exception as e:
             self.logger.error(f"Error setting membrane potential monitoring: {str(e)}")
-            raise ValueError(f"Failed to set membrane potential monitoring: {str(e)}")
+            raise ValueError(
+                f"Failed to set membrane potential monitoring: {str(e)}"
+            ) from e
 
     def get_synaptic_potential_monitoring_status(
         self, cortical_areas: List[str]
@@ -1056,7 +1058,7 @@ class CoreAPIService:
             )
             raise ValueError(
                 f"Failed to get synaptic potential monitoring status: {str(e)}"
-            )
+            ) from e
 
     def set_synaptic_potential_monitoring(
         self, cortical_areas: List[str], enabled: bool
@@ -1069,7 +1071,9 @@ class CoreAPIService:
             )
         except Exception as e:
             self.logger.error(f"Error setting synaptic potential monitoring: {str(e)}")
-            raise ValueError(f"Failed to set synaptic potential monitoring: {str(e)}")
+            raise ValueError(
+                f"Failed to set synaptic potential monitoring: {str(e)}"
+            ) from e
 
     def get_membrane_potentials(self, neuron_ids: List[int]) -> Dict[int, float]:
         """Get membrane potentials for specific neurons."""
