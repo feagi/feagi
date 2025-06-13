@@ -1841,6 +1841,9 @@ class NeuroEmbryogenesis:
             morphology_def = self.genome["neuron_morphologies"].get(morphology_id)
             if not morphology_def:
                 logger.warning(f"Morphology {morphology_id} not found in genome")
+                logger.debug(
+                    f"Available morphologies: {list(self.genome['neuron_morphologies'].keys())}"
+                )
                 return 0
 
             # Get morphology type from genome definition
@@ -2264,27 +2267,7 @@ class NeuroEmbryogenesis:
             total_synapses = 0
 
             # Handle specific morphology functions
-            if morphology_id == "block_to_block":
-                # Block-to-block is all-to-all connectivity
-                synapse_connections = []
-                for src_neuron_id in src_neurons:
-                    for dst_neuron_id in dst_neurons:
-                        weight = psc_multiplier
-                        synapse_connections.append(
-                            (src_neuron_id, dst_neuron_id, weight)
-                        )
-
-                if synapse_connections:
-                    created = self.connectome_manager.batch_create_synapses(
-                        synapse_connections
-                    )
-                    total_synapses += created
-                    logger.info(
-                        f"Created {created} synapses for block_to_block morphology "
-                        f"from {src_area_id} to {dst_area_id}"
-                    )
-
-            elif morphology_id == "projector":
+            if morphology_id == "projector":
                 # Projector morphology - spatial projection
                 for src_neuron_id in src_neurons:
                     try:
@@ -2346,7 +2329,7 @@ class NeuroEmbryogenesis:
             else:
                 logger.warning(
                     f"Unsupported function morphology: {morphology_id}. "
-                    f"Supported: block_to_block, projector"
+                    f"Supported: projector"
                 )
 
             return total_synapses
