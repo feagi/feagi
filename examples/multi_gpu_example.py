@@ -337,7 +337,8 @@ def main():
         for backend_type in BackendType:
             if backend_type != BackendType.AUTO:
                 try:
-                    backend = ArrayBackend(backend_type)
+                    # backend = ArrayBackend(backend_type)  # Unused variable removed
+                    ArrayBackend(backend_type)
                     if ArrayBackend._is_backend_available(backend_type):
                         backends.append(backend_type)
                 except:
