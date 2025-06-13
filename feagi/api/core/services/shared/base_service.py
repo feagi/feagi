@@ -16,7 +16,6 @@ limitations under the License.
 
 """Base service class for all FEAGI domain services."""
 
-from typing import Any, Optional
 
 from feagi.utils.logger import setup_logger
 

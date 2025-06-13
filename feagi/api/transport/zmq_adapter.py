@@ -34,45 +34,29 @@ clients by using the same underlying v1 business logic.
 📖 See: /docs/arch-api-decorator-architecture.md for complete guidelines
 """
 
-import asyncio
 import json
 import os
 import time
 import traceback
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 # Check if embedded mode is enabled
 EMBEDDED_MODE = os.environ.get("FEAGI_EMBEDDED_MODE", "0") == "1"
 
 from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.api.v1.connectome import ConnectomeAPI, create_connectome_api
-from feagi.api.v1.cortical_area import CorticalAreaAPI, create_cortical_area_api
-from feagi.api.v1.feagi_agent import FeagiAgentAPI, create_feagi_agent_api
-from feagi.api.v1.genome import GenomeAPI, create_genome_api
+from feagi.api.v1.connectome import create_connectome_api
+from feagi.api.v1.cortical_area import create_cortical_area_api
+from feagi.api.v1.feagi_agent import create_feagi_agent_api
+from feagi.api.v1.genome import create_genome_api
 from feagi.api.v1.schemas import (
     AgentConfigRequest,
     AgentDeregistrationRequest,
-    AgentInfoResponse,
-    AgentListResponse,
-    AgentPropertiesResponse,
     AgentRegistrationRequest,
-    CircuitLibraryPathRequest,
-    ConfigurationResponse,
-    CorticalAreaTypesResponse,
     CorticalIdListRequest,
     CorticalIdRequest,
-    ErrorResponse,
-    HealthCheckResponse,
-    InfluxDBTestResponse,
-    LogsRequest,
-    RegistrationRequest,
-    SubscriberRequest,
-    SuccessResponse,
     UserPreferencesRequest,
-    UserPreferencesResponse,
-    VersionsResponse,
 )
-from feagi.api.v1.system import SystemAPI, create_system_api
+from feagi.api.v1.system import create_system_api
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -88,7 +72,6 @@ if EMBEDDED_MODE:
             """Handle basic system endpoints in embedded mode."""
             try:
                 import json
-                import time
 
                 request = json.loads(request_json.decode("utf-8"))
                 route = request.get("route", "")

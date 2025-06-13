@@ -146,7 +146,7 @@ class TestSubscriber:
         # Subscribe to topics
         self.socket.setsockopt(zmq.SUBSCRIBE, b"system")
         self.socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-        logger.info(f"Subscribed to 'system' and 'activity' topics")
+        logger.info("Subscribed to 'system' and 'activity' topics")
 
         # Mark as running
         self.running = True

@@ -44,24 +44,24 @@ def test_debug_power_area_detection():
 
     assert success, "Brain development failed"
 
-    print(f"\n=== POWER AREA DEBUG ===")
+    print("\n=== POWER AREA DEBUG ===")
     print(f"Total cortical areas: {len(connectome.cortical_areas)}")
 
     # 1. Check if ___pwr area exists
     if "___pwr" in connectome.cortical_areas:
         pwr_area = connectome.cortical_areas["___pwr"]
-        print(f"✅ Power area '___pwr' found:")
+        print("✅ Power area '___pwr' found:")
         print(f"   cortical_idx: {getattr(pwr_area, 'cortical_idx', 'MISSING')}")
         print(f"   name: {getattr(pwr_area, 'name', 'MISSING')}")
         print(f"   dimensions: {getattr(pwr_area, 'dimensions', 'MISSING')}")
     else:
-        print(f"❌ Power area '___pwr' NOT found")
+        print("❌ Power area '___pwr' NOT found")
         print(f"Available areas: {list(connectome.cortical_areas.keys())}")
 
     # 2. Check neuron array structure
     if hasattr(connectome, "neuron_array"):
         neuron_array = connectome.neuron_array
-        print(f"\nNeuron array info:")
+        print("\nNeuron array info:")
         print(f"   Total neurons: {neuron_array.neuron_count}")
         print(f"   Has cortical_idxs: {hasattr(neuron_array, 'cortical_idxs')}")
 
@@ -136,7 +136,7 @@ def test_debug_power_area_detection():
                         )
 
     # 3. Test direct access methods
-    print(f"\n=== TESTING ACCESS METHODS ===")
+    print("\n=== TESTING ACCESS METHODS ===")
 
     try:
         # Method 1: get_neurons_by_cortical_idx
@@ -153,7 +153,7 @@ def test_debug_power_area_detection():
         print(f"get_neurons_by_area('___pwr') FAILED: {e}")
 
     # NEW: Test the filtered query step by step
-    print(f"\n=== STEP-BY-STEP QUERY DEBUG ===")
+    print("\n=== STEP-BY-STEP QUERY DEBUG ===")
     if hasattr(connectome, "neuron_array"):
         neuron_array = connectome.neuron_array
         cortical_idx = 1
@@ -201,7 +201,7 @@ def test_debug_power_area_detection():
                 print(f"All valid indices: {valid_indices}")
 
     # 4. Test SpecialAreaHandler
-    print(f"\n=== TESTING SPECIAL AREA HANDLER ===")
+    print("\n=== TESTING SPECIAL AREA HANDLER ===")
     handler = SpecialAreaHandler(connectome)
 
     power_neurons = handler.get_power_area_neurons()
@@ -211,13 +211,13 @@ def test_debug_power_area_detection():
     print(f"SpecialAreaHandler.get_all_power_neurons(): {all_power_neurons}")
 
     # 5. Check if there's a method mismatch
-    print(f"\n=== CHECKING CONNECTOME METHODS ===")
+    print("\n=== CHECKING CONNECTOME METHODS ===")
     methods = [m for m in dir(connectome) if "neuron" in m.lower()]
     print(f"Available neuron methods: {methods}")
 
     # 6. Final verification - manually check neuron assignments
     if hasattr(connectome, "neuron_array") and connectome.neuron_array.neuron_count > 0:
-        print(f"\n=== MANUAL VERIFICATION ===")
+        print("\n=== MANUAL VERIFICATION ===")
         neuron_array = connectome.neuron_array
 
         if hasattr(neuron_array, "cortical_idxs"):
@@ -232,7 +232,7 @@ def test_debug_power_area_detection():
 
             print(f"Manual search for cortical_idx=1 neurons: {idx_1_neurons}")
 
-    print(f"\n=== DEBUG COMPLETE ===")
+    print("\n=== DEBUG COMPLETE ===")
 
 
 if __name__ == "__main__":

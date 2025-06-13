@@ -16,12 +16,8 @@ limitations under the License.
 
 """Tests for the Cortical Mapping API endpoints."""
 
-import json
-import os
-from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
 # Mark all tests in this module as belonging to the mapping group
 pytestmark = [pytest.mark.api, pytest.mark.api_group("mapping")]

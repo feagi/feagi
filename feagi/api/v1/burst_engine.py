@@ -26,7 +26,6 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 
 from typing import Any, Dict, List
 
-from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from feagi.api.core.services.core_api_service import CoreAPIService
@@ -37,7 +36,6 @@ from .schemas import (
     BurstEngineConfigRequest,
     BurstEngineStatsResponse,
     BurstEngineStatusResponse,
-    ErrorResponse,
     SuccessResponse,
 )
 

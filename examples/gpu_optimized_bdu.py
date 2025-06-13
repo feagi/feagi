@@ -66,7 +66,7 @@ def benchmark_standard_vs_gpu(num_neurons=10000, num_synapses=100000):
 
     # Create random synapses
     print("Creating synapses...")
-    for i in range(num_synapses):
+    for _i in range(num_synapses):
         pre_id = neuron_ids[np.random.randint(0, len(neuron_ids))]
         post_id = neuron_ids[np.random.randint(0, len(neuron_ids))]
         if pre_id != post_id:

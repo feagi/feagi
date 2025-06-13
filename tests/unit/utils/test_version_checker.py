@@ -18,8 +18,6 @@ limitations under the License.
 import os
 from pathlib import Path
 
-import pytest
-
 from feagi.utils import check_dependencies, verify_dependencies
 
 

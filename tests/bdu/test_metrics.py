@@ -19,10 +19,8 @@ Test module for metrics utility functions.
 """
 
 import numpy as np
-import pytest
 
 # Direct import to avoid circular imports
-import feagi.bdu.utils.metrics
 from feagi.bdu.utils.metrics import calculate_neuron_density
 
 

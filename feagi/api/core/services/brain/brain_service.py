@@ -16,8 +16,7 @@ limitations under the License.
 
 """Brain service for managing FEAGI brain simulation operations."""
 
-import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from ..shared.base_service import BaseService
 
@@ -89,14 +88,14 @@ class BrainService(BaseService):
         try:
             if not self.state_manager:
                 # Can't check debug flag without state manager
-                print(f"[DEBUG] BRAIN SERVICE: No state manager available")
+                print("[DEBUG] BRAIN SERVICE: No state manager available")
                 return False
 
             # Get the singleton burst engine instance
             burst_engine = self._get_burst_engine()
             if not burst_engine:
                 if self.state_manager.is_debug_npu_enabled():
-                    print(f"[DEBUG] BRAIN SERVICE: No burst engine instance available")
+                    print("[DEBUG] BRAIN SERVICE: No burst engine instance available")
                 self.logger.error("No burst engine instance available")
                 return False
 

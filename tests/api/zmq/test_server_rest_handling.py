@@ -33,12 +33,8 @@ import asyncio
 
 # Keep the original code for reference
 import json
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock
 
-import zmq
-import zmq.asyncio
-
-from feagi.api.zmq.rest_adapter import ZMQRestAPIAdapter
 from feagi.api.zmq.server import ZmqServer
 
 

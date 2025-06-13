@@ -20,11 +20,8 @@ Test script for testing API gateway integration with the FEAGI process manager.
 """
 
 import os
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from feagi.api import APIGateway, get_api_gateway
 
@@ -94,9 +91,7 @@ class TestGatewayProcessIntegration(unittest.TestCase):
                 gateway = get_api_gateway()
 
                 # Verify ZMQ client initialization was attempted
-                mock_logger.info.assert_any_call(
-                    f"Initializing ZMQ client to 127.0.0.1"
-                )
+                mock_logger.info.assert_any_call("Initializing ZMQ client to 127.0.0.1")
 
                 # Verify ZmqClient constructor was called
                 mock_zmq_client_cls.assert_called_once()

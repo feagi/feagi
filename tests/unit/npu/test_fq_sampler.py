@@ -7,8 +7,8 @@ Tests the new modular architecture without backward compatibility methods.
 import threading
 import time
 import unittest
-from queue import Empty, Queue
-from unittest.mock import Mock, patch
+from queue import Queue
+from unittest.mock import Mock
 
 from feagi.npu.fq_sampler import UnifiedFQSampler
 

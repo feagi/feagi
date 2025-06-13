@@ -30,9 +30,6 @@ This module provides TOML-based configuration loading with:
 
 import logging
 import os
-import sys
-import tempfile
-import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -202,9 +199,9 @@ def find_config_file() -> Path:
             return path
 
     raise FeagiConfigurationError(
-        f"FEAGI configuration file 'feagi_configuration.toml' not found in any of these locations:\n"
+        "FEAGI configuration file 'feagi_configuration.toml' not found in any of these locations:\n"
         + "\n".join(f"  - {path}" for path in search_paths)
-        + f"\n\nSet FEAGI_CONFIG_PATH environment variable to specify custom location."
+        + "\n\nSet FEAGI_CONFIG_PATH environment variable to specify custom location."
     )
 
 
@@ -356,7 +353,7 @@ def load_toml_configuration(
         config = apply_cli_overrides(config, cli_args)
 
         # Validate port configuration
-        port_config = get_port_config(config)
+        # port_config = get_port_config(config)  # Unused variable removed
 
         logger.info("FEAGI configuration loaded successfully")
         return config

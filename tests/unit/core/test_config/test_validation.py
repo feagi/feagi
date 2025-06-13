@@ -18,7 +18,6 @@ limitations under the License.
 Unit tests for the FEAGI configuration validation.
 """
 
-import pytest
 
 from feagi.config.validation import validate_config
 

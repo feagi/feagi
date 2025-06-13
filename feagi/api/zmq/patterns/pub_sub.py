@@ -25,19 +25,17 @@ It provides:
 """
 
 import asyncio
-import json
 
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 import time
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 import zmq
 import zmq.asyncio
 
 from ...core.services.core_api_service import CoreAPIService
-from ...utils.auth import validate_token
 from ...utils.rate_limit import RateLimiter
 from ..serialization import deserialize_message, serialize_message
 

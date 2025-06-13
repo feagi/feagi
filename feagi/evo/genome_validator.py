@@ -24,7 +24,6 @@ Supporting Genome Versions: 2.0
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-import traceback
 
 
 # Terminal color codes for pretty printing
@@ -197,7 +196,7 @@ def _gene_segments_validator(gene_, verbose=True):
                 logger.error(
                     f'  → CURRENT: Segment {index + 1} is "{segments[index]}" (length {len(segments[index])})'
                 )
-                logger.error(f"  → FIX: Adjust segment length to match expected format")
+                logger.error("  → FIX: Adjust segment length to match expected format")
             return False
 
     return True
@@ -273,7 +272,7 @@ def _special_areas_validator(gene_, blueprint, verbose=True):
                         f"  → SUPPORTED AREAS FOR {defined_cortical_type}: {list(cortical_types[defined_cortical_type]['supported_devices'].keys())}"
                     )
                     logger.error(
-                        f"  → FIX: Use a supported cortical area ID or change the cortical type to CUSTOM"
+                        "  → FIX: Use a supported cortical area ID or change the cortical type to CUSTOM"
                     )
                 return False
 
@@ -366,7 +365,7 @@ def blueprint_validator(genome):
                             f'  → SUGGESTED FIX: Change "{cortical_area}" to "{potential_fix}"'
                         )
                         logger.warning(
-                            f"  → ACTION: Skipping this cortical area and continuing validation"
+                            "  → ACTION: Skipping this cortical area and continuing validation"
                         )
                     else:
                         logger.warning(f"INVALID CORTICAL AREA ID: {cortical_area}")
@@ -374,7 +373,7 @@ def blueprint_validator(genome):
                             f'  → PROBLEM: Cortical area "{cortical_area}" has no group definition'
                         )
                         logger.warning(
-                            f"  → ACTION: Skipping this cortical area and continuing validation"
+                            "  → ACTION: Skipping this cortical area and continuing validation"
                         )
 
                     invalid_areas.append(cortical_area)
@@ -1283,7 +1282,7 @@ def blueprint_validator_silent(genome):
         neuron_morphologies = genome["neuron_morphologies"]
         cortical_list = cortical_list_gen(blueprint)
         valid_genome = True
-    except KeyError as e:
+    except KeyError:
         return False
 
     def gene_segments(gene_):
@@ -1445,7 +1444,7 @@ def morphology_validator_silent(genome):
             if "parameters" not in neuron_morphologies[morphology]:
                 return False
 
-        except Exception as e:
+        except Exception:
             return False
 
     return True

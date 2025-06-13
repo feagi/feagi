@@ -21,10 +21,7 @@ different cortical areas, enabling coordinate transformations and mappings.
 """
 
 import logging
-import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

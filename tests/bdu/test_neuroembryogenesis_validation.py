@@ -29,7 +29,6 @@ import shutil
 import sys
 import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
@@ -409,7 +408,7 @@ def test_full_development_validation(embryo, test_genome_file):
     stats = embryo.get_development_statistics()
 
     # Print development summary
-    print(f"\nBrain Development Summary:")
+    print("\nBrain Development Summary:")
     print(f"  Development Time: {end_time - start_time:.2f} seconds")
     print(f"  Cortical Areas: {stats['cortical_areas']}")
     print(f"  Neurons: {stats['neurons']}")

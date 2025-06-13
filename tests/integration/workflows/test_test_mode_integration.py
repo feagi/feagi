@@ -26,7 +26,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.core.state_manager import FeagiStateManager, GenomeState, ServiceState
 from feagi.test_mode import FeagiTestRunner, run_test_mode
 
 

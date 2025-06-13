@@ -103,7 +103,7 @@ class ByteStructureEncoder:
             byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
             return byte_structure.get_data_as_bytes()
 
-        except Exception as e:
+        except Exception:
             # Fallback to simple JSON encoding
             import json
 

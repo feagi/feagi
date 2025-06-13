@@ -21,7 +21,7 @@ cortical areas connect to each other during development.
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -228,7 +228,7 @@ class ProbabilisticConnectivityRule(ConnectivityRule):
         target_neurons = connectome.get_neurons_by_area(self.target_cortical_id)
 
         if not source_neurons or not target_neurons:
-            logger.warning(f"No neurons found in source or target area")
+            logger.warning("No neurons found in source or target area")
             return 0
 
         # Create connections based on probability

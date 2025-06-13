@@ -20,13 +20,11 @@ Unit tests for FEAGI Test Mode Module.
 This module tests the functionality of the test_mode.py module, including
 the FeagiTestRunner class and run_test_mode function.
 """
-import threading
 import time
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from feagi.core.state_manager import FeagiStateManager
 from feagi.test_mode import FeagiTestRunner, run_test_mode
 
 

@@ -14,13 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import threading
 import time
 import unittest
 from unittest.mock import MagicMock, patch
 
 from feagi.core.state_manager import ServiceState
-from feagi.npu.burst_engine import BurstEngine, UnifiedFQSampler
+from feagi.npu.burst_engine import BurstEngine
 
 
 class TestBurstEngine(unittest.TestCase):

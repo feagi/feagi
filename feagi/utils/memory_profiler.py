@@ -20,7 +20,6 @@ This module provides tools for profiling memory usage in FEAGI, which helps
 identify memory-intensive operations that would benefit from Rust's ownership model.
 """
 import os
-import sys
 import time
 
 from feagi.utils.logger import setup_logger
@@ -29,7 +28,7 @@ logger = setup_logger()
 import functools
 import logging
 import tracemalloc
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import psutil

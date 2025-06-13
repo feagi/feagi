@@ -21,7 +21,7 @@ This module provides additional test coverage for the gpu_fcl_adapter module,
 focusing on testing edge cases and behaviors not covered by the existing tests.
 """
 
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest

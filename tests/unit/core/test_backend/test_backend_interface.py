@@ -24,7 +24,6 @@ import pytest
 from feagi.core.backend.cpu import CPUBackend
 from feagi.core.backend.interface import (
     BackendCapability,
-    BackendInterface,
     BackendType,
     determine_best_backend,
     get_available_backends,

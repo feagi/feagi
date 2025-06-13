@@ -20,9 +20,9 @@ This module provides GPU-accelerated operations for the ConnectomeManager
 when GPU backends are available.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
-from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
+from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)

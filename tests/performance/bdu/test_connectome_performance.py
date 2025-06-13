@@ -26,16 +26,10 @@ These tests verify that ConnectomeManager can handle extreme cases:
 """
 
 import os
-import tempfile
 
-import numpy as np
 import pytest
 
-from feagi.bdu.connectome_manager import (
-    ConnectomeManager,
-    CorticalArea,
-    NeuronPropertyType,
-)
+from feagi.bdu.connectome_manager import ConnectomeManager
 
 
 @pytest.fixture

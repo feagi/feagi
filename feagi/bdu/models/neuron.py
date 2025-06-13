@@ -25,16 +25,13 @@ Structure of Arrays (SoA) format optimized for:
 - Zero-allocation operation paths
 """
 
-import ctypes
 import logging
-import os
-import threading
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import torch
 
-from feagi.bdu.models.array_backend import ArrayBackend, BackendType
+from feagi.bdu.models.array_backend import ArrayBackend
 
 # Try to import optimized libraries
 try:

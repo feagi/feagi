@@ -22,13 +22,12 @@ high code coverage, including GPU bitmap operations, accelerated FCL operations,
 and backend integration.
 """
 
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
-from feagi.npu.fcl_manager import BitMap, EnhancedFCLManager
+from feagi.npu.fcl_manager import EnhancedFCLManager
 from feagi.npu.gpu_fcl_adapter import (
     GPUAcceleratedFCL,
     GPUBitMap,

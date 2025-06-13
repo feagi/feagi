@@ -21,15 +21,10 @@ Detailed profiling tool to identify resource consumption by component.
 Critical for embedded device optimization.
 """
 
-import gc
-import os
-import sys
 import threading
-import time
 import tracemalloc
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import psutil
 
@@ -210,7 +205,7 @@ class ResourceProfiler:
             self.baseline_memory / neuron_count if neuron_count > 0 else 0
         )
         report.append(f"Memory per neuron: {memory_per_neuron:.2f} MB")
-        report.append(f"Target for embedded: <0.1 MB/neuron")
+        report.append("Target for embedded: <0.1 MB/neuron")
 
         if memory_per_neuron > 0.5:  # 500KB per neuron is too much
             report.append(
@@ -220,15 +215,15 @@ class ResourceProfiler:
         # Thread analysis
         thread_count = len(threading.enumerate())
         report.append(f"Thread count: {thread_count}")
-        report.append(f"Target for embedded: <10 threads")
+        report.append("Target for embedded: <10 threads")
 
         if thread_count > 20:
-            report.append(f"   Each thread costs ~8MB on embedded systems!")
+            report.append("   Each thread costs ~8MB on embedded systems!")
 
         # Memory breakdown
         memory_breakdown = self.get_memory_breakdown()
         if "error" not in memory_breakdown:
-            report.append(f"[SAVE] MEMORY ALLOCATION BREAKDOWN:")
+            report.append("[SAVE] MEMORY ALLOCATION BREAKDOWN:")
             report.append(f"   Total traced: {memory_breakdown['total_mb']:.1f}MB")
             report.append("")
             report.append("   Top memory consumers:")

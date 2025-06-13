@@ -23,7 +23,6 @@ regions used for inter-process communication in FEAGI.
 
 import logging
 import mmap
-import multiprocessing as mp
 import os
 import threading
 
@@ -31,8 +30,7 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
 import tempfile
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 

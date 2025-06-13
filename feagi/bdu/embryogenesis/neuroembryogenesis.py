@@ -43,18 +43,15 @@ and focuses on memory efficiency and thread-safety.
 
 import json
 import os
-import sys
 
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-import concurrent.futures
 import datetime
-import random
 import types
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -66,9 +63,8 @@ BoundingBox = Tuple[
     Position, Position
 ]  # ((min_x, min_y, min_z), (max_x, max_y, max_z))
 
-from feagi.bdu.connectivity.synapse_rule import SynapseRule
 from feagi.bdu.connectivity.synaptogenesis_rules import neighbor_finder
-from feagi.bdu.connectome_manager import ConnectomeManager, CorticalArea
+from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Try both the old and new import paths for FCLbitmap
 try:
@@ -299,10 +295,8 @@ class NeuroEmbryogenesis:
             return self._neuroembryogenesis_morphologies_registry
 
         if not hasattr(self.connectome_manager, "get_morphologies_registry"):
-            setattr(
-                self.connectome_manager,
-                "get_morphologies_registry",
-                types.MethodType(get_morphologies_registry, self.connectome_manager),
+            self.connectome_manager.get_morphologies_registry = types.MethodType(
+                get_morphologies_registry, self.connectome_manager
             )
             # Will set the actual registry later when we have the genome
 
@@ -434,10 +428,8 @@ class NeuroEmbryogenesis:
 
             # Set the morphology registry on the ConnectomeManager
             if hasattr(self.connectome_manager, "get_morphologies_registry"):
-                setattr(
-                    self.connectome_manager,
-                    "_neuroembryogenesis_morphologies_registry",
-                    morphology_registry,
+                self.connectome_manager._neuroembryogenesis_morphologies_registry = (
+                    morphology_registry
                 )
 
             if is_valid:
@@ -801,7 +793,7 @@ class NeuroEmbryogenesis:
             # Verify area was created and get from connectome_manager (single source of truth)
             if death_id not in self.connectome_manager.cortical_areas:
                 raise RuntimeError(
-                    f"CRITICAL: _death area was not created in connectome_manager"
+                    "CRITICAL: _death area was not created in connectome_manager"
                 )
 
             death_area = self.connectome_manager.get_cortical_area(death_id)
@@ -830,7 +822,7 @@ class NeuroEmbryogenesis:
             # Verify area was created and get from connectome_manager (single source of truth)
             if pwr_id not in self.connectome_manager.cortical_areas:
                 raise RuntimeError(
-                    f"CRITICAL: ___pwr area was not created in connectome_manager"
+                    "CRITICAL: ___pwr area was not created in connectome_manager"
                 )
 
             pwr_area = self.connectome_manager.get_cortical_area(pwr_id)
@@ -1427,7 +1419,7 @@ class NeuroEmbryogenesis:
                     self.connectome_manager.neuron_array.id_to_index_map[nid]
                     for nid in area_neuron_ids
                 ]
-                indices_array = np.array(indices)
+                # indices_array = np.array(indices)  # Unused variable removed
 
                 # Initialize voxel tracking for this area (vectorized)
                 if cortical_id not in self.voxel_neuron_map:
@@ -1561,14 +1553,14 @@ class NeuroEmbryogenesis:
                     )
                     if key == "physiology":
                         logger.error(
-                            f"  → EXAMPLE: Add 'physiology': {{'burst_delay': 0.025, 'max_age': 10000000, 'evolution_burst_count': 50, 'ipu_idle_threshold': 1000, 'plasticity_queue_depth': 3, 'lifespan_mgmt_interval': 10}} to your genome"
+                            "  → EXAMPLE: Add 'physiology': {'burst_delay': 0.025, 'max_age': 10000000, 'evolution_burst_count': 50, 'ipu_idle_threshold': 1000, 'plasticity_queue_depth': 3, 'lifespan_mgmt_interval': 10} to your genome"
                         )
                         logger.error(
-                            f"  → AUTO-RECOVERY: Enable auto-recovery in configuration to automatically add missing physiology properties"
+                            "  → AUTO-RECOVERY: Enable auto-recovery in configuration to automatically add missing physiology properties"
                         )
                     elif key == "blueprint":
                         logger.error(
-                            f"  → EXAMPLE: Add 'blueprint': {{}} with cortical area definitions to your genome"
+                            "  → EXAMPLE: Add 'blueprint': {} with cortical area definitions to your genome"
                         )
                     self._report_progress(DevelopmentStage.FAILED, 0, self.error)
                     return False
@@ -1596,10 +1588,8 @@ class NeuroEmbryogenesis:
 
             # Set the morphology registry on the ConnectomeManager
             if hasattr(self.connectome_manager, "get_morphologies_registry"):
-                setattr(
-                    self.connectome_manager,
-                    "_neuroembryogenesis_morphologies_registry",
-                    morphology_registry,
+                self.connectome_manager._neuroembryogenesis_morphologies_registry = (
+                    morphology_registry
                 )
 
             self._report_progress(
@@ -1708,7 +1698,7 @@ class NeuroEmbryogenesis:
                         )
 
                         # Get destination area and neurons
-                        dst_area = self.connectome_manager.cortical_areas[dst_area_id]
+                        # dst_area = self.connectome_manager.cortical_areas[dst_area_id]  # Unused variable removed
                         dst_neurons = self.connectome_manager.get_neurons_by_area(
                             dst_area_id
                         )

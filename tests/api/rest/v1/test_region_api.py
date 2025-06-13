@@ -16,10 +16,6 @@ limitations under the License.
 
 """Tests for the Region API endpoints."""
 
-import json
-import os
-import shutil
-import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest

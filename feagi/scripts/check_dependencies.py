@@ -20,7 +20,6 @@ limitations under the License.
 This script checks if all required dependencies are installed with the correct versions.
 It can be run directly to verify that the environment is properly set up.
 """
-import os
 import sys
 
 from feagi.utils.logger import setup_logger

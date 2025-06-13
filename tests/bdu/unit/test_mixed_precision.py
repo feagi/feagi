@@ -16,7 +16,6 @@ limitations under the License.
 
 """Tests for the mixed precision functionality in the array backend."""
 
-from typing import Any
 
 import numpy as np
 import pytest

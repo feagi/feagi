@@ -25,7 +25,7 @@ not the browser-based 'WebGPU' web standard.
 
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 import scipy.sparse

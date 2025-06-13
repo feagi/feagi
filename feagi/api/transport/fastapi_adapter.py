@@ -24,9 +24,8 @@ The adapter ensures that HTTP clients get identical behavior to other
 transport protocols (ZMQ, etc.) by using the same underlying v1 business logic.
 """
 
-from typing import Any, Dict, Union
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from feagi.api.core.services.core_api_service import CoreAPIService
@@ -35,7 +34,6 @@ from feagi.api.v1.schemas import (
     CircuitLibraryPathRequest,
     ConfigurationResponse,
     CorticalAreaTypesResponse,
-    ErrorResponse,
     HealthCheckResponse,
     InfluxDBTestResponse,
     LogsRequest,

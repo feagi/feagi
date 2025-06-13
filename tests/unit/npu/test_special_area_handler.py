@@ -22,7 +22,6 @@ particularly power areas with automatic FCL injection.
 """
 
 from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock
 
 import pytest
 

@@ -21,9 +21,8 @@ This module tests the functionality of the REST API adapter for ZMQ,
 which allows REST API-style requests to be processed over ZMQ.
 """
 
-import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

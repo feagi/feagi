@@ -26,7 +26,7 @@ import json
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 
 
 def serialize_message(data: Any, content_type: str = "application/json") -> bytes:

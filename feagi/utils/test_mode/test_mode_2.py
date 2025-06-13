@@ -8,9 +8,7 @@ Test Mode 2 specifically uses the test_genome.json file instead of the essential
 genome to provide more cortical areas and neurons for testing scalability.
 """
 
-import logging
 import random
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 

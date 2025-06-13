@@ -10,7 +10,6 @@ import os
 import sys
 import time
 
-import numpy as np
 import pytest
 
 # Add the project root to the path for direct imports

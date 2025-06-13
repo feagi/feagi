@@ -34,21 +34,15 @@ pytest.skip(
 import asyncio
 import json
 import logging
-import random
 import sys
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import feagi_bytes
 import numpy as np
 import zmq
 import zmq.asyncio
-from feagi_bytes import (
-    ByteStructureDecoder,
-    ByteStructureEncoder,
-    ByteStructureTranslator,
-)
-from feagi_connector_old.protocols import ByteStructureID, FCPMessageType, ProtocolType
+from feagi_bytes import ByteStructureTranslator
 
 # Set up logging
 logging.basicConfig(

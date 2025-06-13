@@ -10,16 +10,13 @@ This test loads the actual essential genome and verifies that:
 This test catches real-world issues that unit tests with mocks cannot detect.
 """
 
-import time
 from pathlib import Path
-from typing import Any, Dict
 
 import pytest
 
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 from feagi.npu.fcl_injection_service import FCLInjectionService
-from feagi.npu.fcl_manager import FCLManager
 from feagi.npu.fq_sampler import UnifiedFQSampler
 from feagi.npu.special_area_handler import SpecialAreaHandler
 from feagi.utils.config import FeagiConfig

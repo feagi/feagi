@@ -23,11 +23,10 @@ frequency measurement, sampling, and error handling.
 """
 
 import os
-import signal
 import threading
 import time
-from queue import Empty, Full, Queue
-from unittest.mock import MagicMock, Mock, call, patch
+from queue import Queue
+from unittest.mock import Mock, patch
 
 import pytest
 

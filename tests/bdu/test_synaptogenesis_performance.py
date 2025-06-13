@@ -29,7 +29,6 @@ import pstats
 import sys
 import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
@@ -46,10 +45,7 @@ if project_root not in sys.path:
 from feagi.bdu.connectome_manager import ConnectomeManager
 
 # Import the modules to test
-from feagi.bdu.embryogenesis.neuroembryogenesis import (
-    DevelopmentStage,
-    NeuroEmbryogenesis,
-)
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 from feagi.utils.config import FeagiConfig
 
 

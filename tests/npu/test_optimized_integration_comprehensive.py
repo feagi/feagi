@@ -21,13 +21,11 @@ This module tests all functionality in optimized_integration.py to achieve
 high code coverage, including both optimized and fallback implementations.
 """
 
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from feagi.npu.optimized_integration import (
-    RUST_AVAILABLE,
     add_connection,
     create_optimized_core,
     get_core_property,

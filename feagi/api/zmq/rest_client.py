@@ -25,7 +25,7 @@ over HTTP.
 import json
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import zmq
 
@@ -150,7 +150,7 @@ class ZMQRestClient:
 
             # Parse response (should be [empty_frame, payload])
             if len(response_parts) < 2:
-                raise ValueError(f"Invalid response format: missing parts")
+                raise ValueError("Invalid response format: missing parts")
 
             # Get JSON payload
             response = json.loads(response_parts[1].decode("utf-8"))

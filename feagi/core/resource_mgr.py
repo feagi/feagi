@@ -29,7 +29,7 @@ import threading
 import time
 import weakref
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from feagi.utils.data_structures import OwnershipType, RustCompatible, rust_field
 
@@ -201,7 +201,7 @@ class ResourceManager:
                                 "driver": "Unknown",
                                 "adapter_type": "Unknown",
                             }
-                            self.logger.info(f"WebGPU adapter detected successfully")
+                            self.logger.info("WebGPU adapter detected successfully")
                 except Exception as e:
                     self.logger.warning(f"WebGPU adapter detection error: {e}")
             except ImportError:

@@ -26,7 +26,7 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger("feagi.config")
 import copy
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import yaml
 

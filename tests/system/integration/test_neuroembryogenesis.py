@@ -25,11 +25,9 @@ a brain from a genome file.
 import json
 import logging
 import os
-import shutil
 import sys
 import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
@@ -324,7 +322,7 @@ def test_full_development(embryo, genome_file):
         print(f"  {stage}: {duration:.3f} seconds")
 
     # Print statistics
-    print(f"\nDevelopment Statistics:")
+    print("\nDevelopment Statistics:")
     print(f"  Cortical Areas: {stats['cortical_areas']}")
     print(f"  Neurons: {stats['neurons']}")
     print(f"  Synapses: {stats['synapses']}")

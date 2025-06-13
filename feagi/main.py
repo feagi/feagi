@@ -35,14 +35,11 @@ import argparse
 import signal
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
 
-from feagi.config.toml_loader import FeagiConfigurationError, load_feagi_config
 from feagi.core.state_manager import FeagiStateManager
 from feagi.logging_config import setup_feagi_logging
 from feagi.process_manager import get_process_manager
 from feagi.utils.logger import setup_logger
-from feagi.utils.port_checker import PortConflictError
 
 setup_feagi_logging()
 
@@ -428,7 +425,7 @@ def main():
         # Log the final configuration being used
         api_config = config.get("api", {})
         port_config = config.get("ports", {})
-        logger.info(f"Configuration loaded successfully:")
+        logger.info("Configuration loaded successfully:")
         logger.info(f"  API: {api_config.get('host')}:{api_config.get('port')}")
         logger.info(
             f"  ZMQ Ports: REQ/REP={port_config.get('zmq_req_rep_port')}, "
@@ -470,7 +467,6 @@ def main():
         return 1
 
     # Initialize state manager and set debug configuration
-    from feagi.core.state_manager import FeagiStateManager
 
     state_manager = FeagiStateManager.instance()
     state_manager.set_debug_config(config)

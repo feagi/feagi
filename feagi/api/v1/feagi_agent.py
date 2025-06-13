@@ -18,9 +18,8 @@ limitations under the License.
 FEAGI v1 Agent API - Single Source of Truth
 """
 
-from typing import Any, Dict, List
 
-from fastapi import HTTPException, Query
+from fastapi import HTTPException
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -31,7 +30,6 @@ from .schemas import (
     AgentDeregistrationRequest,
     AgentInfoResponse,
     AgentListResponse,
-    AgentPropertiesRequest,
     AgentPropertiesResponse,
     AgentRegistrationRequest,
     SuccessResponse,

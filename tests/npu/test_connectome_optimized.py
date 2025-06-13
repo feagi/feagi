@@ -21,7 +21,7 @@ This module tests the Connectome and OptimizedFeagiCore classes from the
 optimized_structures module, focusing on both the Python and mocked Rust implementations.
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest

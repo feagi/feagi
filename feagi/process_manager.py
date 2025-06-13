@@ -37,26 +37,20 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(name="feagi.process_manager")
 
-import multiprocessing
 import os
-import signal
-import socket
 import sys
 import threading
 import time
 import traceback
-from queue import Queue
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Optional
 
 # Import TOML configuration system
 from feagi.config.toml_loader import (
-    FeagiConfigurationError,
     get_host_config,
     get_port_config,
     get_timeout_config,
     load_feagi_config,
 )
-from feagi.core.state_manager import FeagiStateManager
 from feagi.utils.port_checker import PortConflictError, check_port_availability
 
 # Process priority levels
@@ -332,7 +326,7 @@ class ProcessManager:
 
                 if error_states:
                     logger.error(
-                        f"[ERR] BLOCKED: Cannot start ZMQ services - critical services in ERROR state"
+                        "[ERR] BLOCKED: Cannot start ZMQ services - critical services in ERROR state"
                     )
                     for error in error_states:
                         logger.error(f"[ERR]   {error}")
@@ -410,7 +404,7 @@ class ProcessManager:
 
             if error_states:
                 logger.error(
-                    f"[ERR] BLOCKED: Cannot start ZMQ services - critical services in ERROR state"
+                    "[ERR] BLOCKED: Cannot start ZMQ services - critical services in ERROR state"
                 )
                 for error in error_states:
                     logger.error(f"[ERR]   {error}")
@@ -1021,16 +1015,14 @@ class ProcessManager:
                         logger.error(f"Thread {name} has stopped unexpectedly")
                         if name == "rest_api":
                             logger.error(
-                                f"REST API thread failure - this usually indicates:"
+                                "REST API thread failure - this usually indicates:"
                             )
+                            logger.error("  1. Unicode/encoding issues in log messages")
+                            logger.error("  2. Import errors or missing dependencies")
+                            logger.error("  3. Port conflicts or network issues")
+                            logger.error("  4. FastAPI/uvicorn startup failures")
                             logger.error(
-                                f"  1. Unicode/encoding issues in log messages"
-                            )
-                            logger.error(f"  2. Import errors or missing dependencies")
-                            logger.error(f"  3. Port conflicts or network issues")
-                            logger.error(f"  4. FastAPI/uvicorn startup failures")
-                            logger.error(
-                                f"Check the detailed traceback above for the root cause"
+                                "Check the detailed traceback above for the root cause"
                             )
                 elif hasattr(service, "poll") and callable(service.poll):
                     # Legacy subprocess
@@ -1068,7 +1060,6 @@ class ProcessManager:
 
             # Import required modules for timeout handling
             import threading
-            import time
 
             # Load timeout configuration from TOML (use defaults if config unavailable during shutdown)
             try:
@@ -1323,7 +1314,7 @@ class ProcessManager:
         # During runtime, agents should be able to register immediately
         if self._startup_phase:
             logger.debug(
-                f"🔄 Startup phase: Checking critical service readiness for FQ sampler creation"
+                "🔄 Startup phase: Checking critical service readiness for FQ sampler creation"
             )
             try:
                 from feagi.core.state_manager import get_state_manager
@@ -1352,17 +1343,17 @@ class ProcessManager:
 
                     # Wait briefly for services to become ready (non-blocking timeout)
                     logger.info(
-                        f"🔄 Waiting up to 10 seconds for critical services to become ready..."
+                        "🔄 Waiting up to 10 seconds for critical services to become ready..."
                     )
                     if state_manager.wait_for_critical_services(
                         timeout_seconds=10.0, check_interval=0.5
                     ):
                         logger.info(
-                            f"✅ Critical services now ready - proceeding with FQ sampler creation"
+                            "✅ Critical services now ready - proceeding with FQ sampler creation"
                         )
                     else:
                         logger.error(
-                            f"❌ TIMEOUT: Critical services still not ready after 10 seconds"
+                            "❌ TIMEOUT: Critical services still not ready after 10 seconds"
                         )
                         logger.error(f"❌ FQ sampler creation DENIED for mode '{mode}'")
                         return False
@@ -1376,11 +1367,11 @@ class ProcessManager:
                     f"🚨 Error in critical service readiness gate: {gate_error}"
                 )
                 logger.error(
-                    f"🚨 Proceeding with FQ sampler creation anyway to maintain backward compatibility"
+                    "🚨 Proceeding with FQ sampler creation anyway to maintain backward compatibility"
                 )
         else:
             logger.debug(
-                f"🔄 Runtime phase: Skipping critical service check for FQ sampler creation (services already verified)"
+                "🔄 Runtime phase: Skipping critical service check for FQ sampler creation (services already verified)"
             )
 
         # ===== END CRITICAL SERVICE READINESS GATE =====
@@ -1448,7 +1439,7 @@ class ProcessManager:
                         f"🔥 FQ sampler [{fq_sampler.instance_id}] registered with burst engine successfully"
                     )
                     logger.debug(
-                        f"🔥 [DEBUG] Registration completed - checking burst engine FQ sampler count"
+                        "🔥 [DEBUG] Registration completed - checking burst engine FQ sampler count"
                     )
                     if hasattr(self._burst_engine, "_fq_samplers"):
                         sampler_count = len(self._burst_engine._fq_samplers)
@@ -1457,7 +1448,7 @@ class ProcessManager:
                         )
                     else:
                         logger.warning(
-                            f"🔥 [DEBUG] Burst engine has no _fq_samplers attribute - registration may have failed"
+                            "🔥 [DEBUG] Burst engine has no _fq_samplers attribute - registration may have failed"
                         )
                 except Exception as reg_error:
                     logger.error(
@@ -1502,16 +1493,16 @@ class ProcessManager:
                 f"🔥 Internal run() thread NOT started - {mode} stream will call sample() directly"
             )
             logger.info(
-                f"🔥 This prevents double logging from both thread and stream calling sample()"
+                "🔥 This prevents double logging from both thread and stream calling sample()"
             )
 
             # Store reference without thread for streams to use
             if mode == "visualization":
                 self._viz_fq_thread = None  # No thread needed
-                logger.info(f"[RENDER] Visualization FQ Sampler ready for stream usage")
+                logger.info("[RENDER] Visualization FQ Sampler ready for stream usage")
             elif mode == "opu":
                 self._motor_fq_thread = None  # No thread needed
-                logger.info(f"[MOTOR] Motor FQ Sampler ready for stream usage")
+                logger.info("[MOTOR] Motor FQ Sampler ready for stream usage")
 
             logger.info(
                 f"[DEBUG] FQ Sampler created successfully: mode={mode} (stream-based, no internal thread)"

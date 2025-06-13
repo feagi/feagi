@@ -36,14 +36,9 @@ Design principles:
 - No backward compatibility with legacy formats
 """
 
-import json
 import threading
 import time
-import uuid
-from collections import defaultdict
-from dataclasses import dataclass, field
-from queue import Empty
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Optional
 
 # CRITICAL FIX: Import numpy at module level to prevent scoping issues
 import numpy as np
@@ -52,8 +47,6 @@ import zmq  # Import standard synchronous ZMQ (not zmq.asyncio)
 from feagi.utils.compression import create_lz4_compressor
 from feagi.utils.logger import setup_logger
 from feagi.utils.zmq_debug import MessageType, log_outbound
-
-from ...core.services.core_api_service import CoreAPIService
 
 logger = setup_logger(__name__)
 
@@ -501,7 +494,7 @@ class VisualizationStream:
                     )
 
                     if structure_type == 11:
-                        logger.debug(f"   ✅ Generated Type 11 (NEURON_CATEGORIES)")
+                        logger.debug("   ✅ Generated Type 11 (NEURON_CATEGORIES)")
                     else:
                         logger.debug(f"   ❓ Unknown structure type: {structure_type}")
 
@@ -764,7 +757,7 @@ class VisualizationStream:
             if was_new_client:
                 logger.info(f"💚 New visualization client connected: {client_id}")
                 logger.info(
-                    f"ℹ️ Note: Agent registration must be done explicitly via REST API - no automatic registration"
+                    "ℹ️ Note: Agent registration must be done explicitly via REST API - no automatic registration"
                 )
             else:
                 logger.debug(f"💓 Heartbeat from visualization client: {client_id}")
@@ -872,7 +865,7 @@ class VisualizationStream:
                         del self.client_last_heartbeat[client_id]
                         logger.info(f"💔 Client {client_id} disconnected (timeout)")
                         logger.info(
-                            f"ℹ️ Note: Agent deregistration must be done explicitly via REST API - no automatic deregistration"
+                            "ℹ️ Note: Agent deregistration must be done explicitly via REST API - no automatic deregistration"
                         )
 
                     # Log final client count

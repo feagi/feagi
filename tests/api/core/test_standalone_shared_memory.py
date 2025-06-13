@@ -20,15 +20,12 @@ Standalone test for shared memory components.
 This test doesn't rely on the full FEAGI framework.
 """
 
-import json
 import logging
 import multiprocessing
 import os
 import sys
 import tempfile
-import threading
 import time
-from typing import Any, Dict, Optional
 
 # Configure logging
 logging.basicConfig(
@@ -312,7 +309,6 @@ def standalone_writer_process(temp_dir, ready_event):
         # This is a fresh process, so we need all imports
         import logging
         import sys
-        import time
 
         logging.basicConfig(level=logging.INFO)
 

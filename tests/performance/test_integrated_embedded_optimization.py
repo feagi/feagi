@@ -8,21 +8,14 @@ into the main FEAGI architecture and can achieve the 10M neurons at 15Hz target.
 import os
 import sys
 import time
-from typing import Any, Dict, List
 
 import numpy as np
-import pytest
 
 # Add the feagi_core path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.models.neuron import (
-    MEMORY_ALIGNMENT,
-    NUMBA_AVAILABLE,
-    VECTOR_WIDTH,
-    NeuronArray,
-)
+from feagi.bdu.models.neuron import MEMORY_ALIGNMENT, NUMBA_AVAILABLE, NeuronArray
 from feagi.npu.burst_engine import BurstEngine
 
 
@@ -71,7 +64,6 @@ class TestIntegratedEmbeddedOptimization:
         from feagi.bdu.models.neuron import (
             simd_fire_neurons,
             simd_membrane_decay,
-            simd_refractory_update,
             simd_threshold_check,
         )
 
@@ -116,7 +108,7 @@ class TestIntegratedEmbeddedOptimization:
         )
         firing_time = time.perf_counter() - start_time
 
-        print(f"✅ SIMD operations verified:")
+        print("✅ SIMD operations verified:")
         print(f"   - Numba available: {NUMBA_AVAILABLE}")
         print(f"   - Membrane decay: {decay_time * 1000:.2f}ms")
         print(f"   - Threshold check: {threshold_time * 1000:.2f}ms")
@@ -124,7 +116,7 @@ class TestIntegratedEmbeddedOptimization:
 
     def test_neuron_array_performance(self):
         """Test NeuronArray performance with embedded optimizations."""
-        print(f"\n🧪 Testing NeuronArray performance scaling...")
+        print("\n🧪 Testing NeuronArray performance scaling...")
 
         results = []
 
@@ -185,11 +177,11 @@ class TestIntegratedEmbeddedOptimization:
                 print(f"   Operations/sec: {operations_per_second / 1e6:.1f}M")
 
         # Don't return to avoid pytest warnings
-        print(f"   ✅ NeuronArray performance test completed")
+        print("   ✅ NeuronArray performance test completed")
 
     def test_connectome_manager_integration(self):
         """Test ConnectomeManager embedded optimization integration."""
-        print(f"\n🧪 Testing ConnectomeManager integration...")
+        print("\n🧪 Testing ConnectomeManager integration...")
 
         # Test only one size due to singleton pattern
         size = self.test_sizes[1]  # Use 10K neurons
@@ -246,11 +238,11 @@ class TestIntegratedEmbeddedOptimization:
         print(f"   Memory alignment: {perf_summary.get('alignment', 'N/A')}B")
 
         # Don't return to avoid pytest warnings
-        print(f"   ✅ ConnectomeManager integration test completed")
+        print("   ✅ ConnectomeManager integration test completed")
 
     def test_burst_engine_integration(self):
         """Test BurstEngine embedded optimization integration."""
-        print(f"\n🧪 Testing BurstEngine integration...")
+        print("\n🧪 Testing BurstEngine integration...")
 
         size = min(self.test_sizes[2], 50000)  # 50K neurons for CI
         print(f"\n📊 Testing {size:,} neurons in BurstEngine...")
@@ -305,11 +297,11 @@ class TestIntegratedEmbeddedOptimization:
         print(f"   Vector width: {perf_summary.get('vector_width', 'N/A')}")
 
         # Don't return to avoid pytest warnings
-        print(f"   ✅ BurstEngine integration test completed")
+        print("   ✅ BurstEngine integration test completed")
 
     def test_performance_scaling_projection(self):
         """Project performance scaling to 10M neurons."""
-        print(f"\n🧪 Performance scaling projection to 10M neurons...")
+        print("\n🧪 Performance scaling projection to 10M neurons...")
 
         # Test with available sizes
         test_results = []
@@ -361,19 +353,19 @@ class TestIntegratedEmbeddedOptimization:
             # 10M neurons * 6 operations * 15Hz = 900M operations/second required
             target_ops_per_second = 10_000_000 * 6 * 15
 
-            print(f"\n📈 Projection to 10M neurons:")
+            print("\n📈 Projection to 10M neurons:")
             print(f"   Best measured: {best_ops_per_sec / 1e6:.1f}M ops/sec")
             print(f"   Required for 15Hz: {target_ops_per_second / 1e6:.1f}M ops/sec")
 
             if best_ops_per_sec >= target_ops_per_second:
-                print(f"   ✅ TARGET ACHIEVABLE: Performance sufficient for 10M@15Hz")
+                print("   ✅ TARGET ACHIEVABLE: Performance sufficient for 10M@15Hz")
             else:
                 ratio = target_ops_per_second / best_ops_per_sec
                 print(f"   ⚠️  NEEDS {ratio:.1f}x IMPROVEMENT for 10M@15Hz target")
 
     def test_optimization_verification(self):
         """Verify that optimizations are actually being used."""
-        print(f"\n🧪 Verifying optimization features...")
+        print("\n🧪 Verifying optimization features...")
 
         neuron_array = NeuronArray(max_neurons=1000)
         perf_summary = neuron_array.get_performance_summary()
@@ -397,7 +389,7 @@ class TestIntegratedEmbeddedOptimization:
                 f"Should have at least 1-wide vectors, got {vector_width}"
             )
 
-        print(f"   ✅ All optimization features verified")
+        print("   ✅ All optimization features verified")
 
 
 def run_embedded_performance_test():
@@ -430,7 +422,7 @@ def run_embedded_performance_test():
         print(
             f"✅ SIMD operations: {'Numba JIT enabled' if NUMBA_AVAILABLE else 'NumPy fallback'}"
         )
-        print(f"✅ Integration: All components using embedded optimizations")
+        print("✅ Integration: All components using embedded optimizations")
 
         # Best performance achieved
         if neuron_results:
@@ -445,8 +437,8 @@ def run_embedded_performance_test():
 
         print(f"✅ Burst engine performance: {burst_result['burst_time_ms']:.2f}ms")
 
-        print(f"\n🎯 15Hz target: <66.7ms per operation")
-        print(f"🎯 10Hz target: <100ms per operation")
+        print("\n🎯 15Hz target: <66.7ms per operation")
+        print("🎯 10Hz target: <100ms per operation")
 
     except Exception as e:
         print(f"\n❌ Test failed: {e}")

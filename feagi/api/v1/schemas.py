@@ -22,7 +22,6 @@ These schemas define the data structures used by all endpoints,
 regardless of transport protocol (HTTP, ZMQ, etc.).
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, RootModel

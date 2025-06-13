@@ -34,13 +34,11 @@ The goal is to maintain RTOS-friendly code and ease future Rust migration.
 """
 
 import ast
-import importlib.util
-import os
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Set, Tuple
+from typing import Dict, List
 
 import pytest
 
@@ -328,7 +326,7 @@ class RTOSCompatibilityAnalyzer(ast.NodeVisitor):
                 f"Function '{func_name}' causes dynamic allocation or I/O",
                 line_no,
                 self._get_code_snippet(line_no),
-                f"Pre-allocate memory or use fixed-size alternatives",
+                "Pre-allocate memory or use fixed-size alternatives",
                 "Dynamic allocation forbidden in many RTOS systems",
             )
         elif func_name in self.MEDIUM_RISK_FUNCTIONS:
@@ -561,7 +559,7 @@ class NPUCompatibilityMonitor:
             if a.overall_level == CompatibilityLevel.HIGH
         )
 
-        report_lines.append(f"📊 OVERALL SUMMARY:")
+        report_lines.append("📊 OVERALL SUMMARY:")
         report_lines.append(f"   Average Compatibility Score: {avg_score:.1f}/100")
         report_lines.append(f"   Modules with CRITICAL issues: {critical_count}")
         report_lines.append(f"   Modules with HIGH issues: {high_count}")
@@ -732,7 +730,7 @@ def test_npu_rtos_rust_compatibility(compatibility_monitor, npu_path):
         )
         print("These should be addressed before RTOS migration.")
 
-    print(f"\n✅ RTOS Compatibility Analysis Complete:")
+    print("\n✅ RTOS Compatibility Analysis Complete:")
     print(f"   📊 Average Score: {avg_score:.1f}/100")
     print(f"   📈 Total Issues: {total_issues}")
     print(f"   🔴 Critical Modules: {len(critical_modules)}")
@@ -792,4 +790,4 @@ if __name__ == "__main__":
     with open("npu_rtos_compatibility_report.txt", "w") as f:
         f.write(report)
 
-    print(f"\nReport written to: npu_rtos_compatibility_report.txt")
+    print("\nReport written to: npu_rtos_compatibility_report.txt")

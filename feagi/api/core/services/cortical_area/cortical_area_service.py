@@ -17,7 +17,7 @@ limitations under the License.
 """Cortical Area service for managing FEAGI cortical area operations."""
 
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from ..shared.base_service import BaseService
 

@@ -22,10 +22,8 @@ transfer to GPU memory.
 """
 
 import logging
-import os
-import uuid
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -38,12 +36,6 @@ from feagi.bdu.models.cortical_area import CorticalArea
 from feagi.bdu.models.neuron import NeuronArray
 
 # Import utility functions
-from feagi.bdu.utils.position import (
-    delinearize_position,
-    linearize_position,
-    validate_position,
-)
-from feagi.utils.config import FeagiConfig
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -3542,7 +3534,7 @@ class ConnectomeManager:
                         f"Current brain state saved: {saved_state_info['filename']}",
                         status="[OK]",
                     )
-                except Exception as e:
+                except Exception:
                     logger.warning(
                         "Failed to save current brain state - proceeding anyway",
                         status="[WARN]",

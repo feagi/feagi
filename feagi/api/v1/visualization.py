@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.api.rest.dependencies import get_core_api_service
-from feagi.api.v1.schemas import ErrorResponse, SuccessResponse
+from feagi.api.v1.schemas import SuccessResponse
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()

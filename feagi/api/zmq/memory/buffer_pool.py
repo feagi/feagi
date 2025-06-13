@@ -6,11 +6,10 @@ in the critical path of neural data processing.
 """
 
 import mmap
-import multiprocessing
 import threading
 from dataclasses import dataclass
 from queue import Empty, Full, Queue
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 __all__ = [
     "FixedBufferPool",

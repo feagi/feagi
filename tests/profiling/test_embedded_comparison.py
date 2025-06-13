@@ -28,7 +28,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import psutil
 import pytest
@@ -247,7 +247,7 @@ class FeagiModeComparator:
                 },
             }
 
-            logger.info(f"[STATS] COMPARISON RESULTS:")
+            logger.info("[STATS] COMPARISON RESULTS:")
             logger.info(
                 f"   Memory: {normal_mem:.1f}MB → {embedded_mem:.1f}MB "
                 f"({memory_savings:+.1f}MB, {memory_savings_percent:+.1f}%)"
@@ -308,7 +308,7 @@ def test_embedded_mode_comparison(genome_path, logs_dir):
             improvements = results["improvements"]
             summary = improvements["summary"]
 
-            logger.info(f"[SEARCH] EMBEDDED MODE EFFECTIVENESS:")
+            logger.info("[SEARCH] EMBEDDED MODE EFFECTIVENESS:")
             logger.info(f"   Memory improved: {summary['memory_improved']}")
             logger.info(f"   CPU improved: {summary['cpu_improved']} ")
             logger.info(f"   Threads improved: {summary['threads_improved']}")

@@ -25,11 +25,8 @@ during neural simulation, such as power areas that inject neurons into the FCL.
 """
 
 import time
-from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Union
-
-import numpy as np
+from typing import Any, Dict, List, Optional, Set
 
 from feagi.utils.logger import setup_logger
 
@@ -100,9 +97,9 @@ class SpecialAreaHandler:
 
             # 🚨 CRITICAL DEBUG: Trace neuron corruption issue
             if power_neurons and len(power_neurons) != 1:
-                logger.error(f"🚨 POWER NEURON CORRUPTION DETECTED!")
+                logger.error("🚨 POWER NEURON CORRUPTION DETECTED!")
                 logger.error(
-                    f"   Expected: 1 neuron (as per essential genome: 1 neuron/voxel × 1×1×1 voxels)"
+                    "   Expected: 1 neuron (as per essential genome: 1 neuron/voxel × 1×1×1 voxels)"
                 )
                 logger.error(
                     f"   Found: {len(power_neurons)} neurons in cortical_idx=1"
@@ -112,7 +109,7 @@ class SpecialAreaHandler:
                 # Check cortical area mapping - is cortical_idx=1 actually ___pwr?
                 try:
                     if hasattr(self.connectome_manager, "cortical_areas"):
-                        logger.error(f"🔍 MAPPING VERIFICATION:")
+                        logger.error("🔍 MAPPING VERIFICATION:")
 
                         # Find what area cortical_idx=1 maps to
                         for (
@@ -142,12 +139,12 @@ class SpecialAreaHandler:
                                         f"🚨 CRITICAL: cortical_idx=1 maps to '{area_id}', NOT '___pwr'!"
                                     )
                                     logger.error(
-                                        f"   This indicates severe cortical mapping corruption during neurogenesis"
+                                        "   This indicates severe cortical mapping corruption during neurogenesis"
                                     )
                                 break
                         else:
                             logger.error(
-                                f"🚨 CRITICAL: No area found with cortical_idx=1!"
+                                "🚨 CRITICAL: No area found with cortical_idx=1!"
                             )
 
                         # Also check where ___pwr actually maps to
@@ -169,7 +166,7 @@ class SpecialAreaHandler:
                                 break
                         else:
                             logger.error(
-                                f"🚨 CRITICAL: '___pwr' area not found in cortical_areas!"
+                                "🚨 CRITICAL: '___pwr' area not found in cortical_areas!"
                             )
 
                     # Check individual neuron cortical assignments
@@ -177,7 +174,7 @@ class SpecialAreaHandler:
                         hasattr(self.connectome_manager, "neuron_array")
                         and len(power_neurons) > 0
                     ):
-                        logger.error(f"🔍 NEURON ANALYSIS:")
+                        logger.error("🔍 NEURON ANALYSIS:")
                         neuron_array = self.connectome_manager.neuron_array
 
                         # Sample first 10 neurons to check their actual cortical assignments
@@ -233,7 +230,7 @@ class SpecialAreaHandler:
                     with open("/tmp/power_neuron_corruption_report.json", "w") as f:
                         json.dump(corruption_report, f, indent=2)
                     logger.error(
-                        f"🔍 Detailed corruption report written to /tmp/power_neuron_corruption_report.json"
+                        "🔍 Detailed corruption report written to /tmp/power_neuron_corruption_report.json"
                     )
                 except Exception as e:
                     logger.error(f"Failed to write corruption report: {e}")
@@ -245,7 +242,7 @@ class SpecialAreaHandler:
                 )
             elif not power_neurons:
                 logger.debug(
-                    f"[POWER DETECTION] No neurons found in core power area (cortical_idx=1)"
+                    "[POWER DETECTION] No neurons found in core power area (cortical_idx=1)"
                 )
 
             return power_neurons if power_neurons else []

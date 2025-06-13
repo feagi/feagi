@@ -21,7 +21,6 @@ These tests focus on basic functionality and API correctness to ensure
 the FCL manager works as expected.
 """
 
-from unittest.mock import Mock, patch
 
 import pytest
 

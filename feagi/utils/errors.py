@@ -20,7 +20,7 @@ This module defines custom error types that can be directly mapped to Rust's enu
 Using these error types makes it easier to port code to Rust in the future.
 """
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Optional, Union
 
 
 class ErrorCode(Enum):
@@ -348,8 +348,8 @@ def generate_rust_error_enum() -> str:
             f'    #[error("{code.name.replace("_", " ").title()}: {{message}}")]'
         )
         lines.append(f"    {variant_name} {{")
-        lines.append(f"        message: String,")
-        lines.append(f"    }},")
+        lines.append("        message: String,")
+        lines.append("    },")
 
     lines.append("}")
 

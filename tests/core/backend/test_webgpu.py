@@ -19,7 +19,7 @@ Tests for the WebGPU backend.
 """
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest

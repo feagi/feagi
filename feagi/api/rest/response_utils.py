@@ -17,11 +17,9 @@ limitations under the License.
 """
 Standardized response utilities for FEAGI REST API.
 """
-import json
 from datetime import datetime
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, Optional, TypeVar
 
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 T = TypeVar("T")

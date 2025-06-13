@@ -16,7 +16,7 @@ limitations under the License.
 
 """Connectome service for managing FEAGI connectome operations."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from ..shared.base_service import BaseService
 

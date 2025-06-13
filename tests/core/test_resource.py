@@ -18,11 +18,8 @@ limitations under the License.
 Tests for FEAGI resource management functionality.
 """
 
-import multiprocessing
-import os
 from unittest.mock import MagicMock, patch
 
-import psutil
 import pytest
 
 

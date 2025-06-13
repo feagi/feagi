@@ -32,24 +32,15 @@ LESSONS LEARNED FROM PREVIOUS FAILED TESTS:
 
 import os
 import re
-import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import List
 from unittest.mock import patch
 
 import pytest
 
 # Import FEAGI configuration modules for integration testing
-from feagi.config.toml_loader import (
-    HostConfiguration,
-    PortConfiguration,
-    TimeoutConfiguration,
-    get_host_config,
-    get_port_config,
-    get_timeout_config,
-    load_feagi_config,
-)
+from feagi.config.toml_loader import get_host_config, get_port_config
 
 
 class TestCodebaseHardcodingDetection:
@@ -110,7 +101,7 @@ class TestCodebaseHardcodingDetection:
                                 }
                             )
 
-            except Exception as e:
+            except Exception:
                 # Skip files that can't be read
                 continue
 
@@ -469,9 +460,9 @@ class TestRealConfigurationIntegration:
 
         if violations:
             pytest.fail(
-                f"TOML configuration file contains hardcoded violations:\n"
+                "TOML configuration file contains hardcoded violations:\n"
                 + "\n".join(f"  - {v}" for v in violations)
-                + f"\n\nConfiguration must require explicit host/port settings."
+                + "\n\nConfiguration must require explicit host/port settings."
             )
 
     @pytest.mark.integration

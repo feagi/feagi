@@ -129,7 +129,7 @@ class TestZMQErrorPrevention:
 
             # Trying to call it should raise AttributeError
             with pytest.raises(AttributeError):
-                getattr(socket, "recv_into")
+                socket.recv_into
 
         finally:
             socket.close()

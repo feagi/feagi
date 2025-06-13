@@ -19,12 +19,9 @@ Tests for the synaptogenesis_rules implementation.
 """
 
 import json
-import logging
 import os
 import sys
-from pathlib import Path
 
-import numpy as np
 import pytest
 
 # Add the project root to the path if needed
@@ -33,7 +30,6 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from feagi.bdu.connectivity.synaptogenesis_rules import (
-    MorphologyFunction,
     RuleType,
     check_pattern_validity,
     define_subregions,
@@ -43,7 +39,6 @@ from feagi.bdu.connectivity.synaptogenesis_rules import (
     find_source_coordinates,
     last_to_first,
     linearize_position,
-    match_vectors,
     neighbor_finder,
     syn_block_connection,
     syn_expander_x,
@@ -54,10 +49,7 @@ from feagi.bdu.connectivity.synaptogenesis_rules import (
     syn_reducer_x,
 )
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.embryogenesis.neuroembryogenesis import (
-    DevelopmentStage,
-    NeuroEmbryogenesis,
-)
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 from feagi.utils.config import FeagiConfig
 
 # Import genome processing modules
@@ -332,17 +324,13 @@ def test_morphologies(embryo):
     if not hasattr(
         embryo.connectome_manager, "_neuroembryogenesis_morphologies_registry"
     ):
-        setattr(
-            embryo.connectome_manager,
-            "_neuroembryogenesis_morphologies_registry",
-            morphology_registry,
+        embryo.connectome_manager._neuroembryogenesis_morphologies_registry = (
+            morphology_registry
         )
 
     if not hasattr(embryo.connectome_manager, "get_morphologies_registry"):
-        setattr(
-            embryo.connectome_manager,
-            "get_morphologies_registry",
-            lambda: embryo.connectome_manager._neuroembryogenesis_morphologies_registry,
+        embryo.connectome_manager.get_morphologies_registry = (
+            lambda: embryo.connectome_manager._neuroembryogenesis_morphologies_registry
         )
 
     # Default morphology for testing

@@ -24,7 +24,7 @@ enabling GPU acceleration across different platforms without vendor lock-in.
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger()
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Tuple
 
 import numpy as np
 
@@ -97,7 +97,7 @@ class WebGPUBackend(BackendInterface):
                 self.device = self.adapter.request_device()
 
             # Log device information
-            logger.info(f"WebGPU adapter successfully loaded")
+            logger.info("WebGPU adapter successfully loaded")
             logger.info(f"WebGPU device: {self.device}")
 
             # Initialize common shader modules

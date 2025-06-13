@@ -20,7 +20,6 @@ Simplified test script to verify FEAGI connection using feagi_data_processing.
 """
 
 import asyncio
-import json
 import logging
 import sys
 
@@ -59,7 +58,7 @@ async def test_zmq_connection():
     vis_port = 5560
 
     # Test connections to each port
-    logger.info(f"Attempting connections to FEAGI on localhost")
+    logger.info("Attempting connections to FEAGI on localhost")
 
     # Create REQ socket (for port 5555)
     req_socket = None

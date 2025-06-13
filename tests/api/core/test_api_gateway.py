@@ -19,10 +19,8 @@ limitations under the License.
 Comprehensive test script for the API Gateway implementation.
 """
 
-import os
-import sys
 import unittest
-from typing import Any, Dict
+from typing import Dict
 from unittest.mock import MagicMock, patch
 
 # Import the gateway

@@ -21,15 +21,13 @@ This module contains comprehensive tests for the BurstEngine class to ensure
 high test coverage of its functionality.
 """
 
-import signal
 import threading
 import time
 from queue import Queue
-from unittest.mock import ANY, MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from feagi.core.state_manager import FeagiStateManager, SimulationState
 from feagi.npu.burst_engine import BurstEngine, ServiceState, UnifiedFQSampler
 from feagi.utils.logger import setup_logger
 
@@ -509,7 +507,6 @@ def test_error_handling(mock_connectome_manager, mock_state_manager):
 
 def test_fq_sampler_initialization():
     """Test FQSampler initialization."""
-    from feagi.npu.burst_engine import UnifiedFQSampler
 
     mock_fire_queue_provider = Mock()
     mock_fire_queue_provider.get_global_fire_queue_data.return_value = {
@@ -532,7 +529,6 @@ def test_fq_sampler_initialization():
 
 def test_fq_sampler_connectivity():
     """Test FQSampler connectivity features."""
-    from feagi.npu.burst_engine import UnifiedFQSampler
 
     mock_fire_queue_provider = Mock()
     mock_fire_queue_provider.get_global_fire_queue_data.return_value = {

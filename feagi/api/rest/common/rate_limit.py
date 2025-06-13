@@ -17,7 +17,7 @@ limitations under the License.
 """Rate limiting utilities for FEAGI REST API."""
 
 import time
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 from feagi.utils.logger import setup_logger
 

@@ -23,7 +23,7 @@ neural network processing across multiple GPU devices.
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from feagi.utils.logger import setup_logger
 

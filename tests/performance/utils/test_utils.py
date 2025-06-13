@@ -22,8 +22,7 @@ Shared utilities for FEAGI performance tests.
 import logging
 import os
 import platform
-import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +86,6 @@ def get_system_info() -> Dict[str, Any]:
     Returns:
         Dictionary containing system information
     """
-    import os
-    import platform
 
     info = {
         "os": platform.system(),

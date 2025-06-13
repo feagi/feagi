@@ -24,7 +24,6 @@ a single endpoint definition.
 This ensures v1 API modules remain the single source of truth for all endpoints.
 """
 
-from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from pydantic import BaseModel

@@ -24,7 +24,7 @@ Each endpoint is decorated to automatically register for ALL transport protocols
 NO endpoint definitions should exist anywhere else - this is the single source of truth.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
@@ -34,15 +34,12 @@ from .schemas import (
     BrainVisualizationRequest,
     ConfigurationResponse,
     CorticalAreaTypesResponse,
-    ErrorResponse,
     HealthCheckResponse,
     InfluxDBTestResponse,
     SuccessResponse,
     UserPreferencesRequest,
     UserPreferencesResponse,
     VersionsResponse,
-    VisualizationSkipRateRequest,
-    VisualizationThresholdRequest,
 )
 
 logger = setup_logger(__name__)

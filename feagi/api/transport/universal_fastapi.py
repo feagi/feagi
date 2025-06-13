@@ -199,11 +199,9 @@ else:
     # Normal mode - import all FastAPI dependencies and create actual routers
     import asyncio
     import inspect
-    import json
     from typing import Any, Callable, Dict
 
-    from fastapi import APIRouter, Body, Depends, HTTPException, Request, UploadFile
-    from fastapi.responses import JSONResponse
+    from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
     from feagi.api.core.services.core_api_service import CoreAPIService
     from feagi.api.rest.dependencies import get_core_api_service
@@ -831,7 +829,7 @@ else:
                 return await agent_api.get_agent_properties_query(agent_id)
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
-            except Exception as e:
+            except Exception:
                 raise HTTPException(status_code=500, detail="Internal server error")
 
         return router
@@ -945,14 +943,3 @@ else:
         return create_evolution_router()
 
     # Force import of API classes to ensure endpoint registration
-    from feagi.api.v1.burst_engine import BurstEngineAPI
-    from feagi.api.v1.connectome import ConnectomeAPI
-    from feagi.api.v1.cortical_area import CorticalAreaAPI
-    from feagi.api.v1.feagi_agent import FeagiAgentAPI
-    from feagi.api.v1.genome import GenomeAPI
-    from feagi.api.v1.monitoring import MonitoringAPI
-    from feagi.api.v1.morphology import MorphologyAPI
-    from feagi.api.v1.neuroplasticity import NeuroplasticityAPI
-    from feagi.api.v1.region import RegionAPI
-    from feagi.api.v1.simulation import SimulationAPI
-    from feagi.api.v1.system import SystemAPI

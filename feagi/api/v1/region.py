@@ -34,7 +34,6 @@ from feagi.utils.logger import setup_logger
 from .decorators import endpoint
 from .schemas import (
     CreateRegionRequest,
-    ErrorResponse,
     RegionInfoResponse,
     RegionListResponse,
     SuccessResponse,

@@ -18,11 +18,7 @@ Note: To enable system monitoring in FEAGI, use the --profile flag:
 import argparse
 import time
 
-from feagi.utils.system_monitor import (
-    print_resource_report,
-    start_system_monitoring,
-    stop_system_monitoring,
-)
+from feagi.utils.system_monitor import SystemMonitor
 
 
 def simulate_workload(workload_type="cpu"):

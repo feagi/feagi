@@ -19,7 +19,7 @@ Mapping utilities for connectome cortical area mappings.
 """
 from math import floor
 from random import randrange
-from typing import Any, Dict
+from typing import Dict
 
 from feagi.core.state_manager import FeagiStateManager
 from feagi.evo.templates import cortical_types

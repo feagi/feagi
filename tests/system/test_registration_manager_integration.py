@@ -18,8 +18,7 @@ The tests ensure that the Registration Manager properly coordinates between:
 import asyncio
 import threading
 import time
-from typing import Any, Dict, Optional
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -29,9 +28,7 @@ from feagi.api.zmq.streams.visualization import VisualizationStream
 # Import the components we're testing
 from feagi.pns.registration_manager import (
     AgentRegistrationRequest,
-    AgentRegistrationResponse,
     RegistrationManager,
-    get_registration_manager,
     set_registration_manager,
 )
 

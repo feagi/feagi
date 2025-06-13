@@ -18,12 +18,9 @@ limitations under the License.
 
 import json
 import os
-import shutil
 import tempfile
-from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
 # Mark all tests in this module as belonging to the genome group
 pytestmark = [pytest.mark.api, pytest.mark.api_group("genome")]

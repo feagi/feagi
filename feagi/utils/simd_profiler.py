@@ -395,14 +395,14 @@ class SIMDProfiler:
 
         # Summary
         summary = report["summary"]
-        print(f"\n[STATS] Summary:")
+        print("\n[STATS] Summary:")
         print(f"   Sessions: {summary['total_sessions']}")
         print(f"   Duration: {summary['overall_duration']:.3f}s")
         print(f"   Elements: {summary['total_elements']:,}")
         print(f"   Data: {summary['total_bytes'] / (1024 * 1024):.1f} MB")
 
         # Top operations
-        print(f"\n[DEBUG] Top Operations by Time:")
+        print("\n[DEBUG] Top Operations by Time:")
         for i, op in enumerate(report["top_operations"][:3], 1):
             print(
                 f"   {i}. {op['name']}: {op['total_time']:.3f}s "
@@ -411,13 +411,13 @@ class SIMDProfiler:
 
         # Performance issues
         if report["performance_issues"]:
-            print(f"\n[WARN] Performance Issues:")
+            print("\n[WARN] Performance Issues:")
             for issue in report["performance_issues"][:3]:
                 print(f"   • {issue['description']}")
 
         # Recommendations
         if report["recommendations"]:
-            print(f"\n💡 Recommendations:")
+            print("\n💡 Recommendations:")
             for rec in report["recommendations"][:3]:
                 print(f"   {rec}")
 

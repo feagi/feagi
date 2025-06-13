@@ -16,12 +16,6 @@ limitations under the License.
 
 """Tests for basic API routing structure."""
 
-import json
-import os
-from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 def test_api_root(client):
     """Test the API root endpoint."""

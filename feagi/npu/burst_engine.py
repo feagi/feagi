@@ -15,11 +15,8 @@ limitations under the License.
 """
 
 import logging
-import queue
-import threading
 import time
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -32,7 +29,6 @@ from feagi.core.state_manager import FeagiStateManager, ServiceState
 from feagi.npu.fcl_injection_service import FCLInjectionService
 
 # New imports for power area injection
-from feagi.npu.special_area_handler import SpecialAreaHandler
 from feagi.utils.logger import setup_logger
 
 # Import the new modular components
@@ -138,7 +134,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             )
             import traceback
 
-            logger.debug(f"[DEBUG] BURST ENGINE: Stack trace:")
+            logger.debug("[DEBUG] BURST ENGINE: Stack trace:")
             for line in traceback.format_stack():
                 logger.debug(f"    {line.strip()}")
 
@@ -307,7 +303,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     )
                 else:
                     logger.warning(
-                        f"[INJECTION INIT] No power area neurons detected during initialization - this may be normal if genome not loaded yet"
+                        "[INJECTION INIT] No power area neurons detected during initialization - this may be normal if genome not loaded yet"
                     )
             except Exception as e:
                 logger.error(
@@ -398,7 +394,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                                     f"🔥 🔥 FCL t-1 AREAS: {area_count}..."
                                 )  # Show first 5 areas
                     else:
-                        logger.debug(f"🔥 FCL t-1 CONTENT: EMPTY")
+                        logger.debug("🔥 FCL t-1 CONTENT: EMPTY")
                 except Exception as e:
                     logger.debug(f"🔥 FCL t-1 LOGGING ERROR: {e}")
 
@@ -489,17 +485,17 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             # Check injection service availability
             if self.injection_service:
                 logger.debug(
-                    f"[DEBUG] BURST ENGINE: Enhanced injection service AVAILABLE"
+                    "[DEBUG] BURST ENGINE: Enhanced injection service AVAILABLE"
                 )
             else:
-                logger.debug(f"[DEBUG] BURST ENGINE: NO ENHANCED INJECTION SERVICE!")
+                logger.debug("[DEBUG] BURST ENGINE: NO ENHANCED INJECTION SERVICE!")
 
         # 1. External candidates injection (pre-burst phase)
         #    Add candidates to FCL for external sources (power areas, sensory input, etc.)
         if self.injection_service:
             if self.debug_npu:
                 logger.debug(
-                    f"[DEBUG] BURST ENGINE: Adding enhanced pre-burst candidates to FCL"
+                    "[DEBUG] BURST ENGINE: Adding enhanced pre-burst candidates to FCL"
                 )
             self.injection_service.inject_pre_burst(current_timestep)
 
@@ -507,7 +503,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         #    Process ALL FCL candidates (internal + external) in one unified sweep
         if self.debug_npu:
             logger.debug(
-                f"[DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
+                "[DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
             )
 
         fired_neurons = self.connectome_manager.update_membrane_potentials()
@@ -523,7 +519,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         if self.injection_service:
             if self.debug_npu:
                 logger.debug(
-                    f"[DEBUG] BURST ENGINE: Adding enhanced during-burst candidates to FCL"
+                    "[DEBUG] BURST ENGINE: Adding enhanced during-burst candidates to FCL"
                 )
             self.injection_service.inject_during_burst(current_timestep)
 
@@ -532,7 +528,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         if self.injection_service:
             if self.debug_npu:
                 logger.debug(
-                    f"[DEBUG] BURST ENGINE: Adding enhanced post-burst candidates to FCL"
+                    "[DEBUG] BURST ENGINE: Adding enhanced post-burst candidates to FCL"
                 )
             self.injection_service.inject_post_burst(current_timestep)
 
@@ -754,7 +750,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     delattr(self, "_cached_neuron_count")
 
                 logger.info(
-                    f"[SYNC FIX] Neuron array synchronization completed", status="[OK]"
+                    "[SYNC FIX] Neuron array synchronization completed", status="[OK]"
                 )
 
             # Get current cortical areas for comparison

@@ -22,12 +22,10 @@ and application overhead. Critical for embedded device optimization.
 """
 
 import gc
-import sys
 import threading
 import time
-import tracemalloc
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import psutil
 

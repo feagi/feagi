@@ -16,9 +16,8 @@ limitations under the License.
 
 """Tests for the CoreAPIService class."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
 
 from feagi.api.core.services.core_api_service import CoreAPIService

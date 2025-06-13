@@ -111,6 +111,14 @@ target-version = ["py38"]
 [tool.ruff]
 line-length = 88
 target-version = "py38"
+# Opt-in approach - only scan these specific directories
+include = [
+    "feagi/**/*.py",
+    "tests/**/*.py",
+    "scripts/**/*.py",
+    "tools/**/*.py",
+    "examples/**/*.py"
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I"]

@@ -26,7 +26,6 @@ from unittest.mock import MagicMock, Mock, patch
 import numpy as np
 import pytest
 
-from feagi.core.backend import BackendType, get_backend
 from feagi.npu.gpu_fcl_adapter import (
     GPUAcceleratedFCL,
     GPUBitMap,

@@ -30,7 +30,6 @@ Features:
 This is a mixin class designed to be combined with the core BurstEngine.
 """
 
-import time
 from typing import Any, Dict, List, Optional
 
 from feagi.utils.logger import setup_logger
@@ -118,7 +117,7 @@ class BurstEngineDebugMixin:
             global_fcl = fcl_manager.get_global_fcl()
             total_firing = len(global_fcl)
 
-            logger.debug(f"[STATS] Global Fire Summary:")
+            logger.debug("[STATS] Global Fire Summary:")
             logger.debug(f"   Total firing neurons: {total_firing}")
 
             # Get burst interval if available
@@ -175,7 +174,7 @@ class BurstEngineDebugMixin:
             if hasattr(fcl_manager, "get_firing_statistics"):
                 firing_stats = fcl_manager.get_firing_statistics()
                 if firing_stats:
-                    logger.debug(f"[UP] Recent Activity:")
+                    logger.debug("[UP] Recent Activity:")
                     logger.debug(
                         f"   Average firing rate: {firing_stats.get('average_firing_rate', 0):.1f} neurons/burst"
                     )
@@ -184,7 +183,7 @@ class BurstEngineDebugMixin:
                     )
 
             # === FQ SAMPLER DEBUG INFORMATION ===
-            logger.debug(f"[TARGET] Sampler Debug Information:")
+            logger.debug("[TARGET] Sampler Debug Information:")
 
             # FQ Samplers (for motor and visualization)
             if self._fq_samplers:
@@ -248,7 +247,7 @@ class BurstEngineDebugMixin:
                                         )
                             else:
                                 logger.debug(
-                                    f"         [STATS] Sample data: No neurons firing"
+                                    "         [STATS] Sample data: No neurons firing"
                                 )
 
                         # Check queue status
@@ -259,18 +258,18 @@ class BurstEngineDebugMixin:
                                     f"         Output queue: {queue_size} items"
                                 )
                             except:
-                                logger.debug(f"         Output queue: Status unknown")
+                                logger.debug("         Output queue: Status unknown")
 
                     except Exception as sampler_error:
                         logger.debug(
                             f"      FQSampler-{i + 1}: ERROR - {sampler_error}"
                         )
             else:
-                logger.debug(f"   FQ Samplers: NONE REGISTERED")
+                logger.debug("   FQ Samplers: NONE REGISTERED")
 
             # === MOTOR/VISUALIZATION STREAM DEBUGGING ===
             if self._fq_samplers:
-                logger.debug(f"Motor & Visualization Stream Debug:")
+                logger.debug("Motor & Visualization Stream Debug:")
 
                 # Check if any samplers are active for motor output
                 motor_active_count = 0
@@ -289,7 +288,7 @@ class BurstEngineDebugMixin:
 
                 if motor_active_count == 0 and viz_active_count == 0:
                     logger.debug(
-                        f"   [WARN]  WARNING: No active subscribers - streams may be inactive!"
+                        "   [WARN]  WARNING: No active subscribers - streams may be inactive!"
                     )
 
                 # Sample recent data from each active FQ sampler
@@ -339,12 +338,12 @@ class BurstEngineDebugMixin:
                                             sampled_any = True
 
                                 if not sampled_any:
-                                    logger.debug(f"      No area samples available")
+                                    logger.debug("      No area samples available")
 
                             except Exception as sample_error:
                                 logger.debug(f"      Sample error: {sample_error}")
 
-            logger.debug(f"[DEBUG] ========================================\n")
+            logger.debug("[DEBUG] ========================================\n")
 
         except Exception as e:
             logger.error(f"[DEBUG] NPU DEBUG ERROR: Failed to display fire queue - {e}")
@@ -352,7 +351,7 @@ class BurstEngineDebugMixin:
             # Include stack trace for debugging
             import traceback
 
-            logger.error(f"[DEBUG] NPU DEBUG ERROR stack trace:")
+            logger.error("[DEBUG] NPU DEBUG ERROR stack trace:")
             logger.error(traceback.format_exc())
 
     def get_debug_statistics(self) -> Dict[str, Any]:

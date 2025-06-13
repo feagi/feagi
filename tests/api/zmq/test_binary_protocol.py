@@ -29,7 +29,6 @@ pytest.skip(
 # Original imports and tests below - kept for reference
 import struct
 import time
-from typing import Any, Dict
 
 from feagi.api.protocols.base import ProtocolID
 from feagi.api.protocols.binary import BinaryProtocolError, BinarySerializer

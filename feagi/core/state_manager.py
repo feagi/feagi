@@ -356,9 +356,7 @@ class FeagiStateManager:
         ```
         """
         import ctypes
-        import mmap
         import os
-        from pathlib import Path
 
         # Ensure the directory exists
         state_dir = Path(path).parent
@@ -1382,7 +1380,7 @@ class FeagiStateManager:
             self.state_ptr.contents.state_version += 1
 
             # Comprehensive backend logging
-            self._log_state_message("[BACKEND]", f"🚀 SIMD/GPU Detection Complete")
+            self._log_state_message("[BACKEND]", "🚀 SIMD/GPU Detection Complete")
             self._log_state_message(
                 "[BACKEND]", f"├─ Platform: {caps.platform} ({caps.architecture})"
             )
@@ -1416,7 +1414,7 @@ class FeagiStateManager:
                 )
             else:
                 self._log_state_message(
-                    "[BACKEND]", f"├─ CPU SIMD Features: None (scalar only)"
+                    "[BACKEND]", "├─ CPU SIMD Features: None (scalar only)"
                 )
 
             # GPU capabilities
@@ -1431,7 +1429,7 @@ class FeagiStateManager:
                     "[BACKEND]", f"├─ GPU Features: {', '.join(gpu_features)}"
                 )
             else:
-                self._log_state_message("[BACKEND]", f"├─ GPU Features: None detected")
+                self._log_state_message("[BACKEND]", "├─ GPU Features: None detected")
 
             # Performance expectations
             if caps.vector_width >= 16:
@@ -1594,13 +1592,13 @@ class FeagiStateManager:
             )
         else:
             self._log_state_message(
-                "[STARTUP]", f"🐌 Acceleration: SCALAR (No SIMD/GPU)"
+                "[STARTUP]", "🐌 Acceleration: SCALAR (No SIMD/GPU)"
             )
 
         # Test modes
         test_viz = self.get_test_visualization_mode()
         if test_viz:
-            self._log_state_message("[STARTUP]", f"🧪 Test Visualization: ENABLED")
+            self._log_state_message("[STARTUP]", "🧪 Test Visualization: ENABLED")
 
         # State version for debugging
         version = self.get_state_version()

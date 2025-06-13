@@ -22,9 +22,7 @@ including activity-dependent, proximity-based, and Hebbian rules.
 
 import logging
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-import numpy as np
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +128,7 @@ class HebbianRule(SynaptogenesisRule):
         if not self.enabled:
             return 0
 
-        logger.info(f"Applying Hebbian synaptogenesis rule")
+        logger.info("Applying Hebbian synaptogenesis rule")
 
         # This is a simplified implementation
         connections_created = 0
@@ -186,7 +184,7 @@ class ProximityRule(SynaptogenesisRule):
         if not self.enabled:
             return 0
 
-        logger.info(f"Applying proximity-based synaptogenesis rule")
+        logger.info("Applying proximity-based synaptogenesis rule")
 
         max_dist = self.parameters["max_distance"]
         base_prob = self.parameters["connection_probability"]
@@ -240,7 +238,7 @@ class StochasticRule(SynaptogenesisRule):
         if not self.enabled:
             return 0
 
-        logger.info(f"Applying stochastic synaptogenesis rule")
+        logger.info("Applying stochastic synaptogenesis rule")
 
         prob = self.parameters["connection_probability"]
         max_conn = self.parameters.get("max_connections_per_neuron")

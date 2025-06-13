@@ -27,7 +27,7 @@ from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 import threading
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import scipy.sparse as sp

@@ -16,8 +16,6 @@ limitations under the License.
 
 """Tests for the System API endpoints."""
 
-import json
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest

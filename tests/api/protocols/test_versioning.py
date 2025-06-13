@@ -28,11 +28,9 @@ pytest.skip(
     allow_module_level=True,
 )
 
-import json
 
 # Original imports and tests below - kept for reference
 import unittest
-from typing import Any, Dict
 
 from feagi_bytes import ByteStructureDecoder, ByteStructureEncoder
 from feagi_bytes.utils import get_structure_info
