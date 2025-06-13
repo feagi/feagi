@@ -39,8 +39,10 @@ try:
 except ImportError:
     try:
         import tomli as tomllib  # fallback for older Python versions
-    except ImportError:
-        raise ImportError("TOML support required. Install with: pip install tomli")
+    except ImportError as e:
+        raise ImportError(
+            "TOML support required. Install with: pip install tomli"
+        ) from e
 
 logger = logging.getLogger(__name__)
 
@@ -359,12 +361,12 @@ def load_toml_configuration(
         return config
 
     except FileNotFoundError as e:
-        raise FeagiConfigurationError(f"Configuration file not found: {e}")
+        raise FeagiConfigurationError(f"Configuration file not found: {e}") from e
     except Exception as e:
         # Handle both tomllib.TOMLDecodeError and any other errors
         if "TOML" in str(type(e)):
-            raise FeagiConfigurationError(f"Invalid TOML syntax: {e}")
-        raise FeagiConfigurationError(f"Failed to load configuration: {e}")
+            raise FeagiConfigurationError(f"Invalid TOML syntax: {e}") from e
+        raise FeagiConfigurationError(f"Failed to load configuration: {e}") from e
 
 
 def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
