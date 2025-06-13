@@ -35,7 +35,7 @@ from feagi.bdu.models.array_backend import ArrayBackend
 
 # Try to import optimized libraries
 try:
-    import numba
+    # import numba  # Unused import removed
     from numba import njit, prange
 
     NUMBA_AVAILABLE = True

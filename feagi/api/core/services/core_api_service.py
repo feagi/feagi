@@ -1285,7 +1285,7 @@ class CoreAPIService:
             return all_morphologies
         except Exception as e:
             self.logger.error(f"Error getting morphologies: {str(e)}")
-            raise ValueError(f"Failed to retrieve morphologies: {str(e)}")
+            raise ValueError(f"Failed to retrieve morphologies: {str(e)}") from e
 
     def get_morphology_info(self, morphology_id: str) -> Dict[str, Any]:
         """Get information about a specific morphology."""

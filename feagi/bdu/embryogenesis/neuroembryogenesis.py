@@ -100,7 +100,8 @@ except ImportError:
 try:
     # Try new imports first
     from feagi.evo.genome_editor import save_genome
-    from feagi.evo.genome_properties import genome_properties
+
+    # from feagi.evo.genome_properties import genome_properties  # Unused import removed
     from feagi.evo.genome_validator import genome_validator
 
     # Import these functions directly if possible

@@ -1355,11 +1355,11 @@ def example_enhanced_fcl_usage() -> None:
             )
 
     # Get neurons from specific corticals
-    standard_cortical_fcl = fcl_manager.get_cortical_fcl(100)
-    memory_cortical_fcl = fcl_manager.get_cortical_fcl(400)
+    # standard_cortical_fcl = fcl_manager.get_cortical_fcl(100)  # Unused variable removed
+    # memory_cortical_fcl = fcl_manager.get_cortical_fcl(400)  # Unused variable removed
 
     # Get combined activity from multiple corticals
-    selected_corticals_fcl = fcl_manager.get_neurons_by_corticals([100, 300])
+    # selected_corticals_fcl = fcl_manager.get_neurons_by_corticals([100, 300])  # Unused variable removed
 
     # Check for temporal patterns in the memory cortical
     temporal_pattern = fcl_manager.get_cortical_temporal_pattern(400, n_steps=5)
