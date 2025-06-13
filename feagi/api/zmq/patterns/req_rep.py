@@ -185,7 +185,7 @@ class RequestReplyServer:
                 logger.error(f"Error processing request: {e}")
                 try:
                     await self._send_error(f"Internal server error: {str(e)}")
-                except:
+                except Exception:
                     pass
                 await asyncio.sleep(1)  # Avoid tight loop on errors
 

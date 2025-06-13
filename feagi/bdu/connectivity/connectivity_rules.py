@@ -318,7 +318,7 @@ class DistanceBasedConnectivityRule(ConnectivityRule):
             f"Applying distance-based connectivity rule from {self.source_cortical_id} to {self.target_cortical_id}"
         )
 
-        max_dist = self.parameters["max_distance"]
+        # max_dist = self.parameters["max_distance"]  # Unused variable removed
         prob = self.parameters["connection_probability"]
 
         # Implementation details would depend on how positions are stored in the connectome

@@ -141,7 +141,7 @@ def test_connectivity_rule_validate():
         description="A test connectivity rule",
         rule_id="test_rule",
     )
-    assert valid_rule.validate() == True
+    assert valid_rule.validate()
 
     # Invalid rule: missing name
     invalid_rule = ConnectivityRule(
@@ -153,7 +153,7 @@ def test_connectivity_rule_validate():
         description="A test connectivity rule",
         rule_id="test_rule",
     )
-    assert invalid_rule.validate() == False
+    assert not invalid_rule.validate()
 
     # Invalid rule: missing source area
     invalid_rule = ConnectivityRule(
@@ -165,7 +165,7 @@ def test_connectivity_rule_validate():
         description="A test connectivity rule",
         rule_id="test_rule",
     )
-    assert invalid_rule.validate() == False
+    assert not invalid_rule.validate()
 
     # Invalid rule: missing target area
     invalid_rule = ConnectivityRule(
@@ -177,7 +177,7 @@ def test_connectivity_rule_validate():
         description="A test connectivity rule",
         rule_id="test_rule",
     )
-    assert invalid_rule.validate() == False
+    assert not invalid_rule.validate()
 
     # Invalid rule: missing rule type
     invalid_rule = ConnectivityRule(
@@ -189,4 +189,4 @@ def test_connectivity_rule_validate():
         description="A test connectivity rule",
         rule_id="test_rule",
     )
-    assert invalid_rule.validate() == False
+    assert not invalid_rule.validate()

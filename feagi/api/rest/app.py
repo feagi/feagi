@@ -752,7 +752,7 @@ async def standardize_response_format(request, call_next):
             if "__raw_response__" in content:
                 del content["__raw_response__"]
             return JSONResponse(content=content, status_code=response.status_code)
-    except:
+    except Exception:
         # If we can't parse JSON or other issues, just return original response
         return response
 
@@ -773,7 +773,7 @@ async def standardize_response_format(request, call_next):
             return JSONResponse(
                 content=success_response(data=content), status_code=response.status_code
             )
-        except:
+        except Exception:
             # If we can't standardize, return original response rebuilt
             return Response(
                 content=body,
