@@ -321,6 +321,38 @@ class FeagiAgentAPI:
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
 
+    @agent_endpoint(
+        "POST",
+        "/debug/trigger_fq_notification",
+        response_model=SuccessResponse,
+    )
+    async def trigger_fq_notification(self) -> SuccessResponse:
+        """Debug endpoint to manually trigger FQ sampler notification."""
+        try:
+            from feagi.pns.registration_manager import get_registration_manager
+
+            registration_manager = get_registration_manager()
+            if not registration_manager:
+                raise HTTPException(
+                    status_code=503, detail="Registration Manager not available"
+                )
+
+            # Manually trigger FQ sampler notification for visualization
+            self.logger.info("🔧 DEBUG: Manually triggering FQ sampler notification")
+            registration_manager._notify_existing_fq_samplers_visualization(True)
+
+            return SuccessResponse(
+                message="FQ sampler notification triggered successfully", success=True
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error triggering FQ notification: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Error triggering FQ notification: {str(e)}"
+            )
+
 
 # NOTE: FQ sampler management methods removed - now handled by Registration Manager
 # All agent registration, deregistration, and FQ sampler coordination is now

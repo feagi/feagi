@@ -369,7 +369,7 @@ class VisualizationStream:
                 if not self.fq_sampler:
                     if self.process_manager:
                         # Try to get FQ sampler from process manager
-                        viz_fq_sampler = self.process_manager.get_or_create_visualization_fq_sampler()
+                        viz_fq_sampler = self.process_manager.get_viz_fq_sampler()
                         if viz_fq_sampler:
                             self.fq_sampler = viz_fq_sampler
                             logger.info(
@@ -794,6 +794,13 @@ class VisualizationStream:
                     "ℹ️ Note: Agent registration must be done explicitly via "
                     "REST API - no automatic registration"
                 )
+
+                # IMMEDIATE FQ SAMPLER CONTROL: Enable FQ sampler when first client connects
+                current_count = len(self.client_last_heartbeat)
+                if current_count == 1 and not self._fq_sampler_enabled:
+                    logger.info("🔥 IMMEDIATE: Enabling FQ sampler for first client")
+                    self._control_fq_sampler(True)
+
             else:
                 logger.debug(f"💓 Heartbeat from visualization client: {client_id}")
 
@@ -864,16 +871,35 @@ class VisualizationStream:
 
     def _control_fq_sampler(self, enable: bool) -> None:
         """
-        DISABLED: FQ sampler control has been moved to the Agent API (feagi_agent.py).
+        Control FQ sampler based on client presence.
 
-        This method is now a no-op to prevent conflicts between the visualization stream
-        and the Agent API's FQ sampler management.
+        RE-ENABLED: The Agent API approach was not working reliably, so we're
+        going back to direct FQ sampler control from the visualization stream.
         """
+        if not self.fq_sampler:
+            logger.debug("🚫 No FQ sampler available for control")
+            return
+
+        try:
+            if enable and not self._fq_sampler_enabled:
+                logger.info("🔥 ENABLING FQ sampler for visualization clients")
+                self.fq_sampler.set_visualization_subscribers(True)
+                self._fq_sampler_enabled = True
+                logger.info("✅ FQ sampler enabled for visualization")
+
+            elif not enable and self._fq_sampler_enabled:
+                logger.info("🔥 DISABLING FQ sampler - no visualization clients")
+                self.fq_sampler.set_visualization_subscribers(False)
+                self._fq_sampler_enabled = False
+                logger.info("✅ FQ sampler disabled")
+
+        except Exception as e:
+            logger.error(f"❌ Error controlling FQ sampler: {e}")
+
         logger.debug(
-            f"🚫 FQ SAMPLER CONTROL: Ignoring call to "
-            f"_control_fq_sampler(enable={enable}) - handled by Agent API"
+            f"🔧 FQ SAMPLER CONTROL: enable={enable}, "
+            f"_fq_sampler_enabled={self._fq_sampler_enabled}"
         )
-        return
 
     def _client_cleanup_worker(self) -> None:
         """
@@ -929,16 +955,12 @@ class VisualizationStream:
         """
         Subscriber monitoring worker thread.
 
-        DEPRECATED: FQ sampler management is now handled by the Agent API
-        (feagi_agent.py) based on agent registration/deregistration with
-        visualization capabilities.
-
-        This monitor now only tracks client connections for internal statistics
-        and does NOT control the FQ sampler to prevent conflicts.
+        RE-ENABLED: FQ sampler management is now handled directly by the visualization
+        stream based on client connections, since the Agent API approach was not working.
         """
         logger.info(
             "🔧 SUBSCRIBER MONITOR: Starting subscriber monitoring "
-            "(FQ sampler control DISABLED - handled by Agent API)"
+            "(FQ sampler control RE-ENABLED for direct client management)"
         )
         logger.info(
             f"🔧 SUBSCRIBER MONITOR: core_api available: "
@@ -946,46 +968,42 @@ class VisualizationStream:
             f"{self.subscriber_check_interval}s"
         )
 
-        while self.running and not self._stop_event.is_set():
+        while not self._stop_event.is_set():
             try:
-                # Quick exit check for shutdown
-                if self._stop_event.is_set():
-                    logger.debug("Subscriber monitor received stop signal")
-                    break
+                # Get current subscriber count
+                current_count = self.get_connected_client_count()
 
-                # STATISTICS ONLY: Track client connections for internal use
-                heartbeat_count = self.get_connected_client_count()
-                registered_viz_agents = self._get_registered_visualization_agents()
-                total_subscribers = heartbeat_count + registered_viz_agents
-
-                # Update internal statistics (no FQ sampler control)
-                if total_subscribers != self._last_subscriber_count:
-                    logger.debug(
-                        f"🔧 SUBSCRIBER MONITOR: Subscriber count changed: "
-                        f"{self._last_subscriber_count} -> {total_subscribers} "
-                        f"(heartbeats: {heartbeat_count}, "
-                        f"agents: {registered_viz_agents})"
+                # Check if subscriber count changed
+                if current_count != self._last_subscriber_count:
+                    logger.info(
+                        f"🔧 SUBSCRIBER MONITOR: Client count changed: "
+                        f"{self._last_subscriber_count} -> {current_count}"
                     )
-                    self._last_subscriber_count = total_subscribers
 
-                # LONGER INTERVAL: Since we're not controlling FQ sampler, check
-                # less frequently
-                wait_time = max(
-                    self.subscriber_check_interval, 10.0
-                )  # Minimum 10 seconds between checks
+                    # Control FQ sampler based on subscriber presence
+                    should_enable = current_count > 0
+                    if should_enable != self._fq_sampler_enabled:
+                        logger.info(
+                            f"🔧 SUBSCRIBER MONITOR: FQ sampler state change needed: "
+                            f"enable={should_enable}"
+                        )
+                        self._control_fq_sampler(should_enable)
 
-                # Check every 2 seconds for faster shutdown response
-                for _ in range(int(wait_time / 2)):
-                    if self._stop_event.wait(timeout=2.0):
-                        logger.debug("Subscriber monitor stopping due to stop event")
-                        return
+                    self._last_subscriber_count = current_count
+
+                # Update subscriber count for statistics
+                self._subscriber_count = current_count
 
             except Exception as e:
                 logger.error(f"Error in subscriber monitoring: {e}")
-                # Use responsive wait on error
-                for _ in range(5):  # Check every 2 seconds for 10 seconds total
-                    if self._stop_event.wait(timeout=2.0):
-                        return
+
+            # Use responsive wait with frequent stop event checks
+            for _ in range(
+                int(self.subscriber_check_interval * 4)
+            ):  # Check every 250ms
+                if self._stop_event.wait(timeout=0.25):
+                    logger.debug("Subscriber monitoring stopping due to stop event")
+                    return
 
         logger.debug("Subscriber monitoring stopped")
 
