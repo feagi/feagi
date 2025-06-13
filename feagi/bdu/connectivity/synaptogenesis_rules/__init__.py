@@ -427,7 +427,7 @@ def syn_projector(
         return []
 
     # Get projection type from morphology parameters
-    projection_type = "direct"  # Default projection type
+    # projection_type = "direct"  # Default projection type - Unused variable removed
     if (
         morphology
         and "parameters" in morphology

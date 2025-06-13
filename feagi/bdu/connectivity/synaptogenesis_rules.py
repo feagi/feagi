@@ -242,18 +242,18 @@ def define_subregions(
                                     )
                                 seed_pointer[2] += seed[2]
                             # Skip regions
-                            for z_j in range(pattern[2][1]):
+                            for _z_j in range(pattern[2][1]):
                                 seed_pointer[2] += seed[2]
                         seed_pointer[1] += seed[1]
                         seed_pointer[2] = 0
 
-                    for y_j in range(pattern[1][1]):
+                    for _y_j in range(pattern[1][1]):
                         seed_pointer[1] += seed[1]
                 seed_pointer[0] += seed[0]
                 seed_pointer[1] = 0
                 seed_pointer[2] = 0
 
-            for x_j in range(pattern[0][1]):
+            for _x_j in range(pattern[0][1]):
                 seed_pointer[0] += seed[0]
     return subregions
 
