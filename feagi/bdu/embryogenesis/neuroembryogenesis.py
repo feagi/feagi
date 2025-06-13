@@ -875,7 +875,7 @@ class NeuroEmbryogenesis:
                     # Get the existing core area from connectome_manager (single source of truth)
                     area = None
                     for (
-                        area_id,
+                        _area_id,
                         area_obj,
                     ) in self.connectome_manager.cortical_areas.items():
                         if area_obj.cortical_id == core_id:
@@ -971,7 +971,7 @@ class NeuroEmbryogenesis:
                         for z in range(depth):
                             position = (x, y, z)
                             # Add one position per neuron in this voxel
-                            for n_idx in range(neurons_per_voxel):
+                            for _n_idx in range(neurons_per_voxel):
                                 positions.append(position)
 
                 expected_neurons = len(positions)
@@ -1002,7 +1002,7 @@ class NeuroEmbryogenesis:
                             for z in range(depth):
                                 position = (x, y, z)
                                 voxel_neurons = []
-                                for n_idx in range(neurons_per_voxel):
+                                for _n_idx in range(neurons_per_voxel):
                                     if pos_idx < len(area_neuron_ids):
                                         voxel_neurons.append(area_neuron_ids[pos_idx])
                                         pos_idx += 1
