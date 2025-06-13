@@ -218,17 +218,17 @@ def test_contains_position(cortical_area):
     area = cortical_area
 
     # Valid positions
-    assert area.contains_position((0, 0, 0)) == True  # Origin
-    assert area.contains_position((5, 5, 2)) == True  # Middle
-    assert area.contains_position((9, 9, 4)) == True  # Far corner
+    assert area.contains_position((0, 0, 0))  # Origin
+    assert area.contains_position((5, 5, 2))  # Middle
+    assert area.contains_position((9, 9, 4))  # Far corner
 
     # Invalid positions
-    assert area.contains_position((-1, 0, 0)) == False  # Negative x
-    assert area.contains_position((0, -1, 0)) == False  # Negative y
-    assert area.contains_position((0, 0, -1)) == False  # Negative z
-    assert area.contains_position((10, 0, 0)) == False  # x too large
-    assert area.contains_position((0, 10, 0)) == False  # y too large
-    assert area.contains_position((0, 0, 5)) == False  # z too large
+    assert not area.contains_position((-1, 0, 0))  # Negative x
+    assert not area.contains_position((0, -1, 0))  # Negative y
+    assert not area.contains_position((0, 0, -1))  # Negative z
+    assert not area.contains_position((10, 0, 0))  # x too large
+    assert not area.contains_position((0, 10, 0))  # y too large
+    assert not area.contains_position((0, 0, 5))  # z too large
 
 
 def test_add_neuron(cortical_area):

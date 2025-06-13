@@ -401,7 +401,7 @@ async def start_message_handlers(
         logger.info("FVP message handler skipped (visualization disabled)")
 
     # Start handlers
-    for protocol, handler in handlers.items():
+    for _protocol, handler in handlers.items():
         await handler.start()
 
     return handlers
@@ -414,5 +414,5 @@ async def stop_message_handlers(handlers: Dict[str, MessageHandler]) -> None:
     Args:
         handlers: Dictionary of message handlers
     """
-    for protocol, handler in handlers.items():
+    for _protocol, handler in handlers.items():
         await handler.stop()

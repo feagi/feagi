@@ -14,3 +14,13 @@ from feagi.bdu.connectivity.mapping_utils import (
 )
 from feagi.bdu.connectivity.synapse_rule import SynapseRule
 from feagi.bdu.connectivity.synaptogenesis import SynaptogenesisRule
+
+__all__ = [
+    "synaptogenesis_rules",
+    "ConnectivityRule",
+    "CorticalMapping",
+    "build_power_connections",
+    "get_detailed_cortical_map",
+    "SynapseRule",
+    "SynaptogenesisRule",
+]

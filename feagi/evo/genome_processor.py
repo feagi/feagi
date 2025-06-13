@@ -130,7 +130,7 @@ def genome_2_print(genome):
                 logger.info(
                     f"       {genome_2_to_1[gene]} \n\t\t\t {genome[cortical_area][gene]}"
                 )
-            except:
+            except Exception:
                 pass
 
 

@@ -577,7 +577,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                                 f.write(
                                     f"{datetime.datetime.now()}: run() loop executing, about to call _process_burst(), burst_count={self.burst_count}\n"
                                 )
-                        except:
+                        except Exception:
                             pass
 
                     fired_neurons = self._process_burst()
