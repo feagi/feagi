@@ -74,7 +74,7 @@ def create_test_brain(connectome, num_neurons=10_000, density=0.01):
     neurons_per_area = num_neurons // len(areas)
     neuron_ids = []
 
-    for i, area in enumerate(areas):
+    for _i, area in enumerate(areas):
         for j in range(neurons_per_area):
             # Create a position within the area's dimensions
             position = [

@@ -28,7 +28,7 @@ def test_calculate_neuron_density_uniform():
     """Test calculating neuron density for a uniform distribution."""
     # Create a synthetic neuron position dataset
     dimensions = (10, 10, 10)
-    neuron_count = 1000
+    # neuron_count = 1000  # Unused variable removed
 
     # Create positions - one neuron per voxel
     positions = []
