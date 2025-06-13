@@ -474,7 +474,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 f.write(
                     f"{datetime.datetime.now()}: _process_burst_with_power_injection called, timestep={current_timestep}, injection_service={type(self.injection_service).__name__ if self.injection_service else 'None'}\n"
                 )
-        except:
+        except Exception:
             pass
         # Debug logging if --debug-npu is enabled
         if self.debug_npu:
@@ -688,7 +688,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 import datetime
 
                 f.write(f"{datetime.datetime.now()}: update_with_genome() called\n")
-        except:
+        except Exception:
             pass
 
         try:
@@ -793,7 +793,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     f.write(
                         f"{datetime.datetime.now()}: Injection service after init: {service_type}\n"
                     )
-            except:
+            except Exception:
                 pass
 
             # Mark genome as loaded
