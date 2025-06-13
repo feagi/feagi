@@ -794,7 +794,7 @@ class CoreAPIService:
                             consecutive_fire_counts = []
                             refractory_counters = []
 
-                            for i, neuron_id in enumerate(neuron_ids):
+                            for _i, neuron_id in enumerate(neuron_ids):
                                 if neuron_id < len(neuron_array):
                                     neuron = neuron_array[neuron_id]
                                     # Only extract exact properties that exist - NO FALLBACKS AT ALL

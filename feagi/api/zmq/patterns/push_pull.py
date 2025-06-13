@@ -394,7 +394,8 @@ class PushPullManager:
         try:
             # Check if we're in an event loop context
             try:
-                loop = asyncio.get_running_loop()
+                # loop = asyncio.get_running_loop()  # Unused variable removed
+                asyncio.get_running_loop()
                 # We're in a loop, proceed normally
                 await self.push_server.stop()
             except RuntimeError:
