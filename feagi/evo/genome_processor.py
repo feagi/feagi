@@ -14,10 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-
-from feagi.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 import copy
 import traceback
 from time import time
@@ -26,6 +22,9 @@ from feagi.core.state_manager import FeagiStateManager, GenomeState
 from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_validator import genome_validator
 from feagi.evo.templates import core_morphologies, cortical_types
+from feagi.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # Helper to get state manager instance
 state = FeagiStateManager.instance()
@@ -45,7 +44,7 @@ def merge_core_morphologies(genome):
 def genome_ver_check(genome):
     try:
         if genome["version"] == "2.0":
-            # print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            # Genome Version 2.0 detected
             try:
                 state.genome_validity = genome_validator(genome)
                 logger.info(f"Genome validity={state.genome_validity}")
@@ -128,7 +127,8 @@ def genome_2_print(genome):
         for gene in genome[cortical_area]:
             try:
                 logger.info(
-                    f"       {genome_2_to_1[gene]} \n\t\t\t {genome[cortical_area][gene]}"
+                    f"       {genome_2_to_1[gene]} \n\t\t\t "
+                    f"{genome[cortical_area][gene]}"
                 )
             except Exception:
                 pass
@@ -385,7 +385,8 @@ def genome_2_1_convertor(flat_genome):
                                     ] = flat_genome[gene]
                                 except Exception as e:
                                     logger.error(
-                                        f"Key not processed: {cortical_area} {e} {traceback.print_exc()}"
+                                        f"Key not processed: {cortical_area} {e} "
+                                        f"{traceback.print_exc()}"
                                     )
 
         except Exception as e:
