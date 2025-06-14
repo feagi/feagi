@@ -71,20 +71,68 @@ Enables detailed neural processing unit debugging with fire queue visualization.
 
 ### API Debugging (`--debug-api`)
 
-Enables detailed HTTP request/response logging and middleware operations.
+Enables comprehensive HTTP request/response logging with enhanced formatting and detailed tracking.
+
+#### Enhanced Features:
+- **🆔 Unique Request IDs**: Each request gets a unique 8-character ID for correlation
+- **🔵 Detailed Request Logging**: Method, URL, headers, query params, path params, body
+- **🟢 Comprehensive Response Logging**: Status, headers, body, timing information
+- **🔴 Error Tracking**: Exception details with request correlation
+- **🎨 Color-Coded Output**: Visual distinction between requests, responses, and errors
+- **🔒 Security**: Automatic masking of sensitive headers (authorization, cookies, API keys)
+- **📄 Pretty JSON**: Automatic JSON formatting for readable output
+- **⏱️ Performance Timing**: Request duration tracking in milliseconds
 
 #### What It Shows:
-- **HTTP Requests**: Method, URL, headers, body content
-- **Response Data**: Status codes, response bodies, timing
-- **Middleware Operations**: Request processing pipeline
-- **Authentication**: Token validation and user context
-- **Error Details**: Stack traces and error context
+- **HTTP Requests**: Method, URL, client info, headers (with sensitive data masked)
+- **Request Bodies**: Pretty-printed JSON or truncated text content
+- **Query/Path Parameters**: All URL parameters clearly displayed
+- **Response Data**: Status codes, headers, formatted response bodies
+- **Timing Information**: Request processing duration
+- **Error Context**: Detailed exception information with request correlation
+
+#### Enhanced Output Format:
+```
+🔵 [API-DEBUG] ═══════════════════════════════════════
+🔵 [API-DEBUG] REQUEST START [ID: A1B2C3D4]
+🔵 [API-DEBUG] ═══════════════════════════════════════
+🔵 [API-DEBUG] Method: POST
+🔵 [API-DEBUG] URL: http://localhost:8001/v1/cortical_mapping/mapping_properties
+🔵 [API-DEBUG] Path: /v1/cortical_mapping/mapping_properties
+🔵 [API-DEBUG] Client: 127.0.0.1:54321
+🔵 [API-DEBUG] Headers:
+🔵 [API-DEBUG]   content-type: application/json
+🔵 [API-DEBUG]   authorization: ***MASKED***
+🔵 [API-DEBUG] Request Body (JSON):
+🔵 [API-DEBUG]   {
+🔵 [API-DEBUG]     "source_area": "power",
+🔵 [API-DEBUG]     "destination_area": "central_vision"
+🔵 [API-DEBUG]   }
+
+🟢 [API-DEBUG] ═══════════════════════════════════════
+🟢 [API-DEBUG] RESPONSE [ID: A1B2C3D4]
+🟢 [API-DEBUG] ═══════════════════════════════════════
+🟢 [API-DEBUG] Status: 200 ✅
+🟢 [API-DEBUG] Duration: 45.23ms
+🟢 [API-DEBUG] Response Headers:
+🟢 [API-DEBUG]   content-type: application/json
+🟢 [API-DEBUG] Response Body (JSON):
+🟢 [API-DEBUG]   {
+🟢 [API-DEBUG]     "success": true,
+🟢 [API-DEBUG]     "connections_created": 27
+🟢 [API-DEBUG]   }
+🟢 [API-DEBUG] ═══════════════════════════════════════
+🟢 [API-DEBUG] COMPLETED [ID: A1B2C3D4] POST /v1/cortical_mapping/mapping_properties → 200 (45.23ms)
+🟢 [API-DEBUG] ═══════════════════════════════════════
+```
 
 #### Use Cases:
-- **API Development**: Debug endpoint behavior and data flow
-- **Client Integration**: Troubleshoot client-server communication
-- **Performance Analysis**: Identify slow API operations
-- **Authentication Issues**: Debug login and permission problems
+- **API Development**: Debug endpoint behavior and data flow with detailed visibility
+- **Client Integration**: Troubleshoot client-server communication with request correlation
+- **Performance Analysis**: Identify slow API operations with precise timing
+- **Authentication Issues**: Debug login and permission problems (with secure header masking)
+- **Data Flow Debugging**: Track request/response data transformations
+- **Error Investigation**: Correlate errors with specific requests using unique IDs
 
 ### Combined Debugging
 

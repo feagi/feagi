@@ -590,7 +590,7 @@ def syn_reducer_x(
     """
     # Get dimensions
     src_cortical_dim_x = src_subregion[1][0] - src_subregion[0][0]
-    dst_area = connectome_manager.get_area(dst_area_id)
+    dst_area = connectome_manager.get_cortical_area(dst_area_id)
     dst_cortical_dim_x = dst_area.dimensions[0]
 
     # Check for sufficient space in destination area
@@ -604,7 +604,7 @@ def syn_reducer_x(
     if not src_neuron_pos:
         return []
 
-    src_neuron_block_index_x = src_neuron_pos[1]  # x-coordinate (after area_id)
+    src_neuron_block_index_x = src_neuron_pos[0]  # x-coordinate
 
     # Convert source neuron's x position to binary and pad
     src_neuron_bin_str = bin(src_neuron_block_index_x)[2:]
@@ -634,7 +634,7 @@ def syn_randomizer(dst_area_id: AreaId, connectome_manager) -> Position:
     Returns:
         Random position in the destination area
     """
-    dst_area = connectome_manager.get_area(dst_area_id)
+    dst_area = connectome_manager.get_cortical_area(dst_area_id)
     dst_dims = dst_area.dimensions
 
     random_location = (
@@ -672,9 +672,9 @@ def syn_lateral_pairs_x(
     if not neuron_pos:
         return None
 
-    neuron_block_index_x = neuron_pos[1]  # x-coordinate
-    neuron_block_index_y = neuron_pos[2]  # y-coordinate
-    neuron_block_index_z = neuron_pos[3]  # z-coordinate
+    neuron_block_index_x = neuron_pos[0]  # x-coordinate
+    neuron_block_index_y = neuron_pos[1]  # y-coordinate
+    neuron_block_index_z = neuron_pos[2]  # z-coordinate
 
     # Even neurons connect to the neuron to their right
     if neuron_block_index_x % 2 == 0:
@@ -723,7 +723,7 @@ def syn_block_connection(
     """
     # Get the cortical dimensions
     src_cortical_dim_x = src_subregion[1][0] - src_subregion[0][0]
-    dst_area = connectome_manager.get_area(dst_area_id)
+    dst_area = connectome_manager.get_cortical_area(dst_area_id)
     dst_cortical_dim_x = dst_area.dimensions[0]
 
     # Check scaling compatibility
@@ -738,9 +738,9 @@ def syn_block_connection(
         # Return a default position if neuron position can't be found
         return (0, 0, 0)
 
-    neuron_block_index_x = neuron_pos[1]  # x-coordinate
-    neuron_block_index_y = neuron_pos[2]  # y-coordinate
-    neuron_block_index_z = neuron_pos[3]  # z-coordinate
+    neuron_block_index_x = neuron_pos[0]  # x-coordinate
+    neuron_block_index_y = neuron_pos[1]  # y-coordinate
+    neuron_block_index_z = neuron_pos[2]  # z-coordinate
 
     # Calculate the destination position by scaling
     return (
@@ -779,10 +779,10 @@ def syn_projector(
     Returns:
         List of matching positions in the destination area
     """
-    src_area = connectome_manager.get_area(src_area_id)
+    src_area = connectome_manager.get_cortical_area(src_area_id)
     src_dimensions = src_area.dimensions
 
-    dst_area = connectome_manager.get_area(dst_area_id)
+    dst_area = connectome_manager.get_cortical_area(dst_area_id)
     dst_dimensions = dst_area.dimensions
 
     # These will be updated based on the transpose and project_last_layer parameters
@@ -794,8 +794,8 @@ def syn_projector(
     if not neuron_pos:
         return []
 
-    # Default neuron location
-    neuron_location = [neuron_pos[1], neuron_pos[2], neuron_pos[3]]
+    # Default neuron location (x, y, z)
+    neuron_location = list(neuron_pos)
 
     # Apply transpose if specified
     if transpose:
@@ -1036,11 +1036,11 @@ def find_candidate_neurons(
     psc_multiplier = morphology["postSynapticCurrent_multiplier"]
 
     # Get source area properties
-    if src_area_id not in connectome_manager._areas:
-        logger.error(f"Source area {src_area_id} not found")
+    try:
+        src_area = connectome_manager.get_cortical_area(src_area_id)
+    except Exception as e:
+        logger.error(f"Source area {src_area_id} not found: {e}")
         return []
-
-    src_area = connectome_manager._areas[src_area_id]
     psc_base = src_area.properties.get("postsynaptic_current", 1.0)
     post_synaptic_current = psc_multiplier * psc_base
 
@@ -1048,18 +1048,22 @@ def find_candidate_neurons(
     raw_candidate_positions = set()
     candidate_neuron_list = []
 
-    # Get morphology type
-    if not hasattr(connectome_manager, "get_morphologies_registry"):
-        logger.error("ConnectomeManager does not have morphologies registry")
-        # Use default morphology type from the parameter
+    # Get morphology type - for function morphologies, we know the type directly
+    # This follows the legacy pattern where function morphologies are handled directly
+    if neuron_morphology in [e.value for e in MorphologyFunction]:
         morphology_type = RuleType.FUNCTIONS.value
-    else:
+        morphologies_registry = None  # Not needed for function morphologies
+    elif hasattr(connectome_manager, "get_morphologies_registry"):
         morphologies_registry = connectome_manager.get_morphologies_registry()
         if neuron_morphology not in morphologies_registry:
             logger.error(f"Morphology {neuron_morphology} not found in registry")
             return []
-
         morphology_type = morphologies_registry[neuron_morphology]["type"]
+    else:
+        logger.error(
+            f"Unknown morphology {neuron_morphology} and no registry available"
+        )
+        return []
 
     try:
         # Process based on morphology type
@@ -1085,11 +1089,11 @@ def find_candidate_neurons(
                 "patterns"
             ]:
                 # Get destination area dimensions
-                if dst_area_id not in connectome_manager._areas:
-                    logger.error(f"Destination area {dst_area_id} not found")
+                try:
+                    dst_area = connectome_manager.get_cortical_area(dst_area_id)
+                except Exception as e:
+                    logger.error(f"Destination area {dst_area_id} not found: {e}")
                     continue
-
-                dst_area = connectome_manager._areas[dst_area_id]
                 dst_dimensions = dst_area.dimensions
 
                 source_pattern = pattern[0]
@@ -1176,6 +1180,87 @@ def find_candidate_neurons(
                 )
                 for pos in positions:
                     raw_candidate_positions.add(pos)
+
+            elif neuron_morphology == MorphologyFunction.PROJECTOR_XY.value:
+                positions = syn_projector(
+                    src_area_id=src_area_id,
+                    dst_area_id=dst_area_id,
+                    src_neuron_id=src_neuron_id,
+                    src_subregion=src_subregion,
+                    connectome_manager=connectome_manager,
+                    transpose=("y", "x", "z"),
+                )
+                for pos in positions:
+                    raw_candidate_positions.add(pos)
+
+            elif neuron_morphology == MorphologyFunction.PROJECTOR_XZ.value:
+                positions = syn_projector(
+                    src_area_id=src_area_id,
+                    dst_area_id=dst_area_id,
+                    src_neuron_id=src_neuron_id,
+                    src_subregion=src_subregion,
+                    connectome_manager=connectome_manager,
+                    transpose=("z", "y", "x"),
+                )
+                for pos in positions:
+                    raw_candidate_positions.add(pos)
+
+            elif neuron_morphology == MorphologyFunction.PROJECTOR_YZ.value:
+                positions = syn_projector(
+                    src_area_id=src_area_id,
+                    dst_area_id=dst_area_id,
+                    src_neuron_id=src_neuron_id,
+                    src_subregion=src_subregion,
+                    connectome_manager=connectome_manager,
+                    transpose=("x", "z", "y"),
+                )
+                for pos in positions:
+                    raw_candidate_positions.add(pos)
+
+            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_X.value:
+                # Only project if neuron is in the last layer of x dimension
+                src_dimensions = src_area.dimensions
+                if src_voxel[0] == src_dimensions[0] - 1:
+                    positions = syn_projector(
+                        src_area_id=src_area_id,
+                        dst_area_id=dst_area_id,
+                        src_neuron_id=src_neuron_id,
+                        src_subregion=src_subregion,
+                        connectome_manager=connectome_manager,
+                        project_last_layer_of="x",
+                    )
+                    for pos in positions:
+                        raw_candidate_positions.add(pos)
+
+            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_Y.value:
+                # Only project if neuron is in the last layer of y dimension
+                src_dimensions = src_area.dimensions
+                if src_voxel[1] == src_dimensions[1] - 1:
+                    positions = syn_projector(
+                        src_area_id=src_area_id,
+                        dst_area_id=dst_area_id,
+                        src_neuron_id=src_neuron_id,
+                        src_subregion=src_subregion,
+                        connectome_manager=connectome_manager,
+                        project_last_layer_of="y",
+                    )
+                    for pos in positions:
+                        raw_candidate_positions.add(pos)
+
+            elif neuron_morphology == MorphologyFunction.PROJECT_FROM_END_Z.value:
+                # Only project if neuron is in the last layer of z dimension
+                src_dimensions = src_area.dimensions
+                if src_voxel[2] == src_dimensions[2] - 1:
+                    positions = syn_projector(
+                        src_area_id=src_area_id,
+                        dst_area_id=dst_area_id,
+                        src_neuron_id=src_neuron_id,
+                        src_subregion=src_subregion,
+                        connectome_manager=connectome_manager,
+                        project_last_layer_of="z",
+                    )
+                    for pos in positions:
+                        raw_candidate_positions.add(pos)
 
             # Handle special memory morphology that doesn't produce voxel positions
             elif neuron_morphology == MorphologyFunction.MEMORY.value:

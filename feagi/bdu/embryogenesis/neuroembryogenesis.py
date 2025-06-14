@@ -45,6 +45,7 @@ synapse management, and focuses on memory efficiency and thread-safety.
 import datetime
 import json
 import os
+import random
 import types
 from enum import Enum
 from pathlib import Path
@@ -1072,72 +1073,139 @@ class NeuroEmbryogenesis:
             # Memory register for memory-based morphologies
             memory_register = {}
 
-            # Extract mapping data from the genome
+            # Extract cortical mappings from the genome (handles both formats)
             mapping_data = {}
-            if "cortical_mappings" in self.genome:
+            mappings_found = 0
+
+            # Format 1: Modern format with "cortical_mappings" array
+            if "cortical_mappings" in self.genome and self.genome["cortical_mappings"]:
+                logger.info("Processing cortical mappings from modern format")
                 for mapping in self.genome["cortical_mappings"]:
                     src_id = mapping["source"]
-                    # dst_id = mapping["destination"]  # Unused variable removed
+                    dst_id = mapping["destination"]
+                    morphology_id = mapping.get("morphology", "projector")
+
+                    # Extract morphology parameters
+                    morphology_scalar = mapping.get("morphology_scalar", [1, 1, 1])
+                    psc_multiplier = mapping.get("postSynapticCurrent_multiplier", 1.0)
+                    plasticity_flag = mapping.get("plasticity_flag", False)
+                    plasticity_constant = mapping.get("plasticity_constant", 1.0)
+                    ltp_multiplier = mapping.get("ltp_multiplier", 1.0)
+                    ltd_multiplier = mapping.get("ltd_multiplier", 1.0)
 
                     if src_id not in mapping_data:
-                        mapping_data[src_id] = []
+                        mapping_data[src_id] = {}
 
-                    mapping_data[src_id].append(mapping)
+                    if dst_id not in mapping_data[src_id]:
+                        mapping_data[src_id][dst_id] = []
 
-            for i, (src_cortical_id, src_area) in enumerate(
-                self.connectome_manager.cortical_areas.items()
-            ):
-                # properties = self._extract_cortical_properties(src_cortical_id)  # Unused variable removed
-
-                # Get mappings for this area
-                if src_cortical_id not in mapping_data:
-                    # Log at DEBUG level instead of INFO to reduce noise during normal operation
-                    logger.debug(
-                        f"[{DevelopmentStage.SYNAPTOGENESIS.value}] {100 * i / total_areas:.1f}% - No mappings found for area {i + 1}/{total_areas} ({src_area.name})"
+                    # Add mapping in the format expected by update_cortical_mapping
+                    mapping_data[src_id][dst_id].append(
+                        {
+                            "morphology_id": morphology_id,
+                            "morphology_scalar": morphology_scalar,
+                            "postSynapticCurrent_multiplier": psc_multiplier,
+                            "plasticity_flag": plasticity_flag,
+                            "plasticity_constant": plasticity_constant,
+                            "ltp_multiplier": ltp_multiplier,
+                            "ltd_multiplier": ltd_multiplier,
+                        }
                     )
-                    continue
+                    mappings_found += 1
 
-                mappings = mapping_data[src_cortical_id]
+            # Format 2: Legacy format with "dstmap-d" fields in cortical areas
+            elif "cortical_areas" in self.genome:
+                logger.info(
+                    "Processing cortical mappings from legacy format (dstmap-d)"
+                )
+                for area_key, area_data in self.genome["cortical_areas"].items():
+                    # Extract cortical area ID from the key (remove prefix)
+                    if isinstance(area_key, str) and "-cx-" in area_key:
+                        # Extract the actual cortical ID from keys like "_____10c-___pwr-cx-..."
+                        parts = area_key.split("-")
+                        if len(parts) >= 3:
+                            src_id = parts[1]  # This should be "___pwr", "o__mot", etc.
+                        else:
+                            continue
+                    else:
+                        src_id = area_key
 
-                for mapping in mappings:
-                    dst_cortical_id = mapping["destination"]
+                    # Look for destination mappings in this area's data
+                    dstmap_key = None
+                    for key in area_data.keys():
+                        if key.endswith("-cx-dstmap-d") or key == "dstmap-d":
+                            dstmap_key = key
+                            break
 
-                    # Skip if destination area not created
-                    if dst_cortical_id not in self.connectome_manager.cortical_areas:
-                        continue
+                    if dstmap_key and isinstance(area_data[dstmap_key], dict):
+                        dst_mappings = area_data[dstmap_key]
 
-                    # dst_area = self.connectome_manager.cortical_areas[dst_cortical_id]  # Unused variable removed
-                    morphology = mapping["morphology"]
+                        if dst_mappings:  # Only process if there are actual mappings
+                            if src_id not in mapping_data:
+                                mapping_data[src_id] = {}
 
-                    # Get source area neurons
-                    src_neurons = self.connectome_manager.get_neurons_by_area(
-                        src_cortical_id
+                            for dst_id, mapping_specs in dst_mappings.items():
+                                if dst_id not in mapping_data[src_id]:
+                                    mapping_data[src_id][dst_id] = []
+
+                                # Process each mapping specification
+                                for spec in mapping_specs:
+                                    if isinstance(spec, list) and len(spec) >= 7:
+                                        # Legacy format: [morphology, scalar, psc_mult, plasticity, const, ltp, ltd]
+                                        morphology_id = spec[0]
+                                        morphology_scalar = (
+                                            spec[1]
+                                            if isinstance(spec[1], list)
+                                            else [1, 1, 1]
+                                        )
+                                        psc_multiplier = (
+                                            spec[2] if len(spec) > 2 else 1.0
+                                        )
+                                        plasticity_flag = (
+                                            spec[3] if len(spec) > 3 else False
+                                        )
+                                        plasticity_constant = (
+                                            spec[4] if len(spec) > 4 else 1.0
+                                        )
+                                        ltp_multiplier = (
+                                            spec[5] if len(spec) > 5 else 1.0
+                                        )
+                                        ltd_multiplier = (
+                                            spec[6] if len(spec) > 6 else 1.0
+                                        )
+
+                                        mapping_data[src_id][dst_id].append(
+                                            {
+                                                "morphology_id": morphology_id,
+                                                "morphology_scalar": morphology_scalar,
+                                                "postSynapticCurrent_multiplier": psc_multiplier,
+                                                "plasticity_flag": plasticity_flag,
+                                                "plasticity_constant": plasticity_constant,
+                                                "ltp_multiplier": ltp_multiplier,
+                                                "ltd_multiplier": ltd_multiplier,
+                                            }
+                                        )
+                                        mappings_found += 1
+
+            # Create synapses if mappings were found
+            if mappings_found > 0:
+                logger.info(
+                    f"Creating synapses for {len(mapping_data)} source areas with {mappings_found} cortical mappings"
+                )
+                success = self.update_cortical_mapping(mapping_data)
+
+                if success:
+                    # Get synapse count from connectome manager
+                    total_synapses = self.connectome_manager.get_synapse_count()
+                    logger.info(
+                        f"Successfully created synapses via cortical mappings. Total synapses: {total_synapses}"
                     )
-
-                    # Calculate source subregion
-                    src_subregion = self._calculate_subregion(
-                        src_cortical_id, morphology
-                    )
-
-                    # Process each source neuron
-                    neuron_count = len(src_neurons)
-                    for j, src_neuron_id in enumerate(src_neurons):
-                        if j % 100 == 0:
-                            # Update progress every 100 neurons
-                            completion = (i + (j / neuron_count)) / total_areas
-                            self._report_progress(
-                                DevelopmentStage.SYNAPTOGENESIS,
-                                100 * completion,
-                                f"Area {i + 1}/{total_areas} ({src_area.name}): {j}/{neuron_count} neurons",
-                            )
-
-                        # Use morphology-driven synaptogenesis
-                        # This is a placeholder - the actual synaptogenesis should be
-                        # handled by update_cortical_mapping method
-                        logger.debug(
-                            f"Synaptogenesis for {src_cortical_id} -> {dst_cortical_id} "
-                            f"should be handled by update_cortical_mapping"
-                        )
+                else:
+                    logger.warning("Failed to create synapses via cortical mappings")
+            else:
+                logger.info(
+                    "No cortical mappings found in genome - no synapses will be created"
+                )
 
             self._report_progress(
                 DevelopmentStage.SYNAPTOGENESIS,
@@ -1201,6 +1269,42 @@ class NeuroEmbryogenesis:
         }
 
         registry["projector"] = {
+            "type": "function",
+            "parameters": {},
+            "class": "built-in",
+        }
+
+        registry["projector_xy"] = {
+            "type": "function",
+            "parameters": {},
+            "class": "built-in",
+        }
+
+        registry["projector_xz"] = {
+            "type": "function",
+            "parameters": {},
+            "class": "built-in",
+        }
+
+        registry["projector_yz"] = {
+            "type": "function",
+            "parameters": {},
+            "class": "built-in",
+        }
+
+        registry["project_from_end_x"] = {
+            "type": "function",
+            "parameters": {},
+            "class": "built-in",
+        }
+
+        registry["project_from_end_y"] = {
+            "type": "function",
+            "parameters": {},
+            "class": "built-in",
+        }
+
+        registry["project_from_end_z"] = {
             "type": "function",
             "parameters": {},
             "class": "built-in",
@@ -2266,71 +2370,64 @@ class NeuroEmbryogenesis:
         try:
             total_synapses = 0
 
-            # Handle specific morphology functions
-            if morphology_id == "projector":
-                # Projector morphology - spatial projection
-                for src_neuron_id in src_neurons:
-                    try:
-                        src_pos = self.connectome_manager.get_neuron_position(
-                            src_neuron_id
-                        )
-                        if not src_pos:
-                            continue
+            # Use the generic neighbor_finder pipeline from synaptogenesis_rules
+            # This follows the same architecture as legacy FEAGI
+            from feagi.bdu.connectivity.synaptogenesis_rules import (
+                find_candidate_neurons,
+            )
 
-                        # Get area dimensions for projection calculation
-                        src_area = self.connectome_manager.get_cortical_area(
-                            src_area_id
-                        )
-                        dst_area = self.connectome_manager.get_cortical_area(
-                            dst_area_id
-                        )
+            # Calculate source subregion (following legacy pattern)
+            src_area = self.connectome_manager.get_cortical_area(src_area_id)
+            src_subregion = [(0, 0, 0), src_area.dimensions]
 
-                        # Calculate projected position
-                        src_dims = src_area.dimensions
-                        dst_dims = dst_area.dimensions
+            # Create morphology dict in legacy format
+            morphology_dict = {
+                "morphology_id": morphology_id,
+                "morphology_scalar": morphology_scalar,
+                "postSynapticCurrent_multiplier": psc_multiplier,
+            }
 
-                        # Normalize source position and project to destination
-                        norm_x = src_pos[0] / max(src_dims[0] - 1, 1)
-                        norm_y = src_pos[1] / max(src_dims[1] - 1, 1)
-                        norm_z = src_pos[2] / max(src_dims[2] - 1, 1)
+            # Memory register for memory-based morphologies
+            memory_register = {}
 
-                        target_x = int(norm_x * (dst_dims[0] - 1))
-                        target_y = int(norm_y * (dst_dims[1] - 1))
-                        target_z = int(norm_z * (dst_dims[2] - 1))
+            for src_neuron_id in src_neurons:
+                try:
+                    # Use the generic neighbor_finder pipeline
+                    candidate_neurons = find_candidate_neurons(
+                        src_area_id=src_area_id,
+                        dst_area_id=dst_area_id,
+                        src_neuron_id=src_neuron_id,
+                        morphology=morphology_dict,
+                        src_subregion=src_subregion,
+                        connectome_manager=self.connectome_manager,
+                        memory_register=memory_register,
+                    )
 
-                        # Find neurons at target position
-                        target_neurons = (
-                            self.connectome_manager.get_neurons_at_position(
-                                dst_area_id, (target_x, target_y, target_z)
-                            )
-                        )
+                    # Apply legacy synapse attractivity filtering (critical for proper behavior)
+                    dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+                    synapse_attractivity = dst_area.properties.get("synatt", 100)
 
-                        # Create connections
-                        synapse_connections = []
-                        for dst_neuron_id in target_neurons:
-                            weight = psc_multiplier
+                    # Create synapses from candidate neurons with probabilistic filtering
+                    synapse_connections = []
+                    for dst_neuron_id, weight in candidate_neurons:
+                        # Legacy behavior: probabilistic synapse creation based on attractivity
+                        if random.randrange(1, 100) < synapse_attractivity:
                             synapse_connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
 
-                        if synapse_connections:
-                            created = self.connectome_manager.batch_create_synapses(
-                                synapse_connections
-                            )
-                            total_synapses += created
-
-                    except Exception as e:
-                        logger.warning(
-                            f"Error processing projector morphology for neuron "
-                            f"{src_neuron_id}: {e}"
+                    if synapse_connections:
+                        created = self.connectome_manager.batch_create_synapses(
+                            synapse_connections
                         )
-                        continue
+                        total_synapses += created
 
-            else:
-                logger.warning(
-                    f"Unsupported function morphology: {morphology_id}. "
-                    f"Supported: projector"
-                )
+                except Exception as e:
+                    logger.warning(
+                        f"Error processing function morphology {morphology_id} for neuron "
+                        f"{src_neuron_id}: {e}"
+                    )
+                    continue
 
             return total_synapses
 

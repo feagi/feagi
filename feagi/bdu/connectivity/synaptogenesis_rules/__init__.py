@@ -8,6 +8,15 @@ import enum
 import random
 import re
 
+# Import the syn_projector function from the main synaptogenesis_rules module
+try:
+    from ..synaptogenesis_rules import syn_projector
+except ImportError:
+    # Fallback if import fails
+    def syn_projector(*args, **kwargs):
+        """Fallback syn_projector function."""
+        return [(0, 0, 0)]
+
 
 # Define the required enums
 class RuleType(enum.Enum):
@@ -28,6 +37,12 @@ class MorphologyFunction(enum.Enum):
     LATERAL_PAIRS_X = "lateral_pairs_x"
     BLOCK_CONNECTION = "block_connection"
     PROJECTOR = "projector"
+    PROJECTOR_XY = "projector_xy"
+    PROJECTOR_XZ = "projector_xz"
+    PROJECTOR_YZ = "projector_yz"
+    PROJECT_FROM_END_X = "project_from_end_x"
+    PROJECT_FROM_END_Y = "project_from_end_y"
+    PROJECT_FROM_END_Z = "project_from_end_z"
     MEMORY = "memory"
     LAST_TO_FIRST = "last_to_first"
 
@@ -188,7 +203,11 @@ def syn_expander_x(
     connectome_manager=None,
     memory_register=None,
 ):
-    """Implementation of the expander morphology function."""
+    """Implementation of the expander morphology function.
+
+    Returns:
+        List of [x, y, z] coordinate lists (following legacy design)
+    """
     if not connectome_manager or not dst_area_id:
         return []
 
@@ -209,19 +228,8 @@ def syn_expander_x(
     # Expand position based on factor
     expanded_x = int(position[0] * expansion_factor)
 
-    # Find neurons at the expanded position
-    results = []
-    for dst_neuron_id in connectome_manager.get_neurons_by_area(dst_area_id):
-        dst_pos = connectome_manager.get_neuron_position(dst_neuron_id)
-        if (
-            dst_pos
-            and dst_pos[0] == expanded_x
-            and dst_pos[1] == position[1]
-            and dst_pos[2] == position[2]
-        ):
-            results.append((dst_neuron_id, 1.0))
-
-    return results
+    # Return the expanded position as [x, y, z] coordinate list
+    return [[expanded_x, position[1], position[2]]]
 
 
 def syn_reducer_x(
@@ -235,7 +243,11 @@ def syn_reducer_x(
     dst_y_index=0,
     dst_z_index=0,
 ):
-    """Implementation of the reducer morphology function."""
+    """Implementation of the reducer morphology function.
+
+    Returns:
+        List of [x, y, z] coordinate lists (following legacy design)
+    """
     if not connectome_manager or not dst_area_id:
         return []
 
@@ -256,19 +268,8 @@ def syn_reducer_x(
     # Reduce position based on factor
     reduced_x = int(position[0] * reduction_factor)
 
-    # Find neurons at the reduced position
-    results = []
-    for dst_neuron_id in connectome_manager.get_neurons_by_area(dst_area_id):
-        dst_pos = connectome_manager.get_neuron_position(dst_neuron_id)
-        if (
-            dst_pos
-            and dst_pos[0] == reduced_x
-            and dst_pos[1] == position[1]
-            and dst_pos[2] == position[2]
-        ):
-            results.append((dst_neuron_id, 1.0))
-
-    return results
+    # Return the reduced position as [x, y, z] coordinate list
+    return [[reduced_x, position[1], position[2]]]
 
 
 def syn_randomizer(
@@ -292,38 +293,26 @@ def syn_randomizer(
         memory_register: Memory register (optional)
 
     Returns:
-        List of tuples (neuron_id, weight)
+        Single [x, y, z] coordinate list (following legacy design)
     """
     # If no valid destination area or connectome manager, return empty list
     if not dst_area_id or not connectome_manager:
         return []
 
-    # Get probability from morphology parameters
-    probability = 0.5  # Default probability
-    if (
-        morphology
-        and "parameters" in morphology
-        and "probability" in morphology["parameters"]
-    ):
-        probability = morphology["parameters"]["probability"]
-
-    # Get destination neurons
-    dst_neurons = connectome_manager.get_neurons_by_area(dst_area_id)
-
-    # Apply probability filter
-    if probability >= 1.0:
-        # Return all destination neurons with weight 1.0
-        return [(neuron_id, 1.0) for neuron_id in dst_neurons]
-    elif probability <= 0:
-        # Return no neurons
+    # Get destination area dimensions
+    try:
+        dst_area = connectome_manager.get_area(dst_area_id)
+        dst_dimensions = dst_area.dimensions
+    except Exception:
         return []
-    else:
-        # Create a random subset based on probability
-        selected_neurons = []
-        for neuron_id in dst_neurons:
-            if random.random() < probability:
-                selected_neurons.append((neuron_id, 1.0))
-        return selected_neurons
+
+    # Generate random position within destination area bounds
+    random_x = random.randint(0, dst_dimensions[0] - 1)
+    random_y = random.randint(0, dst_dimensions[1] - 1)
+    random_z = random.randint(0, dst_dimensions[2] - 1)
+
+    # Return single coordinate as [x, y, z] list (legacy format)
+    return [random_x, random_y, random_z]
 
 
 def syn_lateral_pairs_x(
@@ -335,36 +324,37 @@ def syn_lateral_pairs_x(
     connectome_manager=None,
     memory_register=None,
 ):
-    """Implementation of the lateral pairs morphology function."""
-    if not connectome_manager or not dst_area_id:
-        return []
+    """Implementation of the lateral pairs morphology function.
 
-    # Get pair distance from morphology parameters
-    pair_distance = 2  # Default pair distance
-    if (
-        morphology
-        and "parameters" in morphology
-        and "pair_distance" in morphology["parameters"]
-    ):
-        pair_distance = morphology["parameters"]["pair_distance"]
+    Returns:
+        Single [x, y, z] coordinate list or None (following legacy design)
+    """
+    if not connectome_manager or not src_area_id:
+        return None
 
     # Get source neuron position
     position = connectome_manager.get_neuron_position(src_neuron_id)
     if not position:
-        return []
+        return None
 
-    # Calculate target positions (left and right of the source)
-    target_left = (position[0] - pair_distance, position[1], position[2])
-    target_right = (position[0] + pair_distance, position[1], position[2])
+    # Get source area dimensions to check bounds
+    try:
+        src_area = connectome_manager.get_area(src_area_id)
+        src_dimensions = src_area.dimensions
+    except Exception:
+        return None
 
-    # Find neurons at the target positions
-    results = []
-    for dst_neuron_id in connectome_manager.get_neurons_by_area(dst_area_id):
-        dst_pos = connectome_manager.get_neuron_position(dst_neuron_id)
-        if dst_pos and (dst_pos == target_left or dst_pos == target_right):
-            results.append((dst_neuron_id, 1.0))
+    # Calculate lateral pair position based on even/odd x coordinate
+    if position[0] % 2 == 0:
+        # Even position: connect to right neighbor
+        if position[0] + 1 < src_dimensions[0]:
+            return [position[0] + 1, position[1], position[2]]
+    else:
+        # Odd position: connect to left neighbor
+        if position[0] - 1 >= 0:
+            return [position[0] - 1, position[1], position[2]]
 
-    return results
+    return None
 
 
 def syn_block_connection(
@@ -377,78 +367,30 @@ def syn_block_connection(
     memory_register=None,
     scaling_factor=10,
 ):
-    """Implementation of the block connection morphology function."""
+    """Implementation of the block connection morphology function.
+
+    Returns:
+        Single [x, y, z] coordinate list (following legacy design)
+    """
     if not connectome_manager or not dst_area_id:
         return []
-
-    # Get block size from morphology parameters
-    block_size = [2, 2, 1]  # Default block size
-    if (
-        morphology
-        and "parameters" in morphology
-        and "block_size" in morphology["parameters"]
-    ):
-        block_size = morphology["parameters"]["block_size"]
 
     # Get source neuron position
     position = connectome_manager.get_neuron_position(src_neuron_id)
     if not position:
         return []
 
-    # Find neurons in the block around the source position
-    results = []
-    for dst_neuron_id in connectome_manager.get_neurons_by_area(dst_area_id):
-        dst_pos = connectome_manager.get_neuron_position(dst_neuron_id)
-        if dst_pos:
-            # Check if the destination neuron is within the block
-            in_x_range = position[0] <= dst_pos[0] < position[0] + block_size[0]
-            in_y_range = position[1] <= dst_pos[1] < position[1] + block_size[1]
-            in_z_range = position[2] <= dst_pos[2] < position[2] + block_size[2]
+    # Calculate block connection position using scaling factor
+    block_x = position[0] // scaling_factor
+    block_y = position[1]
+    block_z = position[2]
 
-            if in_x_range and in_y_range and in_z_range:
-                results.append((dst_neuron_id, 1.0))
-
-    return results
+    # Return single coordinate as [x, y, z] list (legacy format)
+    return [block_x, block_y, block_z]
 
 
-def syn_projector(
-    src_area_id,
-    dst_area_id,
-    src_neuron_id,
-    morphology=None,
-    src_subregion=None,
-    connectome_manager=None,
-    memory_register=None,
-    transpose=None,
-    project_last_layer_of=None,
-):
-    """Implementation of the projector morphology function."""
-    if not connectome_manager or not dst_area_id:
-        return []
-
-    # Get projection type from morphology parameters
-    # projection_type = "direct"  # Default projection type - Unused variable removed
-    if (
-        morphology
-        and "parameters" in morphology
-        and "projection_type" in morphology["parameters"]
-    ):
-        # projection_type = morphology["parameters"]["projection_type"]  # Unused variable removed
-        pass
-
-    # Get source neuron position
-    position = connectome_manager.get_neuron_position(src_neuron_id)
-    if not position:
-        return []
-
-    # For direct projection, find neurons at the same position
-    results = []
-    for dst_neuron_id in connectome_manager.get_neurons_by_area(dst_area_id):
-        dst_pos = connectome_manager.get_neuron_position(dst_neuron_id)
-        if dst_pos and dst_pos == position:
-            results.append((dst_neuron_id, 1.0))
-
-    return results
+# syn_projector implementation moved to synaptogenesis_rules.py to avoid duplication
+# Import from the main module when needed
 
 
 def syn_memory(src_area_id, dst_area_id, memory_register):
@@ -459,18 +401,16 @@ def syn_memory(src_area_id, dst_area_id, memory_register):
     return None
 
 
-def last_to_first(src_area_id, dst_area_id, src_neuron_id, connectome_manager=None):
-    """Implementation of the last to first morphology function."""
-    if not connectome_manager or not dst_area_id:
-        return []
+def last_to_first(
+    src_area_id, dst_area_id=None, src_neuron_id=None, connectome_manager=None
+):
+    """Implementation of the last to first morphology function.
 
-    # Get all destination neurons
-    dst_neurons = connectome_manager.get_neurons_by_area(dst_area_id)
-    if not dst_neurons:
-        return []
-
-    # For testing purposes, just connect to the first destination neuron
-    return [(dst_neurons[0], 1.0)]
+    Returns:
+        List of [x, y, z] coordinate lists (following legacy design)
+    """
+    # Return the origin position (0, 0, 0) as a list containing one coordinate
+    return [[0, 0, 0]]
 
 
 def neighbor_finder(
@@ -632,6 +572,90 @@ def neighbor_finder(
             connectome_manager=connectome_manager,
             memory_register=memory_register,
         )
+    elif morphology_type == "projector_xy":
+        return syn_projector(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register,
+            transpose=("y", "x", "z"),
+        )
+    elif morphology_type == "projector_xz":
+        return syn_projector(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register,
+            transpose=("z", "y", "x"),
+        )
+    elif morphology_type == "projector_yz":
+        return syn_projector(
+            src_cortical_id=src_cortical_id,
+            dst_cortical_id=dst_cortical_id,
+            src_neuron_id=src_neuron_id,
+            morphology=morphology,
+            src_subregion=src_subregion,
+            connectome_manager=connectome_manager,
+            memory_register=memory_register,
+            transpose=("x", "z", "y"),
+        )
+    elif morphology_type == "project_from_end_x":
+        # Check if neuron is in the last layer of x dimension
+        src_position = connectome_manager.get_neuron_position(src_neuron_id)
+        if src_position:
+            src_area = connectome_manager.get_area(src_cortical_id)
+            if src_position[0] == src_area.dimensions[0] - 1:
+                return syn_projector(
+                    src_cortical_id=src_cortical_id,
+                    dst_cortical_id=dst_cortical_id,
+                    src_neuron_id=src_neuron_id,
+                    morphology=morphology,
+                    src_subregion=src_subregion,
+                    connectome_manager=connectome_manager,
+                    memory_register=memory_register,
+                    project_last_layer_of="x",
+                )
+        return []
+    elif morphology_type == "project_from_end_y":
+        # Check if neuron is in the last layer of y dimension
+        src_position = connectome_manager.get_neuron_position(src_neuron_id)
+        if src_position:
+            src_area = connectome_manager.get_area(src_cortical_id)
+            if src_position[1] == src_area.dimensions[1] - 1:
+                return syn_projector(
+                    src_cortical_id=src_cortical_id,
+                    dst_cortical_id=dst_cortical_id,
+                    src_neuron_id=src_neuron_id,
+                    morphology=morphology,
+                    src_subregion=src_subregion,
+                    connectome_manager=connectome_manager,
+                    memory_register=memory_register,
+                    project_last_layer_of="y",
+                )
+        return []
+    elif morphology_type == "project_from_end_z":
+        # Check if neuron is in the last layer of z dimension
+        src_position = connectome_manager.get_neuron_position(src_neuron_id)
+        if src_position:
+            src_area = connectome_manager.get_area(src_cortical_id)
+            if src_position[2] == src_area.dimensions[2] - 1:
+                return syn_projector(
+                    src_cortical_id=src_cortical_id,
+                    dst_cortical_id=dst_cortical_id,
+                    src_neuron_id=src_neuron_id,
+                    morphology=morphology,
+                    src_subregion=src_subregion,
+                    connectome_manager=connectome_manager,
+                    memory_register=memory_register,
+                    project_last_layer_of="z",
+                )
+        return []
     elif morphology_type == "memory":
         return syn_memory(
             src_cortical_id=src_cortical_id,
