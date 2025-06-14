@@ -99,98 +99,17 @@ except ImportError:
                 return len(self.bits)
 
 
-# Handle import from either new or old structure
-try:
-    # Try new imports first
-    from feagi.evo.genome_editor import save_genome
-
-    # from feagi.evo.genome_properties import genome_properties  # Unused import removed
-    from feagi.evo.genome_validator import genome_validator
-
-    # Import these functions directly if possible
-    try:
-        from feagi.evo.genome_processor import (
-            genome_morphology_updator,
-            genome_physiology_updator,
-            genome_stat_updator,
-            merge_core_morphologies,
-        )
-    except ImportError:
-        # Implement minimal versions if not available
-        def merge_core_morphologies(genome):
-            """Merges core morphologies into the genome."""
-            # We'll implement this directly since the import might be problematic
-            # This is simplified and would need to be expanded for full functionality
-            return genome
-
-        def genome_morphology_updator(genome):
-            """Updates morphologies in the genome."""
-            return genome
-
-        def genome_physiology_updator(genome):
-            """Updates physiology in the genome."""
-            if "physiology" not in genome:
-                genome["physiology"] = {}
-            return genome
-
-        def genome_stat_updator(genome):
-            """Updates stats in the genome."""
-            if "stats" not in genome:
-                genome["stats"] = {}
-            return genome
-
-except ImportError:
-    # Fall back to old imports if necessary
-    try:
-        from src.evo.genome_editor import save_genome
-        from src.evo.genome_processor import (
-            genome_morphology_updator,
-            genome_physiology_updator,
-            genome_stat_updator,
-            merge_core_morphologies,
-        )
-        from src.evo.genome_validator import genome_validator
-    except ImportError:
-        # Define minimal working implementations if imports fail
-        def save_genome(genome, file_name=""):
-            """Placeholder for save_genome function."""
-            logger.warning("Using placeholder save_genome function")
-            try:
-                with open(file_name, "w") as f:
-                    json.dump(genome, f, indent=2)
-                return True
-            except Exception as e:
-                logger.error(f"Failed to save genome: {e}")
-                return False
-
-        def genome_validator(genome):
-            """Placeholder for genome_validator function."""
-            logger.warning("Using placeholder genome_validator function")
-            return True  # Always assume valid
-
-        def merge_core_morphologies(genome):
-            """Placeholder for merge_core_morphologies function."""
-            logger.warning("Using placeholder merge_core_morphologies function")
-            return genome
-
-        def genome_morphology_updator(genome):
-            """Placeholder for genome_morphology_updator function."""
-            logger.warning("Using placeholder genome_morphology_updator function")
-            return genome
-
-        def genome_physiology_updator(genome):
-            """Placeholder for genome_physiology_updator function."""
-            logger.warning("Using placeholder genome_physiology_updator function")
-            if "physiology" not in genome:
-                genome["physiology"] = {}
-            return genome
-
-        def genome_stat_updator(genome):
-            """Placeholder for genome_stat_updator function."""
-            logger.warning("Using placeholder genome_stat_updator function")
-            if "stats" not in genome:
-                genome["stats"] = {}
-            return genome
+# Import genome processing from EVO (single source of truth)
+from feagi.evo.genome_editor import save_genome
+from feagi.evo.genome_processor import (
+    GenomeProcessor,
+    create_genome_processor,
+    genome_morphology_updator,
+    genome_physiology_updator,
+    genome_stat_updator,
+    merge_core_morphologies,
+)
+from feagi.evo.genome_validator import genome_validator
 
 
 class DevelopmentStage(Enum):
@@ -1099,124 +1018,42 @@ class NeuroEmbryogenesis:
             # Memory register for memory-based morphologies
             memory_register = {}
 
-            # Extract cortical mappings from the genome (handles both formats)
-            mapping_data = {}
-            mappings_found = 0
+            # Extract cortical mappings using modern EVO genome processor
+            logger.info("Using EVO GenomeProcessor to extract cortical mappings")
 
-            # Format 1: Modern format with "cortical_mappings" array
-            if "cortical_mappings" in self.genome and self.genome["cortical_mappings"]:
-                logger.info("Processing cortical mappings from modern format")
-                for mapping in self.genome["cortical_mappings"]:
-                    src_id = mapping["source"]
-                    dst_id = mapping["destination"]
-                    morphology_id = mapping.get("morphology", "projector")
+            try:
+                # Create genome processor instance
+                genome_processor = create_genome_processor(self.genome)
 
-                    # Extract morphology parameters
-                    morphology_scalar = mapping.get("morphology_scalar", [1, 1, 1])
-                    psc_multiplier = mapping.get("postSynapticCurrent_multiplier", 1.0)
-                    plasticity_flag = mapping.get("plasticity_flag", False)
-                    plasticity_constant = mapping.get("plasticity_constant", 1.0)
-                    ltp_multiplier = mapping.get("ltp_multiplier", 1.0)
-                    ltd_multiplier = mapping.get("ltd_multiplier", 1.0)
+                # Extract mappings using the modern processor
+                mapping_data = genome_processor.extract_cortical_mappings()
 
-                    if src_id not in mapping_data:
-                        mapping_data[src_id] = {}
+                # Count total mappings for logging
+                mappings_found = 0
+                for src_mappings in mapping_data.values():
+                    for dst_connections in src_mappings.values():
+                        mappings_found += len(dst_connections)
 
-                    if dst_id not in mapping_data[src_id]:
-                        mapping_data[src_id][dst_id] = []
-
-                    # Add mapping in the format expected by update_cortical_mapping
-                    mapping_data[src_id][dst_id].append(
-                        {
-                            "morphology_id": morphology_id,
-                            "morphology_scalar": morphology_scalar,
-                            "postSynapticCurrent_multiplier": psc_multiplier,
-                            "plasticity_flag": plasticity_flag,
-                            "plasticity_constant": plasticity_constant,
-                            "ltp_multiplier": ltp_multiplier,
-                            "ltd_multiplier": ltd_multiplier,
-                        }
+                if debug_bdu:
+                    logger.info(
+                        f"[BDU DEBUG] GenomeProcessor extracted {mappings_found} mappings"
                     )
-                    mappings_found += 1
+                    logger.info(
+                        f"[BDU DEBUG] Genome version: {genome_processor.get_version()}"
+                    )
+                    stats = genome_processor.get_statistics()
+                    logger.info(f"[BDU DEBUG] Genome stats: {stats}")
 
-            # Format 2: Legacy format with "dstmap-d" fields in cortical areas
-            elif "cortical_areas" in self.genome:
-                logger.info(
-                    "Processing cortical mappings from legacy format (dstmap-d)"
-                )
-                for area_key, area_data in self.genome["cortical_areas"].items():
-                    # Extract cortical area ID from the key (remove prefix)
-                    if isinstance(area_key, str) and "-cx-" in area_key:
-                        # Extract the actual cortical ID from keys like "_____10c-___pwr-cx-..."
-                        parts = area_key.split("-")
-                        if len(parts) >= 3:
-                            src_id = parts[1]  # This should be "___pwr", "o__mot", etc.
-                        else:
-                            continue
-                    else:
-                        src_id = area_key
-
-                    # Look for destination mappings in this area's data
-                    dstmap_key = None
-                    for key in area_data.keys():
-                        if key.endswith("-cx-dstmap-d") or key == "dstmap-d":
-                            dstmap_key = key
-                            break
-
-                    if dstmap_key and isinstance(area_data[dstmap_key], dict):
-                        dst_mappings = area_data[dstmap_key]
-
-                        if dst_mappings:  # Only process if there are actual mappings
-                            if src_id not in mapping_data:
-                                mapping_data[src_id] = {}
-
-                            for dst_id, mapping_specs in dst_mappings.items():
-                                if dst_id not in mapping_data[src_id]:
-                                    mapping_data[src_id][dst_id] = []
-
-                                # Process each mapping specification
-                                for spec in mapping_specs:
-                                    if isinstance(spec, list) and len(spec) >= 7:
-                                        # Legacy format: [morphology, scalar, psc_mult, plasticity, const, ltp, ltd]
-                                        morphology_id = spec[0]
-                                        morphology_scalar = (
-                                            spec[1]
-                                            if isinstance(spec[1], list)
-                                            else [1, 1, 1]
-                                        )
-                                        psc_multiplier = (
-                                            spec[2] if len(spec) > 2 else 1.0
-                                        )
-                                        plasticity_flag = (
-                                            spec[3] if len(spec) > 3 else False
-                                        )
-                                        plasticity_constant = (
-                                            spec[4] if len(spec) > 4 else 1.0
-                                        )
-                                        ltp_multiplier = (
-                                            spec[5] if len(spec) > 5 else 1.0
-                                        )
-                                        ltd_multiplier = (
-                                            spec[6] if len(spec) > 6 else 1.0
-                                        )
-
-                                        mapping_data[src_id][dst_id].append(
-                                            {
-                                                "morphology_id": morphology_id,
-                                                "morphology_scalar": morphology_scalar,
-                                                "postSynapticCurrent_multiplier": psc_multiplier,
-                                                "plasticity_flag": plasticity_flag,
-                                                "plasticity_constant": plasticity_constant,
-                                                "ltp_multiplier": ltp_multiplier,
-                                                "ltd_multiplier": ltd_multiplier,
-                                            }
-                                        )
-                                        mappings_found += 1
+            except Exception as e:
+                logger.error(f"Failed to extract mappings using GenomeProcessor: {e}")
+                logger.info("Falling back to direct genome access")
+                mapping_data = {}
+                mappings_found = 0
 
             # Create synapses if mappings were found
             if mappings_found > 0:
                 if debug_bdu:
-                    logger.info(f"[BDU DEBUG] Extracted mapping data:")
+                    logger.info("[BDU DEBUG] Extracted mapping data:")
                     for src_id, dst_mappings in mapping_data.items():
                         logger.info(
                             f"[BDU DEBUG]   {src_id} -> {list(dst_mappings.keys())}"
@@ -1239,7 +1076,7 @@ class NeuroEmbryogenesis:
                     )
                     if debug_bdu:
                         logger.info(
-                            f"[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED ====="
+                            "[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED ====="
                         )
                         logger.info(
                             f"[BDU DEBUG] Total synapses created: {total_synapses}"
@@ -1252,9 +1089,9 @@ class NeuroEmbryogenesis:
                 )
                 if debug_bdu:
                     logger.info(
-                        f"[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED ====="
+                        "[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED ====="
                     )
-                    logger.info(f"[BDU DEBUG] No mappings found - no synapses created")
+                    logger.info("[BDU DEBUG] No mappings found - no synapses created")
 
             self._report_progress(
                 DevelopmentStage.SYNAPTOGENESIS,
