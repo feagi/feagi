@@ -232,11 +232,14 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
-    Conditional API request logging middleware.
-    Only logs when debug API mode is enabled via state manager configuration.
-    When enabled, provides detailed request/response information for debugging.
+    Enhanced API debug logging middleware for comprehensive request/response tracking.
 
-    Credit: Phil Girard (original middleware)
+    When --debug-api is enabled, this logs:
+    - Complete request details (method, URL, headers, query params, body)
+    - Response details (status, headers, body)
+    - Timing information
+    - Request/response correlation via unique ID
+
     Enhanced to capture request body and response details for comprehensive debugging.
     """
     # Check if debug API logging is enabled
@@ -255,67 +258,190 @@ async def log_requests(request: Request, call_next):
         log_requests._debug_shown = True
 
     # Generate unique request ID for tracking
-    idem = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    idem = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-    # Log request start with detailed information
+    # Start timing
+    start_time = time.time()
+
+    # ===== ENHANCED REQUEST LOGGING =====
+    logger.info(f"🔵 [API-DEBUG] ═══════════════════════════════════════")
+    logger.info(f"🔵 [API-DEBUG] REQUEST START [ID: {idem}]")
+    logger.info(f"🔵 [API-DEBUG] ═══════════════════════════════════════")
+
+    # Basic request info
+    logger.info(f"🔵 [API-DEBUG] Method: {request.method}")
+    logger.info(f"🔵 [API-DEBUG] URL: {str(request.url)}")
+    logger.info(f"🔵 [API-DEBUG] Path: {request.url.path}")
     logger.info(
-        f"rid={idem} [OK] start request method={request.method} path={request.url.path}"
+        f"🔵 [API-DEBUG] Client: {request.client.host if request.client else 'unknown'}:{request.client.port if request.client else 'unknown'}"
     )
-    logger.info(f"rid={idem} [NET] url={str(request.url)}")
-    logger.info(f"rid={idem} headers={dict(request.headers)}")
-    logger.info(f"rid={idem} [SEARCH] query_params={dict(request.query_params)}")
 
-    # Log path parameters if available
+    # Headers (formatted nicely)
+    logger.info(f"🔵 [API-DEBUG] Headers:")
+    for name, value in request.headers.items():
+        # Mask sensitive headers
+        if name.lower() in ["authorization", "cookie", "x-api-key"]:
+            value = "***MASKED***"
+        logger.info(f"🔵 [API-DEBUG]   {name}: {value}")
+
+    # Query parameters
+    if request.query_params:
+        logger.info(f"🔵 [API-DEBUG] Query Parameters:")
+        for name, value in request.query_params.items():
+            logger.info(f"🔵 [API-DEBUG]   {name}: {value}")
+    else:
+        logger.info(f"🔵 [API-DEBUG] Query Parameters: <none>")
+
+    # Path parameters
     if hasattr(request, "path_params") and request.path_params:
-        logger.info(f"rid={idem} [PATH]  path_params={dict(request.path_params)}")
+        logger.info(f"🔵 [API-DEBUG] Path Parameters:")
+        for name, value in request.path_params.items():
+            logger.info(f"🔵 [API-DEBUG]   {name}: {value}")
+    else:
+        logger.info(f"🔵 [API-DEBUG] Path Parameters: <none>")
 
-    # Capture request body for debugging
+    # Capture and log request body
     request_body = None
+    body_bytes = b""
     try:
         body_bytes = await request.body()
         if body_bytes:
             request_body = body_bytes.decode("utf-8")
-            logger.info(f"rid={idem} [LOG] request_body={request_body}")
+            # Pretty print JSON if possible
+            try:
+                import json
+
+                parsed_json = json.loads(request_body)
+                formatted_json = json.dumps(parsed_json, indent=2)
+                logger.info(f"🔵 [API-DEBUG] Request Body (JSON):")
+                for line in formatted_json.split("\n"):
+                    logger.info(f"🔵 [API-DEBUG]   {line}")
+            except (json.JSONDecodeError, ValueError):
+                # Not JSON, log as plain text (truncate if too long)
+                if len(request_body) > 2000:
+                    truncated_body = request_body[:2000] + "... (truncated)"
+                    logger.info(
+                        f"🔵 [API-DEBUG] Request Body (truncated): {truncated_body}"
+                    )
+                else:
+                    logger.info(f"🔵 [API-DEBUG] Request Body: {request_body}")
         else:
-            logger.info(f"rid={idem} [LOG] request_body=<empty>")
+            logger.info(f"🔵 [API-DEBUG] Request Body: <empty>")
     except Exception as e:
-        logger.warning(f"rid={idem} [WARN] failed to read request body: {e}")
+        logger.warning(f"🔵 [API-DEBUG] Failed to read request body: {e}")
 
     # Store original body for downstream handlers (since we consumed the stream)
     async def receive():
         return {
             "type": "http.request",
-            "body": body_bytes if "body_bytes" in locals() else b"",
+            "body": body_bytes,
         }
 
     # Patch the request's receive method
-    if "body_bytes" in locals():
-        request._receive = receive
+    request._receive = receive
 
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = (time.time() - start_time) * 1000
-    formatted_process_time = "{0:.2f}".format(process_time)
-
-    # Log response details
-    logger.info(
-        f"rid={idem} [OK] completed method={request.method} path={request.url.path} status={response.status_code} duration={formatted_process_time}ms"
-    )
-
-    # Try to capture response body if it's JSON
+    # Process the request
     try:
-        if hasattr(response, "body") and response.body:
-            response_body = response.body.decode("utf-8")
-            # Truncate very long responses to avoid log spam
-            if len(response_body) > 1000:
-                response_body = response_body[:1000] + "... (truncated)"
-            logger.info(f"rid={idem} response_body={response_body}")
-        else:
-            logger.info(f"rid={idem} response_body=<empty or not accessible>")
-    except Exception as e:
-        logger.info(f"rid={idem} response_body=<could not read: {e}>")
+        response = await call_next(request)
+        process_time = (time.time() - start_time) * 1000
 
-    return response
+        # ===== ENHANCED RESPONSE LOGGING =====
+        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+        logger.info(f"🟢 [API-DEBUG] RESPONSE [ID: {idem}]")
+        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+
+        # Response status and timing
+        status_emoji = (
+            "✅"
+            if 200 <= response.status_code < 300
+            else "❌"
+            if response.status_code >= 400
+            else "⚠️"
+        )
+        logger.info(f"🟢 [API-DEBUG] Status: {response.status_code} {status_emoji}")
+        logger.info(f"🟢 [API-DEBUG] Duration: {process_time:.2f}ms")
+
+        # Response headers
+        logger.info(f"🟢 [API-DEBUG] Response Headers:")
+        for name, value in response.headers.items():
+            logger.info(f"🟢 [API-DEBUG]   {name}: {value}")
+
+        # Try to capture and log response body
+        response_body = None
+        try:
+            # For streaming responses, we need to be careful
+            if hasattr(response, "body_iterator"):
+                # This is a streaming response, we can't easily capture the body
+                logger.info(
+                    f"🟢 [API-DEBUG] Response Body: <streaming response - cannot capture>"
+                )
+            else:
+                # Try to get the response body
+                original_body = b""
+                async for chunk in response.body_iterator:
+                    original_body += chunk
+
+                if original_body:
+                    response_body = original_body.decode("utf-8")
+
+                    # Pretty print JSON if possible
+                    try:
+                        import json
+
+                        parsed_json = json.loads(response_body)
+                        formatted_json = json.dumps(parsed_json, indent=2)
+                        logger.info(f"🟢 [API-DEBUG] Response Body (JSON):")
+                        for line in formatted_json.split("\n"):
+                            logger.info(f"🟢 [API-DEBUG]   {line}")
+                    except (json.JSONDecodeError, ValueError):
+                        # Not JSON, log as plain text (truncate if too long)
+                        if len(response_body) > 2000:
+                            truncated_body = response_body[:2000] + "... (truncated)"
+                            logger.info(
+                                f"🟢 [API-DEBUG] Response Body (truncated): {truncated_body}"
+                            )
+                        else:
+                            logger.info(
+                                f"🟢 [API-DEBUG] Response Body: {response_body}"
+                            )
+
+                    # Recreate the response with the captured body
+                    from fastapi.responses import Response
+
+                    response = Response(
+                        content=original_body,
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        media_type=response.headers.get("content-type"),
+                    )
+                else:
+                    logger.info(f"🟢 [API-DEBUG] Response Body: <empty>")
+
+        except Exception as e:
+            logger.info(f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>")
+
+        # Summary line
+        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+        logger.info(
+            f"🟢 [API-DEBUG] COMPLETED [ID: {idem}] {request.method} {request.url.path} → {response.status_code} ({process_time:.2f}ms)"
+        )
+        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+
+        return response
+
+    except Exception as e:
+        process_time = (time.time() - start_time) * 1000
+
+        # ===== ERROR RESPONSE LOGGING =====
+        logger.error(f"🔴 [API-DEBUG] ═══════════════════════════════════════")
+        logger.error(f"🔴 [API-DEBUG] ERROR [ID: {idem}]")
+        logger.error(f"🔴 [API-DEBUG] ═══════════════════════════════════════")
+        logger.error(f"🔴 [API-DEBUG] Exception: {type(e).__name__}: {str(e)}")
+        logger.error(f"🔴 [API-DEBUG] Duration: {process_time:.2f}ms")
+        logger.error(f"🔴 [API-DEBUG] ═══════════════════════════════════════")
+
+        # Re-raise the exception
+        raise
 
 
 @app.middleware("http")

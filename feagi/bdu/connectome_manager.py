@@ -1629,13 +1629,13 @@ class ConnectomeManager:
             # Build complete properties dictionary
             properties = {
                 "id": cortical_id,
-                "cortical_idx": cortical_idx,
+                "cortical_idx": int(cortical_idx) if cortical_idx is not None else None,
                 "name": area.name,
-                "coordinates": area.position,
-                "dimensions": area.dimensions,
+                "coordinates": tuple(int(x) for x in area.position),
+                "dimensions": tuple(int(x) for x in area.dimensions),
                 "type": area.area_type,
                 "parameters": area.properties.copy() if area.properties else {},
-                "neuron_count": len(self.get_neurons_by_area(cortical_id)),
+                "neuron_count": int(len(self.get_neurons_by_area(cortical_id))),
             }
 
             # Ensure mapping information is included in parameters
@@ -1659,13 +1659,44 @@ class ConnectomeManager:
             # Update mapping information in parameters
             properties["parameters"]["mapping"] = outgoing_mappings
 
-            return properties
+            # Convert all numpy types to native Python types for JSON serialization
+            return self._convert_numpy_types_to_python(properties)
         except KeyError:
             self.logger.warning(f"Cortical area {cortical_id} not found")
             return {}
         except Exception as e:
             self.logger.error(f"Error getting properties for area {cortical_id}: {e}")
             return {}
+
+    def _convert_numpy_types_to_python(self, obj: Any) -> Any:
+        """Convert numpy types to native Python types for JSON serialization.
+
+        Args:
+            obj: Object that may contain numpy types
+
+        Returns:
+            Object with numpy types converted to native Python types
+        """
+        import numpy as np
+
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {
+                key: self._convert_numpy_types_to_python(value)
+                for key, value in obj.items()
+            }
+        elif isinstance(obj, (list, tuple)):
+            converted_items = [
+                self._convert_numpy_types_to_python(item) for item in obj
+            ]
+            return type(obj)(converted_items)  # Preserve original type (list or tuple)
+        else:
+            return obj
 
     def get_all_cortical_area_properties(self) -> List[Dict[str, Any]]:
         """Get properties of all cortical areas.
@@ -3781,11 +3812,18 @@ class ConnectomeManager:
             total_weight = 0.0
 
             for src_idx in source_indices:
+                # Convert index back to neuron ID for get_outgoing_connections
+                src_neuron_id = self.index_to_neuron_id.get(src_idx)
+                if src_neuron_id is None:
+                    continue
+
                 # Get outgoing connections for this neuron
-                outgoing = self.get_outgoing_connections(src_idx)
+                outgoing = self.get_outgoing_connections(src_neuron_id)
                 if outgoing:
-                    for dst_idx, weight in outgoing:
-                        if dst_idx in target_indices:
+                    for dst_neuron_id, weight in outgoing:
+                        # Convert target neuron ID to index for comparison
+                        dst_idx = self.neuron_id_to_index.get(dst_neuron_id)
+                        if dst_idx is not None and dst_idx in target_indices:
                             connections.append((src_idx, dst_idx, weight))
                             total_weight += weight
 
@@ -3807,7 +3845,7 @@ class ConnectomeManager:
                 "total_weight": 0.0,
             }
 
-    def _get_neuron_indices(self, neuron_ids: List[str]) -> List[int]:
+    def _get_neuron_indices(self, neuron_ids: List[int]) -> List[int]:
         """Get neuron indices for a list of neuron IDs.
 
         Args:
