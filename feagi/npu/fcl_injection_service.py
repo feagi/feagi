@@ -591,15 +591,24 @@ class FCLInjectionService:
         CRITICAL FIX: Sets membrane potential above threshold for external neurons
         so they can actually fire, just like power injection does.
 
+        BACKPRESSURE: Rejects injections if burst engine is not ready or busy.
+
         Args:
             activations: Dictionary mapping cortical area IDs to lists of neuron IDs to activate
             current_timestep: Current simulation timestep
             source: Source identifier for logging/debugging (e.g., "test_mode_1", "manual_stimulation")
 
         Returns:
-            Number of neurons successfully injected
+            Number of neurons successfully injected (0 if rejected due to backpressure)
         """
         try:
+            # BACKPRESSURE CHECK: Verify burst engine is ready for injection
+            if not self._check_burst_engine_ready():
+                logger.warning(
+                    f"Rejecting injection from {source} - burst engine not ready"
+                )
+                return 0
+
             total_injected = 0
 
             if not activations:
@@ -691,6 +700,42 @@ class FCLInjectionService:
 
             logger.error(traceback.format_exc())
             return 0
+
+    def _check_burst_engine_ready(self) -> bool:
+        """
+        Check if the burst engine is ready to accept new injections.
+
+        PERFORMANCE: Optimized for RTOS/SIMD/GPU environments with minimal overhead.
+        Uses cached state checks to avoid expensive API calls during high-frequency operation.
+
+        Returns:
+            True if ready to accept injections, False otherwise
+        """
+        # PERFORMANCE: Cache the state manager reference to avoid repeated lookups
+        if not hasattr(self, "_cached_state_manager"):
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+
+                self._cached_state_manager = FeagiStateManager.instance()
+            except Exception:
+                self._cached_state_manager = None
+
+        # PERFORMANCE: Fast path - if no state manager, allow injection (fail-open for performance)
+        if not self._cached_state_manager:
+            return True
+
+        # PERFORMANCE: Single state check - avoid multiple API calls
+        try:
+            from feagi.core.state_manager import ServiceState
+
+            burst_state = self._cached_state_manager.get_burst_engine_state()
+
+            # RTOS-FRIENDLY: Simple state comparison, no complex logic
+            return burst_state == ServiceState.READY
+
+        except Exception:
+            # PERFORMANCE: Fail-open on error to maintain injection throughput
+            return True
 
     def _get_all_batches(self) -> List[InjectionBatch]:
         """Get all injection batches across all timing phases."""
