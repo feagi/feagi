@@ -315,6 +315,11 @@ def main():
         action="store_true",
         help="Log all inbound ZMQ traffic with decoded data",
     )
+    parser.add_argument(
+        "--debug-bdu",
+        action="store_true",
+        help="Enable detailed BDU (Brain Development Unit) debugging - shows synapse creation and candidate neighbors",
+    )
 
     # Performance profiling arguments
     parser.add_argument(
@@ -401,6 +406,10 @@ def main():
             logger.info(
                 "ZMQ inbound traffic debugging enabled via --debug-zmq-inbound flag"
             )
+
+        if args.debug_bdu:
+            cli_overrides["debug_bdu"] = True
+            logger.info("BDU debugging enabled via --debug-bdu flag")
 
         if args.profile:
             cli_overrides["profile"] = True

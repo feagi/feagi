@@ -55,6 +55,22 @@ except ImportError:
             return len(self) == 0
 
 
+def _is_debug_bdu_enabled() -> bool:
+    """
+    Check if BDU (Brain Development Unit) debugging is enabled.
+
+    Returns:
+        True if BDU debugging is enabled, False otherwise
+    """
+    try:
+        from feagi.core.state_manager import FeagiStateManager
+
+        state_manager = FeagiStateManager.instance()
+        return state_manager.is_debug_bdu_enabled()
+    except Exception:
+        return False
+
+
 # Type aliases for improved code readability and Rust compatibility
 AreaId = int
 NeuronId = int
@@ -441,23 +457,37 @@ def match_vectors(
         Set of destination positions
     """
     # Get destination area dimensions
-    if dst_area_id not in connectome_manager._areas:
+    logger.debug(
+        f"[MATCH_VECTORS] Starting with dst_area_id: {dst_area_id}, vector: {vector}"
+    )
+    if dst_area_id not in connectome_manager.cortical_areas:
         logger.error(f"Destination area {dst_area_id} not found")
         return set()
 
-    dst_area = connectome_manager._areas[dst_area_id]
+    dst_area = connectome_manager.cortical_areas[dst_area_id]
     dst_dimensions = dst_area.dimensions
+    logger.debug(f"[MATCH_VECTORS] dst_dimensions: {dst_dimensions}")
 
     positions = set()
 
     # Process vector-based destination coordinate
+    logger.debug(
+        f"[MATCH_VECTORS] Checking vector type: {type(vector)}, isinstance list: {isinstance(vector, list)}, isinstance tuple: {isinstance(vector, tuple)}"
+    )
     if isinstance(vector, list) or isinstance(vector, tuple):
+        logger.debug(f"[MATCH_VECTORS] Processing vector as list/tuple")
         # Convert to a list if it's a tuple
         if isinstance(vector, tuple):
             vector = list(vector)
+            logger.debug(f"[MATCH_VECTORS] Converted tuple to list: {vector}")
 
         # Apply the morphology scalar
         scaled_vector = [int(v * morphology_scalar) for v in vector]
+
+        # DEBUG: Add logging to see what's happening
+        logger.debug(
+            f"[MATCH_VECTORS DEBUG] src_voxel: {src_voxel}, vector: {vector}, scaled_vector: {scaled_vector}, dst_dimensions: {dst_dimensions}"
+        )
 
         # Calculate destination voxel
         dst_voxel = tuple(
@@ -465,6 +495,7 @@ def match_vectors(
             for i in range(3)
         )
 
+        logger.debug(f"[MATCH_VECTORS DEBUG] calculated dst_voxel: {dst_voxel}")
         positions.add(dst_voxel)
 
     # Process algebraic expression-based vector
@@ -506,6 +537,7 @@ def match_vectors(
         except Exception as e:
             logger.error(f"Error evaluating vector expression {vector}: {str(e)}")
 
+    logger.debug(f"[MATCH_VECTORS] Returning positions: {positions}")
     return positions
 
 
@@ -537,14 +569,14 @@ def syn_expander_x(
 
     # Get area dimensions
     if (
-        src_area_id not in connectome_manager._areas
-        or dst_area_id not in connectome_manager._areas
+        src_area_id not in connectome_manager.cortical_areas
+        or dst_area_id not in connectome_manager.cortical_areas
     ):
         logger.error("Source or destination area not found")
         return set()
 
-    src_area = connectome_manager._areas[src_area_id]
-    dst_area = connectome_manager._areas[dst_area_id]
+    src_area = connectome_manager.cortical_areas[src_area_id]
+    dst_area = connectome_manager.cortical_areas[dst_area_id]
 
     src_dims = src_area.dimensions
     dst_dims = dst_area.dimensions
@@ -779,11 +811,26 @@ def syn_projector(
     Returns:
         List of matching positions in the destination area
     """
+    debug_bdu = _is_debug_bdu_enabled()
+
+    if debug_bdu:
+        logger.info(
+            f"[BDU DEBUG] syn_projector: {src_area_id} -> {dst_area_id}, neuron {src_neuron_id}"
+        )
+        logger.info(
+            f"[BDU DEBUG] transpose: {transpose}, project_last_layer_of: {project_last_layer_of}"
+        )
+
     src_area = connectome_manager.get_cortical_area(src_area_id)
     src_dimensions = src_area.dimensions
 
     dst_area = connectome_manager.get_cortical_area(dst_area_id)
     dst_dimensions = dst_area.dimensions
+
+    if debug_bdu:
+        logger.info(f"[BDU DEBUG] Source dimensions: {src_dimensions}")
+        logger.info(f"[BDU DEBUG] Destination dimensions: {dst_dimensions}")
+        logger.info(f"[BDU DEBUG] Source subregion: {src_subregion}")
 
     # These will be updated based on the transpose and project_last_layer parameters
     src_shape = [0, 0, 0]
@@ -792,10 +839,17 @@ def syn_projector(
     # Get the neuron's position
     neuron_pos = connectome_manager.get_neuron_position(src_neuron_id)
     if not neuron_pos:
+        if debug_bdu:
+            logger.warning(
+                f"[BDU DEBUG] Could not find position for neuron {src_neuron_id}"
+            )
         return []
 
     # Default neuron location (x, y, z)
     neuron_location = list(neuron_pos)
+
+    if debug_bdu:
+        logger.info(f"[BDU DEBUG] Neuron location: {neuron_location}")
 
     # Apply transpose if specified
     if transpose:
@@ -901,6 +955,12 @@ def syn_projector(
         return []
 
     # Generate all combinations of the destination coordinates
+    if debug_bdu:
+        logger.info(f"[BDU DEBUG] Destination voxel dictionary:")
+        logger.info(f"[BDU DEBUG]   X candidates: {sorted(list(dst_vox_dict[0]))}")
+        logger.info(f"[BDU DEBUG]   Y candidates: {sorted(list(dst_vox_dict[1]))}")
+        logger.info(f"[BDU DEBUG]   Z candidates: {sorted(list(dst_vox_dict[2]))}")
+
     if dst_vox_dict[0] and dst_vox_dict[1] and dst_vox_dict[2]:
         for x in dst_vox_dict[0]:
             for y in dst_vox_dict[1]:
@@ -912,6 +972,13 @@ def syn_projector(
                         and 0 <= z < dst_dimensions[2]
                     ):
                         candidate_list.append((x, y, z))
+                    elif debug_bdu:
+                        logger.warning(
+                            f"[BDU DEBUG] Position ({x}, {y}, {z}) out of bounds for destination {dst_dimensions}"
+                        )
+
+    if debug_bdu:
+        logger.info(f"[BDU DEBUG] syn_projector final candidates: {candidate_list}")
 
     return candidate_list
 
@@ -1021,6 +1088,16 @@ def find_candidate_neurons(
     Returns:
         List of (target_neuron_id, weight) tuples for synaptic connections
     """
+    debug_bdu = _is_debug_bdu_enabled()
+
+    if debug_bdu:
+        logger.info(
+            f"[BDU DEBUG] ===== SYNAPTOGENESIS: {src_area_id} -> {dst_area_id} ====="
+        )
+        logger.info(f"[BDU DEBUG] Source neuron: {src_neuron_id}")
+        logger.info(f"[BDU DEBUG] Morphology: {morphology}")
+        logger.info(f"[BDU DEBUG] Source subregion: {src_subregion}")
+
     # Get source neuron position
     src_neuron_pos = connectome_manager.get_neuron_position(src_neuron_id)
     if not src_neuron_pos:
@@ -1030,10 +1107,18 @@ def find_candidate_neurons(
     # Get position tuple (x, y, z)
     src_voxel = src_neuron_pos
 
+    if debug_bdu:
+        logger.info(f"[BDU DEBUG] Source neuron position: {src_voxel}")
+
     # Determine morphology ID and parameters
     neuron_morphology = morphology_id_overwrite or morphology["morphology_id"]
     morphology_scalar = morphology["morphology_scalar"]
     psc_multiplier = morphology["postSynapticCurrent_multiplier"]
+
+    if debug_bdu:
+        logger.info(f"[BDU DEBUG] Using morphology: {neuron_morphology}")
+        logger.info(f"[BDU DEBUG] Morphology scalar: {morphology_scalar}")
+        logger.info(f"[BDU DEBUG] PSC multiplier: {psc_multiplier}")
 
     # Get source area properties
     try:
@@ -1171,6 +1256,8 @@ def find_candidate_neurons(
                     raw_candidate_positions.add((0, 0, 0))
 
             elif neuron_morphology == MorphologyFunction.PROJECTOR.value:
+                if debug_bdu:
+                    logger.info(f"[BDU DEBUG] Processing PROJECTOR morphology")
                 positions = syn_projector(
                     src_area_id=src_area_id,
                     dst_area_id=dst_area_id,
@@ -1178,6 +1265,10 @@ def find_candidate_neurons(
                     src_subregion=src_subregion,
                     connectome_manager=connectome_manager,
                 )
+                if debug_bdu:
+                    logger.info(
+                        f"[BDU DEBUG] PROJECTOR returned {len(positions)} candidate positions: {positions}"
+                    )
                 for pos in positions:
                     raw_candidate_positions.add(pos)
 
@@ -1274,6 +1365,14 @@ def find_candidate_neurons(
             logger.warning(f"Unsupported morphology type: {morphology_type}")
 
         # For each candidate position, find the neurons there and add them to the result list
+        if debug_bdu:
+            logger.info(
+                f"[BDU DEBUG] Processing {len(raw_candidate_positions)} candidate positions"
+            )
+            logger.info(
+                f"[BDU DEBUG] Candidate positions: {sorted(list(raw_candidate_positions))}"
+            )
+
         for dst_pos in raw_candidate_positions:
             if dst_pos is None:
                 continue
@@ -1283,10 +1382,28 @@ def find_candidate_neurons(
                 dst_area_id, dst_pos
             )
 
+            if debug_bdu and dst_neurons:
+                logger.info(
+                    f"[BDU DEBUG] Position {dst_pos} contains {len(dst_neurons)} neurons: {dst_neurons}"
+                )
+
             # Add each destination neuron with its weight to the candidate list
             for dst_neuron_id in dst_neurons:
                 if dst_neuron_id:
                     candidate_neuron_list.append((dst_neuron_id, post_synaptic_current))
+
+        if debug_bdu:
+            logger.info(
+                f"[BDU DEBUG] Final candidate neurons: {len(candidate_neuron_list)} found"
+            )
+            if candidate_neuron_list:
+                neuron_ids = [neuron_id for neuron_id, weight in candidate_neuron_list]
+                weights = [weight for neuron_id, weight in candidate_neuron_list]
+                logger.info(f"[BDU DEBUG] Candidate neuron IDs: {neuron_ids}")
+                logger.info(f"[BDU DEBUG] Candidate weights: {weights}")
+            logger.info(
+                f"[BDU DEBUG] ===== END SYNAPTOGENESIS: {src_area_id} -> {dst_area_id} ====="
+            )
 
         logger.debug(f"Found {len(candidate_neuron_list)} destination neurons")
         return candidate_neuron_list

@@ -1805,6 +1805,7 @@ class FeagiStateManager:
             {
                 "api": debug_section.get("api", False),
                 "npu": debug_section.get("npu", False),
+                "bdu": debug_section.get("bdu", False),
                 "zmq_outbound": debug_section.get("zmq_outbound", False),
                 "zmq_inbound": debug_section.get("zmq_inbound", False),
             }
@@ -1829,6 +1830,10 @@ class FeagiStateManager:
     def is_debug_zmq_inbound_enabled(self) -> bool:
         """Check if ZMQ inbound debug logging is enabled."""
         return self._debug_config.get("zmq_inbound", False)
+
+    def is_debug_bdu_enabled(self) -> bool:
+        """Check if BDU (Brain Development Unit) debug logging is enabled."""
+        return self._debug_config.get("bdu", False)
 
     def get_debug_config(self) -> dict:
         """Get current debug configuration."""
