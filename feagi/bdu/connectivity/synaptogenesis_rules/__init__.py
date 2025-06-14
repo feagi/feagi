@@ -8,6 +8,23 @@ import enum
 import random
 import re
 
+
+def _is_debug_bdu_enabled() -> bool:
+    """
+    Check if BDU (Brain Development Unit) debugging is enabled.
+
+    Returns:
+        True if BDU debugging is enabled, False otherwise
+    """
+    try:
+        from feagi.core.state_manager import FeagiStateManager
+
+        state_manager = FeagiStateManager.instance()
+        return state_manager.is_debug_bdu_enabled()
+    except Exception:
+        return False
+
+
 # Import the syn_projector function from the main synaptogenesis_rules module
 try:
     from ..synaptogenesis_rules import syn_projector
@@ -191,7 +208,33 @@ def match_vectors(
     src_voxel, dst_area_id, vector, morphology_scalar, src_subregion, connectome_manager
 ):
     """Match vectors for synaptogenesis between areas."""
-    return set([(0, 0, 0)])
+    # Get destination area dimensions
+    if dst_area_id not in connectome_manager.cortical_areas:
+        return set()
+
+    dst_area = connectome_manager.cortical_areas[dst_area_id]
+    dst_dimensions = dst_area.dimensions
+
+    positions = set()
+
+    # Process vector-based destination coordinate
+    if isinstance(vector, list) or isinstance(vector, tuple):
+        # Convert to a list if it's a tuple
+        if isinstance(vector, tuple):
+            vector = list(vector)
+
+        # Apply the morphology scalar
+        scaled_vector = [int(v * morphology_scalar) for v in vector]
+
+        # Calculate destination voxel
+        dst_voxel = tuple(
+            max(0, min(src_voxel[i] + scaled_vector[i], dst_dimensions[i] - 1))
+            for i in range(3)
+        )
+
+        positions.add(dst_voxel)
+
+    return positions
 
 
 def syn_expander_x(

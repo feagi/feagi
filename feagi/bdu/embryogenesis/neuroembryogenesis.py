@@ -326,6 +326,21 @@ class NeuroEmbryogenesis:
         if self.progress_callback:
             self.progress_callback(DevelopmentStage.FAILED, 0, message)
 
+    def _is_debug_bdu_enabled(self) -> bool:
+        """
+        Check if BDU (Brain Development Unit) debugging is enabled.
+
+        Returns:
+            True if BDU debugging is enabled, False otherwise
+        """
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+
+            state_manager = FeagiStateManager.instance()
+            return state_manager.is_debug_bdu_enabled()
+        except Exception:
+            return False
+
     def load_genome(self, genome_path: Union[str, Path]) -> bool:
         """
         Load a genome from file.
@@ -1062,6 +1077,17 @@ class NeuroEmbryogenesis:
         Returns:
             True if successful, False otherwise
         """
+        # Check if BDU debugging is enabled
+        debug_bdu = self._is_debug_bdu_enabled()
+
+        if debug_bdu:
+            logger.info("[BDU DEBUG] ===== STARTING SYNAPTOGENESIS PHASE =====")
+            logger.info(
+                f"[BDU DEBUG] Total cortical areas: {len(self.connectome_manager.cortical_areas)}"
+            )
+            area_names = list(self.connectome_manager.cortical_areas.keys())
+            logger.info(f"[BDU DEBUG] Cortical areas: {area_names}")
+
         self._report_progress(
             DevelopmentStage.SYNAPTOGENESIS, 0, "Creating synaptic connections"
         )
@@ -1189,6 +1215,17 @@ class NeuroEmbryogenesis:
 
             # Create synapses if mappings were found
             if mappings_found > 0:
+                if debug_bdu:
+                    logger.info(f"[BDU DEBUG] Extracted mapping data:")
+                    for src_id, dst_mappings in mapping_data.items():
+                        logger.info(
+                            f"[BDU DEBUG]   {src_id} -> {list(dst_mappings.keys())}"
+                        )
+                        for dst_id, connections in dst_mappings.items():
+                            logger.info(
+                                f"[BDU DEBUG]     {dst_id}: {len(connections)} connection specs"
+                            )
+
                 logger.info(
                     f"Creating synapses for {len(mapping_data)} source areas with {mappings_found} cortical mappings"
                 )
@@ -1200,12 +1237,24 @@ class NeuroEmbryogenesis:
                     logger.info(
                         f"Successfully created synapses via cortical mappings. Total synapses: {total_synapses}"
                     )
+                    if debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED ====="
+                        )
+                        logger.info(
+                            f"[BDU DEBUG] Total synapses created: {total_synapses}"
+                        )
                 else:
                     logger.warning("Failed to create synapses via cortical mappings")
             else:
                 logger.info(
                     "No cortical mappings found in genome - no synapses will be created"
                 )
+                if debug_bdu:
+                    logger.info(
+                        f"[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED ====="
+                    )
+                    logger.info(f"[BDU DEBUG] No mappings found - no synapses created")
 
             self._report_progress(
                 DevelopmentStage.SYNAPTOGENESIS,
@@ -1937,21 +1986,44 @@ class NeuroEmbryogenesis:
             int: Number of synapses created
         """
         try:
-            # Get morphology definition from genome
-            if not self.genome or "neuron_morphologies" not in self.genome:
-                logger.error("No genome or neuron_morphologies available")
-                return 0
+            # First, try to get morphology definition from genome
+            morphology_def = None
+            morphology_type = None
 
-            morphology_def = self.genome["neuron_morphologies"].get(morphology_id)
+            if self.genome and "neuron_morphologies" in self.genome:
+                morphology_def = self.genome["neuron_morphologies"].get(morphology_id)
+                if morphology_def:
+                    morphology_type = morphology_def.get("type")
+
+            # If not found in genome, check if it's a core function morphology
             if not morphology_def:
-                logger.warning(f"Morphology {morphology_id} not found in genome")
-                logger.debug(
-                    f"Available morphologies: {list(self.genome['neuron_morphologies'].keys())}"
+                # Import here to avoid circular imports
+                from feagi.bdu.connectivity.synaptogenesis_rules import (
+                    MorphologyFunction,
                 )
-                return 0
 
-            # Get morphology type from genome definition
-            morphology_type = morphology_def.get("type")
+                # Check if this is a known function morphology
+                function_morphology_values = [e.value for e in MorphologyFunction]
+                if morphology_id in function_morphology_values:
+                    # This is a core function morphology - create a synthetic definition
+                    morphology_def = {
+                        "type": "functions",
+                        "parameters": {},
+                        "class": "core",
+                    }
+                    morphology_type = "functions"
+                    logger.debug(f"Using core function morphology: {morphology_id}")
+                else:
+                    logger.warning(
+                        f"Morphology {morphology_id} not found in genome or core functions"
+                    )
+                    if self.genome and "neuron_morphologies" in self.genome:
+                        logger.debug(
+                            f"Available morphologies: {list(self.genome['neuron_morphologies'].keys())}"
+                        )
+                    return 0
+
+            # Validate morphology type
             if not morphology_type:
                 logger.warning(f"No type specified for morphology {morphology_id}")
                 return 0
@@ -2390,8 +2462,20 @@ class NeuroEmbryogenesis:
             # Memory register for memory-based morphologies
             memory_register = {}
 
+            debug_bdu = self._is_debug_bdu_enabled()
+
+            if debug_bdu:
+                logger.info(
+                    f"[BDU DEBUG] Processing {len(src_neurons)} source neurons for {morphology_id}"
+                )
+
             for src_neuron_id in src_neurons:
                 try:
+                    if debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] Processing source neuron {src_neuron_id}"
+                        )
+
                     # Use the generic neighbor_finder pipeline
                     candidate_neurons = find_candidate_neurons(
                         src_area_id=src_area_id,
@@ -2407,6 +2491,14 @@ class NeuroEmbryogenesis:
                     dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
                     synapse_attractivity = dst_area.properties.get("synatt", 100)
 
+                    if debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] Found {len(candidate_neurons)} candidate neurons"
+                        )
+                        logger.info(
+                            f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%"
+                        )
+
                     # Create synapses from candidate neurons with probabilistic filtering
                     synapse_connections = []
                     for dst_neuron_id, weight in candidate_neurons:
@@ -2416,11 +2508,25 @@ class NeuroEmbryogenesis:
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
 
+                    if debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] After attractivity filtering: {len(synapse_connections)} synapses to create"
+                        )
+
                     if synapse_connections:
                         created = self.connectome_manager.batch_create_synapses(
                             synapse_connections
                         )
                         total_synapses += created
+
+                        if debug_bdu:
+                            logger.info(
+                                f"[BDU DEBUG] Successfully created {created} synapses for neuron {src_neuron_id}"
+                            )
+                    elif debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] No synapses created for neuron {src_neuron_id}"
+                        )
 
                 except Exception as e:
                     logger.warning(
