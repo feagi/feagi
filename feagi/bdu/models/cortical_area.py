@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import random
+import string
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 """Cortical area data model for the BDU.
 
 This module provides the data model for representing cortical areas,
 which are 3D regions containing populations of neurons.
 """
-
-import random
-import string
-from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 def generate_cortical_id(prefix="C", seed="___"):
@@ -70,8 +70,10 @@ class CorticalArea:
             position: 3D coordinates of the area's origin in the brain space
             area_type: Type of cortical area (e.g., "sensory", "motor", "custom")
             properties: Additional properties for the area (optional)
-            cortical_id: 6-character unique identifier for this area (optional, generated if not provided)
-            cortical_idx: Integer index for this area (optional, assigned by ConnectomeManager)
+            cortical_id: 6-character unique identifier for this area (optional,
+                generated if not provided)
+            cortical_idx: Integer index for this area (optional, assigned by
+                ConnectomeManager)
         """
         self.name = name
         self.dimensions = dimensions

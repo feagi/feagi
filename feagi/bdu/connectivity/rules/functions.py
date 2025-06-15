@@ -25,7 +25,7 @@ All functions in this module should start with 'syn_' prefix.
 """
 
 from random import randrange
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from feagi.utils.logger import setup_logger
 

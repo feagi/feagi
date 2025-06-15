@@ -14,23 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-Synapse Manager for FEAGI.
-
-This module provides a high-performance, memory-efficient data structure
-designed to store and manage synapses in a large-scale spiking neural network.
-It supports sparse synaptic connectivity, plasticity modeling, and
-efficient operations for CPU and GPU execution.
-"""
-
-from feagi.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 import threading
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import scipy.sparse as sp
+
+from feagi.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
+"""Synapse model for the BDU.
+
+This module provides the data model for representing synapses,
+which are connections between neurons.
+"""
 
 
 class SynapseManager:

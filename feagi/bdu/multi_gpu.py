@@ -14,12 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Multi-GPU support for FEAGI neural processing.
-
-This module provides multi-GPU distribution and coordination for large-scale
-neural network processing across multiple GPU devices.
-"""
-
 import threading
 from dataclasses import dataclass
 from enum import Enum
@@ -28,6 +22,12 @@ from typing import Dict, List, Optional, Tuple
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
+
+"""Multi-GPU management for the BDU.
+
+This module provides utilities for managing multiple GPU devices
+and distributing neural computation across them.
+"""
 
 
 class PartitionMethod(Enum):

@@ -14,16 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Cortical mappings between different brain areas.
-
-This module defines the spatial and topological relationships between
-different cortical areas, enabling coordinate transformations and mappings.
-"""
-
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+"""Cortical mapping rules and constraints for the BDU.
+
+This module provides the framework for defining and enforcing rules
+about how cortical areas can be connected to each other.
+"""
 
 
 class MappingRestriction:
@@ -49,14 +49,17 @@ class MappingRestriction:
         Args:
             source_type: Source cortical area type (e.g., "IPU", "OPU", "CUSTOM", etc.)
             destination_type: Destination cortical area type
-            restricted_morphologies: List of morphology names that are allowed (None = all allowed)
-            disallowed_morphologies: List of morphology names that are forbidden (None = none forbidden)
+            restricted_morphologies: List of morphology names that are allowed
+                (None = all allowed)
+            disallowed_morphologies: List of morphology names that are forbidden
+                (None = none forbidden)
             max_mappings: Maximum number of mappings allowed (-1 = unlimited)
             allow_scalar_change: Whether scalar values can be modified
             allow_psp_change: Whether post-synaptic potential can be modified
             allow_inhibitory_change: Whether inhibitory flag can be modified
             allow_plasticity_change: Whether plasticity can be modified
-            allow_plasticity_constant_change: Whether plasticity constant can be modified
+            allow_plasticity_constant_change: Whether plasticity constant can be
+                modified
             allow_ltp_change: Whether LTP multiplier can be modified
             allow_ltd_change: Whether LTD multiplier can be modified
         """

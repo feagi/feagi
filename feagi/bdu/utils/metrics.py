@@ -14,12 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Metrics and performance utilities for the BDU.
-
-This module provides functions for collecting performance statistics
-and metrics about the connectome structure.
-"""
-
 import logging
 import time
 from typing import Callable, Dict, List, Tuple
@@ -27,6 +21,12 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+"""Performance metrics and profiling utilities for the BDU.
+
+This module provides utilities for measuring and analyzing the performance
+of neural processing operations.
+"""
 
 
 def calculate_neuron_density(positions, dimensions, bin_size=1):
