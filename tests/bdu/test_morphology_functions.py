@@ -13,8 +13,8 @@ from typing import List
 
 import pytest
 
-# Import from the synaptogenesis_rules __init__.py file
-from feagi.bdu.connectivity.synaptogenesis_rules import (
+# Import from the synaptogenesis __init__.py file
+from feagi.bdu.connectivity.synaptogenesis import (
     MorphologyFunction,
     last_to_first,
     syn_block_connection,
@@ -27,10 +27,10 @@ from feagi.bdu.connectivity.synaptogenesis_rules import (
 
 # Import syn_projector directly from the .py file using importlib to avoid directory conflict
 synaptogenesis_file_path = os.path.join(
-    os.path.dirname(__file__), "../../feagi/bdu/connectivity/synaptogenesis_rules.py"
+    os.path.dirname(__file__), "../../feagi/bdu/connectivity/synaptogenesis.py"
 )
 spec = importlib.util.spec_from_file_location(
-    "synaptogenesis_rules_file", synaptogenesis_file_path
+    "synaptogenesis_file", synaptogenesis_file_path
 )
 synaptogenesis_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(synaptogenesis_module)
@@ -424,6 +424,11 @@ class TestMorphologyFunctionEnum:
         for func_name in expected:
             assert hasattr(MorphologyFunction, func_name.upper())
             assert getattr(MorphologyFunction, func_name.upper()).value == func_name
+
+
+@pytest.fixture(scope="module")
+def synaptogenesis_file(request):
+    return request.config.getoption("synaptogenesis_file", synaptogenesis_file_path)
 
 
 if __name__ == "__main__":

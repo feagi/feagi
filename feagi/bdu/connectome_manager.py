@@ -3661,6 +3661,9 @@ class ConnectomeManager:
 
     def _invalidate_mapping_cache(self):
         """Cache invalidation no longer needed - direct delegation to NeuronArray"""
+        # PERFORMANCE: Invalidate spatial index when neuron structure changes
+        if hasattr(self, "_spatial_index"):
+            self._spatial_index.clear()
         pass
 
     def _vectorized_index_to_neuron_id(self, indices):
@@ -3755,12 +3758,70 @@ class ConnectomeManager:
     ) -> List[int]:
         """Get neurons at a specific position in a cortical area.
 
+        PERFORMANCE: Optimized O(1) lookup using spatial indexing instead of O(N) linear search.
+        This eliminates the 8-second bottleneck in synaptogenesis.
+
         Args:
             cortical_id: ID of the cortical area
             position: Tuple of (x, y, z) coordinates
 
         Returns:
             List of neuron IDs at the specified position
+        """
+        # CRITICAL PERFORMANCE FIX: Use spatial indexing instead of linear search
+        try:
+            # Get cortical area to access spatial index
+            cortical_area = self.get_cortical_area(cortical_id)
+            if hasattr(cortical_area, "get_neurons_at_position"):
+                # Use the cortical area's optimized spatial lookup
+                return cortical_area.get_neurons_at_position(position)
+
+            # Fallback: Build spatial index on-demand if not available
+            if not hasattr(self, "_spatial_index"):
+                self._spatial_index = {}
+
+            # Check if we have cached spatial index for this area
+            if cortical_id not in self._spatial_index:
+                self._build_spatial_index_for_area(cortical_id)
+
+            # O(1) lookup using spatial index
+            area_index = self._spatial_index[cortical_id]
+            return area_index.get(position, [])
+
+        except Exception as e:
+            self.logger.warning(
+                f"Spatial index lookup failed for {cortical_id} at {position}: {e}"
+            )
+            # Emergency fallback to linear search (should rarely happen)
+            return self._linear_search_neurons_at_position(cortical_id, position)
+
+    def _build_spatial_index_for_area(self, cortical_id: str) -> None:
+        """Build spatial index for fast position-based neuron lookups.
+
+        PERFORMANCE: This is called once per area and provides O(1) lookups thereafter.
+        """
+        try:
+            self._spatial_index[cortical_id] = {}
+            neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+
+            # Build position -> [neuron_ids] mapping
+            for neuron_id in neurons_in_area:
+                position = self.get_neuron_position(neuron_id)
+                if position not in self._spatial_index[cortical_id]:
+                    self._spatial_index[cortical_id][position] = []
+                self._spatial_index[cortical_id][position].append(neuron_id)
+
+        except Exception as e:
+            self.logger.error(f"Failed to build spatial index for {cortical_id}: {e}")
+            self._spatial_index[cortical_id] = {}
+
+    def _linear_search_neurons_at_position(
+        self, cortical_id: str, position: Tuple[int, int, int]
+    ) -> List[int]:
+        """Fallback linear search method (original implementation).
+
+        PERFORMANCE: This is the slow O(N) method that caused 8-second delays.
+        Only used as emergency fallback.
         """
         neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
         matching_neurons = []

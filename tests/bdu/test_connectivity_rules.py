@@ -20,7 +20,7 @@ Test module for ConnectivityRule class.
 
 import pytest
 
-from feagi.bdu.connectivity.connectivity_rules import ConnectivityRule
+from feagi.bdu.connectivity.connectivity_rule_manager import ConnectivityRule
 
 
 @pytest.fixture
