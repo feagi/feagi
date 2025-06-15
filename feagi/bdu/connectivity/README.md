@@ -15,37 +15,40 @@ Each module has ONE clear responsibility and does NOT duplicate functionality fr
 - `SynapseRule` - Base class for all synapse rules
 - **NO IMPLEMENTATION DETAILS** - only interfaces
 
-### 2. `synapse_rules/` (Rule Implementations)
-**RESPONSIBILITY**: Concrete implementations of synapse rules
-- `one_to_one.py` - OneToOneRule implementation
-- `random.py` - RandomRule implementation
-- `distance_based.py` - DistanceBasedRule implementation
-- `__init__.py` - Exports all rule classes
+### 2. `function_rules.py` (Function-based Rules)
+**RESPONSIBILITY**: Mathematical function-based synapse rules
+- `OneToOneRule` - One-to-one position mapping
+- `DistanceBasedRule` - Distance-based connections
 
-### 3. `synaptogenesis_rules.py` (Core Functions)
+### 3. `vector_rules.py` (Vector-based Rules)
+**RESPONSIBILITY**: Vector operation-based synapse rules
+- `RandomRule` - Random connection patterns
+
+### 4. `pattern_rules.py` (Pattern-based Rules)
+**RESPONSIBILITY**: Pattern matching-based synapse rules
+- `PatternRule` - Pattern-based connections
+
+### 5. `synaptogenesis_rules.py` (Core Functions)
 **RESPONSIBILITY**: Core synaptogenesis functions and morphology implementations
 - `find_candidate_neurons()` - Main entry point for finding connection targets
 - `syn_projector()`, `syn_expander_x()`, etc. - Morphology-specific functions
 - **NO DUPLICATE CLASSES** - only functions
 
-### 4. `connectivity_rules.py` (High-level Rules)
+### 6. `connectivity_rules.py` (High-level Rules)
 **RESPONSIBILITY**: High-level connectivity patterns between cortical areas
 - `ConnectivityRule` - Base for area-to-area connectivity
 - `ProbabilisticRule`, `DistanceBasedConnectivityRule` - Implementations
 
-### 5. `cortical_mappings.py` (Mapping Management)
+### 7. `cortical_mappings.py` (Mapping Management)
 **RESPONSIBILITY**: Manage mappings between cortical areas
 - `CorticalMapping` - Base mapping class
 - `DirectMapping`, `ProjectionMapping` - Specific mapping types
 - `CorticalMappingRestrictionsRegistry` - Validation rules
 
-### 6. `mapping_utils.py` (Utilities)
+### 8. `mapping_utils.py` (Utilities)
 **RESPONSIBILITY**: Utility functions for mapping operations
 - Helper functions for mapping calculations
 - **NO BUSINESS LOGIC** - only utilities
-
-### 7. `synaptogenesis.py` (Legacy - TO BE REMOVED)
-**STATUS**: Contains duplicate synaptogenesis rules - WILL BE DELETED
 
 ## Architecture Rules
 
@@ -59,7 +62,7 @@ Each module has ONE clear responsibility and does NOT duplicate functionality fr
 ```
 synapse_rule.py (base interfaces)
     ↑
-synapse_rules/ (implementations)
+function_rules.py, vector_rules.py, pattern_rules.py (implementations)
     ↑
 synaptogenesis_rules.py (core functions)
     ↑
@@ -85,11 +88,13 @@ mapping_utils.py (utilities)
 4. **Circular import potential** - synaptogenesis_rules/__init__.py importing from parent
 
 ### CLEANUP PLAN
-1. Remove duplicate SynapseRule class from synaptogenesis_rules.py
-2. Move OneToOneRule, RandomRule, DistanceBasedRule to synapse_rules/ directory
-3. Fix all import order violations (E402)
-4. Remove synaptogenesis.py (legacy duplicate)
-5. Ensure clean import hierarchy
+1. ✅ Remove duplicate SynapseRule class from synaptogenesis_rules.py
+2. ✅ Move OneToOneRule, DistanceBasedRule to function_rules.py
+3. ✅ Move RandomRule to vector_rules.py
+4. ✅ Create PatternRule in pattern_rules.py
+5. ✅ Fix all import order violations (E402)
+6. ✅ Remove synaptogenesis.py (legacy duplicate)
+7. ✅ Ensure clean import hierarchy
 
 ## Testing Strategy
 - Each module tested independently
