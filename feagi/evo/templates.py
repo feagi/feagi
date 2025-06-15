@@ -561,6 +561,7 @@ cortical_types = {
         "gui_name": "Core",
         "supported_devices": {
             "_death": {
+                "idx": 0,
                 "enabled": True,
                 "cortical_name": "Death",
                 "structure": "asymmetric",
@@ -569,6 +570,7 @@ cortical_types = {
                 "coordinate_2d": [-10, -20],
             },
             "___pwr": {
+                "idx": 1,
                 "enabled": False,
                 "cortical_name": "Power",
                 "structure": "asymmetric",

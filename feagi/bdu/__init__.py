@@ -6,14 +6,14 @@ including the optimized ConnectomeManager with Structure of Arrays (SoA) storage
 """
 
 # Import connectivity modules
-from feagi.bdu.connectivity.connectivity_rules import ConnectivityRule
+from feagi.bdu.connectivity.connectivity_rule_manager import ConnectivityRule
 from feagi.bdu.connectivity.cortical_mappings import CorticalMapping
 from feagi.bdu.connectivity.mapping_utils import (
     build_power_connections,
     get_detailed_cortical_map,
 )
-from feagi.bdu.connectivity.synapse_rule import SynapseRule
-from feagi.bdu.connectivity.synaptogenesis import SynaptogenesisRule
+
+# Function-based connectivity rules are imported via synaptogenesis
 from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
 
 # Import neuroembryogenesis
@@ -39,8 +39,6 @@ __all__ = [
     # Connectivity modules
     "ConnectivityRule",
     "CorticalMapping",
-    "SynaptogenesisRule",
-    "SynapseRule",
     # Mapping utilities
     "build_power_connections",
     "get_detailed_cortical_map",

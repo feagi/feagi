@@ -29,7 +29,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from feagi.bdu.connectivity.synaptogenesis_rules import (
+from feagi.bdu.connectivity.synaptogenesis import (
     RuleType,
     check_pattern_validity,
     define_subregions,
@@ -37,11 +37,12 @@ from feagi.bdu.connectivity.synaptogenesis_rules import (
     evaluate_expression,
     find_destination_coordinates,
     find_source_coordinates,
-    last_to_first,
     linearize_position,
+    match_vectors,
     neighbor_finder,
     syn_block_connection,
     syn_expander_x,
+    syn_last_to_first,
     syn_lateral_pairs_x,
     syn_memory,
     syn_projector,
@@ -840,7 +841,7 @@ def test_syn_memory(memory_register, test_areas):
 
 
 @pytest.mark.skip(reason="cortical_idx/area_id mismatch")
-def test_last_to_first(connectome_manager, test_areas):
+def test_syn_last_to_first(connectome_manager, test_areas):
     """Test last_to_first morphology function."""
     if not test_areas:
         pytest.skip("Test environment not properly initialized")
@@ -860,7 +861,7 @@ def test_last_to_first(connectome_manager, test_areas):
     src_neuron_id = src_neurons[0]
 
     # Call the last_to_first function
-    result = last_to_first(
+    result = syn_last_to_first(
         src_area_id=src_area_id,
         dst_area_id=dst_area_id,
         src_neuron_id=src_neuron_id,

@@ -16,7 +16,7 @@
 
 
 from feagi.bdu.connectivity.mapping_utils import build_power_connections
-from feagi.bdu.connectivity.synaptogenesis_rules import neighbor_finder
+from feagi.bdu.connectivity.synaptogenesis import neighbor_finder
 from feagi.core.state_manager import FeagiStateManager
 
 central_vision_cortical_area = "iv00_C"
