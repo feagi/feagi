@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Connectivity rules governing neural connections between cortical areas.
+"""
+Connectivity rules for the BDU.
 
-This module defines the rules that determine how neurons from different
-cortical areas connect to each other during development.
+This module defines high-level connectivity rules that govern how
+cortical areas connect to each other during brain development.
 """
 
 import logging

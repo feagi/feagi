@@ -25,14 +25,20 @@ def _is_debug_bdu_enabled() -> bool:
         return False
 
 
-# Import the syn_projector function from the main synaptogenesis_rules module
-try:
-    from ..synaptogenesis_rules import syn_projector
-except ImportError:
-    # Fallback if import fails
-    def syn_projector(*args, **kwargs):
-        """Fallback syn_projector function."""
-        return [(0, 0, 0)]
+# Import the syn_projector function from the main synaptogenesis_rules.py file
+# NO FALLBACKS - imports must work or fail clearly
+# Direct import from the .py file to avoid circular import with directory
+import importlib.util
+import os
+
+spec = importlib.util.spec_from_file_location(
+    "synaptogenesis_rules_module",
+    os.path.join(os.path.dirname(__file__), "..", "synaptogenesis_rules.py"),
+)
+synaptogenesis_rules_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(synaptogenesis_rules_module)
+syn_projector = synaptogenesis_rules_module.syn_projector
+find_candidate_neurons = synaptogenesis_rules_module.find_candidate_neurons
 
 
 # Define the required enums
