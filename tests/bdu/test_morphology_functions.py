@@ -6,35 +6,24 @@ This test suite validates the core geometric mapping logic of morphology functio
 without getting bogged down in FEAGI logistics.
 """
 
-import importlib.util
-import os
-import sys
 from typing import List
 
 import pytest
 
+# Import syn_projector from rules.functions
+from feagi.bdu.connectivity.rules.functions import syn_projector
+
 # Import from the synaptogenesis __init__.py file
 from feagi.bdu.connectivity.synaptogenesis import (
     MorphologyFunction,
-    last_to_first,
     syn_block_connection,
     syn_expander_x,
+    syn_last_to_first,
     syn_lateral_pairs_x,
     syn_memory,
     syn_randomizer,
     syn_reducer_x,
 )
-
-# Import syn_projector directly from the .py file using importlib to avoid directory conflict
-synaptogenesis_file_path = os.path.join(
-    os.path.dirname(__file__), "../../feagi/bdu/connectivity/synaptogenesis.py"
-)
-spec = importlib.util.spec_from_file_location(
-    "synaptogenesis_file", synaptogenesis_file_path
-)
-synaptogenesis_module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(synaptogenesis_module)
-syn_projector = synaptogenesis_module.syn_projector
 
 
 class SimpleArea:
@@ -49,16 +38,23 @@ class SimpleConnectome:
 
     def __init__(self):
         self.areas = {}
+        self.cortical_areas = {}  # Alias for areas
         self.positions = {}
 
     def add_area(self, area_id, dimensions):
-        self.areas[area_id] = SimpleArea(dimensions)
+        area = SimpleArea(dimensions)
+        self.areas[area_id] = area
+        self.cortical_areas[area_id] = area  # Keep both for compatibility
 
     def add_neuron(self, neuron_id, position):
         self.positions[neuron_id] = position
 
     def get_area(self, area_id):
         return self.areas.get(area_id)
+
+    def get_cortical_area(self, area_id):
+        """Alias for get_area to match expected interface."""
+        return self.get_area(area_id)
 
     def get_neuron_position(self, neuron_id):
         return self.positions.get(neuron_id)
@@ -84,7 +80,7 @@ class TestProjectorGeometry:
         )
 
         # Expected: X: 1->2 (neuron 0 maps to 0,1), Y: 2->2 (neuron 0 maps to 0), Z: 1->2 (neuron 0 maps to 0,1)
-        expected = [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1]]
+        expected = [(0, 0, 0), (1, 0, 0), (0, 0, 1), (1, 0, 1)]
         assert sorted(positions) == sorted(expected)
 
         # Test neuron at (0,1,0)
@@ -98,7 +94,7 @@ class TestProjectorGeometry:
         )
 
         # Expected: X: same, Y: neuron 1 maps to 1, Z: same
-        expected = [[0, 1, 0], [1, 1, 0], [0, 1, 1], [1, 1, 1]]
+        expected = [(0, 1, 0), (1, 1, 0), (0, 1, 1), (1, 1, 1)]
         assert sorted(positions) == sorted(expected)
 
     def test_projector_2x1x1_to_3x3x3_user_example(self):
@@ -122,7 +118,7 @@ class TestProjectorGeometry:
         for x in [0, 1]:
             for y in [0, 1, 2]:
                 for z in [0, 1, 2]:
-                    expected.append([x, y, z])
+                    expected.append((x, y, z))
 
         assert len(positions) == 18
         assert sorted(positions) == sorted(expected)
@@ -142,7 +138,7 @@ class TestProjectorGeometry:
         for x in [2]:
             for y in [0, 1, 2]:
                 for z in [0, 1, 2]:
-                    expected.append([x, y, z])
+                    expected.append((x, y, z))
 
         assert len(positions) == 9
         assert sorted(positions) == sorted(expected)
@@ -162,7 +158,7 @@ class TestProjectorGeometry:
             src_subregion=[(0, 0, 0), (4, 4, 4)],
             connectome_manager=cm,
         )
-        assert positions == [[0, 0, 0]]
+        assert positions == [(0, 0, 0)]
 
         # Test neuron at (1,1,1) -> should map to (0,0,0)
         cm.add_neuron(2, (1, 1, 1))
@@ -173,7 +169,7 @@ class TestProjectorGeometry:
             src_subregion=[(0, 0, 0), (4, 4, 4)],
             connectome_manager=cm,
         )
-        assert positions == [[0, 0, 0]]
+        assert positions == [(0, 0, 0)]
 
         # Test neuron at (2,2,2) -> should map to (1,1,1)
         cm.add_neuron(3, (2, 2, 2))
@@ -184,7 +180,7 @@ class TestProjectorGeometry:
             src_subregion=[(0, 0, 0), (4, 4, 4)],
             connectome_manager=cm,
         )
-        assert positions == [[1, 1, 1]]
+        assert positions == [(1, 1, 1)]
 
     def test_projector_1x1x1_to_4x1x1_power_to_motor(self):
         """Test user's specific power to motor mapping: 1x1x1 to 4x1x1."""
@@ -202,11 +198,8 @@ class TestProjectorGeometry:
             connectome_manager=cm,
         )
 
-        # Convert tuples to lists for comparison
-        positions = [list(pos) for pos in positions]
-
         # Expected: X: 1->4 (neuron 0 maps to 0,1,2,3), Y: same, Z: same
-        expected = [[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]]
+        expected = [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0)]
         assert len(positions) == 4
         assert sorted(positions) == sorted(expected)
 
@@ -222,13 +215,17 @@ class TestExpanderGeometry:
 
         # Test (0,0,0) -> (0,0,0)
         cm.add_neuron(1, (0, 0, 0))
-        positions = syn_expander_x("src", "dst", 1, connectome_manager=cm)
-        assert positions == [[0, 0, 0]]
+        positions = syn_expander_x(
+            "src", "dst", 1, [(0, 0, 0), (2, 1, 1)], connectome_manager=cm
+        )
+        assert list(positions) == [(0, 0, 0)]
 
         # Test (1,0,0) -> (2,0,0)
         cm.add_neuron(2, (1, 0, 0))
-        positions = syn_expander_x("src", "dst", 2, connectome_manager=cm)
-        assert positions == [[2, 0, 0]]
+        positions = syn_expander_x(
+            "src", "dst", 2, [(0, 0, 0), (2, 1, 1)], connectome_manager=cm
+        )
+        assert list(positions) == [(2, 0, 0)]
 
     def test_expander_x_custom_factor(self):
         """Test expander with custom factor."""
@@ -236,14 +233,12 @@ class TestExpanderGeometry:
         cm.add_area("src", (2, 1, 1))
         cm.add_area("dst", (6, 1, 1))
 
-        morphology = {"parameters": {"expansion_factor": 3.0}}
-
         # Test (1,0,0) -> (3,0,0)
         cm.add_neuron(1, (1, 0, 0))
         positions = syn_expander_x(
-            "src", "dst", 1, morphology=morphology, connectome_manager=cm
+            "src", "dst", 1, [(0, 0, 0), (2, 1, 1)], connectome_manager=cm
         )
-        assert positions == [[3, 0, 0]]
+        assert list(positions) == [(3, 0, 0)]
 
 
 class TestReducerGeometry:
@@ -255,15 +250,19 @@ class TestReducerGeometry:
         cm.add_area("src", (4, 1, 1))
         cm.add_area("dst", (2, 1, 1))
 
-        # Test (0,0,0) -> (0,0,0)
-        cm.add_neuron(1, (0, 0, 0))
-        positions = syn_reducer_x("src", "dst", 1, connectome_manager=cm)
-        assert positions == [[0, 0, 0]]
+        # Test (1,0,0) -> (1,0,0) (binary "1" padded to "01", bit 1 is set)
+        cm.add_neuron(1, (1, 0, 0))
+        positions = syn_reducer_x(
+            "src", "dst", 1, [(0, 0, 0), (4, 1, 1)], connectome_manager=cm
+        )
+        assert positions == [(1, 0, 0)]
 
-        # Test (2,0,0) -> (1,0,0)
+        # Test (2,0,0) -> (0,0,0) (binary "10", bit 0 is set)
         cm.add_neuron(2, (2, 0, 0))
-        positions = syn_reducer_x("src", "dst", 2, connectome_manager=cm)
-        assert positions == [[1, 0, 0]]
+        positions = syn_reducer_x(
+            "src", "dst", 2, [(0, 0, 0), (4, 1, 1)], connectome_manager=cm
+        )
+        assert positions == [(0, 0, 0)]
 
     def test_reducer_x_custom_factor(self):
         """Test reducer with custom factor."""
@@ -271,14 +270,12 @@ class TestReducerGeometry:
         cm.add_area("src", (4, 1, 1))
         cm.add_area("dst", (1, 1, 1))
 
-        morphology = {"parameters": {"reduction_factor": 0.25}}
-
         # Test (3,0,0) -> (0,0,0)
         cm.add_neuron(1, (3, 0, 0))
         positions = syn_reducer_x(
-            "src", "dst", 1, morphology=morphology, connectome_manager=cm
+            "src", "dst", 1, [(0, 0, 0), (4, 1, 1)], connectome_manager=cm
         )
-        assert positions == [[0, 0, 0]]
+        assert positions == [(0, 0, 0)]
 
 
 class TestRandomizerGeometry:
@@ -292,7 +289,7 @@ class TestRandomizerGeometry:
         # Test multiple times
         for _ in range(10):
             position = syn_randomizer(dst_area_id="dst", connectome_manager=cm)
-            assert isinstance(position, list)
+            assert isinstance(position, tuple)
             assert len(position) == 3
             x, y, z = position
             assert 0 <= x < 3
@@ -310,27 +307,37 @@ class TestLateralPairsGeometry:
 
         # Even position (0,0,0) -> (1,0,0)
         cm.add_neuron(1, (0, 0, 0))
-        position = syn_lateral_pairs_x("area", "area", 1, connectome_manager=cm)
-        assert position == [1, 0, 0]
+        position = syn_lateral_pairs_x(
+            1, "area", [(0, 0, 0), (5, 1, 1)], connectome_manager=cm
+        )
+        assert position == (1, 0, 0)
 
         # Odd position (1,0,0) -> (0,0,0)
         cm.add_neuron(2, (1, 0, 0))
-        position = syn_lateral_pairs_x("area", "area", 2, connectome_manager=cm)
-        assert position == [0, 0, 0]
+        position = syn_lateral_pairs_x(
+            2, "area", [(0, 0, 0), (5, 1, 1)], connectome_manager=cm
+        )
+        assert position == (0, 0, 0)
 
         # Even position (2,0,0) -> (3,0,0)
         cm.add_neuron(3, (2, 0, 0))
-        position = syn_lateral_pairs_x("area", "area", 3, connectome_manager=cm)
-        assert position == [3, 0, 0]
+        position = syn_lateral_pairs_x(
+            3, "area", [(0, 0, 0), (5, 1, 1)], connectome_manager=cm
+        )
+        assert position == (3, 0, 0)
 
         # Odd position (3,0,0) -> (2,0,0)
         cm.add_neuron(4, (3, 0, 0))
-        position = syn_lateral_pairs_x("area", "area", 4, connectome_manager=cm)
-        assert position == [2, 0, 0]
+        position = syn_lateral_pairs_x(
+            4, "area", [(0, 0, 0), (5, 1, 1)], connectome_manager=cm
+        )
+        assert position == (2, 0, 0)
 
         # Boundary: even position (4,0,0) -> None (out of bounds)
         cm.add_neuron(5, (4, 0, 0))
-        position = syn_lateral_pairs_x("area", "area", 5, connectome_manager=cm)
+        position = syn_lateral_pairs_x(
+            5, "area", [(0, 0, 0), (5, 1, 1)], connectome_manager=cm
+        )
         assert position is None
 
 
@@ -345,13 +352,17 @@ class TestBlockConnectionGeometry:
 
         # Test (5,0,0) -> (0,0,0)
         cm.add_neuron(1, (5, 0, 0))
-        position = syn_block_connection("src", "dst", 1, connectome_manager=cm)
-        assert position == [0, 0, 0]
+        position = syn_block_connection(
+            "src", "dst", 1, [(0, 0, 0), (20, 1, 1)], connectome_manager=cm
+        )
+        assert position == (0, 0, 0)
 
         # Test (15,0,0) -> (1,0,0)
         cm.add_neuron(2, (15, 0, 0))
-        position = syn_block_connection("src", "dst", 2, connectome_manager=cm)
-        assert position == [1, 0, 0]
+        position = syn_block_connection(
+            "src", "dst", 2, [(0, 0, 0), (20, 1, 1)], connectome_manager=cm
+        )
+        assert position == (1, 0, 0)
 
     def test_block_connection_custom_scaling(self):
         """Test block connection with custom scaling factor."""
@@ -362,9 +373,14 @@ class TestBlockConnectionGeometry:
         # Test (6,0,0) with scaling factor 2 -> (3,0,0)
         cm.add_neuron(1, (6, 0, 0))
         position = syn_block_connection(
-            "src", "dst", 1, scaling_factor=2, connectome_manager=cm
+            "src",
+            "dst",
+            1,
+            [(0, 0, 0), (8, 1, 1)],
+            connectome_manager=cm,
+            scaling_factor=2,
         )
-        assert position == [3, 0, 0]
+        assert position == (3, 0, 0)
 
 
 class TestMemoryGeometry:
@@ -394,9 +410,9 @@ class TestLastToFirstGeometry:
         cm.add_area("area1", (5, 5, 5))
         cm.add_area("area2", (10, 10, 10))
 
-        # Should always return [[0, 0, 0]] regardless of area
-        assert last_to_first("area1", connectome_manager=cm) == [[0, 0, 0]]
-        assert last_to_first("area2", connectome_manager=cm) == [[0, 0, 0]]
+        # Should always return [(0, 0, 0)] regardless of area
+        assert syn_last_to_first("area1", connectome_manager=cm) == [(0, 0, 0)]
+        assert syn_last_to_first("area2", connectome_manager=cm) == [(0, 0, 0)]
 
 
 class TestMorphologyFunctionEnum:
@@ -428,7 +444,7 @@ class TestMorphologyFunctionEnum:
 
 @pytest.fixture(scope="module")
 def synaptogenesis_file(request):
-    return request.config.getoption("synaptogenesis_file", synaptogenesis_file_path)
+    return request.config.getoption("synaptogenesis_file", None)
 
 
 if __name__ == "__main__":

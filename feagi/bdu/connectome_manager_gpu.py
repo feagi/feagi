@@ -46,9 +46,8 @@ class GPUConnectomeManager(ConnectomeManager):
         # Verify GPU backend was selected (after parent initialization completes)
         self._verify_gpu_backend()
 
-        logger.info(
-            f"Initialized GPU ConnectomeManager with backend: {self.get_backend_info()}"
-        )
+        backend_info = self.get_backend_info()
+        logger.info(f"Initialized GPU ConnectomeManager with backend: {backend_info}")
 
     def _verify_gpu_backend(self):
         """Verify that a GPU backend was successfully selected."""
@@ -73,8 +72,16 @@ class GPUConnectomeManager(ConnectomeManager):
         Returns:
             Dictionary containing backend information
         """
-        if hasattr(self.neuron_array, "backend"):
-            return self.neuron_array.backend.get_device_stats()
+        if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "backend"):
+            if hasattr(self.neuron_array.backend, "get_device_stats"):
+                return self.neuron_array.backend.get_device_stats()
+            else:
+                return {
+                    "backend": getattr(
+                        self.neuron_array.backend, "backend_type", "unknown"
+                    ),
+                    "device": "unknown",
+                }
         return {"backend": "unknown", "device": "unknown"}
 
     def gpu_batch_update_membrane_potentials(
