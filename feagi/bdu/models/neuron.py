@@ -14,6 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import logging
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+import numpy as np
+import torch
+
+from feagi.bdu.models.array_backend import ArrayBackend
+
 """Neuron model implementation optimized for embedded single-core and GPU processing.
 
 This module provides a high-performance implementation of neuron storage using
@@ -24,14 +32,6 @@ Structure of Arrays (SoA) format optimized for:
 - Memory efficiency and cache locality
 - Zero-allocation operation paths
 """
-
-import logging
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
-
-import numpy as np
-import torch
-
-from feagi.bdu.models.array_backend import ArrayBackend
 
 # Try to import optimized libraries
 try:
@@ -131,11 +131,13 @@ class CacheAlignedArray:
         # Ensure we don't go out of bounds
         if end_element > len(self._oversized):
             raise RuntimeError(
-                f"Array alignment calculation error: end_element={end_element}, oversized_length={len(self._oversized)}"
+                f"Array alignment calculation error: end_element={end_element}, "
+                f"oversized_length={len(self._oversized)}"
             )
 
-        # CRITICAL FIX: Keep a strong reference to the underlying array to prevent garbage collection
-        # This prevents use-after-free memory corruption when the _oversized array is GC'd
+        # CRITICAL FIX: Keep a strong reference to the underlying array to
+        # prevent garbage collection. This prevents use-after-free memory
+        # corruption when the _oversized array is GC'd
         self._underlying_array = self._oversized  # Strong reference to prevent GC
         self.array = self._oversized[offset_elements:end_element]
 
@@ -422,7 +424,8 @@ class NeuronArray:
                 self._use_rust = True
                 self.backend_type = "rust"
                 logger.info(
-                    f"Initialized NeuronArray with Rust backend, capacity: {self.aligned_capacity}"
+                    f"Initialized NeuronArray with Rust backend, capacity: "
+                    f"{self.aligned_capacity}"
                 )
             except Exception as e:
                 logger.warning(
@@ -455,8 +458,10 @@ class NeuronArray:
         self.backend = ArrayBackend(backend)
         self.backend_type = self.backend.backend_type
 
-        # CRITICAL FIX: Create cache-aligned arrays and keep strong references to prevent GC
-        # Store both the CacheAlignedArray objects AND their .array views to prevent premature GC
+        # CRITICAL FIX: Create cache-aligned arrays and keep strong references
+        # to prevent GC
+        # Store both the CacheAlignedArray objects AND their .array views to
+        # prevent premature GC
         self._aligned_membrane_potentials = CacheAlignedArray(
             self.aligned_capacity, np.float32
         )

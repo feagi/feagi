@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Position calculation utilities for the BDU.
-
-This module provides functions for handling 3D positions of neurons,
-including linearization, delinearization, and coordinate transformations.
-"""
-
 from typing import List, Tuple
 
 import numpy as np
+
+"""Position utilities for the BDU.
+
+This module provides utilities for working with 3D positions and coordinates
+in the neural space.
+"""
 
 
 def linearize_position(

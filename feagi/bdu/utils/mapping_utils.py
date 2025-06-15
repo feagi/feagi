@@ -14,15 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-Mapping utilities for connectome cortical area mappings.
-"""
 from math import floor
 from random import randrange
 from typing import Dict
 
 from feagi.core.state_manager import FeagiStateManager
 from feagi.evo.templates import cortical_types
+
+"""
+Mapping utilities for connectome cortical area mappings.
+"""
 
 
 def get_detailed_cortical_map(state) -> Dict[str, Dict[str, list]]:

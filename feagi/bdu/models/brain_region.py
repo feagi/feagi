@@ -71,7 +71,8 @@ def construct_genome_from_region(region_id):
             area_list.update(set(direct_region_cortical_areas(sub_region_id)))
         return area_list
 
-    # region_cortical_list = direct_region_cortical_areas(region_id)  # Unused variable removed
+    # region_cortical_list = direct_region_cortical_areas(region_id)
+    # Unused variable removed
     comprehensive_subregion_list = recursive_sub_regions(region_id)
     comprehensive_area_list = recursive_region_cortical_areas(region_id)
 
@@ -173,7 +174,7 @@ def change_cortical_area_parent(cortical_area_id: str, new_parent_id: str) -> No
                 cortical_area_id
             )
     except Exception as e:
-        raise RuntimeError(f"Failed to change cortical area parent: {e}")
+        raise RuntimeError(f"Failed to change cortical area parent: {e}") from e
 
 
 def change_brain_region_parent(region_id: str, new_parent_id: str) -> None:
@@ -309,7 +310,8 @@ def relocate_region_members(relocation_data: dict) -> None:
                     )
                 else:
                     raise ValueError(
-                        f"{relocation_data[object_id]['parent_region_id']} is not a valid region id"
+                        f"{relocation_data[object_id]['parent_region_id']} "
+                        f"is not a valid region id"
                     )
         else:
             raise ValueError(f"{object_id} is not a valid region nor cortical id")
@@ -436,7 +438,8 @@ class BrainRegion:
 
 def generate_hash(data):
     """Simple placeholder for the hash generation function.
-    This allows us to avoid importing the actual function and breaking the circular imports.
+    This allows us to avoid importing the actual function and breaking the
+    circular imports.
     """
     import hashlib
     import json

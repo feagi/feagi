@@ -108,9 +108,7 @@ from feagi.bdu.connectivity.synaptogenesis import (
 )
 
 # Import genome processing from EVO (single source of truth)
-from feagi.evo.genome_editor import save_genome
 from feagi.evo.genome_processor import (
-    GenomeProcessor,
     create_genome_processor,
     genome_morphology_updator,
     genome_physiology_updator,
@@ -1020,11 +1018,10 @@ class NeuroEmbryogenesis:
         )
 
         try:
-            total_areas = len(self.connectome_manager.cortical_areas)
+            len(self.connectome_manager.cortical_areas)
             total_synapses = 0
 
             # Memory register for memory-based morphologies
-            memory_register = {}
 
             # Extract cortical mappings using modern EVO genome processor
             logger.info("Using EVO GenomeProcessor to extract cortical mappings")
@@ -2042,7 +2039,7 @@ class NeuroEmbryogenesis:
                 logger.error(f"Cannot get properties for area {dst_area_id}")
                 return 0
 
-            dst_dimensions = dst_area_props.get("dimensions", [1, 1, 1])
+            dst_area_props.get("dimensions", [1, 1, 1])
 
             # Process each source neuron
             for src_neuron_id in src_neurons:
