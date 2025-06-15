@@ -6,7 +6,6 @@ including the optimized ConnectomeManager with Structure of Arrays (SoA) storage
 """
 
 # Import connectivity modules
-from feagi.bdu.connectivity.connectivity_rule_manager import ConnectivityRule
 from feagi.bdu.connectivity.cortical_mappings import CorticalMapping
 from feagi.bdu.connectivity.mapping_utils import (
     build_power_connections,
@@ -37,7 +36,6 @@ __all__ = [
     "BrainRegion",
     "SynapseManager",
     # Connectivity modules
-    "ConnectivityRule",
     "CorticalMapping",
     # Mapping utilities
     "build_power_connections",

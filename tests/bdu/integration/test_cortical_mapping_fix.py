@@ -34,7 +34,7 @@ class TestCorticalMappingFix:
         # Reset singleton to ensure clean state for testing
         ConnectomeManager.reset_singleton()
 
-        cm = ConnectomeManager()
+        cm = ConnectomeManager(config_or_max_neurons=1000)
 
         # Create test cortical areas
         area1_id = cm.add_cortical_area(

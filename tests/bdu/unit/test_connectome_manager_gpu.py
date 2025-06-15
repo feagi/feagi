@@ -26,7 +26,8 @@ import unittest
 import numpy as np
 import pytest
 
-from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU, NeuronPropertyType
+from feagi.bdu.connectome_manager import NeuronPropertyType
+from feagi.bdu.connectome_manager_gpu import ConnectomeManagerGPU
 from feagi.bdu.models.array_backend import ArrayBackend, BackendType
 
 
