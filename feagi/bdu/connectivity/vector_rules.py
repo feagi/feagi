@@ -15,16 +15,16 @@ limitations under the License.
 """
 
 """
-Random synapse rule implementation.
+Vector-based synapse rules for the BDU.
 
-This module provides the RandomRule class for creating random
-connections between neurons in source and target cortical areas.
+This module contains synapse rules that use vector operations
+to determine connection patterns between cortical areas.
 """
 
 import random
 from typing import Any, Dict, List, Tuple
 
-from ..synapse_rule import SynapseRule
+from .synapse_rule import SynapseRule
 
 
 class RandomRule(SynapseRule):
