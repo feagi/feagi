@@ -147,30 +147,39 @@ def embryo(connectome_manager, config, genome_path):
     embryo._perform_neurogenesis()
 
     # Ensure we have enough neurons for testing by adding more if needed
-    for area_id, area in embryo.cortical_areas.items():
-        existing_neurons = len(embryo.connectome_manager.get_neurons_by_area(area_id))
-        if existing_neurons < 500:  # Ensure at least 500 neurons per area
-            dimensions = area.dimensions
-            width, height, depth = dimensions
-            # Create additional neurons if needed
-            for x in range(min(20, width)):
-                for y in range(min(20, height)):
-                    for z in range(min(5, depth)):
-                        # Add multiple neurons per position if needed
-                        for n_idx in range(5):  # 5 neurons per position
-                            try:
-                                embryo.connectome_manager.create_neuron(
-                                    cortical_idx=area_id,
-                                    position=(x, y, z),
-                                    threshold=1.0,
-                                    refractory_period=1,
-                                    decay_rate=0.5,
-                                    resting_potential=0.0,
-                                    properties={"neuron_index": n_idx},
-                                )
-                            except ValueError:
-                                # Skip if position is invalid or already has too many neurons
-                                pass
+    total_neurons = 0
+    for area_id, area in embryo.connectome_manager.cortical_areas.items():
+        neurons = embryo.connectome_manager.get_neurons_by_area(area_id)
+        total_neurons += len(neurons)
+
+    print(
+        f"Created {total_neurons} neurons across {len(embryo.connectome_manager.cortical_areas)} areas"
+    )
+
+    # Test synaptogenesis with different morphology rules
+    success = embryo._perform_synaptogenesis()
+    assert success
+
+    # Get cortical areas for testing
+    cortical_areas = list(embryo.connectome_manager.cortical_areas.items())
+
+    # Ensure we have at least 2 areas for testing
+    if len(cortical_areas) < 2:
+        pytest.skip("Need at least 2 cortical areas for synaptogenesis testing")
+
+    # Get area IDs for testing
+    src_area_id = cortical_areas[0][0]
+    dst_area_id = cortical_areas[1][0]
+
+    # Get a third area if available for extreme testing
+    extreme_area_id = cortical_areas[2][0] if len(cortical_areas) > 2 else dst_area_id
+
+    # Test data for different morphology rules
+    test_data = {
+        "src_area": embryo.connectome_manager.cortical_areas[src_area_id],
+        "dst_area": embryo.connectome_manager.cortical_areas[dst_area_id],
+        "extreme_area": embryo.connectome_manager.cortical_areas[extreme_area_id],
+    }
 
     return embryo
 
@@ -342,8 +351,8 @@ def test_morphologies(embryo):
     }
 
     # Get dimensions of the first source area
-    src_dimensions = embryo.cortical_areas[
-        list(embryo.cortical_areas.keys())[0]
+    src_dimensions = embryo.connectome_manager.cortical_areas[
+        list(embryo.connectome_manager.cortical_areas.keys())[0]
     ].dimensions
 
     # Default subregion

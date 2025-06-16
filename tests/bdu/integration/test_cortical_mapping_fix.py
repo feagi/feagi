@@ -84,8 +84,47 @@ class TestCorticalMappingFix:
         """Create a genome service with test genome."""
         gs = GenomeService(connectome_manager, state_manager)
 
-        # Load a minimal test genome
+        # Load a minimal test genome with required sections
         test_genome = {
+            "blueprint": {
+                connectome_manager._test_areas["area1"]["id"]: {
+                    "cortical_name": "TestArea1",
+                    "coordinates": {"x": 0, "y": 0, "z": 0},
+                    "dimensions": {"x": 10, "y": 10, "z": 1},
+                    "parameters": {},
+                },
+                connectome_manager._test_areas["area2"]["id"]: {
+                    "cortical_name": "TestArea2",
+                    "coordinates": {"x": 20, "y": 0, "z": 0},
+                    "dimensions": {"x": 10, "y": 10, "z": 1},
+                    "parameters": {},
+                },
+            },
+            "physiology": {
+                "burst_delay": 0.025,
+                "max_age": 10000000,
+                "evolution_burst_count": 50,
+                "ipu_idle_threshold": 1000,
+                "plasticity_queue_depth": 3,
+                "lifespan_mgmt_interval": 10,
+            },
+            "neuron_morphologies": {
+                "block_to_block": {
+                    "parameters": {"vectors": [[0, 0, 0]]},
+                    "type": "vectors",
+                    "class": "core",
+                },
+                "projector": {
+                    "parameters": {},
+                    "type": "functions",
+                    "class": "core",
+                },
+                "invalid_morphology": {
+                    "parameters": {"vectors": [[1, 1, 1]]},
+                    "type": "vectors",
+                    "class": "custom",
+                },
+            },
             "cortical_areas": {
                 connectome_manager._test_areas["area1"]["id"]: {
                     "cortical_name": "TestArea1",
@@ -99,7 +138,7 @@ class TestCorticalMappingFix:
                     "dimensions": {"x": 10, "y": 10, "z": 1},
                     "parameters": {},
                 },
-            }
+            },
         }
 
         gs._current_genome = test_genome
@@ -108,7 +147,69 @@ class TestCorticalMappingFix:
     @pytest.fixture
     def neuroembryogenesis(self, connectome_manager, state_manager):
         """Create a NeuroEmbryogenesis instance."""
-        return NeuroEmbryogenesis(connectome_manager, state_manager)
+        neuro = NeuroEmbryogenesis(connectome_manager, state_manager)
+
+        # Load the same genome data as the genome_service fixture
+        test_genome = {
+            "blueprint": {
+                connectome_manager._test_areas["area1"]["id"]: {
+                    "cortical_name": "TestArea1",
+                    "coordinates": {"x": 0, "y": 0, "z": 0},
+                    "dimensions": {"x": 10, "y": 10, "z": 1},
+                    "parameters": {},
+                },
+                connectome_manager._test_areas["area2"]["id"]: {
+                    "cortical_name": "TestArea2",
+                    "coordinates": {"x": 20, "y": 0, "z": 0},
+                    "dimensions": {"x": 10, "y": 10, "z": 1},
+                    "parameters": {},
+                },
+            },
+            "physiology": {
+                "burst_delay": 0.025,
+                "max_age": 10000000,
+                "evolution_burst_count": 50,
+                "ipu_idle_threshold": 1000,
+                "plasticity_queue_depth": 3,
+                "lifespan_mgmt_interval": 10,
+            },
+            "neuron_morphologies": {
+                "block_to_block": {
+                    "parameters": {"vectors": [[0, 0, 0]]},
+                    "type": "vectors",
+                    "class": "core",
+                },
+                "projector": {
+                    "parameters": {},
+                    "type": "functions",
+                    "class": "core",
+                },
+                "invalid_morphology": {
+                    "parameters": {"vectors": [[1, 1, 1]]},
+                    "type": "vectors",
+                    "class": "custom",
+                },
+            },
+            "cortical_areas": {
+                connectome_manager._test_areas["area1"]["id"]: {
+                    "cortical_name": "TestArea1",
+                    "coordinates": {"x": 0, "y": 0, "z": 0},
+                    "dimensions": {"x": 10, "y": 10, "z": 1},
+                    "parameters": {},
+                },
+                connectome_manager._test_areas["area2"]["id"]: {
+                    "cortical_name": "TestArea2",
+                    "coordinates": {"x": 20, "y": 0, "z": 0},
+                    "dimensions": {"x": 10, "y": 10, "z": 1},
+                    "parameters": {},
+                },
+            },
+        }
+
+        # Load the genome data into the NeuroEmbryogenesis instance
+        neuro._load_genome_data(test_genome)
+
+        return neuro
 
     def test_block_to_block_mapping_creation(self, genome_service, connectome_manager):
         """Test creating block-to-block cortical mapping and validating synapses."""
@@ -145,22 +246,26 @@ class TestCorticalMappingFix:
 
         # Verify synapses were created
         final_synapse_count = connectome_manager.get_synapse_count()
-        expected_synapses = len(area1_neurons) * len(
-            area2_neurons
-        )  # block-to-block = all-to-all
+        # block_to_block with [0,0,0] vector creates 1-to-1 positional mappings
+        # Each neuron connects to the neuron at the same position in destination area
+        expected_synapses = min(
+            len(area1_neurons), len(area2_neurons)
+        )  # 9 synapses for 3x3 areas
 
         assert final_synapse_count > initial_synapse_count, "Synapses should be created"
         assert final_synapse_count - initial_synapse_count == expected_synapses, (
-            f"Expected {expected_synapses} synapses, got {final_synapse_count - initial_synapse_count}"
+            f"Expected {expected_synapses} synapses for block_to_block mapping, got {final_synapse_count - initial_synapse_count}"
         )
 
         # Verify synapse weights
-        for src_neuron in area1_neurons[:3]:  # Test subset for performance
-            for dst_neuron in area2_neurons[:3]:
-                weight = connectome_manager.get_synapse_weight(src_neuron, dst_neuron)
-                assert abs(weight - 1.5) < 1e-6, (
-                    f"Synapse weight should be 1.5, got {weight}"
-                )
+        # For block_to_block mapping, only neurons at same positions are connected
+        for i in range(min(len(area1_neurons), len(area2_neurons))):
+            src_neuron = area1_neurons[i]
+            dst_neuron = area2_neurons[i]
+            weight = connectome_manager.get_synapse_weight(src_neuron, dst_neuron)
+            assert abs(weight - 1.5) < 1e-6, (
+                f"Synapse weight between neuron {src_neuron} and {dst_neuron} should be 1.5, got {weight}"
+            )
 
     def test_projector_mapping_creation(self, genome_service, connectome_manager):
         """Test creating projector cortical mapping with spatial constraints."""
@@ -442,11 +547,14 @@ class TestCorticalMappingFix:
 
         # Verify correct number of synapses created
         final_synapse_count = connectome_manager.get_synapse_count()
-        expected_synapses = len(neurons1) * len(neurons2)  # 100 * 100 = 10,000
+        # block_to_block creates 1-to-1 positional mappings, not all-to-all
+        expected_synapses = min(
+            len(neurons1), len(neurons2)
+        )  # 100 synapses for 10x10 areas
         actual_synapses = final_synapse_count - initial_synapse_count
 
         assert actual_synapses == expected_synapses, (
-            f"Expected {expected_synapses} synapses, got {actual_synapses}"
+            f"Expected {expected_synapses} synapses for block_to_block mapping, got {actual_synapses}"
         )
 
     def test_vectorized_operations_compatibility(self, neuroembryogenesis):

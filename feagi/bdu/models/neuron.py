@@ -1951,7 +1951,10 @@ class NeuronArray:
                     )
 
                 # Ensure valid_mask is writable
-                if not self.valid_mask.flags.writeable:
+                if (
+                    hasattr(self.valid_mask, "flags")
+                    and not self.valid_mask.flags.writeable
+                ):
                     raise RuntimeError(
                         "valid_mask is not writable, memory corruption detected"
                     )

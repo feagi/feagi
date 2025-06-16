@@ -66,8 +66,25 @@ BoundingBox = Tuple[
     Position, Position
 ]  # ((min_x, min_y, min_z), (max_x, max_y, max_z))
 
+# Import modern synaptogenesis functions (no legacy dependencies)
+from feagi.bdu.connectivity.synaptogenesis import (
+    find_candidate_neurons,
+    find_destination_coordinates,
+    match_vectors,
+)
+
 # Clean FEAGI 2.0 implementation - no legacy dependencies
 from feagi.bdu.connectome_manager import ConnectomeManager
+
+# Import genome processing from EVO (single source of truth)
+from feagi.evo.genome_processor import (
+    create_genome_processor,
+    genome_morphology_updator,
+    genome_physiology_updator,
+    genome_stat_updator,
+    merge_core_morphologies,
+)
+from feagi.evo.genome_validator import genome_validator
 from feagi.utils.config import FeagiConfig
 
 # Try both the old and new import paths for FCLbitmap
@@ -98,24 +115,6 @@ except ImportError:
 
             def __len__(self):
                 return len(self.bits)
-
-
-# Import modern synaptogenesis functions (no legacy dependencies)
-from feagi.bdu.connectivity.synaptogenesis import (
-    find_candidate_neurons,
-    find_destination_coordinates,
-    match_vectors,
-)
-
-# Import genome processing from EVO (single source of truth)
-from feagi.evo.genome_processor import (
-    create_genome_processor,
-    genome_morphology_updator,
-    genome_physiology_updator,
-    genome_stat_updator,
-    merge_core_morphologies,
-)
-from feagi.evo.genome_validator import genome_validator
 
 
 class DevelopmentStage(Enum):
