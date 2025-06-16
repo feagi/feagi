@@ -440,3 +440,370 @@ def test_extreme_dimension_area_block_lookup(connectome, test_area):
     # Test lookup with no neurons
     neurons = connectome.get_neurons_at_position(extreme_area_id, (0, 0, 5))
     assert len(neurons) == 0
+
+
+@pytest.mark.unit
+def test_singleton_pattern(small_config):
+    """Test ConnectomeManager singleton pattern."""
+    # Reset singleton first
+    ConnectomeManager.reset_singleton()
+
+    # Create first instance
+    cm1 = ConnectomeManager.instance(small_config)
+    assert cm1 is not None
+
+    # Create second instance - should return same
+    cm2 = ConnectomeManager.instance(small_config)
+    assert cm1 is cm2
+
+    # Reset and create new
+    ConnectomeManager.reset_singleton()
+    cm3 = ConnectomeManager.instance(small_config)
+    assert cm3 is not cm1
+
+
+@pytest.mark.unit
+def test_dict_config_initialization():
+    """Test initialization with dictionary config."""
+    ConnectomeManager.reset_singleton()
+
+    config = {"max_neurons": 5000, "max_synapses": 50000, "backend": "numpy"}
+    cm = ConnectomeManager(config)
+    assert cm.max_neurons == 5000
+    assert cm.max_synapses == 50000
+
+
+@pytest.mark.unit
+def test_cortical_mapping_operations(connectome):
+    """Test cortical mapping operations."""
+    # Add cortical area
+    area_id = connectome.add_cortical_area(
+        name="Mapping Test Area", dimensions=(10, 10, 1), position=(0, 0, 0)
+    )
+
+    # Test cortical mapping
+    cortical_idx = connectome.get_cortical_idx_for_id(area_id)
+    assert cortical_idx is not None
+
+    # Reverse lookup
+    retrieved_id = connectome.get_cortical_id_for_idx(cortical_idx)
+    assert retrieved_id == area_id
+
+    # Validate mapping
+    assert connectome.validate_cortical_mapping() is True
+
+
+@pytest.mark.unit
+def test_brain_region_operations(connectome):
+    """Test brain region operations."""
+    # Add brain region
+    region_id = connectome.add_brain_region(
+        name="Test Region",
+        region_type="custom",
+        properties={"description": "Test region"},
+    )
+
+    assert region_id is not None
+    assert region_id in connectome.brain_regions
+
+    # Get brain region
+    region = connectome.get_brain_region(region_id)
+    assert region["name"] == "Test Region"
+
+    # Update brain region
+    result = connectome.update_brain_region(
+        region_id, {"description": "Updated description"}
+    )
+    assert result is True
+
+    # Get by name
+    result = connectome.get_brain_region_by_name("Test Region")
+    assert result is not None
+    found_id, region_data = result
+    assert found_id == region_id
+
+
+@pytest.mark.unit
+def test_area_region_assignment(connectome):
+    """Test assigning cortical areas to brain regions."""
+    # Create region and area
+    region_id = connectome.add_brain_region(name="Assignment Region")
+    area_id = connectome.add_cortical_area(
+        name="Assignment Area", dimensions=(5, 5, 1), position=(0, 0, 0)
+    )
+
+    # Assign area to region
+    result = connectome.assign_area_to_region(area_id, region_id)
+    assert result is True
+
+    # Verify assignment
+    areas_in_region = connectome.get_areas_in_region(region_id)
+    assert area_id in areas_in_region
+
+    # Create neurons in area
+    neuron_ids = [
+        connectome.create_neuron(cortical_id=area_id, position=(i, 0, 0))
+        for i in range(3)
+    ]
+
+    # Get neurons in region
+    region_neurons = connectome.get_neurons_in_region(region_id)
+    assert set(region_neurons) == set(neuron_ids)
+
+
+@pytest.mark.unit
+def test_batch_operations(connectome, test_area):
+    """Test batch operations for performance."""
+    cortical_id = test_area[0]
+
+    # Batch create neurons
+    positions = [(i, 0, 0) for i in range(5)]
+    neuron_ids = connectome.batch_create_neurons(
+        cortical_id=cortical_id,
+        positions=positions,
+        threshold=1.5,
+        membrane_potential=0.1,
+    )
+
+    assert len(neuron_ids) == 5
+
+    # Batch update properties
+    result = connectome.batch_update_neuron_properties(
+        neuron_ids, NeuronPropertyType.THRESHOLD, 2.0
+    )
+    assert result is True
+
+    # Verify updates
+    for nid in neuron_ids:
+        threshold = connectome.get_neuron_property(nid, NeuronPropertyType.THRESHOLD)
+        assert threshold == 2.0
+
+    # Batch get properties
+    thresholds = connectome.batch_get_neuron_properties(
+        neuron_ids, NeuronPropertyType.THRESHOLD
+    )
+    assert len(thresholds) == 5
+    assert all(t == 2.0 for t in thresholds)
+
+
+@pytest.mark.unit
+def test_error_handling(connectome):
+    """Test error handling for invalid operations."""
+    # Test invalid cortical area
+    with pytest.raises(ValueError, match="Cortical area 'invalid' does not exist"):
+        connectome.create_neuron(cortical_id="invalid", position=(0, 0, 0))
+
+    # Test invalid neuron property access
+    with pytest.raises(KeyError, match="Neuron 999 does not exist"):
+        connectome.get_neuron_property(999, NeuronPropertyType.THRESHOLD)
+
+    # Test invalid synapse creation
+    with pytest.raises(KeyError, match="Pre-synaptic neuron 999 does not exist"):
+        connectome.create_synapse(999, 998, 1.0)
+
+
+@pytest.mark.unit
+def test_neuron_position_updates(connectome, test_area):
+    """Test updating neuron positions."""
+    cortical_id = test_area[0]
+
+    # Create neuron
+    neuron_id = connectome.create_neuron(cortical_id=cortical_id, position=(0, 0, 0))
+
+    # Update position
+    result = connectome.update_neuron_position(neuron_id, (5, 5, 0))
+    assert result is True
+
+    # Verify new position
+    new_pos = connectome.get_neuron_position(neuron_id)
+    assert new_pos == (5, 5, 0)
+
+    # Test out of bounds update
+    result = connectome.update_neuron_position(neuron_id, (100, 100, 0))
+    assert result is False
+
+
+@pytest.mark.unit
+def test_numpy_type_conversion(connectome):
+    """Test NumPy type conversion utility."""
+    import numpy as np
+
+    test_data = {
+        "int64": np.int64(42),
+        "float32": np.float32(3.14),
+        "array": np.array([1, 2, 3]),
+        "nested": {"inner": np.int32(100)},
+        "list": [np.float64(1.5), np.int16(2)],
+        "regular": "string",
+    }
+
+    converted = connectome._convert_numpy_types_to_python(test_data)
+
+    assert isinstance(converted["int64"], int)
+    assert isinstance(converted["float32"], float)
+    assert isinstance(converted["array"], list)
+    assert isinstance(converted["nested"]["inner"], int)
+    assert isinstance(converted["list"][0], float)
+    assert isinstance(converted["list"][1], int)
+    assert converted["regular"] == "string"
+
+
+@pytest.mark.unit
+def test_connectivity_rules(connectome):
+    """Test connectivity rule operations."""
+    # Create two areas
+    source_area = connectome.add_cortical_area(
+        name="Source Area", dimensions=(5, 5, 1), position=(0, 0, 0)
+    )
+    target_area = connectome.add_cortical_area(
+        name="Target Area", dimensions=(5, 5, 1), position=(10, 0, 0)
+    )
+
+    # Add connectivity rule
+    rule_id = connectome.add_connectivity_rule(
+        name="Test Rule",
+        source_area_id=source_area,
+        target_area_id=target_area,
+        rule_type="all_to_all",
+        parameters={"weight": 0.5},
+    )
+
+    assert rule_id is not None
+
+    # Get rule
+    rule = connectome.get_connectivity_rule(rule_id)
+    assert rule["name"] == "Test Rule"
+
+    # Update rule
+    result = connectome.update_connectivity_rule(
+        rule_id, {"parameters": {"weight": 0.8}}
+    )
+    assert result is True
+
+
+@pytest.mark.unit
+def test_cortical_connections(connectome):
+    """Test cortical connection operations."""
+    # Create two areas
+    source_area = connectome.add_cortical_area(
+        name="Source Connection Area", dimensions=(3, 3, 1), position=(0, 0, 0)
+    )
+    target_area = connectome.add_cortical_area(
+        name="Target Connection Area", dimensions=(3, 3, 1), position=(5, 0, 0)
+    )
+
+    # Add cortical connection
+    connection_id = connectome.add_cortical_connection(
+        name="Test Connection",
+        source_area_id=source_area,
+        target_area_id=target_area,
+        properties={"strength": 0.7},
+    )
+
+    assert connection_id is not None
+
+    # Get connection
+    connection = connectome.get_cortical_connection(connection_id)
+    assert connection["name"] == "Test Connection"
+
+    # Update connection
+    result = connectome.update_cortical_connection(
+        connection_id, {"properties": {"strength": 0.9}}
+    )
+    assert result is True
+
+
+@pytest.mark.unit
+def test_memory_management(connectome, test_area):
+    """Test memory management operations."""
+    cortical_id = test_area[0]
+
+    # Create some neurons
+    neuron_ids = []
+    for i in range(10):
+        neuron_id = connectome.create_neuron(
+            cortical_id=cortical_id, position=(i % 5, i // 5, 0)
+        )
+        neuron_ids.append(neuron_id)
+
+    initial_count = connectome.get_neuron_count()
+    assert initial_count == 10
+
+    # Delete some neurons
+    for i in range(0, 10, 2):  # Delete every other neuron
+        connectome.delete_neuron(neuron_ids[i])
+
+    final_count = connectome.get_neuron_count()
+    assert final_count == 5
+
+    # Check index uniqueness
+    assert connectome.check_neuron_index_uniqueness() is True
+
+
+@pytest.mark.unit
+def test_advanced_queries(connectome, test_area):
+    """Test advanced neuron query operations."""
+    cortical_id = test_area[0]
+
+    # Create neurons with varying properties
+    neuron_data = [
+        (0.5, (0, 0, 0)),
+        (1.0, (1, 0, 0)),
+        (1.5, (2, 0, 0)),
+        (2.0, (3, 0, 0)),
+        (2.5, (4, 0, 0)),
+    ]
+
+    neuron_ids = []
+    for threshold, position in neuron_data:
+        nid = connectome.create_neuron(
+            cortical_id=cortical_id, position=position, threshold=threshold
+        )
+        neuron_ids.append(nid)
+
+    # Query by threshold range
+    result = connectome.query_neurons_by_threshold_range(1.0, 2.0)
+    expected = neuron_ids[1:4]  # neurons with thresholds 1.0, 1.5, 2.0
+    assert set(result) == set(expected)
+
+    # Query by position range
+    result = connectome.query_neurons_by_area_and_position(
+        cortical_id, x_range=(1, 3), y_range=(0, 0)
+    )
+    expected = neuron_ids[1:4]  # neurons at x positions 1, 2, 3
+    assert set(result) == set(expected)
+
+
+@pytest.mark.unit
+def test_serialization_operations(connectome, test_area):
+    """Test serialization and deserialization."""
+    import os
+    import tempfile
+
+    cortical_id = test_area[0]
+
+    # Create some data
+    neuron_ids = [
+        connectome.create_neuron(cortical_id=cortical_id, position=(i, 0, 0))
+        for i in range(3)
+    ]
+    connectome.create_synapse(neuron_ids[0], neuron_ids[1], 0.5)
+
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+        filename = f.name
+
+    try:
+        # Save
+        result = connectome.save(filename)
+        assert result is True
+
+        # Load
+        ConnectomeManager.reset_singleton()
+        loaded_cm = ConnectomeManager.load(filename)
+        assert loaded_cm is not None
+        assert loaded_cm.get_neuron_count() == 3
+        assert loaded_cm.get_synapse_count() == 1
+
+    finally:
+        if os.path.exists(filename):
+            os.unlink(filename)
