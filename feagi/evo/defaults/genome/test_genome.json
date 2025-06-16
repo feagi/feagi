@@ -1,6 +1,6 @@
 {
   "genome_id": "2022-07-10_21:53:10_961677_111111_G",
-  "genome_title": "The Essential Genome",
+  "genome_title": "Test Genome",
   "genome_description": "A basis genome with vision and motor control",
   "version": "2.0",
   "neuron_morphologies": {
@@ -1548,16 +1548,16 @@
     "lifespan_mgmt_interval": 10
   },
   "stats": {
-    "innate_cortical_area_count": 23,
-    "innate_neuron_count": 13845,
-    "innate_synapse_count": 400
+    "innate_cortical_area_count": 2,
+    "innate_neuron_count": 2,
+    "innate_synapse_count": 0
   },
   "signatures": {
-    "genome": "d6c692d9194f8c0a",
-    "blueprint": "b6c2d4f83d8e3088",
+    "genome": "d56d9bbc7a5e236d",
+    "blueprint": "f5dacb3e0fd9b7d2",
     "physiology": "5f1e7f587e1af2c8"
   },
-  "timestamp": 1713187080.019076,
+  "timestamp": 1712971071.904253,
   "blueprint": {
     "_____10c-___pwr-cx-subgrp-t": "",
     "_____10c-___pwr-cx-_n_cnt-i": 1,
@@ -1572,8 +1572,8 @@
     "_____10c-___pwr-cx-rcordx-i": 10,
     "_____10c-___pwr-cx-rcordy-i": 0,
     "_____10c-___pwr-cx-rcordz-i": -20,
-    "_____10c-___pwr-cx-2dcorx-i": -319,
-    "_____10c-___pwr-cx-2dcory-i": -682,
+    "_____10c-___pwr-cx-2dcorx-i": null,
+    "_____10c-___pwr-cx-2dcory-i": null,
     "_____10c-___pwr-cx-gd_vis-b": true,
     "_____10c-___pwr-nx-pstcr_-f": 500,
     "_____10c-___pwr-nx-fire_t-f": 1,

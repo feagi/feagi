@@ -70,7 +70,7 @@ connector = FeagiConnector(
 def process_brain_output(data):
     print(f"Received from brain: {data}")
     # Process motor commands here
-    
+
 # Register callback
 connector.register_motor_callback(process_brain_output)
 
@@ -93,7 +93,7 @@ const socket = new WebSocket('ws://localhost:9000/ws/agents');
 // Handle connection opening
 socket.onopen = function(event) {
   console.log('Connected to FEAGI');
-  
+
   // Register agent
   socket.send(JSON.stringify({
     type: 'register',
@@ -164,13 +164,13 @@ while True:
     ret, frame = cap.read()
     if not ret:
         break
-        
+
     # Process frame (resize, convert to grayscale, normalize)
     processed_frame = process_frame(frame)
-    
+
     # Send to FEAGI
     feagi.send_sensory_data("camera", processed_frame)
-    
+
     # Break loop on 'q' key
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
@@ -185,4 +185,4 @@ feagi.disconnect()
 
 - Check out the [Tutorials](/user-guide/tutorials) for more examples
 - Learn about [REST API](/modules/api/guide-api-usage) for programmatic control
-- Explore our [pre-built agents](https://github.com/feagi/feagi-agents) on GitHub 
+- Explore our [pre-built agents](https://github.com/feagi/feagi-agents) on GitHub

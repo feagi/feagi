@@ -35,21 +35,28 @@ This will:
 In Python code, you can use the optimized structures as follows:
 
 ```python
+# Enhanced NeuronArray with integrated embedded optimizations
+from feagi.bdu.models.neuron import NeuronArray
+from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.npu.optimized_structures import (
-    GlobalNeuronArray,
     FireCandidateList,
     Connectome,
     OptimizedFeagiCore,
 )
 
-# Create a core with 100,000 neurons
-core = OptimizedFeagiCore(100_000)
+# Create enhanced neuron array with embedded optimizations (automatic)
+neuron_array = NeuronArray(max_neurons=100_000)
 
-# Perform a simulation step
-core.step()
+# Create connectome manager (uses embedded optimizations by default)
+connectome_manager = ConnectomeManager(config_or_max_neurons=100_000)
 
-# Get membrane potentials
-potentials = core.gna.get_all_membrane_potentials()
+# Get membrane potentials (using integrated optimizations)
+potentials = neuron_array.membrane_potentials
+
+# Performance summary shows embedded optimization features
+perf_summary = neuron_array.get_performance_summary()
+print(f"SIMD enabled: {perf_summary.get('simd_enabled')}")
+print(f"Cache alignment: {perf_summary.get('alignment')}B")
 ```
 
 The `optimized_integration.py` module provides helper functions for integrating these structures into existing code.
@@ -64,7 +71,7 @@ python tests/performance/bdu/benchmark_optimized_structures.py
 
 Typical performance improvements:
 - GNA operations: 10-50x faster
-- FCL operations: 5-20x faster 
+- FCL operations: 5-20x faster
 - Connectome propagation: 20-100x faster
 - Overall simulation: 15-70x faster
 
@@ -96,4 +103,4 @@ GPU processing uses the wgpu crate for WebGPU compute shaders:
 - Implement more neural models and plasticity rules
 - Add WebGPU texture support for sensorimotor processing
 - Improve zero-copy memory sharing between CPU and GPU
-- Optimize for heterogeneous computing (using both CPU and GPU simultaneously) 
+- Optimize for heterogeneous computing (using both CPU and GPU simultaneously)

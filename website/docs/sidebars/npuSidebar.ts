@@ -16,4 +16,4 @@ const npuSidebar: SidebarsConfig = {
   ],
 };
 
-export default npuSidebar; 
+export default npuSidebar;

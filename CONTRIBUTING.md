@@ -17,7 +17,7 @@ Thank you for contributing to FEAGI (Framework for Evolutionary Artificial Gener
 ### ❌ FORBIDDEN PATTERNS
 ```python
 # Never hardcode these in operational code:
-host = "127.0.0.1" or "localhost"     # ❌ 
+host = "127.0.0.1" or "localhost"     # ❌
 timeout = 30 or time.sleep(5)         # ❌
 config.get('host', 'localhost')       # ❌
 os.environ.get("HOST", "127.0.0.1")   # ❌
@@ -84,7 +84,7 @@ black feagi/ && flake8 feagi/
 ```
 feagi/              # Main package
 ├── core/           # Core functionality
-├── bdu/            # Brain Development Unit  
+├── bdu/            # Brain Development Unit
 ├── npu/            # Neural Processing Unit (GPU-compatible)
 ├── api/            # API interfaces
 └── pns/            # Peripheral Nervous System
@@ -95,7 +95,7 @@ docs/               # Documentation
 ### Component-Specific Rules
 - **feagi_core/**: Must use configuration system, no hardcoded fallbacks
 - **feagi_npu/**: GPU-compatible (no recursion, vectorized only)
-- **feagi_bridge/**: Must support dynamic host/port configuration  
+- **feagi_bridge/**: Must support dynamic host/port configuration
 - **feagi_connector/**: Client defaults allowed with `@architecture:acceptable - client default`
 
 ## 🔄 Contribution Workflow
@@ -114,7 +114,7 @@ docs/               # Documentation
 
 ### 3. Branch Naming
 - `feature/your-feature-name` - New features
-- `fix/bug-description` - Bug fixes  
+- `fix/bug-description` - Bug fixes
 - `docs/what-changed` - Documentation
 - `refactor/component-name` - Code refactoring
 
@@ -154,7 +154,7 @@ git commit -m "Fix #123: Address timeout in ZMQ server"
 
 ### Code Contributions
 - **Feature development** - New FEAGI capabilities
-- **Bug fixes** - Resolve issues and improve stability  
+- **Bug fixes** - Resolve issues and improve stability
 - **Performance optimizations** - Enhance neural processing speed
 - **Test coverage improvements** - Increase code reliability
 
@@ -177,14 +177,14 @@ git commit -m "Fix #123: Address timeout in ZMQ server"
 def process_neural_data(neurons: List[int], threshold: float = 0.5) -> Dict[str, Any]:
     """
     Process neural data and return firing patterns.
-    
+
     Args:
         neurons: List of neuron IDs to process
         threshold: Firing threshold (0.0-1.0)
-        
+
     Returns:
         Dictionary with firing patterns and metadata
-        
+
     Raises:
         ValueError: If threshold is outside valid range
     """
@@ -270,4 +270,4 @@ By contributing to FEAGI, you agree that your contributions will be licensed und
 
 **Goal: Platform-agnostic FEAGI that deploys anywhere without configuration changes.**
 
-**Remember: Every hardcoded value is a potential deployment failure!** 
+**Remember: Every hardcoded value is a potential deployment failure!**

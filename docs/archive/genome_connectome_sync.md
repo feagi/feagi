@@ -91,7 +91,7 @@ Components can register to be notified of genome changes:
 class MyComponent:
     def __init__(self, state_manager):
         state_manager.register_sync_observer(self)
-        
+
     def on_sync_state_change(self, old_state, new_state, details):
         if new_state == ServiceState.SYNC_COMPLETE:
             # React to successful synchronization
@@ -113,4 +113,4 @@ This synchronization model is designed to be compatible with Rust and RTOS envir
 - Clear state boundaries with explicit transitions
 - Deterministic resource allocation
 - Avoidance of hidden side effects
-- Well-defined ownership model 
+- Well-defined ownership model

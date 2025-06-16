@@ -1,1 +1,1 @@
-"""Unit tests for FEAGI core modules.""" 
+"""Unit tests for FEAGI core modules."""

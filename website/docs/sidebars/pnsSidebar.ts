@@ -16,4 +16,4 @@ const pnsSidebar: SidebarsConfig = {
   ],
 };
 
-export default pnsSidebar; 
+export default pnsSidebar;

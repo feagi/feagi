@@ -21,24 +21,25 @@ This module provides a lightweight event notification system for inter-process
 communication in FEAGI, replacing the ZMQ-based approach for higher performance.
 """
 
-import os
-import time
-import threading
 import logging
+import os
+import threading
+import time
+
 from feagi.utils.logger import setup_logger
+
 logger = setup_logger()
 import json
-import fcntl
-import select
 import queue
-from typing import Dict, List, Set, Any, Callable, Optional, Union
-from enum import Enum
-from pathlib import Path
+import select
 import tempfile
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Set
 
 
 class EventPriority(Enum):
     """Priority levels for events."""
+
     LOW = 0
     MEDIUM = 1
     HIGH = 2
@@ -47,47 +48,48 @@ class EventPriority(Enum):
 
 class EventType(Enum):
     """Types of events that can be sent between processes."""
+
     # Neuron-related events
     NEURON_FIRED = "neuron_fired"
     NEURON_UPDATED = "neuron_updated"
-    
+
     # Connectome-related events
     CORTICAL_AREA_ADDED = "cortical_area_added"
     CORTICAL_AREA_REMOVED = "cortical_area_removed"
     CORTICAL_AREA_UPDATED = "cortical_area_updated"
-    
+
     # Genome-related events
     GENOME_LOADED = "genome_loaded"
     GENOME_SAVED = "genome_saved"
     GENOME_UPDATED = "genome_updated"
-    
+
     # Burst engine events
     BURST_STARTED = "burst_started"
     BURST_COMPLETED = "burst_completed"
     CONFIG_UPDATED = "config_updated"
-    
+
     # System events
     PROCESS_STARTED = "process_started"
     PROCESS_STOPPED = "process_stopped"
     RESOURCE_WARNING = "resource_warning"
-    
+
     # Custom event
     CUSTOM = "custom"
 
 
 class Event:
     """Represents an event that can be sent between processes."""
-    
+
     def __init__(
         self,
         event_type: EventType,
         source: str,
         data: Optional[Dict[str, Any]] = None,
-        priority: EventPriority = EventPriority.MEDIUM
+        priority: EventPriority = EventPriority.MEDIUM,
     ):
         """
         Initialize an event.
-        
+
         Args:
             event_type: Type of the event
             source: Process or component that generated the event
@@ -99,7 +101,7 @@ class Event:
         self.data = data or {}
         self.priority = priority
         self.timestamp = time.time()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the event to a dictionary for serialization."""
         return {
@@ -107,19 +109,19 @@ class Event:
             "source": self.source,
             "data": self.data,
             "priority": self.priority.value,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Event':
+    def from_dict(cls, data: Dict[str, Any]) -> "Event":
         """Create an event from a dictionary."""
         return cls(
             event_type=EventType(data["event_type"]),
             source=data["source"],
             data=data["data"],
-            priority=EventPriority(data["priority"])
+            priority=EventPriority(data["priority"]),
         )
-    
+
     def __str__(self) -> str:
         """String representation of the event."""
         return f"Event({self.event_type.value}) from {self.source} at {self.timestamp}"
@@ -128,20 +130,20 @@ class Event:
 class EventNotificationSystem:
     """
     Provides event-based notification between FEAGI processes.
-    
+
     This system uses a combination of file-based semaphores and shared memory
     to enable efficient, non-blocking event notifications across processes.
     """
-    
+
     def __init__(
         self,
         process_name: str,
         temp_dir: Optional[str] = None,
-        max_queue_size: int = 1000
+        max_queue_size: int = 1000,
     ):
         """
         Initialize the event notification system.
-        
+
         Args:
             process_name: Name of this process (used as event source)
             temp_dir: Directory to store event files (default: system temp dir)
@@ -150,73 +152,75 @@ class EventNotificationSystem:
         self.process_name = process_name
         self.temp_dir = temp_dir or tempfile.gettempdir()
         self.max_queue_size = max_queue_size
-        self.logger = logging.getLogger(f"feagi.api.shared_memory.events.{process_name}")
-        
+        self.logger = logging.getLogger(
+            f"feagi.api.shared_memory.events.{process_name}"
+        )
+
         # Create event directory
         self.event_dir = os.path.join(self.temp_dir, "feagi_events")
         os.makedirs(self.event_dir, exist_ok=True)
-        
+
         # Event queues and state
         self.event_queue = queue.Queue(maxsize=max_queue_size)
         self.running = False
         self.handlers: Dict[EventType, List[Callable[[Event], None]]] = {}
         self.subscriptions: Set[EventType] = set()
-        
+
         # Event file path
-        self.event_file_path = os.path.join(self.event_dir, f"events_{process_name}.fifo")
+        self.event_file_path = os.path.join(
+            self.event_dir, f"events_{process_name}.fifo"
+        )
         self._create_event_pipe()
-        
+
         # Thread for processing events
         self.event_thread = None
-    
+
     def _create_event_pipe(self):
         """Create the named pipe for event communication."""
         try:
             # Remove old pipe if it exists
             if os.path.exists(self.event_file_path):
                 os.unlink(self.event_file_path)
-                
+
             # Create a new named pipe (FIFO)
             os.mkfifo(self.event_file_path)
             self.logger.info(f"Created event pipe at {self.event_file_path}")
         except Exception as e:
             self.logger.error(f"Error creating event pipe: {e}")
             raise
-    
+
     def start(self):
         """Start the event notification system."""
         if self.running:
             return
-            
+
         self.running = True
         self.event_thread = threading.Thread(
-            target=self._event_loop,
-            daemon=True,
-            name=f"EventLoop-{self.process_name}"
+            target=self._event_loop, daemon=True, name=f"EventLoop-{self.process_name}"
         )
         self.event_thread.start()
         self.logger.info(f"Started event notification system for {self.process_name}")
-    
+
     def stop(self):
         """Stop the event notification system."""
         self.running = False
         if self.event_thread and self.event_thread.is_alive():
             self.event_thread.join(timeout=1.0)
         self.logger.info(f"Stopped event notification system for {self.process_name}")
-    
+
     def _event_loop(self):
         """Main event processing loop."""
         self.logger.info("Event processing loop started")
-        
+
         # Open the named pipe for reading
         # Using non-blocking mode to prevent hanging if no events
         pipe_fd = os.open(self.event_file_path, os.O_RDONLY | os.O_NONBLOCK)
-        
+
         try:
             while self.running:
                 # Check for incoming events
                 ready, _, _ = select.select([pipe_fd], [], [], 0.1)  # 100ms timeout
-                
+
                 if ready:
                     # Read event data
                     try:
@@ -227,10 +231,10 @@ class EventNotificationSystem:
                     except BlockingIOError:
                         # No data available right now
                         pass
-                    
+
                 # Process queued events
                 self._process_queued_events()
-                
+
                 # Small sleep to prevent busy-waiting
                 time.sleep(0.001)
         except Exception as e:
@@ -238,31 +242,33 @@ class EventNotificationSystem:
         finally:
             os.close(pipe_fd)
             self.logger.info("Event processing loop stopped")
-    
+
     def _process_event_data(self, data: bytes):
         """Process binary event data received from the pipe."""
         try:
             # Split the data into individual event messages
             # Each event is a JSON string followed by a newline
-            messages = data.decode('utf-8').split('\n')
-            
+            messages = data.decode("utf-8").split("\n")
+
             for msg in messages:
                 if not msg.strip():
                     continue
-                    
+
                 # Parse the event
                 event_dict = json.loads(msg)
                 event = Event.from_dict(event_dict)
-                
+
                 # Add to the queue if this is a subscribed event
                 if event.event_type in self.subscriptions:
                     try:
                         self.event_queue.put_nowait(event)
                     except queue.Full:
-                        self.logger.warning(f"Event queue full, dropping event: {event}")
+                        self.logger.warning(
+                            f"Event queue full, dropping event: {event}"
+                        )
         except Exception as e:
             self.logger.error(f"Error processing event data: {e}")
-    
+
     def _process_queued_events(self):
         """Process events in the queue."""
         # Process up to 10 events at a time to prevent blocking too long
@@ -273,7 +279,7 @@ class EventNotificationSystem:
                 self.event_queue.task_done()
             except queue.Empty:
                 break
-    
+
     def _dispatch_event(self, event: Event):
         """Dispatch an event to registered handlers."""
         if event.event_type in self.handlers:
@@ -282,17 +288,21 @@ class EventNotificationSystem:
                     handler(event)
                 except Exception as e:
                     self.logger.error(f"Error in event handler: {e}")
-    
-    def send_event(self, event_type: EventType, data: Optional[Dict[str, Any]] = None, 
-                  priority: EventPriority = EventPriority.MEDIUM) -> bool:
+
+    def send_event(
+        self,
+        event_type: EventType,
+        data: Optional[Dict[str, Any]] = None,
+        priority: EventPriority = EventPriority.MEDIUM,
+    ) -> bool:
         """
         Send an event to other processes.
-        
+
         Args:
             event_type: Type of the event
             data: Additional data for the event
             priority: Priority level of the event
-            
+
         Returns:
             True if the event was sent successfully, False otherwise
         """
@@ -300,9 +310,9 @@ class EventNotificationSystem:
             event_type=event_type,
             source=self.process_name,
             data=data or {},
-            priority=priority
+            priority=priority,
         )
-        
+
         # Find all event pipes except our own
         event_pipes = []
         for filename in os.listdir(self.event_dir):
@@ -310,15 +320,15 @@ class EventNotificationSystem:
                 pipe_path = os.path.join(self.event_dir, filename)
                 if pipe_path != self.event_file_path:
                     event_pipes.append(pipe_path)
-        
+
         # No other processes to send to
         if not event_pipes:
             return True
-        
+
         # Serialize the event
-        event_json = json.dumps(event.to_dict()) + '\n'
-        event_bytes = event_json.encode('utf-8')
-        
+        event_json = json.dumps(event.to_dict()) + "\n"
+        event_bytes = event_json.encode("utf-8")
+
         # Send to all other processes
         success = True
         for pipe_path in event_pipes:
@@ -332,68 +342,72 @@ class EventNotificationSystem:
             except Exception as e:
                 self.logger.error(f"Error sending event to {pipe_path}: {e}")
                 success = False
-        
+
         return success
-    
+
     def subscribe(self, event_type: EventType):
         """
         Subscribe to a specific event type.
-        
+
         Args:
             event_type: The event type to subscribe to
         """
         self.subscriptions.add(event_type)
         self.logger.debug(f"Subscribed to event type: {event_type.value}")
-    
+
     def unsubscribe(self, event_type: EventType):
         """
         Unsubscribe from a specific event type.
-        
+
         Args:
             event_type: The event type to unsubscribe from
         """
         if event_type in self.subscriptions:
             self.subscriptions.remove(event_type)
             self.logger.debug(f"Unsubscribed from event type: {event_type.value}")
-    
+
     def register_handler(self, event_type: EventType, handler: Callable[[Event], None]):
         """
         Register a handler for a specific event type.
-        
+
         Args:
             event_type: The event type to handle
             handler: Function to call when this event type is received
         """
         # Make sure we're subscribed to this event type
         self.subscribe(event_type)
-        
+
         # Add the handler
         if event_type not in self.handlers:
             self.handlers[event_type] = []
         self.handlers[event_type].append(handler)
         self.logger.debug(f"Registered handler for event type: {event_type.value}")
-    
-    def unregister_handler(self, event_type: EventType, handler: Callable[[Event], None]):
+
+    def unregister_handler(
+        self, event_type: EventType, handler: Callable[[Event], None]
+    ):
         """
         Unregister a handler for a specific event type.
-        
+
         Args:
             event_type: The event type
             handler: The handler function to remove
         """
         if event_type in self.handlers and handler in self.handlers[event_type]:
             self.handlers[event_type].remove(handler)
-            self.logger.debug(f"Unregistered handler for event type: {event_type.value}")
-            
+            self.logger.debug(
+                f"Unregistered handler for event type: {event_type.value}"
+            )
+
             # If no more handlers for this event type, unsubscribe
             if not self.handlers[event_type]:
                 del self.handlers[event_type]
                 self.unsubscribe(event_type)
-    
+
     def cleanup(self):
         """Clean up resources used by the event notification system."""
         self.stop()
-        
+
         # Remove the named pipe
         try:
             if os.path.exists(self.event_file_path):
@@ -401,7 +415,7 @@ class EventNotificationSystem:
                 self.logger.info(f"Removed event pipe at {self.event_file_path}")
         except Exception as e:
             self.logger.error(f"Error removing event pipe: {e}")
-    
+
     def __del__(self):
         """Ensure resources are cleaned up."""
-        self.cleanup() 
+        self.cleanup()

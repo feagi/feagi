@@ -4,7 +4,7 @@
 
 ## Overview
 
-This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, implementing a **multi-stream architecture** where each stream has a specific purpose and protocol. This design eliminates protocol confusion, improves performance, and provides clear separation of concerns. A key innovation is the **differentiated FQ sampler** that provides optimized data streams for different consumer types.
+This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, implementing a **multi-stream architecture** where each stream has a specific purpose and protocol. This design eliminates protocol confusion, improves performance, and provides clear separation of concerns. A key innovation is the **differentiated FQ sampler** that provides optimized data streams for different consumer types, with **intelligent agent-driven coordination** that automatically manages FQ samplers based on connected agent capabilities.
 
 ## Architecture Principles
 
@@ -15,6 +15,8 @@ This document describes the comprehensive ZeroMQ (ZMQ) architecture in FEAGI, im
 5. **Binary Efficiency**: Optimized binary protocols for high-throughput data exchange
 6. **Versioning**: Protocol versioning for backward compatibility
 7. **Differentiated Data Delivery**: Optimized sampling behavior for different subscriber types
+8. **Agent Registration & Coordination**: Automatic FQ sampler management based on connected agent capabilities
+9. **Zero-Manual Intervention**: Intelligent system coordination eliminates need for manual data flow management
 
 ## Multi-Stream Architecture Overview
 
@@ -77,41 +79,16 @@ socket.send_string('{"command": "get_status"}')
 response = socket.recv_string()
 ```
 
-### **Control Stream (Port 5561)**
+### **REST Stream (Port 5563) - Primary API Interface**
 
-**Purpose**: Legacy control protocol for agent management and heartbeat monitoring.
-
-**Characteristics**:
-- **Socket Type**: ROUTER/DEALER
-- **Pattern**: Asynchronous message routing
-- **Protocol**: Legacy control message format (FCP - FEAGI Control Protocol)
-- **Use Cases**: Agent registration, heartbeat monitoring, legacy control systems
-
-**Message Format**:
-```json
-{
-  "message_type": "hello|heartbeat|status|goodbye",
-  "agent_id": "unique_agent_identifier",
-  "timestamp": 1621234567890,
-  "data": {...}
-}
-```
-
-**Supported Message Types**:
-- `hello`: Agent registration
-- `heartbeat`: Periodic health check
-- `status`: Status query
-- `goodbye`: Agent disconnection
-
-### **REST Stream (Port 5563) - Dedicated REST API**
-
-**Purpose**: Pure REST API operations with HTTP-like semantics over ZMQ.
+**Purpose**: Modern REST API operations with HTTP-like semantics over ZMQ. This is the primary interface for all API communication, replacing legacy control protocols.
 
 **Characteristics**:
 - **Socket Type**: ROUTER/DEALER
 - **Pattern**: Asynchronous request-reply with HTTP semantics
 - **Protocol**: REST API format only
-- **Use Cases**: Modern applications, web interfaces, API clients
+- **Use Cases**: Modern applications, web interfaces, API clients, agent management
+- **Scope**: Handles all API operations including agent registration, heartbeats, system status, and data operations
 
 #### REST Message Format
 
@@ -161,7 +138,7 @@ response = socket.recv_string()
   "timestamp": 1621234567890
 }
 
-// Response  
+// Response
 {
   "status": 200,
   "headers": {"content-type": "application/json"},
@@ -170,12 +147,279 @@ response = socket.recv_string()
 }
 ```
 
+**Agent Registration** (replaces legacy control protocol):
+```json
+// Request
+{
+  "route": "/v1/agents/register",
+  "method": "POST",
+  "body": {
+    "agent_id": "my_godot_client",
+    "agent_type": "godot_bridge",
+    "capabilities": ["sensory", "motor"],
+    "protocol_versions": {
+      "rest": "1.0",
+      "visualization": "1.0"
+    }
+  },
+  "timestamp": 1621234567890
+}
+
+// Response
+{
+  "status": 200,
+  "headers": {"content-type": "application/json"},
+  "body": {
+    "message": "Agent registered successfully",
+    "agent_id": "my_godot_client"
+  },
+  "timestamp": 1621234567890
+}
+```
+
+**Agent Heartbeat** (replaces legacy control protocol):
+```json
+// Request
+{
+  "route": "/v1/agents/heartbeat",
+  "method": "POST",
+  "body": {
+    "agent_id": "my_godot_client"
+  },
+  "timestamp": 1621234567890
+}
+
+// Response
+{
+  "status": 200,
+  "headers": {"content-type": "application/json"},
+  "body": {"status": "ok"},
+  "timestamp": 1621234567890
+}
+```
+
+## Agent Registration & FQ Sampler Coordination
+
+### Overview
+
+FEAGI 2.0 introduces an intelligent agent registration system that provides automatic coordination between connected agents and the FQ (Fire Queue) samplers. This eliminates the need for manual intervention to enable data flow for visualization and motor streams.
+
+### Architecture Flow
+
+```
+Agent Registration → Capability Detection → Automatic FQ Sampler Enable/Disable → Data Flow
+```
+
+### Key Components
+
+1. **Agent Registry**: Centralized tracking of connected agents with capabilities
+2. **Capability Detection**: Automatic detection of agent visualization and motor requirements
+3. **FQ Sampler Management**: RUST/RTOS compatible enable/disable coordination
+4. **Resource Optimization**: Samplers only consume CPU when agents actually need data
+
+### Agent Registration Process
+
+#### 1. Agent Registration
+```json
+// POST /v1/agent/register
+{
+  "route": "/v1/agent/register",
+  "method": "POST",
+  "body": {
+    "agent_id": "godot_visualizer_001",
+    "agent_type": "brain_visualizer",
+    "capabilities": {
+      "visualization": true,
+      "motor": false,
+      "sensory": true
+    },
+    "metadata": {
+      "version": "2.0.1",
+      "platform": "godot_4.2"
+    }
+  }
+}
+```
+
+**Response with Automatic FQ Sampler Coordination**:
+```json
+{
+  "status": 200,
+  "body": {
+    "message": "Agent registered successfully",
+    "agent_id": "godot_visualizer_001",
+    "fq_samplers_enabled": {
+      "visualization": true,  // Automatically enabled due to visualization capability
+      "motor": false          // Remains disabled (no motor capability)
+    }
+  }
+}
+```
+
+#### 2. Capability-Based FQ Sampler Management
+
+**Visualization Capability Detection**:
+- Agent registers with `capabilities.visualization = true`
+- System automatically enables Visualization FQ Sampler (30Hz, all cortical areas)
+- Data flows to port 5562 for visualization consumption
+
+**Motor Capability Detection**:
+- Agent registers with `capabilities.motor = true` OR `capabilities.output = true` OR `capabilities.sensorimotor = true`
+- System automatically enables Motor FQ Sampler (100Hz, OPU areas only)
+- Data flows to port 5564 for motor control consumption
+
+#### 3. Agent Deregistration & Cleanup
+```json
+// DELETE /v1/agent/deregister
+{
+  "route": "/v1/agent/deregister",
+  "method": "DELETE",
+  "body": {
+    "agent_id": "godot_visualizer_001"
+  }
+}
+```
+
+**Automatic Cleanup Response**:
+```json
+{
+  "status": 200,
+  "body": {
+    "message": "Agent deregistered successfully",
+    "agent_id": "godot_visualizer_001",
+    "fq_samplers_disabled": {
+      "visualization": true,  // Disabled if no other visualization agents remain
+      "motor": false          // Remains in current state
+    }
+  }
+}
+```
+
+### FQ Sampler Coordination Logic
+
+#### Visualization FQ Sampler
+- **Enable Condition**: At least one agent with `visualization` capability registered
+- **Disable Condition**: No agents with `visualization` capability remain
+- **Sampling**: 30Hz, all cortical areas
+- **Port**: 5562
+
+#### Motor FQ Sampler
+- **Enable Condition**: At least one agent with motor capabilities (`motor`, `output`, or `sensorimotor`)
+- **Disable Condition**: No agents with motor capabilities remain
+- **Sampling**: 100Hz, OPU areas only
+- **Port**: 5564
+
+### Agent Management Endpoints
+
+#### List Active Agents
+```json
+// GET /v1/agent/list
+{
+  "route": "/v1/agent/list",
+  "method": "GET"
+}
+```
+
+**Response**:
+```json
+{
+  "status": 200,
+  "body": {
+    "agents": [
+      {
+        "agent_id": "godot_visualizer_001",
+        "agent_type": "brain_visualizer",
+        "capabilities": ["visualization", "sensory"],
+        "status": "active",
+        "last_seen": "2025-06-07T12:34:56Z"
+      },
+      {
+        "agent_id": "robotic_arm_controller",
+        "agent_type": "motor_controller",
+        "capabilities": ["motor", "sensorimotor"],
+        "status": "active",
+        "last_seen": "2025-06-07T12:35:12Z"
+      }
+    ],
+    "summary": {
+      "total_agents": 2,
+      "visualization_agents": 1,
+      "motor_agents": 1
+    }
+  }
+}
+```
+
+#### Agent Properties
+```json
+// GET /v1/agent/properties/{agent_id}
+{
+  "route": "/v1/agent/properties/godot_visualizer_001",
+  "method": "GET"
+}
+```
+
+#### FQ Sampler Status
+```json
+// GET /v1/agent/fq_sampler_status
+{
+  "route": "/v1/agent/fq_sampler_status",
+  "method": "GET"
+}
+```
+
+**Response**:
+```json
+{
+  "status": 200,
+  "body": {
+    "visualization_fq_sampler": {
+      "enabled": true,
+      "reason": "1 visualization agent(s) connected",
+      "agents_requiring": ["godot_visualizer_001"]
+    },
+    "motor_fq_sampler": {
+      "enabled": true,
+      "reason": "1 motor agent(s) connected",
+      "agents_requiring": ["robotic_arm_controller"]
+    }
+  }
+}
+```
+
+### Benefits of Agent-Driven Coordination
+
+1. **Zero Manual Intervention**: No need to manually enable/disable FQ samplers
+2. **Resource Efficiency**: Samplers only consume CPU when agents actually need data
+3. **RUST/RTOS Compatibility**: Uses enable/disable pattern rather than create/destroy
+4. **Robust Coordination**: Thread-safe operations with comprehensive error handling
+5. **Real-time Monitoring**: Full visibility into agent-sampler relationships
+
+### Migration from Manual Management
+
+**Before (Manual)**:
+```bash
+# Manual intervention required
+curl -X POST "http://localhost:8000/v1/system/enable_visualization_fq_sampler"
+curl -X POST "http://localhost:8000/v1/system/enable_motor_fq_sampler"
+```
+
+**After (Automatic)**:
+```python
+# Zero manual intervention - automatic coordination
+agent_client.register(
+    agent_id="my_visualizer",
+    capabilities={"visualization": True}
+)
+# Visualization FQ Sampler automatically enabled
+```
+
 **Get Cortical Area**:
 ```json
 // Request
 {
   "route": "/v1/connectome/cortical_area/12345",
-  "method": "GET", 
+  "method": "GET",
   "params": {"cortical_id": "12345"},
   "timestamp": 1621234567890
 }
@@ -255,22 +499,22 @@ class VisualizationStream:
         self.client_last_heartbeat = {}
         self.client_heartbeat_timeout = 30
         self._client_lock = threading.Lock()
-        
+
         # Automatic subscriber management
         self._subscriber_count = 0
         self._fq_sampler_enabled = False
-        
+
         # Responsive shutdown
         self._stop_event = threading.Event()
-    
+
     def heartbeat_visualization_client(self, client_id: str) -> None:
         """Enhanced heartbeat method with proper client tracking."""
         current_time = time.time()
-        
+
         with self._client_lock:  # Thread-safe access
             is_new_client = client_id not in self.client_last_heartbeat
             self.client_last_heartbeat[client_id] = current_time
-            
+
             if is_new_client:
                 logger.info(f"📺 New visualization client connected: {client_id}")
                 # Automatic FQ sampler enablement for new clients
@@ -302,7 +546,7 @@ The visualization stream integrates with the REST API for heartbeat management:
 {
     'cortical_ids': ['area1', 'area2', ...],      # Cortical area identifiers
     'x_coords': [x1, x2, ...],                   # Neuron X coordinates
-    'y_coords': [y1, y2, ...],                   # Neuron Y coordinates  
+    'y_coords': [y1, y2, ...],                   # Neuron Y coordinates
     'z_coords': [z1, z2, ...],                   # Neuron Z coordinates
     'potentials': [pot1, pot2, ...],             # Membrane potentials
     'thresholds': [thr1, thr2, ...],             # Firing thresholds
@@ -328,24 +572,24 @@ class FeagiVisualizationClient:
         self.feagi_host = feagi_host
         self.client_id = client_id
         self.running = False
-        
+
         # Set up ZMQ connection for data
         self.context = zmq.Context()
         self.data_socket = self.context.socket(zmq.SUB)
         self.data_socket.connect(f"tcp://{feagi_host}:5562")
         self.data_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-        
+
     def start(self):
         """Start the visualization client with heartbeat."""
         self.running = True
-        
+
         # Start heartbeat thread
         self.heartbeat_thread = threading.Thread(target=self._heartbeat_worker, daemon=True)
         self.heartbeat_thread.start()
-        
+
         # Process data
         self._process_data()
-        
+
     def _heartbeat_worker(self):
         """Send periodic heartbeats to maintain connection."""
         while self.running:
@@ -359,7 +603,7 @@ class FeagiVisualizationClient:
                     print(f"Heartbeat sent: {self.client_id}")
             except Exception as e:
                 print(f"Heartbeat error: {e}")
-            
+
             time.sleep(5)  # Send every 5 seconds
 ```
 
@@ -490,7 +734,7 @@ class VisualizationStream:
                 if should_enable != self._fq_sampler_enabled:
                     await self._control_fq_sampler(should_enable)
             await asyncio.sleep(self.subscriber_check_interval)
-    
+
     async def _control_fq_sampler(self, enable: bool):
         """Enable/disable FQ sampler for visualization."""
         if self.fq_sampler:
@@ -514,7 +758,7 @@ class MotorStream:
                 if should_enable != self._fq_sampler_enabled:
                     await self._control_fq_sampler(should_enable)
             await asyncio.sleep(self.subscriber_check_interval)  # Faster for real-time
-    
+
     async def _control_fq_sampler(self, enable: bool):
         """Enable/disable FQ sampler for motor control."""
         if self.fq_sampler:
@@ -533,7 +777,7 @@ class MotorStream:
 Each stream **ONLY** accepts its designated message format:
 
 1. **REST Stream (5563)** - Only accepts messages with `method` and `route` fields
-2. **Control Stream (5561)** - Only accepts messages with `message_type` field  
+2. **Control Stream (5561)** - Only accepts messages with `message_type` field
 3. **REQ/REP Stream (5555)** - Only accepts messages with `command` field
 4. **Visualization Stream (5562)** - Only broadcasts binary data
 
@@ -544,7 +788,7 @@ Each stream **ONLY** accepts its designated message format:
 def is_valid_rest_message(message):
     return (
         isinstance(message, dict) and
-        'method' in message and 
+        'method' in message and
         'route' in message and
         isinstance(message['method'], str) and
         isinstance(message['route'], str)
@@ -580,7 +824,7 @@ Response: {
   "status": 400,
   "body": {
     "type": "error",
-    "code": "INVALID_REST_FORMAT", 
+    "code": "INVALID_REST_FORMAT",
     "message": "Message must contain 'method' and 'route' fields"
   },
   "timestamp": 1621234567890
@@ -595,7 +839,7 @@ The central coordinator for all ZMQ communications:
 
 ```python
 class ZMQManager:
-    def __init__(self, host="*", req_port=5555, control_port=5561, 
+    def __init__(self, host="*", req_port=5555, control_port=5561,
                  rest_port=5563, vis_port=5562):
         self.context = zmq.Context.instance()
         self.host = host
@@ -618,11 +862,11 @@ class RestStreamHandler:
     async def process_rest_message(self, message):
         if not self.is_valid_rest_format(message):
             return self.create_error_response(400, "INVALID_REST_FORMAT")
-        
+
         # Route to appropriate REST endpoint
         return await self.route_rest_request(
-            message['method'], 
-            message['route'], 
+            message['method'],
+            message['route'],
             message.get('params', {}),
             message.get('query', {}),
             message.get('body', {})
@@ -630,12 +874,12 @@ class RestStreamHandler:
 ```
 
 **Control Stream Handler**:
-```python  
+```python
 class ControlStreamHandler:
     async def process_control_message(self, message):
         if not self.is_valid_control_format(message):
             return self.create_error_response("INVALID_CONTROL_FORMAT")
-            
+
         # Handle legacy control messages
         return await self.handle_control_command(
             message['message_type'],
@@ -698,7 +942,7 @@ python -m feagi.main \
 
 ```bash
 export FEAGI_ZMQ_REQ_PORT=5555
-export FEAGI_ZMQ_CONTROL_PORT=5561  
+export FEAGI_ZMQ_CONTROL_PORT=5561
 export FEAGI_ZMQ_REST_PORT=5563
 export FEAGI_ZMQ_VIS_PORT=5562
 export FEAGI_ZMQ_MOTOR_PORT=5564
@@ -803,7 +1047,7 @@ ss -tuln | grep -E "5555|5561|5562|5563|5564"
 # Expected output:
 tcp LISTEN 127.0.0.1:5555   # REQ/REP
 tcp LISTEN 127.0.0.1:5561   # Control
-tcp LISTEN 127.0.0.1:5562   # Visualization  
+tcp LISTEN 127.0.0.1:5562   # Visualization
 tcp LISTEN 127.0.0.1:5563   # REST
 tcp LISTEN 127.0.0.1:5564   # Motor
 ```
@@ -817,7 +1061,7 @@ ctx = zmq.Context()
 sock = ctx.socket(zmq.DEALER)
 sock.connect('tcp://localhost:5563')
 sock.send_multipart([b'', json.dumps({
-    'method': 'GET', 
+    'method': 'GET',
     'route': '/v1/system/health_check'
 }).encode()])
 response = json.loads(sock.recv_multipart()[1])
@@ -929,7 +1173,7 @@ viz_heartbeat = {
 }
 control_socket.send_json(viz_heartbeat)
 
-# Register motor client  
+# Register motor client
 motor_heartbeat = {
     "message_type": "heartbeat",
     "agent_id": "test_motor_differentiation",
@@ -946,17 +1190,17 @@ try:
     viz_decoded = decoder.decode_neuron_flat(viz_data)
     viz_areas = set(viz_decoded['cortical_ids'])
     print(f"Visualization stream areas: {len(viz_areas)} areas")
-    
+
     # Get motor data
     motor_topic, motor_data = motor_socket.recv_multipart(zmq.NOBLOCK)
     motor_decoded = decoder.decode_neuron_flat(motor_data)
     motor_areas = set(motor_decoded['cortical_ids'])
     print(f"Motor stream areas: {len(motor_areas)} areas")
-    
+
     # Verify differentiated behavior
     print(f"Motor areas are subset of viz areas: {motor_areas.issubset(viz_areas)}")
     print(f"All motor areas contain 'motor', 'opu', or 'output': {all(any(keyword in area.lower() for keyword in ['motor', 'opu', 'output']) for area in motor_areas)}")
-    
+
 except zmq.Again:
     print("No data available for testing")
 ```
@@ -1135,7 +1379,7 @@ export FEAGI_API_HOST=0.0.0.0
    # Should show no existing connections
    ```
 
-4. **Windows Firewall**: 
+4. **Windows Firewall**:
    - Allow Python/FEAGI through Windows Defender Firewall
    - Or run PowerShell as Administrator: `New-NetFirewallRule -DisplayName "FEAGI ZMQ" -Direction Inbound -Port 5555-5564 -Protocol TCP -Action Allow`
 
@@ -1167,8 +1411,8 @@ The Windows compatibility fix maintains FEAGI's architecture compliance:
 
 **Error Symptoms:**
 ```
-ERROR: Proactor event loop does not implement add_reader family of methods required for zmq. 
-zmq will work with proactor if tornado >= 6.1 can be found. 
+ERROR: Proactor event loop does not implement add_reader family of methods required for zmq.
+zmq will work with proactor if tornado >= 6.1 can be found.
 Use asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy()) or install 'tornado>=6.1' to avoid this error.
 ```
 
@@ -1185,7 +1429,7 @@ if platform.system() == "Windows":
 ```
 
 **Implementation Details:**
-- Applied in `feagi/main.py` during system initialization  
+- Applied in `feagi/main.py` during system initialization
 - Applied in `feagi/api/zmq/server.py` when creating ZMQ server threads
 - Uses `@architecture:acceptable` annotation for Windows-specific platform code
 - Gracefully handles older Python versions without WindowsSelectorEventLoopPolicy

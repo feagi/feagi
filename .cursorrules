@@ -1,447 +1,240 @@
-# FEAGI 2.0 Architecture Compliance Rules for Cursor
-# These rules help prevent hardcoded values and ensure OS/platform agnostic code
+# FEAGI 2.0 Architecture Compliance Rules
 
-## CRITICAL: Network Host Hardcoding Prevention
+Objective: Ensure FEAGI remains cross-platform, Rust/RTOS compatible, and maintainable with high reliability. Code must operate deterministically without fallbacks or ambiguity. No reliance on hardcoded values, and all configurations must come from centralized systems.
 
-### ❌ NEVER hardcode network hosts
-- NEVER use "127.0.0.1" or "localhost" as hardcoded strings
-- NEVER use patterns like: `host = "127.0.0.1"`, `"localhost"`, `'127.0.0.1'`
-- NEVER use: `os.environ.get("FEAGI_ZMQ_HOST", "127.0.0.1")`
-- NEVER use: `config.get('host', 'localhost')`
+---
 
-### ✅ ALWAYS use configuration system instead
+## 1. Project-Wide Architecture Principles
+
+- FEAGI must support execution across Docker, Kubernetes, cloud services, embedded systems, and desktop environments.
+- Code must be written to facilitate future migration to Rust or RTOS.
+- Cross-platform behavior and deterministic execution are mandatory.
+
+---
+
+## 2. Critical Violations – Never Allow
+
+### 2.1. Deletion of Methods (Forbidden)
+NEVER delete working methods unless all these conditions are met:
+- Confirm no internal usage: `grep -r "method_name" .`
+- Verify API endpoint dependencies
+- Confirm external integrations (e.g., clients, bridges)
+- If unsure, confirm with project leads before deletion
+
+Example of a past violation: Removal of `get_cortical_mapping()` caused runtime 500 errors.
+
+### 2.2. Network Hardcoding
+- Do not hardcode hostnames or IPs:
+  - `"127.0.0.1"`
+  - `"localhost"`
+  - `os.environ.get("HOST", "localhost")`
+- Use only: `get_host_config()` from `toml_loader.py`
+
+### 2.3. Timeout Hardcoding
+- Do not hardcode:
+  - `time.sleep(x)`
+  - `timeout=30`
+  - `join(timeout=2.0)`
+- Use: `get_timeout_config()`
+
+### 2.4. Root Folder Structure
+- No files or folders may be added to the project root.
+- All files must belong to one of the defined subprojects.
+
+---
+
+## 3. Enforced Best Practices
+
+### 3.1. Central Configuration Usage
 ```python
-# ✅ CORRECT: Use configuration system
-from feagi.config.toml_loader import get_host_config
+from feagi.config.toml_loader import get_host_config, get_timeout_config
+
 config = load_feagi_config()
 host_config = get_host_config(config)
-api_host = host_config.api_host
-zmq_host = host_config.zmq_host
-```
-
-### ❌ FORBIDDEN PATTERNS - Flag these immediately:
-- `"127.0.0.1"` or `'127.0.0.1'` anywhere in code
-- `"localhost"` or `'localhost'` in network contexts
-- `os.environ.get(".*HOST.*", "127.0.0.1")`
-- `os.environ.get(".*HOST.*", "localhost")`
-- `config.get('host', '127.0.0.1')`
-- `config.get('host', 'localhost')`
-- `host.*=.*"127.0.0.1"`
-- `host.*=.*"localhost"`
-
-## CRITICAL: Timeout Hardcoding Prevention
-
-### ❌ NEVER hardcode timeouts in critical paths
-- NEVER use: `time.sleep(5)` in process management
-- NEVER use: `timeout=30` in ZMQ operations
-- NEVER use: `.join(timeout=5.0)` without configuration
-- NEVER use hardcoded values in shutdown procedures
-
-### ✅ ALWAYS use configurable timeouts
-```python
-# ✅ CORRECT: Use timeout configuration
-from feagi.config.toml_loader import get_timeout_config
-timeout_config = get_timeout_config(config)
-graceful_shutdown_timeout = timeout_config.graceful_shutdown
-thread_join_timeout = timeout_config.thread_join
-```
-
-### ❌ FORBIDDEN TIMEOUT PATTERNS - Flag these:
-- `time.sleep(\d+)` in critical files (process_manager.py, api_gateway.py)
-- `timeout\s*=\s*\d+` without configuration source
-- `.join(timeout=\d+)` hardcoded values
-- `\.get(timeout=\d+)` for ZMQ operations
-
-## CRITICAL: Configuration System Usage
-
-### ✅ ALWAYS import and use FEAGI configuration system
-```python
-# ✅ REQUIRED imports for any network/timeout configuration
-from feagi.config.toml_loader import (
-    load_feagi_config,
-    get_host_config, 
-    get_timeout_config,
-    get_port_config
-)
-```
-
-### ❌ FORBIDDEN: Creating configuration without validation
-- NEVER create host/port dictionaries manually
-- NEVER skip configuration validation
-- NEVER assume default values exist
-
-## FILE-SPECIFIC RULES
-
-### process_manager.py
-- MUST use `get_host_config(config)` for all host values
-- MUST use `get_timeout_config(config)` for all timeouts
-- NEVER hardcode shutdown timeouts
-- NEVER use `time.sleep()` with hardcoded values
-
-### api/gateway/api_gateway.py  
-- MUST use configuration system, not environment fallbacks
-- NEVER use `os.environ.get("HOST", "127.0.0.1")`
-- ALWAYS validate configuration before use
-
-### api/zmq/*.py files
-- MUST use `get_host_config()` for ZMQ hosts
-- MUST use `get_timeout_config()` for ZMQ timeouts
-- NEVER hardcode socket timeouts
-
-## TESTING REQUIREMENTS
-
-### When adding new network/timeout code:
-1. ✅ MUST add architecture compliance test
-2. ✅ MUST verify no hardcoded fallbacks
-3. ✅ MUST test with empty configuration (should fail)
-4. ✅ MUST test with environment overrides
-
-### Test file patterns to follow:
-```python
-# ✅ Test that components reject missing configuration
-with pytest.raises(ValueError, match="API host is required"):
-    get_host_config({})
-
-# ✅ Test that environment overrides work
-with patch.dict(os.environ, {'FEAGI_API_HOST': '10.0.0.1'}):
-    host_config = get_host_config(config)
-    assert host_config.api_host == '10.0.0.1'
-```
-
-## DEPLOYMENT COMPATIBILITY
-
-### MUST support these environments:
-- ✅ Docker containers with custom networking
-- ✅ Kubernetes pods with service discovery  
-- ✅ Cloud environments with dynamic IPs
-- ✅ Embedded systems with limited resources
-- ✅ Cross-platform deployments (Windows, macOS, Linux)
-
-### Code MUST NOT assume:
-- ❌ localhost is always available
-- ❌ Specific IP addresses exist
-- ❌ Standard ports are free
-- ❌ Filesystem paths (use OS-agnostic paths)
-
-## IMMEDIATE ACTION ITEMS
-
-When Cursor flags any of these patterns:
-1. 🚨 STOP - Do not commit hardcoded values
-2. 🔧 Replace with configuration system calls
-3. ✅ Add architecture compliance test
-4. 📝 Update documentation if needed
-
-## EXAMPLES OF GOOD VS BAD CODE
-
-### ❌ BAD - Will be flagged by tests:
-```python
-# BAD: Hardcoded hosts
-zmq_host = "127.0.0.1"
-api_host = os.environ.get("API_HOST", "localhost")
-host = config.get('host', '127.0.0.1')
-
-# BAD: Hardcoded timeouts
-time.sleep(5)
-socket.setsockopt(zmq.RCVTIMEO, 1000)
-thread.join(timeout=2.0)
-```
-
-### ✅ GOOD - Follows architecture principles:
-```python
-# GOOD: Configuration-driven
-from feagi.config.toml_loader import get_host_config, get_timeout_config
-config = load_feagi_config()
-host_config = get_host_config(config)  # Validates required hosts
-timeout_config = get_timeout_config(config)
-
-# Use validated configuration
-zmq_host = host_config.zmq_host
-api_host = host_config.api_host
-shutdown_timeout = timeout_config.graceful_shutdown
-```
-
-## ARCHITECTURE COMPLIANCE TESTING
-
-Run these tests before any commit:
-```bash
-# Run architecture compliance tests
-pytest tests/system/test_architecture_compliance.py -v
-
-# Check for hardcoded violations
-pytest -m compliance -v
-```
-
-These tests will catch:
-- 33+ types of hardcoded network host violations
-- 16+ types of hardcoded timeout violations  
-- Missing configuration system usage
-- Improper fallback patterns
-
-## REMEMBER: Architecture First, Convenience Second
-
-The goal is OS/platform agnostic code that works in:
-- 🐳 Docker containers
-- ☸️ Kubernetes clusters  
-- ☁️ Cloud environments
-- 🖥️ Embedded systems
-- 🖱️ Developer workstations
-
-Every hardcoded value is a potential deployment failure! 
-
-# Code Quality & Structure
-- All code must be clean, modular, and optimized for performance.
-- Use inline comments and descriptive docstrings for all functions, explaining their purpose and usage.
-- Maintain separation of concerns between compute logic, I/O, and state management.
-- Always favor clarity over cleverness.
-- Python code should be written in a way that facilitates future migration to Rust (e.g., static typing, minimal dynamic behavior).
-- Avoid dependencies that are incompatible with WebAssembly, WebGPU, embedded systems, or RTOS environments.
-- All developers and AI tools must follow the structure, naming, and documentation conventions defined in /docs/coding_guidelines.md.
-- Module folders should not duplicate templates. Cursor should use the central guideline for structure and style.
-- Any temporary file during development should be named as *--temp.* and placed under /tmp folder. When done, they have to be deleted when done
-- Do not introduce new files or folder under the project root unless absolutely necessary and with prior pemission.
-- The use of mocking is only allowed when the topic under test depends on an objec that is outside the domain of testing. Use of mocking is prohibited if the object is under test. Cannot use mocking for the purpose of making the test pass. Should never mock the components that are the actual subject of the test.
-- no environmental variable should be hardcoded for example network port numbers.
-- design should be operating system/platform agnostic. Do not assume and hardcode OS speficic notations such as paths.
-
-
-# Documentation
-- Every major module must contain its own `README.md` or `.md` file in the same folder, describing its functionality, design rationale, and dependencies.
-- The `/docs` folder must contain all high-level system design documentation, including architecture overviews, Rust/RTOS migration plans, and internal tooling notes.
-- Keep documentation up to date with significant changes and include diagrams when helpful.
-- System level design and architecture docs along with project level documents intended for developers will be captured in either `/docs` folder
-- Detailed module level documentation will coexist inside module folders all in markdown format
-- Docusaurus will be only used for documents that will be end-user facing such as tutorials, blogs, etc. and will be part of the `/website folder`
-- The naming convention for each newly created document has to be compliant with the agreed format outlined under /docs/README.md
-- before creating any new document, ensure the content cannot be added to an existing document. only in the case that none of the existing documents can accomodate the new topic then proceed with the creation of a new document file.
-
-
-# Testing
-- All project tests must be placed under the `/tests` directory.
-- Tests should mirror the main project structure (e.g., `/feagi/npu/...` has corresponding `/tests/npu/...`).
-- All tests must use `pytest`.
-- Tests should be meaningful, concise, and target edge cases as well as expected flows.
-- Include performance benchmarks or profiling tests for critical components when appropriate.
-- Tests should not be skipped for the purpose of overcoming an error. A true fix has to be implemented.
-
-# Style & Linting
-- Use `black` for code formatting, `flake8` or `ruff` for linting, and `mypy` for type checking.
-- CI should block merges on failing formatting, linting, or tests.
-
-# Build & Portability
-- Design with cross-platform compatibility in mind (Linux, macOS, embedded targets).
-- Avoid system-dependent behavior unless properly abstracted.
-
-# Security & Resilience
-- Handle input sanitization and edge case validation explicitly.
-- Prefer fail-safe defaults and meaningful error messages in case of unexpected failures.
-
-
-# Cursor-specific guidance
-- Code files should remain modular and ideally under 300–500 lines for better readability and AI-assisted navigation.
-- Use descriptive folder and file names to help AI infer intent (e.g., /gpu_accel, /neuron_pool).
-- Inline comments before blocks (e.g., "# GPU-compatible", "# Critical path") should describe constraints to guide Cursor when generating or editing code.
-- AI usage should assume Rust/RTOS interoperability: favor static types, minimal global state, and minimal runtime reflection.
-- Include `@cursor:` tags such as `@cursor:gpu`, `@cursor:critical-path`, or `@cursor:ffi-safe` in comments to mark critical sections or design constraints.
-- Maintain example patterns in each module's README.md or scaffold files to help guide consistent AI output.
-- Reference `.rules` explicitly in code review prompts (e.g., "Conform this to .rules").
-- When modifying code, always read beware of requirements outlined with in system level and module level documentation. If there is a major discrepancy, ask for clarification or approval
-- if there is a design change, ensure documentation is updated to reflect the change
-- no not complecate code with backward compatibility cases unless explicitly asked
-- no python package should be installed using pip unless in an activated virtual environment 
-- your disgreements is more important than agreements. do not just take everything you are told unless you analyze and assedd pros and cons. if you see what you are told or asked is detrimental to project goals and values or violates any of the rules defined here, speak up!
-
-# Misc
-- Do not install any python package on the system unless within an activated virtual environment.
-- Always look for the availability of a virtual environment first prior to installing any new package
-- The use of any emoji in this project is disallowed
--
-
-
-
-# FEAGI 2.0 Project-Wide Architecture Compliance Rules
-
-## 🏗️ ARCHITECTURE PRINCIPLES
-FEAGI 2.0 follows strict OS/platform agnostic architecture principles.
-ALL code must work across Docker, Kubernetes, cloud, embedded, and desktop environments.
-
-## 🚨 CRITICAL VIOLATIONS - NEVER ALLOW THESE
-
-### Network Host Hardcoding (FORBIDDEN)
-❌ `"127.0.0.1"` - Never hardcode localhost IP
-❌ `"localhost"` - Never hardcode hostname  
-❌ `os.environ.get("*HOST*", "127.0.0.1")` - Never use hardcoded fallbacks
-❌ `config.get('host', 'localhost')` - Never use hardcoded defaults
-
-### Timeout Hardcoding (FORBIDDEN)  
-❌ `time.sleep(5)` - Never hardcode sleep durations
-❌ `timeout=30` - Never hardcode timeout values
-❌ `.join(timeout=2.0)` - Never hardcode thread timeouts
-
-## ✅ REQUIRED PATTERNS
-
-### Use Configuration System
-```python
-from feagi.config.toml_loader import get_host_config, get_timeout_config
-config = load_feagi_config()
-host_config = get_host_config(config)  # Will fail if hosts not configured
 timeout_config = get_timeout_config(config)
 ```
 
-### Acceptable Emergency Fallbacks with @architecture:acceptable
-⚠️ **CRITICAL**: Emergency fallbacks are ONLY acceptable when explicitly marked:
+### 3.2. Emergency Fallbacks – Explicit and Rare
+Only use fallback values if:
+- Inside `try/except Exception` blocks
+- During shutdown or critical failure
+- When marked with `# @architecture:acceptable - [reason]`
 
+Accepted reasons:
+- `emergency fallback`
+- `shutdown cleanup`
+- `test isolation`
+- `signal handler`
+
+Examples:
 ```python
 try:
     config = load_feagi_config()
-    timeout_config = get_timeout_config(config)
-    shutdown_timeout = timeout_config.graceful_shutdown
 except Exception:
-    # Emergency fallback when configuration completely unavailable
-    shutdown_timeout = 8.0  # @architecture:acceptable - emergency fallback
+    timeout = 8.0  # @architecture:acceptable - emergency fallback
 ```
 
-## 📋 @architecture:acceptable ANNOTATION RULES
-
-### ✅ When Emergency Fallbacks ARE Acceptable:
-1. **Exception Handlers**: Inside `except Exception:` blocks when config loading fails
-2. **Shutdown Procedures**: During system shutdown when configuration may be unavailable
-3. **Critical Path Recovery**: When system must continue operating despite config failure
-4. **Test Isolation**: In unit tests that need isolated behavior
-
-### ❌ When Emergency Fallbacks ARE NOT Acceptable:
-1. **Normal Operation**: Any code path used during normal FEAGI operation
-2. **Initialization**: Initial system setup and configuration loading
-3. **API Endpoints**: REST/ZMQ endpoints serving client requests
-4. **Development Convenience**: Making code "easier" to run without proper config
-
-### 🔧 Required Annotation Format:
-```python
-# @architecture:acceptable - [reason]
-```
-
-**Valid reasons:**
-- `emergency fallback` - Configuration completely unavailable
-- `shutdown cleanup` - System shutting down, config may be invalid
-- `test isolation` - Unit test requiring specific behavior
-- `signal handler` - Signal-safe code with minimal dependencies
-
-### 📝 Complete Examples:
-
-**✅ CORRECT - Shutdown with emergency fallback:**
-```python
-try:
-    config = load_feagi_config()
-    timeout_config = get_timeout_config(config)
-    graceful_shutdown_timeout = timeout_config.graceful_shutdown
-except Exception as e:
-    print(f"Config unavailable during shutdown: {e}", file=sys.stderr)
-    graceful_shutdown_timeout = 8.0  # @architecture:acceptable - emergency fallback
-```
-
-**✅ CORRECT - Signal handler with minimal dependencies:**
 ```python
 def signal_handler(sig, frame):
-    # Signal handlers must be minimal and safe
     time.sleep(0.1)  # @architecture:acceptable - signal handler
     sys.exit(0)
 ```
 
-**✅ CORRECT - Test with isolated behavior:**
-```python
-def test_component_with_timeout():
-    # Test needs specific timeout to verify behavior
-    timeout = 2.0  # @architecture:acceptable - test isolation
-    result = component.process_with_timeout(timeout)
-    assert result.completed_within_timeout
+---
+
+## 4. Component-Specific Rules
+
+### feagi_core/
+- Use config system exclusively.
+- No fallback values allowed in normal operation.
+- Run architecture compliance tests on changes.
+
+### feagi_bridge/
+- Must support dynamic host/port resolution.
+- No hardcoded or default values outside config system.
+
+### feagi_connector/
+- Client-side defaults allowed only with annotation.
+- Must support full configuration override.
+
+### feagi_sim/
+- Must support containerized and headless operation.
+- Defaults must be explicitly annotated if used.
+
+---
+
+## 5. Testing Requirements
+
+Before committing:
+```bash
+cd feagi_core
+pytest tests/system/test_architecture_compliance.py -v
 ```
 
-**❌ WRONG - Normal operation without annotation:**
-```python
-def connect_to_database():
-    host = "localhost"  # ❌ FORBIDDEN - normal operation, no annotation
-    # Should use: host_config.database_host
-```
+These tests enforce:
+- No hardcoded hostnames/IPs
+- No hardcoded timeouts
+- Proper config resolution
+- Proper use of @architecture:acceptable annotations
 
-**❌ WRONG - Annotation on normal operation:**
-```python
-def start_api_server():
-    host = "127.0.0.1"  # @architecture:acceptable - convenience
-    # ❌ FORBIDDEN - "convenience" is not a valid reason
-    # Should use: host_config.api_host
-```
+---
 
-### Environment Variables (Only for overrides)
+## 6. Cursor Integration and Linting
+
+### Forbidden Patterns (Cursor must reject):
+- `host = "127.0.0.1"`
+- `timeout = 30`
+- `os.environ.get("HOST", "localhost")`
+- Emojis in code or commit messages
+
+### Cursor Review Prompts:
+- "Check this for architecture compliance"
+- "Verify all emergency fallbacks are annotated"
+- "Ensure configuration is used instead of hardcoded values"
+
+### Ruff Linting Requirements
+- Must pass `ruff check` with `--fix` and project `.ruff.toml` config
+- Enable `flake8`, `isort`, `pycodestyle`, `pylint` compatibility modes
+- No wildcard imports, no unused variables, no magic numbers
+
+---
+
+## 7. Maintainability and Performance Guidelines
+
+- No fallbacks in core logic: enforce strict configuration dependency.
+- Strict typing: use type hints and `mypy`.
+- No runtime ambiguity: all branching behavior must be testable and predictable.
+- Deterministic execution: behavior must not vary by platform or runtime.
+- No third-party implicit behavior: all third-party integrations must be documented.
+- Dependency injection for testable services.
+- Minimal and traceable error handling: use structured exceptions.
+
+---
+
+## 8. Deployment Targets (All Mandatory)
+
+- Docker containers with custom networks
+- Kubernetes pods using service discovery
+- Cloud platforms (AWS, GCP, Azure)
+- Embedded hardware (resource-constrained)
+- Local developer machines
+
+---
+
+## 9. Environment Variable Overrides
+
+Acceptable only for runtime config override (e.g., in CI/CD):
 ```bash
 FEAGI_API_HOST=192.168.1.100
 FEAGI_ZMQ_HOST=0.0.0.0
 FEAGI_API_PORT=8080
 ```
 
-## 📁 COMPONENT-SPECIFIC RULES
+---
 
-### feagi_core/
-- MUST use validated configuration for all network/timeout operations
-- MUST test architecture compliance with `pytest tests/system/test_architecture_compliance.py`
-- Emergency fallbacks ONLY in shutdown/exception paths with `@architecture:acceptable`
+## 10. References
 
-### feagi_bridge/ 
-- MUST use FEAGI configuration system, not independent hardcoded values
-- MUST support dynamic host/port configuration
-- NO hardcoded fallbacks in normal operation
+- Configuration system: `feagi_core/feagi/config/toml_loader.py`
+- Architecture tests: `feagi_core/tests/system/test_architecture_compliance.py`
+- Sample config: `feagi_core/feagi_configuration.toml`
+- Contribution Guide: `CONTRIBUTING.md`
+- Cursor compliance rules: `.cursorrules`
+- Ruff config: `.ruff.toml`
 
-### feagi_connector/
-- MUST allow host/port override via configuration
-- NEVER assume localhost availability  
-- Client code may use reasonable defaults with `@architecture:acceptable - client default`
+---
 
-### feagi_sim/
-- MUST work in containerized environments
-- MUST support headless operation
-- Simulation parameters can use reasonable defaults with annotation
+## 11. Other
+- Always follow PEP8/Ruff rules
+- do not use --unsafe-fix option with ruff
+- do not commit with --no-verify
 
-## 🧪 TESTING REQUIREMENTS
+## 12. Incremental Code Quality Improvement
 
-Before any commit involving network/timeout code:
-```bash
-# Run architecture compliance tests
-cd feagi_core && pytest tests/system/test_architecture_compliance.py -v
+### 12.1. Mandatory Ruff Check on Module Edits
+**CRITICAL RULE**: Before editing ANY module, you MUST:
 
-# These tests automatically detect and validate:
-# - No hardcoded "127.0.0.1" or "localhost" in critical paths
-# - No hardcoded timeout values in operational code
-# - Components properly reject missing configuration
-# - Environment variable overrides work correctly
-# - @architecture:acceptable annotations are used properly
-```
+1. **Run ruff check on the specific module**:
+   ```bash
+   ruff check path/to/module.py --statistics
+   ```
 
-## 🎯 DEPLOYMENT TARGETS
+2. **Fix ALL violations in that module** before making your intended changes:
+   - F841 (unused variables)
+   - F401 (unused imports)
+   - B007 (unused loop control variables)
+   - B904 (raise without from)
+   - E722 (bare except clauses)
+   - E712 (true/false comparisons)
+   - Any other violations found
 
-Code MUST work in ALL these environments:
-- 🐳 Docker containers (custom networks)
-- ☸️ Kubernetes pods (service discovery)  
-- ☁️ AWS/GCP/Azure (dynamic IPs)
-- 🖥️ Embedded systems (limited resources)
-- 💻 Developer workstations (localhost)
+3. **Commit the ruff fixes separately** with descriptive message:
+   ```bash
+   git commit -m "Fix ruff violations in module_name.py before feature work"
+   ```
 
-## 🔧 CURSOR INTEGRATION
+4. **Then proceed with your intended changes**
 
-When Cursor suggests patterns like:
-- `host = "127.0.0.1"` → 🚨 REJECT, use `get_host_config()`
-- `timeout = 30` → 🚨 REJECT, use `get_timeout_config()`  
-- `os.environ.get("HOST", "localhost")` → 🚨 REJECT, use configuration system
+### 12.2. Module-Level Quality Gates
+- No module may be edited without first achieving zero ruff violations
+- This ensures incremental improvement of the entire codebase
+- New code will be built on a solid, clean foundation
+- Prevents accumulation of technical debt
 
-### AI-Assisted Code Review Prompts:
-- "Check this code for architecture compliance violations"
-- "Verify all @architecture:acceptable annotations are justified"
-- "Ensure this component uses configuration system properly"
+### 12.3. Exception Handling
+Only skip ruff fixes if:
+- Module has >100 violations (document and create separate cleanup task)
+- Critical production hotfix (must create follow-up cleanup task)
+- Mark exceptions with: `# @ruff-skip: [reason] - cleanup task: [task-id]`
 
-## 📚 REFERENCES
+### 12.4. Benefits
+- Gradual codebase improvement without dedicated cleanup sprints
+- Ensures all touched code meets quality standards
+- Prevents regression of code quality
+- Makes future maintenance easier
+- Builds developer habits for clean code
 
-- Configuration system: `feagi/config/toml_loader.py`
-- Architecture tests: `tests/system/test_architecture_compliance.py`
-- Example configuration: `feagi_configuration.toml`
-- **Developer Guide: `CONTRIBUTING.md`** - Complete developer and contribution guidelines
-- Cursor integration: This `.cursorrules` file
+---
 
-**Remember: Every hardcoded value is a potential deployment failure!**
-**Use @architecture:acceptable annotation ONLY for legitimate emergency cases!** 
+## Final Reminder
+
+Every hardcoded value is a potential source of failure across platforms. No code may be merged unless it passes architecture compliance tests and adheres to all configuration rules.

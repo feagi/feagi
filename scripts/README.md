@@ -9,7 +9,7 @@ Two versions of the FEAGI process killer are available:
 ### 1. Bash Version (`kill_feagi.sh`)
 - **Platform**: Unix/Linux/macOS
 - **Dependencies**: Standard Unix tools (ps, grep, kill)
-- **Usage**: 
+- **Usage**:
   ```bash
   ./scripts/kill_feagi.sh [OPTIONS]
   ```
@@ -17,7 +17,7 @@ Two versions of the FEAGI process killer are available:
 ### 2. Python Version (`kill_feagi.py`)
 - **Platform**: Cross-platform (Windows, macOS, Linux)
 - **Dependencies**: Python 3.6+ with `psutil` library
-- **Usage**: 
+- **Usage**:
   ```bash
   python3 scripts/kill_feagi.py [OPTIONS]
   ```
@@ -78,4 +78,4 @@ python3 scripts/kill_feagi.py --force
 
 - Requires appropriate permissions to kill processes owned by other users
 - On some systems, you may need to run with `sudo` for system-wide process termination
-- The Python version provides more detailed process information and better cross-platform support 
+- The Python version provides more detailed process information and better cross-platform support

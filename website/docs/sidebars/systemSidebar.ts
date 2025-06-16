@@ -138,4 +138,4 @@ const systemSidebar: SidebarsConfig = {
   ],
 };
 
-export default systemSidebar; 
+export default systemSidebar;

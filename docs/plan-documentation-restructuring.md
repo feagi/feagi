@@ -96,4 +96,4 @@ This document outlines the plan for restructuring the FEAGI documentation accord
 
 1. Create `/docs/assets` directory for diagrams
 2. Begin Phase 2 by renaming files in `/docs`
-3. Start consolidation of similar documents 
+3. Start consolidation of similar documents

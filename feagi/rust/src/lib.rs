@@ -26,4 +26,4 @@ use pyo3::prelude::*;
 #[pymodule]
 fn feagi_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     ffi::feagi_rust(_py, m)
-} 
+}

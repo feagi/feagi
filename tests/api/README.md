@@ -11,7 +11,7 @@ This directory contains tests for the FEAGI API components.
 
 ## Important Notes
 
-### FEAGI Connector 
+### FEAGI Connector
 
 The feagi_connector tests are currently disabled as the feagi_connector module is planned to be moved to a separate FEAGI Bridge project. This will resolve circular dependency issues between the main FEAGI application and the connector library.
 
@@ -25,4 +25,4 @@ pytest tests/api
 
 # Run specific test category
 pytest tests/api/rest
-``` 
+```

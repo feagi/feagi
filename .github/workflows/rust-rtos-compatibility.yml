@@ -28,13 +28,13 @@ jobs:
   rust-compatibility:
     name: Rust Compatibility
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         rust-version: [stable, beta, 1.70.0]  # Minimum supported Rust version
         target: [
           'x86_64-unknown-linux-gnu',
-          'aarch64-unknown-linux-gnu', 
+          'aarch64-unknown-linux-gnu',
           'armv7-unknown-linux-gnueabihf',
           'thumbv7em-none-eabihf',  # Cortex-M4F (embedded)
           'thumbv8m.main-none-eabihf',  # Cortex-M33 (embedded)
@@ -49,35 +49,35 @@ jobs:
             target: 'thumbv8m.main-none-eabihf'
           - rust-version: beta
             target: 'riscv32imac-unknown-none-elf'
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Rust ${{ matrix.rust-version }}
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.rust-version }}
         targets: ${{ matrix.target }}
         components: rustfmt, clippy
-    
+
     - name: Install cross-compilation dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
-        
+
         # Install embedded toolchain dependencies
         if [[ "${{ matrix.target }}" == thumbv* || "${{ matrix.target }}" == riscv* ]]; then
           sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi
-          
+
           # Install additional RISC-V tools if needed
           if [[ "${{ matrix.target }}" == riscv* ]]; then
             sudo apt-get install -y gcc-riscv64-unknown-elf || echo "RISC-V GCC not available in package manager"
           fi
         fi
-        
+
         # Install cross for cross-compilation
         cargo install cross --git https://github.com/cross-rs/cross || echo "Cross install failed, will use cargo directly"
-    
+
     - name: Cache Rust dependencies
       uses: actions/cache@v3
       with:
@@ -92,38 +92,38 @@ jobs:
           ${{ runner.os }}-cargo-${{ matrix.rust-version }}-${{ matrix.target }}-
           ${{ runner.os }}-cargo-${{ matrix.rust-version }}-
           ${{ runner.os }}-cargo-
-    
+
     - name: Check Rust Code Format
       working-directory: feagi/rust
       run: |
         echo "=== Checking Rust Code Format ==="
         cargo fmt --all -- --check
-    
+
     - name: Run Rust Clippy Lints
       working-directory: feagi/rust
       run: |
         echo "=== Running Rust Clippy Lints ==="
         cargo clippy --target ${{ matrix.target }} --all-features -- -D warnings
-    
+
     - name: Build Rust Components for Target
       working-directory: feagi/rust
       run: |
         echo "=== Building Rust Components for ${{ matrix.target }} ==="
-        
+
         # Check if this is an embedded target
         if [[ "${{ matrix.target }}" == thumbv* || "${{ matrix.target }}" == riscv* ]]; then
           echo "Building for embedded target: ${{ matrix.target }}"
-          
+
           # Use no_std build for embedded targets
           cargo build --target ${{ matrix.target }} --no-default-features --features embedded,no_std
-          
+
           echo "✅ Embedded build successful"
-          
+
           # Check binary size for embedded targets
           if [ -f "target/${{ matrix.target }}/debug/feagi_npu_core" ]; then
             size=$(stat -c%s "target/${{ matrix.target }}/debug/feagi_npu_core")
             echo "Binary size: $size bytes"
-            
+
             # Warn if binary is too large for typical microcontrollers
             if [ $size -gt 1048576 ]; then  # 1MB
               echo "⚠️  Binary size may be too large for some microcontrollers"
@@ -131,113 +131,113 @@ jobs:
               echo "✅ Binary size appropriate for embedded use"
             fi
           fi
-          
+
         elif [[ "${{ matrix.target }}" == "wasm32-unknown-unknown" ]]; then
           echo "Building for WebAssembly target"
-          
+
           # WebAssembly build with web features
           cargo build --target ${{ matrix.target }} --no-default-features --features wasm,simd
-          
+
           echo "✅ WebAssembly build successful"
-          
+
         else
           echo "Building for standard target: ${{ matrix.target }}"
-          
+
           # Standard build with all features
           if command -v cross &> /dev/null && [[ "${{ matrix.target }}" != "x86_64-unknown-linux-gnu" ]]; then
             cross build --target ${{ matrix.target }} --all-features
           else
             cargo build --target ${{ matrix.target }} --all-features
           fi
-          
+
           echo "✅ Standard build successful"
         fi
-    
+
     - name: Test Rust Components (non-embedded)
       working-directory: feagi/rust
       if: ${{ !contains(matrix.target, 'thumbv') && !contains(matrix.target, 'riscv') && matrix.target != 'wasm32-unknown-unknown' }}
       run: |
         echo "=== Testing Rust Components for ${{ matrix.target }} ==="
-        
+
         if command -v cross &> /dev/null && [[ "${{ matrix.target }}" != "x86_64-unknown-linux-gnu" ]]; then
           cross test --target ${{ matrix.target }} --all-features
         else
           cargo test --target ${{ matrix.target }} --all-features
         fi
-        
+
         echo "✅ Rust tests passed"
-    
+
     - name: Test FFI Compatibility
       working-directory: feagi/rust
       if: ${{ matrix.target == 'x86_64-unknown-linux-gnu' && matrix.rust-version == 'stable' }}
       run: |
         echo "=== Testing FFI Compatibility ==="
-        
+
         # Build with C-compatible exports
         cargo build --features ffi
-        
+
         # Create test C program to verify FFI
         cat > test_ffi.c << 'EOF'
         #include <stdio.h>
         #include <stdint.h>
-        
+
         // FFI function declarations (should match Rust exports)
         extern uint32_t feagi_npu_create(uint32_t capacity);
         extern void feagi_npu_destroy(uint32_t handle);
         extern int32_t feagi_npu_update_membrane_potentials(uint32_t handle, const float* inputs, uint32_t count);
-        
+
         int main() {
             printf("Testing FEAGI NPU FFI...\n");
-            
+
             // Test basic FFI functionality
             uint32_t npu = feagi_npu_create(1000);
             if (npu == 0) {
                 printf("❌ Failed to create NPU instance\n");
                 return 1;
             }
-            
+
             printf("✅ NPU instance created: %u\n", npu);
-            
+
             // Test membrane potential update
             float test_inputs[] = {0.1f, 0.2f, 0.3f};
             int32_t result = feagi_npu_update_membrane_potentials(npu, test_inputs, 3);
-            
+
             printf("✅ Membrane potential update result: %d\n", result);
-            
+
             // Cleanup
             feagi_npu_destroy(npu);
             printf("✅ NPU instance destroyed\n");
-            
+
             printf("✅ FFI test completed successfully\n");
             return 0;
         }
         EOF
-        
+
         # Compile and link C test program
         gcc -o test_ffi test_ffi.c -L./target/debug -lfeagi_npu_core -Wl,-rpath,./target/debug
-        
+
         # Run FFI test
         ./test_ffi
-        
+
         echo "✅ FFI compatibility verified"
 
   rtos-compatibility:
     name: RTOS Compatibility Testing
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         rtos: [freertos, zephyr, riot, contiki]
         architecture: [arm, riscv]
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install RTOS Development Tools
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake ninja-build
-        
+
         case "${{ matrix.rtos }}" in
           freertos)
             echo "Setting up FreeRTOS development environment"
@@ -258,24 +258,24 @@ jobs:
             sudo apt-get install -y gcc-msp430
             ;;
         esac
-    
+
     - name: Test RTOS Integration Patterns
       run: |
         echo "=== Testing RTOS Integration Patterns for ${{ matrix.rtos }} ==="
-        
+
         # Create RTOS compatibility test based on matrix
         python3 << 'EOF'
         import sys
         import os
-        
+
         rtos = "${{ matrix.rtos }}"
         arch = "${{ matrix.architecture }}"
-        
+
         print(f"Testing {rtos.upper()} compatibility on {arch.upper()} architecture")
-        
+
         # Test 1: Memory allocation patterns
         print("\n--- Memory Allocation Compatibility ---")
-        
+
         # Simulate RTOS memory constraints
         if rtos == "freertos":
             max_heap = 64 * 1024  # 64KB typical for FreeRTOS
@@ -289,13 +289,13 @@ jobs:
         else:  # contiki
             max_heap = 16 * 1024   # 16KB typical for Contiki
             max_stack = 1024       # 1KB per process
-        
+
         print(f"Max heap: {max_heap} bytes")
         print(f"Max stack per task: {max_stack} bytes")
-        
+
         # Test 2: Real-time constraints
         print("\n--- Real-time Constraint Testing ---")
-        
+
         # Simulate different timing requirements
         if rtos in ["freertos", "zephyr"]:
             max_latency_us = 100  # Hard real-time
@@ -303,82 +303,82 @@ jobs:
             max_latency_us = 1000  # Soft real-time
         else:  # contiki
             max_latency_us = 10000  # Event-driven
-        
+
         print(f"Maximum allowed latency: {max_latency_us} microseconds")
-        
+
         # Test 3: Static vs dynamic allocation
         print("\n--- Static vs Dynamic Allocation ---")
-        
+
         if rtos in ["freertos", "contiki"]:
             allocation_type = "static_preferred"
         else:
             allocation_type = "dynamic_allowed"
-        
+
         print(f"Allocation strategy: {allocation_type}")
-        
+
         # Test 4: Architecture-specific optimizations
         print(f"\n--- {arch.upper()} Architecture Optimizations ---")
-        
+
         if arch == "arm":
             features = ["NEON", "DSP", "FPU"]
             word_size = 32
         else:  # riscv
             features = ["Vector", "Multiply", "Compressed"]
             word_size = 32
-        
+
         print(f"Word size: {word_size} bits")
         print(f"Available features: {features}")
-        
+
         # Test 5: Power management compatibility
         print("\n--- Power Management ---")
-        
+
         if rtos == "contiki":
             power_mode = "ultra_low_power"
         elif rtos == "riot":
             power_mode = "low_power"
         else:
             power_mode = "performance_optimized"
-        
+
         print(f"Power mode: {power_mode}")
-        
+
         print(f"\n✅ {rtos.upper()} compatibility analysis completed")
         EOF
-    
+
     - name: Test Embedded Memory Constraints
       run: |
         echo "=== Testing Embedded Memory Constraints ==="
-        
+
         python3 << 'EOF'
         import sys
-        
+
         # Simulate memory-constrained environment
         class MemoryConstrainedNPU:
             def __init__(self, max_neurons, max_synapses, heap_size):
                 self.max_neurons = max_neurons
                 self.max_synapses = max_synapses
                 self.heap_size = heap_size
-                
+
                 # Calculate memory requirements
                 neuron_size = 32  # bytes per neuron (float32 * 8 fields)
                 synapse_size = 16  # bytes per synapse (src, dst, weight, delay)
-                
+
                 self.neuron_memory = max_neurons * neuron_size
                 self.synapse_memory = max_synapses * synapse_size
                 self.total_memory = self.neuron_memory + self.synapse_memory
-                
+
                 print(f"NPU Memory Requirements:")
                 print(f"  Neurons: {max_neurons} × {neuron_size}B = {self.neuron_memory} bytes")
                 print(f"  Synapses: {max_synapses} × {synapse_size}B = {self.synapse_memory} bytes")
                 print(f"  Total: {self.total_memory} bytes ({self.total_memory/1024:.1f} KB)")
                 print(f"  Available heap: {heap_size} bytes ({heap_size/1024:.1f} KB)")
-                
+
                 if self.total_memory <= heap_size:
                     print(f"✅ Memory requirements fit within constraints")
                     self.fits = True
                 else:
                     print(f"❌ Memory requirements exceed available heap")
                     self.fits = False
-        
+
         # Test different embedded scenarios
         scenarios = [
             ("Cortex-M4 (STM32F4)", 1000, 10000, 128*1024),
@@ -386,9 +386,9 @@ jobs:
             ("RISC-V (ESP32-C3)", 2000, 20000, 256*1024),
             ("Cortex-M33 (nRF9160)", 3000, 30000, 256*1024),
         ]
-        
+
         print("Testing memory constraints for different embedded targets:\n")
-        
+
         all_fit = True
         for name, neurons, synapses, heap in scenarios:
             print(f"--- {name} ---")
@@ -396,84 +396,84 @@ jobs:
             if not npu.fits:
                 all_fit = False
             print()
-        
+
         if all_fit:
             print("✅ All embedded memory constraint tests passed")
         else:
             print("⚠️  Some configurations exceed memory constraints")
             print("Consider implementing memory pooling or compression")
         EOF
-    
+
     - name: Test Real-Time Performance Requirements
       run: |
         echo "=== Testing Real-Time Performance Requirements ==="
-        
+
         python3 << 'EOF'
         import time
         import statistics
-        
+
         # Simulate real-time performance testing
         def simulate_npu_update(neuron_count):
             """Simulate NPU update with processing time."""
             # Base processing time: ~1μs per neuron (optimistic estimate)
             base_time_us = neuron_count * 1e-6
-            
+
             # Add some variability to simulate real conditions
             import random
             variability = random.uniform(0.8, 1.2)
-            
+
             processing_time = base_time_us * variability
             time.sleep(processing_time)  # Simulate processing
-            
+
             return processing_time * 1e6  # Return time in microseconds
-        
+
         # Test different real-time scenarios
         scenarios = [
             ("Motor Control (1kHz)", 1000, 1000),      # 1ms max latency
-            ("Audio Processing (48kHz)", 48000, 20),   # 20μs max latency  
+            ("Audio Processing (48kHz)", 48000, 20),   # 20μs max latency
             ("Sensor Fusion (100Hz)", 100, 10000),     # 10ms max latency
             ("Vision Processing (30Hz)", 30, 33000),   # 33ms max latency
         ]
-        
+
         print("Testing real-time performance requirements:\n")
-        
+
         all_passed = True
         for scenario_name, frequency_hz, max_latency_us in scenarios:
             print(f"--- {scenario_name} ---")
-            
+
             # Calculate required processing budget
             period_us = 1_000_000 / frequency_hz
             processing_budget_us = period_us * 0.8  # 80% utilization max
-            
+
             print(f"Frequency: {frequency_hz} Hz")
             print(f"Period: {period_us:.0f} μs")
             print(f"Processing budget: {processing_budget_us:.0f} μs")
             print(f"Max latency: {max_latency_us} μs")
-            
+
             # Simulate multiple update cycles
             neuron_count = min(1000, int(processing_budget_us))  # Scale neurons to budget
             times = []
-            
+
             for _ in range(10):
                 update_time = simulate_npu_update(neuron_count)
                 times.append(update_time)
-            
+
             avg_time = statistics.mean(times)
             max_time = max(times)
-            
+
             print(f"Neurons processed: {neuron_count}")
             print(f"Average update time: {avg_time:.1f} μs")
             print(f"Maximum update time: {max_time:.1f} μs")
-            
+
             # Check if requirements are met
             if max_time <= max_latency_us and avg_time <= processing_budget_us:
                 print("✅ Real-time requirements met")
             else:
                 print("❌ Real-time requirements not met")
                 all_passed = False
-            
+
             print()
-        
+
         if all_passed:
             print("✅ All real-time performance tests passed")
         else:
@@ -485,61 +485,61 @@ jobs:
     name: Cross-Platform Integration Test
     runs-on: ubuntu-latest
     needs: [rust-compatibility, rtos-compatibility]
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Integration Test Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y python3-pip qemu-user qemu-system-arm
         pip3 install pytest numpy
-    
+
     - name: Test Python-Rust FFI Integration
       run: |
         echo "=== Testing Python-Rust FFI Integration ==="
-        
+
         # Verify that Python can call Rust functions
         python3 << 'EOF'
         import ctypes
         import os
         import sys
-        
+
         print("Testing Python-Rust FFI integration...")
-        
+
         # This is a mock test - in real implementation, we'd have built Rust library
         try:
             # Simulate successful FFI
             print("✅ FFI library loading: simulated success")
-            print("✅ Function symbol resolution: simulated success") 
+            print("✅ Function symbol resolution: simulated success")
             print("✅ Data type compatibility: verified")
             print("✅ Error handling: verified")
             print("✅ Memory management: verified")
-            
+
             # Test data structure compatibility
             import struct
-            
+
             # Test that Python and Rust use same data layouts
             test_struct = struct.pack('ffff', 1.0, 2.0, 3.0, 4.0)  # 4 float32s
-            
+
             print(f"✅ Struct packing: {len(test_struct)} bytes")
             print("✅ Endianness compatibility: verified")
-            
+
         except Exception as e:
             print(f"❌ FFI integration test failed: {e}")
             sys.exit(1)
-        
+
         print("✅ Python-Rust FFI integration test completed")
         EOF
-    
+
     - name: Test WASM Compatibility
       run: |
         echo "=== Testing WebAssembly Compatibility ==="
-        
+
         # Test WASM-specific considerations
         python3 << 'EOF'
         import json
-        
+
         # Test WASM compatibility requirements
         wasm_tests = {
             "linear_memory": True,       # Single linear memory space
@@ -550,29 +550,29 @@ jobs:
             "no_file_system": True,     # No direct file system access
             "limited_imports": True     # Limited host function imports
         }
-        
+
         print("WebAssembly compatibility requirements:")
-        
+
         all_compatible = True
         for requirement, compatible in wasm_tests.items():
             status = "✅" if compatible else "❌"
             print(f"{status} {requirement.replace('_', ' ').title()}: {'Compatible' if compatible else 'Not Compatible'}")
-            
+
             if not compatible:
                 all_compatible = False
-        
+
         if all_compatible:
             print("\n✅ All WebAssembly compatibility requirements met")
         else:
             print("\n❌ Some WebAssembly requirements not met")
-        
+
         # Test memory layout requirements
         print("\nWebAssembly memory layout requirements:")
         print("✅ Little-endian byte order")
         print("✅ IEEE 754 floating point")
-        print("✅ Two's complement integers") 
+        print("✅ Two's complement integers")
         print("✅ C-compatible struct layouts")
-        
+
         print("\n✅ WebAssembly compatibility analysis completed")
         EOF
 
@@ -581,7 +581,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [rust-compatibility, rtos-compatibility, cross-platform-integration]
     if: always()
-    
+
     steps:
     - name: Generate Compatibility Report
       run: |
@@ -589,13 +589,13 @@ jobs:
         echo "" >> rust_rtos_report.md
         echo "## Test Results" >> rust_rtos_report.md
         echo "" >> rust_rtos_report.md
-        
+
         # Check job results
         echo "- **Rust Compatibility**: ${{ needs.rust-compatibility.result }}" >> rust_rtos_report.md
         echo "- **RTOS Compatibility**: ${{ needs.rtos-compatibility.result }}" >> rust_rtos_report.md
         echo "- **Cross-Platform Integration**: ${{ needs.cross-platform-integration.result }}" >> rust_rtos_report.md
         echo "" >> rust_rtos_report.md
-        
+
         echo "## Tested Targets" >> rust_rtos_report.md
         echo "" >> rust_rtos_report.md
         echo "### Rust Targets" >> rust_rtos_report.md
@@ -607,14 +607,14 @@ jobs:
         echo "- ✅ riscv32imac-unknown-none-elf (RISC-V embedded)" >> rust_rtos_report.md
         echo "- ✅ wasm32-unknown-unknown (WebAssembly)" >> rust_rtos_report.md
         echo "" >> rust_rtos_report.md
-        
+
         echo "### RTOS Platforms" >> rust_rtos_report.md
         echo "- ✅ FreeRTOS (ARM & RISC-V)" >> rust_rtos_report.md
         echo "- ✅ Zephyr (ARM & RISC-V)" >> rust_rtos_report.md
         echo "- ✅ RIOT-OS (ARM & RISC-V)" >> rust_rtos_report.md
         echo "- ✅ Contiki-NG (ARM & RISC-V)" >> rust_rtos_report.md
         echo "" >> rust_rtos_report.md
-        
+
         echo "## Key Compatibility Features Verified" >> rust_rtos_report.md
         echo "" >> rust_rtos_report.md
         echo "- ✅ Cross-compilation to embedded targets" >> rust_rtos_report.md
@@ -626,14 +626,14 @@ jobs:
         echo "- ✅ WASM compatibility" >> rust_rtos_report.md
         echo "- ✅ Multi-architecture support (ARM, RISC-V, x86)" >> rust_rtos_report.md
         echo "" >> rust_rtos_report.md
-        
+
         echo "---" >> rust_rtos_report.md
         echo "*Report generated on $(date)*" >> rust_rtos_report.md
-        
+
         cat rust_rtos_report.md
-    
+
     - name: Upload Compatibility Report
       uses: actions/upload-artifact@v3
       with:
         name: rust-rtos-compatibility-report
-        path: rust_rtos_report.md 
+        path: rust_rtos_report.md

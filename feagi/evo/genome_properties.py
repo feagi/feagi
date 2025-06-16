@@ -19,7 +19,7 @@ genome_properties = {
         "segment_guide": "________-______-__-______-_",
         "segment_count": 5,
         "segment_seperator": "-",
-        "cortical_id_length": 6
+        "cortical_id_length": 6,
     },
     "position": {
         "gene": [0, 0, 26],
@@ -29,12 +29,5 @@ genome_properties = {
         "encoding_id": [4, 19, 24],
         "value_type": [5, 26, 26],
     },
-    "value": {
-        "gene_classifier": [
-            "nx", "cx"
-        ],
-        "value_type": [
-            "b", "i", "f", "d", "t"
-        ]
-    }
+    "value": {"gene_classifier": ["nx", "cx"], "value_type": ["b", "i", "f", "d", "t"]},
 }

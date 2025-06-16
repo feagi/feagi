@@ -121,4 +121,4 @@ The shared memory IPC architecture is being implemented in phases:
 
 - [System Overview](arch-system-overview.md)
 - [GPU Architecture](arch-gpu.md)
-- [State Management](arch-state-management.md) 
+- [State Management](arch-state-management.md)

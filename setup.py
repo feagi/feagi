@@ -14,9 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-import sys
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 # Always disable Rust extensions for testing
 HAS_SETUPTOOLS_RUST = False
@@ -54,11 +52,35 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "feagi_bytes>=0.1.0",  # Require the feagi_bytes package
-        "numpy>=1.20.0",
-        "zmq>=0.0.0",
-        "fastapi>=0.86.0",
-        "uvicorn>=0.20.0",
+        "pydantic",
+        "toml",
+        "numpy",
+        "zmq",
+        "capnp",
+        "toml",
+        "feagi-data-processing>=0.0.30",  # Replace feagi_bytes with high-performance feagi-data-processing
+        "tomli",
+        "tomli-w",
+        "pathlib",
+        "asyncio",
+        "uvloop;platform_system!='Windows'",
+        "pydantic-settings",
+        "influxdb-client",
+        "tqdm",
+        "pytest",
+        "pytest-asyncio",
+        "pytest-timeout",
+        "pytest-cov",
+        "loguru",
+        "msgpack",
+        "websockets",
+        "pynvml",
+        "psutil",
+        "fastapi",
+        "httpx",
+        "uvicorn",
+        "aiofiles",
+        "websockets",
     ],
     entry_points={
         "console_scripts": [
@@ -67,4 +89,4 @@ setup(
             "feagi=feagi.main:main",
         ],
     },
-) 
+)

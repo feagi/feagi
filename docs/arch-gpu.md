@@ -32,7 +32,7 @@ FEAGI supports multiple compute backends for neural network operations, enabling
 
 ### **wgpu** (What we use)
 - **Type**: Rust-based native GPU library
-- **Target**: Desktop/mobile applications, embedded systems  
+- **Target**: Desktop/mobile applications, embedded systems
 - **Backends**: Metal, Vulkan, D3D12, OpenGL
 - **Performance**: Near-native, optimized for high-performance compute
 - **Use case**: Our implementation for Mac M4 Metal acceleration
@@ -72,7 +72,7 @@ backend = ArrayBackend(BackendType.WGPU)
 FEAGI automatically selects the best available backend:
 
 1. **PyTorch** (if CUDA/MPS available)
-2. **CuPy** (if CUDA available)  
+2. **CuPy** (if CUDA available)
 3. **wgpu** (if wgpu library available)
 4. **NumPy** (fallback)
 
@@ -189,4 +189,4 @@ print(f"Device: {stats['device']}")
 ## See Also
 - [GPU Optimization Guide](arch-gpu-optimization.md)
 - [wgpu Compatibility](npu_wgpu_compatibility.md)
-- [Performance Benchmarking](../tests/performance/) 
+- [Performance Benchmarking](../tests/performance/)

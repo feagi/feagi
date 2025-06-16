@@ -131,4 +131,4 @@ For more detailed information on specific components, see:
 - [Genome-Connectome Architecture](arch-genome-connectome.md)
 - [GPU Architecture](arch-gpu.md)
 - [IPC Architecture](arch-ipc.md)
-- [State Management](arch-state-management.md) 
+- [State Management](arch-state-management.md)

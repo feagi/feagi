@@ -21,10 +21,10 @@ import sys
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("test_feagi_client")
+
 
 def main():
     """Connect to a running FEAGI ZMQ server and test messaging."""
@@ -35,5 +35,6 @@ def main():
     logger.info("========================================================")
     return 0
 
+
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

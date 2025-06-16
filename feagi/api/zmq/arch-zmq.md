@@ -136,12 +136,12 @@ This document outlines the high-performance, production-ready ZeroMQ (ZMQ) commu
 ```python
 class ControlStream:
     """REST/JSON control stream for management operations."""
-    
+
     def __init__(self, api_v1_handler: V1APIHandler):
         self.api_v1 = api_v1_handler  # Shared with FastAPI
         self.socket = zmq.Context().socket(zmq.ROUTER)
         self.socket.bind("tcp://*:5561")
-    
+
     async def handle_control_request(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Process control messages using unified REST API."""
         # REST is perfect for control operations - no performance impact
@@ -176,48 +176,48 @@ class NeuralDataHeader:
 
 class SensoryStream:
     """High-performance neural data ingestion from FEAGI_Connector."""
-    
+
     def __init__(self, core_api: CoreAPI):
         self.core_api = core_api
         self.socket = zmq.Context().socket(zmq.PULL)
         self.socket.setsockopt(zmq.RCVHWM, 1000)  # Backpressure
-        
+
         # Platform-specific optimizations
         if sys.platform == "linux":
             self.socket.setsockopt(zmq.SO_ZEROCOPY, 1)
-        
+
         # Pre-allocated ring buffer for zero-copy
         self.ring_buffer = ZeroCopyRingBuffer(
             slots=1024,
             slot_size=1048576  # 1MB per slot for large neural arrays
         )
-        
+
         # Neural data decoders
         self.decoders = {
             ByteStructureID.NEURON_FLAT: self._decode_neuron_flat,
             ByteStructureID.NEURON_SPARSE: self._decode_neuron_sparse,
             ByteStructureID.NEURON_MULTI: self._decode_multi_modal,
         }
-    
+
     def process_neural_data(self) -> StreamResult:
         """Zero-copy neural data processing."""
         # Receive directly into ring buffer
         slot = self.ring_buffer.get_write_slot()
         if not slot:
             return StreamResult.BUFFER_FULL
-        
+
         try:
             # Zero-copy receive into pre-allocated memory
             nbytes = self.socket.recv_into(slot.memory_view, zmq.NOBLOCK)
-            
+
             # Parse fixed-size header without allocation
             header = NeuralDataHeader.from_buffer(slot.memory_view[:32])
-            
+
             # Decode neural data based on protocol
             decoder = self.decoders.get(header.protocol_id)
             if decoder:
                 neural_data = decoder(header, slot.memory_view[32:32+header.payload_size])
-                
+
                 # Direct injection to FCL without copying
                 return self.core_api.inject_neural_data(
                     cortical_area_id=header.cortical_area_id,
@@ -226,18 +226,18 @@ class SensoryStream:
                 )
             else:
                 return StreamResult.UNKNOWN_PROTOCOL
-                
+
         except zmq.Again:
             return StreamResult.NO_DATA
         finally:
             self.ring_buffer.commit_write(slot)
-    
-    def _decode_neuron_flat(self, header: NeuralDataHeader, 
+
+    def _decode_neuron_flat(self, header: NeuralDataHeader,
                            data: memoryview) -> NeuralData:
         """Decode dense neural array format."""
         # Zero-copy view into neural firing data
         neuron_count = header.neuron_count
-        
+
         # Create views without copying
         return NeuralData(
             firing_rates=np.frombuffer(data[0:neuron_count*4], dtype=np.float32),
@@ -248,36 +248,36 @@ class SensoryStream:
 ### 3. Motor Stream (Neural Data Protocol)
 
 **Purpose**: Real-time motor command distribution
-**Transport**: ZMQ PUB Socket  
+**Transport**: ZMQ PUB Socket
 **Protocol**: Compact neural command format
 **Performance**: < 1ms latency
 
 ```python
 class MotorStream:
     """Real-time neural motor command broadcasting."""
-    
+
     def __init__(self, core_api: CoreAPI):
         self.core_api = core_api
         self.socket = zmq.Context().socket(zmq.PUB)
         self.socket.setsockopt(zmq.SNDHWM, 100)  # Prevent buffer bloat
-        
+
         # Pre-allocated command buffers
         self.buffer_pool = FixedBufferPool(
             count=256,
             size=65536,  # 64KB for motor commands
             alignment=64  # Cache line aligned
         )
-    
+
     def publish_motor_commands(self) -> StreamResult:
         """Zero-allocation motor command publishing."""
         buffer = self.buffer_pool.acquire()
         if not buffer:
             return StreamResult.BUFFER_EXHAUSTED
-        
+
         try:
             # Get motor neural data without allocation
             motor_data = self.core_api.get_motor_neural_output(buffer.data)
-            
+
             if motor_data.has_commands:
                 # Build header in-place
                 header = NeuralDataHeader(
@@ -288,12 +288,12 @@ class MotorStream:
                     payload_size=motor_data.data_size
                 )
                 header.write_to(buffer.data)
-                
+
                 # Zero-copy send
                 self.socket.send(buffer.data[:32+motor_data.data_size], copy=False)
-                
+
             return StreamResult.SUCCESS
-            
+
         finally:
             self.buffer_pool.release(buffer)
 ```
@@ -308,33 +308,33 @@ class MotorStream:
 ```python
 class VisualizationStream:
     """Adaptive neural state broadcasting for visualization."""
-    
+
     def __init__(self, core_api: CoreAPI):
         self.core_api = core_api
         self.socket = zmq.Context().socket(zmq.PUB)
-        
+
         # Quality of Service manager
         self.qos = AdaptiveQoSManager(
             min_fps=1,
             max_fps=60,
             target_latency_ms=50
         )
-        
+
         # Compression for large neural states
         self.compressors = {
             CompressionType.NONE: NullCompressor(),
             CompressionType.LZ4: LZ4Compressor(),
             CompressionType.ZSTD: ZstdCompressor(level=3),
         }
-    
+
     def publish_brain_state(self) -> StreamResult:
         """Publish complete brain state for visualization."""
         # Get appropriate detail level based on subscribers
         detail_level = self.qos.get_detail_level()
-        
+
         # Get neural state data
         brain_state = self.core_api.get_brain_state(detail_level)
-        
+
         # Encode neural data
         encoder = ByteStructureEncoder()
         encoded = encoder.encode_neuron_flat({
@@ -344,7 +344,7 @@ class VisualizationStream:
             'membrane_potentials': brain_state.potentials,
             'connections': brain_state.connections if detail_level == 'high' else None
         })
-        
+
         # Compress if beneficial
         if len(encoded) > 65536:  # Compress large states
             compressed = self.compressors[CompressionType.LZ4].compress(encoded)
@@ -353,11 +353,11 @@ class VisualizationStream:
         else:
             payload = encoded
             compression_flag = CompressionType.NONE
-            
+
         # Topic-based publishing
         topic = f"brain.{detail_level}.{compression_flag}"
         self.socket.send_multipart([topic.encode(), payload])
-        
+
         return StreamResult.SUCCESS
 ```
 
@@ -368,27 +368,27 @@ class VisualizationStream:
 ```python
 class ZeroCopyRingBuffer:
     """Lock-free ring buffer for zero-copy neural data."""
-    
+
     def __init__(self, slots: int, slot_size: int):
         # Single contiguous allocation
         self.buffer = mmap.mmap(-1, slots * slot_size)
         self.slots = slots
         self.slot_size = slot_size
-        
+
         # Atomic indices
         self.write_index = multiprocessing.Value('Q', 0)
         self.read_index = multiprocessing.Value('Q', 0)
-        
+
     def get_write_slot(self) -> Optional[BufferSlot]:
         """Get next available write slot without blocking."""
         write_idx = self.write_index.value
         read_idx = self.read_index.value
-        
+
         # Check if buffer is full
         next_write = (write_idx + 1) % self.slots
         if next_write == read_idx:
             return None  # Buffer full
-        
+
         # Return memory view of slot
         offset = write_idx * self.slot_size
         return BufferSlot(
@@ -402,22 +402,22 @@ class ZeroCopyRingBuffer:
 ```python
 class NeuralBufferPool:
     """Specialized buffer pool for neural data arrays."""
-    
+
     def __init__(self, cortical_config: Dict[str, Any]):
         # Pre-allocate based on cortical area sizes
         self.pools = {}
-        
+
         for area_id, config in cortical_config.items():
             neuron_count = config['neuron_count']
             buffer_size = neuron_count * 4 * 2  # float32 firing + coordinates
-            
+
             self.pools[area_id] = FixedBufferPool(
                 count=32,  # 32 buffers per cortical area
                 size=buffer_size,
                 alignment=64,
                 numa_node=config.get('numa_node', 0)
             )
-    
+
     def get_buffer_for_area(self, area_id: str) -> Optional[Buffer]:
         """Get pre-sized buffer for specific cortical area."""
         pool = self.pools.get(area_id)
@@ -440,7 +440,7 @@ class ByteStructureID:
 @dataclass
 class NeuronFlatProtocol:
     """Dense neural array protocol."""
-    
+
     @staticmethod
     def encode(neural_data: NeuralData) -> bytes:
         """Encode neural data to flat byte array."""
@@ -451,15 +451,15 @@ class NeuronFlatProtocol:
             cortical_area_id=neural_data.area_id,
             timestamp=neural_data.timestamp
         )
-        
+
         # Efficient packing
         buffer = bytearray(32 + len(neural_data.firing_rates) * 16)
         header.write_to(buffer[:32])
-        
+
         # Neural data
         offset = 32
         np.copyto(buffer[offset:], neural_data.firing_rates.tobytes())
-        
+
         return bytes(buffer)
 ```
 
@@ -468,25 +468,25 @@ class NeuronFlatProtocol:
 ```python
 class PlatformOptimizer:
     """Platform-specific performance optimizations."""
-    
+
     @staticmethod
     def optimize_for_neural_data(socket: zmq.Socket):
         """Optimize socket for neural data transmission."""
-        
+
         if sys.platform == "linux":
             # Linux optimizations
             socket.setsockopt(zmq.SO_ZEROCOPY, 1)
             socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            
+
             # Set CPU affinity for neural processing
-            socket.setsockopt(socket.SOL_SOCKET, socket.SO_INCOMING_CPU, 
+            socket.setsockopt(socket.SOL_SOCKET, socket.SO_INCOMING_CPU,
                             get_neural_processor_cpu())
-                
+
         elif sys.platform == "darwin":
             # macOS optimizations
             socket.setsockopt(socket.SOL_SOCKET, socket.SO_NOSIGPIPE, 1)
             socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8388608)  # 8MB
-            
+
         elif sys.platform == "win32":
             # Windows optimizations
             socket.setsockopt(zmq.FD, socket.fileno())
@@ -501,27 +501,27 @@ class PlatformOptimizer:
 ```python
 class NeuralFlowController:
     """Flow control for high-throughput neural data."""
-    
+
     def __init__(self):
         self.rate_limiter = TokenBucket(
             capacity=1000,  # messages
             refill_rate=10000  # per second
         )
-        
+
         # Per-cortical-area flow control
         self.area_limiters = {}
-        
+
     def should_accept_neural_data(self, area_id: str, size: int) -> bool:
         """Check if we can accept more neural data."""
         # Global rate limit
         if not self.rate_limiter.consume(1):
             return False
-        
+
         # Per-area limit (prevent one area from flooding)
         area_limiter = self.area_limiters.get(area_id)
         if area_limiter and not area_limiter.consume(size):
             return False
-        
+
         return True
 ```
 
@@ -675,4 +675,4 @@ For comprehensive debugging documentation, see [DEBUG_GUIDE.md](DEBUG_GUIDE.md) 
 
 ## License
 
-Copyright 2025 Neuraville Inc. Licensed under Apache 2.0. 
+Copyright 2025 Neuraville Inc. Licensed under Apache 2.0.

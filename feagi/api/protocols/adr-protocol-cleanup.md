@@ -44,4 +44,4 @@
    - Create more detailed migration guides for developers
    - Document the Cap'n Proto message schemas and their usage
 
-The protocol folder cleanup is part of a larger architectural shift towards a more efficient message serialization approach with Cap'n Proto. Complete migration should be done carefully to maintain compatibility for existing components while enabling new development to use the improved architecture. 
+The protocol folder cleanup is part of a larger architectural shift towards a more efficient message serialization approach with Cap'n Proto. Complete migration should be done carefully to maintain compatibility for existing components while enabling new development to use the improved architecture.

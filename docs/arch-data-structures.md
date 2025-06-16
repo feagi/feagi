@@ -16,15 +16,20 @@ Both are designed with Rust/RTOS compatibility and GPU optimization in mind.
 
 ## Part I: Core Neural Data Structures
 
-### 1. GlobalNeuronArray
-- **Location:** `feagi/npu/optimized_integration.py`, `feagi/npu/fcl_manager.py`
-- **Type:** `numpy.ndarray` (float32/int32)
-- **Purpose:** Stores membrane potentials, firing states, and other per-neuron properties in contiguous arrays for efficient vectorized operations.
+### 1. NeuronArray (Enhanced with Embedded Optimizations)
+- **Location:** `feagi/bdu/models/neuron.py`
+- **Type:** Enhanced array structure with cache-aligned storage and SIMD operations
+- **Purpose:** Stores membrane potentials, firing states, and other per-neuron properties with integrated embedded optimizations for 10M+ neuron capacity.
 - **GPU/SIMD Suitability:**
-    - Highly suitable for SIMD and GPU (NumPy, PyTorch, or CuPy can be used as drop-in backends).
-    - All per-neuron operations (reset, update, thresholding) are performed in bulk using vectorized ops.
-- **Current Limitations:**
-    - Some legacy code still uses Python lists/dicts for neuron properties. Migration to full array-based storage is ongoing.
+    - **Highly optimized** for SIMD and GPU with cache-aligned memory (64-byte alignment)
+    - **Block-sparse matrices** for efficient connectivity representation
+    - **SIMD-vectorized operations** using Numba JIT compilation
+    - **Zero-allocation paths** for embedded deployment
+- **Current Features:**
+    - ✅ **Cache-aligned arrays** for optimal SIMD performance
+    - ✅ **Embedded optimization methods** integrated by default
+    - ✅ **10M neuron capacity** with 15Hz target performance
+    - ✅ **Automatic backend selection** (Rust/SIMD/NumPy)
 
 ### 2. FireCandidateList (FCL)
 - **Location:** `feagi/npu/fcl_manager.py`, `feagi/npu/optimized_integration.py`
@@ -36,17 +41,22 @@ Both are designed with Rust/RTOS compatibility and GPU optimization in mind.
 - **Current Limitations:**
     - Fallback implementation is not as SIMD-friendly. Migration to always use arrays is recommended.
 
-### 3. Connectome
-- **Location:** `feagi/bdu/connectome_manager.py`, `feagi/npu/optimized_integration.py`
+### 3. Connectome (Enhanced with Block-Sparse Matrices)
+- **Location:** `feagi/bdu/connectome_manager.py`, `feagi/bdu/models/neuron.py`
 - **Type:**
-    - Python: Dict-of-dicts or list-of-lists for synaptic connections.
-    - Optimized: Flat arrays for pre/post indices and weights (NumPy arrays).
-- **Purpose:** Represents synaptic connections between neurons, including weights and delays.
+    - **Enhanced**: Block-sparse matrices (64×64 blocks) with cache-aligned storage
+    - **Legacy Support**: Dict-based structures for backward compatibility
+    - **Optimized**: Flat arrays for pre/post indices and weights (NumPy arrays)
+- **Purpose:** Represents synaptic connections between neurons with embedded optimization for high-performance processing.
 - **GPU/SIMD Suitability:**
-    - Flat arrays are ideal for GPU/SIMD. Dict-based structures are not.
-    - Migration in progress to flat, index-based representations for all critical paths.
-- **Current Limitations:**
-    - Some BDU/legacy code still uses dicts. NPU code is mostly array-based.
+    - ✅ **Block-sparse matrices** optimized for cache locality and SIMD operations
+    - ✅ **64×64 blocks** fit perfectly in L1 cache (16KB)
+    - ✅ **Automatic backend selection** for optimal performance
+    - ✅ **Zero-allocation paths** for embedded deployment
+- **Current Features:**
+    - ✅ **Cache-friendly memory access** patterns for embedded systems
+    - ✅ **SIMD-optimized connectivity processing** integrated by default
+    - ✅ **10M+ neuron connectivity** with 15Hz target performance
 
 ### 4. Synapse
 - **Location:** `feagi/bdu/connectome_manager.py`, `feagi/npu/optimized_integration.py`
@@ -82,7 +92,7 @@ FEAGI neural data transmission is optimized for:
    - Coordinates (x, y, z) as int32 arrays
    - Membrane potentials (p) as float32 arrays
 
-4. **Performance focus:** 
+4. **Performance focus:**
    - No concern for human readability.
    - Maximum memory and transmission efficiency.
    - Avoid costly serialization formats like JSON.
@@ -224,7 +234,7 @@ For WGPU compute shaders:
   fn update_neurons(@builtin(global_invocation_id) id: vec3<u32>) {
       let neuron_id = id.x;
       if (neuron_id >= arrayLength(&membrane_potentials)) { return; }
-      
+
       // Process neuron state
       membrane_potentials[neuron_id] = membrane_potentials[neuron_id] * decay_factor;
   }
@@ -235,7 +245,7 @@ For WGPU compute shaders:
 - Use atomic operations for fire candidate list updates:
   ```wgsl
   @group(0) @binding(4) var<storage, read_write> fire_bitmap: array<atomic<u32>>;
-  
+
   fn set_fire_candidate(neuron_id: u32) {
       let word_index = neuron_id / 32u;
       let bit_position = neuron_id % 32u;

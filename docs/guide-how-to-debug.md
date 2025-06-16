@@ -22,11 +22,14 @@ FEAGI provides multiple debugging approaches to help developers and researchers 
 # Debug neural processing (fire queue contents every burst)
 python -m feagi.main --debug-npu
 
+# Debug brain development (synapse creation and candidate neighbors)
+python -m feagi.main --debug-bdu
+
 # Debug API requests and responses
 python -m feagi.main --debug-api
 
 # Combined debugging with detailed logging
-python -m feagi.main --debug-api --debug-npu --log-level DEBUG
+python -m feagi.main --debug-api --debug-npu --debug-bdu --log-level DEBUG
 
 # Test mode with debugging
 python -m feagi.main --test --debug-npu --test-duration 30
@@ -38,7 +41,11 @@ python -m feagi.main --test --debug-npu --test-duration 30
 
 Enables detailed neural processing unit debugging with fire queue visualization.
 
-#### What It Shows:
+### BDU Debugging (`--debug-bdu`)
+
+Enables detailed Brain Development Unit debugging showing synapse creation and candidate neighbors during brain development.
+
+#### What NPU Debug Shows:
 - **Burst Information**: Current burst number and timing
 - **Global Fire Summary**: Total neurons firing and target frequency
 - **Per-Area Breakdown**: Neurons firing in each cortical area with percentages
@@ -46,7 +53,16 @@ Enables detailed neural processing unit debugging with fire queue visualization.
 - **Power Injection Stats**: Special area injection information
 - **Recent Activity**: Historical firing rate trends
 
-#### Sample Output:
+#### What BDU Debug Shows:
+- **Synaptogenesis Phase**: Overall brain development progress
+- **Cortical Mappings**: Source-to-destination area connections being processed
+- **Morphology Processing**: Which morphology functions are being applied
+- **Candidate Positions**: 3D coordinates identified by morphology functions
+- **Candidate Neurons**: Specific neuron IDs found at candidate positions
+- **Synapse Creation**: Number of synapses actually created after filtering
+- **Attractivity Filtering**: How probabilistic synapse creation affects final counts
+
+#### Sample NPU Debug Output:
 ```
 🔥 ===== NPU DEBUG - BURST 1247 =====
 📊 Global Fire Summary:
@@ -56,6 +72,53 @@ Enables detailed neural processing unit debugging with fire queue visualization.
    visual_cortex: 8 neurons (34.8%) - [1001, 1005, 1012, 1023, 1034, 1045, 1056, 1067]
    motor_pwr: 5 neurons (21.7%) - [2001, 2002, 2003, 2004, 2005]
    attention: 4 neurons (17.4%) - [3012, 3023, 3034, 3045]
+```
+
+#### Sample BDU Debug Output:
+```
+[BDU DEBUG] ===== STARTING SYNAPTOGENESIS PHASE =====
+[BDU DEBUG] Total cortical areas: 2
+[BDU DEBUG] Cortical areas: ['___pwr', 'o__mot']
+[BDU DEBUG] Extracted mapping data:
+[BDU DEBUG]   ___pwr -> ['o__mot']
+[BDU DEBUG]     o__mot: 1 connection specs
+[BDU DEBUG] ===== SYNAPTOGENESIS: ___pwr -> o__mot =====
+[BDU DEBUG] Source neuron: 1
+[BDU DEBUG] Morphology: {'morphology_id': 'projector', 'morphology_scalar': [1, 1, 1], 'postSynapticCurrent_multiplier': 1.0}
+[BDU DEBUG] Source subregion: [(0, 0, 0), (1, 1, 1)]
+[BDU DEBUG] Source neuron position: (0, 0, 0)
+[BDU DEBUG] Using morphology: projector
+[BDU DEBUG] Processing PROJECTOR morphology
+[BDU DEBUG] syn_projector: ___pwr -> o__mot, neuron 1
+[BDU DEBUG] Source dimensions: (1, 1, 1)
+[BDU DEBUG] Destination dimensions: (8, 1, 1)
+[BDU DEBUG] Neuron location: [0, 0, 0]
+[BDU DEBUG] Destination voxel dictionary:
+[BDU DEBUG]   X candidates: [0, 1, 2, 3, 4, 5, 6, 7]
+[BDU DEBUG]   Y candidates: [0]
+[BDU DEBUG]   Z candidates: [0]
+[BDU DEBUG] syn_projector final candidates: [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (5, 0, 0), (6, 0, 0), (7, 0, 0)]
+[BDU DEBUG] PROJECTOR returned 8 candidate positions: [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (5, 0, 0), (6, 0, 0), (7, 0, 0)]
+[BDU DEBUG] Processing 8 candidate positions
+[BDU DEBUG] Candidate positions: [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (5, 0, 0), (6, 0, 0), (7, 0, 0)]
+[BDU DEBUG] Position (0, 0, 0) contains 1 neurons: [582]
+[BDU DEBUG] Position (1, 0, 0) contains 1 neurons: [583]
+[BDU DEBUG] Position (2, 0, 0) contains 1 neurons: [584]
+[BDU DEBUG] Position (3, 0, 0) contains 1 neurons: [585]
+[BDU DEBUG] Position (4, 0, 0) contains 1 neurons: [586]
+[BDU DEBUG] Position (5, 0, 0) contains 1 neurons: [587]
+[BDU DEBUG] Position (6, 0, 0) contains 1 neurons: [588]
+[BDU DEBUG] Position (7, 0, 0) contains 1 neurons: [589]
+[BDU DEBUG] Final candidate neurons: 8 found
+[BDU DEBUG] Candidate neuron IDs: [582, 583, 584, 585, 586, 587, 588, 589]
+[BDU DEBUG] Candidate weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+[BDU DEBUG] ===== END SYNAPTOGENESIS: ___pwr -> o__mot =====
+[BDU DEBUG] Found 8 candidate neurons
+[BDU DEBUG] Synapse attractivity: 100%
+[BDU DEBUG] After attractivity filtering: 8 synapses to create
+[BDU DEBUG] Successfully created 8 synapses for neuron 1
+[BDU DEBUG] ===== SYNAPTOGENESIS PHASE COMPLETED =====
+[BDU DEBUG] Total synapses created: 8
 ⚡ Power Injection: 8 neurons from 2 power areas
 📈 Recent Activity:
    Average firing rate: 18.5 neurons/burst
@@ -71,20 +134,68 @@ Enables detailed neural processing unit debugging with fire queue visualization.
 
 ### API Debugging (`--debug-api`)
 
-Enables detailed HTTP request/response logging and middleware operations.
+Enables comprehensive HTTP request/response logging with enhanced formatting and detailed tracking.
+
+#### Enhanced Features:
+- **🆔 Unique Request IDs**: Each request gets a unique 8-character ID for correlation
+- **🔵 Detailed Request Logging**: Method, URL, headers, query params, path params, body
+- **🟢 Comprehensive Response Logging**: Status, headers, body, timing information
+- **🔴 Error Tracking**: Exception details with request correlation
+- **🎨 Color-Coded Output**: Visual distinction between requests, responses, and errors
+- **🔒 Security**: Automatic masking of sensitive headers (authorization, cookies, API keys)
+- **📄 Pretty JSON**: Automatic JSON formatting for readable output
+- **⏱️ Performance Timing**: Request duration tracking in milliseconds
 
 #### What It Shows:
-- **HTTP Requests**: Method, URL, headers, body content
-- **Response Data**: Status codes, response bodies, timing
-- **Middleware Operations**: Request processing pipeline
-- **Authentication**: Token validation and user context
-- **Error Details**: Stack traces and error context
+- **HTTP Requests**: Method, URL, client info, headers (with sensitive data masked)
+- **Request Bodies**: Pretty-printed JSON or truncated text content
+- **Query/Path Parameters**: All URL parameters clearly displayed
+- **Response Data**: Status codes, headers, formatted response bodies
+- **Timing Information**: Request processing duration
+- **Error Context**: Detailed exception information with request correlation
+
+#### Enhanced Output Format:
+```
+🔵 [API-DEBUG] ═══════════════════════════════════════
+🔵 [API-DEBUG] REQUEST START [ID: A1B2C3D4]
+🔵 [API-DEBUG] ═══════════════════════════════════════
+🔵 [API-DEBUG] Method: POST
+🔵 [API-DEBUG] URL: http://localhost:8001/v1/cortical_mapping/mapping_properties
+🔵 [API-DEBUG] Path: /v1/cortical_mapping/mapping_properties
+🔵 [API-DEBUG] Client: 127.0.0.1:54321
+🔵 [API-DEBUG] Headers:
+🔵 [API-DEBUG]   content-type: application/json
+🔵 [API-DEBUG]   authorization: ***MASKED***
+🔵 [API-DEBUG] Request Body (JSON):
+🔵 [API-DEBUG]   {
+🔵 [API-DEBUG]     "source_area": "power",
+🔵 [API-DEBUG]     "destination_area": "central_vision"
+🔵 [API-DEBUG]   }
+
+🟢 [API-DEBUG] ═══════════════════════════════════════
+🟢 [API-DEBUG] RESPONSE [ID: A1B2C3D4]
+🟢 [API-DEBUG] ═══════════════════════════════════════
+🟢 [API-DEBUG] Status: 200 ✅
+🟢 [API-DEBUG] Duration: 45.23ms
+🟢 [API-DEBUG] Response Headers:
+🟢 [API-DEBUG]   content-type: application/json
+🟢 [API-DEBUG] Response Body (JSON):
+🟢 [API-DEBUG]   {
+🟢 [API-DEBUG]     "success": true,
+🟢 [API-DEBUG]     "connections_created": 27
+🟢 [API-DEBUG]   }
+🟢 [API-DEBUG] ═══════════════════════════════════════
+🟢 [API-DEBUG] COMPLETED [ID: A1B2C3D4] POST /v1/cortical_mapping/mapping_properties → 200 (45.23ms)
+🟢 [API-DEBUG] ═══════════════════════════════════════
+```
 
 #### Use Cases:
-- **API Development**: Debug endpoint behavior and data flow
-- **Client Integration**: Troubleshoot client-server communication
-- **Performance Analysis**: Identify slow API operations
-- **Authentication Issues**: Debug login and permission problems
+- **API Development**: Debug endpoint behavior and data flow with detailed visibility
+- **Client Integration**: Troubleshoot client-server communication with request correlation
+- **Performance Analysis**: Identify slow API operations with precise timing
+- **Authentication Issues**: Debug login and permission problems (with secure header masking)
+- **Data Flow Debugging**: Track request/response data transformations
+- **Error Investigation**: Correlate errors with specific requests using unique IDs
 
 ### Combined Debugging
 
@@ -302,4 +413,4 @@ python -m cProfile -o feagi_profile.prof -m feagi.main --test --debug-npu
 - [NPU Documentation](../feagi/npu/README.md) - Neural Processing Unit details
 - [API Testing Guide](../feagi/api/guide-api-testing.md) - API-specific testing approaches
 - [Testing Documentation](../tests/README.md) - Test development and execution
-- [Contribution Guide](guide-contribution.md) - Development workflow and standards 
+- [Contribution Guide](guide-contribution.md) - Development workflow and standards

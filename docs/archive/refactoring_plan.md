@@ -4,7 +4,7 @@ This document outlines the plan for refactoring the FEAGI codebase to improve or
 
 ## Current Structure Issues
 
-1. **Inconsistent Module Organization**: 
+1. **Inconsistent Module Organization**:
    - Mix of old and new code styles
    - Inconsistent naming conventions
    - Unclear boundaries between modules
@@ -58,13 +58,13 @@ Each module should include:
    ```python
    """
    FEAGI <Module Name>
-   
+
    This module provides <brief description>.
-   
+
    Key components:
    - Component1: Description
    - Component2: Description
-   
+
    Example usage:
    ```python
    from feagi.<module> import Component
@@ -78,14 +78,14 @@ Each module should include:
    def function_name(param1: type, param2: type) -> return_type:
        """
        Short description of function purpose.
-       
+
        Args:
            param1: Description of param1
            param2: Description of param2
-           
+
        Returns:
            Description of return value
-           
+
        Raises:
            ExceptionType: When and why this exception occurs
        """
@@ -134,4 +134,4 @@ To minimize disruption during refactoring:
 | npu    | □                    | □                    | □             | □        |
 | bdu    | □                    | □                    | □             | □        |
 | pns    | □                    | □                    | □             | □        |
-| api    | □                    | □                    | □             | □        | 
+| api    | □                    | □                    | □             | □        |

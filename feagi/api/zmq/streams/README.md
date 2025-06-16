@@ -1,8 +1,70 @@
-# ZMQ Streams for FEAGI 2.0
+# ZMQ Streams
 
-## Overview
+ZMQ Streams provide specialized communication channels for different types of data and protocols in FEAGI.
 
-This package contains production-ready ZMQ stream implementations for FEAGI 2.0, designed with clean architecture principles, thread safety, and high performance.
+## Available Streams
+
+### Core Streams
+- **SensoryStream**: Receives sensory data from agents/sensors
+- **MotorStream**: Sends motor commands to agents/actuators
+- **VisualizationStream**: Broadcasts neural activity data
+- **RestStream**: Provides REST API interface over ZMQ (primary API interface)
+
+### Stream Architecture
+
+Each stream is implemented as a separate class that:
+1. Manages its own ZMQ socket and context
+2. Handles protocol-specific message formatting
+3. Integrates with FEAGI core services
+4. Provides proper error handling and logging
+
+## Usage Examples
+
+### Basic Stream Setup
+
+```python
+from feagi.api.zmq.streams import (
+    SensoryStream, MotorStream,
+    VisualizationStream, RestStream
+)
+
+# Create core streams
+streams = {
+    'sensory': SensoryStream(host="*", port=5558),
+    'motor': MotorStream(host="*", port=5564),
+    'visualization': VisualizationStream(host="*", port=5562),
+    'rest': RestStream(host="*", port=5563)
+}
+
+# Start all streams
+for name, stream in streams.items():
+    try:
+        stream.start()
+        print(f"{name} stream started on port {stream.port}")
+    except Exception as e:
+        print(f"Failed to start {name} stream: {e}")
+```
+
+### Stream Manager
+
+```python
+from feagi.api.zmq.streams import create_stream_manager
+
+# Create all streams with configuration
+config = {
+    'sensory': {'port': 5558},
+    'motor': {'port': 5564},
+    'visualization': {'port': 5562},
+    'rest': {'port': 5563}
+}
+
+streams = create_stream_manager(
+    host="*",
+    stream_configs=config
+)
+
+print(f"Created {len(streams)} streams")
+```
 
 ## Key Features
 
@@ -239,7 +301,7 @@ class MyStream(UnidirectionalStream):
             socket_type=SocketType.PUB,
             core_api=core_api
         )
-    
+
     def _data_worker(self):
         # Implement your data processing
         pass
@@ -259,7 +321,7 @@ class MyStream(BidirectionalStream):
             port=port,
             core_api=core_api
         )
-    
+
     async def _handle_request(self, client_id, message):
         # Implement request handling
         return {"response": "data"}
@@ -305,7 +367,7 @@ def monitor_streams(streams, interval=5.0):
                 print(f"  Messages: {stats.get('messages_processed', 0)}")
                 print(f"  Errors: {stats.get('errors', 0)}")
                 print(f"  Uptime: {stats.get('uptime_seconds', 0):.1f}s")
-        
+
         time.sleep(interval)
 ```
 
@@ -334,7 +396,7 @@ def robust_stream_operation(stream):
     """Example of robust stream operation with error handling."""
     max_retries = 3
     retry_delay = 1.0
-    
+
     for attempt in range(max_retries):
         try:
             stream.start()
@@ -344,7 +406,7 @@ def robust_stream_operation(stream):
             if attempt == max_retries - 1:
                 return False
             time.sleep(retry_delay * (attempt + 1))
-    
+
     return False
 ```
 
@@ -365,23 +427,23 @@ pytest tests/unit/test_zmq_streams.py -v
 def test_stream_integration():
     """Test stream integration with CoreAPIService."""
     from feagi.api.core.services.core_api_service import CoreAPIService
-    
+
     core_api = CoreAPIService()
     stream = VisualizationStream(
         host="*",
         port=5562,
         core_api=core_api
     )
-    
+
     try:
         stream.start()
         assert stream.running
-        
+
         # Test functionality
         health = stream.get_health_status()
         assert health['running']
         assert health['socket_available']
-        
+
     finally:
         stream.stop()
 ```
@@ -396,7 +458,7 @@ The architecture has been unified - no more duplicate files:
 # OLD - Multiple conflicting implementations
 from feagi.api.zmq.streams.visualization_refactored import VisualizationStream
 
-# NEW - Single unified implementation  
+# NEW - Single unified implementation
 from feagi.api.zmq.streams import VisualizationStream
 ```
 
@@ -426,13 +488,13 @@ stream.start()
 ```python
 def run_stream_application():
     streams = initialize_all_streams(core_api=core_api)
-    
+
     try:
         # Run application logic
         while True:
             # Your application code
             time.sleep(0.1)
-            
+
     except KeyboardInterrupt:
         logger.info("Shutting down gracefully...")
     finally:
@@ -513,4 +575,4 @@ When extending the stream architecture:
 
 ## License
 
-Copyright 2025 Neuraville Inc. Licensed under Apache 2.0. 
+Copyright 2025 Neuraville Inc. Licensed under Apache 2.0.

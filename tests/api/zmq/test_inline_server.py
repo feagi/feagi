@@ -16,14 +16,10 @@ limitations under the License.
 """
 
 """Test script for inline ZMQ server."""
-import pytest
+import asyncio
+import logging
 import threading
 import time
-import sys
-import os
-import logging
-from typing import Tuple, Dict
-import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,45 +29,48 @@ logger = logging.getLogger(__name__)
 zmq_available = False
 try:
     import zmq
+
     zmq_available = True
 except ImportError:
     pass
 
 # Import server and client implementations
 try:
-    from feagi.api.zmq.server import ZmqServer
     from feagi.api.zmq.client import ZmqClient
+    from feagi.api.zmq.server import ZmqServer
+
     have_zmq_impl = True
 except ImportError:
     have_zmq_impl = False
+
 
 def main():
     """Test the inline ZMQ server functionality."""
     if not have_zmq_impl:
         logger.error("ZMQ implementation not available. Skipping test.")
         return
-        
+
     # Create and start server
     logger.info("Creating ZMQ server...")
     server = ZmqServer(
         core_api=None,  # Will be created internally if not provided
-        host="127.0.0.1", 
+        host="127.0.0.1",
         req_rep_port=5555,
         pub_sub_port=5556,
         push_pull_port=5557,
         sensorimotor_port=5558,
-        vis_base_port=5560
+        vis_base_port=5560,
     )
-    
+
     # Start the server
     logger.info("Starting ZMQ server...")
     server_thread = threading.Thread(target=lambda: asyncio.run(server.start()))
     server_thread.daemon = True
     server_thread.start()
-    
+
     # Allow server time to start
     time.sleep(2)
-    
+
     # Create a client to connect to the server
     logger.info("Creating ZMQ client...")
     client = ZmqClient(
@@ -80,29 +79,30 @@ def main():
         pub_sub_port=5556,
         push_pull_port=5557,
         sensorimotor_port=5558,
-        vis_base_port=5560
+        vis_base_port=5560,
     )
-    
+
     # Start the client
     logger.info("Starting ZMQ client...")
     client_thread = threading.Thread(target=lambda: asyncio.run(client.start()))
     client_thread.daemon = True
     client_thread.start()
-    
+
     # Allow client time to connect
     time.sleep(2)
-    
+
     # Test functionality
     logger.info("Testing ZMQ functionality...")
-    
+
     # Shutdown
     logger.info("Shutting down ZMQ client...")
     asyncio.run(client.stop())
-    
+
     logger.info("Shutting down ZMQ server...")
     asyncio.run(server.stop())
-    
+
     logger.info("Test completed successfully")
 
+
 if __name__ == "__main__":
-    main() 
+    main()

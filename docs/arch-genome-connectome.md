@@ -11,6 +11,116 @@ FEAGI maintains a clear separation between:
 
 Changes to the genome must be propagated to the connectome in a consistent, atomic manner.
 
+## Single Source of Truth Architecture
+
+### Architectural Principle
+
+FEAGI implements a **single source of truth** architecture for genome data to eliminate data duplication and ensure consistency:
+
+1. **State Manager**: Holds the authoritative, sanitized genome (THE source of truth)
+2. **Connectome Manager**: Stores only structural/runtime data (neurons, synapses, positions)
+3. **REST API**: Always reads cortical area properties from State Manager's genome
+4. **Auto-Recovery**: Sanitizes genome in State Manager before any brain development
+
+### Genome Loading Flow
+
+The architecture follows this strict sequence:
+
+```
+1. Genome Service: Complete sanitization first
+2. State Manager: Store sanitized genome as single source of truth
+3. State Manager: Notify Connectome Manager "new genome ready"
+4. Connectome Manager: Build brain from State Manager's genome (NOT temp files)
+5. REST API: Serve properties from State Manager's genome
+```
+
+#### Previous Problematic Pattern:
+```
+1. Genome Service: Auto-recovery sanitizes genome
+2. Genome Service: Immediately calls connectome manager
+3. Connectome Manager: Builds from temp file (race condition!)
+4. REST API: Reads from connectome's duplicate property storage
+5. Result: Client gets unsanitized null values, crashes
+```
+
+#### Current Correct Architecture:
+```
+1. Genome Service: Complete sanitization first
+2. State Manager: Store sanitized genome as single source of truth
+3. Genome Service: Notify connectome manager with sanitized data
+4. Connectome Manager: Build brain from state manager genome
+5. REST API: Always read from state manager's sanitized genome
+6. Result: Client always gets sanitized values, no crashes
+```
+
+### Code Implementation
+
+#### Genome Service Implementation
+```python
+# ARCHITECTURE: Stage sanitized genome in state manager FIRST
+if self.state_manager:
+    self.state_manager.genome = genome_data  # Single source of truth
+    self.state_manager.genome_file_name = filename
+    self.state_manager.set_genome_state(GenomeState.LOADING)
+
+# ARCHITECTURE: Build brain from state manager genome (not temp file)
+embry = NeuroEmbryogenesis(connectome_manager=self._connectome_manager)
+success = embry.develop_brain_from_genome_data(genome_data)  # Direct data, no files
+```
+
+#### Connectome Manager Integration
+```python
+# Connectome manager reads from state manager's genome for properties
+def get_cortical_area_properties(self, cortical_id):
+    # Connectome stores structural data only
+    # Properties come from state manager's genome
+    return state_manager.get_cortical_properties(cortical_id)
+```
+
+#### REST API Implementation
+```python
+# REST API always uses state manager as source of truth
+def get_cortical_area_properties(cortical_id):
+    state_manager = FeagiStateManager.instance()
+    return state_manager.get_cortical_properties(cortical_id)  # Always sanitized
+```
+
+### Benefits
+
+1. **No Data Duplication**: Properties stored once in State Manager
+2. **Guaranteed Consistency**: All components read from same source
+3. **Auto-Recovery Works**: Sanitization happens before brain development
+4. **Client Safety**: No null values can reach clients
+5. **Race Condition Elimination**: Sequential: sanitize → stage → notify → build
+6. **Rust/RTOS Ready**: Clear data ownership, no hidden state
+
+### Live Editing Architecture
+
+User edits through Brain Visualizer follow this flow:
+
+```
+1. User Edit → State Manager genome update
+2. State Manager → Notify Connectome Manager of change
+3. Connectome Manager → Rebuild affected cortical areas live
+4. REST API → Serves updated properties from State Manager
+```
+
+This ensures the editing loop maintains single source of truth.
+
+### Architecture Requirements
+
+**Current Implementation**:
+- Direct data processing with `develop_brain_from_genome_data()` method
+- Mandatory sanitization before brain development
+- State Manager as authoritative genome source
+- Sequential loading: sanitize → stage → notify → build
+
+**Eliminated Patterns**:
+- Temp file creation during genome loading
+- Duplicate property storage in `area.properties`
+- Race conditions between sanitization and brain development
+- Multiple sources of truth for cortical properties
+
 ## Transaction-Based Synchronization
 
 FEAGI employs a transaction-based system to ensure synchronization between genome modifications and their effects on the connectome.
@@ -100,7 +210,7 @@ Components can register to be notified of genome changes:
 class MyComponent:
     def __init__(self, state_manager):
         state_manager.register_sync_observer(self)
-        
+
     def on_sync_state_change(self, old_state, new_state, details):
         if new_state == ServiceState.SYNC_COMPLETE:
             # React to successful synchronization
@@ -144,4 +254,4 @@ This synchronization model is designed to be compatible with Rust and RTOS envir
 - Clear state boundaries with explicit transitions
 - Deterministic resource allocation
 - Avoidance of hidden side effects
-- Well-defined ownership model 
+- Well-defined ownership model

@@ -5,12 +5,12 @@
 struct SimParams {
     // Time parameters
     time_step: u32,
-    
+
     // Neuron activation parameters
     threshold: f32,
     refractory_period: u32,
     max_consecutive_fires: u32,
-    
+
     // PSP calculation flags
     mpf: u32, // Membrane Potential Driven PSP Flag (1 = true, 0 = false)
     puf: u32, // PSP Uniformity Flag (1 = true, 0 = false)
@@ -67,16 +67,16 @@ struct Connectome {
 @group(0) @binding(4) var<storage, read_write> fire_queue: FireQueue;
 
 // Calculate PSP based on the formula
-fn calculate_psp(firing_neuron_mp: f32, firing_neuron_psp: f32, synapse_count: u32, 
+fn calculate_psp(firing_neuron_mp: f32, firing_neuron_psp: f32, synapse_count: u32,
                 synapse_conductance: f32, mpf: bool, puf: bool) -> f32 {
     // FNPSP = [MPF * FNMP + !MPF * FNPSP] / [(!PUF * (FNSC-1)) + 1] * Synapse Conductance
-    
+
     // Calculate the numerator: either use membrane potential or existing PSP
     let numerator = select(firing_neuron_psp, firing_neuron_mp, mpf);
-    
+
     // Calculate the denominator: either normalize by synapse count or use 1
     let denominator = select(1.0, f32(synapse_count - 1u) + 1.0, !puf && synapse_count > 0u);
-    
+
     // Calculate the final PSP
     return (numerator / denominator) * synapse_conductance;
 }
@@ -85,63 +85,63 @@ fn calculate_psp(firing_neuron_mp: f32, firing_neuron_psp: f32, synapse_count: u
 @compute @workgroup_size(256)
 fn process_fired_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
-    
+
     // Check if this thread should process a neuron
     if (index >= fcl.neuron_count) {
         return;
     }
-    
+
     // Get the neuron ID from FCL
     let neuron_id = fcl.neuron_ids[index];
-    
+
     // Skip if invalid ID
     if (neuron_id >= gna.neuron_count) {
         return;
     }
-    
+
     // Reset membrane potential of the fired neuron
     gna.membrane_potentials[neuron_id] = 0.0;
-    
+
     // Set refractory counter
     gna.refractory_counters[neuron_id] = params.refractory_period;
-    
+
     // Update last fired timestamp
     gna.last_fired[neuron_id] = params.time_step;
-    
+
     // Increment consecutive fire count
     gna.consecutive_fire_counts[neuron_id] += 1u;
-    
+
     // Process outgoing connections to populate the fire queue
     let start = connectome.row_ptr[neuron_id];
     let end = connectome.row_ptr[neuron_id + 1u];
     let synapse_count = end - start;
-    
+
     // Skip if no connections
     if (synapse_count == 0u) {
         return;
     }
-    
+
     // Get firing neuron membrane potential (should be 0 now)
     let firing_neuron_mp = gna.membrane_potentials[neuron_id];
-    
+
     // Default PSP value
     let firing_neuron_psp = 1.0;
-    
+
     // MPF and PUF flags from parameters
     let mpf_flag = params.mpf != 0u;
     let puf_flag = params.puf != 0u;
-    
+
     // Process each outgoing connection
     for (var i = start; i < end; i++) {
         let target_id = connectome.col_idx[i];
-        
+
         // Skip if invalid target
         if (target_id >= gna.neuron_count) {
             continue;
         }
-        
+
         let weight = connectome.weights[i];
-        
+
         // Calculate PSP
         let psp = calculate_psp(
             firing_neuron_mp,
@@ -151,11 +151,11 @@ fn process_fired_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
             mpf_flag,
             puf_flag
         );
-        
+
         // Update membrane potential
         let current_mp = gna.membrane_potentials[target_id];
         let updated_mp = current_mp + psp;
-        
+
         // Store updated values in buffer for atomic addition later
         // Note: In an actual implementation, we would need atomic operations to safely
         // add to the fire queue from multiple threads. This is simplified for now.
@@ -172,29 +172,29 @@ fn process_fired_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
 @compute @workgroup_size(256)
 fn extract_fire_candidates(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
-    
+
     // Check if this thread should process a queue entry
     if (index >= fire_queue.count) {
         return;
     }
-    
+
     // Get the neuron details from the fire queue
     let neuron_id = fire_queue.neuron_ids[index];
     let membrane_potential = fire_queue.membrane_potentials[index];
     let threshold = fire_queue.thresholds[index];
     let refractory_counter = fire_queue.refractory_counters[index];
     let consecutive_fire_count = fire_queue.consecutive_fire_counts[index];
-    
+
     // Skip neurons in refractory period
     if (refractory_counter > 0u) {
         return;
     }
-    
+
     // Skip neurons exceeding consecutive fire limit (if enabled)
     if (params.max_consecutive_fires > 0u && consecutive_fire_count >= params.max_consecutive_fires) {
         return;
     }
-    
+
     // Check if neuron should fire
     if (membrane_potential >= threshold) {
         // Add to FCL
@@ -210,21 +210,21 @@ fn extract_fire_candidates(@builtin(global_invocation_id) global_id: vec3<u32>) 
 @compute @workgroup_size(256)
 fn find_firing_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let neuron_id = global_id.x;
-    
+
     // Check if this thread should process a neuron
     if (neuron_id >= gna.neuron_count) {
         return;
     }
-    
+
     // Skip neurons in refractory period
     if (gna.refractory_counters[neuron_id] > 0u) {
         return;
     }
-    
+
     // Check if the neuron has sufficient potential to fire
     let membrane_potential = gna.membrane_potentials[neuron_id];
     let threshold = gna.thresholds[neuron_id];
-    
+
     if (membrane_potential >= threshold) {
         // Add to FCL
         let fcl_index = atomicAdd(&fcl.neuron_count, 1u);
@@ -235,4 +235,4 @@ fn find_firing_neurons(@builtin(global_invocation_id) global_id: vec3<u32>) {
 // Utility function for atomic additions
 fn atomicAdd(a: ptr<storage, atomic<u32>, read_write>, b: u32) -> u32 {
     return atomicAdd(a, b);
-} 
+}

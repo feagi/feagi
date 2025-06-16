@@ -107,4 +107,4 @@ compressed = default_translator.compress_message(message)
 
 # Automatic decompression on receive
 decoded = default_translator.decode_message(compressed_message)
-``` 
+```

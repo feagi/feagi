@@ -105,11 +105,11 @@ def _create_router_for_module(module_name: str, registry: EndpointRegistry) -> A
     """Create FastAPI router with automatic route generation."""
     router = APIRouter()
     endpoints = registry.get_endpoints_by_module(module_name)
-    
+
     for endpoint_id, endpoint_info in endpoints.items():
         # Auto-generate FastAPI route from decorator metadata
         _add_fastapi_route(router, endpoint_info)
-    
+
     return router
 ```
 
@@ -307,7 +307,7 @@ app.include_router(get_new_module_router(), prefix="/v1/new_module")
 - Inconsistencies between transport protocols
 - Manual maintenance of multiple implementations
 
-### After (Decorator Architecture)  
+### After (Decorator Architecture)
 - **~400 lines** of clean, auto-generated router code
 - Single source of truth for all endpoints
 - Perfect transport consistency guaranteed
@@ -406,7 +406,7 @@ ALL pull requests MUST pass these checks:
    # ❌ REJECT: Any handler with custom logic
    def _handle_xyz(self):
        return self.core_api_service.some_method()  # VIOLATION
-   
+
    # ✅ APPROVE: Pure delegation
    def _handle_xyz(self):
        return self.xyz_api.some_method()  # CORRECT
@@ -463,7 +463,7 @@ request = CorticalIdListRequest(cortical_ids=cortical_id_list)  # WORKS
 Success metrics for architectural compliance:
 
 - ✅ **100% endpoint consistency** across all transports
-- ✅ **Zero custom implementations** in transport adapters  
+- ✅ **Zero custom implementations** in transport adapters
 - ✅ **Single point of truth** for each endpoint
 - ✅ **Automatic transport registration** for new endpoints
 
@@ -507,4 +507,4 @@ Success metrics for architectural compliance:
 
 ---
 
-*This document reflects the current state of FEAGI's API architecture as of May 2025. For the most up-to-date information, refer to the actual implementation in `/feagi/api/v1/` and `/feagi/api/transport/`.* 
+*This document reflects the current state of FEAGI's API architecture as of May 2025. For the most up-to-date information, refer to the actual implementation in `/feagi/api/v1/` and `/feagi/api/transport/`.*
