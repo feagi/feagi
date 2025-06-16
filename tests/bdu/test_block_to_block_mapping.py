@@ -65,6 +65,8 @@ def test_genome_with_block_to_block():
 @pytest.fixture
 def connectome_manager():
     """Create a ConnectomeManager for testing."""
+    # Reset singleton to ensure fresh instance for each test
+    ConnectomeManager.reset_singleton()
     return ConnectomeManager(config_or_max_neurons=10_000)
 
 
@@ -77,9 +79,8 @@ def neuro_embryogenesis(connectome_manager):
 @pytest.fixture
 def core_api_service(connectome_manager):
     """Create a CoreAPIService for testing."""
-    state_manager = FeagiStateManager()
-    genome_service = GenomeService(state_manager)
-    return CoreAPIService(connectome_manager, genome_service, state_manager)
+    state_manager = FeagiStateManager.instance()
+    return CoreAPIService(connectome_manager, state_manager)
 
 
 class TestBlockToBlockMapping:
@@ -109,21 +110,29 @@ class TestBlockToBlockMapping:
         self, connectome_manager, test_genome_with_block_to_block
     ):
         """Test creating 3x3x3 cortical areas."""
-        # Create source area
-        src_area_id = connectome_manager.add_cortical_area(
-            cortical_id="test_src",
-            name="Test Source Area",
-            dimensions=(3, 3, 3),
-            position=(0, 0, 0),
-        )
+        # Create source area only if it doesn't exist
+        try:
+            src_area = connectome_manager.get_cortical_area("test_src")
+            src_area_id = "test_src"
+        except:
+            src_area_id = connectome_manager.add_cortical_area(
+                cortical_id="test_src",
+                name="Test Source Area",
+                dimensions=(3, 3, 3),
+                position=(0, 0, 0),
+            )
 
-        # Create destination area
-        dst_area_id = connectome_manager.add_cortical_area(
-            cortical_id="test_dst",
-            name="Test Destination Area",
-            dimensions=(3, 3, 3),
-            position=(3, 0, 0),
-        )
+        # Create destination area only if it doesn't exist
+        try:
+            dst_area = connectome_manager.get_cortical_area("test_dst")
+            dst_area_id = "test_dst"
+        except:
+            dst_area_id = connectome_manager.add_cortical_area(
+                cortical_id="test_dst",
+                name="Test Destination Area",
+                dimensions=(3, 3, 3),
+                position=(3, 0, 0),
+            )
 
         assert src_area_id == "test_src"
         assert dst_area_id == "test_dst"
@@ -141,20 +150,26 @@ class TestBlockToBlockMapping:
 
     def test_create_neurons_in_areas(self, connectome_manager):
         """Test creating neurons in both cortical areas using proper batch creation."""
-        # Create areas first
-        connectome_manager.add_cortical_area(
-            cortical_id="test_src",
-            name="Test Source Area",
-            dimensions=(3, 3, 3),
-            position=(0, 0, 0),
-        )
+        # Create areas first only if they don't exist
+        try:
+            connectome_manager.get_cortical_area("test_src")
+        except:
+            connectome_manager.add_cortical_area(
+                cortical_id="test_src",
+                name="Test Source Area",
+                dimensions=(3, 3, 3),
+                position=(0, 0, 0),
+            )
 
-        connectome_manager.add_cortical_area(
-            cortical_id="test_dst",
-            name="Test Destination Area",
-            dimensions=(3, 3, 3),
-            position=(3, 0, 0),
-        )
+        try:
+            connectome_manager.get_cortical_area("test_dst")
+        except:
+            connectome_manager.add_cortical_area(
+                cortical_id="test_dst",
+                name="Test Destination Area",
+                dimensions=(3, 3, 3),
+                position=(3, 0, 0),
+            )
 
         # Create all positions for source area (one neuron per voxel)
         src_positions = []
@@ -170,27 +185,38 @@ class TestBlockToBlockMapping:
                 for z in range(3):
                     dst_positions.append((x, y, z))
 
-        # Create all neurons in source area at once using batch_create_neurons
-        src_neurons = connectome_manager.batch_create_neurons(
-            cortical_id="test_src",
-            positions=src_positions,
-            threshold=1.0,
-            membrane_potential=0.0,
-            resting_potential=0.0,
-            decay_rate=0.5,
-            refractory_period=1,
-        )
+        # Check if neurons already exist in areas
+        existing_src_neurons = connectome_manager.get_neurons_by_area("test_src")
+        existing_dst_neurons = connectome_manager.get_neurons_by_area("test_dst")
 
-        # Create all neurons in destination area at once using batch_create_neurons
-        dst_neurons = connectome_manager.batch_create_neurons(
-            cortical_id="test_dst",
-            positions=dst_positions,
-            threshold=1.0,
-            membrane_potential=0.0,
-            resting_potential=0.0,
-            decay_rate=0.5,
-            refractory_period=1,
-        )
+        # Only create neurons if they don't already exist
+        if len(existing_src_neurons) == 0:
+            # Create all neurons in source area at once using batch_create_neurons
+            src_neurons = connectome_manager.batch_create_neurons(
+                cortical_id="test_src",
+                positions=src_positions,
+                threshold=1.0,
+                membrane_potential=0.0,
+                resting_potential=0.0,
+                decay_rate=0.5,
+                refractory_period=1,
+            )
+        else:
+            src_neurons = existing_src_neurons
+
+        if len(existing_dst_neurons) == 0:
+            # Create all neurons in destination area at once using batch_create_neurons
+            dst_neurons = connectome_manager.batch_create_neurons(
+                cortical_id="test_dst",
+                positions=dst_positions,
+                threshold=1.0,
+                membrane_potential=0.0,
+                resting_potential=0.0,
+                decay_rate=0.5,
+                refractory_period=1,
+            )
+        else:
+            dst_neurons = existing_dst_neurons
 
         # Verify neurons were created
         assert len(src_neurons) == 27  # 3x3x3
@@ -252,16 +278,20 @@ class TestBlockToBlockMapping:
 
         print(f"✅ Created {len(connections)} synapses via morphology-driven mapping")
 
-        return connections
+        # Store connections for other tests to access
+        self._last_connections = connections
 
     def test_validate_voxel_to_voxel_mapping(
         self, neuro_embryogenesis, connectome_manager, test_genome_with_block_to_block
     ):
         """Test that each source voxel maps to corresponding destination voxel."""
         # Run the morphology mapping
-        connections = self.test_morphology_driven_mapping(
+        self.test_morphology_driven_mapping(
             neuro_embryogenesis, connectome_manager, test_genome_with_block_to_block
         )
+
+        # Get connections from the previous test
+        connections = getattr(self, "_last_connections", [])
 
         # Get neuron positions for validation
         src_neurons = connectome_manager.get_neurons_by_area("test_src")
@@ -376,7 +406,7 @@ class TestBlockToBlockMapping:
         self.test_create_neurons_in_areas(connectome_manager)
 
         # Step 4: Apply morphology mapping
-        connections = self.test_morphology_driven_mapping(
+        self.test_morphology_driven_mapping(
             neuro_embryogenesis, connectome_manager, test_genome_with_block_to_block
         )
 
@@ -396,7 +426,7 @@ class TestBlockToBlockMapping:
         print("🎉 Complete block_to_block mapping flow successful!")
 
         return {
-            "connections_created": len(connections),
+            "connections_created": len(self._last_connections),
             "areas_created": 2,
             "neurons_created": 54,  # 27 per area
             "api_validated": True,
@@ -405,12 +435,14 @@ class TestBlockToBlockMapping:
 
 def test_debug_block_to_block_mapping():
     """Debug test to identify where block_to_block mapping fails."""
+    # Reset singleton to ensure fresh instance
+    ConnectomeManager.reset_singleton()
+
     # Create fresh instances
     connectome_manager = ConnectomeManager(config_or_max_neurons=10_000)
     neuro_embryogenesis = NeuroEmbryogenesis(connectome_manager)
-    state_manager = FeagiStateManager()
-    genome_service = GenomeService(state_manager)
-    core_api_service = CoreAPIService(connectome_manager, genome_service, state_manager)
+    state_manager = FeagiStateManager.instance()
+    core_api_service = CoreAPIService(connectome_manager, state_manager)
 
     # Create test genome
     test_genome = {
