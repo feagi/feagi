@@ -3888,7 +3888,8 @@ class ConnectomeManager:
                         # Convert target neuron ID to index for comparison
                         dst_idx = self.neuron_id_to_index.get(dst_neuron_id)
                         if dst_idx is not None and dst_idx in target_indices:
-                            connections.append((src_idx, dst_idx, weight))
+                            # Return neuron IDs instead of indices for consistency
+                            connections.append((src_neuron_id, dst_neuron_id, weight))
                             total_weight += weight
 
             return {

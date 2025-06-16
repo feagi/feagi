@@ -347,6 +347,41 @@ class TestBlockToBlockMapping:
                 dst_pos = connectome_manager.get_neuron_position(dst)
                 print(f"  {src}@{src_pos} -> {dst}@{dst_pos}")
 
+        if extra_connections:
+            print("Extra connections:")
+            for src, dst in list(extra_connections)[:5]:  # Show first 5
+                try:
+                    src_pos = connectome_manager.get_neuron_position(src)
+                except KeyError:
+                    src_pos = "INVALID"
+                try:
+                    dst_pos = connectome_manager.get_neuron_position(dst)
+                except KeyError:
+                    dst_pos = "INVALID"
+                print(f"  {src}@{src_pos} -> {dst}@{dst_pos}")
+
+        # Debug: Show raw connection data
+        print(f"Raw connections: {connections[:5]}")  # Show first 5 raw connections
+
+        # Debug: Show actual neuron IDs in areas
+        src_neurons = connectome_manager.get_neurons_by_area("test_src")
+        dst_neurons = connectome_manager.get_neurons_by_area("test_dst")
+        print(f"Source neuron IDs: {sorted(src_neurons)[:10]}")  # Show first 10
+        print(f"Destination neuron IDs: {sorted(dst_neurons)[:10]}")  # Show first 10
+
+        # Debug: Show what neuron 27 is actually connected to
+        if 27 in [conn[0] for conn in actual_connections]:
+            neuron_27_connections = [
+                conn for conn in actual_connections if conn[0] == 27
+            ]
+            print(f"Neuron 27 actual connections: {neuron_27_connections}")
+            for src, dst in neuron_27_connections:
+                try:
+                    dst_pos = connectome_manager.get_neuron_position(dst)
+                    print(f"  27@(2,2,2) -> {dst}@{dst_pos}")
+                except KeyError:
+                    print(f"  27@(2,2,2) -> {dst}@INVALID")
+
         assert len(missing_connections) == 0, (
             f"Missing {len(missing_connections)} expected connections"
         )
@@ -367,22 +402,30 @@ class TestBlockToBlockMapping:
         )
 
         # Test the cortical_info API endpoint
-        cortical_info = core_api_service.get_cortical_area_properties("test_src")
+        cortical_info = core_api_service.get_cortical_area("test_src")
 
-        assert cortical_info is not None, "Should get cortical area properties"
-        assert "parameters" in cortical_info, "Should have parameters"
-        assert "mapping" in cortical_info["parameters"], (
-            "Should have mapping in parameters"
+        assert cortical_info is not None, "Cortical area info should be available"
+
+        # Check that the area has the expected properties
+        assert cortical_info.get("id") == "test_src"
+        assert cortical_info.get("name") == "Test Source Area"
+
+        # Check that mapping information is included
+        parameters = cortical_info.get("parameters", {})
+        mapping = parameters.get("mapping", {})
+
+        # Should have mapping to test_dst
+        assert "test_dst" in mapping, (
+            f"Should have mapping to test_dst, got: {list(mapping.keys())}"
         )
 
-        mapping = cortical_info["parameters"]["mapping"]
-        assert "test_dst" in mapping, "Should have mapping to test_dst"
-
+        # The mapping should contain the connections we created
         dst_connections = mapping["test_dst"]
         assert len(dst_connections) > 0, "Should have connections to destination area"
 
-        print(f"✅ API endpoint shows {len(dst_connections)} connections in mapping")
-        print(f"Mapping data: {json.dumps(mapping, indent=2)}")
+        print(
+            f"✅ API endpoint shows {len(dst_connections)} connections from test_src to test_dst"
+        )
 
     def test_complete_block_to_block_flow(
         self,
@@ -425,7 +468,8 @@ class TestBlockToBlockMapping:
 
         print("🎉 Complete block_to_block mapping flow successful!")
 
-        return {
+        # Store results for debugging but don't return them (pytest doesn't expect return values)
+        self._flow_results = {
             "connections_created": len(self._last_connections),
             "areas_created": 2,
             "neurons_created": 54,  # 27 per area
@@ -458,11 +502,11 @@ def test_debug_block_to_block_mapping():
 
     # Run the complete test
     test_suite = TestBlockToBlockMapping()
-    result = test_suite.test_complete_block_to_block_flow(
+    test_suite.test_complete_block_to_block_flow(
         core_api_service, neuro_embryogenesis, connectome_manager, test_genome
     )
 
-    print(f"\n📊 Test Results: {result}")
+    print(f"\n📊 Test Results: {test_suite._flow_results}")
 
 
 if __name__ == "__main__":
