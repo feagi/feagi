@@ -2081,15 +2081,19 @@ class NeuroEmbryogenesis:
 
                         # Use legacy batch lookup for performance
                         if candidate_positions_set:
-                            neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
-                                cortical_id=dst_area_id,
-                                candidate_positions=candidate_positions_set,
-                                post_synaptic_current=psc_multiplier
+                            neuron_weight_pairs = (
+                                self.connectome_manager.batch_voxel_to_neuron_lookup(
+                                    cortical_id=dst_area_id,
+                                    candidate_positions=candidate_positions_set,
+                                    post_synaptic_current=psc_multiplier,
+                                )
                             )
-                            
+
                             # Convert to synapse connections
                             for neuron_id, weight in neuron_weight_pairs:
-                                synapse_connections.append((src_neuron_id, neuron_id, weight))
+                                synapse_connections.append(
+                                    (src_neuron_id, neuron_id, weight)
+                                )
 
                     # Create synapses in batch
                     if synapse_connections:
@@ -2185,15 +2189,19 @@ class NeuroEmbryogenesis:
 
                     # Use legacy batch lookup for performance
                     if all_candidate_positions:
-                        neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
-                            cortical_id=dst_area_id,
-                            candidate_positions=all_candidate_positions,
-                            post_synaptic_current=psc_multiplier
+                        neuron_weight_pairs = (
+                            self.connectome_manager.batch_voxel_to_neuron_lookup(
+                                cortical_id=dst_area_id,
+                                candidate_positions=all_candidate_positions,
+                                post_synaptic_current=psc_multiplier,
+                            )
                         )
-                        
+
                         # Convert to synapse connections
                         for neuron_id, weight in neuron_weight_pairs:
-                            synapse_connections.append((src_neuron_id, neuron_id, weight))
+                            synapse_connections.append(
+                                (src_neuron_id, neuron_id, weight)
+                            )
 
                     # Create synapses in batch
                     if synapse_connections:

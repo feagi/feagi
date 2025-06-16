@@ -168,7 +168,23 @@ class FeagiTestRunner:
             # PERFORMANCE: Use direct genome loading path for test mode
             if self.sample_genome_path:
                 # Load custom genome if specified
-                success = self.core_api.load_genome_from_file(self.sample_genome_path)
+                import json
+                from pathlib import Path
+                
+                genome_path = Path(self.sample_genome_path)
+                if not genome_path.exists():
+                    logger.error(f"Genome file not found: {genome_path}")
+                    return False
+                
+                logger.info(f"Loading custom genome: {genome_path}")
+                
+                # Read the genome file
+                with open(genome_path, "r") as f:
+                    genome_data = json.load(f)
+                
+                # Use the core API service's load_genome method
+                result = self.core_api.load_genome(genome_data, filename=genome_path.name)
+                success = result.get("success", False)
             else:
                 # Load the appropriate test genome based on test mode
                 success = self._load_test_mode_genome()

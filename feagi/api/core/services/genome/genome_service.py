@@ -412,6 +412,11 @@ class GenomeService(BaseService):
                     f"Brain development completed: {stats.get('total_neurons', 0)} neurons, {stats.get('total_synapses', 0)} synapses"
                 )
 
+                # CRITICAL: Set brain readiness ONLY after neuroembryogenesis is complete
+                if self.state_manager:
+                    self.state_manager.set_brain_readiness(True)
+                    self.logger.info("Brain readiness set to True - neuroembryogenesis complete")
+
             except Exception as dev_error:
                 self.logger.error(
                     f"Exception during brain development: {str(dev_error)}"
@@ -533,8 +538,7 @@ class GenomeService(BaseService):
                     # If genome_validity is already False from validation failure, keep it False
                     # If genome_validity is already True from validation success, keep it True
 
-                    # Set brain readiness and genome state (CRITICAL)
-                    self.state_manager.set_brain_readiness(True)
+                    # Set genome state but NOT brain readiness yet (brain readiness set after neuroembryogenesis)
                     self.state_manager.set_genome_state(GenomeState.LOADED)
 
                     # Ensure connected_agents is initialized if not already set
