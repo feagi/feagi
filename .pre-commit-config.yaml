@@ -34,7 +34,7 @@ repos:
     hooks:
       - id: check-duplicates
         name: check duplicate functions
-        entry: python -m pytest tests/unit/core/test_duplicate_prevention.py::test_duplicate_prevention_placeholder -v --tb=short
+        entry: python -m pytest tests/unit/core/test_duplicate_prevention.py::test_basic_duplicate_detection -v --tb=short
         language: system
         files: \.py$
         description: "Detect duplicate function implementations that violate DRY principle"
