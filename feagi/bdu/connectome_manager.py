@@ -124,13 +124,16 @@ class ConnectomeManager:
 
     def __new__(cls, *args, **kwargs):
         """Override __new__ to enforce singleton pattern."""
-        if cls._instance is not None:
+        if cls._instance is not None and cls._initialized:
             logger.warning(
                 "Attempted to create multiple ConnectomeManager instances - returning singleton",
                 status="[LINK]",
             )
             return cls._instance
-        return super().__new__(cls)
+        # Create new instance if none exists or if reset was called
+        instance = super().__new__(cls)
+        cls._instance = instance
+        return instance
 
     def __init__(
         self,

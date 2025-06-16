@@ -32,7 +32,7 @@ class TestConnectomeManager(unittest.TestCase):
         """Set up a test connectome with some basic structure."""
         # Reset singleton to ensure fresh instance for each test
         ConnectomeManager.reset_singleton()
-        self.connectome = ConnectomeManager()
+        self.connectome = ConnectomeManager(config_or_max_neurons=10000)
 
         # Add some cortical areas
         self.v1_id = self.connectome.add_cortical_area(
