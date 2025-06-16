@@ -23,7 +23,7 @@ transfer to GPU memory.
 
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Set
 
 import numpy as np
 import torch
@@ -4594,3 +4594,39 @@ class ConnectomeManager:
 
         except Exception as e:
             logger.error(f"Failed to deserialize synapse data: {e}")
+
+    def batch_voxel_to_neuron_lookup(
+        self, 
+        cortical_id: str, 
+        candidate_positions: Set[Tuple[int, int, int]],
+        post_synaptic_current: float = 1.0
+    ) -> List[Tuple[int, float]]:
+        """
+        Legacy-style batch lookup that converts voxel positions to neuron lists.
+        
+        This replicates the performance characteristics of the original 
+        voxels.voxel_list_to_neuron_list() function from legacy FEAGI.
+        
+        PERFORMANCE: O(N) single pass through neurons, not O(P×N) individual lookups.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            candidate_positions: Set of (x, y, z) positions to find neurons for
+            post_synaptic_current: Weight value for found neurons
+            
+        Returns:
+            List of (neuron_id, weight) tuples for neurons at candidate positions
+        """
+        if not candidate_positions:
+            return []
+            
+        result = []
+        neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+        
+        # Single O(N) pass through neurons (legacy approach)
+        for neuron_id in neurons_in_area:
+            neuron_pos = self.get_neuron_position(neuron_id)
+            if neuron_pos in candidate_positions:  # O(1) set lookup
+                result.append((neuron_id, post_synaptic_current))
+        
+        return result

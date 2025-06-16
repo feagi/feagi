@@ -2074,19 +2074,22 @@ class NeuroEmbryogenesis:
                             connectome_manager=self.connectome_manager,
                         )
 
-                        # Find neurons at candidate positions and create connections
-                        # match_vectors returns a Set, so we can iterate directly
+                        # Collect all candidate positions first (legacy approach)
+                        candidate_positions_set = set()
                         for candidate_pos in candidate_positions:
-                            # Get neurons at this position
-                            neurons_at_pos = (
-                                self.connectome_manager.get_neurons_at_position(
-                                    dst_area_id, candidate_pos
-                                )
+                            candidate_positions_set.add(candidate_pos)
+
+                        # Use legacy batch lookup for performance
+                        if candidate_positions_set:
+                            neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
+                                cortical_id=dst_area_id,
+                                candidate_positions=candidate_positions_set,
+                                post_synaptic_current=psc_multiplier
                             )
-                            for neuron_at_pos in neurons_at_pos:
-                                synapse_connections.append(
-                                    (src_neuron_id, neuron_at_pos, psc_multiplier)
-                                )
+                            
+                            # Convert to synapse connections
+                            for neuron_id, weight in neuron_weight_pairs:
+                                synapse_connections.append((src_neuron_id, neuron_id, weight))
 
                     # Create synapses in batch
                     if synapse_connections:
@@ -2158,6 +2161,9 @@ class NeuroEmbryogenesis:
 
                     synapse_connections = []
 
+                    # Collect all candidate positions first (legacy approach)
+                    all_candidate_positions = set()
+
                     # Process each pattern (legacy pattern logic)
                     for pattern in patterns:
                         if len(pattern) >= 2:
@@ -2173,17 +2179,21 @@ class NeuroEmbryogenesis:
                                 )
                             )
 
-                            # Find neurons at candidate positions and create connections
+                            # Collect positions for batch lookup
                             for candidate_pos in candidate_positions:
-                                neurons_at_pos = (
-                                    self.connectome_manager.get_neurons_at_position(
-                                        dst_area_id, candidate_pos
-                                    )
-                                )
-                                for neuron_at_pos in neurons_at_pos:
-                                    synapse_connections.append(
-                                        (src_neuron_id, neuron_at_pos, psc_multiplier)
-                                    )
+                                all_candidate_positions.add(candidate_pos)
+
+                    # Use legacy batch lookup for performance
+                    if all_candidate_positions:
+                        neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
+                            cortical_id=dst_area_id,
+                            candidate_positions=all_candidate_positions,
+                            post_synaptic_current=psc_multiplier
+                        )
+                        
+                        # Convert to synapse connections
+                        for neuron_id, weight in neuron_weight_pairs:
+                            synapse_connections.append((src_neuron_id, neuron_id, weight))
 
                     # Create synapses in batch
                     if synapse_connections:

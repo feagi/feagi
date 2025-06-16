@@ -569,7 +569,7 @@ def find_candidate_neurons(
         else:
             logger.warning(f"Unsupported morphology type: {morphology_type}")
 
-        # For each candidate position, find the neurons there and add them to the result list
+        # Legacy-style batch lookup: single O(N) pass instead of O(P×N) individual lookups
         if debug_bdu:
             logger.info(
                 f"[BDU DEBUG] Processing {len(raw_candidate_positions)} candidate positions"
@@ -578,24 +578,12 @@ def find_candidate_neurons(
                 f"[BDU DEBUG] Candidate positions: {sorted(list(raw_candidate_positions))}"
             )
 
-        for dst_pos in raw_candidate_positions:
-            if dst_pos is None:
-                continue
-
-            # Get neurons at this position in the destination area
-            dst_neurons = connectome_manager.get_neurons_at_position(
-                dst_area_id, dst_pos
-            )
-
-            if debug_bdu and dst_neurons:
-                logger.info(
-                    f"[BDU DEBUG] Position {dst_pos} contains {len(dst_neurons)} neurons: {dst_neurons}"
-                )
-
-            # Add each destination neuron with its weight to the candidate list
-            for dst_neuron_id in dst_neurons:
-                if dst_neuron_id:
-                    candidate_neuron_list.append((dst_neuron_id, post_synaptic_current))
+        # Use legacy batch approach for performance (like voxels.voxel_list_to_neuron_list)
+        candidate_neuron_list = connectome_manager.batch_voxel_to_neuron_lookup(
+            cortical_id=dst_area_id,
+            candidate_positions=raw_candidate_positions,
+            post_synaptic_current=post_synaptic_current
+        )
 
         if debug_bdu:
             logger.info(
