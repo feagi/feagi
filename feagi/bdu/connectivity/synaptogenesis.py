@@ -582,7 +582,7 @@ def find_candidate_neurons(
         candidate_neuron_list = connectome_manager.batch_voxel_to_neuron_lookup(
             cortical_id=dst_area_id,
             candidate_positions=raw_candidate_positions,
-            post_synaptic_current=post_synaptic_current
+            post_synaptic_current=post_synaptic_current,
         )
 
         if debug_bdu:
