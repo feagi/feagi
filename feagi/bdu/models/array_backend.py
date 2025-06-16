@@ -278,7 +278,7 @@ class ArrayBackend:
 
         except Exception as e:
             logger.error(f"Failed to initialize wgpu backend: {e}")
-            raise RuntimeError(f"wgpu initialization failed: {e}")
+            raise RuntimeError(f"wgpu initialization failed: {e}") from e
 
     def _get_dtype_for_precision(self, base_dtype: Any = None) -> Any:
         """Get the appropriate dtype for the current precision setting.

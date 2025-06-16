@@ -55,6 +55,36 @@ from .rules.vectors import match_vectors
 
 logger = setup_logger(__name__)
 
+# Explicitly export imported functions for use by test modules and external consumers
+__all__ = [
+    # Function-based morphologies
+    "syn_block_connection",
+    "syn_expander_x",
+    "syn_last_to_first",
+    "syn_lateral_pairs_x",
+    "syn_memory",
+    "syn_projector",
+    "syn_randomizer",
+    "syn_reducer_x",
+    # Pattern-based functions
+    "check_pattern_validity",
+    "define_subregions",
+    "find_destination_coordinates",
+    "find_source_coordinates",
+    # Vector-based functions
+    "match_vectors",
+    # Helper functions
+    "linearize_position",
+    "delinearize_position",
+    "evaluate_expression",
+    "neighbor_finder",
+    "neighbor_finder_extended",
+    "find_candidate_neurons",
+    # Enums and types
+    "RuleType",
+    "MorphologyFunction",
+]
+
 
 def _is_debug_bdu_enabled() -> bool:
     """

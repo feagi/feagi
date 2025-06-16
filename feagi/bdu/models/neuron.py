@@ -1900,7 +1900,7 @@ class NeuronArray:
             except Exception as e:
                 raise RuntimeError(
                     f"PyTorch tensor operation failed during neuron creation: {e}. This may indicate memory corruption or incompatible tensor shapes."
-                )
+                ) from e
         else:
             # For NumPy arrays, use standard indexing with CRITICAL BOUNDS CHECKING
             # MEMORY SAFETY: Validate all array operations to prevent corruption
