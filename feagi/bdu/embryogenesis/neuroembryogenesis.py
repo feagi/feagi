@@ -2044,6 +2044,11 @@ class NeuroEmbryogenesis:
             # Process each source neuron
             for src_neuron_id in src_neurons:
                 try:
+                    # DEBUG: Log the actual neuron ID being processed
+                    logger.debug(
+                        f"[VECTOR DEBUG] Processing source neuron ID: {src_neuron_id}"
+                    )
+
                     # Get source neuron position
                     src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
                     if not src_pos:
