@@ -29,6 +29,43 @@ repos:
         args: ["--profile", "black"]
         description: "Sort imports with isort"
 
+  # Custom FEAGI quality checks (pytest-based)
+  - repo: local
+    hooks:
+      - id: check-duplicates
+        name: check duplicate functions
+        entry: python -m pytest tests/unit/core/test_duplicate_prevention.py::test_duplicate_prevention_placeholder -v --tb=short
+        language: system
+        files: \.py$
+        description: "Detect duplicate function implementations that violate DRY principle"
+        pass_filenames: false
+        fail_fast: true
+
+      # NPU/BDU compatibility checks (leverages existing pytest infrastructure)
+      - id: check-npu-bdu-compatibility
+        name: NPU/BDU compatibility check
+        entry: python -m pytest tests/npu/test_rtos_rust_compatibility.py::test_npu_rtos_rust_compatibility -v --tb=short
+        language: system
+        files: ^feagi/(npu|bdu)/.*\.py$
+        description: "Ensure NPU/BDU modules maintain Rust/RTOS/SIMD/GPU compatibility"
+        pass_filenames: false
+
+      - id: check-simd-compatibility
+        name: SIMD compatibility check
+        entry: python -m pytest tests/npu/test_simd_compatibility.py::test_comprehensive_simd_assessment -v --tb=short
+        language: system
+        files: ^feagi/(npu|bdu)/.*\.py$
+        description: "Verify SIMD optimization compatibility for NPU/BDU modules"
+        pass_filenames: false
+
+      - id: check-wgpu-compatibility
+        name: WGPU compatibility check
+        entry: python -m pytest tests/npu/test_wgpu_compatibility.py::test_npu_wgpu_compatibility -v --tb=short
+        language: system
+        files: ^feagi/(npu|bdu)/.*\.py$
+        description: "Ensure GPU acceleration compatibility for NPU/BDU modules"
+        pass_filenames: false
+
   # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
