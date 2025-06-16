@@ -262,6 +262,7 @@ def main():
     )
 
     # Test mode arguments
+
     parser.add_argument(
         "--test",
         action="store_true",
@@ -553,6 +554,8 @@ def main():
         },
         "test": {
             "enabled": args.test or args.test_mode_1 or args.test_mode_2,
+            "mode_1": args.test_mode_1,
+            "mode_2": args.test_mode_2,
             "duration": args.test_duration,
             "frequency": args.test_frequency,
             "frequency": args.test_frequency,
@@ -577,10 +580,14 @@ def main():
         logger.warning(f"Could not log startup summary: {e}")
 
     # If in test mode, run tests AFTER processes are started
-    test_mode_enabled = args.test or args.test_mode_1 or args.test_mode_2
-    if test_mode_enabled:
-        # Determine which test mode to use
-        if args.test_mode_2:
+    if args.test or args.test_mode_1 or args.test_mode_2:
+        logger.info("Starting FEAGI in test mode")
+        
+        # Determine test mode
+        if args.test_mode_1:
+            test_mode = "mode_1"
+            logger.info("Using test mode 1: JSON-based predictable testing")
+        elif args.test_mode_2:
             test_mode = "mode_2"
             logger.info(
                 "Starting FEAGI in test mode 2 (numpy-based scalable random generation)"
@@ -608,12 +615,12 @@ def main():
 
         # Exit with appropriate exit code
         if test_result:
-            logger.info(f"[OK] Test mode {test_mode} passed successfully")
+            logger.info("[OK] Tests passed successfully")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 0
         else:
-            logger.error(f"[ERR] Test mode {test_mode} failed")
+            logger.error("[ERR] Tests failed")
             process_manager.shutdown()
             FeagiStateManager.instance().cleanup()
             return 1
