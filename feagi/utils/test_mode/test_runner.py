@@ -170,20 +170,22 @@ class FeagiTestRunner:
                 # Load custom genome if specified
                 import json
                 from pathlib import Path
-                
+
                 genome_path = Path(self.sample_genome_path)
                 if not genome_path.exists():
                     logger.error(f"Genome file not found: {genome_path}")
                     return False
-                
+
                 logger.info(f"Loading custom genome: {genome_path}")
-                
+
                 # Read the genome file
                 with open(genome_path, "r") as f:
                     genome_data = json.load(f)
-                
+
                 # Use the core API service's load_genome method
-                result = self.core_api.load_genome(genome_data, filename=genome_path.name)
+                result = self.core_api.load_genome(
+                    genome_data, filename=genome_path.name
+                )
                 success = result.get("success", False)
             else:
                 # Load the appropriate test genome based on test mode
