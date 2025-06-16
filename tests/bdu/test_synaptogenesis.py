@@ -191,7 +191,9 @@ def test_synaptogenesis_process(embryo):
     # This test passes regardless of whether synapses were created,
     # as the synaptogenesis might not create connections based on the genome design
     stats = embryo.get_development_statistics()
-    assert "synapses" in stats, "Development statistics should include synapse count"
+    assert "total_synapses" in stats, (
+        "Development statistics should include synapse count"
+    )
 
 
 @pytest.mark.skip("Needs to be updated for new state manager integration")
@@ -208,5 +210,7 @@ def test_full_brain_development(genome_path, config):
     # Get development statistics
     stats = embryo.get_development_statistics()
     assert stats["cortical_areas"] > 0, "Brain should have cortical areas"
-    assert stats["neurons"] > 0, "Brain should have neurons"
-    assert "synapses" in stats, "Development statistics should include synapse count"
+    assert stats["total_neurons"] > 0, "Brain should have neurons"
+    assert "total_synapses" in stats, (
+        "Development statistics should include synapse count"
+    )

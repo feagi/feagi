@@ -187,6 +187,10 @@ class ConnectomeManager:
         self.brain_regions = {}
         self.region_area_map = {}
 
+        # Initialize connectivity rules and cortical connections storage
+        self.connectivity_rules = {}
+        self.cortical_connections = {}
+
         # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "___pwr"
         self.reserved_cortical_areas = {"_death": 0, "___pwr": 1}
 
@@ -3929,3 +3933,664 @@ class ConnectomeManager:
         except Exception as e:
             self.logger.error(f"Error getting neuron indices: {str(e)}")
             return []
+
+    # ======================================================================
+    # CONNECTIVITY RULES MANAGEMENT
+    # ======================================================================
+
+    def add_connectivity_rule(
+        self,
+        name: str,
+        source_area_id: str,
+        target_area_id: str,
+        rule_type: str,
+        parameters: Dict[str, Any],
+        enabled: bool = True,
+        rule_id: Optional[str] = None,
+    ) -> str:
+        """Add a connectivity rule between two cortical areas.
+
+        Args:
+            name: Human-readable name for the rule
+            source_area_id: Source cortical area ID
+            target_area_id: Target cortical area ID
+            rule_type: Type of rule ('one-to-one', 'all-to-all', 'probabilistic', 'distance', 'random-subset')
+            parameters: Rule-specific parameters
+            enabled: Whether the rule is enabled
+            rule_id: Optional specific rule ID (auto-generated if None)
+
+        Returns:
+            The rule ID
+
+        Raises:
+            ValueError: If areas don't exist or rule_type is invalid
+        """
+        import time
+        import uuid
+
+        # Validate areas exist
+        if source_area_id not in self.cortical_areas:
+            raise ValueError(f"Source area {source_area_id} does not exist")
+        if target_area_id not in self.cortical_areas:
+            raise ValueError(f"Target area {target_area_id} does not exist")
+
+        # Validate rule type
+        valid_types = [
+            "one-to-one",
+            "all-to-all",
+            "probabilistic",
+            "distance",
+            "random-subset",
+        ]
+        if rule_type not in valid_types:
+            raise ValueError(
+                f"Invalid rule type {rule_type}. Must be one of: {valid_types}"
+            )
+
+        # Generate rule ID if not provided
+        if rule_id is None:
+            rule_id = str(uuid.uuid4())
+
+        # Store the rule
+        self.connectivity_rules[rule_id] = {
+            "name": name,
+            "source_cortical_id": source_area_id,  # Use cortical_id for consistency
+            "target_cortical_id": target_area_id,  # Use cortical_id for consistency
+            "rule_type": rule_type,
+            "parameters": parameters.copy(),
+            "enabled": enabled,
+            "created_at": time.time(),
+        }
+
+        logger.info(
+            f"Added connectivity rule '{name}' ({rule_id}) from {source_area_id} to {target_area_id}"
+        )
+        return rule_id
+
+    def get_connectivity_rule(self, rule_id: str) -> Dict[str, Any]:
+        """Get a connectivity rule by ID.
+
+        Args:
+            rule_id: Rule ID
+
+        Returns:
+            Rule dictionary
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+        return self.connectivity_rules[rule_id].copy()
+
+    def update_connectivity_rule(self, rule_id: str, updates: Dict[str, Any]) -> bool:
+        """Update a connectivity rule.
+
+        Args:
+            rule_id: Rule ID
+            updates: Dictionary of updates to apply
+
+        Returns:
+            True if updated successfully
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+
+        # Apply updates
+        for key, value in updates.items():
+            if key in self.connectivity_rules[rule_id]:
+                self.connectivity_rules[rule_id][key] = value
+
+        logger.info(f"Updated connectivity rule {rule_id}")
+        return True
+
+    def delete_connectivity_rule(self, rule_id: str) -> bool:
+        """Delete a connectivity rule.
+
+        Args:
+            rule_id: Rule ID
+
+        Returns:
+            True if deleted successfully
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+
+        del self.connectivity_rules[rule_id]
+        logger.info(f"Deleted connectivity rule {rule_id}")
+        return True
+
+    def get_connectivity_rules_for_areas(
+        self, source_area_id: str = None, target_area_id: str = None
+    ) -> List[str]:
+        """Get connectivity rules for specific areas.
+
+        Args:
+            source_area_id: Source area ID (optional)
+            target_area_id: Target area ID (optional)
+
+        Returns:
+            List of rule IDs matching the criteria
+        """
+        matching_rules = []
+        for rule_id, rule in self.connectivity_rules.items():
+            if source_area_id and rule["source_cortical_id"] != source_area_id:
+                continue
+            if target_area_id and rule["target_cortical_id"] != target_area_id:
+                continue
+            matching_rules.append(rule_id)
+        return matching_rules
+
+    def apply_connectivity_rule(
+        self,
+        rule_id: str,
+        weight_override: Optional[float] = None,
+        max_synapses: int = 10000,
+    ) -> int:
+        """Apply a single connectivity rule.
+
+        Args:
+            rule_id: Rule ID to apply
+            weight_override: Override the weight specified in the rule
+            max_synapses: Maximum number of synapses to create
+
+        Returns:
+            Number of synapses created
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+
+        rule = self.connectivity_rules[rule_id]
+        if not rule["enabled"]:
+            return 0
+
+        # Use the existing batch application logic
+        results = self.apply_rule_batch([rule_id], weight_override, max_synapses)
+        return results.get(rule_id, 0)
+
+    # ======================================================================
+    # CORTICAL CONNECTIONS MANAGEMENT
+    # ======================================================================
+
+    def add_cortical_connection(
+        self,
+        name: str,
+        source_area_id: str,
+        target_area_id: str,
+        properties: Optional[Dict[str, Any]] = None,
+        connection_id: Optional[str] = None,
+    ) -> str:
+        """Add a cortical connection between two areas.
+
+        Args:
+            name: Human-readable name for the connection
+            source_area_id: Source cortical area ID
+            target_area_id: Target cortical area ID
+            properties: Optional properties dictionary
+            connection_id: Optional specific connection ID
+
+        Returns:
+            The connection ID
+
+        Raises:
+            ValueError: If areas don't exist
+        """
+        import time
+        import uuid
+
+        # Validate areas exist
+        if source_area_id not in self.cortical_areas:
+            raise ValueError(f"Source area {source_area_id} does not exist")
+        if target_area_id not in self.cortical_areas:
+            raise ValueError(f"Target area {target_area_id} does not exist")
+
+        # Generate connection ID if not provided
+        if connection_id is None:
+            connection_id = str(uuid.uuid4())
+
+        # Store the connection
+        self.cortical_connections[connection_id] = {
+            "name": name,
+            "source_area_id": source_area_id,
+            "target_area_id": target_area_id,
+            "properties": properties.copy() if properties else {},
+            "synapse_count": 0,
+            "created_at": time.time(),
+        }
+
+        logger.info(
+            f"Added cortical connection '{name}' ({connection_id}) from {source_area_id} to {target_area_id}"
+        )
+        return connection_id
+
+    def get_cortical_connection(self, connection_id: str) -> Dict[str, Any]:
+        """Get a cortical connection by ID.
+
+        Args:
+            connection_id: Connection ID
+
+        Returns:
+            Connection dictionary
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+        return self.cortical_connections[connection_id].copy()
+
+    def update_cortical_connection(
+        self, connection_id: str, updates: Dict[str, Any]
+    ) -> bool:
+        """Update a cortical connection.
+
+        Args:
+            connection_id: Connection ID
+            updates: Dictionary of updates to apply
+
+        Returns:
+            True if updated successfully
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        # Apply updates
+        for key, value in updates.items():
+            if key == "properties" and isinstance(value, dict):
+                # Merge properties instead of replacing
+                self.cortical_connections[connection_id]["properties"].update(value)
+            else:
+                self.cortical_connections[connection_id][key] = value
+
+        logger.info(f"Updated cortical connection {connection_id}")
+        return True
+
+    def delete_cortical_connection(
+        self, connection_id: str, delete_synapses: bool = False
+    ) -> bool:
+        """Delete a cortical connection.
+
+        Args:
+            connection_id: Connection ID
+            delete_synapses: Whether to delete associated synapses
+
+        Returns:
+            True if deleted successfully
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+
+        if delete_synapses:
+            # Delete synapses between the areas
+            source_neurons = self.get_neurons_by_cortical_area(
+                connection["source_area_id"]
+            )
+            target_neurons = self.get_neurons_by_cortical_area(
+                connection["target_area_id"]
+            )
+
+            deleted_count = 0
+            for source_id in source_neurons:
+                for target_id in target_neurons:
+                    if self.has_synapse(source_id, target_id):
+                        self.remove_synapse(source_id, target_id)
+                        deleted_count += 1
+
+            logger.info(
+                f"Deleted {deleted_count} synapses for connection {connection_id}"
+            )
+
+        del self.cortical_connections[connection_id]
+        logger.info(f"Deleted cortical connection {connection_id}")
+        return True
+
+    def update_synapse_count_for_connection(self, connection_id: str) -> int:
+        """Update and return the synapse count for a connection.
+
+        Args:
+            connection_id: Connection ID
+
+        Returns:
+            Number of synapses in the connection
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+        source_neurons = self.get_neurons_by_cortical_area(connection["source_area_id"])
+        target_neurons = self.get_neurons_by_cortical_area(connection["target_area_id"])
+
+        synapse_count = 0
+        for source_id in source_neurons:
+            for target_id in target_neurons:
+                if self.has_synapse(source_id, target_id):
+                    synapse_count += 1
+
+        self.cortical_connections[connection_id]["synapse_count"] = synapse_count
+        return synapse_count
+
+    def get_connection_statistics(self, connection_id: str) -> Dict[str, Any]:
+        """Get statistics for a cortical connection.
+
+        Args:
+            connection_id: Connection ID
+
+        Returns:
+            Dictionary with connection statistics
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+        source_neurons = self.get_neurons_by_cortical_area(connection["source_area_id"])
+        target_neurons = self.get_neurons_by_cortical_area(connection["target_area_id"])
+
+        synapse_count = 0
+        total_weight = 0.0
+        weights = []
+
+        for source_id in source_neurons:
+            for target_id in target_neurons:
+                if self.has_synapse(source_id, target_id):
+                    weight = self.get_synapse_weight(source_id, target_id)
+                    synapse_count += 1
+                    total_weight += weight
+                    weights.append(weight)
+
+        avg_weight = total_weight / synapse_count if synapse_count > 0 else 0.0
+
+        return {
+            "synapse_count": synapse_count,
+            "avg_weight": avg_weight,
+            "total_weight": total_weight,
+            "source_neuron_count": len(source_neurons),
+            "target_neuron_count": len(target_neurons),
+        }
+
+    def apply_connection_weight_change(
+        self, connection_id: str, weight_multiplier: float
+    ) -> int:
+        """Apply a weight change to all synapses in a connection.
+
+        Args:
+            connection_id: Connection ID
+            weight_multiplier: Multiplier to apply to all weights
+
+        Returns:
+            Number of synapses modified
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+        source_neurons = self.get_neurons_by_cortical_area(connection["source_area_id"])
+        target_neurons = self.get_neurons_by_cortical_area(connection["target_area_id"])
+
+        modified_count = 0
+        for source_id in source_neurons:
+            for target_id in target_neurons:
+                if self.has_synapse(source_id, target_id):
+                    current_weight = self.get_synapse_weight(source_id, target_id)
+                    new_weight = current_weight * weight_multiplier
+                    self.update_synapse_weight(source_id, target_id, new_weight)
+                    modified_count += 1
+
+        logger.info(
+            f"Applied weight multiplier {weight_multiplier} to {modified_count} synapses in connection {connection_id}"
+        )
+        return modified_count
+
+    def get_connections_by_area(
+        self, area_id: str, as_source: bool = True, as_target: bool = True
+    ) -> List[str]:
+        """Get connections involving a specific area.
+
+        Args:
+            area_id: Cortical area ID
+            as_source: Include connections where this area is the source
+            as_target: Include connections where this area is the target
+
+        Returns:
+            List of connection IDs
+        """
+        matching_connections = []
+        for connection_id, connection in self.cortical_connections.items():
+            if as_source and connection["source_area_id"] == area_id:
+                matching_connections.append(connection_id)
+            elif as_target and connection["target_area_id"] == area_id:
+                matching_connections.append(connection_id)
+        return matching_connections
+
+    # ======================================================================
+    # SAVE/LOAD FUNCTIONALITY
+    # ======================================================================
+
+    def save(self, filename: str) -> bool:
+        """Save the connectome to a file.
+
+        Args:
+            filename: Path to save the connectome
+
+        Returns:
+            True if saved successfully
+
+        Raises:
+            Exception: If save fails
+        """
+        import os
+        import pickle
+
+        try:
+            # Prepare data to save
+            save_data = {
+                "cortical_areas": {
+                    cid: area.to_dict() for cid, area in self.cortical_areas.items()
+                },
+                "brain_regions": self.brain_regions.copy(),
+                "region_area_map": self.region_area_map.copy(),
+                "connectivity_rules": self.connectivity_rules.copy(),
+                "cortical_connections": self.cortical_connections.copy(),
+                "neuron_data": self._serialize_neuron_data(),
+                "synapse_data": self._serialize_synapse_data(),
+                "metadata": {
+                    "version": "1.0",
+                    "max_neurons": self.max_neurons,
+                    "max_synapses": self.max_synapses,
+                    "neuron_count": self.get_neuron_count(),
+                    "synapse_count": self.get_synapse_count(),
+                },
+            }
+
+            # Save to file
+            with open(filename, "wb") as f:
+                pickle.dump(save_data, f)
+
+            logger.info(f"Saved connectome to {filename}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to save connectome to {filename}: {e}")
+            raise
+
+    @classmethod
+    def load(cls, filename: str) -> "ConnectomeManager":
+        """Load a connectome from a file.
+
+        Args:
+            filename: Path to load the connectome from
+
+        Returns:
+            Loaded ConnectomeManager instance
+
+        Raises:
+            Exception: If load fails
+        """
+        import os
+        import pickle
+
+        try:
+            # Load data from file
+            with open(filename, "rb") as f:
+                save_data = pickle.load(f)
+
+            # Create new ConnectomeManager instance
+            metadata = save_data.get("metadata", {})
+            max_neurons = metadata.get("max_neurons", 10_000_000)
+            max_synapses = metadata.get("max_synapses", 100_000_000)
+
+            # Reset singleton to allow loading
+            cls.reset_singleton()
+            connectome = cls(max_neurons, max_synapses)
+
+            # Restore cortical areas
+            for cid, area_data in save_data.get("cortical_areas", {}).items():
+                from feagi.bdu.models.cortical_area import CorticalArea
+
+                area = CorticalArea.from_dict(area_data)
+                connectome.cortical_areas[cid] = area
+                # Only sync mapping if cortical_idx is valid
+                if area.cortical_idx is not None:
+                    connectome._sync_cortical_mapping(cid, area.cortical_idx)
+
+            # Restore brain regions and mappings
+            connectome.brain_regions = save_data.get("brain_regions", {})
+            connectome.region_area_map = save_data.get("region_area_map", {})
+            connectome.connectivity_rules = save_data.get("connectivity_rules", {})
+            connectome.cortical_connections = save_data.get("cortical_connections", {})
+
+            # Restore neuron and synapse data
+            connectome._deserialize_neuron_data(save_data.get("neuron_data", {}))
+            connectome._deserialize_synapse_data(save_data.get("synapse_data", {}))
+
+            logger.info(f"Loaded connectome from {filename}")
+            return connectome
+
+        except Exception as e:
+            logger.error(f"Failed to load connectome from {filename}: {e}")
+            raise
+
+    def _serialize_neuron_data(self) -> Dict[str, Any]:
+        """Serialize neuron data for saving."""
+        try:
+            # Get all valid neuron IDs
+            neuron_ids = []
+            for neuron_id, idx in self.neuron_array.id_to_index_map.items():
+                if self.neuron_array.valid_mask[idx]:
+                    neuron_ids.append(neuron_id)
+
+            # Serialize neuron properties
+            neuron_data = {}
+            for neuron_id in neuron_ids:
+                neuron_data[neuron_id] = self.get_neuron(neuron_id)
+
+            return {
+                "neurons": neuron_data,
+                "next_neuron_id": getattr(self.neuron_array, "_next_neuron_id", 1),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to serialize neuron data: {e}")
+            return {}
+
+    def _serialize_synapse_data(self) -> Dict[str, Any]:
+        """Serialize synapse data for saving."""
+        try:
+            synapses = []
+
+            # Get all synapses
+            for neuron_id in self.neuron_array.id_to_index_map.keys():
+                if neuron_id in self.neuron_array.id_to_index_map:
+                    outgoing = self.get_outgoing_connections(neuron_id)
+                    for target_id, weight in outgoing:
+                        synapses.append(
+                            {
+                                "pre_neuron_id": neuron_id,
+                                "post_neuron_id": target_id,
+                                "weight": weight,
+                            }
+                        )
+
+            return {"synapses": synapses}
+
+        except Exception as e:
+            logger.error(f"Failed to serialize synapse data: {e}")
+            return {}
+
+    def _deserialize_neuron_data(self, neuron_data: Dict[str, Any]) -> None:
+        """Deserialize neuron data after loading."""
+        try:
+            neurons = neuron_data.get("neurons", {})
+            next_neuron_id = neuron_data.get("next_neuron_id", 1)
+
+            # Restore next neuron ID
+            self.neuron_array._next_neuron_id = next_neuron_id
+
+            # Recreate neurons
+            for neuron_id_str, neuron_props in neurons.items():
+                neuron_id = int(neuron_id_str)
+                cortical_id = neuron_props.get("cortical_id")
+                position = neuron_props.get("position", (0, 0, 0))
+
+                # Create neuron with original ID
+                created_id = self.create_neuron(
+                    cortical_id=cortical_id,
+                    position=position,
+                    threshold=neuron_props.get("threshold", 1.0),
+                    membrane_potential=neuron_props.get("membrane_potential", 0.0),
+                    resting_potential=neuron_props.get("resting_potential", 0.0),
+                    decay_rate=neuron_props.get("decay_rate", 0.5),
+                    refractory_period=neuron_props.get("refractory_period", 1),
+                )
+
+                # Update mapping to use original ID if different
+                if created_id != neuron_id:
+                    # Fix the ID mapping
+                    idx = self.neuron_array.id_to_index_map[created_id]
+                    del self.neuron_array.id_to_index_map[created_id]
+                    self.neuron_array.id_to_index_map[neuron_id] = idx
+                    self.neuron_array.index_to_id_map[idx] = neuron_id
+
+        except Exception as e:
+            logger.error(f"Failed to deserialize neuron data: {e}")
+
+    def _deserialize_synapse_data(self, synapse_data: Dict[str, Any]) -> None:
+        """Deserialize synapse data after loading."""
+        try:
+            synapses = synapse_data.get("synapses", [])
+
+            # Recreate synapses
+            for synapse in synapses:
+                self.create_synapse(
+                    pre_neuron_id=synapse["pre_neuron_id"],
+                    post_neuron_id=synapse["post_neuron_id"],
+                    weight=synapse["weight"],
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to deserialize synapse data: {e}")

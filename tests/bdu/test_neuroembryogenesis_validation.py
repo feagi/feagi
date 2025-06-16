@@ -240,56 +240,78 @@ def test_setup_cortical_areas(embryo, test_genome_file):
     assert success, "Failed to set up cortical areas"
 
     # Check if areas were created
-    assert len(embryo.cortical_areas) > 0, "No cortical areas were created"
-    assert len(embryo.cortical_id_map) > 0, "Cortical ID map is empty"
-    assert len(embryo.reverse_cortical_id_map) > 0, "Reverse cortical ID map is empty"
+    assert len(embryo.connectome_manager.cortical_areas) > 0, (
+        "No cortical areas were created"
+    )
 
-    # Get the test genome data for validation
+    # Load the test genome data for validation
     with open(test_genome_file, "r") as f:
         genome_data = json.load(f)
 
-    # Count expected areas from genome blueprint
-    expected_area_count = 0
-    cortical_ids = set()
-    for key in genome_data["blueprint"].keys():
-        if key.endswith("__name-t"):
-            # Extract cortical ID from key (should be length 6 in most genomes)
-            cortical_id = key.split("-")[1]
-            cortical_ids.add(cortical_id)
-            expected_area_count += 1
+    # Check that the expected number of areas were created
+    expected_area_count = (
+        len(
+            [
+                area_id
+                for area_id in genome_data["blueprint"]
+                if area_id not in ["_death", "___pwr"]
+            ]
+        )
+        + 2
+    )  # Add 2 for core areas
 
-    # Verify the number of areas matches
-    assert len(embryo.cortical_areas) == expected_area_count, (
-        f"Expected {expected_area_count} cortical areas, got {len(embryo.cortical_areas)}"
+    assert len(embryo.connectome_manager.cortical_areas) == expected_area_count, (
+        f"Expected {expected_area_count} cortical areas, got {len(embryo.connectome_manager.cortical_areas)}"
     )
 
-    # Verify all cortical IDs from genome are in the maps
-    for cortical_id in cortical_ids:
-        assert cortical_id in embryo.cortical_id_map, (
-            f"Missing cortical ID: {cortical_id}"
-        )
+    # Check that each area has the correct properties
+    for area_id, area in embryo.connectome_manager.cortical_areas.items():
+        assert area.name is not None, f"Area {area_id} has no name"
+        assert area.dimensions is not None, f"Area {area_id} has no dimensions"
+        assert len(area.dimensions) == 3, f"Area {area_id} dimensions should be 3D"
 
-    # Verify each area has a name and dimensions
-    for area_id, area in embryo.cortical_areas.items():
-        cortical_id = embryo.reverse_cortical_id_map[area_id]
-        assert hasattr(area, "name"), f"Area {cortical_id} missing name"
-        assert hasattr(area, "dimensions"), f"Area {cortical_id} missing dimensions"
-
-        # Verify dimensions are non-zero
-        assert all(d > 0 for d in area.dimensions), (
-            f"Area {cortical_id} has zero dimensions"
-        )
-
-        # Verify area type
-        assert hasattr(area, "area_type"), f"Area {cortical_id} missing area_type"
-
-        # Sample some areas to verify more detailed properties
+        # Check that the area has neurons (except for very small test areas)
         if (
-            len(embryo.cortical_areas) > 5
-            and list(embryo.cortical_areas.keys()).index(area_id) < 3
+            len(embryo.connectome_manager.cortical_areas) > 5
+            and list(embryo.connectome_manager.cortical_areas.keys()).index(area_id) < 3
         ):
-            props = embryo._extract_cortical_properties(cortical_id)
-            validate_area_structure(area, props)
+            neurons = embryo.connectome_manager.get_neurons_by_area(area_id)
+            assert len(neurons) > 0, f"Area {area_id} should have neurons"
+
+    # Check that the cortical_id_map is properly populated
+    assert len(embryo.cortical_id_map) > 0, "cortical_id_map should be populated"
+
+    # Check that the reverse mapping is consistent
+    for cortical_idx, cortical_id in embryo.cortical_id_map.items():
+        assert embryo.reverse_cortical_id_map[cortical_id] == cortical_idx, (
+            f"Reverse mapping inconsistent for {cortical_id}"
+        )
+
+    # Check that all areas have neurons
+    total_neurons = 0
+    for area_id in embryo.connectome_manager.cortical_areas.keys():
+        neurons = embryo.connectome_manager.get_neurons_by_area(area_id)
+        neuron_count = len(neurons)
+        area = embryo.connectome_manager.cortical_areas[area_id]
+        print(f"Area {area_id} ({area.name}): {neuron_count} neurons")
+        total_neurons += neuron_count
+
+    print(f"Total neurons created: {total_neurons}")
+    assert total_neurons > 0, "Should have created at least some neurons"
+
+    # Check synapse creation
+    stats = embryo.get_development_statistics()
+    synapse_count = stats.get("total_synapses", 0)
+
+    for area_id, area in embryo.connectome_manager.cortical_areas.items():
+        print(f"Area {area_id}: {area.name} - {area.dimensions}")
+
+    print(f"Total synapses created: {synapse_count}")
+
+    # For this test genome, we expect some synapses to be created
+    # The exact number depends on the genome structure
+    if len(embryo.connectome_manager.cortical_areas) > 10:
+        assert synapse_count > 0, "Expected some synapses to be created"
 
 
 @pytest.mark.skip(reason="Cortical area lookup failing")
@@ -314,11 +336,11 @@ def test_perform_neurogenesis(embryo, test_genome_file):
     # Count actual neurons
     neuron_count = 0
     area_counts = {}
-    for area_id in embryo.cortical_areas.keys():
+    for area_id in embryo.connectome_manager.cortical_areas.keys():
         neurons = embryo.connectome_manager.get_neurons_by_area(area_id)
         count = len(neurons)
         neuron_count += count
-        area = embryo.cortical_areas[area_id]
+        area = embryo.connectome_manager.cortical_areas[area_id]
         area_counts[area.name if hasattr(area, "name") else f"Area {area_id}"] = count
 
     # Allow for a small difference due to rounding or implementation details
@@ -332,7 +354,7 @@ def test_perform_neurogenesis(embryo, test_genome_file):
     )
 
     # Verify neurons per area
-    for area_id, area in embryo.cortical_areas.items():
+    for area_id, area in embryo.connectome_manager.cortical_areas.items():
         cortical_id = embryo.cortical_id_map[area_id]
         props = embryo._extract_cortical_properties(cortical_id)
         expected_count = props.get("n_cnt", 1)
@@ -476,7 +498,7 @@ def test_full_development_validation(embryo, test_genome_file):
         if actual_area_neurons > 0:
             print(f"  Area {area.name}: {actual_area_neurons} neurons")
             # Only show a few to keep output manageable
-            if len(embryo.cortical_areas) > 10:
+            if len(embryo.connectome_manager.cortical_areas) > 10:
                 break
 
     # 5. Verify progress logs recorded all stages

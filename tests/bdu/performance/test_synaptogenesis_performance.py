@@ -186,14 +186,14 @@ def test_synaptogenesis_performance(embryo, genome_file):
     # Count neurons in each area
     area_stats = {}
     total_neurons = 0
-    for area_id, area in embryo.cortical_areas.items():
+    for area_id, area in embryo.connectome_manager.cortical_areas.items():
         neurons = embryo.connectome_manager.get_neurons_by_area(area_id)
         neuron_count = len(neurons)
         total_neurons += neuron_count
         area_stats[area.name] = neuron_count
 
     print(
-        f"Created {total_neurons} neurons across {len(embryo.cortical_areas)} cortical areas"
+        f"Created {total_neurons} neurons across {len(embryo.connectome_manager.cortical_areas)} cortical areas"
     )
     print("Top 5 areas by neuron count:")
     for name, count in sorted(area_stats.items(), key=lambda x: x[1], reverse=True)[:5]:
@@ -208,7 +208,7 @@ def test_synaptogenesis_performance(embryo, genome_file):
     print(f"Synaptogenesis execution time (from profiler): {synapse_time:.6f} seconds")
 
     # Get synapse count
-    synapse_count = embryo.get_development_statistics()["synapses"]
+    synapse_count = embryo.get_development_statistics()["total_synapses"]
     print(f"Created {synapse_count} synapses")
 
     # Calculate performance metrics

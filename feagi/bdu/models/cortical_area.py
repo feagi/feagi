@@ -317,6 +317,7 @@ class CorticalArea:
             "area_type": self.area_type,
             "properties": self.properties,
             "neuron_count": self.neuron_count,
+            "cortical_idx": self.cortical_idx,
         }
 
     def update(self, updates: Dict[str, Any]) -> None:
