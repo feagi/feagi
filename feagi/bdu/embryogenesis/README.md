@@ -5,7 +5,7 @@ This module is responsible for reading instructions from the genome (genotype) a
 ## Key Components
 
 1. **Corticogenesis** - Creation of cortical area definitions
-2. **Voxelogenesis** - Establishing the 3D spatial framework for neuron placement  
+2. **Voxelogenesis** - Establishing the 3D spatial framework for neuron placement
 3. **Neurogenesis** - Generation of neurons within cortical areas
 4. **Synaptogenesis** - Formation of synaptic connections between neurons
 
@@ -35,7 +35,7 @@ The embryogenesis process can generate verbose logging during development, parti
 # Suppress "No mappings found" messages
 export FEAGI_EMBRYOGENESIS_QUIET=true
 
-# Disable all embryogenesis verbose logging  
+# Disable all embryogenesis verbose logging
 export FEAGI_EMBRYOGENESIS_VERBOSE=false
 
 # Run your application
@@ -91,4 +91,4 @@ This module has been designed with future RTOS and Rust migration in mind:
 - The module uses the ConnectomeManager API for efficient neuron and synapse management
 - Focuses on memory efficiency and thread-safety
 - Supports batch operations for large-scale brain development
-- Includes development statistics tracking for performance monitoring 
+- Includes development statistics tracking for performance monitoring

@@ -251,4 +251,4 @@ To transition from the current project structure to the recommended one:
 2. Configuration module implementation
 3. Backend abstraction layer
 4. ZMQ consolidation
-5. Test restructuring 
+5. Test restructuring

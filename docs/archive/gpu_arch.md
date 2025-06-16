@@ -67,12 +67,12 @@ The FCL Manager maintains a Fire Candidate List using a Roaring Bitmap for memor
 
 ### Process Responsibilities
 
-1. **FCL_Manager**: 
+1. **FCL_Manager**:
    - Maintains the Fire Candidate List using Roaring bitmaps
    - GPU-accelerated for efficient set operations on large neuron populations
    - Provides fast lookup for neurons that need processing
 
-2. **Burst Engine**: 
+2. **Burst Engine**:
    - Processes firing neurons from FCL
    - Calculates membrane potential changes in connected neurons
    - Applies thresholds, leak, and refractory period logic
@@ -136,7 +136,7 @@ The FCL Manager maintains a Fire Candidate List using a Roaring Bitmap for memor
   - Brain structure metadata
   - Configuration parameters
   - Genome data
-  
+
 - **GPU-Optimized Data**:
   - Roaring bitmaps for FCL
   - Neuron activation states
@@ -407,4 +407,4 @@ The FCL Manager maintains a Fire Candidate List using a Roaring Bitmap for memor
 3. **Final Integration**
    - Ensure all components work together seamlessly
    - Final performance validation
-   - Release preparation 
+   - Release preparation

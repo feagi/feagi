@@ -21,7 +21,7 @@ This module provides access to all FCP versions and helper functions.
 """
 
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 # Import common FCP components
 from feagi.api.protocols.fcp.common import FCPCommandType, FCPMessageFormat
@@ -31,17 +31,19 @@ from feagi.api.protocols.fcp.v1 import FCPv1
 
 # Re-export helper functions
 
-def create_register_message(agent_id: str, agent_type: str, capabilities: Dict[str, Any], 
-                           version: str = "1.0") -> Dict[str, Any]:
+
+def create_register_message(
+    agent_id: str, agent_type: str, capabilities: Dict[str, Any], version: str = "1.0"
+) -> Dict[str, Any]:
     """
     Create an agent registration message.
-    
+
     Args:
         agent_id: Unique agent identifier
         agent_type: Agent type (e.g., "monitor", "robot", etc.)
         capabilities: Dictionary of agent capabilities
         version: Agent version
-        
+
     Returns:
         FCP message data
     """
@@ -53,19 +55,19 @@ def create_register_message(agent_id: str, agent_type: str, capabilities: Dict[s
             "capabilities": capabilities,
             "version": version,
             "timestamp": None,  # Will be filled in by the protocol translator
-            "message_id": str(uuid.uuid4())
-        }
+            "message_id": str(uuid.uuid4()),
+        },
     }
 
 
 def create_heartbeat_message(agent_id: str, status: Dict[str, Any]) -> Dict[str, Any]:
     """
     Create a heartbeat message.
-    
+
     Args:
         agent_id: Agent identifier
         status: Status information
-        
+
     Returns:
         FCP message data
     """
@@ -75,24 +77,25 @@ def create_heartbeat_message(agent_id: str, status: Dict[str, Any]) -> Dict[str,
             "agent_id": agent_id,
             "status": status,
             "timestamp": None,  # Will be filled in by the protocol translator
-            "message_id": str(uuid.uuid4())
-        }
+            "message_id": str(uuid.uuid4()),
+        },
     }
 
 
 def register_protocols():
     """Register FCP protocol versions with the registry."""
     from feagi.api.protocols.base import ProtocolRegistry
+
     registry = ProtocolRegistry()
     registry.register(FCPv1)
 
 
 # Define all exported symbols
 __all__ = [
-    'FCPCommandType',
-    'FCPMessageFormat',
-    'FCPv1',
-    'create_register_message',
-    'create_heartbeat_message',
-    'register_protocols'
-] 
+    "FCPCommandType",
+    "FCPMessageFormat",
+    "FCPv1",
+    "create_register_message",
+    "create_heartbeat_message",
+    "register_protocols",
+]

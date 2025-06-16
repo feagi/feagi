@@ -172,15 +172,15 @@ This is the heart of the API architecture, designed to be protocol-agnostic.
 class CoreApiService:
     def __init__(self, feagi_instance):
         self.feagi = feagi_instance
-        
+
     async def get_cortical_area(self, area_id):
         # Implementation that accesses FEAGI directly
         return self.feagi.connectome_manager.get_cortical_area(area_id)
-    
+
     async def create_cortical_area(self, properties):
         # Business logic implementation
         return self.feagi.connectome_manager.add_cortical_area(**properties)
-    
+
     # More methods for other operations...
 ```
 
@@ -207,25 +207,25 @@ class ApiGateway:
     def __init__(self, core_api_service):
         self.core_api = core_api_service
         self.auth_manager = AuthenticationManager()
-        
+
     async def route_request(self, endpoint, method, payload, auth_info):
         # 1. Authenticate
         if not self.auth_manager.authenticate(auth_info):
             return {"error": "Unauthorized"}, 401
-            
+
         # 2. Validate
         validation_result = self.validate_request(endpoint, method, payload)
         if not validation_result.valid:
             return {"error": validation_result.error}, 400
-            
+
         # 3. Rate limit check
         if self.rate_limiter.is_limited(auth_info.user_id):
             return {"error": "Rate limit exceeded"}, 429
-            
+
         # 4. Route to appropriate handler
         handler = self.get_handler(endpoint, method)
         result = await handler(payload)
-        
+
         # 5. Transform response if needed
         return self.transform_response(result)
 ```
@@ -267,7 +267,7 @@ class CorticalAreaRequest(BaseModel):
     name: str
     dimensions: tuple[int, int, int]
     position: tuple[int, int, int]
-    
+
 @app.get("/v1/cortical_areas/{area_id}")
 async def get_cortical_area(area_id: str, api_gateway=Depends(get_api_gateway)):
     result = await api_gateway.route_request(
@@ -276,10 +276,10 @@ async def get_cortical_area(area_id: str, api_gateway=Depends(get_api_gateway)):
         payload={"area_id": area_id},
         auth_info=get_auth_info()
     )
-    
+
     if "error" in result:
         raise HTTPException(status_code=result.get("status", 400), detail=result["error"])
-    
+
     return result
 ```
 
@@ -302,29 +302,29 @@ class ZmqServer:
     def __init__(self, api_gateway, host="*", req_port=5555, pub_port=5556):
         self.api_gateway = api_gateway
         self.context = zmq.asyncio.Context()
-        
+
         # Request-reply socket
         self.req_socket = self.context.socket(zmq.REP)
         self.req_socket.bind(f"tcp://{host}:{req_port}")
-        
+
         # Publisher socket for events
         self.pub_socket = self.context.socket(zmq.PUB)
         self.pub_socket.bind(f"tcp://{host}:{pub_port}")
-        
+
     async def start(self):
         """Start processing requests."""
         while True:
             message = await self.req_socket.recv_json()
-            
+
             response = await self.api_gateway.route_request(
                 endpoint=message.get("endpoint"),
                 method=message.get("method"),
                 payload=message.get("payload", {}),
                 auth_info=message.get("auth", {})
             )
-            
+
             await self.req_socket.send_json(response)
-    
+
     async def publish_event(self, topic, event_data):
         """Publish event to subscribers."""
         message = json.dumps(event_data)
@@ -347,12 +347,12 @@ class FeagiClient:
     def __init__(self, host, port, use_zmq=False):
         self.base_url = f"http://{host}:{port}/v1"
         self.use_zmq = use_zmq
-        
+
         if use_zmq:
             self.zmq_context = zmq.Context()
             self.req_socket = self.zmq_context.socket(zmq.REQ)
             self.req_socket.connect(f"tcp://{host}:{port}")
-        
+
     def get_cortical_area(self, area_id):
         if self.use_zmq:
             self.req_socket.send_json({
@@ -390,11 +390,11 @@ class FeagiZmqServer:
         # Socket for CRUD operations
         self.crud_socket = self.context.socket(zmq.REP)
         self.crud_socket.bind("tcp://*:5555")
-        
+
         # Socket for incoming sensory data
         self.sensory_socket = self.context.socket(zmq.PULL)
         self.sensory_socket.bind("tcp://*:5556")
-        
+
         # Socket for outgoing motor commands
         self.motor_socket = self.context.socket(zmq.PUB)
         self.motor_socket.bind("tcp://*:5557")
@@ -442,12 +442,12 @@ def start_server():
     crud_thread = threading.Thread(target=handle_crud_operations)
     crud_thread.daemon = True
     crud_thread.start()
-    
+
     # Create and start the sensory data processing thread
     sensory_thread = threading.Thread(target=handle_sensory_data)
     sensory_thread.daemon = True
     sensory_thread.start()
-    
+
     # Create and start the motor output thread
     motor_thread = threading.Thread(target=publish_motor_data)
     motor_thread.daemon = True
@@ -464,13 +464,13 @@ def poll_multiple_sockets():
     poller = zmq.Poller()
     poller.register(crud_socket, zmq.POLLIN)
     poller.register(sensory_socket, zmq.POLLIN)
-    
+
     while True:
         socks = dict(poller.poll(timeout=100))
-        
+
         if crud_socket in socks and socks[crud_socket] == zmq.POLLIN:
             handle_crud_message(crud_socket.recv_json())
-            
+
         if sensory_socket in socks and socks[sensory_socket] == zmq.POLLIN:
             handle_sensory_data(sensory_socket.recv())
 ```
@@ -583,7 +583,7 @@ class FeagiMotorClient:
 def log_message_metrics(socket_name, message_type, size, processing_time):
     """Log message metrics for monitoring."""
     metrics_logger.info(f"{socket_name}:{message_type} Size:{size}B Time:{processing_time}ms")
-    
+
     # Update metrics counters
     metrics["message_count"][socket_name] += 1
     metrics["total_bytes"][socket_name] += size
@@ -624,19 +624,19 @@ To efficiently stream visualization data, we implement specialized ZMQ patterns:
 class ZmqVisualizationServer:
     def __init__(self, host="*", base_port=5560):
         self.context = zmq.Context.instance()
-        
+
         # Socket for structural data (changes infrequently)
         self.structure_socket = self.context.socket(zmq.PUB)
         self.structure_socket.bind(f"tcp://{host}:{base_port}")
-        
+
         # Socket for real-time activity data (high frequency)
         self.activity_socket = self.context.socket(zmq.PUB)
         self.activity_socket.bind(f"tcp://{host}:{base_port+1}")
-        
+
         # Socket for client requests (view changes, filters, etc.)
         self.control_socket = self.context.socket(zmq.ROUTER)
         self.control_socket.bind(f"tcp://{host}:{base_port+2}")
-        
+
         # Track connected clients and their view settings
         self.clients = {}
 ```
@@ -656,35 +656,35 @@ def send_activity_update(self, brain_state, timestamp):
         "timestamp": timestamp,
         "summary": self._create_activity_summary(brain_state)
     }
-    
+
     # Send the base update to all clients
     self.activity_socket.send_multipart([
         b"activity.base",
         self.serializer.serialize(base_update)
     ])
-    
+
     # For each detail level, send additional data
     for detail_level in range(1, 4):  # LOD levels 1-3
-        clients_at_level = [cid for cid, settings in self.clients.items() 
+        clients_at_level = [cid for cid, settings in self.clients.items()
                            if settings.get("detail_level") >= detail_level]
-        
+
         if not clients_at_level:
             continue
-            
+
         # Create detail level specific data
         detail_data = self._create_detail_level(brain_state, detail_level)
-        
+
         self.activity_socket.send_multipart([
             f"activity.detail.{detail_level}".encode(),
             self.serializer.serialize(detail_data)
         ])
-    
+
     # Send ROI-specific high detail data
     for client_id, settings in self.clients.items():
         roi = settings.get("roi")
         if roi:
             roi_data = self._extract_roi_data(brain_state, roi)
-            
+
             self.activity_socket.send_multipart([
                 f"activity.roi.{client_id}".encode(),
                 self.serializer.serialize(roi_data)
@@ -699,21 +699,21 @@ class VisualizationSerializer:
         """Serialize neural activity data with optional compression."""
         # Convert to sparse representation
         active_neurons = {}
-        
+
         for area_id, neurons in activity_data.items():
             # Find active neurons (non-zero values)
             active_indices = np.nonzero(neurons)
             active_values = neurons[active_indices]
-            
+
             if len(active_values) > 0:
                 active_neurons[area_id] = {
                     "indices": active_indices,
                     "values": active_values
                 }
-        
+
         # Serialize using a compact binary format
         serialized = msgpack.packb(active_neurons)
-        
+
         # Apply compression if requested
         if compression_level > 0:
             if compression_level == 1:
@@ -722,7 +722,7 @@ class VisualizationSerializer:
             else:
                 # Higher compression ratio but more CPU intensive
                 serialized = zlib.compress(serialized, level=compression_level)
-                
+
         return serialized
 ```
 
@@ -735,21 +735,21 @@ class VisualizationSerializer:
 class DeltaEncoder:
     def __init__(self):
         self.previous_state = {}
-        
+
     def encode_delta(self, current_state):
         """Encode only the changes since the previous state."""
         delta = {}
-        
+
         for area_id, neurons in current_state.items():
             if area_id not in self.previous_state:
                 # New area, include all data
                 delta[area_id] = neurons
                 continue
-                
+
             # Calculate difference from previous state
             prev_neurons = self.previous_state[area_id]
             diff = neurons - prev_neurons
-            
+
             # Only include non-zero differences
             if np.any(diff):
                 # Find indices where values changed
@@ -758,10 +758,10 @@ class DeltaEncoder:
                     "indices": changed_indices,
                     "values": diff[changed_indices]
                 }
-        
+
         # Update previous state
         self.previous_state = current_state.copy()
-        
+
         return delta
 ```
 
@@ -780,24 +780,24 @@ class FeagiBrainVisClient:
     def __init__(self, host, base_port=5560):
         self.context = zmq.Context.instance()
         self.client_id = str(uuid.uuid4())
-        
+
         # Socket for structural data
         self.structure_socket = self.context.socket(zmq.SUB)
         self.structure_socket.connect(f"tcp://{host}:{base_port}")
         self.structure_socket.setsockopt(zmq.SUBSCRIBE, b"structure")
-        
+
         # Socket for activity data
         self.activity_socket = self.context.socket(zmq.SUB)
         self.activity_socket.connect(f"tcp://{host}:{base_port+1}")
-        
+
         # Set default subscriptions
         self.activity_socket.setsockopt(zmq.SUBSCRIBE, b"activity.base")
-        
+
         # Socket for sending view control messages
         self.control_socket = self.context.socket(zmq.DEALER)
         self.control_socket.setsockopt(zmq.IDENTITY, self.client_id.encode())
         self.control_socket.connect(f"tcp://{host}:{base_port+2}")
-        
+
     def set_view_settings(self, detail_level=1, roi=None, filters=None):
         """Update view settings on the server."""
         settings = {
@@ -806,27 +806,27 @@ class FeagiBrainVisClient:
             "roi": roi,
             "filters": filters or {}
         }
-        
+
         # Send view settings to server
         self.control_socket.send_json({
             "type": "view_settings",
             "settings": settings
         })
-        
+
         # Update subscriptions based on detail level
         if detail_level >= 1:
-            self.activity_socket.setsockopt(zmq.SUBSCRIBE, 
+            self.activity_socket.setsockopt(zmq.SUBSCRIBE,
                                           f"activity.detail.1".encode())
         if detail_level >= 2:
-            self.activity_socket.setsockopt(zmq.SUBSCRIBE, 
+            self.activity_socket.setsockopt(zmq.SUBSCRIBE,
                                           f"activity.detail.2".encode())
         if detail_level >= 3:
-            self.activity_socket.setsockopt(zmq.SUBSCRIBE, 
+            self.activity_socket.setsockopt(zmq.SUBSCRIBE,
                                           f"activity.detail.3".encode())
-            
+
         # Subscribe to ROI-specific messages
         if roi:
-            self.activity_socket.setsockopt(zmq.SUBSCRIBE, 
+            self.activity_socket.setsockopt(zmq.SUBSCRIBE,
                                           f"activity.roi.{self.client_id}".encode())
 ```
 
@@ -842,15 +842,15 @@ The visualization streaming integrates with the existing ZMQ infrastructure:
 ```python
 # feagi/api/zmq/server.py
 class ZmqServer:
-    def __init__(self, api_gateway, host="*", 
+    def __init__(self, api_gateway, host="*",
                  req_port=5555, pub_port=5556,
                  sensory_port=5557, motor_port=5558,
                  vis_base_port=5560):
         # ... existing initialization code ...
-        
+
         # Add visualization server
         self.vis_server = ZmqVisualizationServer(host, vis_base_port)
-        
+
     async def start(self):
         """Start all ZMQ servers."""
         await asyncio.gather(
@@ -859,7 +859,7 @@ class ZmqServer:
             self.vis_server.start(),
             # Other handlers...
         )
-    
+
     async def update_visualization(self, brain_state):
         """Update visualization with current brain state."""
         await self.vis_server.send_activity_update(
@@ -901,13 +901,13 @@ async def get_visualization_snapshot(request: Request):
 async def websocket_endpoint(websocket: WebSocket):
     """Stream visualization data over WebSocket (alternative to ZMQ)."""
     await websocket.accept()
-    
+
     # Get client settings
     settings = await websocket.receive_json()
-    
+
     # Register with visualization manager
     client_id = await register_visualization_client(websocket, settings)
-    
+
     try:
         while True:
             # Handle incoming messages (view updates)
@@ -1014,26 +1014,26 @@ class ZmqHandlerRegistry:
             "1": {},  # Version 1 handlers
             "2": {}   # Version 2 handlers
         }
-    
+
     def register_handler(self, version, endpoint, method, handler):
         """Register a handler for a specific version, endpoint, and method."""
         if version not in self.handlers:
             self.handlers[version] = {}
-        
+
         if endpoint not in self.handlers[version]:
             self.handlers[version][endpoint] = {}
-            
+
         self.handlers[version][endpoint][method] = handler
-    
+
     def get_handler(self, version, endpoint, method):
         """Get the handler for the specified version, endpoint, and method."""
         if version not in self.handlers:
             # Fallback to the latest version if specified version doesn't exist
             version = max(self.handlers.keys())
-            
+
         if endpoint not in self.handlers[version]:
             return None
-            
+
         return self.handlers[version][endpoint].get(method)
 ```
 
@@ -1053,16 +1053,16 @@ The Core API layer also needs versioning to support multiple interface versions:
            # V1 implementation
            area = self.feagi.connectome_manager.get_cortical_area(area_id)
            return self._transform_to_v1_response(area)
-           
+
        async def get_cortical_area_v2(self, area_id, include_neurons=False):
            # V2 implementation with extended functionality
            area = self.feagi.connectome_manager.get_cortical_area(area_id)
            response = self._transform_to_v2_response(area)
-           
+
            if include_neurons:
                neurons = self.feagi.connectome_manager.get_neurons_by_area(area_id)
                response["neurons"] = neurons
-               
+
            return response
    ```
 
@@ -1078,11 +1078,11 @@ VERSION_COMPATIBILITY = {
         "GET": {
             # v0 can be handled by the v2 method with default parameters
             "1": lambda params: service.get_cortical_area_v2(
-                params["area_id"], 
+                params["area_id"],
                 include_neurons=False
             ),
             "2": lambda params: service.get_cortical_area_v2(
-                params["area_id"], 
+                params["area_id"],
                 include_neurons=params.get("include_neurons", False)
             )
         }
@@ -1098,7 +1098,7 @@ Client libraries must also support API versioning:
    ```python
    # Default to latest version
    client = FeagiClient(host="localhost", port=8000)
-   
+
    # Explicitly request v0
    client_v1 = FeagiClient(host="localhost", port=8000, api_version="1")
    ```
@@ -1123,16 +1123,16 @@ class FeagiClient:
     def __init__(self, host, port, api_version="2"):
         self.base_url = f"http://{host}:{port}/v{api_version}"
         self.api_version = api_version
-    
+
     def get_cortical_area(self, area_id, include_neurons=None):
         """Get a cortical area by ID.
-        
+
         Args:
             area_id: The ID of the cortical area
             include_neurons: Whether to include neurons (v2+ only)
         """
         params = {}
-        
+
         # Version-specific parameter handling
         if self.api_version >= "2" and include_neurons is not None:
             params["include_neurons"] = include_neurons
@@ -1142,9 +1142,9 @@ class FeagiClient:
                 "and will be ignored.",
                 UserWarning
             )
-            
+
         response = requests.get(
-            f"{self.base_url}/cortical_areas/{area_id}", 
+            f"{self.base_url}/cortical_areas/{area_id}",
             params=params
         )
         return response.json()
@@ -1247,7 +1247,7 @@ impl PyCorticalArea {
     fn id(&self) -> String {
         self.inner.id.clone()
     }
-    
+
     // More getters/setters...
 }
 ```

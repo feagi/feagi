@@ -22,17 +22,15 @@ Todo: Make improvements to this tool as it will have further use-cases.
 """
 
 from feagi.utils.logger import setup_logger
+
 logger = setup_logger(__name__)
-import traceback
-
 import hashlib
-from datetime import datetime
-from time import time
-from time import sleep
 import json
+import traceback
+from datetime import datetime
+from time import sleep, time
+
 from feagi.core.state_manager import FeagiStateManager
-
-
 
 
 def set_default(obj):
@@ -42,16 +40,25 @@ def set_default(obj):
 
 
 def add_gene():
-    for cortical_area in state.genome['blueprint']:
-        for _ in state.genome['blueprint'][cortical_area]:
+    for cortical_area in state.genome["blueprint"]:
+        for _ in state.genome["blueprint"][cortical_area]:
             if _ == "cortical_mapping_dst":
-                for __ in state.genome['blueprint'][cortical_area]["cortical_mapping_dst"]:
-                    if "excitatory" not in state.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]:
-                        state.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]["excitatory"] = True
+                for __ in state.genome["blueprint"][cortical_area][
+                    "cortical_mapping_dst"
+                ]:
+                    if (
+                        "excitatory"
+                        not in state.genome["blueprint"][cortical_area][
+                            "cortical_mapping_dst"
+                        ][__]
+                    ):
+                        state.genome["blueprint"][cortical_area][
+                            "cortical_mapping_dst"
+                        ][__]["excitatory"] = True
 
 
-def save_genome(genome, file_name=''):
-    if file_name != '':
+def save_genome(genome, file_name=""):
+    if file_name != "":
         genome_file = file_name
     else:
         genome_file = "genome" + datetime.now().isoformat() + ".json"
@@ -90,7 +97,7 @@ def clean_host_info(host_info):
 
 def generate_hash(payload):
     serialized_genome = json.dumps(payload, sort_keys=True)
-    signature = hashlib.sha256(serialized_genome.encode('utf-8')).hexdigest()
+    signature = hashlib.sha256(serialized_genome.encode("utf-8")).hexdigest()
     return signature
 
 

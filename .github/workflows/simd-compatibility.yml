@@ -22,27 +22,27 @@ jobs:
   simd-x86-64:
     name: SIMD Testing (x86_64)
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         python-version: [3.9, 3.10, 3.11]
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential gcc g++ libc-dev
-        
+
         # Install CPU feature detection tools
         sudo apt-get install -y cpuid util-linux
-    
+
     - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
@@ -50,32 +50,32 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-benchmark pytest-cov
         pip install numpy scipy numba
         pip install pyroaring  # For bitmap SIMD testing
-        
+
         # Install optional SIMD libraries
         pip install cpufeature || echo "cpufeature not available, using fallback detection"
-        
+
         # Install FEAGI dependencies
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-        
+
         # Install current package in development mode
         pip install -e .
-    
+
     - name: Detect CPU Features
       run: |
-        echo "=== CPU Information ===" 
+        echo "=== CPU Information ==="
         cat /proc/cpuinfo | grep -E "(model name|flags)" | head -2
-        
+
         echo -e "\n=== Available SIMD Instructions ==="
         cat /proc/cpuinfo | grep flags | head -1 | tr ' ' '\n' | grep -E "(sse|avx|fma)" | sort | uniq
-        
+
         echo -e "\n=== Python SIMD Detection ==="
         python -c "
         try:
@@ -87,23 +87,23 @@ jobs:
         except ImportError:
             print('cpufeature not available, using fallback detection')
         "
-        
+
         echo -e "\n=== NumPy BLAS Configuration ==="
         python -c "import numpy as np; np.show_config()"
-    
+
     - name: Run SIMD Compatibility Tests
       run: |
         echo "=== Running SIMD Compatibility Test Suite ==="
-        
+
         # Run standalone SIMD compatibility assessment
         python tests/npu/test_simd_compatibility.py
-        
+
         # Run pytest SIMD tests with coverage
         pytest tests/npu/test_simd_compatibility.py -v --cov=feagi.utils.simd_detection --cov=feagi.utils.simd_profiler --cov-report=xml
-        
+
         # Run performance benchmarks
         pytest tests/npu/test_simd_compatibility.py::TestSIMDCompatibility::test_vectorization_performance -v --benchmark-only --benchmark-json=simd_benchmark.json || true
-        
+
         echo -e "\n=== Testing SIMD Optimized Operations ==="
         # Test optimized membrane operations
         python -c "
@@ -112,11 +112,11 @@ jobs:
         print('SIMD Membrane Processor initialized successfully')
         print(f'Configuration: {processor.get_performance_stats()}')
         "
-    
+
     - name: Test Integration with NPU Module
       run: |
         echo "=== Testing NPU Integration ==="
-        
+
         # Test that optimized structures work with SIMD
         python -c "
         try:
@@ -124,7 +124,7 @@ jobs:
             gna = GlobalNeuronArray(1000)
             print(f'GNA created with capacity: {gna.capacity}, aligned: {gna.aligned_capacity}')
             print(f'SIMD vector width: {gna.vector_width}, alignment: {gna.alignment}')
-            
+
             # Test SIMD operations
             gna.simd_optimized_update_membrane_potentials(0.95)
             candidates = gna.simd_optimized_find_fire_candidates(0)
@@ -133,40 +133,40 @@ jobs:
             print(f'NPU integration test failed: {e}')
             raise
         "
-    
+
     - name: Performance Regression Check
       run: |
         echo "=== Performance Regression Check ==="
-        
+
         # Simple performance test to ensure SIMD optimizations work
         python -c "
         import time
         import numpy as np
         from feagi.utils.simd_profiler import get_profiler, benchmark_numpy_operation
-        
+
         # Benchmark basic vectorized operations
         def test_operation(data):
             return data * 0.95 + 0.05
-        
+
         # Warm up
         data = np.random.random(10000).astype(np.float32)
         for _ in range(10):
             test_operation(data)
-        
+
         # Benchmark
         profile = benchmark_numpy_operation('vectorized_multiply_add', test_operation, data_size=100000, iterations=50)
-        
+
         if profile:
             print(f'Performance test: {profile.throughput:.0f} elements/sec')
             print(f'SIMD efficiency: {profile.simd_efficiency:.2f}')
-            
+
             # Basic performance threshold check
             if profile.throughput < 1000000:  # 1M elements/sec minimum
                 print('WARNING: Performance below expected threshold')
             else:
                 print('✅ Performance test passed')
         "
-    
+
     - name: Upload Coverage Reports
       uses: codecov/codecov-action@v3
       with:
@@ -174,7 +174,7 @@ jobs:
         fail_ci_if_error: false
         verbose: true
         flags: simd-x86-64
-    
+
     - name: Upload Benchmark Results
       uses: actions/upload-artifact@v3
       if: always()
@@ -185,33 +185,33 @@ jobs:
   simd-arm64:
     name: SIMD Testing (ARM64)
     runs-on: ubuntu-latest
-    
+
     # Use ARM64 runner if available, otherwise skip
     # Note: This would require ARM64 runners to be available
     if: false  # Disable for now as ARM64 runners aren't standard in GitHub Actions
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: 3.11
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pytest numpy
         pip install -e .
-    
+
     - name: Detect ARM SIMD Features
       run: |
         echo "=== ARM CPU Information ==="
         cat /proc/cpuinfo | grep -E "(model name|Features)" | head -2
-        
+
         echo -e "\n=== ARM SIMD Features ==="
         cat /proc/cpuinfo | grep Features | head -1 | tr ' ' '\n' | grep -E "(neon|asimd|sve)" | sort | uniq
-    
+
     - name: Run ARM SIMD Tests
       run: |
         python tests/npu/test_simd_compatibility.py
@@ -220,34 +220,34 @@ jobs:
   simd-macos:
     name: SIMD Testing (macOS)
     runs-on: macos-latest
-    
+
     strategy:
       matrix:
         python-version: [3.9, 3.11]
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-benchmark numpy scipy
         pip install pyroaring
         pip install -e .
-    
+
     - name: Detect macOS CPU Features
       run: |
         echo "=== macOS System Information ==="
         system_profiler SPHardwareDataType | grep -E "(Chip|Processor|Cores)"
-        
+
         echo -e "\n=== macOS CPU Features via sysctl ==="
         sysctl -a | grep -E "(cpu|simd|vector)" | head -10
-        
+
         # For Apple Silicon, show specific features
         if [[ $(uname -m) == "arm64" ]]; then
           echo -e "\n=== Apple Silicon Features ==="
@@ -257,7 +257,7 @@ jobs:
           echo -e "\n=== Intel Features ==="
           sysctl -a | grep -E "(sse|avx|fma)" | head -5
         fi
-    
+
     - name: Run macOS SIMD Tests
       run: |
         echo "=== Running SIMD Tests on macOS ==="
@@ -267,26 +267,26 @@ jobs:
   simd-windows:
     name: SIMD Testing (Windows)
     runs-on: windows-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: 3.11
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pytest numpy scipy
         pip install -e .
-    
+
     - name: Detect Windows CPU Features
       run: |
         echo "=== Windows System Information ==="
         wmic cpu get Name,NumberOfCores,NumberOfLogicalProcessors
-        
+
         echo "=== CPU Features ==="
         # Basic Windows CPU feature detection
         python -c "
@@ -295,7 +295,7 @@ jobs:
         print(f'Processor: {platform.processor()}')
         print(f'Machine: {platform.machine()}')
         "
-    
+
     - name: Run Windows SIMD Tests
       run: |
         echo "=== Running SIMD Tests on Windows ==="
@@ -307,27 +307,27 @@ jobs:
     runs-on: ubuntu-latest
     needs: [simd-x86-64, simd-macos, simd-windows]
     if: always()
-    
+
     steps:
     - name: Download All Artifacts
       uses: actions/download-artifact@v3
-    
+
     - name: Generate SIMD Compatibility Report
       run: |
         echo "# SIMD Compatibility Test Summary" > simd_report.md
         echo "" >> simd_report.md
         echo "## Test Results" >> simd_report.md
         echo "" >> simd_report.md
-        
+
         # Check job results
         echo "- **x86_64 Linux**: ${{ needs.simd-x86-64.result }}" >> simd_report.md
         echo "- **macOS**: ${{ needs.simd-macos.result }}" >> simd_report.md
         echo "- **Windows**: ${{ needs.simd-windows.result }}" >> simd_report.md
         echo "" >> simd_report.md
-        
+
         echo "## Benchmark Results" >> simd_report.md
         echo "" >> simd_report.md
-        
+
         # List available benchmark files
         if ls simd-benchmarks-* 2>/dev/null; then
           echo "Benchmark data collected for:" >> simd_report.md
@@ -337,15 +337,15 @@ jobs:
         else
           echo "No benchmark data available." >> simd_report.md
         fi
-        
+
         echo "" >> simd_report.md
         echo "---" >> simd_report.md
         echo "*Report generated on $(date)*" >> simd_report.md
-        
+
         cat simd_report.md
-    
+
     - name: Upload Summary Report
       uses: actions/upload-artifact@v3
       with:
         name: simd-compatibility-report
-        path: simd_report.md 
+        path: simd_report.md

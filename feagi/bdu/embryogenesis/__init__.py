@@ -5,4 +5,6 @@ from initial conditions, implementing developmental rules that govern
 the formation of the brain's architecture.
 """
 
-from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis 
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
+
+__all__ = ["NeuroEmbryogenesis"]

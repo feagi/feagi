@@ -9,11 +9,10 @@ Usage:
     python scripts/update_requirements.py
 """
 
-import os
-import sys
 import logging
+import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 # Try to import the required packages
 try:
@@ -30,12 +29,12 @@ except ImportError:
 def load_pyproject_toml(project_root: Path) -> Dict[str, Any]:
     """Load pyproject.toml configuration."""
     pyproject_path = project_root / "pyproject.toml"
-    
+
     if not pyproject_path.exists():
         raise FileNotFoundError(f"pyproject.toml not found at {pyproject_path}")
-    
-    with open(pyproject_path, 'r') as f:
-        if hasattr(toml, 'load'):
+
+    with open(pyproject_path, "r") as f:
+        if hasattr(toml, "load"):
             return toml.load(f)
         else:
             # For tomllib (Python 3.11+)
@@ -51,62 +50,62 @@ def generate_requirements_txt(dependencies: List[str], output_path: Path) -> Non
 # For documentation dependencies, use: pip install -e ".[docs]"
 
 """
-    
+
     requirements_content = [header.strip()]
-    
+
     # Categorize dependencies for better organization
     categories = {
-        'web': ['fastapi', 'uvicorn'],
-        'validation': ['pydantic'],
-        'scientific': ['numpy', 'scipy', 'torch'],
-        'network': ['httpx', 'pyzmq'],
-        'config': ['yaml', 'tomli'],
-        'auth': ['jose', 'passlib', 'multipart'],
-        'monitoring': ['psutil', 'pyroaring'],
-        'feagi': ['feagi-bytes']
+        "web": ["fastapi", "uvicorn"],
+        "validation": ["pydantic"],
+        "scientific": ["numpy", "scipy", "torch"],
+        "network": ["httpx", "pyzmq"],
+        "config": ["yaml", "tomli"],
+        "auth": ["jose", "passlib", "multipart"],
+        "monitoring": ["psutil", "pyroaring"],
+        "feagi": ["feagi-bytes"],
     }
-    
+
     # Add categorized dependencies
     categorized = {category: [] for category in categories}
     uncategorized = []
-    
+
     for dep in dependencies:
-        dep_name = dep.split('>=')[0].split('[')[0].split(';')[0].lower()
+        dep_name = dep.split(">=")[0].split("[")[0].split(";")[0].lower()
         found_category = None
-        
+
         for category, keywords in categories.items():
             if any(keyword in dep_name for keyword in keywords):
                 categorized[category].append(dep)
                 found_category = category
                 break
-        
+
         if not found_category:
             uncategorized.append(dep)
-    
+
     # Generate organized output
     category_headers = {
-        'web': '# Web framework and API',
-        'validation': '# Data validation and configuration',
-        'scientific': '# Scientific computing and neural processing',
-        'network': '# Network and communication',
-        'config': '# Configuration management',
-        'auth': '# Authentication and security',
-        'monitoring': '# System monitoring and data structures',
-        'feagi': '# FEAGI ecosystem'
+        "web": "# Web framework and API",
+        "validation": "# Data validation and configuration",
+        "scientific": "# Scientific computing and neural processing",
+        "network": "# Network and communication",
+        "config": "# Configuration management",
+        "auth": "# Authentication and security",
+        "monitoring": "# System monitoring and data structures",
+        "feagi": "# FEAGI ecosystem",
     }
-    
+
     for category, deps in categorized.items():
         if deps:
             requirements_content.append(f"\n{category_headers[category]}")
             requirements_content.extend(deps)
-    
+
     if uncategorized:
         requirements_content.append("\n# Other dependencies")
         requirements_content.extend(uncategorized)
-    
+
     # Write to file
-    with open(output_path, 'w') as f:
-        f.write('\n'.join(requirements_content) + '\n')
+    with open(output_path, "w") as f:
+        f.write("\n".join(requirements_content) + "\n")
 
 
 def generate_dev_requirements_txt(output_path: Path) -> None:
@@ -144,53 +143,53 @@ dataclasses-json>=0.5.7
 # Optional GPU monitoring (uncomment if needed)
 # GPUtil>=1.4.0
 """
-    
-    with open(output_path, 'w') as f:
+
+    with open(output_path, "w") as f:
         f.write(content)
 
 
 def main():
     """Main execution function."""
     # Set up logging
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     logger = logging.getLogger(__name__)
-    
+
     # Determine project root
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
-    
+
     logger.info(f"Updating requirements files for project at: {project_root}")
-    
+
     try:
         # Load pyproject.toml
         config = load_pyproject_toml(project_root)
-        
+
         # Extract dependencies
-        project_config = config.get('project', {})
-        dependencies = project_config.get('dependencies', [])
-        
+        project_config = config.get("project", {})
+        dependencies = project_config.get("dependencies", [])
+
         if not dependencies:
             logger.warning("No dependencies found in pyproject.toml")
             return
-        
+
         logger.info(f"Found {len(dependencies)} core dependencies")
-        
+
         # Generate requirements.txt
         requirements_path = project_root / "requirements.txt"
         generate_requirements_txt(dependencies, requirements_path)
         logger.info(f"Generated: {requirements_path}")
-        
+
         # Generate requirements-dev.txt
         dev_requirements_path = project_root / "requirements-dev.txt"
         generate_dev_requirements_txt(dev_requirements_path)
         logger.info(f"Generated: {dev_requirements_path}")
-        
+
         logger.info("[OK] Requirements files updated successfully!")
-        
+
     except Exception as e:
         logger.error(f"[ERR] Error updating requirements: {e}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main() 
+    main()

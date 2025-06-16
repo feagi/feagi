@@ -165,25 +165,25 @@ class ByteStructureTranslator:
             ProtocolID.FVP: FVPProtocolHandler(),
             ProtocolID.FSMP: FSMPProtocolHandler()
         }
-    
+
     def encode_message(self, protocol_id, message_type, payload):
         """Encode a message into binary format"""
         handler = self.protocol_handlers.get(protocol_id)
         if not handler:
             raise ValueError(f"Unknown protocol ID: {protocol_id}")
-        
+
         return handler.encode(message_type, payload)
-    
+
     def decode_message(self, binary_data):
         """Decode binary message into structured format"""
         if len(binary_data) < 5:  # Minimum header size
             raise ValueError("Message too short")
-            
+
         protocol_id = int.from_bytes(binary_data[0:4], byteorder='big')
         handler = self.protocol_handlers.get(protocol_id)
         if not handler:
             raise ValueError(f"Unknown protocol ID: {protocol_id}")
-            
+
         return handler.decode(binary_data)
 ```
 
@@ -229,4 +229,4 @@ FEAGI uses ZeroMQ (ZMQ) as the transport layer for all protocols:
 
 - [IPC Architecture](arch-ipc.md)
 - [API Gateway](../feagi/api/README.md)
-- [System Overview](arch-system-overview.md) 
+- [System Overview](arch-system-overview.md)

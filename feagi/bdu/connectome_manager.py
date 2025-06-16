@@ -21,24 +21,21 @@ using NumPy arrays and sparse matrices for efficient data processing and
 transfer to GPU memory.
 """
 
-import uuid
+import logging
+from enum import Enum
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
 import numpy as np
 import torch
-from enum import Enum
-from typing import Dict, Any, List, Tuple, Optional, Set, Union
-import os
 from scipy import sparse
+
+from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
+from feagi.bdu.models.cortical_area import CorticalArea
 
 # Import models
 from feagi.bdu.models.neuron import NeuronArray
-from feagi.bdu.models.cortical_area import CorticalArea
+
 # Import utility functions
-from feagi.bdu.utils.position import (
-    linearize_position,
-    delinearize_position,
-    validate_position
-)
-from feagi.utils.config import FeagiConfig
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -46,7 +43,7 @@ logger = setup_logger(__name__)
 
 class NeuronPropertyType(Enum):
     """Types of neuron properties that can be accessed/modified."""
-    
+
     MEMBRANE_POTENTIAL = "membrane_potential"
     RESTING_POTENTIAL = "resting_potential"
     THRESHOLD = "threshold"
@@ -61,41 +58,43 @@ class NeuronPropertyType(Enum):
 
 class ConnectomeManager:
     """Manager for creating and manipulating the neural connectome with GPU/CPU optimization.
-    
+
     This high-performance ConnectomeManager uses Structure of Arrays (SoA) format
     for neuron storage, providing massive memory efficiency improvements over
     the legacy dictionary-based approach.
-    
+
     Features:
     - 90% memory reduction vs legacy implementation
     - GPU acceleration when available (CUDA, Metal, WebGPU)
     - CPU fallback with vectorized NumPy operations
     - SIMD-optimized operations on supported platforms
     - Drop-in replacement for legacy ConnectomeManager
-    
+
     Backend Selection (automatic):
     1. PyTorch (GPU if available, CPU fallback)
     2. CuPy (CUDA GPU)
     3. WebGPU (when available)
     4. NumPy (CPU, always available)
-    
+
     This class implements a singleton pattern to ensure mission-critical reliability
     and performance in FEAGI's multi-process architecture.
     """
-    
-    # Singleton pattern implementation  
+
+    # Singleton pattern implementation
     _instance = None
     _initialized = False
-    
+
     @classmethod
-    def instance(cls, config_or_max_neurons=10_000_000, max_synapses=100_000_000, backend=None):
+    def instance(
+        cls, config_or_max_neurons=10_000_000, max_synapses=100_000_000, backend=None
+    ):
         """Get the singleton instance of ConnectomeManager.
-        
+
         Args:
             config_or_max_neurons: Either a FeagiConfig object or the maximum number of neurons (only used on first call)
             max_synapses: Maximum number of synapses (only used if first parameter is an integer)
-            backend: Backend type to use (numpy, pytorch, cupy, webgpu, or auto) - only used on first call
-            
+            backend: Backend type to use ('numpy', 'pytorch', 'cupy', 'wgpu', or auto) - only used on first call
+
         Returns:
             The singleton ConnectomeManager instance
         """
@@ -103,108 +102,384 @@ class ConnectomeManager:
             cls._instance = cls.__new__(cls)
             cls._instance.__init__(config_or_max_neurons, max_synapses, backend)
             cls._initialized = True
-            logger.info("Created singleton ConnectomeManager instance (optimized SoA version)", status="[TARGET]")
+            logger.info(
+                "Created singleton ConnectomeManager instance (optimized SoA version)",
+                status="[TARGET]",
+            )
         else:
-            logger.debug("Returning existing ConnectomeManager singleton", status="[LINK]")
+            logger.debug(
+                "Returning existing ConnectomeManager singleton", status="[LINK]"
+            )
         return cls._instance
-    
+
+    @classmethod
+    def reset_singleton(cls):
+        """Reset the singleton instance for testing purposes.
+
+        This method is used by tests to ensure clean state between test runs.
+        """
+        cls._instance = None
+        cls._initialized = False
+        logger.debug("Reset ConnectomeManager singleton for testing")
+
     def __new__(cls, *args, **kwargs):
         """Override __new__ to enforce singleton pattern."""
-        if cls._instance is not None:
-            logger.warning("Attempted to create multiple ConnectomeManager instances - returning singleton", status="[LINK]")
+        if cls._instance is not None and cls._initialized:
+            logger.warning(
+                "Attempted to create multiple ConnectomeManager instances - returning singleton",
+                status="[LINK]",
+            )
             return cls._instance
-        return super().__new__(cls)
-    
-    def __init__(self, config_or_max_neurons=10_000_000, max_synapses=100_000_000, 
-                 backend=None, multi_gpu_config=None):
-        """Initialize the ConnectomeManager with optimized performance settings.
-        
+        # Create new instance if none exists or if reset was called
+        instance = super().__new__(cls)
+        cls._instance = instance
+        return instance
+
+    def __init__(
+        self,
+        config_or_max_neurons: Union[Dict[str, Any], int],
+        max_synapses: int = 100_000_000,
+        backend: str = "cpu",
+        multi_gpu_config=None,
+    ):
+        """Initialize the ConnectomeManager.
+
         Args:
-            config_or_max_neurons: Either a config dict or max number of neurons (backward compatibility)
-            max_synapses: Maximum number of synapses to support
-            backend: Specific backend to use ('pytorch', 'cupy', 'wgpu', 'numpy')
+            config_or_max_neurons: Either a configuration dictionary or maximum number of neurons
+            max_synapses: Maximum number of synapses per neuron (default: 100M)
+            backend: Backend to use for computations ("cpu" or "cuda")
             multi_gpu_config: Configuration for multi-GPU setup (optional)
         """
+        # Initialize logger
+        self.logger = logging.getLogger(__name__)
+
         if ConnectomeManager._initialized:
             return
-        
+
         # Handle legacy parameter passing
         if isinstance(config_or_max_neurons, dict):
             config = config_or_max_neurons
             self.max_neurons = config.get("max_neurons", 10_000_000)
             max_synapses = config.get("max_synapses", max_synapses)
             backend = config.get("backend", backend)
+        elif hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
+            config = config_or_max_neurons
+            self.max_neurons = config.get("connectome.max_neurons", 10_000_000)
+            max_synapses = config.get("connectome.max_synapses", max_synapses)
+            backend = config.get("connectome.backend", backend)
         else:
             self.max_neurons = config_or_max_neurons
-        
+
         self.max_synapses = max_synapses
-        
+
         # Initialize neuron array with automatic backend selection
-        self.neuron_array = NeuronArray(
-            max_neurons=self.max_neurons,
-            backend=backend
-        )
-        
-        # Neuron ID management
-        self.next_neuron_id = 0
-        self.neuron_id_to_index: Dict[int, int] = {}
-        self.index_to_neuron_id: Dict[int, int] = {}
-        
-        # Cortical area management
+        self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=backend)
+
+        # CRITICAL FIX: Initialize neuron ID counter properly to prevent ID/index conflicts
+        # This prevents memory corruption from reusing IDs as indices
+        if not hasattr(self.neuron_array, "_next_neuron_id"):
+            self.neuron_array._next_neuron_id = (
+                1  # Start from 1, 0 reserved for invalid
+            )
+
+        # Initialize cortical areas and brain regions
         self.cortical_areas: Dict[str, CorticalArea] = {}
-        self.next_cortical_idx = 1  # Start from 1, reserve 0 for special purposes
-        self.area_neuron_masks: Dict[str, np.ndarray] = {}
-        
-        # Brain region management
-        self.brain_regions: Dict[str, Dict[str, Any]] = {}
-        self.region_area_map: Dict[str, Set[str]] = {}
-        
+        self.brain_regions = {}
+        self.region_area_map = {}
+
+        # Initialize connectivity rules and cortical connections storage
+        self.connectivity_rules = {}
+        self.cortical_connections = {}
+
+        # Core area reservations - cortical_idx=0 for "_death", cortical_idx=1 for "___pwr"
+        self.reserved_cortical_areas = {"_death": 0, "___pwr": 1}
+
+        # Initialize bidirectional cortical mapping
+        self.cortical_mapping = BiDirectionalCorticalMap()
+
+        # Legacy compatibility - delegate to NeuronArray as single source of truth
+        self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = {}
+
+        # Cache management for property-based access (prevents memory corruption)
+        self._cache_invalidated = True
+
+        # Neuron ID management - delegate to NeuronArray
+        self.next_neuron_id = 1
+
         # Initialize synapse storage with automatic sparsity detection
         self.max_synapses = max_synapses
         self._init_synapse_storage()
-        
-        # For backward compatibility with tests
-        self._neuron_to_position: Dict[int, Tuple] = {}
-        
+
         # Initialize FCL manager and other missing attributes for BurstEngine compatibility
         from feagi.npu.fcl_manager import FCLManager
+
         self.fcl_manager = FCLManager()
-        
+
         # Initialize active neurons tracking
         self.active_neurons = np.zeros(self.max_neurons, dtype=np.bool_)
         self.current_timestep = 0
-        
+
         # Initialize multi-GPU manager
         self.multi_gpu_manager = None
         if multi_gpu_config:
             self._init_multi_gpu(multi_gpu_config)
-        
+
         ConnectomeManager._initialized = True
-        
+
+    # ======================================================================
+    # PHASE 1 & 2: O(1) CORTICAL ID/IDX CONVERSION METHODS
+    # ======================================================================
+
+    def get_cortical_idx_for_id(self, cortical_id: str) -> Optional[int]:
+        """
+        Get cortical_idx from cortical_id.
+
+        This method is the ONLY way to access the BiDirectionalCorticalMap.
+        It provides a clean interface for ID to index mapping.
+
+        Args:
+            cortical_id: String identifier for cortical area
+
+        Returns:
+            Integer cortical_idx if found, None otherwise
+        """
+        return self.cortical_mapping.get_idx(cortical_id)
+
+    def get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
+        """
+        Get cortical_id from cortical_idx.
+
+        This method is the ONLY way to access the BiDirectionalCorticalMap.
+        It provides a clean interface for index to ID mapping.
+
+        Args:
+            cortical_idx: Integer index for cortical area
+
+        Returns:
+            String cortical_id if found, None otherwise
+        """
+        return self.cortical_mapping.get_id(cortical_idx)
+
+    def validate_cortical_mapping(self) -> bool:
+        """Validate that cortical mapping is consistent with cortical_areas.
+
+        Returns:
+            True if consistent, False otherwise
+        """
+        try:
+            is_consistent, errors = self.cortical_mapping.validate_consistency()
+
+            if not is_consistent:
+                logger.error(f"Cortical mapping inconsistency detected: {errors}")
+                return False
+
+            # Validate against cortical_areas using vectorized operations
+            cortical_ids = list(self.cortical_areas.keys())
+            if cortical_ids:  # Only validate if we have cortical areas
+                area_indices = np.array(
+                    [self.cortical_areas[cid].cortical_idx for cid in cortical_ids]
+                )
+                mapped_indices = np.array(
+                    [self.cortical_mapping.get_idx(cid) for cid in cortical_ids]
+                )
+
+                # Vectorized comparison - GPU/SIMD friendly
+                mismatches = area_indices != mapped_indices
+                if np.any(mismatches):
+                    mismatch_positions = np.where(mismatches)[0]
+                    mismatch_ids = [cortical_ids[i] for i in mismatch_positions]
+                    for i, cortical_id in enumerate(mismatch_ids):
+                        pos = mismatch_positions[i]
+                        logger.error(
+                            f"Mapping mismatch for {cortical_id}: mapping={mapped_indices[pos]}, area={area_indices[pos]}"
+                        )
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error validating cortical mapping: {e}")
+            return False
+
+    def _sync_cortical_mapping(self, cortical_id: str, cortical_idx: int) -> None:
+        """
+        Synchronize cortical mapping between ID and index.
+
+        This is an internal method that should only be called by ConnectomeManager.
+        It ensures the BiDirectionalCorticalMap stays in sync with the connectome.
+
+        Args:
+            cortical_id: String identifier for cortical area
+            cortical_idx: Integer index for cortical area
+        """
+        self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+
+    def _remove_cortical_mapping(self, cortical_id: str) -> None:
+        """
+        Remove cortical mapping for an area.
+
+        This is an internal method that should only be called by ConnectomeManager.
+        It ensures the BiDirectionalCorticalMap stays in sync with the connectome.
+
+        Args:
+            cortical_id: String identifier for cortical area to remove
+        """
+        self.cortical_mapping.remove_by_id(cortical_id)
+
+    def _find_next_available_cortical_idx(self) -> int:
+        """
+        Dynamically find the next available cortical_idx using proper state management.
+
+        This method scans existing cortical areas to find the next available index,
+        respecting reserved cortical_idx constraints (0 for _death, 1 for ___pwr).
+
+        Returns:
+            Next available cortical_idx starting from 2 (after reserved indices)
+        """
+        try:
+            # Collect all currently used cortical_idx values
+            used_indices = set()
+
+            # Add reserved indices (always reserved regardless of whether areas exist)
+            reserved_indices = set(self.reserved_cortical_areas.values())
+            used_indices.update(reserved_indices)
+
+            # Scan existing cortical areas to find used indices
+            if hasattr(self, "cortical_areas") and self.cortical_areas:
+                for area in self.cortical_areas.values():
+                    if hasattr(area, "cortical_idx") and area.cortical_idx is not None:
+                        used_indices.add(area.cortical_idx)
+
+            # Find the next available index starting from the minimum allowed (2)
+            min_non_reserved_idx = max(reserved_indices) + 1 if reserved_indices else 0
+            next_idx = min_non_reserved_idx
+
+            while next_idx in used_indices:
+                next_idx += 1
+
+            logger.debug(
+                f"[STATE] cortical_idx allocation: reserved={reserved_indices}, "
+                f"used={sorted(used_indices)}, next_available={next_idx}"
+            )
+
+            return next_idx
+
+        except Exception as e:
+            # Fallback to safe default if state scanning fails
+            logger.warning(
+                f"Failed to scan cortical_idx state, using safe fallback: {e}"
+            )
+            return (
+                max(self.reserved_cortical_areas.values()) + 1
+                if self.reserved_cortical_areas
+                else 2
+            )
+
+    def rebuild_cortical_mapping_from_existing_areas(self) -> bool:
+        """
+        Retroactively synchronize BiDirectionalCorticalMap from existing cortical areas.
+
+        This fixes systems that were loaded from disk before BiDirectionalCorticalMap
+        was implemented, ensuring mapping consistency.
+
+        Returns:
+            True if rebuild was successful, False otherwise
+        """
+        logger.info(
+            "🔧 RETROACTIVE MAPPING: Rebuilding BiDirectionalCorticalMap from existing cortical areas"
+        )
+
+        if not hasattr(self, "cortical_areas") or not self.cortical_areas:
+            logger.warning(
+                "❌ RETROACTIVE MAPPING: No cortical areas found to rebuild mapping from"
+            )
+            return False
+
+        rebuild_count = 0
+        failed_count = 0
+
+        for cortical_id, area_obj in self.cortical_areas.items():
+            try:
+                # Get cortical_idx from the area object
+                cortical_idx = getattr(area_obj, "cortical_idx", None)
+
+                if cortical_idx is None:
+                    # Area doesn't have cortical_idx assigned - assign one
+                    if cortical_id in self.reserved_cortical_areas:
+                        cortical_idx = self.reserved_cortical_areas[cortical_id]
+                        logger.info(
+                            f"🔧 RETROACTIVE MAPPING: Assigning reserved cortical_idx={cortical_idx} to core area '{cortical_id}'"
+                        )
+                    else:
+                        cortical_idx = self._find_next_available_cortical_idx()
+                        logger.info(
+                            f"🔧 RETROACTIVE MAPPING: Assigning new cortical_idx={cortical_idx} to area '{cortical_id}' (dynamically allocated)"
+                        )
+
+                    # Update the area object
+                    area_obj.cortical_idx = cortical_idx
+
+                # Synchronize the mapping
+                success = self.cortical_mapping.add_mapping(cortical_id, cortical_idx)
+                if success:
+                    rebuild_count += 1
+                    logger.info(
+                        f"✅ RETROACTIVE MAPPING: Synchronized {cortical_id} ↔ {cortical_idx}"
+                    )
+                else:
+                    failed_count += 1
+                    logger.error(
+                        f"❌ RETROACTIVE MAPPING: Failed to sync {cortical_id} ↔ {cortical_idx}"
+                    )
+
+            except Exception as e:
+                failed_count += 1
+                logger.error(
+                    f"❌ RETROACTIVE MAPPING: Exception syncing {cortical_id}: {e}"
+                )
+
+        # Validate the mapping
+        is_consistent, errors = self.cortical_mapping.validate_consistency()
+        if not is_consistent:
+            logger.error(f"❌ RETROACTIVE MAPPING: Validation failed: {errors}")
+            return False
+
+        logger.info(
+            f"✅ RETROACTIVE MAPPING: Successfully rebuilt {rebuild_count} mappings, {failed_count} failed"
+        )
+        return failed_count == 0
+
         # Backward compatibility for tests - store the instance
         ConnectomeManager._instance = self
-        
-        logger.info(f"ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend", status="[OK]")
-    
+
+        logger.info(
+            f"ConnectomeManager initialized with {self.neuron_array.backend.__class__.__name__} backend",
+            status="[OK]",
+        )
+
     def _init_multi_gpu(self, multi_gpu_config):
         """Initialize multi-GPU support.
-        
+
         Args:
             multi_gpu_config: Configuration for multi-GPU operation
         """
         try:
             # Import here to avoid circular imports
             from feagi.bdu.multi_gpu import MultiGPUManager
-            
+
             # Create multi-GPU manager
             self.multi_gpu_manager = MultiGPUManager(multi_gpu_config)
-            
+
             # Initialize with this connectome
             self.multi_gpu_manager.initialize(self)
-            
-            logger.info(f"Initialized multi-GPU manager with {multi_gpu_config.num_devices} devices")
+
+            logger.info(
+                f"Initialized multi-GPU manager with {multi_gpu_config.num_devices} devices"
+            )
         except ImportError:
-            logger.warning("Could not import MultiGPUManager. Multi-GPU support is disabled.")
+            logger.warning(
+                "Could not import MultiGPUManager. Multi-GPU support is disabled."
+            )
             self.multi_gpu_manager = None
         except Exception as e:
             logger.error(f"Failed to initialize multi-GPU support: {e}")
@@ -212,151 +487,152 @@ class ConnectomeManager:
 
     def to_multi_gpu(self, multi_gpu_config=None):
         """Convert the connectome to use multi-GPU processing.
-        
+
         Args:
             multi_gpu_config: Configuration for multi-GPU operation (optional)
                 If None, will use automatic configuration
-                
+
         Returns:
             Self (for method chaining)
         """
         if multi_gpu_config is None:
             # Import here to avoid circular imports
             from feagi.bdu.multi_gpu import MultiGPUConfig
-            
+
             # Auto-detect configuration
             multi_gpu_config = MultiGPUConfig(enabled=True)
-        
+
         # Initialize multi-GPU support
         self._init_multi_gpu(multi_gpu_config)
-        
+
         return self
 
-    def update_membrane_potentials(self, decay_factor=None, current_timestep=None) -> List[int]:
-        """Update membrane potentials based on incoming signals.
-        
-        This GPU-optimized implementation uses sparse matrix operations and
-        vectorized computations for maximum performance.
-        
+    def update_membrane_potentials(
+        self, decay_factor=None, current_timestep=None
+    ) -> List[int]:
+        """Update membrane potentials using embedded optimizations.
+
+        This method now uses the ultra-high-performance embedded-optimized neural update
+        from the NeuronArray, providing:
+        - SIMD-vectorized operations
+        - Cache-aligned memory access
+        - Block-sparse connectivity optimization
+        - Zero-allocation operation paths
+
+        Designed for 10M neurons at 15Hz on single-core embedded systems.
+
         Args:
-            decay_factor: Optional decay factor (for test compatibility)
+            decay_factor: Optional decay factor (for backward compatibility)
             current_timestep: Current simulation timestep (optional)
-            
+
         Returns:
             List of neuron IDs that fired
         """
-        # Handle decay factor for test compatibility
+        # Handle backward compatibility for test cases
         if decay_factor is not None and isinstance(decay_factor, (int, float)):
-            # Simple implementation for test compatibility
-            # Just apply the decay factor to all valid neurons
-            valid_neurons = self.neuron_array.valid_mask
-            if isinstance(self.neuron_array.membrane_potentials, torch.Tensor):
-                # Update PyTorch tensors
-                decay_tensor = torch.tensor(decay_factor, dtype=self.neuron_array.membrane_potentials.dtype, 
-                                           device=self.neuron_array.membrane_potentials.device)
-                self.neuron_array.membrane_potentials[valid_neurons] = decay_tensor
-            else:
-                # Update NumPy arrays
-                self.neuron_array.membrane_potentials[valid_neurons] = decay_factor
-            return []
-            
-        # Original implementation starts here
-        # Use multi-GPU implementation if available
-        if self.multi_gpu_manager is not None and self.multi_gpu_manager.initialized:
-            return self.multi_gpu_manager.update_membrane_potentials(current_timestep)
-            
-        # Original single-GPU implementation
+            # Legacy test compatibility mode
+            return self.neuron_array.update_membrane_potentials(
+                decay_factor=decay_factor
+            )
+
+        # Set current timestep
         if current_timestep is not None:
             self.current_timestep = current_timestep
-        
-        # Ensure outgoing matrix is in CSR format for efficient row access
-        self._ensure_csr_format_outgoing()
-        
-        # Get subset of outgoing matrix for active neurons
-        # Convert active_neurons to boolean mask if it's a set
-        if isinstance(self.active_neurons, set):
-            active_mask = np.zeros(self.max_neurons, dtype=np.bool_)
-            for nid in self.active_neurons:
-                if nid in self.neuron_id_to_index:
-                    idx = self.neuron_id_to_index[nid]
-                    active_mask[idx] = True
-            self.active_neurons = active_mask
-        
-        # If we have no active neurons, decay potentials and check for firing
-        if not np.any(self.active_neurons):
-            return self._update_without_firing()
-        
-        # Create a signal propagation matrix from active neurons
-        # This uses the active_neurons mask to efficiently extract only relevant rows
-        active_indices = np.where(self.active_neurons)[0]
-        
-        if len(active_indices) == 0:
-            return self._update_without_firing()
-        
-        # Extract rows from outgoing matrix for active neurons
-        # This creates a submatrix of only the connections from active neurons
-        signal_matrix = self.outgoing_matrix[active_indices]
-        
-        # Reset active neurons for next timestep
-        self.active_neurons.fill(False)
-        
-        # Process incoming signals using the GPU-optimized NeuronArray
-        # This updates membrane potentials and returns a mask of neurons that fired
-        fired_mask = self.neuron_array.process_incoming_signals(signal_matrix)
-        
-        # Decay membrane potentials for non-firing neurons
-        non_fired_mask = ~fired_mask
-        valid_neurons = self.neuron_array.valid_mask
-        
-        # Apply decay to valid neurons that didn't fire
-        neurons_to_decay = non_fired_mask & valid_neurons
-        
-        if isinstance(self.neuron_array.membrane_potentials, torch.Tensor) and self.neuron_array.device == "cuda":
-            # Use PyTorch operations if on GPU
-            self.neuron_array.membrane_potentials[neurons_to_decay] = (
-                self.neuron_array.membrane_potentials[neurons_to_decay] * 
-                (1 - self.neuron_array.decay_rates[neurons_to_decay])
-            )
+
+        # Use embedded-optimized neural update with connectivity
+        connectivity_matrix = None
+        if hasattr(self, "outgoing_matrix") and self.outgoing_matrix is not None:
+            connectivity_matrix = self.outgoing_matrix
+
+        # Perform high-performance neural update
+        fired_neurons = self.neuron_array.update_membrane_potentials(
+            synapse_data=connectivity_matrix, timestep=self.current_timestep
+        )
+
+        # Initialize fired_indices to ensure it's always defined
+        fired_indices = []
+
+        # Update active neurons tracking
+        if len(fired_neurons) > 0:
+            # Convert neuron IDs to indices for active neurons mask
+            fired_indices = [
+                self.neuron_id_to_index.get(nid)
+                for nid in fired_neurons
+                if nid in self.neuron_id_to_index
+            ]
+            fired_indices = [idx for idx in fired_indices if idx is not None]
+
+            if fired_indices:
+                self.active_neurons[:] = False  # Reset
+                self.active_neurons[fired_indices] = True
         else:
-            # Use NumPy operations if on CPU
-            self.neuron_array.membrane_potentials[neurons_to_decay] *= (
-                1 - self.neuron_array.decay_rates[neurons_to_decay]
+            self.active_neurons[:] = False
+
+        # Update FCL manager with fired neurons
+        if hasattr(self, "fcl_manager") and self.fcl_manager:
+            # Convert fired neurons to the format expected by FCL manager
+            # FCL expects current_timestep first, then neurons_by_cortical
+            neurons_by_cortical = {}
+            if fired_neurons:
+                # Vectorized grouping of fired neurons by cortical area
+                fired_neurons_array = np.array(fired_neurons, dtype=np.int32)
+
+                # Get valid neurons (filter out those not in mapping)
+                valid_mask = np.array(
+                    [nid in self.neuron_id_to_index for nid in fired_neurons_array]
+                )
+                valid_neurons = fired_neurons_array[valid_mask]
+
+                if len(valid_neurons) > 0:
+                    # Vectorized index lookup
+                    indices = np.array(
+                        [self.neuron_id_to_index[nid] for nid in valid_neurons]
+                    )
+
+                    # Vectorized cortical_idx extraction
+                    cortical_indices = self.neuron_array.cortical_idxs[indices].astype(
+                        np.int32
+                    )
+
+                    # Group neurons by cortical area using vectorized operations
+                    unique_cortical_indices = np.unique(cortical_indices)
+                    for cortical_idx in unique_cortical_indices:
+                        mask = cortical_indices == cortical_idx
+                        neurons_by_cortical[int(cortical_idx)] = valid_neurons[
+                            mask
+                        ].tolist()
+
+            self.fcl_manager.update_fcl(self.current_timestep, neurons_by_cortical)
+
+        # Convert fired indices to neuron IDs - CRITICAL FIX: Use correct vectorized method
+        if fired_indices:
+            fired_neuron_ids = self._vectorized_index_to_neuron_id(
+                np.array(fired_indices)
             )
-        
-        # Decrement refractory counters
-        refractory_mask = self.neuron_array.refractory_counters > 0
-        self.neuron_array.refractory_counters[refractory_mask] -= 1
-        
-        # Update active_neurons for next timestep (neurons that fired)
-        self.active_neurons = fired_mask & valid_neurons
-        
-        # Update FCL manager
-        fired_indices = np.where(fired_mask)[0]
-        
-        # Add fired neurons to the current FCL
-        if len(fired_indices) > 0:
-            self.fcl_manager.add_to_current_fcl(fired_indices)
-        
-        # Convert fired indices to neuron IDs
-        fired_neuron_ids = [
-            self.index_to_neuron_id.get(idx, idx) for idx in fired_indices
-        ]
-        
+            # Convert to Python list of integers for FCL compatibility
+            fired_neuron_ids = fired_neuron_ids.tolist()
+        else:
+            fired_neuron_ids = []
+
         # Increment timestep
         self.current_timestep += 1
-        
+
         return fired_neuron_ids
-    
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     # Synapse Storage Methods
-    #----------------------------------------------------------------------
-    
+    # ----------------------------------------------------------------------
+
     def _init_synapse_storage(self):
         """Initialize the sparse matrix storage for synapses."""
         # Always use LIL for construction phase for consistent behavior
-        self.outgoing_matrix = sparse.lil_matrix((self.max_neurons, self.max_neurons), dtype=np.float32)
-        self.incoming_matrix = sparse.lil_matrix((self.max_neurons, self.max_neurons), dtype=np.float32)
-    
+        self.outgoing_matrix = sparse.lil_matrix(
+            (self.max_neurons, self.max_neurons), dtype=np.float32
+        )
+        self.incoming_matrix = sparse.lil_matrix(
+            (self.max_neurons, self.max_neurons), dtype=np.float32
+        )
+
     def _ensure_csr_format_outgoing(self):
         """Ensure outgoing matrix is in CSR format for efficient row access."""
         if isinstance(self.outgoing_matrix, torch.Tensor):
@@ -364,7 +640,7 @@ class ConnectomeManager:
             pass
         elif not isinstance(self.outgoing_matrix, sparse.csr_matrix):
             self.outgoing_matrix = self.outgoing_matrix.tocsr()
-    
+
     def _ensure_csc_format_incoming(self):
         """Ensure incoming matrix is in CSC format for efficient column access."""
         if isinstance(self.incoming_matrix, torch.Tensor):
@@ -372,7 +648,7 @@ class ConnectomeManager:
             pass
         elif not isinstance(self.incoming_matrix, sparse.csc_matrix):
             self.incoming_matrix = self.incoming_matrix.tocsc()
-            
+
     def _convert_to_lil_if_needed(self):
         """Convert matrices to LIL format if needed for modifications."""
         if isinstance(self.outgoing_matrix, torch.Tensor):
@@ -380,24 +656,31 @@ class ConnectomeManager:
             pass
         elif not isinstance(self.outgoing_matrix, sparse.lil_matrix):
             self.outgoing_matrix = self.outgoing_matrix.tolil()
-            
+
         if isinstance(self.incoming_matrix, torch.Tensor):
             # PyTorch tensors don't need conversion
             pass
         elif not isinstance(self.incoming_matrix, sparse.lil_matrix):
             self.incoming_matrix = self.incoming_matrix.tolil()
-    
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     # Neuron CRUD Operations
-    #----------------------------------------------------------------------
-    
-    def create_neuron(self, cortical_id: str, position: Tuple[int, int, int], 
-                     threshold: float = 1.0, membrane_potential: float = 0.0,
-                     resting_potential: float = 0.0, decay_rate: float = 0.5,
-                     refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None,
-                     cortical_idx: Optional[int] = None) -> int:
+    # ----------------------------------------------------------------------
+
+    def create_neuron(
+        self,
+        cortical_id: str,
+        position: Tuple[int, int, int],
+        threshold: float = 1.0,
+        membrane_potential: float = 0.0,
+        resting_potential: float = 0.0,
+        decay_rate: float = 0.5,
+        refractory_period: int = 1,
+        properties: Optional[Dict[str, Any]] = None,
+        cortical_idx: Optional[int] = None,
+    ) -> int:
         """Create a new neuron in the specified cortical area.
-        
+
         Args:
             cortical_id: ID of the cortical area
             position: 3D coordinates within the cortical area (x, y, z)
@@ -408,96 +691,94 @@ class ConnectomeManager:
             refractory_period: Number of timesteps after firing during which the neuron cannot fire
             properties: Additional properties for the neuron (optional)
             cortical_idx: Integer index of the cortical area (optional, will be determined from cortical_id if not provided)
-            
+
         Returns:
             Unique ID of the created neuron
-            
+
         Raises:
             ValueError: If the cortical_id doesn't exist
             ValueError: If the position is outside the area's boundaries
         """
-        # Validate area exists
+        # Validate the cortical area exists
         if cortical_id not in self.cortical_areas:
-            raise ValueError(f"Cortical area {cortical_id} does not exist")
-        
+            raise ValueError(f"Cortical area '{cortical_id}' does not exist")
+
         area = self.cortical_areas[cortical_id]
-        
+
         # Validate position
         if not area.contains_position(position):
-            raise ValueError(f"Position {position} is outside the bounds of area {area.name}")
-        
-        # Get next available neuron ID
-        neuron_id = self.next_neuron_id
-        self.next_neuron_id += 1
-        
+            raise ValueError(
+                f"Position {position} is outside the bounds of area {area.name}"
+            )
+
         # Use the provided cortical_idx or get it from the area
         if cortical_idx is None:
             cortical_idx = area.cortical_idx
-        
-        # Get next available index in the NeuronArray
-        index = self.neuron_array.create_neuron(
+
+        # Let NeuronArray create the neuron and generate its own ID
+        neuron_id = self.neuron_array.create_neuron(
             cortical_idx=cortical_idx,
             position=position,
             threshold=threshold,
             membrane_potential=membrane_potential,
             resting_potential=resting_potential,
             decay_rate=decay_rate,
-            refractory_period=refractory_period
+            refractory_period=refractory_period,
         )
-        
-        # Map neuron_id to index
+
+        # Get the index from NeuronArray's mapping
+        index = self.neuron_array.id_to_index_map[neuron_id]
+
+        # Store mappings in ConnectomeManager (for legacy compatibility)
         self.neuron_id_to_index[neuron_id] = index
         self.index_to_neuron_id[index] = neuron_id
-        
-        # Update area tracking
-        if cortical_id not in self.area_neuron_masks:
-            self.area_neuron_masks[cortical_id] = np.zeros(self.max_neurons, dtype=np.bool_)
-        self.area_neuron_masks[cortical_id][index] = True
-        
-        # Update _neuron_to_position for test compatibility 
+
+        # Update _neuron_to_position for test compatibility
         # Format matches test expectation: (cortical_id, x, y, z, neuron_index)
         self._neuron_to_position[neuron_id] = (cortical_id, *position, index)
-        
+
         # Add to cortical area
         area.add_neuron(neuron_id, position)
-        
-        logger.debug(f"Created neuron {neuron_id} in area {area.name} at position {position}")
+
+        logger.debug(
+            f"Created neuron {neuron_id} in area {area.name} at position {position}"
+        )
         return neuron_id
-    
+
     def get_neuron(self, neuron_id: int) -> Dict[str, Any]:
         """Get information about a specific neuron.
-        
+
         Args:
             neuron_id: ID of the neuron
-            
+
         Returns:
             Dictionary with neuron properties
-            
+
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-        
+
         index = self.neuron_id_to_index[neuron_id]
-        
+
         # Convert neuron array data to dictionary
         position = (
-            int(self.neuron_array.positions_x[index]),
-            int(self.neuron_array.positions_y[index]),
-            int(self.neuron_array.positions_z[index])
+            int(self.neuron_array.coordinates_x[index]),
+            int(self.neuron_array.coordinates_y[index]),
+            int(self.neuron_array.coordinates_z[index]),
         )
-        
+
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
-        
-        # Find the corresponding cortical_id
-        cortical_id = None
-        for cortical_id_key, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                cortical_id = cortical_id_key
-                break
-        
+
+        # Find the corresponding cortical_id using O(1) translation layer
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
+        if cortical_id is None:
+            raise RuntimeError(
+                f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected"
+            )
+
         result = {
             "cortical_id": cortical_id,  # String identifier (for backward compatibility)
             "cortical_idx": cortical_idx,  # Integer index (for internal use)
@@ -508,234 +789,279 @@ class ConnectomeManager:
             "decay_rate": float(self.neuron_array.decay_rates[index]),
             "refractory_period": int(self.neuron_array.refractory_periods[index]),
             "refractory_counter": int(self.neuron_array.refractory_counters[index]),
-            "properties": {}  # We don't store additional properties in the optimized version
+            "properties": {},  # We don't store additional properties in the optimized version
         }
-        
+
         return result
-    
-    def get_neuron_property(self, neuron_id: int, property_name: Union[str, NeuronPropertyType]) -> Any:
+
+    def get_neuron_property(
+        self, neuron_id: int, property_name: Union[str, NeuronPropertyType]
+    ) -> Any:
         """Get a specific property of a neuron.
-        
+
         Args:
             neuron_id: ID of the neuron
             property_name: Name or enum of the property to get
-            
+
         Returns:
             Value of the property
-            
+
         Raises:
             KeyError: If the neuron_id doesn't exist
             KeyError: If the property doesn't exist
         """
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-        
-        index = self.neuron_id_to_index[neuron_id]
-        
+
         # Handle property name as either string or enum
         if isinstance(property_name, NeuronPropertyType):
             property_name = property_name.value
-        
+
         return self.neuron_array.get_neuron_property(neuron_id, property_name)
-    
-    def set_neuron_property(self, neuron_id: int, property_name: Union[str, NeuronPropertyType], value: Any) -> None:
+
+    def set_neuron_property(
+        self, neuron_id: int, property_name: Union[str, NeuronPropertyType], value: Any
+    ) -> None:
         """Set a specific property of a neuron.
-        
+
         Args:
             neuron_id: ID of the neuron
             property_name: Name or enum of the property to set
             value: New value for the property
-            
+
         Raises:
             KeyError: If the neuron_id doesn't exist
             KeyError: If the property doesn't exist
         """
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-        
-        index = self.neuron_id_to_index[neuron_id]
-        
+
         # Handle property name as either string or enum
         if isinstance(property_name, NeuronPropertyType):
             property_name = property_name.value
-        
+
         self.neuron_array.set_neuron_property(neuron_id, property_name, value)
-    
+
     def get_neurons_by_cortical_area(self, cortical_id: str) -> List[int]:
-        """Get all neurons in a specific cortical area.
-        
+        """Get all neurons in a specific cortical area using GPU/SIMD-optimized vectorized operations.
+
+        VECTORIZED VERSION: Leverages Structure of Arrays (SoA) design for maximum performance.
+        - Fully vectorized NumPy operations (GPU/SIMD friendly)
+        - O(1) lookup using pre-built index-to-ID lookup array
+        - No Python loops or dictionary iterations
+
         Args:
             cortical_id: ID of the cortical area
-            
+
         Returns:
             List of neuron IDs in the area
-            
+
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
-        
-        if cortical_id not in self.area_neuron_masks:
+
+        # Get cortical_idx from cortical mapping
+        cortical_idx = self.cortical_mapping.get_idx(cortical_id)
+        if cortical_idx is None:
             return []
-        
-        # Get the mask for this area
-        mask = self.area_neuron_masks[cortical_id]
-        
-        # Get the indices where the mask is True
-        indices = np.where(mask)[0]
-        
-        # Convert indices to neuron_ids
-        neuron_ids = [self.index_to_neuron_id[idx] for idx in indices]
-        
-        return neuron_ids
-    
+
+        # VECTORIZED: Use SoA arrays for GPU/SIMD-optimized query
+        # Only search in the valid range up to next_index
+        valid_range = min(
+            self.neuron_array.next_index, len(self.neuron_array.cortical_idxs)
+        )
+
+        # ROBUST: Triple-mask filtering to handle deletion edge cases
+        # GPU/SIMD friendly: uses element-wise boolean operations on arrays
+        # Convert all arrays to NumPy to ensure compatibility across backends
+        active_mask = self.neuron_array.backend.to_numpy(
+            self.neuron_array.is_active[:valid_range]
+        )
+        valid_mask = self.neuron_array.backend.to_numpy(
+            self.neuron_array.valid_mask[:valid_range]
+        )
+        cortical_idxs = self.neuron_array.backend.to_numpy(
+            self.neuron_array.cortical_idxs[:valid_range]
+        )
+        cortical_mask = cortical_idxs == cortical_idx
+
+        # Combined mask: must be active, valid, AND in correct cortical area
+        combined_mask = active_mask & valid_mask & cortical_mask
+        valid_indices = np.where(combined_mask)[0]
+
+        # VECTORIZED: Convert indices to neuron_ids using optimized SoA lookup
+        # Uses pre-built lookup array for O(1) per-element access (GPU/SIMD friendly)
+        if len(valid_indices) == 0:
+            return []
+
+        # Use the existing vectorized method from NeuronArray
+        neuron_ids_array = self.neuron_array.vectorized_indices_to_neuron_ids(
+            valid_indices, filter_invalid=True
+        )
+
+        # Convert NumPy array to list for API compatibility
+        return neuron_ids_array.tolist()
+
     def get_cortical_area_for_neuron(self, neuron_id: int) -> str:
-        """Get the ID of the cortical area containing a neuron.
-        
+        """Get the ID of the cortical area containing a neuron using translation layer.
+
         Args:
             neuron_id: ID of the neuron
-            
+
         Returns:
             ID of the cortical area containing the neuron
-            
+
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        if neuron_id not in self.neuron_array.id_to_index_map:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-        
-        index = self.neuron_id_to_index[neuron_id]
-        
+
+        # Get index from NeuronArray
+        index = self.neuron_array.id_to_index_map[neuron_id]
+
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
-        
-        # Find the corresponding cortical_id
-        for cortical_id, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                return cortical_id
-                
-        # If we can't find a matching area, return the TEST__ area if it exists
-        if "TEST__" in self.cortical_areas:
-            logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using TEST__ area.")
-            return "TEST__"
-                
-        # If no match found and no TEST__ area, use the first available area
-        if self.cortical_areas:
-            first_cortical_id = next(iter(self.cortical_areas.keys()))
-            logger.warning(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}. Using {first_cortical_id} area.")
-            return first_cortical_id
-        
-        # This should not happen, but just in case
-        raise RuntimeError(f"Could not find any cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}")
+
+        # Use cortical mapping to find cortical_id
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
+        if cortical_id is None:
+            raise RuntimeError(
+                f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected"
+            )
+
+        return cortical_id
 
     # For backward compatibility, maintain the old method name
     def get_area_for_neuron(self, neuron_id: int) -> str:
         """Get the ID of the cortical area containing a neuron (backward compatibility).
-        
+
         Args:
             neuron_id: ID of the neuron
-            
+
         Returns:
             ID of the cortical area containing the neuron
         """
         return self.get_cortical_area_for_neuron(neuron_id)
-        
+
     def get_neurons_by_area(self, cortical_id: str) -> List[int]:
         """Get all neuron IDs in a specific cortical area.
-        
+
         Args:
             cortical_id: ID of the cortical area
-            
+
         Returns:
             List of neuron IDs in the area
         """
         return self.get_neurons_by_cortical_area(cortical_id)
-    
+
+    def get_neurons_by_cortical_idx(self, cortical_idx: int) -> List[int]:
+        """Get all neurons in a cortical area by cortical_idx (integer).
+
+        Args:
+            cortical_idx: Integer cortical index (0 for _death, 1 for ___pwr, etc.)
+
+        Returns:
+            List of neuron IDs in the area
+
+        Raises:
+            KeyError: If no area with the specified cortical_idx exists
+        """
+        # Use O(1) translation layer to find cortical_id
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
+        if cortical_id is None:
+            raise KeyError(f"No cortical area found with cortical_idx={cortical_idx}")
+
+        return self.get_neurons_by_cortical_area(cortical_id)
+
     def get_neuron_count(self) -> int:
         """Get the total number of neurons in the connectome.
-        
+
         Returns:
             Number of neurons
         """
         return self.neuron_array.get_neuron_count()
-    
+
     def delete_neuron(self, neuron_id: int) -> None:
         """Delete a neuron and all its connections.
-        
+
         Args:
             neuron_id: ID of the neuron to delete
-            
+
         Raises:
             ValueError: If the neuron doesn't exist
         """
         # Check if neuron exists
         if neuron_id not in self.neuron_id_to_index:
             raise ValueError(f"Neuron {neuron_id} does not exist")
-        
+
         # Get the neuron's index
         neuron_index = self.neuron_id_to_index[neuron_id]
-        
+
         # Delete outgoing synapses (synapses where this neuron is pre-synaptic)
         outgoing_connections = self.get_outgoing_connections(neuron_id)
         for target_id, _ in outgoing_connections:
             self.remove_synapse(neuron_id, target_id)
-            
+
         # Delete incoming synapses (synapses where this neuron is post-synaptic)
         incoming_connections = self.get_incoming_connections(neuron_id)
         for source_id, _ in incoming_connections:
             self.remove_synapse(source_id, neuron_id)
-        
+
         # Mark neuron as inactive in neuron array
-        cortical_id = self.get_cortical_area_for_neuron(neuron_id)
         self.neuron_array.delete_neuron(neuron_id)
-        
-        # Remove neuron from area-to-neuron mappings if it exists
-        if cortical_id in self.area_neuron_masks:
-            # Create a temporary copy as a numpy array
-            mask = np.array(self.area_neuron_masks[cortical_id])
-            if neuron_index < len(mask):
-                mask[neuron_index] = False
-                self.area_neuron_masks[cortical_id] = mask
-        
-        # Remove from ID-to-index mapping
-        del self.neuron_id_to_index[neuron_id]
-        if neuron_index in self.index_to_neuron_id:
+
+        # Remove from ID-to-index mapping (legacy compatibility)
+        if hasattr(self, "neuron_id_to_index") and neuron_id in self.neuron_id_to_index:
+            del self.neuron_id_to_index[neuron_id]
+        if (
+            hasattr(self, "index_to_neuron_id")
+            and neuron_index in self.index_to_neuron_id
+        ):
             del self.index_to_neuron_id[neuron_index]
-    
+
     def get_neuron_position(self, neuron_id: int) -> Tuple[int, int, int]:
         """Get the position of a neuron.
-        
+
         Args:
             neuron_id: ID of the neuron
-            
+
         Returns:
             3D coordinates of the neuron
-            
+
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-        
+
         index = self.neuron_id_to_index[neuron_id]
-        
+
         # Get position from neuron array
         return (
-            int(self.neuron_array.positions_x[index]),
-            int(self.neuron_array.positions_y[index]),
-            int(self.neuron_array.positions_z[index])
+            int(self.neuron_array.coordinates_x[index]),
+            int(self.neuron_array.coordinates_y[index]),
+            int(self.neuron_array.coordinates_z[index]),
         )
-    
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     # Synapse Management Methods
-    #----------------------------------------------------------------------
-    
-    def create_synapse(self, pre_neuron_id: int, post_neuron_id: int, weight: float, 
-                      is_plastic: bool = False, plasticity_coeff: float = 0.0, 
-                      plasticity_decay: float = 0.0, **kwargs) -> bool:
+    # ----------------------------------------------------------------------
+
+    def create_synapse(
+        self,
+        pre_neuron_id: int,
+        post_neuron_id: int,
+        weight: float,
+        is_plastic: bool = False,
+        plasticity_coeff: float = 0.0,
+        plasticity_decay: float = 0.0,
+        **kwargs,
+    ) -> bool:
         """Create a synapse between two neurons.
-        
+
         Args:
             pre_neuron_id: ID of the presynaptic neuron
             post_neuron_id: ID of the postsynaptic neuron
@@ -744,10 +1070,10 @@ class ConnectomeManager:
             plasticity_coeff: Coefficient for plasticity
             plasticity_decay: Decay rate for plasticity
             **kwargs: Additional synapse properties
-            
+
         Returns:
             True if the synapse was created, False if it already existed
-            
+
         Raises:
             KeyError: If either neuron doesn't exist
         """
@@ -756,88 +1082,91 @@ class ConnectomeManager:
             raise KeyError(f"Pre-synaptic neuron {pre_neuron_id} does not exist")
         if post_neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Post-synaptic neuron {post_neuron_id} does not exist")
-        
+
         # Get indices
         pre_idx = self.neuron_id_to_index[pre_neuron_id]
         post_idx = self.neuron_id_to_index[post_neuron_id]
-        
+
         # Check if synapse already exists
         self._ensure_csr_format_outgoing()
-        
+
         # Handle PyTorch tensors differently
         if isinstance(self.outgoing_matrix, torch.Tensor):
             if self.outgoing_matrix[pre_idx, post_idx] != 0:
                 return False
-            
+
             # Create synapse by setting weight
             self.outgoing_matrix[pre_idx, post_idx] = weight
             self.incoming_matrix[post_idx, pre_idx] = weight
         else:
             if self.outgoing_matrix[pre_idx, post_idx] != 0:
                 return False
-            
+
             # Convert matrices to LIL for modification
             self._convert_to_lil_if_needed()
-            
+
             # Create synapse by setting weight
             self.outgoing_matrix[pre_idx, post_idx] = weight
             self.incoming_matrix[post_idx, pre_idx] = weight
-        
+
         # Note: We don't store plasticity information in the basic implementation
         # In a more advanced implementation, we could use additional sparse matrices
         # for plasticity_coeff and plasticity_decay
-        
+
         return True
-    
+
     def batch_create_synapses(self, synapse_specs: List[Tuple[int, int, float]]) -> int:
         """Create multiple synapses in a batch operation.
-        
+
         Args:
             synapse_specs: List of tuples (pre_neuron_id, post_neuron_id, weight)
-            
+
         Returns:
             Number of synapses successfully created
         """
         # Convert matrices to LIL for efficient batch modification
         self._convert_to_lil_if_needed()
-        
+
         created_count = 0
-        
+
         # Process each synapse specification
         for pre_id, post_id, weight in synapse_specs:
             try:
                 # Check both neurons exist
-                if pre_id not in self.neuron_id_to_index or post_id not in self.neuron_id_to_index:
+                if (
+                    pre_id not in self.neuron_id_to_index
+                    or post_id not in self.neuron_id_to_index
+                ):
                     continue
-                
+
                 # Get indices
                 pre_idx = self.neuron_id_to_index[pre_id]
                 post_idx = self.neuron_id_to_index[post_id]
-                
+
                 # Skip if synapse already exists
                 if self.outgoing_matrix[pre_idx, post_idx] != 0:
                     continue
-                
+
                 # Create synapse
                 self.outgoing_matrix[pre_idx, post_idx] = weight
                 self.incoming_matrix[post_idx, pre_idx] = weight
-                
+
                 created_count += 1
             except Exception as e:
                 logger.error(f"Error creating synapse {pre_id} -> {post_id}: {e}")
-        
+
         return created_count
-    
+
     def remove_synapse(self, pre_neuron_id: int, post_neuron_id: int) -> bool:
         """Remove a synapse between two neurons.
-        
+
         Args:
             pre_neuron_id: ID of the presynaptic neuron
             post_neuron_id: ID of the postsynaptic neuron
-            
+
         Returns:
             True if the synapse was removed, False if it didn't exist
-            
+
         Raises:
             KeyError: If either neuron doesn't exist
         """
@@ -846,35 +1175,35 @@ class ConnectomeManager:
             raise KeyError(f"Pre-synaptic neuron {pre_neuron_id} does not exist")
         if post_neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Post-synaptic neuron {post_neuron_id} does not exist")
-        
+
         # Get indices
         pre_idx = self.neuron_id_to_index[pre_neuron_id]
         post_idx = self.neuron_id_to_index[post_neuron_id]
-        
+
         # Check if synapse exists
         self._ensure_csr_format_outgoing()
         if self.outgoing_matrix[pre_idx, post_idx] == 0:
             return False
-        
+
         # Convert matrices to LIL for modification
         self._convert_to_lil_if_needed()
-        
+
         # Remove synapse by setting weight to zero
         self.outgoing_matrix[pre_idx, post_idx] = 0
         self.incoming_matrix[post_idx, pre_idx] = 0
-        
+
         return True
-    
+
     def get_synapse_weight(self, pre_neuron_id: int, post_neuron_id: int) -> float:
         """Get the weight of a synapse between two neurons.
-        
+
         Args:
             pre_neuron_id: ID of the presynaptic neuron
             post_neuron_id: ID of the postsynaptic neuron
-            
+
         Returns:
             Weight of the synapse, or 0.0 if it doesn't exist
-            
+
         Raises:
             KeyError: If either neuron doesn't exist
         """
@@ -883,28 +1212,30 @@ class ConnectomeManager:
             raise KeyError(f"Pre-synaptic neuron {pre_neuron_id} does not exist")
         if post_neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Post-synaptic neuron {post_neuron_id} does not exist")
-        
+
         # Get indices
         pre_idx = self.neuron_id_to_index[pre_neuron_id]
         post_idx = self.neuron_id_to_index[post_neuron_id]
-        
+
         # Ensure CSR format for efficient row access
         self._ensure_csr_format_outgoing()
-        
+
         # Get synapse weight
         return float(self.outgoing_matrix[pre_idx, post_idx])
-    
-    def update_synapse_weight(self, pre_neuron_id: int, post_neuron_id: int, new_weight: float) -> bool:
+
+    def update_synapse_weight(
+        self, pre_neuron_id: int, post_neuron_id: int, new_weight: float
+    ) -> bool:
         """Update the weight of a synapse between two neurons.
-        
+
         Args:
             pre_neuron_id: ID of the presynaptic neuron
             post_neuron_id: ID of the postsynaptic neuron
             new_weight: New weight for the synapse
-            
+
         Returns:
             True if the synapse was updated, False if it didn't exist
-            
+
         Raises:
             KeyError: If either neuron doesn't exist
         """
@@ -913,104 +1244,122 @@ class ConnectomeManager:
             raise KeyError(f"Pre-synaptic neuron {pre_neuron_id} does not exist")
         if post_neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Post-synaptic neuron {post_neuron_id} does not exist")
-        
+
         # Get indices
         pre_idx = self.neuron_id_to_index[pre_neuron_id]
         post_idx = self.neuron_id_to_index[post_neuron_id]
-        
+
         # Check if synapse exists
         self._ensure_csr_format_outgoing()
         if self.outgoing_matrix[pre_idx, post_idx] == 0:
             return False
-        
+
         # Convert matrices to LIL for modification
         self._convert_to_lil_if_needed()
-        
+
         # Update synapse weight
         self.outgoing_matrix[pre_idx, post_idx] = new_weight
         self.incoming_matrix[post_idx, pre_idx] = new_weight
-        
+
         return True
-    
+
     def get_outgoing_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
         """Get all outgoing connections from a neuron.
-        
+
         Args:
             neuron_id: ID of the neuron
-            
+
         Returns:
             List of (target_neuron_id, weight) tuples
-            
+
         Raises:
             KeyError: If the neuron doesn't exist
         """
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-        
+
         # Get neuron index
         index = self.neuron_id_to_index[neuron_id]
-        
+
         # Ensure CSR format for efficient row access
         self._ensure_csr_format_outgoing()
-        
+
         # For PyTorch tensors, we need to handle differently
         if isinstance(self.outgoing_matrix, torch.Tensor):
             # Get all non-zero elements in the row
             row = self.outgoing_matrix[index, :]
             non_zero_indices = torch.nonzero(row).squeeze(-1)
-            
+
             # Build result list
             result = []
-            for col_idx in non_zero_indices:
-                col_idx_int = int(col_idx.item())
-                if col_idx_int in self.index_to_neuron_id:
-                    target_id = self.index_to_neuron_id[col_idx_int]
-                    weight = float(row[col_idx].item())
-                    result.append((target_id, weight))
+            if len(non_zero_indices) > 0:
+                # Vectorized conversion of indices to neuron IDs
+                col_indices_np = non_zero_indices.cpu().numpy()
+                neuron_ids = self._vectorized_index_to_neuron_id(col_indices_np)
+
+                # Since vectorized method now returns only valid IDs, use them directly
+                if len(neuron_ids) > 0:
+                    # Get corresponding weights for valid neuron IDs
+                    valid_weights = (
+                        row[non_zero_indices[: len(neuron_ids)]].cpu().numpy()
+                    )
+                    result = list(
+                        zip(neuron_ids.astype(int), valid_weights.astype(float))
+                    )
+
             return result
         else:
             # Get the row for this neuron
             row = self.outgoing_matrix.getrow(index)
-            
+
             # Get the non-zero column indices and data
             col_indices, data = row.indices, row.data
-            
-            # Map column indices back to neuron IDs and build result
-            result = []
-            for col_idx, weight in zip(col_indices, data):
-                if col_idx in self.index_to_neuron_id:
-                    target_id = self.index_to_neuron_id[col_idx]
-                    result.append((target_id, float(weight)))
-            
+
+            # Map column indices back to neuron IDs and build result - VECTORIZED
+            if len(col_indices) > 0:
+                neuron_ids = self._vectorized_index_to_neuron_id(col_indices)
+
+                # Since vectorized method now returns only valid IDs, use them directly
+                if len(neuron_ids) > 0:
+                    # Get corresponding weights for valid neuron IDs
+                    valid_weights = data[: len(neuron_ids)]
+                    result = list(
+                        zip(neuron_ids.astype(int), valid_weights.astype(float))
+                    )
+                else:
+                    result = []
+            else:
+                result = []
+
             return result
-    
+
     def get_incoming_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
         """Get all incoming connections to a neuron.
-        
+
         Args:
             neuron_id: ID of the neuron
-            
+
         Returns:
             List of (source_neuron_id, weight) tuples
-            
+
         Raises:
             KeyError: If the neuron doesn't exist
         """
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
-        
+
         # Get neuron index
         index = self.neuron_id_to_index[neuron_id]
-        
+
         # Ensure CSC format for efficient column access
         self._ensure_csc_format_incoming()
-        
+
         # For PyTorch tensors, we need to handle differently
         if isinstance(self.incoming_matrix, torch.Tensor):
             # Get all non-zero elements in the column
             col = self.incoming_matrix[:, index]
             non_zero_indices = torch.nonzero(col).squeeze(-1)
-            
+
             # Build result list
             result = []
             for row_idx in non_zero_indices:
@@ -1024,74 +1373,89 @@ class ConnectomeManager:
             # In our implementation, we're storing the transpose of what we expect
             # The incoming_matrix[post_idx, pre_idx] = weight means that
             # we need to look at the pre_idx column for connections to post_idx
-            
+
             # Check all columns for connections to this neuron
+            # Vectorized approach - get entire row from incoming matrix
+            incoming_row = self.incoming_matrix[index, :].toarray().flatten()
+            nonzero_indices = np.nonzero(incoming_row)[0]
+
+            # Convert indices to neuron IDs and weights in vectorized operation
             result = []
-            
-            # Iterate through all columns
-            for col_idx in range(self.incoming_matrix.shape[1]):
-                # Check if there's a connection from col_idx to index
-                weight = self.incoming_matrix[index, col_idx]
-                if weight != 0:
-                    # There's a connection
-                    if col_idx in self.index_to_neuron_id:
-                        source_id = self.index_to_neuron_id[col_idx]
-                        result.append((source_id, float(weight)))
-            
+            if len(nonzero_indices) > 0:
+                valid_indices = [
+                    idx for idx in nonzero_indices if idx in self.index_to_neuron_id
+                ]
+                if valid_indices:
+                    weights = incoming_row[valid_indices]
+                    neuron_ids = [self.index_to_neuron_id[idx] for idx in valid_indices]
+                    result = list(zip(neuron_ids, weights.astype(float)))
+
             return result
-    
+
     def get_synapse_count(self) -> int:
         """Get the total number of synapses in the connectome.
-        
+
         Returns:
             Number of synapses
         """
         # Ensure matrix is in a format that provides efficient nnz count
         self._ensure_csr_format_outgoing()
         return self.outgoing_matrix.nnz
-    
+
     def _update_without_firing(self) -> List[int]:
         """Update membrane potentials when no neurons are firing.
-        
+
         This method:
         1. Decays membrane potentials
         2. Decrements refractory counters
         3. Checks for neurons that now exceed their threshold
-        
+
         Returns:
             List of neuron IDs that fired
         """
         # Move to the next FCL window
         self.fcl_manager.advance_timestep()
-        
+
         # Let the neuron array handle the update
         fired_indices = self.neuron_array.decay_and_check_firing()
-        
+
         # Add fired neurons to the next FCL
         if len(fired_indices):
             self.fcl_manager.add_to_current_fcl(fired_indices)
-        
-        # Convert fired indices to neuron IDs
-        fired_neuron_ids = [self.index_to_neuron_id[idx] for idx in fired_indices if idx in self.index_to_neuron_id]
-        
+
+        # Convert fired indices to neuron IDs - CRITICAL FIX: Use correct vectorized method
+        if fired_indices:
+            fired_neuron_ids = self._vectorized_index_to_neuron_id(
+                np.array(fired_indices)
+            )
+            # Convert to Python list of integers for FCL compatibility
+            fired_neuron_ids = fired_neuron_ids.tolist()
+        else:
+            fired_neuron_ids = []
+
         # Increment timestep
         self.current_timestep += 1
-        
+
         return fired_neuron_ids
-    
+
     # More methods would follow for cortical areas, brain regions, etc.
     # For this initial implementation, we're focusing on neuron and synapse management
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # Cortical Area Management Methods
-    #----------------------------------------------------------------------
-    
-    def add_cortical_area(self, name: str, dimensions: Tuple[int, int, int],
-                         position: Tuple[int, int, int], area_type: str = "custom",
-                         properties: Optional[Dict[str, Any]] = None,
-                         cortical_id: Optional[str] = None) -> str:
+    # ----------------------------------------------------------------------
+
+    def add_cortical_area(
+        self,
+        name: str,
+        dimensions: Tuple[int, int, int],
+        position: Tuple[int, int, int],
+        area_type: str = "custom",
+        properties: Optional[Dict[str, Any]] = None,
+        cortical_id: Optional[str] = None,
+    ) -> str:
         """Add a new cortical area to the connectome.
-        
+
         Args:
             name: Human-readable name for this area
             dimensions: 3D dimensions of the area (width, height, depth)
@@ -1099,10 +1463,10 @@ class ConnectomeManager:
             area_type: Type of cortical area (e.g., "sensory", "motor", "custom")
             properties: Additional properties for the area (optional)
             cortical_id: Unique identifier for this area (optional, generated if not provided)
-            
+
         Returns:
             Unique ID of the created cortical area
-            
+
         Raises:
             ValueError: If an area with the same name already exists
         """
@@ -1110,11 +1474,55 @@ class ConnectomeManager:
         for area in self.cortical_areas.values():
             if area.name == name:
                 raise ValueError(f"Cortical area with name '{name}' already exists")
-        
-        # Assign unique cortical_idx
-        cortical_idx = self.next_cortical_idx
-        self.next_cortical_idx += 1
-        
+
+        # CRITICAL FIX: Check if an area with this cortical_id already exists
+        # This prevents duplicate creation of core areas (___pwr, _death) which would
+        # cause multiple areas to share the same cortical_idx, leading to neuron corruption
+        if cortical_id and cortical_id in self.cortical_areas:
+            logger.info(
+                f"Cortical area '{cortical_id}' already exists, returning existing area ID"
+            )
+            return cortical_id
+
+        # Check for reserved core areas and assign appropriate cortical_idx
+        if cortical_id in self.reserved_cortical_areas:
+            # This is a core area (___pwr or _death) - use reserved cortical_idx
+            cortical_idx = self.reserved_cortical_areas[cortical_id]
+            logger.info(
+                f"Assigning reserved cortical_idx={cortical_idx} to core area '{cortical_id}'"
+            )
+        else:
+            # Regular area - find next available cortical_idx dynamically
+            cortical_idx = self._find_next_available_cortical_idx()
+            logger.debug(
+                f"Assigned cortical_idx={cortical_idx} to area '{cortical_id}' (dynamically allocated)"
+            )
+
+        # CRITICAL COLLISION DETECTION: Ensure no two areas can share the same cortical_idx
+        # This is essential for one-to-one mapping between cortical_id and cortical_idx
+        existing_area_with_same_idx = None
+        for existing_cortical_id, existing_area in self.cortical_areas.items():
+            if (
+                hasattr(existing_area, "cortical_idx")
+                and existing_area.cortical_idx == cortical_idx
+            ):
+                existing_area_with_same_idx = existing_cortical_id
+                break
+
+        if existing_area_with_same_idx:
+            error_msg = (
+                f"🚨 CRITICAL cortical_idx COLLISION DETECTED!\n"
+                f"   Attempted: cortical_id='{cortical_id}' → cortical_idx={cortical_idx}\n"
+                f"   Existing: cortical_id='{existing_area_with_same_idx}' → cortical_idx={cortical_idx}\n"
+                f"   This would corrupt neuron assignments and break the one-to-one mapping!\n"
+                f"   Reserved areas: {self.reserved_cortical_areas}\n"
+                f"   next_cortical_idx: {self.next_cortical_idx}"
+            )
+            logger.error(error_msg, status="[CRITICAL]")
+            raise ValueError(
+                f"cortical_idx collision: cortical_idx={cortical_idx} already assigned to '{existing_area_with_same_idx}'"
+            )
+
         # Create the cortical area with assigned cortical_idx
         area = CorticalArea(
             name=name,
@@ -1123,123 +1531,295 @@ class ConnectomeManager:
             area_type=area_type,
             properties=properties or {},
             cortical_id=cortical_id,
-            cortical_idx=cortical_idx  # Now we assign a unique index
+            cortical_idx=cortical_idx,  # Now we assign reserved or next available index
         )
-        
+
         # Add to cortical areas dict
         self.cortical_areas[area.id] = area
-        
-        # Initialize area neuron mask
-        self.area_neuron_masks[area.id] = np.zeros(self.max_neurons, dtype=np.bool_)
-        
-        logger.debug(f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}")
+
+        # Synchronize bidirectional cortical mapping
+        self._sync_cortical_mapping(area.id, cortical_idx)
+
+        logger.debug(
+            f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}"
+        )
         return area.id
-        
+
     def get_cortical_area(self, cortical_id: str) -> CorticalArea:
         """Get cortical area by ID.
-        
+
         Args:
             cortical_id: ID of the cortical area
-            
+
         Returns:
             CorticalArea object
-            
+
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
-            
+
         return self.cortical_areas[cortical_id]
-    
+
     def get_cortical_area_by_name(self, name: str) -> Optional[CorticalArea]:
         """Get a cortical area by its name.
-        
+
         Args:
             name: Name of the cortical area
-            
+
         Returns:
             The cortical area object, or None if not found
         """
         for area in self.cortical_areas.values():
             if area.name == name:
                 return area
-        
+
         return None
-    
+
     def get_cortical_area_names(self) -> List[str]:
         """Get the names of all cortical areas.
-        
+
         Returns:
             List of area names
         """
         return [area.name for area in self.cortical_areas.values()]
-    
-    def delete_cortical_area(self, cortical_id: str, delete_neurons: bool = True) -> bool:
+
+    def get_all_cortical_ids(self) -> List[str]:
+        """Get all cortical area IDs (6-character strings).
+
+        Returns:
+            List of cortical area IDs
+        """
+        return list(self.cortical_areas.keys())
+
+    def get_all_cortical_indices(self) -> List[int]:
+        """Get all cortical area indices (integers) used by the FCL.
+
+        Returns:
+            List of cortical area indices
+        """
+        if hasattr(self, "cortical_mapping") and self.cortical_mapping:
+            all_mappings = self.cortical_mapping.get_all_mappings()
+            return sorted(list(all_mappings.values()))
+        return []
+
+    def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
+        """
+        Get properties of a cortical area.
+
+        This is the SINGLE SOURCE OF TRUTH for cortical area properties.
+        All other components must use this method to access cortical properties.
+
+        Args:
+            cortical_id: String identifier for cortical area
+
+        Returns:
+            Dictionary containing cortical area properties:
+            - id: Cortical area ID
+            - cortical_idx: Integer index for the area
+            - name: Area name
+            - coordinates: 3D position (x,y,z)
+            - dimensions: 3D dimensions (width,height,depth)
+            - type: Area type
+            - parameters: Area-specific parameters including mappings
+            - neuron_count: Number of neurons in the area
+        """
+        try:
+            area = self.get_cortical_area(cortical_id)
+            if not area:
+                return {}
+
+            # Get cortical_idx through the mapping
+            cortical_idx = self.cortical_mapping.get_idx(cortical_id)
+
+            # Build complete properties dictionary
+            properties = {
+                "id": cortical_id,
+                "cortical_idx": int(cortical_idx) if cortical_idx is not None else None,
+                "name": area.name,
+                "coordinates": tuple(int(x) for x in area.position),
+                "dimensions": tuple(int(x) for x in area.dimensions),
+                "type": area.area_type,
+                "parameters": area.properties.copy() if area.properties else {},
+                "neuron_count": int(len(self.get_neurons_by_area(cortical_id))),
+            }
+
+            # Ensure mapping information is included in parameters
+            if "mapping" not in properties["parameters"]:
+                properties["parameters"]["mapping"] = {}
+
+            # Get all outgoing connections for this area
+            outgoing_mappings = {}
+            for dst_area_id in self.cortical_areas.keys():
+                if dst_area_id != cortical_id:  # Skip self-connections
+                    # Get connection matrix between areas
+                    connection_matrix = self.get_connection_matrix(
+                        cortical_id, dst_area_id
+                    )
+                    if connection_matrix and connection_matrix.get("connections"):
+                        # Store mapping information
+                        outgoing_mappings[dst_area_id] = connection_matrix.get(
+                            "connections", []
+                        )
+
+            # Update mapping information in parameters
+            properties["parameters"]["mapping"] = outgoing_mappings
+
+            # Convert all numpy types to native Python types for JSON serialization
+            return self._convert_numpy_types_to_python(properties)
+        except KeyError:
+            self.logger.warning(f"Cortical area {cortical_id} not found")
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error getting properties for area {cortical_id}: {e}")
+            return {}
+
+    def _convert_numpy_types_to_python(self, obj: Any) -> Any:
+        """Convert numpy types to native Python types for JSON serialization.
+
+        Args:
+            obj: Object that may contain numpy types
+
+        Returns:
+            Object with numpy types converted to native Python types
+        """
+        import numpy as np
+
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {
+                key: self._convert_numpy_types_to_python(value)
+                for key, value in obj.items()
+            }
+        elif isinstance(obj, (list, tuple)):
+            converted_items = [
+                self._convert_numpy_types_to_python(item) for item in obj
+            ]
+            return type(obj)(converted_items)  # Preserve original type (list or tuple)
+        else:
+            return obj
+
+    def get_all_cortical_area_properties(self) -> List[Dict[str, Any]]:
+        """Get properties of all cortical areas.
+
+        Returns:
+            List of dictionaries with area properties
+        """
+        result = []
+        for cortical_id in self.cortical_areas.keys():
+            try:
+                area_props = self.get_cortical_area_properties(cortical_id)
+                if area_props:  # Only add non-empty dictionaries
+                    result.append(area_props)
+            except Exception as e:
+                self.logger.error(
+                    f"Error getting properties for area {cortical_id}: {e}"
+                )
+                continue  # Skip this area and continue with others
+        return result
+
+    def delete_cortical_area(
+        self, cortical_id: str, delete_neurons: bool = True
+    ) -> bool:
         """Delete a cortical area from the connectome.
-        
+
         Args:
             cortical_id: ID of the cortical area
             delete_neurons: Whether to also delete all neurons in the area
-            
+
         Returns:
             True if the area was deleted, False otherwise
-            
+
         Raises:
             KeyError: If the cortical_id doesn't exist
         """
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
-        
+
         area = self.cortical_areas[cortical_id]
-        
-        # Get neurons in this area
-        neurons_to_delete = self.get_neurons_by_cortical_area(cortical_id)
-        
+
+        # Get neurons in this area before deletion to avoid lookup issues
+        try:
+            neurons_to_delete = self.get_neurons_by_cortical_area(cortical_id)
+        except Exception as e:
+            logger.warning(
+                f"Could not get neurons for area {cortical_id} during deletion: {e}"
+            )
+            neurons_to_delete = []
+
         # Delete neurons if requested
-        if delete_neurons:
+        if delete_neurons and neurons_to_delete:
+            logger.info(
+                f"Deleting {len(neurons_to_delete)} neurons from cortical area {cortical_id}"
+            )
             for neuron_id in neurons_to_delete:
                 try:
                     self.delete_neuron(neuron_id)
-                except KeyError:
-                    # Neuron may have been already deleted
+                except (KeyError, ValueError) as e:
+                    # Neuron may have been already deleted or corrupted
+                    logger.debug(f"Could not delete neuron {neuron_id}: {e}")
                     pass
-        
-        # Remove from any brain region
-        for region_id, area_set in self.region_area_map.items():
-            if cortical_id in area_set:
-                area_set.discard(cortical_id)
-                break
-        
-        # Remove area neuron mask
-        if cortical_id in self.area_neuron_masks:
-            del self.area_neuron_masks[cortical_id]
-        
+
+        # Remove from any brain region using vectorized search
+        region_ids = list(self.region_area_map.keys())
+        area_sets = [self.region_area_map[rid] for rid in region_ids]
+
+        # Vectorized search for regions containing this cortical area
+        containing_regions = [
+            rid
+            for rid, area_set in zip(region_ids, area_sets)
+            if cortical_id in area_set
+        ]
+
+        # Remove from all containing regions
+        for region_id in containing_regions:
+            self.region_area_map[region_id].discard(cortical_id)
+
+        # Clean up bidirectional cortical mapping
+        self._remove_cortical_mapping(cortical_id)
+
         # Remove area
         area_name = area.name
         del self.cortical_areas[cortical_id]
-        
+
+        # CRITICAL: Invalidate lookup arrays after bulk neuron deletion
+        if delete_neurons and neurons_to_delete:
+            self.neuron_array._invalidate_index_to_id_lookup_array()
+            logger.info(
+                f"Invalidated lookup arrays after deleting {len(neurons_to_delete)} neurons"
+            )
+
         logger.info(f"Deleted cortical area {cortical_id} ({area_name})")
         return True
 
-    #----------------------------------------------------------------------
-    # Brain Region Management Methods  
-    #----------------------------------------------------------------------
-    
-    def add_brain_region(self, name: str, region_type: str = "custom", 
-                       properties: Optional[Dict[str, Any]] = None,
-                       region_id: Optional[str] = None) -> str:
+    # ----------------------------------------------------------------------
+    # Brain Region Management Methods
+    # ----------------------------------------------------------------------
+
+    def add_brain_region(
+        self,
+        name: str,
+        region_type: str = "custom",
+        properties: Optional[Dict[str, Any]] = None,
+        region_id: Optional[str] = None,
+    ) -> str:
         """Add a new brain region to organize cortical areas.
-        
+
         Args:
             name: Human-readable name for this region
             region_type: Type of brain region (e.g., "sensory", "motor", "association")
             properties: Additional properties for the region (optional)
             region_id: Unique identifier for this region (optional, generated if not provided)
-            
+
         Returns:
             ID of the created brain region
-            
+
         Raises:
             ValueError: If a region with the same name already exists
         """
@@ -1247,75 +1827,78 @@ class ConnectomeManager:
         for region in self.brain_regions.values():
             if region["name"] == name:
                 raise ValueError(f"Brain region with name '{name}' already exists")
-        
+
         # Generate ID if not provided
         if region_id is None:
             import uuid
+
             region_id = str(uuid.uuid4())
-        
+
         # Create region
         self.brain_regions[region_id] = {
             "name": name,
             "region_type": region_type,
-            "properties": properties or {}
+            "properties": properties or {},
         }
-        
+
         # Initialize area map for this region
         self.region_area_map[region_id] = set()
-        
+
         logger.info(f"Added brain region '{name}' with ID {region_id}")
         return region_id
-    
+
     def get_brain_region(self, region_id: str) -> Dict[str, Any]:
         """Get information about a brain region.
-        
+
         Args:
             region_id: ID of the brain region
-            
+
         Returns:
             Dictionary with region properties
-            
+
         Raises:
             KeyError: If the region_id doesn't exist
         """
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
-        
+
         return self.brain_regions[region_id].copy()
-    
-    def get_brain_region_by_name(self, name: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+
+    def get_brain_region_by_name(
+        self, name: str
+    ) -> Optional[Tuple[str, Dict[str, Any]]]:
         """Get a brain region by name.
-        
+
         Args:
             name: Name of the brain region
-            
+
         Returns:
             Tuple of (region_id, region_data) if found, None otherwise
         """
         for region_id, region in self.brain_regions.items():
             if region["name"] == name:
                 return (region_id, region.copy())
-        
+
         return None
-    
+
     def update_brain_region(self, region_id: str, updates: Dict[str, Any]) -> bool:
         """Update properties of a brain region.
-        
+
         Args:
             region_id: ID of the brain region
             updates: Dictionary of properties to update
-            
+
         Returns:
             True if the region was updated, False otherwise
-            
+
         Raises:
             KeyError: If the region_id doesn't exist
         """
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
-        
+
         region = self.brain_regions[region_id]
-        
+
         # Update properties
         if "name" in updates and updates["name"] != region["name"]:
             # Check for name conflicts
@@ -1323,38 +1906,38 @@ class ConnectomeManager:
                 if other_id != region_id and other_region["name"] == updates["name"]:
                     return False
             region["name"] = updates["name"]
-        
+
         if "region_type" in updates:
             region["region_type"] = updates["region_type"]
-        
+
         if "properties" in updates:
             if isinstance(updates["properties"], dict):
                 region["properties"].update(updates["properties"])
             else:
                 region["properties"] = updates["properties"]
-        
+
         logger.info(f"Updated brain region {region_id} ({region['name']})")
         return True
-    
+
     def delete_brain_region(self, region_id: str, delete_areas: bool = False) -> bool:
         """Delete a brain region.
-        
+
         Args:
             region_id: ID of the brain region
             delete_areas: Whether to also delete all areas in the region
-            
+
         Returns:
             True if the region was deleted, False otherwise
-            
+
         Raises:
             KeyError: If the region_id doesn't exist
         """
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
-        
+
         # Get areas in this region
         areas_to_delete = list(self.region_area_map.get(region_id, set()))
-        
+
         # Delete areas if requested
         if delete_areas:
             for cortical_id in areas_to_delete:
@@ -1369,119 +1952,125 @@ class ConnectomeManager:
                 if cortical_id in self.cortical_areas:
                     if "region_id" in self.cortical_areas[cortical_id].properties:
                         del self.cortical_areas[cortical_id].properties["region_id"]
-        
+
         # Remove region from tracking
         region_name = self.brain_regions[region_id]["name"]
         del self.brain_regions[region_id]
         if region_id in self.region_area_map:
             del self.region_area_map[region_id]
-        
+
         logger.info(f"Deleted brain region {region_id} ({region_name})")
         return True
-    
+
     def assign_area_to_region(self, cortical_id: str, region_id: str) -> bool:
         """Assign a cortical area to a brain region.
-        
+
         Args:
             cortical_id: ID of the cortical area
             region_id: ID of the brain region
-            
+
         Returns:
             True if the area was assigned, False otherwise
-            
+
         Raises:
             KeyError: If either the cortical_id or region_id doesn't exist
         """
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
-        
+
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
-        
+
         # Check if area is already in another region and remove if so
         area = self.cortical_areas[cortical_id]
         current_region_id = area.properties.get("region_id")
         if current_region_id and current_region_id in self.region_area_map:
             self.region_area_map[current_region_id].discard(cortical_id)
-        
+
         # Assign to new region
         area.properties["region_id"] = region_id
         if region_id not in self.region_area_map:
             self.region_area_map[region_id] = set()
         self.region_area_map[region_id].add(cortical_id)
-        
-        logger.info(f"Assigned cortical area {cortical_id} ({area.name}) to brain region {region_id} ({self.brain_regions[region_id]['name']})")
+
+        logger.info(
+            f"Assigned cortical area {cortical_id} ({area.name}) to brain region {region_id} ({self.brain_regions[region_id]['name']})"
+        )
         return True
-    
-    def remove_cortical_area_from_region(self, cortical_id: str, region_id: str) -> bool:
+
+    def remove_cortical_area_from_region(
+        self, cortical_id: str, region_id: str
+    ) -> bool:
         """Remove a cortical area from a brain region.
-        
+
         Args:
             cortical_id: ID of the cortical area
             region_id: ID of the brain region
-            
+
         Returns:
             True if the area was removed, False otherwise
-            
+
         Raises:
             KeyError: If either the cortical_id or region_id doesn't exist
         """
         if cortical_id not in self.cortical_areas:
             raise KeyError(f"Cortical area {cortical_id} does not exist")
-        
+
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
-        
+
         # Remove from region mapping
         if region_id in self.region_area_map:
             self.region_area_map[region_id].discard(cortical_id)
-        
+
         # Remove region_id from area properties
         area = self.cortical_areas[cortical_id]
         if "region_id" in area.properties and area.properties["region_id"] == region_id:
             del area.properties["region_id"]
-        
-        logger.info(f"Removed cortical area {cortical_id} ({area.name}) from brain region {region_id}")
+
+        logger.info(
+            f"Removed cortical area {cortical_id} ({area.name}) from brain region {region_id}"
+        )
         return True
-    
+
     def get_areas_in_region(self, region_id: str) -> List[str]:
         """Get all cortical areas in a brain region.
-        
+
         Args:
             region_id: ID of the brain region
-            
+
         Returns:
             List of cortical area IDs in the region
-            
+
         Raises:
             KeyError: If the region_id doesn't exist
         """
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
-        
+
         return list(self.region_area_map.get(region_id, set()))
-    
+
     def get_neurons_in_region(self, region_id: str) -> List[int]:
         """Get all neurons in a brain region.
-        
+
         Args:
             region_id: ID of the brain region
-            
+
         Returns:
             List of neuron IDs in the region
-            
+
         Raises:
             KeyError: If the region_id doesn't exist
         """
         if region_id not in self.brain_regions:
             raise KeyError(f"Brain region {region_id} does not exist")
-        
+
         neuron_ids = []
         for cortical_id in self.region_area_map.get(region_id, set()):
             neuron_ids.extend(self.get_neurons_by_cortical_area(cortical_id))
-        
+
         return neuron_ids
-    
+
     # Backward compatibility aliases
     def remove_area_from_region(self, cortical_id: str, region_id: str) -> bool:
         """Alias for remove_cortical_area_from_region for backward compatibility."""
@@ -1492,64 +2081,77 @@ class ConnectomeManager:
     def _neuron_id_to_index(self):
         return self.neuron_id_to_index
 
-    def update_neuron_position(self, neuron_id: int, new_position: Tuple[int, int, int]) -> bool:
+    def update_neuron_position(
+        self, neuron_id: int, new_position: Tuple[int, int, int]
+    ) -> bool:
         """Update the position of a neuron within its cortical area.
-        
+
         Args:
             neuron_id: ID of the neuron
             new_position: New 3D coordinates within the cortical area (x, y, z)
-            
+
         Returns:
             True if the position was updated, False if the neuron doesn't exist
-            
+
         Raises:
             ValueError: If the new position is outside the area's boundaries
         """
         # Check if neuron exists
         if neuron_id not in self.neuron_id_to_index:
             return False
-        
+
         index = self.neuron_id_to_index[neuron_id]
-        
+
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
-        
-        # Find the corresponding cortical_id
-        cortical_id = None
-        for cortical_id_key, area in self.cortical_areas.items():
-            if area.cortical_idx == cortical_idx:
-                cortical_id = cortical_id_key
-                break
-        
+
+        # Find the corresponding cortical_id using O(1) translation layer
+        cortical_id = self.cortical_mapping.get_id(cortical_idx)
         if cortical_id is None:
-            logger.error(f"Could not find cortical area for neuron {neuron_id} with cortical_idx {cortical_idx}")
-            return False
-        
+            raise RuntimeError(
+                f"CRITICAL: cortical_idx={cortical_idx} not found in mapping - system corruption detected"
+            )
+
         # Validate new position
         area = self.cortical_areas[cortical_id]
         if not area.contains_position(new_position):
-            raise ValueError(f"Position {new_position} is outside the bounds of area {area.name}")
-        
+            raise ValueError(
+                f"Position {new_position} is outside the bounds of area {area.name}"
+            )
+
         # Update position in neuron array
-        self.neuron_array.positions_x[index] = new_position[0]
-        self.neuron_array.positions_y[index] = new_position[1]
-        self.neuron_array.positions_z[index] = new_position[2]
-        
+        self.neuron_array.coordinates_x[index] = new_position[
+            0
+        ]  # ✅ FIXED: Use coordinates_x
+        self.neuron_array.coordinates_y[index] = new_position[
+            1
+        ]  # ✅ FIXED: Use coordinates_y
+        self.neuron_array.coordinates_z[index] = new_position[
+            2
+        ]  # ✅ FIXED: Use coordinates_z
+
         # Update position tracking
-        if hasattr(self, '_neuron_to_position'):
+        if hasattr(self, "_neuron_to_position"):
             self._neuron_to_position[neuron_id] = (cortical_id, *new_position, index)
-        
+
         return True
 
-    def batch_create_neurons(self, cortical_id: str, positions: List[Tuple[int, int, int]],
-                           threshold: float = 1.0, membrane_potential: float = 0.0,
-                           resting_potential: float = 0.0, decay_rate: float = 0.5,
-                           refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None,
-                           cortical_idx: Optional[int] = None) -> List[int]:
+    def batch_create_neurons(
+        self,
+        cortical_id: str,
+        positions: List[Tuple[int, int, int]],
+        threshold: float = 1.0,
+        membrane_potential: float = 0.0,
+        resting_potential: float = 0.0,
+        decay_rate: float = 0.5,
+        refractory_period: int = 1,
+        properties: Optional[Dict[str, Any]] = None,
+        cortical_idx: Optional[int] = None,
+    ) -> List[int]:
         """Create multiple neurons in a cortical area in a batch operation.
-        
+
         This is more efficient than creating neurons one by one, especially for large batches.
-        
+
         Args:
             cortical_id: ID of the cortical area
             positions: List of 3D coordinates (x, y, z) for each neuron
@@ -1560,10 +2162,10 @@ class ConnectomeManager:
             refractory_period: Number of timesteps after firing during which neurons cannot fire (can be a single value or a list)
             properties: Additional properties for the neurons (optional)
             cortical_idx: Integer index of the cortical area (optional, will be determined from cortical_id if not provided)
-            
+
         Returns:
             List of neuron IDs for the created neurons
-            
+
         Raises:
             ValueError: If the cortical_id doesn't exist
             ValueError: If any position is outside the area's boundaries
@@ -1572,68 +2174,75 @@ class ConnectomeManager:
         # Validate area exists
         if cortical_id not in self.cortical_areas:
             raise ValueError(f"Cortical area {cortical_id} does not exist")
-        
+
         area = self.cortical_areas[cortical_id]
-        
+
         # Validate positions
         for pos in positions:
             if not area.contains_position(pos):
-                raise ValueError(f"Position {pos} is outside the bounds of area {area.name}")
-        
+                raise ValueError(
+                    f"Position {pos} is outside the bounds of area {area.name}"
+                )
+
         # Check for duplicates
         if len(positions) != len(set(positions)):
-            raise ValueError("Duplicate positions detected. All positions must be unique.")
-        
-        # Get next available neuron IDs
-        neuron_ids = list(range(self.next_neuron_id, self.next_neuron_id + len(positions)))
-        self.next_neuron_id += len(positions)
-        
+            raise ValueError(
+                "Duplicate positions detected. All positions must be unique."
+            )
+
         # Use the provided cortical_idx or get it from the area
         if cortical_idx is None:
             cortical_idx = area.cortical_idx
-        
+
         # Create neurons in batch using NeuronArray's batch method
-        indices = self.neuron_array.batch_create_neurons(
+        # Let NeuronArray generate and manage its own IDs to prevent mapping conflicts
+        created_neuron_ids = self.neuron_array.batch_create_neurons(
             cortical_idx=cortical_idx,
             positions=positions,
             thresholds=threshold,
             membrane_potentials=membrane_potential,
             resting_potentials=resting_potential,
             decay_rates=decay_rate,
-            refractory_periods=refractory_period
+            refractory_periods=refractory_period,
         )
-        
-        # Map neuron IDs to indices
+
+        # Use the IDs generated by NeuronArray directly - no separate ID system
+        neuron_ids = created_neuron_ids
+
+        # Update for test compatibility
         for i, neuron_id in enumerate(neuron_ids):
-            idx = indices[i]
-            self.neuron_id_to_index[neuron_id] = idx
-            self.index_to_neuron_id[idx] = neuron_id
-            
-            # Update area tracking
-            if cortical_id not in self.area_neuron_masks:
-                self.area_neuron_masks[cortical_id] = np.zeros(self.max_neurons, dtype=np.bool_)
-            self.area_neuron_masks[cortical_id][idx] = True
-            
-            # Add to cortical area
+            # Get the actual index from NeuronArray's mapping
+            actual_idx = self.neuron_array.id_to_index_map[neuron_id]
+
+            # Update for test compatibility - maintain same format as legacy
+            self._neuron_to_position[neuron_id] = (
+                cortical_id,
+                *positions[i],
+                actual_idx,
+            )
+
+        # Store neuron-area relationship for each created neuron
+        for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
-            
-            # Update for test compatibility
-            self._neuron_to_position[neuron_id] = (cortical_id, *positions[i], idx)
-        
+
         return neuron_ids
 
-    def batch_update_neuron_properties(self, neuron_ids: List[int], property_name: Union[str, NeuronPropertyType], 
-                                     values: Union[List[float], List[int], float, int]) -> bool:
+    def batch_update_neuron_properties(
+        self,
+        neuron_ids: List[int],
+        property_name: Union[str, NeuronPropertyType],
+        values: Union[List[float], List[int], float, int],
+    ) -> bool:
         """Update a property for multiple neurons at once in a vectorized operation.
-        
+
         Args:
             neuron_ids: List of neuron IDs to update
             property_name: Name or enum of the property to update
             values: Either a list of values (one per neuron) or a single value for all neurons
-            
+
         Returns:
             True if successful, False otherwise
-            
+
         Raises:
             ValueError: If neuron IDs are invalid or property doesn't exist
         """
@@ -1641,23 +2250,23 @@ class ConnectomeManager:
         if isinstance(property_name, str):
             try:
                 property_name = NeuronPropertyType(property_name)
-            except ValueError:
-                raise ValueError(f"Unknown neuron property: {property_name}")
-        
+            except ValueError as err:
+                raise ValueError(f"Unknown neuron property: {property_name}") from err
+
         # Validate neuron IDs
         valid_mask = np.zeros(len(neuron_ids), dtype=bool)
         for i, neuron_id in enumerate(neuron_ids):
             if neuron_id in self.neuron_id_to_index:
                 valid_mask[i] = True
-                
+
         if not np.any(valid_mask):
             logger.warning(f"None of the provided neuron IDs exist: {neuron_ids}")
             return False
-        
+
         # Get indices for valid neuron IDs
         valid_ids = np.array(neuron_ids)[valid_mask]
         indices = np.array([self.neuron_id_to_index[nid] for nid in valid_ids])
-        
+
         # Handle single value vs. list of values
         if isinstance(values, (int, float)):
             # Single value for all neurons
@@ -1665,9 +2274,11 @@ class ConnectomeManager:
         else:
             # List of values (one per neuron)
             if len(values) != len(neuron_ids):
-                raise ValueError(f"Length of values ({len(values)}) must match length of neuron_ids ({len(neuron_ids)})")
+                raise ValueError(
+                    f"Length of values ({len(values)}) must match length of neuron_ids ({len(neuron_ids)})"
+                )
             update_values = np.array(values)[valid_mask]
-        
+
         # Update the appropriate property array
         try:
             # Get the target property array
@@ -1688,32 +2299,38 @@ class ConnectomeManager:
             else:
                 logger.warning(f"Property {property_name} cannot be batch updated")
                 return False
-            
+
             # Convert update_values to the same type as the target array if needed
             if isinstance(target_array, torch.Tensor):
                 # Handle PyTorch tensors
-                idx_tensor = torch.tensor(indices, dtype=torch.long, device=target_array.device)
-                values_tensor = torch.tensor(update_values, dtype=target_array.dtype, device=target_array.device)
+                idx_tensor = torch.tensor(
+                    indices, dtype=torch.long, device=target_array.device
+                )
+                values_tensor = torch.tensor(
+                    update_values, dtype=target_array.dtype, device=target_array.device
+                )
                 target_array.index_copy_(0, idx_tensor, values_tensor)
             else:
                 # Handle NumPy arrays
                 target_array[indices] = update_values
-                
+
             return True
         except Exception as e:
             logger.error(f"Error updating property {property_name}: {e}")
             return False
-    
-    def batch_get_neuron_properties(self, neuron_ids: List[int], property_name: Union[str, NeuronPropertyType]) -> np.ndarray:
+
+    def batch_get_neuron_properties(
+        self, neuron_ids: List[int], property_name: Union[str, NeuronPropertyType]
+    ) -> np.ndarray:
         """Get a property for multiple neurons at once.
-        
+
         Args:
             neuron_ids: List of neuron IDs to query
             property_name: Name or enum of the property to get
-            
+
         Returns:
             NumPy array of property values for the specified neurons
-            
+
         Raises:
             ValueError: If property doesn't exist
         """
@@ -1721,92 +2338,112 @@ class ConnectomeManager:
         if isinstance(property_name, str):
             try:
                 property_name = NeuronPropertyType(property_name)
-            except ValueError:
-                raise ValueError(f"Unknown neuron property: {property_name}")
-        
+            except ValueError as err:
+                raise ValueError(f"Unknown neuron property: {property_name}") from err
+
         # Handle empty list
         if not neuron_ids:
             return np.array([])
-        
+
         # Get indices for valid neuron IDs, with -1 for invalid IDs
         indices = np.array([self.neuron_id_to_index.get(nid, -1) for nid in neuron_ids])
         valid_mask = indices >= 0
-        
+
         # Initialize result with NaN for invalid indices
         result = np.full(len(neuron_ids), np.nan)
-        
+
         # Get property values for valid indices
         if property_name == NeuronPropertyType.MEMBRANE_POTENTIAL:
-            result[valid_mask] = self.neuron_array.membrane_potentials[indices[valid_mask]]
+            result[valid_mask] = self.neuron_array.membrane_potentials[
+                indices[valid_mask]
+            ]
         elif property_name == NeuronPropertyType.THRESHOLD:
             result[valid_mask] = self.neuron_array.thresholds[indices[valid_mask]]
         elif property_name == NeuronPropertyType.RESTING_POTENTIAL:
-            result[valid_mask] = self.neuron_array.resting_potentials[indices[valid_mask]]
+            result[valid_mask] = self.neuron_array.resting_potentials[
+                indices[valid_mask]
+            ]
         elif property_name == NeuronPropertyType.DECAY_RATE:
             result[valid_mask] = self.neuron_array.decay_rates[indices[valid_mask]]
         elif property_name == NeuronPropertyType.REFRACTORY_PERIOD:
-            result[valid_mask] = self.neuron_array.refractory_periods[indices[valid_mask]]
+            result[valid_mask] = self.neuron_array.refractory_periods[
+                indices[valid_mask]
+            ]
         elif property_name == NeuronPropertyType.REFRACTORY_COUNTER:
-            result[valid_mask] = self.neuron_array.refractory_counters[indices[valid_mask]]
+            result[valid_mask] = self.neuron_array.refractory_counters[
+                indices[valid_mask]
+            ]
         elif property_name == NeuronPropertyType.ACTIVE:
             result[valid_mask] = self.neuron_array.is_active[indices[valid_mask]]
         else:
             raise ValueError(f"Property {property_name} cannot be batch queried")
-            
+
         return result
-    
-    def batch_add_synapses(self, pre_neurons: List[int], post_neurons: List[int], 
-                          weights: Union[List[float], float], 
-                          delays: Union[List[int], int] = 1) -> List[bool]:
+
+    def batch_add_synapses(
+        self,
+        pre_neurons: List[int],
+        post_neurons: List[int],
+        weights: Union[List[float], float],
+        delays: Union[List[int], int] = 1,
+    ) -> List[bool]:
         """Add multiple synapses at once.
-        
+
         Args:
             pre_neurons: List of pre-synaptic neuron IDs
             post_neurons: List of post-synaptic neuron IDs
             weights: Either a list of weights (one per synapse) or a single weight for all synapses
             delays: Either a list of delays (one per synapse) or a single delay for all synapses
-            
+
         Returns:
             List of booleans indicating which synapses were successfully added
         """
         if len(pre_neurons) != len(post_neurons):
-            raise ValueError(f"pre_neurons ({len(pre_neurons)}) and post_neurons ({len(post_neurons)}) must have the same length")
-        
+            raise ValueError(
+                f"pre_neurons ({len(pre_neurons)}) and post_neurons ({len(post_neurons)}) must have the same length"
+            )
+
         # Handle single weight vs. list of weights
         if isinstance(weights, (int, float)):
             weights = [weights] * len(pre_neurons)
         elif len(weights) != len(pre_neurons):
-            raise ValueError(f"weights ({len(weights)}) must have the same length as pre_neurons ({len(pre_neurons)})")
-        
+            raise ValueError(
+                f"weights ({len(weights)}) must have the same length as pre_neurons ({len(pre_neurons)})"
+            )
+
         # Handle single delay vs. list of delays
         if isinstance(delays, int):
             delays = [delays] * len(pre_neurons)
         elif len(delays) != len(pre_neurons):
-            raise ValueError(f"delays ({len(delays)}) must have the same length as pre_neurons ({len(pre_neurons)})")
-        
+            raise ValueError(
+                f"delays ({len(delays)}) must have the same length as pre_neurons ({len(pre_neurons)})"
+            )
+
         # Add each synapse and track success
         results = []
         for pre, post, weight, delay in zip(pre_neurons, post_neurons, weights, delays):
             results.append(self.add_synapse(pre, post, weight, delay))
-            
+
         # Force re-indexing of CSR matrices
         self._csr_matrix_outdated = True
-        
+
         return results
 
-    def vectorized_cortical_area_operations(self, operation: str, cortical_ids: List[str], **kwargs) -> Dict[str, Any]:
+    def vectorized_cortical_area_operations(
+        self, operation: str, cortical_ids: List[str], **kwargs
+    ) -> Dict[str, Any]:
         """Perform vectorized operations on multiple cortical areas efficiently.
-        
+
         Args:
             operation: Type of operation ('count_neurons', 'get_activity', 'update_properties', etc.)
             cortical_ids: List of cortical area IDs to operate on
             **kwargs: Operation-specific parameters
-            
+
         Returns:
             Dictionary mapping cortical_id -> operation result
         """
         results = {}
-        
+
         if operation == "count_neurons":
             # Vectorized neuron counting
             for cortical_id in cortical_ids:
@@ -1816,244 +2453,303 @@ class ConnectomeManager:
                     results[cortical_id] = int(neuron_count)
                 else:
                     results[cortical_id] = 0
-        
+
         elif operation == "resize":
             # Resize multiple areas at once
             new_dimensions = kwargs.get("dimensions")
             if not new_dimensions:
                 raise ValueError("New dimensions required for resize operation")
-            
+
             for cortical_id in cortical_ids:
                 if cortical_id not in self.cortical_areas:
-                    results[cortical_id] = {"success": False, "reason": "Area not found"}
+                    results[cortical_id] = {
+                        "success": False,
+                        "reason": "Area not found",
+                    }
                     continue
-                
+
                 area = self.cortical_areas[cortical_id]
                 old_dimensions = area.dimensions
-                
+
                 # Update area dimensions
                 area.dimensions = new_dimensions
-                
+
                 # Find neurons that would be outside the new bounds
                 if cortical_id in self.area_neuron_masks:
                     mask = self.area_neuron_masks[cortical_id]
                     indices = np.where(mask)[0]
-                    
+
                     removed_neuron_ids = []
                     for idx in indices:
-                        x = self.neuron_array.positions_x[idx]
-                        y = self.neuron_array.positions_y[idx]
-                        z = self.neuron_array.positions_z[idx]
-                        
-                        if (x >= new_dimensions[0] or y >= new_dimensions[1] or z >= new_dimensions[2]):
+                        x = self.neuron_array.coordinates_x[
+                            idx
+                        ]  # ✅ FIXED: Use coordinates_x
+                        y = self.neuron_array.coordinates_y[
+                            idx
+                        ]  # ✅ FIXED: Use coordinates_y
+                        z = self.neuron_array.coordinates_z[
+                            idx
+                        ]  # ✅ FIXED: Use coordinates_z
+
+                        if (
+                            x >= new_dimensions[0]
+                            or y >= new_dimensions[1]
+                            or z >= new_dimensions[2]
+                        ):
                             # This neuron is now outside bounds - get its ID and delete it
                             neuron_id = self.index_to_neuron_id.get(idx)
                             if neuron_id is not None:
                                 self.delete_neuron(neuron_id)
                                 removed_neuron_ids.append(neuron_id)
-                    
+
                     results[cortical_id] = {
                         "success": True,
                         "old_dimensions": old_dimensions,
                         "new_dimensions": new_dimensions,
-                        "removed_neurons": removed_neuron_ids
+                        "removed_neurons": removed_neuron_ids,
                     }
                 else:
                     results[cortical_id] = {
                         "success": True,
                         "old_dimensions": old_dimensions,
                         "new_dimensions": new_dimensions,
-                        "removed_neurons": []
+                        "removed_neurons": [],
                     }
-        
+
         elif operation == "move":
             # Move multiple areas at once
             new_position = kwargs.get("position")
             if not new_position:
                 raise ValueError("New position required for move operation")
-            
+
             for cortical_id in cortical_ids:
                 if cortical_id not in self.cortical_areas:
-                    results[cortical_id] = {"success": False, "reason": "Area not found"}
+                    results[cortical_id] = {
+                        "success": False,
+                        "reason": "Area not found",
+                    }
                     continue
-                
+
                 area = self.cortical_areas[cortical_id]
                 old_position = area.position
-                
+
                 # Update area position
                 area.position = new_position
-                
+
                 results[cortical_id] = {
                     "success": True,
                     "old_position": old_position,
-                    "new_position": new_position
+                    "new_position": new_position,
                 }
-        
+
         elif operation == "get_bounds":
             # Get position bounds for multiple areas at once
             for cortical_id in cortical_ids:
                 if cortical_id not in self.cortical_areas:
-                    results[cortical_id] = {"success": False, "reason": "Area not found"}
+                    results[cortical_id] = {
+                        "success": False,
+                        "reason": "Area not found",
+                    }
                     continue
-                
+
                 area = self.cortical_areas[cortical_id]
-                
+
                 # Calculate bounds
                 min_pos = area.position
                 max_pos = tuple(p + d for p, d in zip(area.position, area.dimensions))
-                
+
                 results[cortical_id] = {
                     "success": True,
                     "min_bounds": min_pos,
                     "max_bounds": max_pos,
-                    "dimensions": area.dimensions
+                    "dimensions": area.dimensions,
                 }
-        
+
         else:
             raise ValueError(f"Unsupported operation: {operation}")
-        
+
         return results
-    
-    def apply_rule_batch(self, rule_ids: List[str], weight_override: Optional[float] = None, 
-                        max_synapses: int = 10000) -> Dict[str, int]:
+
+    def apply_rule_batch(
+        self,
+        rule_ids: List[str],
+        weight_override: Optional[float] = None,
+        max_synapses: int = 10000,
+    ) -> Dict[str, int]:
         """Apply multiple connectivity rules at once using vectorized operations.
-        
+
         Args:
             rule_ids: List of connectivity rule IDs to apply
             weight_override: Override the weight specified in the rules (optional)
             max_synapses: Maximum number of synapses to create (prevents excessive connections)
-            
+
         Returns:
             Dictionary mapping rule IDs to number of synapses created
-            
+
         Raises:
             KeyError: If any rule_id doesn't exist
         """
         results = {}
-        
+
         # Group rules by type for vectorized processing
         rules_by_type = {}
         for rule_id in rule_ids:
             if rule_id not in self.connectivity_rules:
                 raise KeyError(f"Connectivity rule {rule_id} does not exist")
-            
+
             rule = self.connectivity_rules[rule_id]
             if not rule["enabled"]:
                 results[rule_id] = 0
                 continue
-            
+
             rule_type = rule["rule_type"]
             if rule_type not in rules_by_type:
                 rules_by_type[rule_type] = []
-            
+
             rules_by_type[rule_type].append((rule_id, rule))
-        
+
         # Process rules by type using specialized vectorized implementations
         for rule_type, rules in rules_by_type.items():
             if rule_type == "one-to-one":
-                results.update(self._apply_one_to_one_rules_batch(rules, weight_override, max_synapses))
+                results.update(
+                    self._apply_one_to_one_rules_batch(
+                        rules, weight_override, max_synapses
+                    )
+                )
             elif rule_type == "all-to-all":
-                results.update(self._apply_all_to_all_rules_batch(rules, weight_override, max_synapses))
+                results.update(
+                    self._apply_all_to_all_rules_batch(
+                        rules, weight_override, max_synapses
+                    )
+                )
             elif rule_type == "probabilistic":
-                results.update(self._apply_probabilistic_rules_batch(rules, weight_override, max_synapses))
+                results.update(
+                    self._apply_probabilistic_rules_batch(
+                        rules, weight_override, max_synapses
+                    )
+                )
             elif rule_type == "distance":
-                results.update(self._apply_distance_rules_batch(rules, weight_override, max_synapses))
+                results.update(
+                    self._apply_distance_rules_batch(
+                        rules, weight_override, max_synapses
+                    )
+                )
             elif rule_type == "random-subset":
-                results.update(self._apply_random_subset_rules_batch(rules, weight_override, max_synapses))
+                results.update(
+                    self._apply_random_subset_rules_batch(
+                        rules, weight_override, max_synapses
+                    )
+                )
             else:
                 # Fallback to individual application
-                for rule_id, rule in rules:
-                    created_count = self.apply_connectivity_rule(rule_id, weight_override, max_synapses)
+                for rule_id, _rule in rules:
+                    created_count = self.apply_connectivity_rule(
+                        rule_id, weight_override, max_synapses
+                    )
                     results[rule_id] = created_count
-        
+
         return results
-    
+
     def _apply_one_to_one_rules_batch(self, rules, weight_override, max_synapses):
         """Apply one-to-one rules in batch."""
         results = {}
-        
+
         for rule_id, rule in rules:
             source_cortical_id = rule["source_cortical_id"]
             target_cortical_id = rule["target_cortical_id"]
-            
+
             # Get neurons for both areas
             source_neurons = self.get_neurons_by_cortical_area(source_cortical_id)
             target_neurons = self.get_neurons_by_cortical_area(target_cortical_id)
-            
+
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
                 continue
-            
+
             # Check dimensions
             source_area = self.cortical_areas[source_cortical_id]
             target_area = self.cortical_areas[target_cortical_id]
-            
+
             if source_area.dimensions != target_area.dimensions:
                 results[rule_id] = 0
                 continue
-            
+
             # Determine weight
-            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
-            
+            weight = (
+                weight_override
+                if weight_override is not None
+                else rule["parameters"].get("weight", 1.0)
+            )
+
             # Prepare synapse specs
             synapse_specs = []
-            max_connections = min(max_synapses, min(len(source_neurons), len(target_neurons)))
-            
+            max_connections = min(
+                max_synapses, min(len(source_neurons), len(target_neurons))
+            )
+
             # Sort neurons by position for consistent mapping
             source_positions = []
             for neuron_id in source_neurons[:max_connections]:
                 idx = self.neuron_id_to_index[neuron_id]
-                pos = (self.neuron_array.positions_x[idx], 
-                      self.neuron_array.positions_y[idx], 
-                      self.neuron_array.positions_z[idx])
+                pos = (
+                    self.neuron_array.coordinates_x[idx],  # ✅ FIXED: Use coordinates_x
+                    self.neuron_array.coordinates_y[idx],  # ✅ FIXED: Use coordinates_y
+                    self.neuron_array.coordinates_z[idx],
+                )  # ✅ FIXED: Use coordinates_z
                 source_positions.append((neuron_id, pos))
-            
+
             target_positions = []
             for neuron_id in target_neurons[:max_connections]:
                 idx = self.neuron_id_to_index[neuron_id]
-                pos = (self.neuron_array.positions_x[idx], 
-                      self.neuron_array.positions_y[idx], 
-                      self.neuron_array.positions_z[idx])
+                pos = (
+                    self.neuron_array.coordinates_x[idx],  # ✅ FIXED: Use coordinates_x
+                    self.neuron_array.coordinates_y[idx],  # ✅ FIXED: Use coordinates_y
+                    self.neuron_array.coordinates_z[idx],
+                )  # ✅ FIXED: Use coordinates_z
                 target_positions.append((neuron_id, pos))
-            
+
             # Sort by position
             source_positions.sort(key=lambda x: (x[1][0], x[1][1], x[1][2]))
             target_positions.sort(key=lambda x: (x[1][0], x[1][1], x[1][2]))
-            
+
             # Create connections
             for i in range(min(len(source_positions), len(target_positions))):
                 source_id = source_positions[i][0]
                 target_id = target_positions[i][0]
                 synapse_specs.append((source_id, target_id, weight))
-            
+
             # Create synapses in batch
             created_count = self.batch_create_synapses(synapse_specs)
             results[rule_id] = created_count
-        
+
         return results
-    
+
     def _apply_all_to_all_rules_batch(self, rules, weight_override, max_synapses):
         """Apply all-to-all rules in batch."""
         results = {}
-        
+
         for rule_id, rule in rules:
             source_cortical_id = rule["source_cortical_id"]
             target_cortical_id = rule["target_cortical_id"]
-            
+
             # Get neurons for both areas
             source_neurons = self.get_neurons_by_cortical_area(source_cortical_id)
             target_neurons = self.get_neurons_by_cortical_area(target_cortical_id)
-            
+
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
                 continue
-            
+
             # Determine weight
-            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
-            
+            weight = (
+                weight_override
+                if weight_override is not None
+                else rule["parameters"].get("weight", 1.0)
+            )
+
             # Calculate total possible connections
             total_possible = len(source_neurons) * len(target_neurons)
-            
+
             # Check if we need to sample
             if total_possible <= max_synapses:
                 # Create all connections
@@ -2068,228 +2764,285 @@ class ConnectomeManager:
             else:
                 # Sample connections
                 sample_count = min(max_synapses, total_possible)
-                source_ids = np.random.choice(source_neurons, size=sample_count, replace=True)
-                target_ids = np.random.choice(target_neurons, size=sample_count, replace=True)
-                
-                synapse_specs = [(source_ids[i], target_ids[i], weight) for i in range(sample_count)]
-            
+                source_ids = np.random.choice(
+                    source_neurons, size=sample_count, replace=True
+                )
+                target_ids = np.random.choice(
+                    target_neurons, size=sample_count, replace=True
+                )
+
+                synapse_specs = [
+                    (source_ids[i], target_ids[i], weight) for i in range(sample_count)
+                ]
+
             # Create synapses in batch
             created_count = self.batch_create_synapses(synapse_specs)
             results[rule_id] = created_count
-        
+
         return results
-    
+
     def _apply_probabilistic_rules_batch(self, rules, weight_override, max_synapses):
         """Apply probabilistic rules in batch."""
         results = {}
-        
+
         for rule_id, rule in rules:
             source_cortical_id = rule["source_cortical_id"]
             target_cortical_id = rule["target_cortical_id"]
-            
+
             # Get neurons for both areas
             source_neurons = self.get_neurons_by_cortical_area(source_cortical_id)
             target_neurons = self.get_neurons_by_cortical_area(target_cortical_id)
-            
+
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
                 continue
-            
+
             # Determine weight and probability
-            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
+            weight = (
+                weight_override
+                if weight_override is not None
+                else rule["parameters"].get("weight", 1.0)
+            )
             probability = rule["parameters"].get("probability", 0.1)
-            
+
             # Calculate total possible and expected connections
             total_possible = len(source_neurons) * len(target_neurons)
             expected_count = int(total_possible * probability)
             actual_count = min(expected_count, max_synapses)
-            
+
             # Sample connections
             if actual_count > 0:
-                source_ids = np.random.choice(source_neurons, size=actual_count, replace=True)
-                target_ids = np.random.choice(target_neurons, size=actual_count, replace=True)
-                
-                synapse_specs = [(source_ids[i], target_ids[i], weight) for i in range(actual_count)]
-                
+                source_ids = np.random.choice(
+                    source_neurons, size=actual_count, replace=True
+                )
+                target_ids = np.random.choice(
+                    target_neurons, size=actual_count, replace=True
+                )
+
+                synapse_specs = [
+                    (source_ids[i], target_ids[i], weight) for i in range(actual_count)
+                ]
+
                 # Create synapses in batch
                 created_count = self.batch_create_synapses(synapse_specs)
                 results[rule_id] = created_count
             else:
                 results[rule_id] = 0
-        
+
         return results
-    
+
     def _apply_distance_rules_batch(self, rules, weight_override, max_synapses):
         """Apply distance-based rules in batch."""
         results = {}
-        
+
         for rule_id, rule in rules:
             source_cortical_id = rule["source_cortical_id"]
             target_cortical_id = rule["target_cortical_id"]
-            
+
             # Get neurons for both areas
             source_neurons = self.get_neurons_by_cortical_area(source_cortical_id)
             target_neurons = self.get_neurons_by_cortical_area(target_cortical_id)
-            
+
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
                 continue
-            
+
             # Determine weight and max distance
-            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
+            weight = (
+                weight_override
+                if weight_override is not None
+                else rule["parameters"].get("weight", 1.0)
+            )
             max_distance = rule["parameters"].get("max_distance", 5.0)
             scale_by_distance = rule["parameters"].get("scale_by_distance", False)
-            
+
             # Get areas
             source_area = self.cortical_areas[source_cortical_id]
             target_area = self.cortical_areas[target_cortical_id]
-            
+
             # Get positions in global coordinates
             source_global_positions = {}
             for neuron_id in source_neurons:
                 idx = self.neuron_id_to_index[neuron_id]
-                local_pos = (self.neuron_array.positions_x[idx], 
-                            self.neuron_array.positions_y[idx], 
-                            self.neuron_array.positions_z[idx])
-                global_pos = tuple(lp + ap for lp, ap in zip(local_pos, source_area.position))
+                local_pos = (
+                    self.neuron_array.coordinates_x[idx],  # ✅ FIXED: Use coordinates_x
+                    self.neuron_array.coordinates_y[idx],  # ✅ FIXED: Use coordinates_y
+                    self.neuron_array.coordinates_z[idx],
+                )  # ✅ FIXED: Use coordinates_z
+                global_pos = tuple(
+                    lp + ap for lp, ap in zip(local_pos, source_area.position)
+                )
                 source_global_positions[neuron_id] = global_pos
-            
+
             target_global_positions = {}
             for neuron_id in target_neurons:
                 idx = self.neuron_id_to_index[neuron_id]
-                local_pos = (self.neuron_array.positions_x[idx], 
-                            self.neuron_array.positions_y[idx], 
-                            self.neuron_array.positions_z[idx])
-                global_pos = tuple(lp + ap for lp, ap in zip(local_pos, target_area.position))
+                local_pos = (
+                    self.neuron_array.coordinates_x[idx],  # ✅ FIXED: Use coordinates_x
+                    self.neuron_array.coordinates_y[idx],  # ✅ FIXED: Use coordinates_y
+                    self.neuron_array.coordinates_z[idx],
+                )  # ✅ FIXED: Use coordinates_z
+                global_pos = tuple(
+                    lp + ap for lp, ap in zip(local_pos, target_area.position)
+                )
                 target_global_positions[neuron_id] = global_pos
-            
+
             # Calculate distances using vectorized operations for efficiency
             total_possible = len(source_neurons) * len(target_neurons)
-            
+
             if total_possible > 100000:  # Switch to sampling for large networks
                 # Sample random pairs and check distances
                 candidates = 0
                 max_candidates = min(100000, total_possible)
                 synapse_specs = []
-                
+
                 while len(synapse_specs) < max_synapses and candidates < max_candidates:
                     source_id = np.random.choice(source_neurons)
                     target_id = np.random.choice(target_neurons)
-                    
+
                     source_pos = source_global_positions[source_id]
                     target_pos = target_global_positions[target_id]
-                    
+
                     # Calculate Euclidean distance
-                    distance = np.sqrt(sum((a - b) ** 2 for a, b in zip(source_pos, target_pos)))
-                    
+                    distance = np.sqrt(
+                        sum((a - b) ** 2 for a, b in zip(source_pos, target_pos))
+                    )
+
                     if distance <= max_distance:
                         if scale_by_distance:
                             distance_weight = 1.0 - (distance / max_distance)
-                            synapse_specs.append((source_id, target_id, weight * distance_weight))
+                            synapse_specs.append(
+                                (source_id, target_id, weight * distance_weight)
+                            )
                         else:
                             synapse_specs.append((source_id, target_id, weight))
-                    
+
                     candidates += 1
             else:
                 # Vectorized distance calculation for smaller networks
                 source_ids = np.array(list(source_neurons))
                 target_ids = np.array(list(target_neurons))
-                
+
                 # Convert positions to arrays for vectorized operations
-                source_pos_array = np.array([source_global_positions[nid] for nid in source_ids])
-                target_pos_array = np.array([target_global_positions[nid] for nid in target_ids])
-                
+                source_pos_array = np.array(
+                    [source_global_positions[nid] for nid in source_ids]
+                )
+                target_pos_array = np.array(
+                    [target_global_positions[nid] for nid in target_ids]
+                )
+
                 # Limit to manageable subsets if needed
                 max_sources = min(1000, len(source_ids))
                 max_targets = min(1000, len(target_ids))
-                
+
                 source_pos_array = source_pos_array[:max_sources]
                 source_ids = source_ids[:max_sources]
                 target_pos_array = target_pos_array[:max_targets]
                 target_ids = target_ids[:max_targets]
-                
+
                 # Calculate distances (still O(n²) but vectorized)
                 synapse_specs = []
-                
-                for i, (source_id, source_pos) in enumerate(zip(source_ids, source_pos_array)):
+
+                for _i, (source_id, source_pos) in enumerate(
+                    zip(source_ids, source_pos_array)
+                ):
                     # Calculate distances to all targets at once
-                    distances = np.sqrt(np.sum((target_pos_array - source_pos) ** 2, axis=1))
-                    
+                    distances = np.sqrt(
+                        np.sum((target_pos_array - source_pos) ** 2, axis=1)
+                    )
+
                     # Find targets within max distance
                     within_distance = distances <= max_distance
                     valid_targets = target_ids[within_distance]
                     valid_distances = distances[within_distance]
-                    
+
                     # Add connections
-                    for j, (target_id, distance) in enumerate(zip(valid_targets, valid_distances)):
+                    for _j, (target_id, distance) in enumerate(
+                        zip(valid_targets, valid_distances)
+                    ):
                         if scale_by_distance:
                             distance_weight = 1.0 - (distance / max_distance)
-                            synapse_specs.append((source_id, target_id, weight * distance_weight))
+                            synapse_specs.append(
+                                (source_id, target_id, weight * distance_weight)
+                            )
                         else:
                             synapse_specs.append((source_id, target_id, weight))
-                        
+
                         if len(synapse_specs) >= max_synapses:
                             break
-                    
+
                     if len(synapse_specs) >= max_synapses:
                         break
-            
+
             # Create synapses in batch
             created_count = self.batch_create_synapses(synapse_specs)
             results[rule_id] = created_count
-        
+
         return results
-    
+
     def _apply_random_subset_rules_batch(self, rules, weight_override, max_synapses):
         """Apply random-subset rules in batch."""
         results = {}
-        
+
         for rule_id, rule in rules:
             source_cortical_id = rule["source_cortical_id"]
             target_cortical_id = rule["target_cortical_id"]
-            
+
             # Get neurons for both areas
             source_neurons = self.get_neurons_by_cortical_area(source_cortical_id)
             target_neurons = self.get_neurons_by_cortical_area(target_cortical_id)
-            
+
             if not source_neurons or not target_neurons:
                 results[rule_id] = 0
                 continue
-            
+
             # Determine weight and number of targets
-            weight = weight_override if weight_override is not None else rule["parameters"].get("weight", 1.0)
-            num_targets = min(rule["parameters"].get("num_targets", 5), len(target_neurons))
-            
+            weight = (
+                weight_override
+                if weight_override is not None
+                else rule["parameters"].get("weight", 1.0)
+            )
+            num_targets = min(
+                rule["parameters"].get("num_targets", 5), len(target_neurons)
+            )
+
             # Limit source neurons to avoid excessive computation
             max_sources = min(len(source_neurons), max_synapses // num_targets)
-            
+
             # Prepare all synapse specs at once
             synapse_specs = []
-            
+
             # For each source neuron, randomly select target neurons
             for source_id in source_neurons[:max_sources]:
                 targets = np.random.choice(target_neurons, num_targets, replace=False)
-                
+
                 for target_id in targets:
                     synapse_specs.append((source_id, target_id, weight))
-                
+
                 if len(synapse_specs) >= max_synapses:
                     break
-            
+
             # Create synapses in batch
             created_count = self.batch_create_synapses(synapse_specs)
             results[rule_id] = created_count
-        
-        return results 
 
-    def add_neuron(self, cortical_id: Optional[str] = None, position: Optional[Tuple[int, int, int]] = None,
-                threshold: float = 1.0, membrane_potential: float = 0.0,
-                resting_potential: float = 0.0, decay_rate: float = 0.5,
-                refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None) -> int:
+        return results
+
+    def add_neuron(
+        self,
+        cortical_id: Optional[str] = None,
+        position: Optional[Tuple[int, int, int]] = None,
+        threshold: float = 1.0,
+        membrane_potential: float = 0.0,
+        resting_potential: float = 0.0,
+        decay_rate: float = 0.5,
+        refractory_period: int = 1,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> int:
         """Create a new neuron and add it to the network.
-        
+
         This is an alias for create_neuron to maintain compatibility with tests.
-        
+
         Args:
             cortical_id: ID of the cortical area this neuron belongs to
             position: 3D coordinates (x, y, z)
@@ -2299,13 +3052,13 @@ class ConnectomeManager:
             decay_rate: Membrane potential decay rate
             refractory_period: Refractory period in timesteps
             properties: Additional properties to set
-            
+
         Returns:
             ID of the created neuron
         """
         if position is None:
             position = (0, 0, 0)
-            
+
         # For test compatibility, create a temporary cortical area if none is provided
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
@@ -2316,10 +3069,10 @@ class ConnectomeManager:
                     dimensions=(100, 100, 100),
                     position=(0, 0, 0),
                     area_type="test",
-                    cortical_id=test_cortical_id
+                    cortical_id=test_cortical_id,
                 )
             cortical_id = test_cortical_id
-            
+
         return self.create_neuron(
             cortical_id=cortical_id,
             position=position,
@@ -2328,16 +3081,23 @@ class ConnectomeManager:
             resting_potential=resting_potential,
             decay_rate=decay_rate,
             refractory_period=refractory_period,
-            properties=properties
+            properties=properties,
         )
-    
-    def add_neurons(self, count: int, cortical_id: Optional[str] = None,
-                   position: Optional[Tuple[int, int, int]] = None,
-                   threshold: float = 1.0, membrane_potential: float = 0.0,
-                   resting_potential: float = 0.0, decay_rate: float = 0.5,
-                   refractory_period: int = 1, properties: Optional[Dict[str, Any]] = None) -> List[int]:
+
+    def add_neurons(
+        self,
+        count: int,
+        cortical_id: Optional[str] = None,
+        position: Optional[Tuple[int, int, int]] = None,
+        threshold: float = 1.0,
+        membrane_potential: float = 0.0,
+        resting_potential: float = 0.0,
+        decay_rate: float = 0.5,
+        refractory_period: int = 1,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> List[int]:
         """Create multiple neurons with the same properties.
-        
+
         Args:
             count: Number of neurons to create
             cortical_id: ID of the cortical area these neurons belong to
@@ -2348,13 +3108,13 @@ class ConnectomeManager:
             decay_rate: Membrane potential decay rate
             refractory_period: Refractory period in timesteps
             properties: Additional properties to set
-            
+
         Returns:
             List of IDs of the created neurons
         """
         if position is None:
             position = (0, 0, 0)
-            
+
         # For test compatibility, create a temporary cortical area if none is provided
         if cortical_id is None:
             # Create a test cortical area if it doesn't exist
@@ -2365,16 +3125,16 @@ class ConnectomeManager:
                     dimensions=(100, 100, 100),
                     position=(0, 0, 0),
                     area_type="test",
-                    cortical_id=test_cortical_id
+                    cortical_id=test_cortical_id,
                 )
             cortical_id = test_cortical_id
-            
+
         # Generate sequential positions if base position is provided
         positions = []
         x, y, z = position
         for i in range(count):
             positions.append((x + i, y, z))
-            
+
         return self.batch_create_neurons(
             cortical_id=cortical_id,
             positions=positions,
@@ -2383,16 +3143,23 @@ class ConnectomeManager:
             resting_potential=resting_potential,
             decay_rate=decay_rate,
             refractory_period=refractory_period,
-            properties=properties
-        ) 
+            properties=properties,
+        )
 
-    def add_synapse(self, pre_neuron: int, post_neuron: int, weight: float,
-                    is_plastic: bool = False, plasticity_coeff: float = 0.0,
-                    plasticity_decay: float = 0.0, **kwargs) -> bool:
+    def add_synapse(
+        self,
+        pre_neuron: int,
+        post_neuron: int,
+        weight: float,
+        is_plastic: bool = False,
+        plasticity_coeff: float = 0.0,
+        plasticity_decay: float = 0.0,
+        **kwargs,
+    ) -> bool:
         """Add a synapse between two neurons.
-        
+
         This is an alias for create_synapse to maintain compatibility with tests.
-        
+
         Args:
             pre_neuron: ID of the pre-synaptic neuron
             post_neuron: ID of the post-synaptic neuron
@@ -2401,7 +3168,7 @@ class ConnectomeManager:
             plasticity_coeff: Coefficient for plasticity
             plasticity_decay: Decay rate for plasticity
             **kwargs: Additional properties for the synapse
-            
+
         Returns:
             True if synapse was created, False if it already existed
         """
@@ -2412,50 +3179,67 @@ class ConnectomeManager:
             is_plastic=is_plastic,
             plasticity_coeff=plasticity_coeff,
             plasticity_decay=plasticity_decay,
-            **kwargs
+            **kwargs,
         )
 
     @property
     def neuron_count(self) -> int:
         """Get the total number of neurons in the connectome."""
         return self.get_neuron_count()
-    
+
     @property
     def synapse_count(self) -> int:
         """Get the total number of synapses in the connectome."""
         return self.get_synapse_count()
-    
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the connectome is initialized with cortical areas.
+
+        A connectome is considered initialized when:
+        1. It has cortical areas loaded
+        2. The basic structures are in place
+
+        This property is required for API brain running checks.
+        """
+        return len(self.cortical_areas) > 0
+
     def has_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
         """Check if a synapse exists between two neurons.
-        
+
         Args:
             pre_neuron: ID of the pre-synaptic neuron
             post_neuron: ID of the post-synaptic neuron
-            
+
         Returns:
             True if the synapse exists, False otherwise
         """
         # Check if both neurons exist
-        if pre_neuron not in self.neuron_id_to_index or post_neuron not in self.neuron_id_to_index:
+        if (
+            pre_neuron not in self.neuron_id_to_index
+            or post_neuron not in self.neuron_id_to_index
+        ):
             return False
-        
+
         # Get synaptic weight - if > 0, the synapse exists
         try:
             weight = self.get_synapse_weight(pre_neuron, post_neuron)
             return weight > 0
         except ValueError:
             return False
-            
-    def update_neuron_property(self, neuron_id: int, property_name: str, value: Any) -> bool:
+
+    def update_neuron_property(
+        self, neuron_id: int, property_name: str, value: Any
+    ) -> bool:
         """Update a property of a neuron.
-        
+
         This is an alias for set_neuron_property to maintain compatibility with tests.
-        
+
         Args:
             neuron_id: ID of the neuron
             property_name: Name of the property to update
             value: New value for the property
-            
+
         Returns:
             True if the property was updated, False otherwise
         """
@@ -2467,13 +3251,13 @@ class ConnectomeManager:
 
     def delete_synapse(self, pre_neuron: int, post_neuron: int) -> bool:
         """Delete a synapse between two neurons.
-        
+
         This is an alias for remove_synapse to maintain compatibility with tests.
-        
+
         Args:
             pre_neuron: ID of the pre-synaptic neuron
             post_neuron: ID of the post-synaptic neuron
-            
+
         Returns:
             True if the synapse was removed, False if it didn't exist
         """
@@ -2481,54 +3265,50 @@ class ConnectomeManager:
 
     def find_neurons_above_threshold(self) -> List[int]:
         """Find neurons whose membrane potential is above their threshold.
-        
+
         This method is provided for backward compatibility with the test suite.
-        
+
         Returns:
             List of neuron IDs with membrane potential above threshold
         """
         # Get valid neuron indices
         valid_mask = self.neuron_array.valid_mask
-        valid_indices = np.where(valid_mask)[0]
-        
+
         # Find neurons above threshold
-        above_threshold_mask = (self.neuron_array.membrane_potentials >= self.neuron_array.thresholds) & valid_mask
+        above_threshold_mask = (
+            self.neuron_array.membrane_potentials >= self.neuron_array.thresholds
+        ) & valid_mask
         above_threshold_indices = np.where(above_threshold_mask)[0]
-        
-        # Convert indices to neuron IDs
-        result = []
-        for idx in above_threshold_indices:
-            for neuron_id, index in self.neuron_id_to_index.items():
-                if index == idx:
-                    result.append(neuron_id)
-                    break
-        
+
+        # Convert indices to neuron IDs using vectorized operation
+        result = self._vectorized_index_to_neuron_id(above_threshold_indices).tolist()
+
         return result
 
     def process_firing_neurons(self, firing_neurons: List[int]) -> List[int]:
         """Process firing neurons and update membrane potentials of connected neurons.
-        
+
         This method is provided for backward compatibility with the test suite.
-        
+
         Args:
             firing_neurons: List of neuron IDs that are firing
-            
+
         Returns:
             List of neuron IDs that will fire in the next timestep
         """
         if not firing_neurons:
             return []
-            
+
         # Convert neuron IDs to indices
         firing_indices = []
         for nid in firing_neurons:
             if nid in self.neuron_id_to_index:
                 firing_indices.append(self.neuron_id_to_index[nid])
-        
+
         # Set these neurons as active
         for idx in firing_indices:
             self.active_neurons[idx] = True
-        
+
         # Update membrane potentials
         return self.update_membrane_potentials()
 
@@ -2539,29 +3319,69 @@ class ConnectomeManager:
 
     def delete_neurons(self, neuron_ids: List[int]) -> int:
         """Delete multiple neurons at once.
-        
+
         Args:
             neuron_ids: List of neuron IDs to delete
-            
+
         Returns:
             Number of neurons successfully deleted
         """
+        # Vectorized bulk neuron deletion for RTOS/GPU compliance
+        neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
+        valid_neuron_mask = np.array(
+            [nid in self.neuron_id_to_index for nid in neuron_ids_array]
+        )
+        valid_neuron_ids = neuron_ids_array[valid_neuron_mask]
+
         deleted_count = 0
-        for neuron_id in neuron_ids:
+        if len(valid_neuron_ids) > 0:
+            # Vectorized index lookup
+            indices_to_delete = np.array(
+                [self.neuron_id_to_index[nid] for nid in valid_neuron_ids]
+            )
+
+            # Bulk deletion using vectorized operations
             try:
-                self.delete_neuron(neuron_id)
-                deleted_count += 1
-            except (ValueError, KeyError) as e:
-                logger.warning(f"Failed to delete neuron {neuron_id}: {e}")
-        
+                # Mark neurons as invalid in bulk
+                self.neuron_array.valid_mask[indices_to_delete] = False
+                self.neuron_array.is_active[indices_to_delete] = False
+
+                # Remove from mappings in bulk
+                for neuron_id, index in zip(valid_neuron_ids, indices_to_delete):
+                    neuron_id = int(neuron_id)
+                    index = int(index)
+                    if neuron_id in self.neuron_id_to_index:
+                        del self.neuron_id_to_index[neuron_id]
+                    if index in self.index_to_neuron_id:
+                        del self.index_to_neuron_id[index]
+
+                deleted_count = len(valid_neuron_ids)
+
+            except Exception as e:
+                logger.warning(
+                    f"Bulk deletion failed, falling back to individual deletion: {e}"
+                )
+                # Fallback to individual deletion only for error cases
+                for neuron_id in valid_neuron_ids:
+                    try:
+                        self.delete_neuron(int(neuron_id))
+                        deleted_count += 1
+                    except (ValueError, KeyError) as e:
+                        logger.warning(f"Failed to delete neuron {neuron_id}: {e}")
+
+        # Report invalid neuron IDs for debugging
+        invalid_count = len(neuron_ids) - len(valid_neuron_ids)
+        if invalid_count > 0:
+            logger.warning(f"Attempted to delete {invalid_count} non-existent neurons")
+
         return deleted_count
 
     def delete_synapses(self, synapse_specs: List[Tuple[int, int]]) -> int:
         """Delete multiple synapses at once.
-        
+
         Args:
             synapse_specs: List of (pre_neuron_id, post_neuron_id) tuples
-            
+
         Returns:
             Number of synapses successfully deleted
         """
@@ -2572,42 +3392,49 @@ class ConnectomeManager:
                     deleted_count += 1
             except (ValueError, KeyError) as e:
                 logger.warning(f"Failed to delete synapse {pre_id}->{post_id}: {e}")
-        
+
         return deleted_count
 
     def _clear_existing_brain_data(self) -> Dict[str, int]:
         """Clear all existing brain data (neurons, synapses, cortical areas).
-        
+
         This method provides efficient memory reset for genome reloading.
-        
+
         Returns:
             Dictionary with counts of cleared items
         """
         # 1. Count what we're clearing for reporting
-        cortical_areas_cleared = len(getattr(self, 'cortical_areas', {}))
-        neurons_cleared = self.get_neuron_count() if hasattr(self, 'neuron_array') else 0
-        synapses_cleared = self.get_synapse_count() if hasattr(self, 'synapse_matrix') else 0
-        
+        cortical_areas_cleared = len(getattr(self, "cortical_areas", {}))
+        neurons_cleared = (
+            self.get_neuron_count() if hasattr(self, "neuron_array") else 0
+        )
+        synapses_cleared = (
+            self.get_synapse_count() if hasattr(self, "synapse_matrix") else 0
+        )
+
         # 2. Clear cortical areas and related data structures
-        if hasattr(self, 'cortical_areas'):
+        if hasattr(self, "cortical_areas"):
             self.cortical_areas.clear()
-        if hasattr(self, 'area_neuron_masks'):
+        if hasattr(self, "area_neuron_masks"):
             self.area_neuron_masks.clear()
-        if hasattr(self, 'next_cortical_idx'):
-            self.next_cortical_idx = 0
-            
+
+        # NOTE: No longer managing next_cortical_idx counter since we use dynamic allocation
+        # The _find_next_available_cortical_idx() method handles cortical_idx assignment by
+        # scanning existing areas and respecting reserved indices
+
         # 3. Clear brain regions
-        if hasattr(self, 'brain_regions'):
+        if hasattr(self, "brain_regions"):
             self.brain_regions.clear()
-        if hasattr(self, 'region_area_map'):
+        if hasattr(self, "region_area_map"):
             self.region_area_map.clear()
-            
+
         # 4. Reset neuron array efficiently
-        if hasattr(self, 'neuron_array'):
+        if hasattr(self, "neuron_array"):
             try:
                 # Reset the neuron array to empty state efficiently
                 # Handle both PyTorch tensors and NumPy arrays
                 import torch
+
                 if isinstance(self.neuron_array.valid_mask, torch.Tensor):
                     # PyTorch tensors use fill_() method
                     self.neuron_array.valid_mask.fill_(False)
@@ -2616,22 +3443,25 @@ class ConnectomeManager:
                     # NumPy arrays use fill() method
                     self.neuron_array.valid_mask.fill(False)
                     self.neuron_array.is_active.fill(False)
-                
+
                 self.neuron_array.neuron_count = 0
-                
+
                 # CRITICAL: Reset the internal index tracking to allow reuse of neurons
                 self.neuron_array.next_index = 0
                 self.neuron_array.free_indices = set()
-                
+
                 # Clear mappings that track neuron relationships
-                if hasattr(self.neuron_array, 'id_to_index_map'):
+                if hasattr(self.neuron_array, "id_to_index_map"):
                     self.neuron_array.id_to_index_map.clear()
-                if hasattr(self.neuron_array, 'index_to_id_map'):
+                if hasattr(self.neuron_array, "index_to_id_map"):
                     self.neuron_array.index_to_id_map.clear()
-                if hasattr(self.neuron_array, 'cortical_id_to_indices'):
+                if hasattr(self.neuron_array, "cortical_id_to_indices"):
                     self.neuron_array.cortical_id_to_indices.clear()
-                
-                logger.info("Reset neuron array state and index tracking efficiently", status="[OK]")
+
+                logger.info(
+                    "Reset neuron array state and index tracking efficiently",
+                    status="[OK]",
+                )
             except Exception as e:
                 logger.warning(f"Error resetting neuron array: {e}")
                 # Force reset the critical counters even if tensor reset fails
@@ -2639,137 +3469,1164 @@ class ConnectomeManager:
                 self.neuron_array.next_index = 0
                 self.neuron_array.free_indices = set()
                 logger.info("Force-reset critical neuron array counters", status="[OK]")
-        
+
         # 5. Clear all ID mappings in one operation
-        if hasattr(self, 'neuron_id_to_index'):
+        if hasattr(self, "neuron_id_to_index"):
             self.neuron_id_to_index.clear()
-        if hasattr(self, 'index_to_neuron_id'):
+        if hasattr(self, "index_to_neuron_id"):
             self.index_to_neuron_id.clear()
-            
+
         # 6. Reset neuron counter
-        if hasattr(self, 'next_neuron_id'):
+        if hasattr(self, "next_neuron_id"):
             self.next_neuron_id = 1  # Start from 1, not 0
-            
+
         # 7. Clear synapse matrix efficiently
-        if hasattr(self, 'synapse_matrix'):
+        if hasattr(self, "synapse_matrix"):
             try:
                 # Reset sparse matrix to empty state
-                if hasattr(self.synapse_matrix, 'data'):
+                if hasattr(self.synapse_matrix, "data"):
                     self.synapse_matrix.data = np.array([], dtype=np.float32)
-                if hasattr(self.synapse_matrix, 'indices'):
+                if hasattr(self.synapse_matrix, "indices"):
                     self.synapse_matrix.indices = np.array([], dtype=np.int32)
-                if hasattr(self.synapse_matrix, 'indptr'):
+                if hasattr(self.synapse_matrix, "indptr"):
                     # Reset indptr to all zeros for empty CSR matrix
-                    self.synapse_matrix.indptr = np.zeros(self.max_neurons + 1, dtype=np.int32)
-                
+                    self.synapse_matrix.indptr = np.zeros(
+                        self.max_neurons + 1, dtype=np.int32
+                    )
+
                 logger.info("Reset synapse matrix efficiently", status="[OK]")
             except Exception as e:
                 logger.warning(f"Error resetting synapse matrix: {e}")
-                
+
         # 8. Clear other neuron-related data structures
-        if hasattr(self, 'active_neurons'):
+        if hasattr(self, "active_neurons"):
             self.active_neurons = np.zeros(self.max_neurons, dtype=bool)
-            
-        logger.info(f"Cleared {cortical_areas_cleared} cortical areas, {neurons_cleared} neurons, {synapses_cleared} synapses", status="[OK]")
-        
+
+        logger.info(
+            f"Cleared {cortical_areas_cleared} cortical areas, {neurons_cleared} neurons, {synapses_cleared} synapses",
+            status="[OK]",
+        )
+
         return {
-            'cortical_areas_cleared': cortical_areas_cleared,
-            'neurons_cleared': neurons_cleared, 
-            'synapses_cleared': synapses_cleared
+            "cortical_areas_cleared": cortical_areas_cleared,
+            "neurons_cleared": neurons_cleared,
+            "synapses_cleared": synapses_cleared,
         }
 
-    def prepare_for_new_genome(self, genome_data: Dict[str, Any], save_current_state: bool = True) -> Dict[str, Any]:
+    def prepare_for_new_genome(
+        self, genome_data: Dict[str, Any], save_current_state: bool = True
+    ) -> Dict[str, Any]:
         """Prepare connectome for loading a new genome.
-        
+
         This method handles the complete preparation process:
         1. Detect existing brain state
-        2. Save current state if requested  
+        2. Save current state if requested
         3. Clear all existing data
         4. Ensure sufficient memory capacity
         5. Reset all counters and indices
-        
+
         Args:
             genome_data: The genome data that will be loaded
             save_current_state: Whether to save the current brain state before clearing
-            
+
         Returns:
             Dictionary with preparation results and saved state info
         """
-        logger.info("PREPARE FOR NEW GENOME: Starting complete brain reset process", status="[BRAIN]")
-        
+        logger.info(
+            "PREPARE FOR NEW GENOME: Starting complete brain reset process",
+            status="[BRAIN]",
+        )
+
         # STEP 1: DETECT EXISTING BRAIN STATE
         has_existing_brain = (
-            hasattr(self, 'cortical_areas') and 
-            len(getattr(self, 'cortical_areas', {})) > 0
+            hasattr(self, "cortical_areas")
+            and len(getattr(self, "cortical_areas", {})) > 0
         )
-        
+
         # Initialize saved state info
         saved_state_info = None
-        
+
         if has_existing_brain:
-            existing_area_count = len(self.cortical_areas) if hasattr(self, 'cortical_areas') else 0
-            logger.info(f"Step 2: Had existing brain with {existing_area_count} cortical areas (now cleared)")
-            
+            existing_area_count = (
+                len(self.cortical_areas) if hasattr(self, "cortical_areas") else 0
+            )
+            logger.info(
+                f"Step 2: Had existing brain with {existing_area_count} cortical areas (now cleared)"
+            )
+
             # STEP 3: SAVE CURRENT STATE IF REQUESTED
             if save_current_state:
                 try:
                     # Save current brain state (placeholder - implement actual save logic)
-                    saved_state_info = {"filename": "brain_state_backup.json", "timestamp": "now"}
-                    logger.info(f"Current brain state saved: {saved_state_info['filename']}", status="[OK]")
-                except Exception as e:
-                    logger.warning("Failed to save current brain state - proceeding anyway", status="[WARN]")
+                    saved_state_info = {
+                        "filename": "brain_state_backup.json",
+                        "timestamp": "now",
+                    }
+                    logger.info(
+                        f"Current brain state saved: {saved_state_info['filename']}",
+                        status="[OK]",
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to save current brain state - proceeding anyway",
+                        status="[WARN]",
+                    )
         else:
-            logger.info("Step 2: No existing brain found - proceeding with fresh initialization")
-        
+            logger.info(
+                "Step 2: No existing brain found - proceeding with fresh initialization"
+            )
+
         # STEP 4: CLEAR EXISTING BRAIN DATA (ALWAYS!)
         # Even if no existing brain, we need to reset counters from any previous state
         logger.info("Step 4: Clearing/resetting all brain data and arrays")
         clear_results = self._clear_existing_brain_data()
-        logger.info(f"Cleared/reset {clear_results['cortical_areas_cleared']} cortical areas, "
-                   f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses", status="[OK]")
-        
+        logger.info(
+            f"Cleared/reset {clear_results['cortical_areas_cleared']} cortical areas, "
+            f"{clear_results['neurons_cleared']} neurons, {clear_results['synapses_cleared']} synapses",
+            status="[OK]",
+        )
+
         # STEP 5: CHECK MEMORY CAPACITY AND REALLOCATE IF NEEDED
         logger.info("Step 5: Checking memory capacity requirements")
         # Estimate memory requirements from genome (simplified)
-        estimated_neurons = len(genome_data.get('blueprint', {}).get('cortical_areas', {})) * 1000
+        estimated_neurons = (
+            len(genome_data.get("blueprint", {}).get("cortical_areas", {})) * 1000
+        )
         estimated_synapses = estimated_neurons * 10
-        
-        capacity_results = {"reallocated": False, "max_neurons": self.max_neurons, "max_synapses": self.max_synapses}
-        
-        if estimated_neurons > self.max_neurons or estimated_synapses > self.max_synapses:
-            logger.info(f"Reallocating memory: {estimated_neurons} neurons, {estimated_synapses} synapses")
+
+        capacity_results = {
+            "reallocated": False,
+            "max_neurons": self.max_neurons,
+            "max_synapses": self.max_synapses,
+        }
+
+        if (
+            estimated_neurons > self.max_neurons
+            or estimated_synapses > self.max_synapses
+        ):
+            logger.info(
+                f"Reallocating memory: {estimated_neurons} neurons, {estimated_synapses} synapses"
+            )
             # Note: Actual reallocation would happen here
             capacity_results["reallocated"] = True
             capacity_results["max_neurons"] = max(self.max_neurons, estimated_neurons)
-            capacity_results["max_synapses"] = max(self.max_synapses, estimated_synapses)
-        
+            capacity_results["max_synapses"] = max(
+                self.max_synapses, estimated_synapses
+            )
+
         if capacity_results["reallocated"]:
-            logger.info(f"Reallocated connectome with {capacity_results['max_neurons']} neurons, "
-                       f"{capacity_results['max_synapses']} synapses", status="[OK]")
-            
+            logger.info(
+                f"Reallocated connectome with {capacity_results['max_neurons']} neurons, "
+                f"{capacity_results['max_synapses']} synapses",
+                status="[OK]",
+            )
+
             # CRITICAL: After reallocation, ensure NeuronArray is in pristine state
-            if hasattr(self, 'neuron_array'):
+            if hasattr(self, "neuron_array"):
                 self.neuron_array.next_index = 0
                 self.neuron_array.neuron_count = 0
                 self.neuron_array.free_indices = set()
-                if hasattr(self.neuron_array, 'id_to_index_map'):
+                if hasattr(self.neuron_array, "id_to_index_map"):
                     self.neuron_array.id_to_index_map.clear()
-                if hasattr(self.neuron_array, 'index_to_id_map'):
+                if hasattr(self.neuron_array, "index_to_id_map"):
                     self.neuron_array.index_to_id_map.clear()
-                if hasattr(self.neuron_array, 'cortical_id_to_indices'):
+                if hasattr(self.neuron_array, "cortical_id_to_indices"):
                     self.neuron_array.cortical_id_to_indices.clear()
-                logger.info("Post-reallocation NeuronArray reset confirmed", status="[OK]")
+                logger.info(
+                    "Post-reallocation NeuronArray reset confirmed", status="[OK]"
+                )
         else:
-            logger.info(f"Using existing capacity: {capacity_results['max_neurons']} neurons, "
-                       f"{capacity_results['max_synapses']} synapses", status="[OK]")
-        
-        logger.info("PREPARE FOR NEW GENOME: Brain preparation completed successfully", status="[TARGET]")
-        
+            logger.info(
+                f"Using existing capacity: {capacity_results['max_neurons']} neurons, "
+                f"{capacity_results['max_synapses']} synapses",
+                status="[OK]",
+            )
+
+        logger.info(
+            "PREPARE FOR NEW GENOME: Brain preparation completed successfully",
+            status="[TARGET]",
+        )
+
         return {
             "success": True,
             "had_existing_brain": has_existing_brain,
             "saved_state_info": saved_state_info,
             "clear_results": clear_results,
             "capacity_results": capacity_results,
-            "message": "Connectome prepared for new genome loading"
+            "message": "Connectome prepared for new genome loading",
         }
+
+    @property
+    def neuron_id_to_index(self):
+        """Legacy compatibility - delegates to NeuronArray as single source of truth"""
+        return self.neuron_array.id_to_index_map
+
+    @property
+    def index_to_neuron_id(self):
+        """Legacy compatibility - delegates to NeuronArray as single source of truth"""
+        return self.neuron_array.index_to_id_map
+
+    def _invalidate_mapping_cache(self):
+        """Cache invalidation no longer needed - direct delegation to NeuronArray"""
+        # PERFORMANCE: Invalidate spatial index when neuron structure changes
+        if hasattr(self, "_spatial_index"):
+            self._spatial_index.clear()
+        pass
+
+    def _vectorized_index_to_neuron_id(self, indices):
+        """Vectorized index-to-neuron-ID conversion for performance-critical paths.
+
+        Args:
+            indices: Single index (int) or array of indices (np.ndarray)
+
+        Returns:
+            Single neuron ID (int) or array of neuron IDs (np.ndarray)
+        """
+        if isinstance(indices, (int, np.integer)):
+            # Single index lookup
+            return self.neuron_array.index_to_id_map.get(indices, -1)
+        else:
+            # Batch lookup using vectorized method - CRITICAL: Ensure proper data types
+            result = self.neuron_array.vectorized_indices_to_neuron_ids(
+                np.asarray(indices),
+                filter_invalid=True,  # Only return valid IDs
+            )
+            # CRITICAL: Convert to Python integers to prevent segfault in FCL processing
+            return result.astype(np.int64)
+
+    # ======================================================================
+    # QUERY METHODS FOR TESTS
+    # ======================================================================
+
+    def query_neurons_by_threshold_range(
+        self, min_threshold: float, max_threshold: float
+    ) -> List[int]:
+        """Query neurons by threshold range.
+
+        Args:
+            min_threshold: Minimum threshold value (inclusive)
+            max_threshold: Maximum threshold value (inclusive)
+
+        Returns:
+            List of neuron IDs with thresholds in the specified range
+        """
+        neuron_ids = []
+        for neuron_id in self.neuron_array.id_to_index_map.keys():
+            threshold = self.get_neuron_property(
+                neuron_id, NeuronPropertyType.THRESHOLD
+            )
+            if min_threshold <= threshold <= max_threshold:
+                neuron_ids.append(neuron_id)
+        return neuron_ids
+
+    def query_neurons_by_area_and_position(
+        self,
+        cortical_id: str,
+        x_range: Tuple[int, int],
+        y_range: Tuple[int, int],
+        z_range: Tuple[int, int] = None,
+    ) -> List[int]:
+        """Query neurons by cortical area and position range.
+
+        Args:
+            cortical_id: ID of the cortical area
+            x_range: Tuple of (min_x, max_x) inclusive
+            y_range: Tuple of (min_y, max_y) inclusive
+            z_range: Optional tuple of (min_z, max_z) inclusive
+
+        Returns:
+            List of neuron IDs in the specified area and position range
+        """
+        neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+        matching_neurons = []
+
+        for neuron_id in neurons_in_area:
+            x, y, z = self.get_neuron_position(neuron_id)
+            if (
+                x_range[0] <= x <= x_range[1]
+                and y_range[0] <= y <= y_range[1]
+                and (z_range is None or z_range[0] <= z <= z_range[1])
+            ):
+                matching_neurons.append(neuron_id)
+
+        return matching_neurons
+
+    def check_neuron_index_uniqueness(self) -> bool:
+        """Check that all neuron indices are unique.
+
+        Returns:
+            True if all indices are unique, False otherwise
+        """
+        indices = list(self.neuron_array.id_to_index_map.values())
+        return len(indices) == len(set(indices))
+
+    def get_neurons_at_position(
+        self, cortical_id: str, position: Tuple[int, int, int]
+    ) -> List[int]:
+        """Get neurons at a specific position in a cortical area.
+
+        PERFORMANCE: Optimized O(1) lookup using spatial indexing instead of O(N) linear search.
+        This eliminates the 8-second bottleneck in synaptogenesis.
+
+        Args:
+            cortical_id: ID of the cortical area
+            position: Tuple of (x, y, z) coordinates
+
+        Returns:
+            List of neuron IDs at the specified position
+        """
+        # CRITICAL PERFORMANCE FIX: Use spatial indexing instead of linear search
+        try:
+            # Get cortical area to access spatial index
+            cortical_area = self.get_cortical_area(cortical_id)
+            if hasattr(cortical_area, "get_neurons_at_position"):
+                # Use the cortical area's optimized spatial lookup
+                return cortical_area.get_neurons_at_position(position)
+
+            # Fallback: Build spatial index on-demand if not available
+            if not hasattr(self, "_spatial_index"):
+                self._spatial_index = {}
+
+            # Check if we have cached spatial index for this area
+            if cortical_id not in self._spatial_index:
+                self._build_spatial_index_for_area(cortical_id)
+
+            # O(1) lookup using spatial index
+            area_index = self._spatial_index[cortical_id]
+            return area_index.get(position, [])
+
+        except Exception as e:
+            self.logger.warning(
+                f"Spatial index lookup failed for {cortical_id} at {position}: {e}"
+            )
+            # Emergency fallback to linear search (should rarely happen)
+            return self._linear_search_neurons_at_position(cortical_id, position)
+
+    def _build_spatial_index_for_area(self, cortical_id: str) -> None:
+        """Build spatial index for fast position-based neuron lookups.
+
+        PERFORMANCE: This is called once per area and provides O(1) lookups thereafter.
+        """
+        try:
+            self._spatial_index[cortical_id] = {}
+            neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+
+            # Build position -> [neuron_ids] mapping
+            for neuron_id in neurons_in_area:
+                position = self.get_neuron_position(neuron_id)
+                if position not in self._spatial_index[cortical_id]:
+                    self._spatial_index[cortical_id][position] = []
+                self._spatial_index[cortical_id][position].append(neuron_id)
+
+        except Exception as e:
+            self.logger.error(f"Failed to build spatial index for {cortical_id}: {e}")
+            self._spatial_index[cortical_id] = {}
+
+    def _linear_search_neurons_at_position(
+        self, cortical_id: str, position: Tuple[int, int, int]
+    ) -> List[int]:
+        """Fallback linear search method (original implementation).
+
+        PERFORMANCE: This is the slow O(N) method that caused 8-second delays.
+        Only used as emergency fallback.
+        """
+        neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+        matching_neurons = []
+
+        for neuron_id in neurons_in_area:
+            neuron_position = self.get_neuron_position(neuron_id)
+            if neuron_position == position:
+                matching_neurons.append(neuron_id)
+
+        return matching_neurons
+
+    def get_connection_matrix(
+        self, source_area_id: str, target_area_id: str
+    ) -> Dict[str, Any]:
+        """Get connection matrix between two cortical areas.
+
+        Args:
+            source_area_id: ID of the source cortical area
+            target_area_id: ID of the target cortical area
+
+        Returns:
+            Dictionary containing connection matrix information including:
+            - source_neurons: List of source neuron IDs
+            - target_neurons: List of target neuron IDs
+            - connections: List of (source_idx, target_idx, weight) tuples
+            - total_connections: Total number of connections
+            - total_weight: Sum of all connection weights
+        """
+        try:
+            # Get source and target neurons
+            source_neurons = self.get_neurons_by_area(source_area_id)
+            target_neurons = self.get_neurons_by_area(target_area_id)
+
+            if not source_neurons or not target_neurons:
+                return {
+                    "source_neurons": [],
+                    "target_neurons": [],
+                    "connections": [],
+                    "total_connections": 0,
+                    "total_weight": 0.0,
+                }
+
+            # Get source and target indices
+            source_indices = self._get_neuron_indices(source_neurons)
+            target_indices = self._get_neuron_indices(target_neurons)
+
+            # Get connection matrix
+            connections = []
+            total_weight = 0.0
+
+            for src_idx in source_indices:
+                # Convert index back to neuron ID for get_outgoing_connections
+                src_neuron_id = self.index_to_neuron_id.get(src_idx)
+                if src_neuron_id is None:
+                    continue
+
+                # Get outgoing connections for this neuron
+                outgoing = self.get_outgoing_connections(src_neuron_id)
+                if outgoing:
+                    for dst_neuron_id, weight in outgoing:
+                        # Convert target neuron ID to index for comparison
+                        dst_idx = self.neuron_id_to_index.get(dst_neuron_id)
+                        if dst_idx is not None and dst_idx in target_indices:
+                            # Return neuron IDs instead of indices for consistency
+                            connections.append((src_neuron_id, dst_neuron_id, weight))
+                            total_weight += weight
+
+            return {
+                "source_neurons": source_neurons,
+                "target_neurons": target_neurons,
+                "connections": connections,
+                "total_connections": len(connections),
+                "total_weight": total_weight,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error getting connection matrix: {str(e)}")
+            return {
+                "source_neurons": [],
+                "target_neurons": [],
+                "connections": [],
+                "total_connections": 0,
+                "total_weight": 0.0,
+            }
+
+    def _get_neuron_indices(self, neuron_ids: List[int]) -> List[int]:
+        """Get neuron indices for a list of neuron IDs.
+
+        Args:
+            neuron_ids: List of neuron IDs to get indices for
+
+        Returns:
+            List of neuron indices
+        """
+        try:
+            # Use the neuron_id_to_index mapping to get indices
+            indices = []
+            for neuron_id in neuron_ids:
+                if neuron_id in self.neuron_id_to_index:
+                    indices.append(self.neuron_id_to_index[neuron_id])
+            return indices
+        except Exception as e:
+            self.logger.error(f"Error getting neuron indices: {str(e)}")
+            return []
+
+    # ======================================================================
+    # CONNECTIVITY RULES MANAGEMENT
+    # ======================================================================
+
+    def add_connectivity_rule(
+        self,
+        name: str,
+        source_area_id: str,
+        target_area_id: str,
+        rule_type: str,
+        parameters: Dict[str, Any],
+        enabled: bool = True,
+        rule_id: Optional[str] = None,
+    ) -> str:
+        """Add a connectivity rule between two cortical areas.
+
+        Args:
+            name: Human-readable name for the rule
+            source_area_id: Source cortical area ID
+            target_area_id: Target cortical area ID
+            rule_type: Type of rule ('one-to-one', 'all-to-all', 'probabilistic', 'distance', 'random-subset')
+            parameters: Rule-specific parameters
+            enabled: Whether the rule is enabled
+            rule_id: Optional specific rule ID (auto-generated if None)
+
+        Returns:
+            The rule ID
+
+        Raises:
+            ValueError: If areas don't exist or rule_type is invalid
+        """
+        import time
+        import uuid
+
+        # Validate areas exist
+        if source_area_id not in self.cortical_areas:
+            raise ValueError(f"Source area {source_area_id} does not exist")
+        if target_area_id not in self.cortical_areas:
+            raise ValueError(f"Target area {target_area_id} does not exist")
+
+        # Validate rule type
+        valid_types = [
+            "one-to-one",
+            "all-to-all",
+            "probabilistic",
+            "distance",
+            "random-subset",
+        ]
+        if rule_type not in valid_types:
+            raise ValueError(
+                f"Invalid rule type {rule_type}. Must be one of: {valid_types}"
+            )
+
+        # Generate rule ID if not provided
+        if rule_id is None:
+            rule_id = str(uuid.uuid4())
+
+        # Store the rule
+        self.connectivity_rules[rule_id] = {
+            "name": name,
+            "source_cortical_id": source_area_id,  # Use cortical_id for consistency
+            "target_cortical_id": target_area_id,  # Use cortical_id for consistency
+            "rule_type": rule_type,
+            "parameters": parameters.copy(),
+            "enabled": enabled,
+            "created_at": time.time(),
+        }
+
+        logger.info(
+            f"Added connectivity rule '{name}' ({rule_id}) from {source_area_id} to {target_area_id}"
+        )
+        return rule_id
+
+    def get_connectivity_rule(self, rule_id: str) -> Dict[str, Any]:
+        """Get a connectivity rule by ID.
+
+        Args:
+            rule_id: Rule ID
+
+        Returns:
+            Rule dictionary
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+        return self.connectivity_rules[rule_id].copy()
+
+    def update_connectivity_rule(self, rule_id: str, updates: Dict[str, Any]) -> bool:
+        """Update a connectivity rule.
+
+        Args:
+            rule_id: Rule ID
+            updates: Dictionary of updates to apply
+
+        Returns:
+            True if updated successfully
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+
+        # Apply updates
+        for key, value in updates.items():
+            if key in self.connectivity_rules[rule_id]:
+                self.connectivity_rules[rule_id][key] = value
+
+        logger.info(f"Updated connectivity rule {rule_id}")
+        return True
+
+    def delete_connectivity_rule(self, rule_id: str) -> bool:
+        """Delete a connectivity rule.
+
+        Args:
+            rule_id: Rule ID
+
+        Returns:
+            True if deleted successfully
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+
+        del self.connectivity_rules[rule_id]
+        logger.info(f"Deleted connectivity rule {rule_id}")
+        return True
+
+    def get_connectivity_rules_for_areas(
+        self, source_area_id: str = None, target_area_id: str = None
+    ) -> List[str]:
+        """Get connectivity rules for specific areas.
+
+        Args:
+            source_area_id: Source area ID (optional)
+            target_area_id: Target area ID (optional)
+
+        Returns:
+            List of rule IDs matching the criteria
+        """
+        matching_rules = []
+        for rule_id, rule in self.connectivity_rules.items():
+            if source_area_id and rule["source_cortical_id"] != source_area_id:
+                continue
+            if target_area_id and rule["target_cortical_id"] != target_area_id:
+                continue
+            matching_rules.append(rule_id)
+        return matching_rules
+
+    def apply_connectivity_rule(
+        self,
+        rule_id: str,
+        weight_override: Optional[float] = None,
+        max_synapses: int = 10000,
+    ) -> int:
+        """Apply a single connectivity rule.
+
+        Args:
+            rule_id: Rule ID to apply
+            weight_override: Override the weight specified in the rule
+            max_synapses: Maximum number of synapses to create
+
+        Returns:
+            Number of synapses created
+
+        Raises:
+            KeyError: If rule doesn't exist
+        """
+        if rule_id not in self.connectivity_rules:
+            raise KeyError(f"Connectivity rule {rule_id} does not exist")
+
+        rule = self.connectivity_rules[rule_id]
+        if not rule["enabled"]:
+            return 0
+
+        # Use the existing batch application logic
+        results = self.apply_rule_batch([rule_id], weight_override, max_synapses)
+        return results.get(rule_id, 0)
+
+    # ======================================================================
+    # CORTICAL CONNECTIONS MANAGEMENT
+    # ======================================================================
+
+    def add_cortical_connection(
+        self,
+        name: str,
+        source_area_id: str,
+        target_area_id: str,
+        properties: Optional[Dict[str, Any]] = None,
+        connection_id: Optional[str] = None,
+    ) -> str:
+        """Add a cortical connection between two areas.
+
+        Args:
+            name: Human-readable name for the connection
+            source_area_id: Source cortical area ID
+            target_area_id: Target cortical area ID
+            properties: Optional properties dictionary
+            connection_id: Optional specific connection ID
+
+        Returns:
+            The connection ID
+
+        Raises:
+            ValueError: If areas don't exist
+        """
+        import time
+        import uuid
+
+        # Validate areas exist
+        if source_area_id not in self.cortical_areas:
+            raise ValueError(f"Source area {source_area_id} does not exist")
+        if target_area_id not in self.cortical_areas:
+            raise ValueError(f"Target area {target_area_id} does not exist")
+
+        # Generate connection ID if not provided
+        if connection_id is None:
+            connection_id = str(uuid.uuid4())
+
+        # Store the connection
+        self.cortical_connections[connection_id] = {
+            "name": name,
+            "source_area_id": source_area_id,
+            "target_area_id": target_area_id,
+            "properties": properties.copy() if properties else {},
+            "synapse_count": 0,
+            "created_at": time.time(),
+        }
+
+        logger.info(
+            f"Added cortical connection '{name}' ({connection_id}) from {source_area_id} to {target_area_id}"
+        )
+        return connection_id
+
+    def get_cortical_connection(self, connection_id: str) -> Dict[str, Any]:
+        """Get a cortical connection by ID.
+
+        Args:
+            connection_id: Connection ID
+
+        Returns:
+            Connection dictionary
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+        return self.cortical_connections[connection_id].copy()
+
+    def update_cortical_connection(
+        self, connection_id: str, updates: Dict[str, Any]
+    ) -> bool:
+        """Update a cortical connection.
+
+        Args:
+            connection_id: Connection ID
+            updates: Dictionary of updates to apply
+
+        Returns:
+            True if updated successfully
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        # Apply updates
+        for key, value in updates.items():
+            if key == "properties" and isinstance(value, dict):
+                # Merge properties instead of replacing
+                self.cortical_connections[connection_id]["properties"].update(value)
+            else:
+                self.cortical_connections[connection_id][key] = value
+
+        logger.info(f"Updated cortical connection {connection_id}")
+        return True
+
+    def delete_cortical_connection(
+        self, connection_id: str, delete_synapses: bool = False
+    ) -> bool:
+        """Delete a cortical connection.
+
+        Args:
+            connection_id: Connection ID
+            delete_synapses: Whether to delete associated synapses
+
+        Returns:
+            True if deleted successfully
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+
+        if delete_synapses:
+            # Delete synapses between the areas
+            source_neurons = self.get_neurons_by_cortical_area(
+                connection["source_area_id"]
+            )
+            target_neurons = self.get_neurons_by_cortical_area(
+                connection["target_area_id"]
+            )
+
+            deleted_count = 0
+            for source_id in source_neurons:
+                for target_id in target_neurons:
+                    if self.has_synapse(source_id, target_id):
+                        self.remove_synapse(source_id, target_id)
+                        deleted_count += 1
+
+            logger.info(
+                f"Deleted {deleted_count} synapses for connection {connection_id}"
+            )
+
+        del self.cortical_connections[connection_id]
+        logger.info(f"Deleted cortical connection {connection_id}")
+        return True
+
+    def update_synapse_count_for_connection(self, connection_id: str) -> int:
+        """Update and return the synapse count for a connection.
+
+        Args:
+            connection_id: Connection ID
+
+        Returns:
+            Number of synapses in the connection
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+        source_neurons = self.get_neurons_by_cortical_area(connection["source_area_id"])
+        target_neurons = self.get_neurons_by_cortical_area(connection["target_area_id"])
+
+        synapse_count = 0
+        for source_id in source_neurons:
+            for target_id in target_neurons:
+                if self.has_synapse(source_id, target_id):
+                    synapse_count += 1
+
+        self.cortical_connections[connection_id]["synapse_count"] = synapse_count
+        return synapse_count
+
+    def get_connection_statistics(self, connection_id: str) -> Dict[str, Any]:
+        """Get statistics for a cortical connection.
+
+        Args:
+            connection_id: Connection ID
+
+        Returns:
+            Dictionary with connection statistics
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+        source_neurons = self.get_neurons_by_cortical_area(connection["source_area_id"])
+        target_neurons = self.get_neurons_by_cortical_area(connection["target_area_id"])
+
+        synapse_count = 0
+        total_weight = 0.0
+        weights = []
+
+        for source_id in source_neurons:
+            for target_id in target_neurons:
+                if self.has_synapse(source_id, target_id):
+                    weight = self.get_synapse_weight(source_id, target_id)
+                    synapse_count += 1
+                    total_weight += weight
+                    weights.append(weight)
+
+        avg_weight = total_weight / synapse_count if synapse_count > 0 else 0.0
+
+        return {
+            "synapse_count": synapse_count,
+            "avg_weight": avg_weight,
+            "total_weight": total_weight,
+            "source_neuron_count": len(source_neurons),
+            "target_neuron_count": len(target_neurons),
+        }
+
+    def apply_connection_weight_change(
+        self, connection_id: str, weight_multiplier: float
+    ) -> int:
+        """Apply a weight change to all synapses in a connection.
+
+        Args:
+            connection_id: Connection ID
+            weight_multiplier: Multiplier to apply to all weights
+
+        Returns:
+            Number of synapses modified
+
+        Raises:
+            KeyError: If connection doesn't exist
+        """
+        if connection_id not in self.cortical_connections:
+            raise KeyError(f"Cortical connection {connection_id} does not exist")
+
+        connection = self.cortical_connections[connection_id]
+        source_neurons = self.get_neurons_by_cortical_area(connection["source_area_id"])
+        target_neurons = self.get_neurons_by_cortical_area(connection["target_area_id"])
+
+        modified_count = 0
+        for source_id in source_neurons:
+            for target_id in target_neurons:
+                if self.has_synapse(source_id, target_id):
+                    current_weight = self.get_synapse_weight(source_id, target_id)
+                    new_weight = current_weight * weight_multiplier
+                    self.update_synapse_weight(source_id, target_id, new_weight)
+                    modified_count += 1
+
+        logger.info(
+            f"Applied weight multiplier {weight_multiplier} to {modified_count} synapses in connection {connection_id}"
+        )
+        return modified_count
+
+    def get_connections_by_area(
+        self, area_id: str, as_source: bool = True, as_target: bool = True
+    ) -> List[str]:
+        """Get connections involving a specific area.
+
+        Args:
+            area_id: Cortical area ID
+            as_source: Include connections where this area is the source
+            as_target: Include connections where this area is the target
+
+        Returns:
+            List of connection IDs
+        """
+        matching_connections = []
+        for connection_id, connection in self.cortical_connections.items():
+            if as_source and connection["source_area_id"] == area_id:
+                matching_connections.append(connection_id)
+            elif as_target and connection["target_area_id"] == area_id:
+                matching_connections.append(connection_id)
+        return matching_connections
+
+    # ======================================================================
+    # SAVE/LOAD FUNCTIONALITY
+    # ======================================================================
+
+    def save(self, filename: str) -> bool:
+        """Save the connectome to a file.
+
+        Args:
+            filename: Path to save the connectome
+
+        Returns:
+            True if saved successfully
+
+        Raises:
+            Exception: If save fails
+        """
+        import os
+        import pickle
+
+        try:
+            # Prepare data to save
+            save_data = {
+                "cortical_areas": {
+                    cid: area.to_dict() for cid, area in self.cortical_areas.items()
+                },
+                "brain_regions": self.brain_regions.copy(),
+                "region_area_map": self.region_area_map.copy(),
+                "connectivity_rules": self.connectivity_rules.copy(),
+                "cortical_connections": self.cortical_connections.copy(),
+                "neuron_data": self._serialize_neuron_data(),
+                "synapse_data": self._serialize_synapse_data(),
+                "metadata": {
+                    "version": "1.0",
+                    "max_neurons": self.max_neurons,
+                    "max_synapses": self.max_synapses,
+                    "neuron_count": self.get_neuron_count(),
+                    "synapse_count": self.get_synapse_count(),
+                },
+            }
+
+            # Save to file
+            with open(filename, "wb") as f:
+                pickle.dump(save_data, f)
+
+            logger.info(f"Saved connectome to {filename}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to save connectome to {filename}: {e}")
+            raise
+
+    @classmethod
+    def load(cls, filename: str) -> "ConnectomeManager":
+        """Load a connectome from a file.
+
+        Args:
+            filename: Path to load the connectome from
+
+        Returns:
+            Loaded ConnectomeManager instance
+
+        Raises:
+            Exception: If load fails
+        """
+        import os
+        import pickle
+
+        try:
+            # Load data from file
+            with open(filename, "rb") as f:
+                save_data = pickle.load(f)
+
+            # Create new ConnectomeManager instance
+            metadata = save_data.get("metadata", {})
+            max_neurons = metadata.get("max_neurons", 10_000_000)
+            max_synapses = metadata.get("max_synapses", 100_000_000)
+
+            # Reset singleton to allow loading
+            cls.reset_singleton()
+            connectome = cls(max_neurons, max_synapses)
+
+            # Restore cortical areas
+            for cid, area_data in save_data.get("cortical_areas", {}).items():
+                from feagi.bdu.models.cortical_area import CorticalArea
+
+                area = CorticalArea.from_dict(area_data)
+                connectome.cortical_areas[cid] = area
+                # Only sync mapping if cortical_idx is valid
+                if area.cortical_idx is not None:
+                    connectome._sync_cortical_mapping(cid, area.cortical_idx)
+
+            # Restore brain regions and mappings
+            connectome.brain_regions = save_data.get("brain_regions", {})
+            connectome.region_area_map = save_data.get("region_area_map", {})
+            connectome.connectivity_rules = save_data.get("connectivity_rules", {})
+            connectome.cortical_connections = save_data.get("cortical_connections", {})
+
+            # Restore neuron and synapse data
+            connectome._deserialize_neuron_data(save_data.get("neuron_data", {}))
+            connectome._deserialize_synapse_data(save_data.get("synapse_data", {}))
+
+            logger.info(f"Loaded connectome from {filename}")
+            return connectome
+
+        except Exception as e:
+            logger.error(f"Failed to load connectome from {filename}: {e}")
+            raise
+
+    def _serialize_neuron_data(self) -> Dict[str, Any]:
+        """Serialize neuron data for saving."""
+        try:
+            # Get all valid neuron IDs
+            neuron_ids = []
+            for neuron_id, idx in self.neuron_array.id_to_index_map.items():
+                if self.neuron_array.valid_mask[idx]:
+                    neuron_ids.append(neuron_id)
+
+            # Serialize neuron properties
+            neuron_data = {}
+            for neuron_id in neuron_ids:
+                neuron_data[neuron_id] = self.get_neuron(neuron_id)
+
+            return {
+                "neurons": neuron_data,
+                "next_neuron_id": getattr(self.neuron_array, "_next_neuron_id", 1),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to serialize neuron data: {e}")
+            return {}
+
+    def _serialize_synapse_data(self) -> Dict[str, Any]:
+        """Serialize synapse data for saving."""
+        try:
+            synapses = []
+
+            # Get all synapses
+            for neuron_id in self.neuron_array.id_to_index_map.keys():
+                if neuron_id in self.neuron_array.id_to_index_map:
+                    outgoing = self.get_outgoing_connections(neuron_id)
+                    for target_id, weight in outgoing:
+                        synapses.append(
+                            {
+                                "pre_neuron_id": neuron_id,
+                                "post_neuron_id": target_id,
+                                "weight": weight,
+                            }
+                        )
+
+            return {"synapses": synapses}
+
+        except Exception as e:
+            logger.error(f"Failed to serialize synapse data: {e}")
+            return {}
+
+    def _deserialize_neuron_data(self, neuron_data: Dict[str, Any]) -> None:
+        """Deserialize neuron data after loading."""
+        try:
+            neurons = neuron_data.get("neurons", {})
+            next_neuron_id = neuron_data.get("next_neuron_id", 1)
+
+            # Restore next neuron ID
+            self.neuron_array._next_neuron_id = next_neuron_id
+
+            # Recreate neurons
+            for neuron_id_str, neuron_props in neurons.items():
+                neuron_id = int(neuron_id_str)
+                cortical_id = neuron_props.get("cortical_id")
+                position = neuron_props.get("position", (0, 0, 0))
+
+                # Create neuron with original ID
+                created_id = self.create_neuron(
+                    cortical_id=cortical_id,
+                    position=position,
+                    threshold=neuron_props.get("threshold", 1.0),
+                    membrane_potential=neuron_props.get("membrane_potential", 0.0),
+                    resting_potential=neuron_props.get("resting_potential", 0.0),
+                    decay_rate=neuron_props.get("decay_rate", 0.5),
+                    refractory_period=neuron_props.get("refractory_period", 1),
+                )
+
+                # Update mapping to use original ID if different
+                if created_id != neuron_id:
+                    # Fix the ID mapping
+                    idx = self.neuron_array.id_to_index_map[created_id]
+                    del self.neuron_array.id_to_index_map[created_id]
+                    self.neuron_array.id_to_index_map[neuron_id] = idx
+                    self.neuron_array.index_to_id_map[idx] = neuron_id
+
+        except Exception as e:
+            logger.error(f"Failed to deserialize neuron data: {e}")
+
+    def _deserialize_synapse_data(self, synapse_data: Dict[str, Any]) -> None:
+        """Deserialize synapse data after loading."""
+        try:
+            synapses = synapse_data.get("synapses", [])
+
+            # Recreate synapses
+            for synapse in synapses:
+                self.create_synapse(
+                    pre_neuron_id=synapse["pre_neuron_id"],
+                    post_neuron_id=synapse["post_neuron_id"],
+                    weight=synapse["weight"],
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to deserialize synapse data: {e}")
+
+    def batch_voxel_to_neuron_lookup(
+        self,
+        cortical_id: str,
+        candidate_positions: Set[Tuple[int, int, int]],
+        post_synaptic_current: float = 1.0,
+    ) -> List[Tuple[int, float]]:
+        """
+        Legacy-style batch lookup that converts voxel positions to neuron lists.
+
+        This replicates the performance characteristics of the original
+        voxels.voxel_list_to_neuron_list() function from legacy FEAGI.
+
+        PERFORMANCE: O(N) single pass through neurons, not O(P×N) individual lookups.
+
+        Args:
+            cortical_id: ID of the cortical area
+            candidate_positions: Set of (x, y, z) positions to find neurons for
+            post_synaptic_current: Weight value for found neurons
+
+        Returns:
+            List of (neuron_id, weight) tuples for neurons at candidate positions
+        """
+        if not candidate_positions:
+            return []
+
+        result = []
+        neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+
+        # Single O(N) pass through neurons (legacy approach)
+        for neuron_id in neurons_in_area:
+            neuron_pos = self.get_neuron_position(neuron_id)
+            if neuron_pos in candidate_positions:  # O(1) set lookup
+                result.append((neuron_id, post_synaptic_current))
+
+        return result

@@ -85,4 +85,4 @@ Place the JSON file here:
 feagi_core/feagi/test_mode_activations.json
 ```
 
-The file should be in the same directory as `test_mode.py`. 
+The file should be in the same directory as `test_mode.py`.

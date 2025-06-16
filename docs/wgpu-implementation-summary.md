@@ -77,7 +77,7 @@ class ArrayBackend:
         """Initialize wgpu backend (Rust-based GPU library with Metal backend on Mac)."""
         self.adapter = wgpu.gpu.request_adapter_sync()
         self.device = self.adapter.request_device_sync()
-        
+
     def _numpy_to_wgpu(self, array: np.ndarray) -> Any:
         """Convert NumPy array to wgpu buffer."""
         gpu_array = array.astype(np.float32)
@@ -90,7 +90,7 @@ class ArrayBackend:
         buffer._feagi_dtype = array.dtype
         buffer._feagi_size = array.size
         return buffer
-        
+
     def _wgpu_to_numpy(self, buffer: Any) -> np.ndarray:
         """Convert wgpu buffer to NumPy array."""
         # Create staging buffer for reading
@@ -102,11 +102,11 @@ class ArrayBackend:
         encoder = self.device.create_command_encoder()
         encoder.copy_buffer_to_buffer(buffer, 0, staging_buffer, 0, buffer.size)
         self.device.queue.submit([encoder.finish()])
-        
+
         staging_buffer.map_sync(wgpu.MapMode.READ)
         data_bytes = staging_buffer.read_mapped()
         staging_buffer.unmap()
-        
+
         # Convert back to numpy
         np_array = np.frombuffer(data_bytes, dtype=np.float32)
         return np_array.reshape(buffer._feagi_shape)
@@ -217,4 +217,4 @@ The clear distinction between wgpu (Rust-based) and WebGPU (web standard) has be
 ## See Also
 - [GPU Architecture Guide](arch-gpu.md)
 - [GPU Optimization Guide](arch-gpu-optimization.md)
-- [wgpu Compatibility](npu_wgpu_compatibility.md) 
+- [wgpu Compatibility](npu_wgpu_compatibility.md)

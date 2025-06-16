@@ -27,13 +27,15 @@ from typing import Tuple
 
 class FSMPChannelType(IntEnum):
     """Channel types for FSMP."""
+
     SENSORY = 0x00  # 0x0000-0x7FFF for sensory channels
-    MOTOR = 0x80    # 0x8000-0xFFFF for motor channels
+    MOTOR = 0x80  # 0x8000-0xFFFF for motor channels
     ERROR = 0xFF
 
 
 class FSMPDataType(IntEnum):
     """Data structure types for FSMP."""
+
     NEURON_POTENTIAL_DATA = 0x0B  # ID 11: Neuron Potential Data (Categories, XYZ)
     SENSORY_DATA = 0x01
     MOTOR_DATA = 0x02
@@ -44,7 +46,7 @@ class FSMPDataType(IntEnum):
 class FSMPMessageFormat:
     """
     FSMP message format utilities.
-    
+
     Format:
     +-------------+-------------+-------------+----------------+-------------+------------------+
     | Protocol ID | Version     | Channel     | Timestamp      | Data        | Data Payload     |
@@ -52,17 +54,23 @@ class FSMPMessageFormat:
     |             |             | (2 bytes)   |                | (4 bytes)   |                  |
     +-------------+-------------+-------------+----------------+-------------+------------------+
     """
-    
-    HEADER_FORMAT = "!HQI"  # Channel ID (2 bytes) + timestamp (8 bytes) + data length (4 bytes)
+
+    HEADER_FORMAT = (
+        "!HQI"  # Channel ID (2 bytes) + timestamp (8 bytes) + data length (4 bytes)
+    )
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-    
+
     @staticmethod
     def pack_header(channel_id: int, timestamp_ms: int, payload_length: int) -> bytes:
         """Pack FSMP header."""
-        return struct.pack(FSMPMessageFormat.HEADER_FORMAT, channel_id, timestamp_ms, payload_length)
-    
+        return struct.pack(
+            FSMPMessageFormat.HEADER_FORMAT, channel_id, timestamp_ms, payload_length
+        )
+
     @staticmethod
     def unpack_header(data: bytes) -> Tuple[int, int, int]:
         """Unpack FSMP header."""
-        channel_id, timestamp_ms, payload_length = struct.unpack(FSMPMessageFormat.HEADER_FORMAT, data)
-        return channel_id, timestamp_ms, payload_length 
+        channel_id, timestamp_ms, payload_length = struct.unpack(
+            FSMPMessageFormat.HEADER_FORMAT, data
+        )
+        return channel_id, timestamp_ms, payload_length

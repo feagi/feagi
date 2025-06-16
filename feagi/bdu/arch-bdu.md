@@ -156,8 +156,8 @@ neurons = [
 ]
 
 # Structure of Arrays (SoA) - More efficient for vectorized operations
-neuron_positions_x = [10, 11, ...]
-neuron_positions_y = [20, 20, ...]
+neuron_coordinates_x = [10, 11, ...]
+neuron_coordinates_y = [20, 20, ...]
 neuron_thresholds = [0.5, 0.5, ...]
 ```
 
@@ -189,4 +189,4 @@ For efficient processing of active neurons:
 - [BDU Module README](README.md)
 - [Connectome Management](docs/connectome.md)
 - [Connectivity Rules](docs/connectivity_rule.md)
-- [System Architecture](../../docs/arch-system-overview.md) 
+- [System Architecture](../../docs/arch-system-overview.md)

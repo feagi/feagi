@@ -29,4 +29,4 @@ if [ -d "${PROJECT_ROOT}/feagi_core/.venv_new" ]; then
 fi
 
 # Run the system integration tests
-python -m pytest ${SCRIPT_DIR}/integration "$@" 
+python -m pytest ${SCRIPT_DIR}/integration "$@"

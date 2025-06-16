@@ -29,10 +29,11 @@ import logging
 #         timestamp = self.formatTime(record, self.datefmt)
 #         return f"{emoji} [{timestamp}] {record.getMessage()}"
 
+
 def setup_feagi_logging():
     # logging.setLoggerClass(EmojiLogger)
     handler = logging.StreamHandler()
     # handler.setFormatter(EmojiFormatter("%(message)s", "%Y-%m-%d %H:%M:%S"))
     root = logging.getLogger()
     root.handlers = [handler]
-    root.setLevel(logging.WARNING) 
+    root.setLevel(logging.WARNING)

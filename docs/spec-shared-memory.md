@@ -88,43 +88,43 @@ Central singleton for system-wide state management with memory-mapped persistenc
 class FeagiStateManager:
     _instance = None
     _mmap_file = None
-    
+
     @classmethod
     def instance(cls, path=None):
         """Get singleton instance with memory-mapped backing"""
         if cls._instance is None:
             cls._instance = cls(path)
         return cls._instance
-    
+
     def __init__(self, path=None):
         if path is None:
             path = os.path.join(get_state_dir(), "feagi_state.mmap")
-        
+
         self.path = path
         self._initialize_mmap()
         self._load_state()
-    
+
     def _initialize_mmap(self):
         """Initialize memory-mapped file with proper structure"""
         # Ensure file exists with proper size
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        
+
         if not os.path.exists(self.path):
             self._create_initial_file()
-        
+
         # Memory-map the file
         self._mmap_file = mmap.mmap(
             os.open(self.path, os.O_RDWR),
             0,
             access=mmap.ACCESS_WRITE
         )
-    
+
     def get_genome_state(self) -> GenomeState:
         """Get current genome state with zero-copy access"""
         # Direct memory access - no serialization overhead
         state_value = struct.unpack('I', self._mmap_file[64:68])[0]
         return GenomeState(state_value)
-    
+
     def set_genome_state(self, state: GenomeState):
         """Set genome state with immediate persistence"""
         # Atomic write to memory-mapped region
@@ -174,12 +174,13 @@ ConnectomeManager Memory Map (feagi_connectome.mmap):
 │ - Cortical Area Count: uint32                               │
 │ - Array Offsets: uint64[N]                                  │
 └─────────────────────────────────────────────────────────────┘
-│ Neuron Properties (SoA Layout)                              │
+│ Neuron Array Optimized Structure of Arrays (SoA)           │
+│ ─────────────────────────────────────────────────────────── │
 │ - membrane_potentials: float32[max_neurons]                 │
-│ - firing_states: uint8[max_neurons]                         │
-│ - positions_x: uint32[max_neurons]                          │
-│ - positions_y: uint32[max_neurons]                          │
-│ - positions_z: uint32[max_neurons]                          │
+│ - thresholds: float32[max_neurons]                          │
+│ - coordinates_x: uint32[max_neurons]                        │
+│ - coordinates_y: uint32[max_neurons]                        │
+│ - coordinates_z: uint32[max_neurons]                        │
 └─────────────────────────────────────────────────────────────┘
 │ Cortical Area Metadata (JSON)                               │
 │ - Area definitions, types, parameters                       │
@@ -198,18 +199,18 @@ class ConnectomeManager:
         if cls._instance is None:
             cls._instance = cls(max_neurons, max_synapses)
         return cls._instance
-    
+
     def get_firing_neurons(self, cortical_area_id: str) -> np.ndarray:
         """Get firing neurons with zero-copy access"""
         # Direct access to memory-mapped firing state array
         area_offset, area_size = self._get_area_bounds(cortical_area_id)
-        
+
         # Zero-copy slice of memory-mapped array
         firing_slice = self.firing_states[area_offset:area_offset + area_size]
-        
+
         # Return indices of firing neurons
         return np.where(firing_slice > 0)[0] + area_offset
-    
+
     def get_membrane_potentials(self, neuron_indices: np.ndarray) -> np.ndarray:
         """Get membrane potentials with zero-copy access"""
         # Direct indexing into memory-mapped array
@@ -289,17 +290,17 @@ def initialize_feagi_state():
     """Initialize FEAGI with memory-mapped state"""
     # 1. Initialize state manager singleton
     state_manager = FeagiStateManager.instance()
-    
-    # 2. Initialize connectome manager singleton  
+
+    # 2. Initialize connectome manager singleton
     connectome = ConnectomeManager.instance()
-    
+
     # 3. Verify memory-mapped files are healthy
     if not state_manager.verify_integrity():
         raise RuntimeError("State file corruption detected")
-    
+
     # 4. Set initial states
     state_manager.set_brain_state(BrainState.INITIALIZING)
-    
+
     return state_manager, connectome
 ```
 
@@ -314,11 +315,11 @@ def verify_mmap_integrity(mmap_file):
     magic = struct.unpack('Q', mmap_file[0:8])[0]
     if magic != FEAGI_MAGIC_NUMBER:
         return False
-    
+
     # Verify checksum
     stored_checksum = struct.unpack('Q', mmap_file[8:16])[0]
     calculated_checksum = calculate_checksum(mmap_file[16:])
-    
+
     return stored_checksum == calculated_checksum
 ```
 
@@ -337,10 +338,10 @@ def test_singleton_consistency():
     """Ensure singleton instances provide consistent state"""
     state1 = FeagiStateManager.instance()
     state2 = FeagiStateManager.instance()
-    
+
     # Same instance reference
     assert state1 is state2
-    
+
     # Consistent state reads
     state1.set_genome_state(GenomeState.LOADED)
     assert state2.get_genome_state() == GenomeState.LOADED
@@ -352,13 +353,13 @@ def test_singleton_consistency():
 def benchmark_state_access():
     """Benchmark memory-mapped state access performance"""
     state_manager = FeagiStateManager.instance()
-    
+
     # Measure read latency
     start = time.perf_counter()
     for _ in range(1000000):
         state = state_manager.get_genome_state()
     read_time = time.perf_counter() - start
-    
+
     print(f"Average read latency: {read_time / 1000000 * 1e9:.1f} ns")
 ```
 
@@ -367,4 +368,4 @@ def benchmark_state_access():
 - [System Architecture](arch-system-overview.md)
 - [State Management](arch-state-management.md)
 - [API Formats](spec-api-formats.md)
-- [Usage Guide](guide-usage.md) 
+- [Usage Guide](guide-usage.md)

@@ -123,7 +123,7 @@ This document tracks the progress of the API refactoring effort to ensure all AP
   - [x] `/cortical_mapping/mapping_properties` (PUT) - Update mapping properties
   - [x] `/cortical_mapping/cortical_map` (GET) - Get the full cortical map
   - [x] `/cortical_mapping/delete_suggested_mappings` (DELETE) - Remove mappings
-- [x] `/input/*` 
+- [x] `/input/*`
   - [x] `/input/vision` (GET)
   - [x] `/input/vision` (POST)
 - [ ] `/network/*`
@@ -212,4 +212,4 @@ This document tracks the progress of the API refactoring effort to ensure all AP
    - Completed all `/insight/*` endpoints
    - Created new methods in CoreAPIService for vision, regions, cortical mappings, and monitoring
    - Next targets: agent system endpoints
-   - Create new `/monitoring/*` router for system metrics (partial implementation completed) 
+   - Create new `/monitoring/*` router for system metrics (partial implementation completed)

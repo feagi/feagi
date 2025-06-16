@@ -64,10 +64,10 @@ This document outlines the comprehensive testing approach for FEAGI, covering te
 def test_function_name_scenario_description():
     # Arrange
     # Set up test inputs and expected outputs
-    
+
     # Act
     # Call the function being tested
-    
+
     # Assert
     # Verify the results match expectations
 ```
@@ -77,10 +77,10 @@ def test_function_name_scenario_description():
 def test_component_interaction_scenario():
     # Arrange
     # Set up components and their dependencies
-    
+
     # Act
     # Execute workflow that involves multiple components
-    
+
     # Assert
     # Verify components interact correctly
 ```
@@ -114,10 +114,10 @@ def test_fcl_update_with_single_neuron_firing():
     fcl_manager = HierarchicalFCL()
     cortical_area_id = 1
     neuron_id = 42
-    
+
     # Act
     fcl_manager.update_fcl({cortical_area_id: [neuron_id]})
-    
+
     # Assert
     assert fcl_manager.get_area_fcl(cortical_area_id).contains(neuron_id)
     assert fcl_manager.get_global_fcl().contains(neuron_id)
@@ -127,7 +127,7 @@ def test_fcl_update_with_single_neuron_firing():
 
 All tests should be automatically run in the CI pipeline:
 - On every pull request
-- Nightly against the main branch  
+- Nightly against the main branch
 - With coverage reports generated and published
 
 ## Progress Tracking
@@ -140,4 +140,4 @@ All tests should be automatically run in the CI pipeline:
 | npu/burst_engine | □ | □ | □ |
 | bdu/* | □ | □ | □ |
 | pns/* | □ | □ | □ |
-| api/* | □ | □ | □ | 
+| api/* | □ | □ | □ |

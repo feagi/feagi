@@ -1,9 +1,9 @@
 # FEAGI Embedded Mode Architecture
 
-**Document Version:** 1.0  
-**Created:** 2025-01-26  
-**Status:** Implemented  
-**Author:** AI Assistant + Engineering Team  
+**Document Version:** 1.0
+**Created:** 2025-01-26
+**Status:** Implemented
+**Author:** AI Assistant + Engineering Team
 
 ## Overview
 
@@ -112,7 +112,7 @@ app.include_router(system_router)  # Executed during import!
 def create_rest_app():
     if EMBEDDED_MODE:
         return None
-    
+
     app = FastAPI()
     # ✅ Moved all router includes inside function
     from feagi.api.v1.system.router import router as system_router
@@ -136,7 +136,7 @@ api_thread.start()
 # Complete elimination - no HTTP server
 logger.info("🔧 Embedded mode: REST API completely disabled")
 logger.info("🔧 Control interface available only via ZMQ streams")
-logger.info("🔧 Status available via ZMQ control stream: tcp://127.0.0.1:5559")
+logger.info("🔧 Status available via ZMQ REST stream: tcp://127.0.0.1:5563")
 ```
 
 ### 5. Stub Implementation Strategy
@@ -186,7 +186,7 @@ if EMBEDDED_MODE:
 6. **Contradictory Minimal Server**
    - Originally included a "minimal TCP status server"
    - Removed after user feedback as it contradicted embedded goals
-   - Status now available only via ZMQ control stream
+   - Status now available only via ZMQ REST stream
 
 ### ✅ Retained in Embedded Mode
 
@@ -242,6 +242,33 @@ tcp4  127.0.0.1.5564  *.*  LISTEN  # Motor output
 
 ## Control Interface in Embedded Mode
 
+### ZMQ REST Stream
+
+In embedded mode, all API communication goes through the ZMQ REST stream (port 5563), which provides the same functionality as the HTTP REST API but over efficient ZMQ transport.
+
+```python
+# Agent registration in embedded mode
+import zmq
+import json
+
+context = zmq.Context()
+socket = context.socket(zmq.DEALER)
+socket.connect("tcp://localhost:5563")
+
+# Register agent via ZMQ REST
+request = {
+    "method": "POST",
+    "route": "/v1/agents/register",
+    "body": {
+        "agent_id": "embedded_agent",
+        "agent_type": "embedded_device"
+    }
+}
+socket.send_multipart([b"", json.dumps(request).encode()])
+response = socket.recv_multipart()
+print(json.loads(response[1]))
+```
+
 ### ZMQ Control Stream
 
 **Primary Interface:** `tcp://127.0.0.1:5559`
@@ -268,17 +295,11 @@ tcp4  127.0.0.1.5564  *.*  LISTEN  # Motor output
   "data": {
     "mode": "embedded",
     "brain_state": "READY",
-    "features": ["zmq_control", "zmq_sensory", "zmq_motor"],
+    "features": ["zmq_rest", "zmq_sensory", "zmq_motor"],
     "disabled": ["rest_api", "visualization", "web_interface"]
   }
 }
 ```
-
-### ZMQ REST Adapter
-
-**Endpoint:** `tcp://127.0.0.1:5563`
-
-Provides REST-like API access via ZMQ for compatibility with existing clients while maintaining the resource benefits of ZMQ transport.
 
 ## Testing and Validation
 
@@ -375,7 +396,7 @@ netstat -an | grep LISTEN | grep -E "(555[0-9]|556[0-9])"
    # Add to profiling tests
    from memory_profiler import profile
    from pympler import tracker, muppy
-   
+
    @profile
    def analyze_component_memory():
        # Detailed per-component analysis
@@ -518,12 +539,12 @@ The foundation is now in place for further embedded optimizations, eventual Rust
 ## References
 
 - [FEAGI Configuration System Documentation](./config-system.md)
-- [ZMQ Protocol Specifications](./zmq-protocols.md)  
+- [ZMQ Protocol Specifications](./zmq-protocols.md)
 - [Resource Profiling Guide](./profiling-guide.md)
 - [Rust Migration Planning](./rust-migration-plan.md)
 
 ---
 
-**Next Review:** Q2 2025  
-**Stakeholders:** Embedded Systems Team, Core Architecture Team, Performance Engineering  
-**Priority:** High - Critical for edge deployment strategy 
+**Next Review:** Q2 2025
+**Stakeholders:** Embedded Systems Team, Core Architecture Team, Performance Engineering
+**Priority:** High - Critical for edge deployment strategy

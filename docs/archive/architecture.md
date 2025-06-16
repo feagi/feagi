@@ -8,7 +8,7 @@ description: Overall architecture and design of FEAGI 2.1
 
 ## Project Overview
 
-The Framework for Evolutionary Artificial General Intelligence (FEAGI) 
+The Framework for Evolutionary Artificial General Intelligence (FEAGI)
 
 ## Features
 
@@ -33,11 +33,11 @@ FEAGI uses a message-based architecture for its BurstEngine implementation, prov
 │       ├── sec/            # Placeholder for authentication and encryption modules
 │       └── api/            # API
 │           └── routes/     # routes structured by version
-│               ├── v1/     # 
+│               ├── v1/     #
 │               └── v2/     #
 │   ├── bdu/                # Brain Developmental Unit
 │   ├── npu/                # Neural Processing Unit
-│   ├── evo/                # Evolutionary Unit 
+│   ├── evo/                # Evolutionary Unit
 │   ├── pns/                # Peripherial Nervous System and sensorimotor IO modules
 │   └── viz/                # Visualization data transformation
 ├── tests/                  # Unit, integration, and functional tests
@@ -48,7 +48,7 @@ FEAGI uses a message-based architecture for its BurstEngine implementation, prov
 ```
 
 ## Compute Resource Strategy
-- A subset of operations under Neural Processing Unit associated with neuron firing will be designed 
+- A subset of operations under Neural Processing Unit associated with neuron firing will be designed
 to support both CPU and GPU backends. The rest of the application will be running on CPU.
 - The entire application needs to be designed in such way that can run as a highly parallel and performant fashion
 - The code must be written in a format, so it can be easily ported into Rust in the future.
@@ -60,15 +60,15 @@ to support both CPU and GPU backends. The rest of the application will be runnin
 FEAGI API and ZMQ will eventually be equipped with authentication enabling secure communication on all communication methods.
 
 ### Encryption
-Encryption can negatively impact the transmission of sensorimotor data by adding latency but might be essential for 
-select use-cases. Both API and ZMQ support the encryption option and measures should be made to make encryption 
+Encryption can negatively impact the transmission of sensorimotor data by adding latency but might be essential for
+select use-cases. Both API and ZMQ support the encryption option and measures should be made to make encryption
 available as an option in the future.
 
 ## Design Requirements
 
-Major modules: 
+Major modules:
 - Core (CORE)
-  - API/Webserver (API)  
+  - API/Webserver (API)
   - ZMQ message handler
 - Peripheral Nervous System (PNS)
   - Sensory processor
@@ -82,20 +82,20 @@ Major modules:
 - Sleep (SLP)
   - Memory consolidation
   - Neural development
-  
+
 
 ### REST API
-- Should be organized in version folders to enable future maintainability. Routes should be defined enabling endpoints 
+- Should be organized in version folders to enable future maintainability. Routes should be defined enabling endpoints
 to be organized by functional area.
 
 ### ZMQ Handler
-Initiates a ZMQ server with the ability to support multiple topics enabling multithreaded communication to and from 
-FEAGI. 
+Initiates a ZMQ server with the ability to support multiple topics enabling multithreaded communication to and from
+FEAGI.
 
 ### Resource Manager
-FEAGI consists of many independent processes with various requirements such as some running on CPU vs. others suitable 
-for GPU, some being mission-critical and highly time sensitive such neuron firing process vs sleep or api 
-handling. The resource manager is responsible for starting, terminating, and orchestrating all FEAGI processes and 
+FEAGI consists of many independent processes with various requirements such as some running on CPU vs. others suitable
+for GPU, some being mission-critical and highly time sensitive such neuron firing process vs sleep or api
+handling. The resource manager is responsible for starting, terminating, and orchestrating all FEAGI processes and
 initialization of critical data structures.
 
 ### Brain Development Unit (BDU)
@@ -109,21 +109,21 @@ The Brain Developmental Unit (BDU) facilitates methods and processes that enable
 - synapses
 
 #### Cortical Areas
-Cortical areas are 3D meshes that represent an ensemble of neurons with common properties. Each cortical area is 
+Cortical areas are 3D meshes that represent an ensemble of neurons with common properties. Each cortical area is
 consisted of distinct neuron blocks where each could house one or more neurons.
 
 Refer to `cortical_area.md` for additional details.
 
 
 #### Neurons and Global Neuron Array
-FEAGI is built to support up to billions of neurons. This requires a data structure that can support the storage of such 
-large neuron count in a very efficient way. When neurons are generated, depending on the cortical area they belong 
-they will inherit the properties of given cortical area. 
+FEAGI is built to support up to billions of neurons. This requires a data structure that can support the storage of such
+large neuron count in a very efficient way. When neurons are generated, depending on the cortical area they belong
+they will inherit the properties of given cortical area.
 
-The definition for each individual neuron along with dynamic firing variables are captured within the Global Neuron 
-Array (GNA). 
+The definition for each individual neuron along with dynamic firing variables are captured within the Global Neuron
+Array (GNA).
 
-Considering the scalability requirements, the GNA data structure could grow considerably large. It is crucial to 
+Considering the scalability requirements, the GNA data structure could grow considerably large. It is crucial to
 maintain a minimal footprint on GAN while allowing high performance CRUD operations against it.
 
 Refer to `neuron.md` for additional details.
@@ -169,7 +169,7 @@ The Global Neuron Array uses a sophisticated memory management system to efficie
 This memory management approach balances performance, memory efficiency, and dynamic capacity requirements for large-scale neural simulations.
 
 #### Brain Regions
-Brain regions define a collection of cortical areas and represent a functional structure with distinct inputs and 
+Brain regions define a collection of cortical areas and represent a functional structure with distinct inputs and
 outputs. Brain regions can be exported as independent genomes and can be imported as a functional building block.
 
 Brain region properties:
@@ -197,7 +197,7 @@ Connectivity rule type:
 Refer to `connectivity_rule.md` for additional details.
 
 #### Cortical Mappings
-The relationship defined between a source and destination cortical area (can be self) that defines how neurons are 
+The relationship defined between a source and destination cortical area (can be self) that defines how neurons are
 supposed to connect to each other.
 
 Cortical mapping properties:
@@ -212,7 +212,7 @@ Cortical mapping properties:
 Refer to `cortical_mapping.md` for additional details.
 
 #### Synapses
-Defines the connection between two neurons. Synaptic properties, in addition to the source and destination data, 
+Defines the connection between two neurons. Synaptic properties, in addition to the source and destination data,
 includes properties inherited from cortical mapping that leads to their generation.
 
 FEAGI is built to support up to billions of neurons which can lead
@@ -230,7 +230,7 @@ These acceleration structures enable O(1) access to a neuron's incoming and outg
 For detailed implementation approaches, refer to `synapse.md`.
 
 #### Connectome
-The collection of all data structures representing the brain is called connectome that includes 
+The collection of all data structures representing the brain is called connectome that includes
 - neurons
 - synapses
 - connectivity rules
@@ -240,7 +240,7 @@ The collection of all data structures representing the brain is called connectom
 
 
 #### Connectome Manager
-Connectome manager is the process responsible for: 
+Connectome manager is the process responsible for:
 - initialization of connectome data structures e.g. neurons, synapses, cortical area, brain regions, and mappings
 - performing CRUD (create, read, update, delete) operations against elements within each connectome data structure
 
@@ -291,8 +291,8 @@ The update process maintains the temporal aspect of the simulation while providi
 ### Sensorimotor IO
 
 #### Spike Encoding and Decoding
-The conversion of sensory data into spikes (neural encoding) and neuronal activities into motor actions 
-(neural decoding) is discussed here. 
+The conversion of sensory data into spikes (neural encoding) and neuronal activities into motor actions
+(neural decoding) is discussed here.
 
 FEAGI leverages temporal encoding.
 
@@ -380,7 +380,7 @@ A master template file called `templates.py` will capture all default parameters
 
 
 # Path to Rust Migration
-There is a strong incentive to make FEAGI available in Rust. The entire codebase needs to be written in such way 
+There is a strong incentive to make FEAGI available in Rust. The entire codebase needs to be written in such way
 allowing for a smooth Rust migration.
 
 Best Practices for Writing Python-to-Rust-Compatible Code
@@ -425,7 +425,7 @@ The FCL visualizer supports two sampling modes to maintain visualization perform
 
 - **Ratio-based sampling** (0.0-1.0): Randomly selects a percentage of FCLs to visualize
   - Example: 0.1 means visualize ~10% of FCLs
-  
+
 - **Frequency-based sampling** (>1.0): Caps visualization at a maximum frequency (Hz)
   - Example: 30 means visualize at most 30 FCLs per second
 

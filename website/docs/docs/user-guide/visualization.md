@@ -59,31 +59,31 @@ class FeagiVisualizationClient:
         self.feagi_host = feagi_host
         self.client_id = client_id
         self.running = False
-        
+
         # Set up ZMQ connection for data
         self.context = zmq.Context()
         self.data_socket = self.context.socket(zmq.SUB)
         self.data_socket.connect(f"tcp://{feagi_host}:5562")
         self.data_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-        
+
     def start(self):
         """Start the visualization client with heartbeat."""
         self.running = True
-        
+
         # Start heartbeat thread
         self.heartbeat_thread = threading.Thread(target=self._heartbeat_worker, daemon=True)
         self.heartbeat_thread.start()
-        
+
         # Start data processing
         self._process_data()
-        
+
     def stop(self):
         """Stop the client and cleanup."""
         self.running = False
         if hasattr(self, 'heartbeat_thread'):
             self.heartbeat_thread.join(timeout=1.0)
         self.context.term()
-        
+
     def _heartbeat_worker(self):
         """Send periodic heartbeats to maintain connection."""
         while self.running:
@@ -99,9 +99,9 @@ class FeagiVisualizationClient:
                     print(f"Heartbeat failed: {response.status_code}")
             except Exception as e:
                 print(f"Heartbeat error: {e}")
-            
+
             time.sleep(5)  # Send every 5 seconds
-            
+
     def _process_data(self):
         """Process incoming visualization data."""
         while self.running:
@@ -115,7 +115,7 @@ class FeagiVisualizationClient:
                 continue  # Timeout, check running flag
             except Exception as e:
                 print(f"Data processing error: {e}")
-                
+
     def _handle_neural_activity(self, data):
         """Handle incoming neural activity data."""
         # Decode using feagi_bytes library
@@ -123,10 +123,10 @@ class FeagiVisualizationClient:
             from feagi_bytes import ByteStructureDecoder
             decoder = ByteStructureDecoder()
             decoded = decoder.decode_neuron_flat(data)
-            
+
             print(f"Received activity from {len(set(decoded['cortical_ids']))} cortical areas")
             print(f"Total neurons: {len(decoded['x_coords'])}")
-            
+
         except ImportError:
             print(f"Received {len(data)} bytes of neural data (feagi_bytes not available)")
 
@@ -203,19 +203,19 @@ class MonitoredVisualizationClient(FeagiVisualizationClient):
             'bytes_received': 0,
             'start_time': time.time()
         }
-        
+
     def _handle_neural_activity(self, data):
         # Update statistics
         self.stats['messages_received'] += 1
         self.stats['bytes_received'] += len(data)
-        
+
         # Print stats every 100 messages
         if self.stats['messages_received'] % 100 == 0:
             runtime = time.time() - self.stats['start_time']
             rate = self.stats['messages_received'] / runtime
             print(f"Received {self.stats['messages_received']} messages "
                   f"({rate:.1f} msg/s, {self.stats['bytes_received']} bytes)")
-        
+
         # Process the data
         super()._handle_neural_activity(data)
 ```
@@ -230,7 +230,7 @@ def check_feagi_status():
     try:
         response = requests.get("http://localhost:8000/v1/system/health_check")
         health = response.json()
-        
+
         if health.get('genome_availability') and health.get('brain_readiness'):
             print("✅ FEAGI ready for visualization")
             return True
@@ -289,7 +289,7 @@ class DataLogger:
     def __init__(self, filename):
         self.filename = filename
         self.data_log = []
-        
+
     def log_activity(self, decoded_data):
         """Log neural activity with timestamp."""
         timestamp = time.time()
@@ -299,7 +299,7 @@ class DataLogger:
             'neuron_count': len(decoded_data['x_coords']),
             'activity_level': sum(decoded_data['membrane_potentials']) / len(decoded_data['membrane_potentials'])
         })
-        
+
     def save_to_json(self):
         """Save logged data to JSON file."""
         import json
@@ -359,7 +359,7 @@ Multiple visualization clients can connect simultaneously:
 ```python
 # Example: Multiple specialized clients
 brain_monitor = FeagiVisualizationClient(client_id="brain_monitor")
-activity_logger = FeagiVisualizationClient(client_id="activity_logger")  
+activity_logger = FeagiVisualizationClient(client_id="activity_logger")
 performance_analyzer = FeagiVisualizationClient(client_id="performance_analyzer")
 
 # Each client gets the same data but can process it differently
@@ -379,29 +379,29 @@ class RealTimePlotter(FeagiVisualizationClient):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.activity_history = deque(maxlen=100)
-        
+
         # Set up real-time plot
         plt.ion()
         self.fig, self.ax = plt.subplots()
         self.line, = self.ax.plot([], [])
-        
+
     def _handle_neural_activity(self, data):
         # Calculate average activity level
         try:
             from feagi_bytes import ByteStructureDecoder
             decoder = ByteStructureDecoder()
             decoded = decoder.decode_neuron_flat(data)
-            
+
             avg_activity = np.mean(decoded['membrane_potentials'])
             self.activity_history.append(avg_activity)
-            
+
             # Update plot
-            self.line.set_data(range(len(self.activity_history)), 
+            self.line.set_data(range(len(self.activity_history)),
                              list(self.activity_history))
             self.ax.relim()
             self.ax.autoscale_view()
             plt.pause(0.01)
-            
+
         except ImportError:
             pass  # Skip plotting if feagi_bytes not available
 ```
@@ -425,4 +425,4 @@ class RealTimePlotter(FeagiVisualizationClient):
 
 - Learn about [Agent Connections](/user-guide/agents) to integrate external systems
 - Explore [Tutorial Projects](/user-guide/tutorials) for practical examples
-- Review [ZMQ Streams Documentation](../../feagi/api/zmq/streams/README.md) for technical details 
+- Review [ZMQ Streams Documentation](../../feagi/api/zmq/streams/README.md) for technical details

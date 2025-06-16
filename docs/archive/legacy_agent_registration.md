@@ -45,7 +45,7 @@ When an agent registered:
    - Reused the agent's provided port
    - Created a ZMQ Sub connection to listen to the agent
    - Turned on brain activity publication
-   
+
 2. For **other agents** (robots, devices):
    - Assigned an available port from a range (40001-40050)
    - Created a ZMQ communication channel bound to that port
@@ -100,4 +100,4 @@ The legacy system:
 - Had simpler capabilities processing
 - Lacked centralized error handling and validation
 
-The current FEAGI 2.1 implementation refines this approach with a more service-oriented architecture that improves code organization, maintainability, and error handling. 
+The current FEAGI 2.1 implementation refines this approach with a more service-oriented architecture that improves code organization, maintainability, and error handling.

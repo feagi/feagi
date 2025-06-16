@@ -23,10 +23,8 @@ brain functionality and handles requests properly.
 They use the 'brain_state' test group to ensure appropriate mocking.
 """
 
+
 import pytest
-from fastapi.testclient import TestClient
-import json
-from unittest.mock import MagicMock
 
 # Mark all tests in this module as belonging to the brain_state group
 pytestmark = [pytest.mark.api, pytest.mark.api_group("brain_state")]
@@ -50,11 +48,7 @@ def test_get_brain_state(brain_state_client):
 @pytest.mark.api
 def test_stimulate_neurons(brain_state_client):
     """Test stimulating neurons via the API."""
-    stim_data = {
-        "neurons": [1, 2, 3, 4, 5],
-        "strength": 1.0,
-        "duration": 3
-    }
+    stim_data = {"neurons": [1, 2, 3, 4, 5], "strength": 1.0, "duration": 3}
     response = brain_state_client.post("/v1/brain/stimulate", json=stim_data)
     assert response.status_code in (200, 404)
     if response.status_code == 200:
@@ -70,7 +64,7 @@ def test_create_cortical_area(brain_state_client):
         "name": "Test Area",
         "type": "interconnect",
         "dimensions": [10, 10, 5],
-        "position": [100, 100, 50]
+        "position": [100, 100, 50],
     }
     response = brain_state_client.post("/v1/brain/areas", json=area_data)
     assert response.status_code in (201, 404, 400)
@@ -104,4 +98,4 @@ def test_get_cortical_area_activity(brain_state_client):
         assert "active_neurons" in data
         assert "average_activity" in data
         assert data["area_id"] == "1"
-        assert isinstance(data["active_neurons"], list) 
+        assert isinstance(data["active_neurons"], list)

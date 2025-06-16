@@ -21,57 +21,57 @@ This module defines default configuration values to ensure FEAGI
 can operate with reasonable defaults when no specific configuration is provided.
 """
 
-import os
 import multiprocessing as mp
-from typing import Dict, Any, List, Optional
+import os
 from dataclasses import dataclass, field
+from typing import Any, Dict
 
 
 @dataclass
 class DefaultConfig:
     """
     Default configuration dataclass to provide type hints and documentation.
-    
+
     This class doesn't contain the actual values but defines the structure
     and documentation for configuration options.
     """
-    
+
     # System configuration
     system: Dict[str, Any] = field(default_factory=dict)
     """System-level configuration options"""
-    
+
     # Resource configuration
     resources: Dict[str, Any] = field(default_factory=dict)
     """Resource allocation and management configuration"""
-    
+
     # Neural Processing Unit configuration
     npu: Dict[str, Any] = field(default_factory=dict)
     """Neural Processing Unit configuration"""
-    
+
     # API configuration
     api: Dict[str, Any] = field(default_factory=dict)
     """API server configuration"""
-    
+
     # ZMQ configuration
     zmq: Dict[str, Any] = field(default_factory=dict)
     """ZeroMQ communication configuration"""
-    
+
     # Peripheral Nervous System configuration
     pns: Dict[str, Any] = field(default_factory=dict)
     """Peripheral Nervous System configuration"""
-    
+
     # Brain Developmental Unit configuration
     bdu: Dict[str, Any] = field(default_factory=dict)
     """Brain Developmental Unit configuration"""
-    
+
     # Evolutionary Unit configuration
     evo: Dict[str, Any] = field(default_factory=dict)
     """Evolutionary Unit configuration"""
-    
+
     # Visualization configuration
     viz: Dict[str, Any] = field(default_factory=dict)
     """Visualization configuration"""
-    
+
     # Logging configuration
     logging: Dict[str, Any] = field(default_factory=dict)
     """Logging configuration"""
@@ -92,14 +92,14 @@ def _is_containerized() -> bool:
     # Check for container indicators
     if os.path.exists("/.dockerenv"):
         return True
-    
+
     try:
         with open("/proc/1/cgroup", "r") as f:
             if "docker" in f.read() or "kubepods" in f.read():
                 return True
     except (IOError, FileNotFoundError):
         pass
-        
+
     return False
 
 
@@ -109,10 +109,11 @@ DEFAULT_CONFIG = {
         "mode": "development",  # Options: 'development', 'production', 'test'
         "debug": True,
         "log_level": "INFO",
-        "data_dir": os.environ.get("FEAGI_DATA_DIR", os.path.expanduser("~/.feagi/data")),
+        "data_dir": os.environ.get(
+            "FEAGI_DATA_DIR", os.path.expanduser("~/.feagi/data")
+        ),
         "container_mode": _is_containerized(),
     },
-    
     "resources": {
         "cpu_cores": _get_default_cpu_cores(),
         "use_gpu": True,  # Whether to use GPU if available
@@ -123,7 +124,6 @@ DEFAULT_CONFIG = {
             "enable_health_check": True,  # Enable process health monitoring
         },
     },
-    
     "npu": {
         "backend": "auto",  # Options: 'auto', 'cpu', 'gpu', 'webgpu', 'cuda', 'metal'
         "burst_engine": {
@@ -140,13 +140,13 @@ DEFAULT_CONFIG = {
             "stdp_time_window": 20,  # ms, STDP time window
         },
     },
-    
     "api": {
         "enabled": True,
         "host": os.environ.get("FEAGI_API_HOST", "0.0.0.0"),
         "port": int(os.environ.get("FEAGI_API_PORT", "8000")),
         "workers": int(os.environ.get("FEAGI_API_WORKERS", "1")),
-        "reload": os.environ.get("FEAGI_API_RELOAD", "0").lower() in ["1", "true", "yes"],
+        "reload": os.environ.get("FEAGI_API_RELOAD", "0").lower()
+        in ["1", "true", "yes"],
         "cors": {
             "enabled": True,
             "origins": ["*"],  # Default to allowing all origins in development
@@ -156,7 +156,6 @@ DEFAULT_CONFIG = {
             "token_expiration": 86400,  # 24 hours in seconds
         },
     },
-    
     "zmq": {
         "enabled": True,
         "host": os.environ.get("FEAGI_ZMQ_HOST", "0.0.0.0"),
@@ -165,7 +164,6 @@ DEFAULT_CONFIG = {
         "topics": ["neural", "metrics", "heartbeat"],
         "polling_timeout": 100,  # ms
         "message_buffer_size": 100,  # Maximum messages to buffer
-        
         # Stream-specific enable/disable configuration
         "streams": {
             "visualization": {
@@ -179,12 +177,11 @@ DEFAULT_CONFIG = {
             "motor": {
                 "enabled": True,  # Enable motor stream
             },
-            "control": {
-                "enabled": True,  # Enable control stream
+            "rest": {
+                "enabled": True,  # Enable REST API stream (primary API interface)
             },
         },
     },
-    
     "pns": {
         "enabled": True,
         "adapters": {
@@ -198,7 +195,6 @@ DEFAULT_CONFIG = {
             },
         },
     },
-    
     "bdu": {
         "enabled": True,
         "stem_cell_manager": {
@@ -206,19 +202,16 @@ DEFAULT_CONFIG = {
             "development_interval": 100,  # Timesteps between development cycles
         },
     },
-    
     "evo": {
         "enabled": False,  # Disabled by default
         "population_size": 100,
         "mutation_rate": 0.01,
         "crossover_rate": 0.7,
     },
-    
     "viz": {
         "enabled": True,
         "update_interval": 50,  # ms between visualization updates
     },
-    
     "logging": {
         "level": "INFO",
         "file": {
@@ -232,4 +225,4 @@ DEFAULT_CONFIG = {
             "format": "%(asctime)s - %(levelname)s - %(message)s",
         },
     },
-} 
+}

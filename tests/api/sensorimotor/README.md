@@ -28,4 +28,4 @@ pytest tests/api/sensorimotor/test_fcl_injection.py
 - A running FEAGI instance
 - The `feagi_bytes` Python package installed
 - The `feagi_connector` Python package installed
-- ZeroMQ (with Python bindings) 
+- ZeroMQ (with Python bindings)

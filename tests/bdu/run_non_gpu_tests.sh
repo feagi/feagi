@@ -38,4 +38,4 @@ python -m pytest \
     ${SCRIPT_DIR}/unit/test_multi_gpu.py::TestMultiGPUManagerMock \
     ${SCRIPT_DIR}/unit/test_mixed_precision.py \
     ${SCRIPT_DIR}/performance/test_synaptogenesis_performance.py \
-    "$@" 
+    "$@"

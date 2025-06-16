@@ -3,7 +3,7 @@
 #
 # This configuration file uses TOML format for:
 # - Rust/RTOS compatibility
-# - Cloud-native deployments  
+# - Cloud-native deployments
 # - Human-readable structure with comments
 
 [system]
@@ -12,6 +12,13 @@ max_cores = 0  # 0 = auto-detect
 debug = true
 log_level = "INFO"
 data_dir = ""  # Must be set via environment variable or configuration override
+
+[genome]
+# Genome loading and validation configuration
+auto_recovery_on_validation_failure = true  # Allow loading invalid genomes with auto-recovery (default: true)
+                                            # Set to false to reject invalid genomes completely for safety/stability
+                                            # When true: Invalid genomes are loaded but marked as invalid in state manager
+                                            # When false: Invalid genomes cause loading to fail immediately
 
 [api]
 # REST API server configuration
@@ -24,7 +31,7 @@ reload = false      # Can be overridden with $FEAGI_API_RELOAD
 
 [ports]
 # ZMQ Communication Ports
-# 
+#
 # ⚠️  CRITICAL: All port values are REQUIRED and must be explicitly set
 # ⚠️  DO NOT change these ports while FEAGI is running
 # ⚠️  Restart FEAGI after making any port changes
@@ -35,12 +42,11 @@ reload = false      # Can be overridden with $FEAGI_API_RELOAD
 
 # Core ZMQ Communication Patterns
 zmq_req_rep_port = 5555      # Request-Reply pattern
-zmq_pub_sub_port = 5556      # Publish-Subscribe pattern  
+zmq_pub_sub_port = 5556      # Publish-Subscribe pattern
 zmq_push_pull_port = 5557    # Push-Pull pattern
 
 # Specialized Data Streams
 zmq_sensory_port = 5558      # Sensory data input
-zmq_control_port = 5559      # Legacy control protocol
 zmq_visualization_port = 5562 # Neural activity visualization
 zmq_rest_port = 5563         # REST API over ZMQ
 zmq_motor_port = 5564        # Motor data output
@@ -56,10 +62,28 @@ enabled = true
 polling_timeout = 100        # ZMQ polling timeout
 message_buffer_size = 100    # max messages to buffer
 socket_connect_timeout = 1000  # Socket connection timeout
-socket_receive_timeout = 5000  # Socket receive timeout  
+socket_receive_timeout = 5000  # Socket receive timeout
 socket_send_timeout = 5000     # Socket send timeout
 client_heartbeat_timeout = 30000  # Client heartbeat timeout
 inactive_client_timeout = 60000   # Consider clients inactive after this
+
+# Stream-specific enable/disable configuration
+[zmq.streams]
+# Enable/disable individual ZMQ streams
+
+[zmq.streams.visualization]
+enabled = true                    # Enable visualization stream
+auto_enable_on_subscribers = true # Auto-enable FQ sampler when clients connect
+subscriber_check_interval = 1.0  # Seconds between subscriber checks
+
+[zmq.streams.sensory]
+enabled = true                    # Enable sensory stream
+
+[zmq.streams.motor]
+enabled = true                    # Enable motor stream
+
+[zmq.streams.rest]
+enabled = true                    # Enable REST API stream (primary API interface)
 
 [timeouts]
 # System-wide timeout configurations (all in seconds unless specified)
@@ -99,6 +123,19 @@ backup_count = 5
 enabled = true
 update_interval = 50  # milliseconds between updates
 
+[compression]
+# Data compression settings for ZMQ streams
+# LZ4 compression significantly reduces bandwidth usage for visualization and motor data
+enabled = true              # Enable/disable LZ4 compression (default: true)
+min_size_threshold = 100    # Minimum payload size to attempt compression (bytes)
+enable_stats = true         # Collect compression performance statistics
+algorithm = "lz4"           # Compression algorithm (currently only LZ4 supported)
+
+# Performance tuning
+compress_visualization = true  # Enable compression for visualization streams (high bandwidth)
+compress_motor = true         # Enable compression for motor output streams
+compress_sensory = false      # Disable compression for sensory input (typically small/real-time)
+
 # Cloud deployment example:
 # This file can be mounted as a ConfigMap in Kubernetes:
-# kubectl create configmap feagi-config --from-file=feagi_configuration.toml 
+# kubectl create configmap feagi-config --from-file=feagi_configuration.toml

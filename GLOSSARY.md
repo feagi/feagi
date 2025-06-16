@@ -148,4 +148,4 @@
 
 ---
 
-*For detailed information on any term, see the relevant documentation in `/docs/` or the main `CONTRIBUTING.md` guide.* 
+*For detailed information on any term, see the relevant documentation in `/docs/` or the main `CONTRIBUTING.md` guide.*

@@ -418,4 +418,4 @@ pytest tests/unit/bdu/
 - **SIMD Intrinsics:** Direct use of SIMD intrinsics for critical paths
 - **Custom CUDA Kernels:** Specialized kernels for neuronal operations
 - **Multi-GPU Support:** Distribute computation across multiple GPUs
-- **Rust Migration:** Port critical components to Rust for further performance gains 
+- **Rust Migration:** Port critical components to Rust for further performance gains

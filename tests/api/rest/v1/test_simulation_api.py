@@ -16,15 +16,15 @@ limitations under the License.
 
 """Tests for the Simulation API endpoints."""
 
-import os
-import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
+
 
 @pytest.fixture
 def mock_core_api():
     """Create a mock CoreAPIService."""
-    with patch('feagi.api.gateway.APIGateway.core_api', new_callable=MagicMock) as mock:
+    with patch("feagi.api.gateway.APIGateway.core_api", new_callable=MagicMock) as mock:
         # Mock the simulation status response
         mock.get_simulation_status.return_value = {
             "running": False,
@@ -33,15 +33,16 @@ def mock_core_api():
             "performance": {
                 "average_burst_time": 10.5,
                 "total_neurons": 10000,
-                "active_neurons": 500
-            }
+                "active_neurons": 500,
+            },
         }
-        
+
         # Mock the simulation control methods
         mock.start_simulation.return_value = True
         mock.stop_simulation.return_value = True
-        
+
         yield mock
+
 
 def test_get_simulation_status(client, mock_core_api):
     """Test getting the simulation status."""
@@ -49,13 +50,13 @@ def test_get_simulation_status(client, mock_core_api):
     assert response.status_code in (200, 400, 404, 422)
     if response.status_code == 200:
         data = response.json()
-        
+
         # Check the structure of the response
         assert "running" in data
         assert "burst_count" in data
         assert "uptime" in data
         assert "performance" in data
-        
+
         # Check that the values match the mock
         assert data["running"] is False
         assert data["burst_count"] == 0
@@ -64,36 +65,39 @@ def test_get_simulation_status(client, mock_core_api):
         assert data["performance"]["total_neurons"] == 10000
         assert data["performance"]["active_neurons"] == 500
 
+
 def test_start_simulation(client, mock_core_api):
     """Test starting the simulation."""
     response = client.post("/v1/simulation/start")
     assert response.status_code in (200, 400, 404, 422)
     if response.status_code == 200:
         data = response.json()
-        
+
         # Check the response
         assert "message" in data
         assert "started" in data["message"].lower()
-        
+
         # Verify the mock was called
         mock_core_api.start_simulation.assert_called_once()
+
 
 def test_start_simulation_failure(client, mock_core_api):
     """Test starting the simulation when it fails."""
     # Override the mock to simulate failure
     mock_core_api.start_simulation.return_value = False
-    
+
     response = client.post("/v1/simulation/start")
     assert response.status_code in (500, 400, 404, 422)
     if response.status_code == 500:
         data = response.json()
-        
+
         # Check the error response
         assert "detail" in data
         assert "failed" in data["detail"].lower()
-        
+
         # Verify the mock was called
         mock_core_api.start_simulation.assert_called_once()
+
 
 def test_stop_simulation(client, mock_core_api):
     """Test stopping the simulation."""
@@ -101,27 +105,28 @@ def test_stop_simulation(client, mock_core_api):
     assert response.status_code in (200, 400, 404, 422)
     if response.status_code == 200:
         data = response.json()
-        
+
         # Check the response
         assert "message" in data
         assert "stopped" in data["message"].lower()
-        
+
         # Verify the mock was called
         mock_core_api.stop_simulation.assert_called_once()
+
 
 def test_stop_simulation_failure(client, mock_core_api):
     """Test stopping the simulation when it fails."""
     # Override the mock to simulate failure
     mock_core_api.stop_simulation.return_value = False
-    
+
     response = client.post("/v1/simulation/stop")
     assert response.status_code in (500, 400, 404, 422)
     if response.status_code == 500:
         data = response.json()
-        
+
         # Check the error response
         assert "detail" in data
         assert "failed" in data["detail"].lower()
-        
+
         # Verify the mock was called
-        mock_core_api.stop_simulation.assert_called_once() 
+        mock_core_api.stop_simulation.assert_called_once()
