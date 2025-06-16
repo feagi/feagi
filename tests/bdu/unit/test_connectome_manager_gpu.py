@@ -319,21 +319,46 @@ class TestConnectomeManagerGPU(unittest.TestCase):
 
     def setUp(self):
         """Set up a small connectome for testing."""
+        # Reset singleton to ensure clean state for each test
+        ConnectomeManagerGPU.reset_singleton()
         self.connectome = ConnectomeManagerGPU(
             config_or_max_neurons=1000, backend=BackendType.NUMPY
         )
 
+    def tearDown(self):
+        """Clean up after each test."""
+        # Reset singleton to prevent state leakage between tests
+        ConnectomeManagerGPU.reset_singleton()
+
     def test_add_neurons(self):
         """Test adding neurons to the connectome."""
+        # Create a test cortical area first
+        test_area = self.connectome.add_cortical_area(
+            name="Test Area",
+            area_type="interconnect",
+            dimensions=(10, 10, 1),
+            position=(0, 0, 0),
+        )
+
         # Add single neuron
-        neuron_id = self.connectome.add_neuron()
-        self.assertEqual(self.connectome.neuron_count, 1)
+        neuron_id = self.connectome.create_neuron(
+            cortical_id=test_area, position=(0, 0, 0)
+        )
+        self.assertEqual(self.connectome.get_neuron_count(), 1)
         self.assertIn(neuron_id, self.connectome.neuron_id_to_index)
 
-        # Add multiple neurons
-        neuron_ids = self.connectome.add_neurons(10)
+        # Add multiple neurons (positions must be within bounds: 0-9 for x and y)
+        neuron_ids = []
+        for i in range(10):
+            x = (i + 1) % 10  # Keep x within 0-9
+            y = (i + 1) // 10  # Keep y within bounds
+            new_neuron_id = self.connectome.create_neuron(
+                cortical_id=test_area, position=(x, y, 0)
+            )
+            neuron_ids.append(new_neuron_id)
+
         self.assertEqual(len(neuron_ids), 10)
-        self.assertEqual(self.connectome.neuron_count, 11)
+        self.assertEqual(self.connectome.get_neuron_count(), 11)
 
         # Verify all IDs are unique
         all_ids = [neuron_id] + neuron_ids
@@ -341,52 +366,94 @@ class TestConnectomeManagerGPU(unittest.TestCase):
 
     def test_delete_neurons(self):
         """Test deleting neurons from the connectome."""
+        # Create a test cortical area first
+        test_area = self.connectome.add_cortical_area(
+            name="Test Area 2",
+            area_type="interconnect",
+            dimensions=(10, 10, 1),
+            position=(0, 0, 0),
+        )
+
         # Add neurons
-        neuron_ids = self.connectome.add_neurons(5)
-        self.assertEqual(self.connectome.neuron_count, 5)
+        neuron_ids = []
+        for i in range(5):
+            neuron_id = self.connectome.create_neuron(
+                cortical_id=test_area, position=(i, 0, 0)
+            )
+            neuron_ids.append(neuron_id)
+
+        self.assertEqual(self.connectome.get_neuron_count(), 5)
 
         # Delete one neuron
         self.connectome.delete_neuron(neuron_ids[0])
-        self.assertEqual(self.connectome.neuron_count, 4)
+        self.assertEqual(self.connectome.get_neuron_count(), 4)
         self.assertNotIn(neuron_ids[0], self.connectome.neuron_id_to_index)
 
         # Delete multiple neurons
-        self.connectome.delete_neurons(neuron_ids[1:3])
-        self.assertEqual(self.connectome.neuron_count, 2)
+        for neuron_id in neuron_ids[1:3]:
+            self.connectome.delete_neuron(neuron_id)
+        self.assertEqual(self.connectome.get_neuron_count(), 2)
         self.assertNotIn(neuron_ids[1], self.connectome.neuron_id_to_index)
         self.assertNotIn(neuron_ids[2], self.connectome.neuron_id_to_index)
 
     def test_add_synapses(self):
         """Test adding synapses to the connectome."""
+        # Create a test cortical area first
+        test_area = self.connectome.add_cortical_area(
+            name="Test Area 3",
+            area_type="interconnect",
+            dimensions=(10, 10, 1),
+            position=(0, 0, 0),
+        )
+
         # Add neurons
-        neuron_ids = self.connectome.add_neurons(10)
+        neuron_ids = []
+        for i in range(10):
+            neuron_id = self.connectome.create_neuron(
+                cortical_id=test_area, position=(i, 0, 0)
+            )
+            neuron_ids.append(neuron_id)
 
         # Add single synapse
-        self.connectome.add_synapse(
-            pre_neuron=neuron_ids[0], post_neuron=neuron_ids[1], weight=0.5
+        result = self.connectome.create_synapse(
+            pre_neuron_id=neuron_ids[0], post_neuron_id=neuron_ids[1], weight=0.5
         )
-        self.assertEqual(self.connectome.synapse_count, 1)
+        self.assertTrue(result)
+        self.assertEqual(self.connectome.get_synapse_count(), 1)
 
         # Verify synapse exists
-        self.assertTrue(self.connectome.has_synapse(neuron_ids[0], neuron_ids[1]))
-        self.assertFalse(self.connectome.has_synapse(neuron_ids[1], neuron_ids[0]))
+        outgoing = self.connectome.get_outgoing_connections(neuron_ids[0])
+        self.assertEqual(len(outgoing), 1)
+        self.assertEqual(outgoing[0][0], neuron_ids[1])  # target neuron
+        self.assertEqual(outgoing[0][1], 0.5)  # weight
 
-        # Add multiple synapses with batch operation
-        pre_neurons = neuron_ids[2:5]
-        post_neurons = neuron_ids[5:8]
-        weights = [0.1, 0.2, 0.3]
+        # Add multiple synapses
+        synapse_specs = [
+            (neuron_ids[2], neuron_ids[5], 0.1),
+            (neuron_ids[3], neuron_ids[6], 0.2),
+            (neuron_ids[4], neuron_ids[7], 0.3),
+        ]
 
-        results = self.connectome.batch_add_synapses(
-            pre_neurons=pre_neurons, post_neurons=post_neurons, weights=weights
-        )
+        created_count = self.connectome.batch_create_synapses(synapse_specs)
 
         # Verify all synapses were added
-        self.assertTrue(all(results))
-        self.assertEqual(self.connectome.synapse_count, 4)
+        self.assertEqual(created_count, 3)  # Should have created 3 synapses
+        self.assertEqual(self.connectome.get_synapse_count(), 4)  # 1 + 3 = 4 total
 
         # Verify synapses exist
-        for pre, post in zip(pre_neurons, post_neurons):
-            self.assertTrue(self.connectome.has_synapse(pre, post))
+        for pre, post, weight in synapse_specs:
+            outgoing = self.connectome.get_outgoing_connections(pre)
+            found = False
+            for target_id, synapse_weight in outgoing:
+                # Convert numpy types to Python types and use approximate comparison for floats
+                target_id_py = int(target_id)
+                synapse_weight_py = float(synapse_weight)
+                if target_id_py == post and abs(synapse_weight_py - weight) < 1e-6:
+                    found = True
+                    break
+            self.assertTrue(
+                found, f"Synapse {pre}->{post} with weight {weight} not found"
+            )
 
     def test_delete_synapses(self):
         """Test deleting synapses from the connectome."""
