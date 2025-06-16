@@ -415,7 +415,9 @@ class GenomeService(BaseService):
                 # CRITICAL: Set brain readiness ONLY after neuroembryogenesis is complete
                 if self.state_manager:
                     self.state_manager.set_brain_readiness(True)
-                    self.logger.info("Brain readiness set to True - neuroembryogenesis complete")
+                    self.logger.info(
+                        "Brain readiness set to True - neuroembryogenesis complete"
+                    )
 
             except Exception as dev_error:
                 self.logger.error(
