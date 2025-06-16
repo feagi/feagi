@@ -14,6 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import datetime
+import json
+import os
+import random
+import time
+import types
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
+from feagi.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
 """
 Neuroembryogenesis Module for FEAGI 2.1
 
@@ -41,22 +57,6 @@ Key components:
 The implementation uses the ConnectomeManager API for efficient neuron and
 synapse management, and focuses on memory efficiency and thread-safety.
 """
-
-import datetime
-import json
-import os
-import random
-import time
-import types
-from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-import numpy as np
-
-from feagi.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 
 # Custom types
 Position = Tuple[int, int, int]

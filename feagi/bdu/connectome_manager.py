@@ -2243,8 +2243,8 @@ class ConnectomeManager:
         if isinstance(property_name, str):
             try:
                 property_name = NeuronPropertyType(property_name)
-            except ValueError:
-                raise ValueError(f"Unknown neuron property: {property_name}")
+            except ValueError as err:
+                raise ValueError(f"Unknown neuron property: {property_name}") from err
 
         # Validate neuron IDs
         valid_mask = np.zeros(len(neuron_ids), dtype=bool)
@@ -2331,8 +2331,8 @@ class ConnectomeManager:
         if isinstance(property_name, str):
             try:
                 property_name = NeuronPropertyType(property_name)
-            except ValueError:
-                raise ValueError(f"Unknown neuron property: {property_name}")
+            except ValueError as err:
+                raise ValueError(f"Unknown neuron property: {property_name}") from err
 
         # Handle empty list
         if not neuron_ids:
