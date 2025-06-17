@@ -709,7 +709,9 @@ class GenomeService(BaseService):
 
                     self.state_manager.set_genome_state(GenomeState.ERROR)
                     self.state_manager.set_brain_readiness(False)
-                    result = self.state_manager.set_genome_validity(False); if result.is_err: self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                    result = self.state_manager.set_genome_validity(False)
+                    if result.is_err:
+                        self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
 
                 return {"success": False, "error": str(e)}
 
@@ -725,7 +727,9 @@ class GenomeService(BaseService):
 
                 self.state_manager.set_genome_state(GenomeState.ERROR)
                 self.state_manager.set_brain_readiness(False)
-                result = self.state_manager.set_genome_validity(False); if result.is_err: self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
+                result = self.state_manager.set_genome_validity(False)
+                if result.is_err:
+                    self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
 
             return {"success": False, "error": str(e)}
 
