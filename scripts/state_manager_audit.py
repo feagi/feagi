@@ -98,8 +98,10 @@ class StateManagerAuditor:
                 re.compile(r'\.state_ptr\.contents\.[a-zA-Z_]+\s*=', re.IGNORECASE),
             ],
             ViolationType.UNAUTHORIZED_STATE_ACCESS: [
-                # State changes in unauthorized contexts
-                re.compile(r'(?:genome_state|brain_readiness|burst_engine_state)\s*=\s*(?:True|False|[A-Z_]+)', re.IGNORECASE),
+                # Direct state changes without using state manager (exclude legitimate reads)
+                re.compile(r'self\.(?:genome_state|brain_readiness|burst_engine_state|fq_sampler_state)\s*=\s*(?:True|False|[A-Z_]+\.?[A-Z_]*)', re.IGNORECASE),
+                # Direct assignments to state attributes (not from state manager getters)
+                re.compile(r'(?<!state_manager\.get_)(?<!= state_manager\.get_)(?:genome_state|brain_readiness|burst_engine_state)\s*=\s*(?:True|False|[A-Z_]+)(?!\s*=\s*state_manager\.get_)', re.IGNORECASE),
             ]
         }
         return patterns
@@ -192,9 +194,34 @@ class StateManagerAuditor:
         # Skip test files if they're doing mock setup
         if "test" in str(file_path).lower() and ("mock" in line_stripped.lower() or "Mock(" in line):
             return
+            
+        # Skip legitimate state reads from state manager
+        if "state_manager.get_" in line_stripped:
+            return
+            
+        # Skip legitimate variable assignments from state manager getters
+        if "= state_manager.get_" in line_stripped:
+            return
         
         # Check each violation type
         for violation_type, patterns in self.violation_patterns.items():
+            # Skip UNAUTHORIZED_STATE_ACCESS for now - it has false positives
+            if violation_type == ViolationType.UNAUTHORIZED_STATE_ACCESS:
+                # Only check for actual unauthorized state changes, not reads
+                if self._is_unauthorized_state_write(line_stripped, is_authorized):
+                    violation = Violation(
+                        file_path=str(file_path.relative_to(self.feagi_root)),
+                        line_number=line_num,
+                        line_content=line_stripped,
+                        violation_type=violation_type,
+                        severity="MEDIUM",
+                        description="State change in unauthorized context",
+                        suggested_fix="Use appropriate state_manager.set_*() method",
+                        context_lines=self._get_context_lines(all_lines, line_num)
+                    )
+                    self.violations.append(violation)
+                continue
+                
             for pattern in patterns:
                 match = pattern.search(line_stripped)
                 if match:
@@ -289,6 +316,25 @@ class StateManagerAuditor:
                 return f"Use state_manager.{setter_mapping[attr_name]}(value) instead"
         
         return None
+    
+    def _is_unauthorized_state_write(self, line: str, is_authorized: bool) -> bool:
+        """Check if this is an unauthorized state write (not a read)."""
+        if is_authorized:
+            return False
+            
+        # Look for actual state writes to self attributes
+        state_write_patterns = [
+            r'self\.(?:genome_state|brain_readiness|burst_engine_state|fq_sampler_state)\s*=\s*(?:True|False|[A-Z_]+)',
+            r'\.(?:genome_state|brain_readiness|burst_engine_state)\s*=\s*(?:True|False|[A-Z_]+)',
+        ]
+        
+        for pattern in state_write_patterns:
+            if re.search(pattern, line, re.IGNORECASE):
+                # Make sure it's not a legitimate read assignment
+                if "state_manager.get_" not in line:
+                    return True
+        
+        return False
     
     def print_report(self):
         """Print a comprehensive audit report."""

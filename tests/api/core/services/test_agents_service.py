@@ -405,16 +405,16 @@ class TestAgentsService:
         assert isinstance(result, dict)
         assert len(result) == 0  # Empty dict
 
-    def test_agent_filter_matching(self, agents_service):
+    def test_agent_filter_matching(self, agents_service, mock_state_manager):
         """Test agent filter functionality within broadcast_message."""
         # Test agent filter functionality through the actual broadcast_message method
         # since _matches_filter is internal implementation detail
 
-        # Setup agents with different types and statuses
-        result = agents_service.state_manager.set_connected_agents({
+        # Setup agents with different types and statuses using mock_state_manager
+        mock_state_manager.connected_agents = {
             "agent1": {"type": "sensor", "status": "connected"},
             "agent2": {"type": "actuator", "status": "disconnected"},
-        })
+        }
 
         # Test type filter
         result = agents_service.broadcast_message(
@@ -424,12 +424,12 @@ class TestAgentsService:
         assert len(result["target_agents"]) == 1
         assert "agent1" in result["target_agents"]
 
-    def test_agent_filter_with_missing_attributes(self, agents_service):
+    def test_agent_filter_with_missing_attributes(self, agents_service, mock_state_manager):
         """Test filtering when agents have missing attributes."""
-        # Setup agent with missing status attribute
-        result = agents_service.state_manager.set_connected_agents({
+        # Setup agent with missing status attribute using mock_state_manager
+        mock_state_manager.connected_agents = {
             "agent1": {"type": "sensor"}  # Missing status
-        })
+        }
 
         # Filter should handle missing attributes gracefully
         result = agents_service.broadcast_message(

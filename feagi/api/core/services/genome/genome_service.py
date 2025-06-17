@@ -582,11 +582,16 @@ class GenomeService(BaseService):
 
                     # Check if this is genuinely a NEW genome (different from what we had before)
                     is_new_genome = False
-                    if old_genome_data is None or old_genome_filename != filename:
-                        # Definitely new - no previous genome or different filename
-                        is_new_genome = True
+                    if (
+                        not old_genome_data
+                        or old_genome_data != self._current_genome
+                        or old_genome_filename != filename
+                    ):
+                        # Update timestamp to signal change to downstream clients
+                        new_genome_timestamp = int(time.time() * 1000)  # milliseconds
+                        self.state_manager.set_genome_timestamp(new_genome_timestamp)
                         self.logger.info(
-                            f"NEW genome detected: filename changed from '{old_genome_filename}' to '{filename}'"
+                            f"[OK] Genome timestamp updated to {new_genome_timestamp} (signals NEW genome to clients)"
                         )
                     else:
                         # Same filename - check if genome data actually changed
@@ -615,9 +620,6 @@ class GenomeService(BaseService):
                         self.logger.info(
                             f"[OK] Genome counter incremented to {current_genome_number}"
                         )
-
-                        # Update timestamp to signal change to downstream clients
-                        import time
 
                         new_genome_timestamp = int(time.time() * 1000)  # milliseconds
                         self.state_manager.set_genome_timestamp(new_genome_timestamp)
