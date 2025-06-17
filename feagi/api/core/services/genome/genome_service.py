@@ -240,7 +240,9 @@ class GenomeService(BaseService):
                                     )
                                     validation_result = post_sanitization_result  # Update validation result
                                     if self.state_manager:
-                                        self.state_manager.genome_validity = True
+                                        result = self.state_manager.set_genome_validity(True)
+                                        if result.is_err:
+                                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
                                 else:
                                     # NOW log the errors since auto-recovery couldn't fix them
                                     remaining_error_msg = post_sanitization_result.get(
@@ -262,14 +264,18 @@ class GenomeService(BaseService):
 
                                     validation_result = post_sanitization_result  # Update with new validation result
                                     if self.state_manager:
-                                        self.state_manager.genome_validity = False
+                                        result = self.state_manager.set_genome_validity(False)
+                                        if result.is_err:
+                                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
                             except Exception as revalidation_error:
                                 self.logger.warning(
                                     f"Could not re-validate after sanitization: {revalidation_error}"
                                 )
                                 # Assume it's still invalid but continue
                                 if self.state_manager:
-                                    self.state_manager.genome_validity = False
+                                    result = self.state_manager.set_genome_validity(False)
+                                    if result.is_err:
+                                        self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
 
                             # Store auto-recovery details for inclusion in response (CRITICAL - don't overwrite later!)
                             auto_recovery_details = {
@@ -298,7 +304,9 @@ class GenomeService(BaseService):
 
                             # Fall back to original approach - mark as invalid but continue
                             if self.state_manager:
-                                self.state_manager.genome_validity = False
+                                result = self.state_manager.set_genome_validity(False)
+                                if result.is_err:
+                                    self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
                             auto_recovery_details = {
                                 "recovery_performed": False,
                                 "recovery_error": str(sanitization_error),
@@ -307,7 +315,9 @@ class GenomeService(BaseService):
                 else:
                     # Validation passed initially - keep the original auto_recovery_details (no changes needed)
                     if self.state_manager:
-                        self.state_manager.genome_validity = True
+                        result = self.state_manager.set_genome_validity(True)
+                        if result.is_err:
+                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
 
                 # Store the current genome
                 self._current_genome = genome_data
@@ -317,9 +327,11 @@ class GenomeService(BaseService):
                 if self.state_manager:
                     self.state_manager.genome = genome_data
                     self.state_manager.genome_file_name = filename
-                    self.state_manager.genome_validity = (
+                    validity_result = self.state_manager.set_genome_validity(
                         True if validation_result.get("valid") else False
                     )
+                    if validity_result.is_err:
+                        self.logger.warning(f"Failed to set genome validity: {validity_result.unwrap_err()}")
                     # Set to STAGING state while brain development is in progress
                     from feagi.core.state_manager import GenomeState
 
@@ -341,7 +353,9 @@ class GenomeService(BaseService):
 
                         self.state_manager.set_genome_state(GenomeState.ERROR)
                         self.state_manager.set_brain_readiness(False)
-                        self.state_manager.genome_validity = False
+                        result = self.state_manager.set_genome_validity(False)
+                        if result.is_err:
+                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
                     return {
                         "success": False,
                         "error": "Failed to prepare connectome for new genome",
@@ -389,7 +403,9 @@ class GenomeService(BaseService):
 
                             self.state_manager.set_genome_state(GenomeState.ERROR)
                             self.state_manager.set_brain_readiness(False)
-                            self.state_manager.genome_validity = False
+                            result = self.state_manager.set_genome_validity(False)
+                            if result.is_err:
+                                self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
                         return {
                             "success": False,
                             "error": f"Failed to develop brain from genome: {error_msg}",
@@ -441,7 +457,9 @@ class GenomeService(BaseService):
 
                         self.state_manager.set_genome_state(GenomeState.ERROR)
                         self.state_manager.set_brain_readiness(False)
-                        self.state_manager.genome_validity = False
+                        result = self.state_manager.set_genome_validity(False)
+                        if result.is_err:
+                            self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
                     return {
                         "success": False,
                         "error": f"Exception during brain development: {str(dev_error)}",
@@ -486,11 +504,13 @@ class GenomeService(BaseService):
                             )
 
                         # Update state manager with brain statistics (CRITICAL for health check)
-                        self.state_manager.brain_stats = {
+                        stats_result = self.state_manager.set_brain_stats({
                             "neuron_count": total_neurons,
                             "synapse_count": total_synapses,
                             "cortical_area_count": cortical_area_count,
-                        }
+                        })
+                        if stats_result.is_err:
+                            self.logger.warning(f"Failed to set brain stats: {stats_result.unwrap_err()}")
 
                         # Create cortical list for health check compatibility (CRITICAL)
                         cortical_ids = []
@@ -504,14 +524,18 @@ class GenomeService(BaseService):
                                     cortical_ids.append(area.cortical_id)
                                 else:
                                     cortical_ids.append(f"CID{area_idx:03d}")
-                        self.state_manager.cortical_list = cortical_ids
+                        cortical_result = self.state_manager.set_cortical_list(cortical_ids)
+                        if cortical_result.is_err:
+                            self.logger.warning(f"Failed to set cortical list: {cortical_result.unwrap_err()}")
 
                         # Set genome validity based on earlier validation results
                         if (
                             not hasattr(self.state_manager, "genome_validity")
                             or self.state_manager.genome_validity is None
                         ):
-                            self.state_manager.genome_validity = True
+                            validity_result = self.state_manager.set_genome_validity(True)
+                            if validity_result.is_err:
+                                self.logger.warning(f"Failed to set genome validity: {validity_result.unwrap_err()}")
 
                         # Ensure other state manager attributes are initialized
                         if (
@@ -685,7 +709,7 @@ class GenomeService(BaseService):
 
                     self.state_manager.set_genome_state(GenomeState.ERROR)
                     self.state_manager.set_brain_readiness(False)
-                    self.state_manager.genome_validity = False
+                    result = self.state_manager.set_genome_validity(False); if result.is_err: self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
 
                 return {"success": False, "error": str(e)}
 
@@ -701,7 +725,7 @@ class GenomeService(BaseService):
 
                 self.state_manager.set_genome_state(GenomeState.ERROR)
                 self.state_manager.set_brain_readiness(False)
-                self.state_manager.genome_validity = False
+                result = self.state_manager.set_genome_validity(False); if result.is_err: self.logger.warning(f"Failed to set genome validity: {result.unwrap_err()}")
 
             return {"success": False, "error": str(e)}
 
