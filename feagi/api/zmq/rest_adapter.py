@@ -373,8 +373,9 @@ class ZMQRestAPIAdapter:
 
             # Only log debug info when ZMQ inbound debugging is enabled
             from feagi.core.state_manager import get_state_manager
+
             state_manager = get_state_manager()
-            
+
             if state_manager and state_manager.is_debug_zmq_inbound_enabled():
                 logger.info(
                     f"[CONFIG] DEBUG: Processing visualization heartbeat for {client_id}"

@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import copy
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
-import copy
-import time
 
 from ..shared.base_service import BaseService
 
@@ -38,7 +38,9 @@ class GenomeService(BaseService):
         self._genome_filename = None
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
 
-        self.logger.debug("GENOME SERVICE: Initialized with clean architecture - no service dependencies")
+        self.logger.debug(
+            "GENOME SERVICE: Initialized with clean architecture - no service dependencies"
+        )
 
     def load_genome(
         self, genome_data: Dict[str, Any], filename: str = "genome.json"
@@ -68,7 +70,7 @@ class GenomeService(BaseService):
 
             try:
                 self.logger.info("Step 1: Initializing genome load process")
-                
+
                 # Set brain readiness to False while loading
                 if self.state_manager:
                     from feagi.core.state_manager import GenomeState
@@ -96,7 +98,9 @@ class GenomeService(BaseService):
 
                     config = load_feagi_config()
                     genome_config = get_genome_config(config)
-                    allow_auto_recovery = genome_config.auto_recovery_on_validation_failure
+                    allow_auto_recovery = (
+                        genome_config.auto_recovery_on_validation_failure
+                    )
                 except Exception as e:
                     self.logger.warning(
                         f"Could not load FEAGI configuration, defaulting to allow auto-recovery: {e}"
@@ -136,7 +140,9 @@ class GenomeService(BaseService):
                             genome_validator_with_errors_silent,
                         )
 
-                        validation_result = genome_validator_with_errors_silent(genome_data)
+                        validation_result = genome_validator_with_errors_silent(
+                            genome_data
+                        )
                     else:
                         # Auto-recovery disabled - use regular validation (log all errors)
                         validation_result = genome_validator_with_errors(genome_data)
@@ -191,7 +197,9 @@ class GenomeService(BaseService):
                                 sanitize_invalid_morphologies,
                             )
 
-                            sanitization_result = sanitize_invalid_morphologies(genome_data)
+                            sanitization_result = sanitize_invalid_morphologies(
+                                genome_data
+                            )
 
                             # Use the sanitized genome
                             genome_data = sanitization_result["genome"]
@@ -201,7 +209,9 @@ class GenomeService(BaseService):
                             fixed_references = sanitization_result["fixed_references"]
                             recovery_summary = sanitization_result["recovery_summary"]
 
-                            self.logger.info(f"Auto-recovery completed: {recovery_summary}")
+                            self.logger.info(
+                                f"Auto-recovery completed: {recovery_summary}"
+                            )
                             if removed_morphologies:
                                 self.logger.info(
                                     f"Removed invalid morphologies: {', '.join(removed_morphologies)}"
@@ -220,9 +230,7 @@ class GenomeService(BaseService):
                                     self.logger.info(
                                         "Genome validation passed after auto-recovery sanitization"
                                     )
-                                    validation_result = (
-                                        post_sanitization_result  # Update validation result
-                                    )
+                                    validation_result = post_sanitization_result  # Update validation result
                                     if self.state_manager:
                                         self.state_manager.genome_validity = True
                                 else:
@@ -337,7 +345,9 @@ class GenomeService(BaseService):
 
                 # ARCHITECTURE IMPROVEMENT: Build brain from state manager's genome (not temp file)
                 # This ensures connectome manager always uses the sanitized genome from state manager
-                self.logger.info("Building brain from state manager's sanitized genome...")
+                self.logger.info(
+                    "Building brain from state manager's sanitized genome..."
+                )
 
                 # Initialize embryogenesis
                 embry = NeuroEmbryogenesis(
@@ -348,15 +358,19 @@ class GenomeService(BaseService):
                 # CRITICAL: Develop brain from state manager's genome (single source of truth)
                 # This includes the COMPLETE brain development process:
                 # 1. Corticogenesis (cortical area creation)
-                # 2. Voxelogenesis (spatial framework) 
+                # 2. Voxelogenesis (spatial framework)
                 # 3. Neurogenesis (neuron creation)
                 # 4. Synaptogenesis (synapse formation) <- This is the long-running step
                 try:
-                    self.logger.info("Starting COMPLETE brain development from genome (including synaptogenesis)...")
+                    self.logger.info(
+                        "Starting COMPLETE brain development from genome (including synaptogenesis)..."
+                    )
                     success = embry.develop_brain_from_genome_data(genome_data)
 
                     if not success:
-                        error_msg = embry.error or "Unknown error during brain development"
+                        error_msg = (
+                            embry.error or "Unknown error during brain development"
+                        )
                         self.logger.error(
                             f"Failed to develop brain from genome: {error_msg}"
                         )
@@ -382,6 +396,7 @@ class GenomeService(BaseService):
                     # CRITICAL: Set genome state to LOADED only after complete brain development
                     # This ensures genome is marked as loaded ONLY when everything is truly complete
                     from feagi.core.state_manager import GenomeState
+
                     self.state_manager.set_genome_state(GenomeState.LOADED)
                     self.logger.info(
                         "Genome state set to LOADED - COMPLETE brain development finished (including synaptogenesis)"
@@ -389,18 +404,25 @@ class GenomeService(BaseService):
 
                     # STEP 3: After complete brain development, set final states
                     self.logger.info("Setting final genome and brain states...")
-                    
+
                     # Set brain readiness to true - genome loading is complete
                     self.state_manager.set_brain_readiness(True)
-                    self.logger.info("✅ Brain readiness set to True - complete genome loaded")
-                    
+                    self.logger.info(
+                        "✅ Brain readiness set to True - complete genome loaded"
+                    )
+
                     # Log current burst engine state for monitoring
                     from feagi.core.state_manager import ServiceState
+
                     current_burst_state = self.state_manager.get_burst_engine_state()
-                    self.logger.info(f"📊 Current burst engine state: {current_burst_state}")
-                    
+                    self.logger.info(
+                        f"📊 Current burst engine state: {current_burst_state}"
+                    )
+
                     # The process manager will detect the state changes and handle service startup
-                    self.logger.info("🎯 Genome loading complete - process manager will handle service coordination")
+                    self.logger.info(
+                        "🎯 Genome loading complete - process manager will handle service coordination"
+                    )
 
                 except Exception as dev_error:
                     self.logger.error(
@@ -441,10 +463,8 @@ class GenomeService(BaseService):
                                     if hasattr(
                                         self._connectome_manager, "get_neurons_by_area"
                                     ):
-                                        area_neurons = (
-                                            self._connectome_manager.get_neurons_by_area(
-                                                area_idx
-                                            )
+                                        area_neurons = self._connectome_manager.get_neurons_by_area(
+                                            area_idx
                                         )
                                         total_neurons += (
                                             len(area_neurons) if area_neurons else 0

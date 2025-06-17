@@ -1346,7 +1346,7 @@ class ProcessManager:
                     logger.info(
                         f"🔄 Waiting up to {timeout_seconds} seconds for critical services..."
                     )
-                    
+
                     if state_manager.wait_for_critical_services(
                         timeout_seconds=timeout_seconds, check_interval=0.5
                     ):

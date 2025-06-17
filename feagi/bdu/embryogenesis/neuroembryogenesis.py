@@ -2102,10 +2102,10 @@ class NeuroEmbryogenesis:
                 )
                 end_time = time.time()
                 elapsed_ms = (end_time - start_time) * 1000
-                
+
                 logger.info(
                     f"✅ VECTORIZED VECTOR: Created {total_synapses} synapses in {elapsed_ms:.1f}ms "
-                    f"({total_synapses/max(elapsed_ms/1000, 0.001):.0f} synapses/sec)"
+                    f"({total_synapses / max(elapsed_ms / 1000, 0.001):.0f} synapses/sec)"
                 )
                 return total_synapses
             else:
@@ -2165,7 +2165,7 @@ class NeuroEmbryogenesis:
                     position_to_neurons[neuron_pos].append(neuron_id)
 
             start_time = time.time()
-            
+
             # PERFORMANCE FIX: Collect ALL synapses to create in ONE batch
             synapses_to_create = []
 
@@ -2192,12 +2192,16 @@ class NeuroEmbryogenesis:
                             ):
                                 if candidate_pos in position_to_neurons:
                                     # COLLECT synapses for batch creation
-                                    for target_neuron_id in position_to_neurons[candidate_pos]:
-                                        synapses_to_create.append((
-                                            src_neuron_id,
-                                            target_neuron_id,
-                                            psc_multiplier
-                                        ))
+                                    for target_neuron_id in position_to_neurons[
+                                        candidate_pos
+                                    ]:
+                                        synapses_to_create.append(
+                                            (
+                                                src_neuron_id,
+                                                target_neuron_id,
+                                                psc_multiplier,
+                                            )
+                                        )
 
                 except Exception as e:
                     logger.warning(
@@ -2210,16 +2214,18 @@ class NeuroEmbryogenesis:
             # This avoids the expensive matrix conversion on every individual synapse
             synapse_count = 0
             if synapses_to_create:
-                synapse_count = self.connectome_manager.batch_create_synapses(synapses_to_create)
+                synapse_count = self.connectome_manager.batch_create_synapses(
+                    synapses_to_create
+                )
 
             end_time = time.time()
             elapsed_ms = (end_time - start_time) * 1000
-            
+
             logger.info(
                 f"🚀 BATCH PATTERN: Created {synapse_count} synapses in {elapsed_ms:.1f}ms "
-                f"({synapse_count/max(elapsed_ms/1000, 0.001):.0f} synapses/sec)"
+                f"({synapse_count / max(elapsed_ms / 1000, 0.001):.0f} synapses/sec)"
             )
-            
+
             return synapse_count
 
         except Exception as e:
@@ -2284,7 +2290,9 @@ class NeuroEmbryogenesis:
                 logger.info(
                     f"[BDU DEBUG] VECTORIZED processing {len(src_neurons)} source neurons for {morphology_id}"
                 )
-                logger.info(f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%")
+                logger.info(
+                    f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%"
+                )
 
             # PERFORMANCE OPTIMIZATION: Collect ALL synapses first, then create in ONE batch
             all_synapse_connections = []
@@ -2323,28 +2331,30 @@ class NeuroEmbryogenesis:
                     logger.info(
                         f"[BDU DEBUG] Creating {len(all_synapse_connections)} synapses in ONE batch operation"
                     )
-                
+
                 start_time = time.time()
                 total_synapses = self.connectome_manager.batch_create_synapses(
                     all_synapse_connections
                 )
                 end_time = time.time()
                 elapsed_ms = (end_time - start_time) * 1000
-                
+
                 logger.info(
                     f"✅ VECTORIZED: Created {total_synapses} synapses in {elapsed_ms:.1f}ms "
-                    f"({total_synapses/max(elapsed_ms/1000, 0.001):.0f} synapses/sec)"
+                    f"({total_synapses / max(elapsed_ms / 1000, 0.001):.0f} synapses/sec)"
                 )
-                
+
                 if debug_bdu:
                     logger.info(
                         f"[BDU DEBUG] Successfully created {total_synapses} synapses in vectorized batch"
                     )
-                
+
                 return total_synapses
             else:
                 if debug_bdu:
-                    logger.info(f"[BDU DEBUG] No synapses to create for {morphology_id}")
+                    logger.info(
+                        f"[BDU DEBUG] No synapses to create for {morphology_id}"
+                    )
                 return 0
 
         except Exception as e:

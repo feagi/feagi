@@ -92,10 +92,8 @@ class CoreAPIService:
         self._agents_service = AgentsService(connectome_manager, self.state_manager)
         self._network_service = NetworkService(connectome_manager, self.state_manager)
 
-        # Initialize genome service with clean architecture - no service dependencies  
-        self._genome_service = GenomeService(
-            connectome_manager, self.state_manager
-        )
+        # Initialize genome service with clean architecture - no service dependencies
+        self._genome_service = GenomeService(connectome_manager, self.state_manager)
 
         # Validate state manager consistency across services
         self._validate_service_state_consistency()

@@ -247,6 +247,7 @@ class RestStream:
 
                     # Only log debug info when ZMQ inbound debugging is enabled
                     from feagi.core.state_manager import get_state_manager
+
                     state_manager = get_state_manager()
 
                     if state_manager and state_manager.is_debug_zmq_inbound_enabled():
@@ -290,10 +291,18 @@ class RestStream:
                     # Try to decode as JSON
                     try:
                         message = json.loads(message_data.decode("utf-8"))
-                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
-                            logger.info(f"[CONFIG] DEBUG: Parsed JSON message: {message}")
+                        if (
+                            state_manager
+                            and state_manager.is_debug_zmq_inbound_enabled()
+                        ):
+                            logger.info(
+                                f"[CONFIG] DEBUG: Parsed JSON message: {message}"
+                            )
                     except json.JSONDecodeError as e:
-                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                        if (
+                            state_manager
+                            and state_manager.is_debug_zmq_inbound_enabled()
+                        ):
                             logger.error(f"[CONFIG] DEBUG: JSON DECODE ERROR: {e}")
                             logger.error(
                                 f"[CONFIG] DEBUG: Raw message data: {message_data}"
@@ -320,8 +329,13 @@ class RestStream:
 
                     # Validate REST format
                     if not self._is_valid_rest_message(message):
-                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
-                            logger.error(f"[CONFIG] DEBUG: INVALID REST FORMAT: {message}")
+                        if (
+                            state_manager
+                            and state_manager.is_debug_zmq_inbound_enabled()
+                        ):
+                            logger.error(
+                                f"[CONFIG] DEBUG: INVALID REST FORMAT: {message}"
+                            )
                             logger.error(
                                 f"[CONFIG] DEBUG: Missing required fields - message keys: {list(message.keys()) if isinstance(message, dict) else 'not a dict'}"
                             )
@@ -347,7 +361,7 @@ class RestStream:
                     # Process with REST API adapter
                     method = message.get("method", "UNKNOWN")
                     route = message.get("route", "unknown")
-                    
+
                     if state_manager and state_manager.is_debug_zmq_inbound_enabled():
                         logger.info(
                             f"[CONFIG] DEBUG: Processing REST API request: {method} {route}"
@@ -363,7 +377,10 @@ class RestStream:
                         )
                         processing_time = time.time() - start_time
 
-                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                        if (
+                            state_manager
+                            and state_manager.is_debug_zmq_inbound_enabled()
+                        ):
                             logger.info(
                                 f"[CONFIG] DEBUG: REST request processed in {processing_time:.3f}s"
                             )
@@ -373,7 +390,9 @@ class RestStream:
 
                             # Try to decode and show response for debugging
                             try:
-                                response_json = json.loads(response_data.decode("utf-8"))
+                                response_json = json.loads(
+                                    response_data.decode("utf-8")
+                                )
                                 logger.info(
                                     f"[CONFIG] DEBUG: Response status: {response_json.get('status', 'unknown')}"
                                 )
