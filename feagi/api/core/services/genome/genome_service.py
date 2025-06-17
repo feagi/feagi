@@ -78,9 +78,17 @@ class GenomeService(BaseService):
                     self.state_manager.set_genome_state(GenomeState.LOADING)
                     self.state_manager.set_brain_readiness(False)
                     # Clear all brain stats during loading
-                    self.state_manager.brain_stats = {}
-                    self.state_manager.cortical_list = []
-                    self.state_manager.genome_validity = None
+                    result = self.state_manager.set_brain_stats({})
+                    if result.is_err:
+                        self.logger.warning("Failed to clear brain stats")
+                    
+                    result = self.state_manager.set_cortical_list([])
+                    if result.is_err:
+                        self.logger.warning("Failed to clear cortical list")
+                    
+                    result = self.state_manager.set_genome_validity(False)  # None -> False
+                    if result.is_err:
+                        self.logger.warning("Failed to set genome validity")
 
                 # CRITICAL: Preserve old genome data BEFORE setting new values for comparison
                 old_genome_data = self._current_genome
@@ -510,13 +518,18 @@ class GenomeService(BaseService):
                             not hasattr(self.state_manager, "connected_agents")
                             or self.state_manager.connected_agents is None
                         ):
-                            self.state_manager.connected_agents = 0
+                            self.state_manager.set_agent_count(0)
 
                         if not hasattr(self.state_manager, "changes_saved_externally"):
                             self.state_manager.changes_saved_externally = False
 
                         if not hasattr(self.state_manager, "exit_condition"):
-                            self.state_manager.exit_condition = False
+                            # NOTE: exit_condition doesn't have a proper setter method yet
+                            # This should be handled through proper state management
+                            result = self.state_manager.set_exit_condition(False)
+                            if result.is_err:
+                                self.logger.warning("Failed to set exit condition")
+                                # Continue anyway - this is not critical
 
                         self.logger.info(
                             f"State manager fully synchronized: {total_neurons} neurons, {total_synapses} synapses, {cortical_area_count} cortical areas"

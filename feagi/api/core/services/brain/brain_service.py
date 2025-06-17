@@ -119,7 +119,10 @@ class BrainService(BaseService):
             )
 
             # Clear exit condition to start the burst engine
-            self.state_manager.exit_condition = False
+            result = self.state_manager.set_exit_condition(False)
+            if result.is_err:
+                self.logger.warning("Failed to clear exit condition")
+                # Continue anyway - this is not critical for startup
 
             # CRITICAL: Actually start the burst engine main loop in a background thread
             import threading
@@ -299,7 +302,10 @@ class BrainService(BaseService):
             burst_engine.stop()
 
             # Set exit condition to stop the burst engine
-            self.state_manager.exit_condition = True
+            result = self.state_manager.set_exit_condition(True)
+            if result.is_err:
+                self.logger.warning("Failed to set exit condition")
+                # Continue anyway - still try to stop the engine
 
             # Wait a moment for the thread to stop
             import time
