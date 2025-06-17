@@ -1076,10 +1076,13 @@ class CoreAPIService:
     def get_membrane_potentials(self, neuron_ids: List[int]) -> Dict[int, float]:
         """Get membrane potentials for specific neurons."""
         try:
-            # This should get real membrane potentials from the brain service
-            raise NotImplementedError(
-                "Getting membrane potentials is not yet implemented"
-            )
+            # Get membrane potentials from connectome manager
+            potentials = {}
+            for neuron_id in neuron_ids:
+                if neuron_id in self._connectome_manager.neurons:
+                    neuron = self._connectome_manager.neurons[neuron_id]
+                    potentials[neuron_id] = neuron.get("membrane_potential", 0.0)
+            return potentials
         except Exception as e:
             self.logger.error(f"Error getting membrane potentials: {str(e)}")
             raise ValueError(f"Failed to get membrane potentials: {str(e)}") from e
@@ -1087,7 +1090,10 @@ class CoreAPIService:
     def update_membrane_potentials(self, potentials: Dict[int, float]) -> bool:
         """Update membrane potentials for specific neurons."""
         try:
-            # This would need implementation in connectome service
+            # Update membrane potentials in connectome manager
+            for neuron_id, potential in potentials.items():
+                if neuron_id in self._connectome_manager.neurons:
+                    self._connectome_manager.neurons[neuron_id]["membrane_potential"] = potential
             return True
         except Exception as e:
             self.logger.error(f"Error updating membrane potentials: {str(e)}")
@@ -1868,8 +1874,16 @@ class CoreAPIService:
     ) -> List[int]:
         """Batch create neurons."""
         try:
-            # This would need implementation
-            return []
+            # Create neurons using connectome manager
+            neuron_ids = []
+            for position in positions:
+                neuron_id = self._connectome_manager.create_neuron(
+                    cortical_id=area_id,
+                    position=position,
+                    **(properties or {})
+                )
+                neuron_ids.append(neuron_id)
+            return neuron_ids
         except Exception as e:
             self.logger.error(f"Error batch creating neurons: {str(e)}")
             return []
@@ -1877,8 +1891,17 @@ class CoreAPIService:
     def batch_create_synapses(self, connections: List[Tuple[int, int, float]]) -> int:
         """Batch create synapses."""
         try:
-            # This would need implementation
-            return 0
+            # Create synapses using connectome manager
+            created_count = 0
+            for pre_neuron_id, post_neuron_id, weight in connections:
+                success = self._connectome_manager.create_synapse(
+                    pre_neuron_id=pre_neuron_id,
+                    post_neuron_id=post_neuron_id,
+                    weight=weight
+                )
+                if success:
+                    created_count += 1
+            return created_count
         except Exception as e:
             self.logger.error(f"Error batch creating synapses: {str(e)}")
             return 0
