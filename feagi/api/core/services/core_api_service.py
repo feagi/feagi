@@ -92,9 +92,9 @@ class CoreAPIService:
         self._agents_service = AgentsService(connectome_manager, self.state_manager)
         self._network_service = NetworkService(connectome_manager, self.state_manager)
 
-        # CRITICAL: Pass brain service to genome service to ensure singleton BurstEngine usage
+        # Initialize genome service with clean architecture - no service dependencies  
         self._genome_service = GenomeService(
-            connectome_manager, self.state_manager, self._brain_service
+            connectome_manager, self.state_manager
         )
 
         # Validate state manager consistency across services

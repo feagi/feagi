@@ -1342,11 +1342,13 @@ class ProcessManager:
                                 logger.warning(f"🚨   {service}: {status.value}")
 
                     # Wait briefly for services to become ready (non-blocking timeout)
+                    timeout_seconds = 10.0
                     logger.info(
-                        "🔄 Waiting up to 10 seconds for critical services to become ready..."
+                        f"🔄 Waiting up to {timeout_seconds} seconds for critical services..."
                     )
+                    
                     if state_manager.wait_for_critical_services(
-                        timeout_seconds=10.0, check_interval=0.5
+                        timeout_seconds=timeout_seconds, check_interval=0.5
                     ):
                         logger.info(
                             "✅ Critical services now ready - proceeding with FQ sampler creation"

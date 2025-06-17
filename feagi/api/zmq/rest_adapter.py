@@ -371,9 +371,14 @@ class ZMQRestAPIAdapter:
                 logger.error("[ERR] No client_id provided in heartbeat request")
                 raise ValueError("client_id is required for heartbeat")
 
-            logger.info(
-                f"[CONFIG] DEBUG: Processing visualization heartbeat for {client_id}"
-            )
+            # Only log debug info when ZMQ inbound debugging is enabled
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            
+            if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                logger.info(
+                    f"[CONFIG] DEBUG: Processing visualization heartbeat for {client_id}"
+                )
 
             # Get the ZMQ server from the module registry
             zmq_server = getattr(self, "_zmq_server", None)
@@ -387,9 +392,10 @@ class ZMQRestAPIAdapter:
             viz_stream = zmq_server.get_visualization_stream()
 
             if viz_stream:
-                logger.info(
-                    f"[CONFIG] DEBUG: Calling heartbeat_visualization_client for {client_id}"
-                )
+                if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                    logger.info(
+                        f"[CONFIG] DEBUG: Calling heartbeat_visualization_client for {client_id}"
+                    )
                 # Check if the visualization stream has the heartbeat method
                 if not hasattr(viz_stream, "heartbeat_visualization_client"):
                     logger.error(
@@ -402,10 +408,11 @@ class ZMQRestAPIAdapter:
                 # RTOS: VisualizationStream is now synchronous, no await needed
                 try:
                     result = viz_stream.heartbeat_visualization_client(client_id)
-                    logger.info(f"[CONFIG] DEBUG: Method returned: {result}")
-                    logger.info(
-                        f"[CONFIG] DEBUG: Heartbeat call completed for {client_id}"
-                    )
+                    if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                        logger.info(f"[CONFIG] DEBUG: Method returned: {result}")
+                        logger.info(
+                            f"[CONFIG] DEBUG: Heartbeat call completed for {client_id}"
+                        )
 
                     return {
                         "message": f"Heartbeat received from client {client_id}",

@@ -576,6 +576,69 @@ def main():
     except Exception as e:
         logger.warning(f"Could not log startup summary: {e}")
 
+    # CLI GENOME LOADING: Load genome if specified via --genome flag
+    # Use existing genome service infrastructure instead of duplicating functionality
+    genome_path = args.genome or args.genome_path
+    if genome_path:
+        logger.info(f"🧬 CLI genome specified: {genome_path}")
+        try:
+            # Use existing genome service through core API
+            core_api = process_manager.get_core_api()
+            if core_api:
+                # Check if file exists
+                import json
+                from pathlib import Path
+                
+                genome_file = Path(genome_path)
+                if not genome_file.exists():
+                    logger.error(f"❌ Genome file not found: {genome_path}")
+                    process_manager.shutdown()
+                    FeagiStateManager.instance().cleanup()
+                    return 1
+                
+                # Load genome data
+                try:
+                    logger.info(f"🧬 Loading genome from CLI: {genome_path}")
+                    with open(genome_file, 'r') as f:
+                        genome_data = json.load(f)
+                    
+                    # Use existing genome service (same as REST API upload)
+                    result = core_api.load_genome(genome_data, filename=genome_file.name)
+                    
+                    if result.get("success", False):
+                        logger.info(f"✅ CLI genome loaded successfully: {genome_file.name}")
+                        logger.info(f"   🧠 Cortical areas: {result.get('cortical_area_count', 0)}")
+                    else:
+                        logger.error(f"❌ Failed to load CLI genome: {result.get('error', 'Unknown error')}")
+                        process_manager.shutdown()
+                        FeagiStateManager.instance().cleanup()
+                        return 1
+                        
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ Invalid JSON in genome file {genome_path}: {e}")
+                    process_manager.shutdown()
+                    FeagiStateManager.instance().cleanup()
+                    return 1
+                except Exception as e:
+                    logger.error(f"❌ Error reading genome file {genome_path}: {e}")
+                    process_manager.shutdown()
+                    FeagiStateManager.instance().cleanup()
+                    return 1
+                    
+            else:
+                logger.error("❌ Core API not available for CLI genome loading")
+                process_manager.shutdown()
+                FeagiStateManager.instance().cleanup()
+                return 1
+                
+        except Exception as e:
+            logger.error(f"❌ Error during CLI genome loading: {e}")
+            import traceback
+            logger.debug(f"CLI genome loading error details: {traceback.format_exc()}")
+            process_manager.shutdown()
+            FeagiStateManager.instance().cleanup()
+            return 1
+
     # If in test mode, run tests AFTER processes are started
     test_mode_enabled = args.test or args.test_mode_1 or args.test_mode_2
     if test_mode_enabled:

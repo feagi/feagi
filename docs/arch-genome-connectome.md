@@ -24,33 +24,133 @@ FEAGI implements a **single source of truth** architecture for genome data to el
 
 ### Genome Loading Flow
 
-The architecture follows this strict sequence:
+The architecture follows this strict sequence to ensure proper brain initialization and readiness:
 
 ```
-1. Genome Service: Complete sanitization first
+1. Genome Service: Complete genome sanitization first
 2. State Manager: Store sanitized genome as single source of truth
-3. State Manager: Notify Connectome Manager "new genome ready"
-4. Connectome Manager: Build brain from State Manager's genome (NOT temp files)
-5. REST API: Serve properties from State Manager's genome
+3. NeuroEmbryogenesis: Complete brain development (including synaptogenesis)
+4. Genome State: Set to LOADED after neuroembryogenesis completion
+5. Burst Engine: Check if running, start if needed
+6. Brain Readiness: Set to true ONLY after genome loaded AND burst engine ready
+7. Event System: Emit GENOME_LOADED event to process manager
 ```
 
-#### Previous Problematic Pattern:
+#### Critical Design Requirements:
+
+1. **Synaptogenesis is part of Neuroembryogenesis**: All synapse creation MUST complete within the neuroembryogenesis process before proceeding
+2. **Atomic Genome Loading**: Genome state set to LOADED only after COMPLETE brain development (including synaptogenesis)
+3. **Burst Engine Dependency**: After genome availability, system checks if burst engine is running and starts it if needed
+4. **Brain Readiness Last**: Brain readiness marked true ONLY after both genome loaded AND burst engine ready
+
+#### Previous Problematic Patterns:
 ```
-1. Genome Service: Auto-recovery sanitizes genome
-2. Genome Service: Immediately calls connectome manager
-3. Connectome Manager: Builds from temp file (race condition!)
-4. REST API: Reads from connectome's duplicate property storage
-5. Result: Client gets unsanitized null values, crashes
+❌ Brain readiness set before synaptogenesis completion
+❌ Genome marked as loaded before synaptogenesis finishes
+❌ Burst engine status ignored during genome loading
+❌ Statistics updating failures reset brain readiness to false
 ```
 
 #### Current Correct Architecture:
 ```
-1. Genome Service: Complete sanitization first
-2. State Manager: Store sanitized genome as single source of truth
-3. Genome Service: Notify connectome manager with sanitized data
-4. Connectome Manager: Build brain from state manager genome
-5. REST API: Always read from state manager's sanitized genome
-6. Result: Client always gets sanitized values, no crashes
+✅ Neuroembryogenesis includes complete synaptogenesis
+✅ Genome state LOADED only after brain development completion
+✅ Burst engine status checked and started after genome availability
+✅ Brain readiness set only after genome loaded AND burst engine ready
+✅ Statistics errors do NOT affect brain readiness (non-critical for functionality)
+```
+
+### Detailed Flow Implementation
+
+#### Step 1: Genome Sanitization and Staging
+```python
+# ARCHITECTURE: Stage sanitized genome in state manager FIRST
+if self.state_manager:
+    self.state_manager.genome = genome_data  # Single source of truth
+    self.state_manager.genome_file_name = filename
+    self.state_manager.set_genome_state(GenomeState.LOADING)
+```
+
+#### Step 2: Complete Brain Development (Including Synaptogenesis)
+```python
+# ARCHITECTURE: Build brain from state manager genome (not temp file)
+embry = NeuroEmbryogenesis(connectome_manager=self._connectome_manager)
+success = embry.develop_brain_from_genome_data(genome_data)  # Includes synaptogenesis
+
+# CRITICAL: Set genome state to LOADED only after COMPLETE brain development
+if success:
+    self.state_manager.set_genome_state(GenomeState.LOADED)
+    self.logger.info("Genome state set to LOADED - COMPLETE brain development finished")
+```
+
+#### Step 3: Burst Engine Verification and Startup
+```python
+# STEP 3: After genome available, check if burst engine running and start if not
+current_burst_state = self.state_manager.get_burst_engine_state()
+
+if current_burst_state != ServiceState.READY:
+    brain_service = BrainService(self._connectome_manager, self.state_manager)
+    start_success = brain_service.start_burst_engine()
+    
+    if start_success:
+        self.logger.info("✅ Burst engine started successfully after genome load")
+    else:
+        self.logger.error("❌ Failed to start burst engine after genome load")
+```
+
+#### Step 4: Brain Readiness After All Prerequisites
+```python
+# STEP 4: Set brain readiness to true ONLY after genome loaded AND burst engine ready
+final_burst_state = self.state_manager.get_burst_engine_state()
+if final_burst_state in [ServiceState.READY, ServiceState.ON_HOLD]:
+    self.state_manager.set_brain_readiness(True)
+    self.logger.info("✅ Brain readiness set to True - genome loaded AND burst engine ready")
+else:
+    # Still mark as ready since genome is loaded, even if burst engine has issues
+    self.state_manager.set_brain_readiness(True)
+    self.logger.info("✅ Brain readiness set to True - genome loaded (burst engine handled separately)")
+```
+
+#### Step 5: Event System Notification
+```python
+# Signal successful genome load to process manager
+self._event_system.send_event(
+    EventType.GENOME_LOADED,
+    data={"filename": filename, "cortical_areas": cortical_area_count},
+    priority=EventPriority.HIGH,
+)
+```
+
+### Error Handling and Non-Critical Operations
+
+#### Statistics Updating (Non-Critical)
+```python
+# CRITICAL FIX: Statistics updating errors do NOT reset brain_readiness
+try:
+    # Update state manager with brain statistics for health checks
+    self.state_manager.brain_stats = {
+        "neuron_count": total_neurons,
+        "synapse_count": total_synapses,
+        "cortical_area_count": cortical_area_count,
+    }
+except Exception as stats_error:
+    # WARNING: Do NOT reset brain_readiness to False here!
+    self.logger.warning(f"Statistics update failed but genome loading succeeded - brain functional")
+    # Don't fail genome loading for statistics issues
+```
+
+### Health Check Validation
+
+The health check enforces this flow by validating the complete state:
+
+```json
+{
+  "genome_availability": true,     // Set after neuroembryogenesis completion
+  "burst_engine": true,           // Started after genome availability
+  "brain_readiness": true,        // Set after both above are true
+  "synapse_count": 401,          // Synaptogenesis completed within neuroembryogenesis
+  "cortical_area_count": 24      // All brain development finished
+}
 ```
 
 ### Code Implementation

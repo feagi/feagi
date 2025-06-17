@@ -245,20 +245,25 @@ class RestStream:
                     # Receive message with timeout
                     message_parts = await worker_socket.recv_multipart()
 
-                    # [CONFIG] DETAILED REQUEST LOGGING FOR DEBUGGING
-                    logger.info(
-                        f"[CONFIG] DEBUG: REST STREAM - Received ZMQ message with {len(message_parts)} parts"
-                    )
-                    for i, part in enumerate(message_parts):
-                        try:
-                            decoded = part.decode("utf-8")
-                            logger.info(
-                                f"[CONFIG] DEBUG: Part {i}: '{decoded}' ({len(part)} bytes)"
-                            )
-                        except Exception:
-                            logger.info(
-                                f"[CONFIG] DEBUG: Part {i}: <binary data> ({len(part)} bytes)"
-                            )
+                    # Only log debug info when ZMQ inbound debugging is enabled
+                    from feagi.core.state_manager import get_state_manager
+                    state_manager = get_state_manager()
+
+                    if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                        # [CONFIG] DETAILED REQUEST LOGGING FOR DEBUGGING
+                        logger.info(
+                            f"[CONFIG] DEBUG: REST STREAM - Received ZMQ message with {len(message_parts)} parts"
+                        )
+                        for i, part in enumerate(message_parts):
+                            try:
+                                decoded = part.decode("utf-8")
+                                logger.info(
+                                    f"[CONFIG] DEBUG: Part {i}: '{decoded}' ({len(part)} bytes)"
+                                )
+                            except Exception:
+                                logger.info(
+                                    f"[CONFIG] DEBUG: Part {i}: <binary data> ({len(part)} bytes)"
+                                )
 
                     # Debug logging for inbound ZMQ traffic
                     endpoint = f"tcp://{self.host}:{self.port}"
@@ -285,12 +290,14 @@ class RestStream:
                     # Try to decode as JSON
                     try:
                         message = json.loads(message_data.decode("utf-8"))
-                        logger.info(f"[CONFIG] DEBUG: Parsed JSON message: {message}")
+                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                            logger.info(f"[CONFIG] DEBUG: Parsed JSON message: {message}")
                     except json.JSONDecodeError as e:
-                        logger.error(f"[CONFIG] DEBUG: JSON DECODE ERROR: {e}")
-                        logger.error(
-                            f"[CONFIG] DEBUG: Raw message data: {message_data}"
-                        )
+                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                            logger.error(f"[CONFIG] DEBUG: JSON DECODE ERROR: {e}")
+                            logger.error(
+                                f"[CONFIG] DEBUG: Raw message data: {message_data}"
+                            )
 
                         # Send error response
                         error_response = {
@@ -313,10 +320,11 @@ class RestStream:
 
                     # Validate REST format
                     if not self._is_valid_rest_message(message):
-                        logger.error(f"[CONFIG] DEBUG: INVALID REST FORMAT: {message}")
-                        logger.error(
-                            f"[CONFIG] DEBUG: Missing required fields - message keys: {list(message.keys()) if isinstance(message, dict) else 'not a dict'}"
-                        )
+                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                            logger.error(f"[CONFIG] DEBUG: INVALID REST FORMAT: {message}")
+                            logger.error(
+                                f"[CONFIG] DEBUG: Missing required fields - message keys: {list(message.keys()) if isinstance(message, dict) else 'not a dict'}"
+                            )
 
                         error_response = {
                             "status": 400,
@@ -339,13 +347,14 @@ class RestStream:
                     # Process with REST API adapter
                     method = message.get("method", "UNKNOWN")
                     route = message.get("route", "unknown")
-
-                    logger.info(
-                        f"[CONFIG] DEBUG: Processing REST API request: {method} {route}"
-                    )
-                    logger.info(
-                        f"[CONFIG] DEBUG: Full message content: {json.dumps(message, indent=2)}"
-                    )
+                    
+                    if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                        logger.info(
+                            f"[CONFIG] DEBUG: Processing REST API request: {method} {route}"
+                        )
+                        logger.info(
+                            f"[CONFIG] DEBUG: Full message content: {json.dumps(message, indent=2)}"
+                        )
 
                     try:
                         start_time = time.time()
@@ -354,26 +363,27 @@ class RestStream:
                         )
                         processing_time = time.time() - start_time
 
-                        logger.info(
-                            f"[CONFIG] DEBUG: REST request processed in {processing_time:.3f}s"
-                        )
-                        logger.info(
-                            f"[CONFIG] DEBUG: Response size: {len(response_data)} bytes"
-                        )
+                        if state_manager and state_manager.is_debug_zmq_inbound_enabled():
+                            logger.info(
+                                f"[CONFIG] DEBUG: REST request processed in {processing_time:.3f}s"
+                            )
+                            logger.info(
+                                f"[CONFIG] DEBUG: Response size: {len(response_data)} bytes"
+                            )
 
-                        # Try to decode and show response for debugging
-                        try:
-                            response_json = json.loads(response_data.decode("utf-8"))
-                            logger.info(
-                                f"[CONFIG] DEBUG: Response status: {response_json.get('status', 'unknown')}"
-                            )
-                            logger.info(
-                                f"[CONFIG] DEBUG: Response body preview: {str(response_json.get('body', {}))[:200]}..."
-                            )
-                        except Exception:
-                            logger.info(
-                                f"[CONFIG] DEBUG: Response (non-JSON): {response_data[:100]}..."
-                            )
+                            # Try to decode and show response for debugging
+                            try:
+                                response_json = json.loads(response_data.decode("utf-8"))
+                                logger.info(
+                                    f"[CONFIG] DEBUG: Response status: {response_json.get('status', 'unknown')}"
+                                )
+                                logger.info(
+                                    f"[CONFIG] DEBUG: Response body preview: {str(response_json.get('body', {}))[:200]}..."
+                                )
+                            except Exception:
+                                logger.info(
+                                    f"[CONFIG] DEBUG: Response (non-JSON): {response_data[:100]}..."
+                                )
 
                         # Send response
                         await worker_socket.send_multipart(
