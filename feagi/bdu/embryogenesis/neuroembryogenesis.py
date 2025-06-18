@@ -2015,104 +2015,142 @@ class NeuroEmbryogenesis:
         ltd_multiplier: float,
     ) -> int:
         """
-        Process vector-based morphology using match_vectors logic from legacy.
+        Process vector-based morphology using numpy vectorized operations.
 
-        ARCHITECTURE: Implements legacy match_vectors algorithm in FEAGI 2.0.
-        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
+        PERFORMANCE: Vectorized approach for massive performance improvement.
+        Instead of processing 12,288 neurons one-by-one, processes ALL at once.
+
+        Args:
+            src_area_id: Source cortical area ID
+            dst_area_id: Destination cortical area ID
+            src_neurons: List of source neuron IDs
+            dst_neurons: List of destination neuron IDs
+            morphology_def: Morphology definition from genome
+            morphology_scalar: Scaling factors [x, y, z]
+            psc_multiplier: Post-synaptic current multiplier
+            plasticity_flag: Whether plasticity is enabled
+            plasticity_constant: Plasticity constant value
+            ltp_multiplier: Long-term potentiation multiplier
+            ltd_multiplier: Long-term depression multiplier
+
+        Returns:
+            int: Number of synapses created
         """
         try:
-            total_synapses = 0
+            import numpy as np
+            
             vectors = morphology_def.get("parameters", {}).get("vectors", [])
-
             if not vectors:
-                logger.warning(
-                    "No vectors found in morphology definition for vector type"
-                )
+                logger.warning("No vectors found in morphology definition for vector type")
                 return 0
 
-            # Get destination area dimensions
-            dst_area_props = self.connectome_manager.get_cortical_area_properties(
-                dst_area_id
-            )
-            if not dst_area_props:
-                logger.error(f"Cannot get properties for area {dst_area_id}")
+            if not src_neurons:
+                logger.debug("No source neurons to process")
                 return 0
 
-            dst_area_props.get("dimensions", [1, 1, 1])
-
-            # Process each source neuron
+            logger.info(f"[VECTOR-NUMPY] Processing {len(src_neurons)} neurons with vectorized operations")
+            
+            # Step 1: Extract ALL source neuron positions at once (vectorized)
+            source_positions = []
+            valid_source_neurons = []
+            
             for src_neuron_id in src_neurons:
-                try:
-                    # DEBUG: Log the actual neuron ID being processed
-                    logger.debug(
-                        f"[VECTOR DEBUG] Processing source neuron ID: {src_neuron_id}"
-                    )
-
-                    # Get source neuron position
-                    src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
-                    if not src_pos:
-                        continue
-
-                    synapse_connections = []
-
-                    # Process each vector using modern match_vectors
-                    for vector in vectors:
-                        # Get source area for subregion calculation
-                        src_area = self.connectome_manager.get_cortical_area(
-                            src_area_id
-                        )
-                        src_subregion = [(0, 0, 0), src_area.dimensions]
-
-                        candidate_positions = match_vectors(
-                            src_voxel=src_pos,
-                            dst_area_id=dst_area_id,
-                            vector=vector,
-                            morphology_scalar=morphology_scalar[0]
-                            if morphology_scalar
-                            else 1.0,
-                            src_subregion=src_subregion,
-                            connectome_manager=self.connectome_manager,
-                        )
-
-                        # Collect all candidate positions first (legacy approach)
-                        candidate_positions_set = set()
-                        for candidate_pos in candidate_positions:
-                            candidate_positions_set.add(candidate_pos)
-
-                        # Use legacy batch lookup for performance
-                        if candidate_positions_set:
-                            neuron_weight_pairs = (
-                                self.connectome_manager.batch_voxel_to_neuron_lookup(
-                                    cortical_id=dst_area_id,
-                                    candidate_positions=candidate_positions_set,
-                                    post_synaptic_current=psc_multiplier,
-                                )
-                            )
-
-                            # Convert to synapse connections
-                            for neuron_id, weight in neuron_weight_pairs:
-                                synapse_connections.append(
-                                    (src_neuron_id, neuron_id, weight)
-                                )
-
-                    # Create synapses in batch - Now using GlobalSynapseArray for optimal performance
-                    if synapse_connections:
-                        created = self.connectome_manager.batch_create_synapses(
-                            synapse_connections
-                        )
-                        total_synapses += created
-
-                except Exception as e:
-                    logger.warning(
-                        f"Error processing vector morphology for neuron "
-                        f"{src_neuron_id}: {e}"
-                    )
+                src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
+                if src_pos:
+                    source_positions.append(src_pos)
+                    valid_source_neurons.append(src_neuron_id)
+            
+            if not source_positions:
+                logger.warning("No valid source positions found")
+                return 0
+                
+            # Convert to numpy arrays for vectorized operations
+            source_neuron_ids = np.array(valid_source_neurons)  # Shape: (N,)
+            source_positions = np.array(source_positions)       # Shape: (N, 3)
+            
+            logger.debug(f"[VECTOR-NUMPY] Extracted {len(source_positions)} valid positions")
+            
+            total_synapses = 0
+            
+            # Process each vector in the morphology
+            for vector in vectors:
+                # Get morphology scalar (default to 1.0 if not provided)
+                scalar = morphology_scalar[0] if morphology_scalar else 1.0
+                
+                # Step 2: Apply vector [m,n,t] to ALL positions at once (pure numpy)
+                vector_array = np.array(vector) * scalar  # Shape: (3,)
+                candidate_positions = source_positions + vector_array  # Broadcasting! Shape: (N, 3)
+                
+                logger.debug(f"[VECTOR-NUMPY] Applied vector {vector} * {scalar} to {len(candidate_positions)} positions")
+                
+                # Step 3: Get destination area dimensions for boundary checking
+                dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+                if not dst_area:
+                    logger.warning(f"Cannot get destination area {dst_area_id}")
                     continue
+                    
+                dst_dimensions = dst_area.dimensions
+                
+                # Step 4: Filter candidate positions to be within bounds (vectorized)
+                valid_mask = (
+                    (candidate_positions[:, 0] >= 0) & (candidate_positions[:, 0] < dst_dimensions[0]) &
+                    (candidate_positions[:, 1] >= 0) & (candidate_positions[:, 1] < dst_dimensions[1]) &
+                    (candidate_positions[:, 2] >= 0) & (candidate_positions[:, 2] < dst_dimensions[2])
+                )
+                
+                valid_candidate_positions = candidate_positions[valid_mask]
+                valid_source_neurons_for_vector = source_neuron_ids[valid_mask]
+                
+                if len(valid_candidate_positions) == 0:
+                    logger.debug(f"[VECTOR-NUMPY] No valid candidate positions after boundary filtering")
+                    continue
+                    
+                logger.debug(f"[VECTOR-NUMPY] {len(valid_candidate_positions)} positions within bounds")
+                
+                # Step 5: Batch lookup ALL candidate positions at once
+                candidate_positions_set = set(map(tuple, valid_candidate_positions))
+                
+                neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
+                    cortical_id=dst_area_id,
+                    candidate_positions=candidate_positions_set,
+                    post_synaptic_current=psc_multiplier,
+                )
+                
+                if not neuron_weight_pairs:
+                    logger.debug(f"[VECTOR-NUMPY] No neurons found at candidate positions")
+                    continue
+                
+                # Step 6: Create position-to-neurons mapping for fast lookup
+                position_to_neurons = {}
+                for neuron_id, weight in neuron_weight_pairs:
+                    neuron_pos = self.connectome_manager.get_neuron_position(neuron_id)
+                    if neuron_pos:
+                        if neuron_pos not in position_to_neurons:
+                            position_to_neurons[neuron_pos] = []
+                        position_to_neurons[neuron_pos].append((neuron_id, weight))
+                
+                # Step 7: Create synapses (vectorized where possible)
+                synapse_connections = []
+                for i, candidate_pos in enumerate(valid_candidate_positions):
+                    candidate_pos_tuple = tuple(candidate_pos)
+                    if candidate_pos_tuple in position_to_neurons:
+                        src_neuron_id = valid_source_neurons_for_vector[i]
+                        for dst_neuron_id, weight in position_to_neurons[candidate_pos_tuple]:
+                            synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                
+                # Step 8: Batch create synapses
+                if synapse_connections:
+                    created = self.connectome_manager.batch_create_synapses(synapse_connections)
+                    total_synapses += created
+                    logger.debug(f"[VECTOR-NUMPY] Created {created} synapses for vector {vector}")
 
+            logger.info(f"[VECTOR-NUMPY] Created {total_synapses} total synapses using vectorized operations")
             return total_synapses
 
         except Exception as e:
-            logger.error(f"Error in vector morphology processing: {e}")
+            logger.error(f"Error in vectorized vector morphology processing: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return 0
 
     def _process_pattern_morphology(
