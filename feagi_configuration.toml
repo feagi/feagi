@@ -103,6 +103,19 @@ batch_size = 1000              # neurons per batch
 use_sparse_computation = true   # optimize for sparse networks
 enable_plasticity = true       # learning mechanisms
 
+[connectome]
+# Connectome sizing and memory allocation
+# These values determine the minimum reserved space for neurons and synapses
+# regardless of genome requirements
+min_neuron_space = 100000      # Minimum neuron slots to reserve (default safety margin)
+min_synapse_space = 500000     # Minimum synapse slots to reserve (default safety margin)
+
+# Dynamic sizing policy:
+# - Read genome stats to determine actual neuron/synapse requirements
+# - Reserve 50% more than genome requirements OR the minimum values above (whichever is larger)
+# - This prevents memory waste while ensuring adequate space for growth
+buffer_multiplier = 1.5        # Reserve 50% more than genome requirements (1.5x = +50%)
+
 [resources]
 # Resource allocation settings
 use_gpu = true                 # enable GPU acceleration if available

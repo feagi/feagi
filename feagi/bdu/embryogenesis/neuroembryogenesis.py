@@ -2015,11 +2015,13 @@ class NeuroEmbryogenesis:
         ltd_multiplier: float,
     ) -> int:
         """
-        Process vector-based morphology with VECTORIZED implementation for performance.
+        Process vector-based morphology using match_vectors logic from legacy.
 
-        CRITICAL PERFORMANCE FIX: Collect ALL synapses first, then create in ONE batch.
+        ARCHITECTURE: Implements legacy match_vectors algorithm in FEAGI 2.0.
+        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
         """
         try:
+            total_synapses = 0
             vectors = morphology_def.get("parameters", {}).get("vectors", [])
 
             if not vectors:
@@ -2036,16 +2038,22 @@ class NeuroEmbryogenesis:
                 logger.error(f"Cannot get properties for area {dst_area_id}")
                 return 0
 
-            # PERFORMANCE OPTIMIZATION: Collect ALL synapses first, then create in ONE batch
-            all_synapse_connections = []
+            dst_area_props.get("dimensions", [1, 1, 1])
 
             # Process each source neuron
             for src_neuron_id in src_neurons:
                 try:
+                    # DEBUG: Log the actual neuron ID being processed
+                    logger.debug(
+                        f"[VECTOR DEBUG] Processing source neuron ID: {src_neuron_id}"
+                    )
+
                     # Get source neuron position
                     src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
                     if not src_pos:
                         continue
+
+                    synapse_connections = []
 
                     # Process each vector using modern match_vectors
                     for vector in vectors:
@@ -2081,11 +2089,18 @@ class NeuroEmbryogenesis:
                                 )
                             )
 
-                            # Convert to synapse connections and ADD TO GLOBAL LIST
+                            # Convert to synapse connections
                             for neuron_id, weight in neuron_weight_pairs:
-                                all_synapse_connections.append(
+                                synapse_connections.append(
                                     (src_neuron_id, neuron_id, weight)
                                 )
+
+                    # Create synapses in batch - USE OPTIMIZED VERSION TO AVOID 4+ SECOND BOTTLENECK
+                    if synapse_connections:
+                        created = self.connectome_manager.batch_create_synapses_optimized(
+                            synapse_connections
+                        )
+                        total_synapses += created
 
                 except Exception as e:
                     logger.warning(
@@ -2094,25 +2109,10 @@ class NeuroEmbryogenesis:
                     )
                     continue
 
-            # CRITICAL PERFORMANCE FIX: Create ALL synapses in ONE batch operation
-            if all_synapse_connections:
-                start_time = time.time()
-                total_synapses = self.connectome_manager.batch_create_synapses(
-                    all_synapse_connections
-                )
-                end_time = time.time()
-                elapsed_ms = (end_time - start_time) * 1000
-
-                logger.info(
-                    f"✅ VECTORIZED VECTOR: Created {total_synapses} synapses in {elapsed_ms:.1f}ms "
-                    f"({total_synapses / max(elapsed_ms / 1000, 0.001):.0f} synapses/sec)"
-                )
-                return total_synapses
-            else:
-                return 0
+            return total_synapses
 
         except Exception as e:
-            logger.error(f"Error in vectorized vector morphology processing: {e}")
+            logger.error(f"Error in vector morphology processing: {e}")
             return 0
 
     def _process_pattern_morphology(
@@ -2130,13 +2130,13 @@ class NeuroEmbryogenesis:
         ltd_multiplier: float,
     ) -> int:
         """
-        Process pattern-based morphology with MAXIMUM-PERFORMANCE implementation.
+        Process pattern-based morphology using legacy pattern logic.
 
-        CRITICAL FIX: Collects ALL synapses and creates them in ONE batch operation
-        to avoid the expensive matrix conversion bottleneck that happens on every
-        individual add_synapse call.
+        ARCHITECTURE: Implements legacy find_destination_coordinates in FEAGI 2.0.
+        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
         """
         try:
+            total_synapses = 0
             patterns = morphology_def.get("parameters", {}).get("patterns", [])
 
             if not patterns:
@@ -2155,21 +2155,7 @@ class NeuroEmbryogenesis:
 
             dst_dimensions = dst_area_props.get("dimensions", [1, 1, 1])
 
-            # CRITICAL OPTIMIZATION: Build position->neuron lookup once
-            position_to_neurons = {}
-            for neuron_id in dst_neurons:
-                neuron_pos = self.connectome_manager.get_neuron_position(neuron_id)
-                if neuron_pos:
-                    if neuron_pos not in position_to_neurons:
-                        position_to_neurons[neuron_pos] = []
-                    position_to_neurons[neuron_pos].append(neuron_id)
-
-            start_time = time.time()
-
-            # PERFORMANCE FIX: Collect ALL synapses to create in ONE batch
-            synapses_to_create = []
-
-            # Process each source neuron and COLLECT synapses (don't create yet)
+            # Process each source neuron
             for src_neuron_id in src_neurons:
                 try:
                     # Get source neuron position
@@ -2177,31 +2163,52 @@ class NeuroEmbryogenesis:
                     if not src_pos:
                         continue
 
-                    # Process each pattern
+                    synapse_connections = []
+
+                    # Collect all candidate positions first (legacy approach)
+                    all_candidate_positions = set()
+
+                    # Process each pattern (legacy pattern logic)
                     for pattern in patterns:
                         if len(pattern) >= 2:
                             source_pattern = pattern[0]
                             destination_pattern = pattern[1]
 
-                            # Find target neurons and COLLECT synapses
-                            for candidate_pos in find_destination_coordinates(
-                                dst_cortical_boundary=tuple(dst_dimensions),
-                                src_coordinate=src_pos,
-                                src_pattern=source_pattern,
-                                dst_pattern=destination_pattern,
-                            ):
-                                if candidate_pos in position_to_neurons:
-                                    # COLLECT synapses for batch creation
-                                    for target_neuron_id in position_to_neurons[
-                                        candidate_pos
-                                    ]:
-                                        synapses_to_create.append(
-                                            (
-                                                src_neuron_id,
-                                                target_neuron_id,
-                                                psc_multiplier,
-                                            )
-                                        )
+                            candidate_positions = list(
+                                find_destination_coordinates(
+                                    dst_cortical_boundary=tuple(dst_dimensions),
+                                    src_coordinate=src_pos,
+                                    src_pattern=source_pattern,
+                                    dst_pattern=destination_pattern,
+                                )
+                            )
+
+                            # Collect positions for batch lookup
+                            for candidate_pos in candidate_positions:
+                                all_candidate_positions.add(candidate_pos)
+
+                    # Use legacy batch lookup for performance
+                    if all_candidate_positions:
+                        neuron_weight_pairs = (
+                            self.connectome_manager.batch_voxel_to_neuron_lookup(
+                                cortical_id=dst_area_id,
+                                candidate_positions=all_candidate_positions,
+                                post_synaptic_current=psc_multiplier,
+                            )
+                        )
+
+                        # Convert to synapse connections
+                        for neuron_id, weight in neuron_weight_pairs:
+                            synapse_connections.append(
+                                (src_neuron_id, neuron_id, weight)
+                            )
+
+                    # Create synapses in batch - USE OPTIMIZED VERSION TO AVOID 4+ SECOND BOTTLENECK
+                    if synapse_connections:
+                        created = self.connectome_manager.batch_create_synapses_optimized(
+                            synapse_connections
+                        )
+                        total_synapses += created
 
                 except Exception as e:
                     logger.warning(
@@ -2210,26 +2217,10 @@ class NeuroEmbryogenesis:
                     )
                     continue
 
-            # CRITICAL PERFORMANCE FIX: Create ALL synapses in ONE batch operation
-            # This avoids the expensive matrix conversion on every individual synapse
-            synapse_count = 0
-            if synapses_to_create:
-                synapse_count = self.connectome_manager.batch_create_synapses(
-                    synapses_to_create
-                )
-
-            end_time = time.time()
-            elapsed_ms = (end_time - start_time) * 1000
-
-            logger.info(
-                f"🚀 BATCH PATTERN: Created {synapse_count} synapses in {elapsed_ms:.1f}ms "
-                f"({synapse_count / max(elapsed_ms / 1000, 0.001):.0f} synapses/sec)"
-            )
-
-            return synapse_count
+            return total_synapses
 
         except Exception as e:
-            logger.error(f"Error in batch pattern morphology processing: {e}")
+            logger.error(f"Error in pattern morphology processing: {e}")
             return 0
 
     def _process_function_morphology(
@@ -2248,18 +2239,24 @@ class NeuroEmbryogenesis:
         ltd_multiplier: float,
     ) -> int:
         """
-        Process function-based morphology with VECTORIZED implementation for performance.
+        Process function-based morphology with direct implementation.
 
-        CRITICAL PERFORMANCE FIX: Instead of processing each source neuron individually,
-        collect all synapses first, then create them in one batch operation.
-        This reduces from O(N) batch_create_synapses calls to O(1).
+        ARCHITECTURE: Clean FEAGI 2.0 implementation without legacy dependencies.
+        Supports all function morphologies including block_to_block.
+
+        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
         """
         try:
+            total_synapses = 0
+
+            # Use the modern find_candidate_neurons function
+
             # Calculate source subregion (following legacy pattern)
             src_area = self.connectome_manager.get_cortical_area(src_area_id)
             src_subregion = [(0, 0, 0), src_area.dimensions]
 
             # Create morphology dict in the correct format for find_candidate_neurons
+            # Check if this is a pattern-based morphology from the genome
             if morphology_def and morphology_def.get("type") == "patterns":
                 morphology_dict = {
                     "type": "patterns",
@@ -2280,25 +2277,20 @@ class NeuroEmbryogenesis:
             # Memory register for memory-based morphologies
             memory_register = {}
 
-            # Apply legacy synapse attractivity filtering (critical for proper behavior)
-            dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
-            synapse_attractivity = dst_area.properties.get("synatt", 100)
-
             debug_bdu = self._is_debug_bdu_enabled()
 
             if debug_bdu:
                 logger.info(
-                    f"[BDU DEBUG] VECTORIZED processing {len(src_neurons)} source neurons for {morphology_id}"
+                    f"[BDU DEBUG] Processing {len(src_neurons)} source neurons for {morphology_id}"
                 )
-                logger.info(
-                    f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%"
-                )
-
-            # PERFORMANCE OPTIMIZATION: Collect ALL synapses first, then create in ONE batch
-            all_synapse_connections = []
 
             for src_neuron_id in src_neurons:
                 try:
+                    if debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] Processing source neuron {src_neuron_id}"
+                        )
+
                     # Use the correct find_candidate_neurons function
                     candidate_neurons = find_candidate_neurons(
                         src_area_id=src_area_id,
@@ -2310,13 +2302,54 @@ class NeuroEmbryogenesis:
                         memory_register=memory_register,
                     )
 
+                    # Apply legacy synapse attractivity filtering (critical for proper behavior)
+                    dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
+                    synapse_attractivity = dst_area.properties.get("synatt", 100)
+
+                    if debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] Found {len(candidate_neurons)} candidate neurons"
+                        )
+                        logger.info(
+                            f"[BDU DEBUG] Synapse attractivity: {synapse_attractivity}%"
+                        )
+
                     # Create synapses from candidate neurons with probabilistic filtering
+                    synapse_connections = []
                     for dst_neuron_id, weight in candidate_neurons:
                         # Legacy behavior: probabilistic synapse creation based on attractivity
                         if random.randrange(1, 100) < synapse_attractivity:
-                            all_synapse_connections.append(
+                            synapse_connections.append(
                                 (src_neuron_id, dst_neuron_id, weight)
                             )
+
+                    if debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] After attractivity filtering: {len(synapse_connections)} synapses to create"
+                        )
+
+                    if synapse_connections:
+                        # PERFORMANCE DEBUG: Time the batch_create_synapses call  
+                        start_time = time.time()
+                        created = self.connectome_manager.batch_create_synapses_optimized(
+                            synapse_connections
+                        )
+                        end_time = time.time()
+                        elapsed_ms = (end_time - start_time) * 1000
+                        if elapsed_ms > 100:  # Log if > 100ms
+                            logger.warning(
+                                f"⚠️  PERFORMANCE: batch_create_synapses_optimized took {elapsed_ms:.1f}ms for {len(synapse_connections)} synapses"
+                            )
+                        total_synapses += created
+
+                        if debug_bdu:
+                            logger.info(
+                                f"[BDU DEBUG] Successfully created {created} synapses for neuron {src_neuron_id}"
+                            )
+                    elif debug_bdu:
+                        logger.info(
+                            f"[BDU DEBUG] No synapses created for neuron {src_neuron_id}"
+                        )
 
                 except Exception as e:
                     logger.warning(
@@ -2325,41 +2358,11 @@ class NeuroEmbryogenesis:
                     )
                     continue
 
-            # CRITICAL PERFORMANCE FIX: Create ALL synapses in ONE batch operation
-            if all_synapse_connections:
-                if debug_bdu:
-                    logger.info(
-                        f"[BDU DEBUG] Creating {len(all_synapse_connections)} synapses in ONE batch operation"
-                    )
-
-                start_time = time.time()
-                total_synapses = self.connectome_manager.batch_create_synapses(
-                    all_synapse_connections
-                )
-                end_time = time.time()
-                elapsed_ms = (end_time - start_time) * 1000
-
-                logger.info(
-                    f"✅ VECTORIZED: Created {total_synapses} synapses in {elapsed_ms:.1f}ms "
-                    f"({total_synapses / max(elapsed_ms / 1000, 0.001):.0f} synapses/sec)"
-                )
-
-                if debug_bdu:
-                    logger.info(
-                        f"[BDU DEBUG] Successfully created {total_synapses} synapses in vectorized batch"
-                    )
-
-                return total_synapses
-            else:
-                if debug_bdu:
-                    logger.info(
-                        f"[BDU DEBUG] No synapses to create for {morphology_id}"
-                    )
-                return 0
+            return total_synapses
 
         except Exception as e:
             logger.error(
-                f"Error in vectorized function morphology processing for {morphology_id}: {e}"
+                f"Error in function morphology processing for {morphology_id}: {e}"
             )
             return 0
 
@@ -2374,7 +2377,7 @@ class NeuroEmbryogenesis:
                     if neuron_id in neuron_list:
                         return position
 
-            # Use connectome manager lookup if voxel mapping not available
+            # Fallback to connectome manager lookup
             position = self.connectome_manager.get_neuron_position(neuron_id)
             if position:
                 return position
@@ -2450,7 +2453,7 @@ class NeuroEmbryogenesis:
                     ):
                         neurons_in_region.extend(neuron_list)
             else:
-                # Alternative approach: get all neurons in area and check their positions
+                # Fallback: get all neurons in area and check their positions
                 all_neurons = self.connectome_manager.get_neurons_by_area(area_id)
                 for neuron_id in all_neurons:
                     position = self.connectome_manager.get_neuron_position(neuron_id)

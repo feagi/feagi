@@ -236,9 +236,7 @@ class CoreAPIService:
     # GENOME SERVICE DELEGATION
     # =================================================================
 
-    def load_essential_genome(self) -> Dict[str, Any]:
-        """Load the essential genome."""
-        return self._genome_service.load_default_genome("essential")
+
 
     def load_barebones_genome(self) -> Dict[str, Any]:
         """Load the barebones genome."""

@@ -635,6 +635,18 @@ class GenomeService(BaseService):
                             "[SKIP] Genome timestamp NOT updated (prevents reload loop)"
                         )
 
+                # DYNAMIC SIZING: Resize connectome based on genome requirements
+                if self._connectome_manager and hasattr(self._connectome_manager, 'resize_for_genome'):
+                    try:
+                        resize_success = self._connectome_manager.resize_for_genome(genome_data)
+                        if resize_success:
+                            self.logger.info("✅ [DYNAMIC SIZING] Connectome resized successfully based on genome requirements")
+                        else:
+                            self.logger.info("ℹ️  [DYNAMIC SIZING] Connectome resize not needed - current size is optimal")
+                    except Exception as resize_error:
+                        self.logger.warning(f"⚠️  [DYNAMIC SIZING] Error during connectome resize: {resize_error}")
+                        # Don't fail genome loading for resize issues - it's an optimization, not critical
+
                 # Log success
                 if (
                     self.state_manager

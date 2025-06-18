@@ -557,6 +557,15 @@ def main():
             "frequency": args.test_frequency,
             "frequency": args.test_frequency,
         },
+        "debug": {
+            "debug_npu": args.debug_npu,
+            "debug_api": args.debug_api,
+            "debug_bdu": args.debug_bdu,
+            "debug_zmq_inbound": args.debug_zmq_inbound,
+            "debug_zmq_outbound": args.debug_zmq_outbound,
+            "log_level": args.log_level or "INFO",
+            "verbose": args.debug,
+        },
     }
 
     # Merge TOML config with legacy config for backwards compatibility

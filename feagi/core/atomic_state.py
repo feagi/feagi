@@ -276,6 +276,7 @@ class RustCompatibleState(ctypes.Structure):
         self.genome_validity = False
         self.connected_agents = {}
         self.changes_saved_externally = False
+        self.simulation_state = 0  # STOPPED
     
     def get_size(self) -> int:
         """Get the size of the structure in bytes."""

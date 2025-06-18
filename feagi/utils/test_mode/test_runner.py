@@ -112,8 +112,25 @@ class FeagiTestRunner:
             initial_brain_ready = self.state_manager.get_brain_readiness()
             logger.info(f"Initial brain readiness state: {initial_brain_ready}")
 
-            # Use the CoreAPIService method to load the essential genome
-            result = self.core_api.load_essential_genome()
+            # Use the single load_genome method to load the essential genome for consistency and dynamic sizing
+            import json
+            from pathlib import Path
+            
+            # Get the essential genome file path
+            essential_genome_path = Path(__file__).parent.parent.parent / "evo" / "defaults" / "genome" / "essential_genome.json"
+            
+            if not essential_genome_path.exists():
+                logger.error(f"Essential genome file not found: {essential_genome_path}")
+                return False
+            
+            # Read the essential genome file
+            with open(essential_genome_path, "r") as f:
+                genome_data = json.load(f)
+            
+            # Use the single load_genome method for consistency and dynamic sizing
+            result = self.core_api.load_genome(
+                genome_data, filename="essential_genome.json"
+            )
 
             # Check if the genome loading was successful
             if not result.get("success", False):
@@ -271,9 +288,28 @@ class FeagiTestRunner:
                     )
                     return False
             else:
-                # For other test modes, use essential genome
+                # For other test modes, load essential genome through the single load_genome method
                 logger.info("Loading essential genome for non-mode-1 test")
-                result = self.core_api.load_essential_genome()
+                
+                # Load essential genome data and use the single load_genome method
+                import json
+                from pathlib import Path
+                
+                # Get the essential genome file path
+                essential_genome_path = Path(__file__).parent.parent.parent / "evo" / "defaults" / "genome" / "essential_genome.json"
+                
+                if not essential_genome_path.exists():
+                    logger.error(f"Essential genome file not found: {essential_genome_path}")
+                    return False
+                
+                # Read the essential genome file
+                with open(essential_genome_path, "r") as f:
+                    genome_data = json.load(f)
+                
+                # Use the single load_genome method for consistency and dynamic sizing
+                result = self.core_api.load_genome(
+                    genome_data, filename="essential_genome.json"
+                )
                 return result.get("success", False)
 
         except Exception as e:
