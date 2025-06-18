@@ -2095,9 +2095,9 @@ class NeuroEmbryogenesis:
                                     (src_neuron_id, neuron_id, weight)
                                 )
 
-                    # Create synapses in batch - USE OPTIMIZED VERSION TO AVOID 4+ SECOND BOTTLENECK
+                    # Create synapses in batch - Now using GlobalSynapseArray for optimal performance
                     if synapse_connections:
-                        created = self.connectome_manager.batch_create_synapses_optimized(
+                        created = self.connectome_manager.batch_create_synapses(
                             synapse_connections
                         )
                         total_synapses += created
@@ -2203,9 +2203,9 @@ class NeuroEmbryogenesis:
                                 (src_neuron_id, neuron_id, weight)
                             )
 
-                    # Create synapses in batch - USE OPTIMIZED VERSION TO AVOID 4+ SECOND BOTTLENECK
+                    # Create synapses in batch - Now using GlobalSynapseArray for optimal performance
                     if synapse_connections:
-                        created = self.connectome_manager.batch_create_synapses_optimized(
+                        created = self.connectome_manager.batch_create_synapses(
                             synapse_connections
                         )
                         total_synapses += created
@@ -2331,14 +2331,14 @@ class NeuroEmbryogenesis:
                     if synapse_connections:
                         # PERFORMANCE DEBUG: Time the batch_create_synapses call  
                         start_time = time.time()
-                        created = self.connectome_manager.batch_create_synapses_optimized(
+                        created = self.connectome_manager.batch_create_synapses(
                             synapse_connections
                         )
                         end_time = time.time()
                         elapsed_ms = (end_time - start_time) * 1000
                         if elapsed_ms > 100:  # Log if > 100ms
                             logger.warning(
-                                f"⚠️  PERFORMANCE: batch_create_synapses_optimized took {elapsed_ms:.1f}ms for {len(synapse_connections)} synapses"
+                                f"⚠️  PERFORMANCE: batch_create_synapses took {elapsed_ms:.1f}ms for {len(synapse_connections)} synapses"
                             )
                         total_synapses += created
 
