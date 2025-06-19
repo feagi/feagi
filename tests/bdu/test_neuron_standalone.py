@@ -136,7 +136,7 @@ class NeuronArray:
         # Initialize arrays - using coordinates_x/y/z for consistency
         self.valid_mask = np.zeros(max_neurons, dtype=bool)
         self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
-        self.thresholds = np.zeros(max_neurons, dtype=np.float32)
+        self.thresholds = np.ones(max_neurons, dtype=np.float32)
         self.cortical_idxs = np.zeros(max_neurons, dtype=np.int32)
         self.coordinates_x = np.zeros(
             max_neurons, dtype=np.int32

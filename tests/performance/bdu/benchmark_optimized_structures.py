@@ -34,11 +34,10 @@ sys.path.insert(0, str(project_root))
 
 # Try to import the optimized structures
 try:
-    from feagi.npu.optimized_structures import RUST_AVAILABLE
+    from feagi.npu.optimized_structures import RUST_AVAILABLE, OptimizedFeagiCore
     from feagi.npu.optimized_structures import Connectome as OptimizedConnectome
     from feagi.npu.optimized_structures import FireCandidateList as OptimizedFCL
     from feagi.npu.optimized_structures import GlobalNeuronArray as OptimizedGNA
-    from feagi.npu.optimized_structures import OptimizedFeagiCore
 except ImportError:
     RUST_AVAILABLE = False
     logging.warning(

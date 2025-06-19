@@ -5,7 +5,7 @@ This test suite focuses on covering the missing areas in the array_backend.py mo
 including backend selection, error handling, and GPU/CPU optimization paths.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest

@@ -6,9 +6,9 @@ that can be directly converted to Rust when migrating.
 """
 
 import ctypes
+import logging
 import threading
 import time
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +277,8 @@ class RustCompatibleState(ctypes.Structure):
         self.connected_agents = {}
         self.changes_saved_externally = False
         self.simulation_state = 0  # STOPPED
+        self.genome_timestamp = 0  # Genome timestamp for change detection
+        self.genome_counter = 0  # Genome counter for version tracking
     
     def get_size(self) -> int:
         """Get the size of the structure in bytes."""

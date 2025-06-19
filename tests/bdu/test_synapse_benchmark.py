@@ -36,7 +36,6 @@ import time
 from datetime import datetime
 from typing import Dict, List, Tuple
 
-import numpy as np
 import pytest
 
 # Configure logging
@@ -480,7 +479,7 @@ def test_morphology_types_benchmark(connectome_manager):
     total_time = sum(result["total_time"] for result in results.values())
     overall_rate = total_synapses / total_time if total_time > 0 else 0
     
-    print(f"\nOVERALL MORPHOLOGY PERFORMANCE:")
+    print("\nOVERALL MORPHOLOGY PERFORMANCE:")
     print(f"  Total synapses created: {total_synapses}")
     print(f"  Total time: {total_time:.6f} seconds")
     print(f"  Overall rate: {overall_rate:.1f} synapses/second")
@@ -553,7 +552,7 @@ def test_all_synapse_types_benchmark(connectome_manager):
     )
     overall_rate = total_synapses / total_time if total_time > 0 else 0
     
-    print(f"\nOVERALL PERFORMANCE:")
+    print("\nOVERALL PERFORMANCE:")
     print(f"  Total synapses created: {total_synapses}")
     print(f"  Total time: {total_time:.6f} seconds")
     print(f"  Overall rate: {overall_rate:.1f} synapses/second")
@@ -646,7 +645,7 @@ def test_large_self_mapping_vector_benchmark(connectome_manager, neuro_embryogen
     
     total_time = end_time - start_time
     
-    print(f"\n🔍 PERFORMANCE ANALYSIS:")
+    print("\n🔍 PERFORMANCE ANALYSIS:")
     print(f"  Operation completed: {'✅ SUCCESS' if success else '❌ FAILED'}")
     print(f"  Total time: {total_time:.3f} seconds")
     print(f"  Neurons processed: {len(neuron_ids):,}")
@@ -662,15 +661,15 @@ def test_large_self_mapping_vector_benchmark(connectome_manager, neuro_embryogen
     
     # Performance expectations
     if total_time > 10.0:
-        print(f"\n⚠️  PERFORMANCE ISSUE CONFIRMED:")
+        print("\n⚠️  PERFORMANCE ISSUE CONFIRMED:")
         print(f"    Taking {total_time:.1f}s for {len(neuron_ids):,} neurons is too slow!")
-        print(f"    Expected: < 1s for vectorized operations")
-        print(f"    Root cause: O(N) individual neuron processing instead of vectorized batch operations")
+        print("    Expected: < 1s for vectorized operations")
+        print("    Root cause: O(N) individual neuron processing instead of vectorized batch operations")
     elif total_time > 1.0:
-        print(f"\n🟡 MODERATE PERFORMANCE CONCERN:")
+        print("\n🟡 MODERATE PERFORMANCE CONCERN:")
         print(f"    {total_time:.1f}s is acceptable but could be optimized")
     else:
-        print(f"\n✅ GOOD PERFORMANCE:")
+        print("\n✅ GOOD PERFORMANCE:")
         print(f"    {total_time:.1f}s is within acceptable range")
     
     print("="*80)

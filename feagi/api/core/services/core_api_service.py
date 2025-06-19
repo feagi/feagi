@@ -262,7 +262,7 @@ class CoreAPIService:
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager → NeuroEmbryogenesis
         """
-        return self._genome_service.load_genome_from_data(genome_data, filename)
+        return self._genome_service.load_genome(genome_data, filename)
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
         """Get the currently loaded genome data."""
@@ -380,19 +380,6 @@ class CoreAPIService:
     ) -> Optional[Dict[str, Any]]:
         """Get connectivity information for a specific cortical area."""
         return self._cortical_area_service.get_area_connectivity(cortical_id, direction)
-
-    def stimulate_cortical_area(
-        self,
-        cortical_id: str,
-        pattern: str = "random",
-        intensity: float = 1.0,
-        duration: int = 1,
-        coordinates: Optional[List[Dict[str, int]]] = None,
-    ) -> Dict[str, Any]:
-        """Stimulate a cortical area with the specified pattern."""
-        return self._cortical_area_service.stimulate_area(
-            cortical_id, pattern, intensity, duration, coordinates
-        )
 
     def get_cortical_id_list(self) -> List[str]:
         """Get a list of all cortical area IDs (6-character strings) in the current genome."""
@@ -571,10 +558,31 @@ class CoreAPIService:
         return self._brain_service.get_performance_metrics()
 
     def stimulate_neurons(
-        self, neuron_ids: List[str], intensity: float = 1.0
+        self, 
+        neural_data: Dict[str, Dict[str, np.ndarray]]
     ) -> Dict[str, Any]:
-        """Stimulate specific neurons with given intensity."""
-        return self._brain_service.stimulate_neurons(neuron_ids, intensity)
+        """
+        Unified method to stimulate neurons using coordinate-based data format.
+        
+        This method handles both individual neuron stimulation and cortical area stimulation
+        by converting coordinates to neuron IDs and injecting them into FCL.
+        
+        Args:
+            neural_data: Data in the format:
+                {
+                    'cortical_area_1': {
+                        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint32),
+                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint32),
+                        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint32),
+                        'membrane_potentials': np.array([0.8, 1.2, 0.9, ...], dtype=np.float32),
+                    },
+                    'cortical_area_2': { ... }
+                }
+        
+        Returns:
+            Dict containing stimulation results and statistics
+        """
+        return self._brain_service.stimulate_neurons_unified(neural_data)
 
     def get_burst_engine_config(self) -> Dict[str, Any]:
         """Get burst engine configuration."""
@@ -1720,14 +1728,29 @@ class CoreAPIService:
     # =================================================================
 
     def trigger_manual_stimulation(self, stimulation_payload: Dict[str, Any]) -> bool:
-        """Trigger manual stimulation."""
+        """Trigger manual stimulation using unified method."""
         try:
             cortical_id = stimulation_payload.get("cortical_id")
             intensity = stimulation_payload.get("intensity", 1.0)
+            coordinates = stimulation_payload.get("coordinates", None)
+            
             if cortical_id:
-                return self.stimulate_cortical_area(
-                    cortical_id, intensity=intensity
-                ).get("success", False)
+                # Create simple neural data for stimulation
+                # If no coordinates provided, this would need area-specific implementation
+                if coordinates:
+                    neural_data = {
+                        cortical_id: {
+                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint32),
+                            'membrane_potentials': np.array([intensity] * len(coordinates), dtype=np.float32)
+                        }
+                    }
+                    return self.stimulate_neurons(neural_data).get("success", False)
+                else:
+                    # For backward compatibility, log that coordinates are needed
+                    self.logger.warning(f"Manual stimulation requires coordinates for area {cortical_id}")
+                    return False
             return False
         except Exception as e:
             self.logger.error(f"Error triggering manual stimulation: {str(e)}")
@@ -1736,15 +1759,31 @@ class CoreAPIService:
     def trigger_sustained_stimulation(
         self, stimulation_payload: Dict[str, Any]
     ) -> bool:
-        """Trigger sustained stimulation."""
+        """Trigger sustained stimulation using unified method."""
         try:
             cortical_id = stimulation_payload.get("cortical_id")
             intensity = stimulation_payload.get("intensity", 1.0)
             duration = stimulation_payload.get("duration", 10)
+            coordinates = stimulation_payload.get("coordinates", None)
+            
             if cortical_id:
-                return self.stimulate_cortical_area(
-                    cortical_id, intensity=intensity, duration=duration
-                ).get("success", False)
+                # Create simple neural data for stimulation
+                # If no coordinates provided, this would need area-specific implementation
+                if coordinates:
+                    neural_data = {
+                        cortical_id: {
+                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint32),
+                            'membrane_potentials': np.array([intensity] * len(coordinates), dtype=np.float32)
+                        }
+                    }
+                    # TODO: Implement duration handling for sustained stimulation
+                    return self.stimulate_neurons(neural_data).get("success", False)
+                else:
+                    # For backward compatibility, log that coordinates are needed
+                    self.logger.warning(f"Sustained stimulation requires coordinates for area {cortical_id}")
+                    return False
             return False
         except Exception as e:
             self.logger.error(f"Error triggering sustained stimulation: {str(e)}")

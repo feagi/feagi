@@ -6,12 +6,13 @@ These tests ensure that the main entry point can launch successfully
 and that all expected API contracts are maintained.
 """
 
-import pytest
-import sys
-import subprocess
 import importlib
-from unittest.mock import patch, MagicMock
+import subprocess
+import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add the feagi directory to the path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "feagi"))

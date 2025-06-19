@@ -264,9 +264,9 @@ async def log_requests(request: Request, call_next):
     start_time = time.time()
 
     # ===== ENHANCED REQUEST LOGGING =====
-    logger.info(f"🔵 [API-DEBUG] ═══════════════════════════════════════")
+    logger.info("🔵 [API-DEBUG] ═══════════════════════════════════════")
     logger.info(f"🔵 [API-DEBUG] REQUEST START [ID: {idem}]")
-    logger.info(f"🔵 [API-DEBUG] ═══════════════════════════════════════")
+    logger.info("🔵 [API-DEBUG] ═══════════════════════════════════════")
 
     # Basic request info
     logger.info(f"🔵 [API-DEBUG] Method: {request.method}")
@@ -277,7 +277,7 @@ async def log_requests(request: Request, call_next):
     )
 
     # Headers (formatted nicely)
-    logger.info(f"🔵 [API-DEBUG] Headers:")
+    logger.info("🔵 [API-DEBUG] Headers:")
     for name, value in request.headers.items():
         # Mask sensitive headers
         if name.lower() in ["authorization", "cookie", "x-api-key"]:
@@ -286,19 +286,19 @@ async def log_requests(request: Request, call_next):
 
     # Query parameters
     if request.query_params:
-        logger.info(f"🔵 [API-DEBUG] Query Parameters:")
+        logger.info("🔵 [API-DEBUG] Query Parameters:")
         for name, value in request.query_params.items():
             logger.info(f"🔵 [API-DEBUG]   {name}: {value}")
     else:
-        logger.info(f"🔵 [API-DEBUG] Query Parameters: <none>")
+        logger.info("🔵 [API-DEBUG] Query Parameters: <none>")
 
     # Path parameters
     if hasattr(request, "path_params") and request.path_params:
-        logger.info(f"🔵 [API-DEBUG] Path Parameters:")
+        logger.info("🔵 [API-DEBUG] Path Parameters:")
         for name, value in request.path_params.items():
             logger.info(f"🔵 [API-DEBUG]   {name}: {value}")
     else:
-        logger.info(f"🔵 [API-DEBUG] Path Parameters: <none>")
+        logger.info("🔵 [API-DEBUG] Path Parameters: <none>")
 
     # Capture and log request body
     request_body = None
@@ -313,7 +313,7 @@ async def log_requests(request: Request, call_next):
 
                 parsed_json = json.loads(request_body)
                 formatted_json = json.dumps(parsed_json, indent=2)
-                logger.info(f"🔵 [API-DEBUG] Request Body (JSON):")
+                logger.info("🔵 [API-DEBUG] Request Body (JSON):")
                 for line in formatted_json.split("\n"):
                     logger.info(f"🔵 [API-DEBUG]   {line}")
             except (json.JSONDecodeError, ValueError):
@@ -326,7 +326,7 @@ async def log_requests(request: Request, call_next):
                 else:
                     logger.info(f"🔵 [API-DEBUG] Request Body: {request_body}")
         else:
-            logger.info(f"🔵 [API-DEBUG] Request Body: <empty>")
+            logger.info("🔵 [API-DEBUG] Request Body: <empty>")
     except Exception as e:
         logger.warning(f"🔵 [API-DEBUG] Failed to read request body: {e}")
 
@@ -346,9 +346,9 @@ async def log_requests(request: Request, call_next):
         process_time = (time.time() - start_time) * 1000
 
         # ===== ENHANCED RESPONSE LOGGING =====
-        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+        logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
         logger.info(f"🟢 [API-DEBUG] RESPONSE [ID: {idem}]")
-        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+        logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
 
         # Response status and timing
         status_emoji = (
@@ -362,7 +362,7 @@ async def log_requests(request: Request, call_next):
         logger.info(f"🟢 [API-DEBUG] Duration: {process_time:.2f}ms")
 
         # Response headers
-        logger.info(f"🟢 [API-DEBUG] Response Headers:")
+        logger.info("🟢 [API-DEBUG] Response Headers:")
         for name, value in response.headers.items():
             logger.info(f"🟢 [API-DEBUG]   {name}: {value}")
 
@@ -373,7 +373,7 @@ async def log_requests(request: Request, call_next):
             if hasattr(response, "body_iterator"):
                 # This is a streaming response, we can't easily capture the body
                 logger.info(
-                    f"🟢 [API-DEBUG] Response Body: <streaming response - cannot capture>"
+                    "🟢 [API-DEBUG] Response Body: <streaming response - cannot capture>"
                 )
             else:
                 # Try to get the response body
@@ -390,7 +390,7 @@ async def log_requests(request: Request, call_next):
 
                         parsed_json = json.loads(response_body)
                         formatted_json = json.dumps(parsed_json, indent=2)
-                        logger.info(f"🟢 [API-DEBUG] Response Body (JSON):")
+                        logger.info("🟢 [API-DEBUG] Response Body (JSON):")
                         for line in formatted_json.split("\n"):
                             logger.info(f"🟢 [API-DEBUG]   {line}")
                     except (json.JSONDecodeError, ValueError):
@@ -415,17 +415,17 @@ async def log_requests(request: Request, call_next):
                         media_type=response.headers.get("content-type"),
                     )
                 else:
-                    logger.info(f"🟢 [API-DEBUG] Response Body: <empty>")
+                    logger.info("🟢 [API-DEBUG] Response Body: <empty>")
 
         except Exception as e:
             logger.info(f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>")
 
         # Summary line
-        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+        logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
         logger.info(
             f"🟢 [API-DEBUG] COMPLETED [ID: {idem}] {request.method} {request.url.path} → {response.status_code} ({process_time:.2f}ms)"
         )
-        logger.info(f"🟢 [API-DEBUG] ═══════════════════════════════════════")
+        logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
 
         return response
 
@@ -433,12 +433,12 @@ async def log_requests(request: Request, call_next):
         process_time = (time.time() - start_time) * 1000
 
         # ===== ERROR RESPONSE LOGGING =====
-        logger.error(f"🔴 [API-DEBUG] ═══════════════════════════════════════")
+        logger.error("🔴 [API-DEBUG] ═══════════════════════════════════════")
         logger.error(f"🔴 [API-DEBUG] ERROR [ID: {idem}]")
-        logger.error(f"🔴 [API-DEBUG] ═══════════════════════════════════════")
+        logger.error("🔴 [API-DEBUG] ═══════════════════════════════════════")
         logger.error(f"🔴 [API-DEBUG] Exception: {type(e).__name__}: {str(e)}")
         logger.error(f"🔴 [API-DEBUG] Duration: {process_time:.2f}ms")
-        logger.error(f"🔴 [API-DEBUG] ═══════════════════════════════════════")
+        logger.error("🔴 [API-DEBUG] ═══════════════════════════════════════")
 
         # Re-raise the exception
         raise

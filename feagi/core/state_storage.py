@@ -1,4 +1,11 @@
-from typing import Protocol, runtime_checkable; import ctypes; import time; import logging; import os; from .state_errors import Result, StateError; from .atomic_state import RustCompatibleState
+import ctypes
+import logging
+import os
+import time
+from typing import Protocol, runtime_checkable
+
+from .atomic_state import RustCompatibleState
+from .state_errors import Result, StateError
 
 logger = logging.getLogger(__name__)
 

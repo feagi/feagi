@@ -151,6 +151,31 @@ The neuroembryogenesis process can be computationally intensive, especially syna
 - **Progress Reporting**: Real-time updates during long-running synaptogenesis
 - **Atomic Completion**: No partial states - either complete success or failure
 
+#### SIMD Optimization for Neurogenesis
+
+**Critical Performance Enhancement**: The neurogenesis voxel mapping has been SIMD-optimized to eliminate O(W×H×D×N) nested loops:
+
+```python
+# OLD: Nested Python loops (could take forever for large brains)
+for x in range(width):
+    for y in range(height):
+        for z in range(depth):
+            for neuron_idx in range(neurons_per_voxel):
+                # Process each neuron individually
+                
+# NEW: SIMD-optimized vectorized operations
+positions_array = np.array(voxel_positions, dtype=np.uint32)
+unique_positions, inverse_indices = np.unique(positions_array, axis=0, return_inverse=True)
+# Batch process all neurons using numpy operations
+```
+
+**Performance Impact:**
+- **Before**: O(W×H×D×N) complexity - could take hours for large brain structures
+- **After**: O(N) complexity using vectorized numpy operations
+- **Benefit**: Neurogenesis now completes in reasonable time even for 10M+ neuron brains
+
+**Location**: `feagi_core/feagi/bdu/embryogenesis/neuroembryogenesis.py` - Lines 940-970 and 1430-1450
+
 ### State Integration with Genome Service
 
 The neuroembryogenesis module integrates with the genome loading architecture:

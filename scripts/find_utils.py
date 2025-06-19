@@ -18,10 +18,9 @@ Examples:
 
 import argparse
 import ast
-import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List
 
 
 class UtilityFinder:

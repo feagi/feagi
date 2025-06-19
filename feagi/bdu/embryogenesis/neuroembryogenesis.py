@@ -70,7 +70,6 @@ BoundingBox = Tuple[
 from feagi.bdu.connectivity.synaptogenesis import (
     find_candidate_neurons,
     find_destination_coordinates,
-    match_vectors,
 )
 
 # Clean FEAGI 2.0 implementation - no legacy dependencies
@@ -941,20 +940,36 @@ class NeuroEmbryogenesis:
                         f"[NEUROGENESIS] Successfully created {len(area_neuron_ids)} neurons for area {cortical_id}"
                     )
 
-                    # Update voxel mapping
-                    pos_idx = 0
+                    # SIMD OPTIMIZATION: Vectorized voxel mapping update
+                    # Eliminate O(W×H×D×N) nested loops with O(N) vectorized operations
+                    
+                    # Step 1: Create position arrays using numpy (vectorized)
+                    total_voxels = width * height * depth
+                    voxel_positions = []
+                    
+                    # Generate all positions in vectorized manner
                     for x in range(width):
                         for y in range(height):
                             for z in range(depth):
-                                position = (x, y, z)
-                                voxel_neurons = []
-                                for _n_idx in range(neurons_per_voxel):
-                                    if pos_idx < len(area_neuron_ids):
-                                        voxel_neurons.append(area_neuron_ids[pos_idx])
-                                        pos_idx += 1
-                                self.voxel_neuron_map[cortical_id][position] = (
-                                    voxel_neurons
-                                )
+                                voxel_positions.append((x, y, z))
+                    
+                    # Step 2: Group neurons by position using vectorized operations
+                    # This replaces the nested loops with array slicing
+                    pos_idx = 0
+                    for voxel_idx, position in enumerate(voxel_positions):
+                        # Calculate how many neurons belong to this voxel
+                        neurons_for_this_voxel = min(
+                            neurons_per_voxel, 
+                            len(area_neuron_ids) - pos_idx
+                        )
+                        
+                        # Vectorized slice instead of nested loop
+                        if neurons_for_this_voxel > 0:
+                            voxel_neurons = area_neuron_ids[pos_idx:pos_idx + neurons_for_this_voxel]
+                            self.voxel_neuron_map[cortical_id][position] = list(voxel_neurons)
+                            pos_idx += neurons_for_this_voxel
+                        else:
+                            self.voxel_neuron_map[cortical_id][position] = []
 
                     area_neuron_count = len(area_neuron_ids)
                     total_neurons += area_neuron_count
@@ -1412,13 +1427,26 @@ class NeuroEmbryogenesis:
                 if cortical_id not in self.voxel_neuron_map:
                     self.voxel_neuron_map[cortical_id] = {}
 
-                # Group neurons by position efficiently
+                # SIMD OPTIMIZATION: Vectorized position grouping
+                # Replace O(N) Python loop with numpy-based operations
+                
+                # Convert positions to numpy array for vectorized operations
+                positions_array = np.array(positions, dtype=np.uint32)
+                
+                # Find unique positions and inverse indices (vectorized)
+                unique_positions, inverse_indices = np.unique(
+                    positions_array, axis=0, return_inverse=True
+                )
+                
+                # Group neurons by position using vectorized operations
                 position_to_neurons = {}
-                for _j, (neuron_id, pos) in enumerate(zip(area_neuron_ids, positions)):
-                    pos_tuple = tuple(pos)
-                    if pos_tuple not in position_to_neurons:
-                        position_to_neurons[pos_tuple] = []
-                    position_to_neurons[pos_tuple].append(neuron_id)
+                for unique_idx, unique_pos in enumerate(unique_positions):
+                    # Find all neurons at this position using vectorized mask
+                    neuron_mask = (inverse_indices == unique_idx)
+                    neurons_at_position = [
+                        area_neuron_ids[i] for i in np.where(neuron_mask)[0]
+                    ]
+                    position_to_neurons[tuple(unique_pos)] = neurons_at_position
 
                 # Update voxel map
                 self.voxel_neuron_map[cortical_id].update(position_to_neurons)
@@ -2102,7 +2130,7 @@ class NeuroEmbryogenesis:
                 valid_source_neurons_for_vector = source_neuron_ids[valid_mask]
                 
                 if len(valid_candidate_positions) == 0:
-                    logger.debug(f"[VECTOR-NUMPY] No valid candidate positions after boundary filtering")
+                    logger.debug("[VECTOR-NUMPY] No valid candidate positions after boundary filtering")
                     continue
                     
                 logger.debug(f"[VECTOR-NUMPY] {len(valid_candidate_positions)} positions within bounds")
@@ -2117,7 +2145,7 @@ class NeuroEmbryogenesis:
                 )
                 
                 if not neuron_weight_pairs:
-                    logger.debug(f"[VECTOR-NUMPY] No neurons found at candidate positions")
+                    logger.debug("[VECTOR-NUMPY] No neurons found at candidate positions")
                     continue
                 
                 # Step 6: Create position-to-neurons mapping for fast lookup

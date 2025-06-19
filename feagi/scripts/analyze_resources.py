@@ -33,7 +33,6 @@ from pathlib import Path
 # Add feagi to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from feagi.config.toml_loader import TomlLoader
 from feagi.utils.logger import setup_logger
 from feagi.utils.resource_profiler import ResourceProfiler
 

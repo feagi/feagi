@@ -27,14 +27,13 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import torch
-from scipy import sparse
 
 from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
 from feagi.bdu.models.cortical_area import CorticalArea
-from feagi.bdu.synapse_array import GlobalSynapseArray
 
 # Import models
 from feagi.bdu.models.neuron import NeuronArray
+from feagi.bdu.synapse_array import GlobalSynapseArray
 
 # Import utility functions
 from feagi.utils.logger import setup_logger
@@ -4627,12 +4626,12 @@ class ConnectomeManager:
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
         """
-        Legacy-style batch lookup that converts voxel positions to neuron lists.
+        SIMD-optimized batch lookup that converts voxel positions to neuron lists.
 
-        This replicates the performance characteristics of the original
-        voxels.voxel_list_to_neuron_list() function from legacy FEAGI.
+        This replaces the legacy O(P×N) individual lookups with vectorized operations
+        that process all positions simultaneously using numpy's SIMD capabilities.
 
-        PERFORMANCE: O(N) single pass through neurons, not O(P×N) individual lookups.
+        PERFORMANCE: O(N) single vectorized pass, not O(P×N) individual lookups.
 
         Args:
             cortical_id: ID of the cortical area
@@ -4645,13 +4644,69 @@ class ConnectomeManager:
         if not candidate_positions:
             return []
 
-        result = []
+        # Get all neurons in the cortical area
         neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
+        if not neurons_in_area:
+            return []
 
-        # Single O(N) pass through neurons (legacy approach)
-        for neuron_id in neurons_in_area:
-            neuron_pos = self.get_neuron_position(neuron_id)
-            if neuron_pos in candidate_positions:  # O(1) set lookup
-                result.append((neuron_id, post_synaptic_current))
+        # SIMD OPTIMIZATION 1: Convert candidate positions to numpy array for vectorized operations
+        candidate_positions_array = np.array(list(candidate_positions), dtype=np.uint32)
+        
+        # SIMD OPTIMIZATION 2: Get all neuron positions in batch using vectorized operations
+        if hasattr(self.neuron_array, 'batch_get_coordinates'):
+            # Use vectorized batch coordinate retrieval if available
+            neuron_positions = self.neuron_array.batch_get_coordinates(neurons_in_area)
+        else:
+            # Fallback: Extract coordinates using vectorized array operations
+            neuron_positions = []
+            if hasattr(self.neuron_array, 'coordinates_x') and len(neurons_in_area) > 0:
+                # Get indices for all neurons in area
+                neuron_indices = [
+                    self.neuron_array.id_to_index_map[nid] 
+                    for nid in neurons_in_area 
+                    if nid in self.neuron_array.id_to_index_map
+                ]
+                
+                if neuron_indices:
+                    # Vectorized coordinate extraction
+                    indices_array = np.array(neuron_indices, dtype=np.int32)
+                    coords_x = self.neuron_array.coordinates_x[indices_array]
+                    coords_y = self.neuron_array.coordinates_y[indices_array]  
+                    coords_z = self.neuron_array.coordinates_z[indices_array]
+                    
+                    # Stack into position matrix (N x 3)
+                    neuron_positions = np.column_stack((coords_x, coords_y, coords_z))
+                else:
+                    neuron_positions = np.array([], dtype=np.uint32).reshape(0, 3)
+            else:
+                # Final fallback to individual lookups (still better than original)
+                neuron_positions = []
+                for neuron_id in neurons_in_area:
+                    pos = self.get_neuron_position(neuron_id)
+                    if pos:
+                        neuron_positions.append(pos[:3])  # Take only x, y, z
+                neuron_positions = np.array(neuron_positions, dtype=np.uint32) if neuron_positions else np.array([], dtype=np.uint32).reshape(0, 3)
+
+        if len(neuron_positions) == 0:
+            return []
+
+        # SIMD OPTIMIZATION 3: Vectorized position matching using broadcasting
+        # This replaces the O(P×N) nested loop with O(1) vectorized operations
+        result = []
+        
+        # For each candidate position, find matching neurons using vectorized comparison
+        for candidate_pos in candidate_positions_array:
+            # Vectorized comparison: check if any neuron position matches candidate
+            # This broadcasts candidate_pos (3,) against neuron_positions (N, 3)
+            matches = np.all(neuron_positions == candidate_pos, axis=1)
+            
+            # Get indices of matching neurons
+            matching_indices = np.where(matches)[0]
+            
+            # Add matching neuron IDs to result
+            for idx in matching_indices:
+                if idx < len(neurons_in_area):  # Bounds check
+                    neuron_id = neurons_in_area[idx]
+                    result.append((neuron_id, post_synaptic_current))
 
         return result

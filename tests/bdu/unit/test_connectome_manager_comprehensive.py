@@ -5,15 +5,11 @@ This test suite focuses on covering the missing areas identified in the coverage
 including singleton patterns, error handling, edge cases, and advanced features.
 """
 
-import os
-import tempfile
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
 from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
-from feagi.bdu.models.cortical_area import CorticalArea
 
 
 class TestConnectomeManagerSingleton:

@@ -304,7 +304,7 @@ def test_full_development(embryo, genome_file):
     actual_synapse_count = embryo.connectome_manager.get_synapse_count()
     actual_area_count = len(embryo.connectome_manager.cortical_areas)
 
-    print(f"\nActual counts from connectome manager:")
+    print("\nActual counts from connectome manager:")
     print(f"  Cortical Areas: {actual_area_count}")
     print(f"  Neurons: {actual_neuron_count}")
     print(f"  Synapses: {actual_synapse_count}")

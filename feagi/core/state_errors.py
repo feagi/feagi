@@ -5,9 +5,9 @@ This module provides Result-style error handling that can be directly
 converted to Rust's std::result::Result<T, E> when migrating.
 """
 
-from enum import IntEnum
-from typing import Optional, Generic, TypeVar, Union, Callable, Any
 import logging
+from enum import IntEnum
+from typing import Any, Callable, Generic, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 

@@ -5,13 +5,10 @@ This test validates the complete flow from REST API call to synapse creation
 and verifies that the mapping appears correctly in cortical_info endpoint.
 """
 
-import json
-from typing import Any, Dict, List, Tuple
 
 import pytest
 
 from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.api.core.services.genome.genome_service import GenomeService
 from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 from feagi.core.state_manager import FeagiStateManager

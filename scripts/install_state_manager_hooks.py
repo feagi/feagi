@@ -9,11 +9,12 @@ Usage:
     python scripts/install_state_manager_hooks.py [--force]
 """
 
-import os
-import sys
-import stat
 import argparse
+import os
+import stat
+import sys
 from pathlib import Path
+
 
 def create_pre_commit_hook(git_hooks_dir: Path, force: bool = False) -> bool:
     """Create the pre-commit hook script."""

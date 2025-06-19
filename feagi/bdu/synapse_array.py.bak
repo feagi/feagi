@@ -16,12 +16,11 @@ Copyright 2025 Neuraville Inc.
 Licensed under the Apache License, Version 2.0
 """
 
+import numpy as np
+from typing import List, Tuple, Optional, Dict, Any, Union
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-
-import numpy as np
 
 from feagi.config.toml_loader import load_feagi_config
 
@@ -106,7 +105,7 @@ class GlobalSynapseArray:
         self.creation_count = 0
         self.deletion_count = 0
         
-        logger.debug(
+        logger.info(
             f"GlobalSynapseArray initialized: {max_synapses:,} max synapses, "
             f"{backend} backend"
         )
@@ -198,7 +197,7 @@ class GlobalSynapseArray:
         import time
         start_time = time.time()
         
-        logger.debug(
+        logger.info(
             f"🚀 [GSA] Starting vectorized batch creation of "
             f"{len(synapse_specs)} synapses"
         )
@@ -258,7 +257,7 @@ class GlobalSynapseArray:
         
         total_time = (time.time() - start_time) * 1000
         
-        logger.debug(
+        logger.info(
             f"✅ [GSA] Vectorized batch creation completed:\n"
             f"   Created: {created_count}/{len(synapse_specs)} synapses\n"
             f"   Time: {total_time:.1f}ms\n"
@@ -485,7 +484,7 @@ class GlobalSynapseArray:
         # Clear free slots list
         self.free_slots.clear()
         
-        logger.debug(f"Compacted {compacted_count} synapse slots")
+        logger.info(f"Compacted {compacted_count} synapse slots")
         return compacted_count
     
     def _move_synapse(self, from_slot: int, to_slot: int) -> None:

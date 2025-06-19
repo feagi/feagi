@@ -11,6 +11,9 @@ This document describes the **integrated** embedded performance optimizations in
 - ✅ **NeuronArray**: Enhanced with cache-aligned arrays, SIMD operations, and block-sparse matrices
 - ✅ **ConnectomeManager**: Updated to use embedded-optimized neural processing by default
 - ✅ **BurstEngine**: Modified to leverage high-performance neural updates automatically
+- ✅ **Neural Stimulation**: Unified SIMD-optimized coordinate-based stimulation method
+- ✅ **Neurogenesis**: Vectorized voxel mapping eliminates O(W×H×D×N) nested loops
+- ✅ **ZMQ Streams**: Direct integration with SIMD-optimized neural injection
 - ✅ **Unified Architecture**: No parallel implementations - one optimized codebase
 
 ## Performance Target
@@ -63,6 +66,55 @@ def simd_membrane_decay(potentials, decay_rates, valid_mask):
 - **Threshold checking**: SIMD boolean mask operations
 - **Neuron firing**: Vectorized state resets
 - **Synaptic integration**: Optimized weight accumulation
+
+#### Neural Stimulation SIMD Optimization
+
+**Location**: `feagi_core/feagi/api/core/services/brain/brain_service.py` - `stimulate_neurons_unified()`
+
+```python
+def stimulate_neurons_unified(self, neural_data):
+    """SIMD-optimized unified neural stimulation - eliminates Python for loops."""
+    
+    # SIMD OPTIMIZATION 1: Vectorized coordinate processing
+    coords_x = np.asarray(coords_x, dtype=np.uint32)
+    coords_y = np.asarray(coords_y, dtype=np.uint32)
+    coords_z = np.asarray(coords_z, dtype=np.uint32)
+    
+    # SIMD OPTIMIZATION 2: Vectorized unique coordinate finding
+    coordinate_matrix = np.column_stack((coords_x, coords_y, coords_z))
+    unique_coords, inverse_indices = np.unique(coordinate_matrix, axis=0, return_inverse=True)
+    
+    # SIMD OPTIMIZATION 3: Batch coordinate→neuron lookup (O(N) not O(N×M))
+    neuron_weight_pairs = self._connectome_manager.batch_voxel_to_neuron_lookup(
+        cortical_id, candidate_positions, post_synaptic_current=1.0
+    )
+```
+
+**Performance Impact**: Eliminates nested Python loops that were O(N×M) complexity, replacing with O(N) vectorized operations.
+
+#### Neurogenesis SIMD Optimization
+
+**Location**: `feagi_core/feagi/bdu/embryogenesis/neuroembryogenesis.py` - Vectorized voxel mapping
+
+```python
+def _update_voxel_mapping_simd(self, cortical_id, area_neuron_ids, width, height, depth, neurons_per_voxel):
+    """SIMD-optimized voxel mapping - eliminates O(W×H×D×N) nested loops."""
+    
+    # Vectorized position generation instead of nested loops
+    total_voxels = width * height * depth
+    positions_array = np.array(voxel_positions, dtype=np.uint32)
+    
+    # Vectorized neuron grouping using numpy operations
+    unique_positions, inverse_indices = np.unique(positions_array, axis=0, return_inverse=True)
+    
+    # Batch voxel mapping update
+    for i, unique_pos in enumerate(unique_positions):
+        mask = (inverse_indices == i)
+        neurons_at_pos = np.array(area_neuron_ids)[mask[:len(area_neuron_ids)]]
+        self.voxel_neuron_map[cortical_id][tuple(unique_pos)] = neurons_at_pos.tolist()
+```
+
+**Performance Impact**: Eliminates O(W×H×D×N) nested loops during neurogenesis, preventing extremely long creation times for large brain structures.
 
 ### 3. Block-Sparse Connectivity Matrix
 

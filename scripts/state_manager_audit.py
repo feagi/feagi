@@ -15,14 +15,14 @@ Exit codes:
     2: Script error
 """
 
-import os
+import argparse
 import re
 import sys
-import argparse
-from pathlib import Path
-from typing import List, Dict, Set, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional
+
 
 class ViolationType(Enum):
     """Types of state management violations."""
@@ -352,7 +352,7 @@ class StateManagerAuditor:
         for violation in self.violations:
             severity_counts[violation.severity] = severity_counts.get(violation.severity, 0) + 1
         
-        print(f"\n📊 SUMMARY:")
+        print("\n📊 SUMMARY:")
         print(f"   Total violations: {len(self.violations)}")
         for severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
             count = severity_counts.get(severity, 0)
@@ -365,12 +365,12 @@ class StateManagerAuditor:
         for violation in self.violations:
             type_counts[violation.violation_type] = type_counts.get(violation.violation_type, 0) + 1
         
-        print(f"\n🏷️  VIOLATION TYPES:")
+        print("\n🏷️  VIOLATION TYPES:")
         for vtype, count in type_counts.items():
             print(f"   • {vtype.value.replace('_', ' ').title()}: {count}")
         
         # Detailed violations
-        print(f"\n📋 DETAILED VIOLATIONS:")
+        print("\n📋 DETAILED VIOLATIONS:")
         print("-" * 80)
         
         current_file = None
@@ -474,11 +474,11 @@ def main():
             print("   4. Ensure all state changes go through centralized state manager")
             print("   5. Use state manager getters for reading state")
             
-            print(f"\n🔧 To fix these issues:")
-            print(f"   1. Review each violation above")
-            print(f"   2. Replace direct assignments with proper setter methods")
-            print(f"   3. Re-run this script to verify fixes")
-            print(f"   4. Consider adding this script to pre-commit hooks")
+            print("\n🔧 To fix these issues:")
+            print("   1. Review each violation above")
+            print("   2. Replace direct assignments with proper setter methods")
+            print("   3. Re-run this script to verify fixes")
+            print("   4. Consider adding this script to pre-commit hooks")
         
         return auditor.get_exit_code()
         

@@ -70,12 +70,12 @@ def test_create_neuron(neuron_array):
 
     # Create a neuron
     neuron_id = na.create_neuron(position=(1, 2, 3))
-    assert neuron_id == 0
+    assert neuron_id == 1  # Neuron IDs start from 1
 
     # Check coordinate properties - using coordinates_x/y/z for consistency
-    assert na.coordinates_x[0] == 1
-    assert na.coordinates_y[0] == 2
-    assert na.coordinates_z[0] == 3
+    idx = na.id_to_index_map[neuron_id]; assert na.coordinates_x[idx] == 1
+    idx = na.id_to_index_map[neuron_id]; assert na.coordinates_y[idx] == 2
+    idx = na.id_to_index_map[neuron_id]; assert na.coordinates_z[idx] == 3
 
 
 def test_get_neuron_property(populated_neuron_array):
@@ -83,12 +83,12 @@ def test_get_neuron_property(populated_neuron_array):
     na = populated_neuron_array
 
     # Check properties for a specific neuron
-    assert na.get_neuron_property(0, "cortical_idx") == 1
-    assert na.get_neuron_property(0, "position") == (0, 0, 0)
-    assert na.get_neuron_property(0, "threshold") == 1.0
+    assert na.get_neuron_property(1, "cortical_idx") == 1
+    assert na.get_neuron_property(1, "position") == (0, 0, 0)
+    assert na.get_neuron_property(1, "threshold") == 1.0
 
     # Check for neuron with different properties
-    assert np.isclose(na.get_neuron_property(1, "threshold"), 0.8)
+    assert np.isclose(na.get_neuron_property(2, "threshold"), 0.8)
 
     # Check error for non-existent neuron
     with pytest.raises(KeyError):
@@ -96,7 +96,7 @@ def test_get_neuron_property(populated_neuron_array):
 
     # Check error for non-existent property
     with pytest.raises(KeyError):
-        na.get_neuron_property(0, "nonexistent_property")
+        na.get_neuron_property(1, "nonexistent_property")
 
 
 def test_set_neuron_property(populated_neuron_array):
@@ -104,12 +104,12 @@ def test_set_neuron_property(populated_neuron_array):
     na = populated_neuron_array
 
     # Set properties for a neuron
-    na.set_neuron_property(0, "threshold", 0.5)
-    na.set_neuron_property(0, "position", (5, 6, 7))
+    na.set_neuron_property(1, "threshold", 0.5)
+    na.set_neuron_property(1, "position", (5, 6, 7))
 
     # Check if properties were updated
-    assert na.get_neuron_property(0, "threshold") == 0.5
-    assert na.get_neuron_property(0, "position") == (5, 6, 7)
+    assert na.get_neuron_property(1, "threshold") == 0.5
+    assert na.get_neuron_property(1, "position") == (5, 6, 7)
 
     # Check error for non-existent neuron
     with pytest.raises(KeyError):
@@ -117,11 +117,11 @@ def test_set_neuron_property(populated_neuron_array):
 
     # Check error for non-existent property
     with pytest.raises(KeyError):
-        na.set_neuron_property(0, "nonexistent_property", 0.5)
+        na.set_neuron_property(1, "nonexistent_property", 0.5)
 
     # Check error for invalid position
     with pytest.raises(ValueError):
-        na.set_neuron_property(0, "position", 0.5)  # Not a tuple
+        na.set_neuron_property(1, "position", 0.5)  # Not a tuple
 
 
 def test_delete_neuron(populated_neuron_array):
@@ -135,7 +135,7 @@ def test_delete_neuron(populated_neuron_array):
         assert np.sum(na.valid_mask) == 3
 
     # Delete a neuron
-    result = na.delete_neuron(0)
+    result = na.delete_neuron(1)
 
     # Check result
     assert result
@@ -148,10 +148,10 @@ def test_delete_neuron(populated_neuron_array):
 
     # Check if neuron properties are reset
     with pytest.raises(KeyError):
-        na.get_neuron_property(0, "threshold")
+        na.get_neuron_property(1, "threshold")
 
     # Try to delete the same neuron again
-    result = na.delete_neuron(0)
+    result = na.delete_neuron(1)
     assert not result  # Should return False for non-existent neuron
 
 
@@ -162,13 +162,13 @@ def test_get_neurons_by_cortical_area(populated_neuron_array):
     # Get neurons in cortical area 1
     area1_neurons = na.get_neurons_by_cortical_area(1)
     assert len(area1_neurons) == 2
-    assert 0 in area1_neurons
     assert 1 in area1_neurons
+    assert 2 in area1_neurons
 
     # Get neurons in cortical area 2
     area2_neurons = na.get_neurons_by_cortical_area(2)
     assert len(area2_neurons) == 1
-    assert 2 in area2_neurons
+    assert 3 in area2_neurons
 
     # Get neurons in non-existent cortical area
     area3_neurons = na.get_neurons_by_cortical_area(3)
@@ -183,7 +183,7 @@ def test_get_neuron_count(populated_neuron_array):
     assert na.get_neuron_count() == 3
 
     # Delete a neuron
-    na.delete_neuron(0)
+    na.delete_neuron(1)
 
     # Check updated count
     assert na.get_neuron_count() == 2

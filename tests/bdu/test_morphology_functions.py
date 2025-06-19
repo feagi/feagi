@@ -6,7 +6,6 @@ This test suite validates the core geometric mapping logic of morphology functio
 without getting bogged down in FEAGI logistics.
 """
 
-from typing import List
 
 import pytest
 

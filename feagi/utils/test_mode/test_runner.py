@@ -68,13 +68,8 @@ class FeagiTestRunner:
         # Test mode handlers
         self.mode_handler = None
 
-        # Verify burst engine is available for coordination
-        if not self.burst_engine:
-            logger.error("No burst engine available - test mode cannot proceed")
-            raise RuntimeError(
-                "Test mode requires burst engine but none is available. "
-                "Ensure FEAGI core services are properly initialized."
-            )
+        # Burst engine will be started automatically by the genome loading process
+        # Test runner does not manage burst engine lifecycle - that's handled by the process manager
 
         logger.info(
             "Test runner initialized - will use Core API Service for stimulation"
@@ -362,9 +357,10 @@ class FeagiTestRunner:
 
     def submit_neuron_activations(self, activations, source_name):
         """
-        Submit neuron activations through the Core API Service.
+        Submit neuron activations using the standard FCL injection mechanism.
 
-        PERFORMANCE: Optimized for RTOS/SIMD/GPU environments using the fastest injection path.
+        This uses the same injection path as any other FEAGI agent, ensuring consistency
+        and avoiding custom test-mode-specific workflows.
 
         Args:
             activations: Dictionary mapping cortical area IDs to lists of neuron IDs
@@ -372,53 +368,50 @@ class FeagiTestRunner:
 
         Returns:
             int: Number of neurons successfully injected
-
-        Raises:
-            RuntimeError: If Core API Service is not available
         """
         try:
             if not activations:
                 return 0
 
-            # PERFORMANCE: Fast path validation - minimal overhead
             if not self.core_api:
-                raise RuntimeError(f"Core API Service not available for {source_name}")
+                logger.error(f"Core API Service not available for {source_name}")
+                return 0
 
             total_neurons = sum(len(neurons) for neurons in activations.values())
-
-            # PERFORMANCE: Use direct injection service path for maximum throughput
-            # This bypasses API layers and goes straight to the injection service
-            burst_engine = self.core_api.get_burst_engine()
-            if burst_engine and hasattr(burst_engine, "injection_service"):
-                injection_service = burst_engine.injection_service
-                if injection_service:
-                    # RTOS-FRIENDLY: Single call with all data, no iteration overhead
-                    current_timestep = 0  # Use 0 for external injections (RTOS-safe)
-                    injected_count = injection_service.inject_external_activations(
-                        activations, current_timestep, source_name
-                    )
-
-                    # PERFORMANCE: Minimal logging in fast path
+            
+            # Convert cortical area activations to individual neuron IDs
+            # This follows the standard FEAGI pattern used by all agents
+            neuron_ids = []
+            for cortical_area_id, area_neurons in activations.items():
+                for neuron_id in area_neurons:
+                    # Format neuron ID as "cortical_area:neuron_index" (standard FEAGI format)
+                    full_neuron_id = f"{cortical_area_id}:{neuron_id}"
+                    neuron_ids.append(full_neuron_id)
+            
+            if not neuron_ids:
+                return 0
+                
+            # Use the standard FCL injection mechanism through Core API
+            # This is the same path used by all FEAGI agents
+            try:
+                result = self.core_api.stimulate_neurons(neuron_ids, intensity=1.0)
+                
+                if result.get("success", False):
+                    injected_count = result.get("stimulated_count", 0)
                     if injected_count > 0:
-                        logger.debug(
-                            f"Fast path: {injected_count}/{total_neurons} neurons from {source_name}"
-                        )
-                    elif injected_count == 0:
-                        logger.warning(
-                            f"Injection rejected by backpressure for {source_name}"
-                        )
-
+                        logger.debug(f"Standard injection: {injected_count}/{total_neurons} neurons from {source_name}")
                     return injected_count
-
-            # PERFORMANCE: If direct path unavailable, fail fast rather than using slow fallback
-            logger.error(
-                f"Direct injection path unavailable for {source_name} - no fallback for performance"
-            )
-            return 0
+                else:
+                    logger.warning(f"Injection failed for {source_name}: {result.get('error', 'Unknown error')}")
+                    return 0
+                    
+            except Exception as e:
+                logger.warning(f"Standard injection method failed for {source_name}: {str(e)}")
+                return 0
 
         except Exception as e:
-            logger.error(f"Error in fast injection path for {source_name}: {e}")
-            raise  # Re-raise to fail test mode fast
+            logger.error(f"Error in standard injection for {source_name}: {e}")
+            return 0
 
     def check_neural_activity(self):
         """

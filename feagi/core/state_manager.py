@@ -13,8 +13,8 @@ from enum import IntEnum
 from typing import Any, Dict, List, Optional
 
 from .atomic_state import AtomicU8, RustCompatibleState
-from .state_errors import Result, StateError, validate_state_transition
-from .state_storage import MemoryStorage, StateStorage, FileStorage
+from .state_errors import Result, StateError
+from .state_storage import FileStorage, MemoryStorage, StateStorage
 
 logger = logging.getLogger(__name__)
 
@@ -1178,6 +1178,53 @@ class FeagiStateManager:
         if current_state == GenomeState.LOADED:
             return 1  # Simple implementation - first loaded genome
         return 0  # No genome loaded
+    
+    def get_genome_timestamp(self) -> int:
+        """Get the current genome timestamp."""
+        return getattr(self._state, 'genome_timestamp', 0)
+    
+    def set_genome_timestamp(self, timestamp: int) -> Result[None]:
+        """Set genome timestamp."""
+        if not isinstance(timestamp, int) or timestamp < 0:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        # Atomic update
+        with self._instance_lock:
+            old_timestamp = getattr(self._state, 'genome_timestamp', 0)
+            self._state.genome_timestamp = timestamp
+            self._increment_version()
+            
+            self._log_state_change("genome_timestamp", old_timestamp, timestamp)
+            
+            # Persist to storage
+            store_result = self._storage.store_state(self._state)
+            if store_result.is_err:
+                # Rollback on storage failure
+                self._state.genome_timestamp = old_timestamp
+                return store_result
+        
+        return Result.ok(None)
+    
+    def increment_genome_counter(self) -> Result[None]:
+        """Increment the genome counter."""
+        # For now, this is a simple implementation
+        # In a full implementation, this would track actual genome loads
+        with self._instance_lock:
+            old_counter = getattr(self._state, 'genome_counter', 0)
+            new_counter = old_counter + 1
+            self._state.genome_counter = new_counter
+            self._increment_version()
+            
+            self._log_state_change("genome_counter", old_counter, new_counter)
+            
+            # Persist to storage
+            store_result = self._storage.store_state(self._state)
+            if store_result.is_err:
+                # Rollback on storage failure
+                self._state.genome_counter = old_counter
+                return store_result
+        
+        return Result.ok(None)
 
 
 class GenomeTransaction:

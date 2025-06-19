@@ -18,6 +18,8 @@ limitations under the License.
 
 from typing import Any, Dict, List
 
+import numpy as np
+
 from ..shared.base_service import BaseService
 
 
@@ -579,6 +581,218 @@ class BrainService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"Error stimulating neurons: {str(e)}")
+            return {"success": False, "error": str(e)}
+
+    def stimulate_neurons_unified(
+        self, 
+        neural_data: Dict[str, Dict[str, np.ndarray]]
+    ) -> Dict[str, Any]:
+        """
+        Unified neural stimulation using coordinate-based data format.
+        
+        SIMD-OPTIMIZED: Uses vectorized numpy operations instead of Python loops.
+        
+        Args:
+            neural_data: Dictionary with cortical_area_id as keys and coordinate arrays as values:
+                {
+                    'cortical_area_1': {
+                        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint32),
+                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint32), 
+                        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint32),
+                        'membrane_potentials': np.array([0.8, 1.2, 0.9, ...], dtype=np.float32),
+                    }
+                }
+        
+        Returns:
+            Dictionary with stimulation results and statistics
+        """
+        try:
+            total_stimulated = 0
+            total_failed = 0
+            area_results = {}
+            
+            # Process each cortical area
+            for cortical_id, area_data in neural_data.items():
+                try:
+                    # Validate required fields
+                    required_fields = ['coordinates_x', 'coordinates_y', 'coordinates_z', 'membrane_potentials']
+                    missing_fields = [field for field in required_fields if field not in area_data]
+                    if missing_fields:
+                        area_results[cortical_id] = {
+                            "success": False, 
+                            "error": f"Missing required fields: {missing_fields}"
+                        }
+                        continue
+                    
+                    # Extract coordinate arrays (already numpy arrays)
+                    coords_x = area_data['coordinates_x']
+                    coords_y = area_data['coordinates_y'] 
+                    coords_z = area_data['coordinates_z']
+                    potentials = area_data['membrane_potentials']
+                    
+                    # Validate array lengths match
+                    if not (len(coords_x) == len(coords_y) == len(coords_z) == len(potentials)):
+                        area_results[cortical_id] = {
+                            "success": False,
+                            "error": "Coordinate and potential arrays must have same length"
+                        }
+                        continue
+                    
+                    if len(coords_x) == 0:
+                        area_results[cortical_id] = {
+                            "success": True,
+                            "stimulated_count": 0,
+                            "failed_count": 0,
+                            "unique_coordinates": 0,
+                            "total_neurons_found": 0
+                        }
+                        continue
+                    
+                    # SIMD OPTIMIZATION 1: Vectorized coordinate processing
+                    # Convert to numpy arrays if not already (ensure proper dtypes)
+                    coords_x = np.asarray(coords_x, dtype=np.uint32)
+                    coords_y = np.asarray(coords_y, dtype=np.uint32)
+                    coords_z = np.asarray(coords_z, dtype=np.uint32)
+                    potentials = np.asarray(potentials, dtype=np.float32)
+                    
+                    # SIMD OPTIMIZATION 2: Vectorized unique coordinate finding
+                    # Stack coordinates and find unique positions in one operation
+                    coordinate_matrix = np.column_stack((coords_x, coords_y, coords_z))
+                    unique_coords, inverse_indices = np.unique(coordinate_matrix, axis=0, return_inverse=True)
+                    
+                    # Convert to set for batch lookup (ConnectomeManager API requirement)
+                    candidate_positions = set(map(tuple, unique_coords))
+                    
+                    # SIMD-optimized batch lookup: coordinates → neuron_ids
+                    # This uses the existing batch_voxel_to_neuron_lookup method
+                    neuron_weight_pairs = self._connectome_manager.batch_voxel_to_neuron_lookup(
+                        cortical_id=cortical_id,
+                        candidate_positions=candidate_positions,
+                        post_synaptic_current=1.0  # Default weight
+                    )
+                    
+                    if not neuron_weight_pairs:
+                        area_results[cortical_id] = {
+                            "success": False,
+                            "error": f"No neurons found at coordinates in area {cortical_id}"
+                        }
+                        continue
+                    
+                    # SIMD OPTIMIZATION 3: Vectorized position→neurons mapping
+                    # Build efficient lookup using numpy operations
+                    position_to_neurons = {}
+                    neuron_ids_array = np.array([nid for nid, _ in neuron_weight_pairs], dtype=np.int64)
+                    
+                    # Get all neuron positions in batch (if available)
+                    if hasattr(self._connectome_manager, 'batch_get_neuron_positions'):
+                        # Use batch method if available
+                        neuron_positions = self._connectome_manager.batch_get_neuron_positions(neuron_ids_array)
+                        for i, neuron_id in enumerate(neuron_ids_array):
+                            pos = neuron_positions[i]
+                            if pos is not None:
+                                pos_tuple = tuple(pos[:3])  # Take first 3 elements (x, y, z)
+                                if pos_tuple not in position_to_neurons:
+                                    position_to_neurons[pos_tuple] = []
+                                position_to_neurons[pos_tuple].append(neuron_id)
+                    else:
+                        # Fallback to individual lookups (still better than original loops)
+                        for neuron_id, _ in neuron_weight_pairs:
+                            neuron_pos = self._connectome_manager.get_neuron_position(neuron_id)
+                            if neuron_pos:
+                                # Convert from (area_id, x, y, z, idx) format to (x, y, z)
+                                if len(neuron_pos) >= 4:
+                                    pos_tuple = (neuron_pos[1], neuron_pos[2], neuron_pos[3])
+                                else:
+                                    pos_tuple = neuron_pos[:3]
+                                
+                                if pos_tuple not in position_to_neurons:
+                                    position_to_neurons[pos_tuple] = []
+                                position_to_neurons[pos_tuple].append(neuron_id)
+                    
+                    # SIMD OPTIMIZATION 4: Vectorized stimulation application
+                    # Group coordinates by unique positions and apply stimulation in batches
+                    area_stimulated = 0
+                    area_failed = 0
+                    
+                    # Process each unique coordinate position
+                    for unique_idx, unique_coord in enumerate(unique_coords):
+                        coord_tuple = tuple(unique_coord)
+                        
+                        # Find all original indices that map to this unique coordinate
+                        coord_mask = (inverse_indices == unique_idx)
+                        coord_potentials = potentials[coord_mask]
+                        
+                        # Get neurons at this coordinate
+                        neurons_at_coord = position_to_neurons.get(coord_tuple, [])
+                        
+                        if neurons_at_coord and len(coord_potentials) > 0:
+                            # Use the first potential value for this coordinate
+                            # (all coordinates at same position get same stimulation)
+                            potential_value = float(coord_potentials[0])
+                            
+                            # SIMD OPTIMIZATION 5: Batch membrane potential update
+                            try:
+                                if hasattr(self._connectome_manager, 'neuron_array'):
+                                    neuron_array = self._connectome_manager.neuron_array
+                                    if hasattr(neuron_array, 'batch_update_membrane_potentials'):
+                                        # Use vectorized batch update
+                                        neuron_array.batch_update_membrane_potentials(
+                                            neurons_at_coord, 
+                                            [potential_value] * len(neurons_at_coord)
+                                        )
+                                        area_stimulated += len(neurons_at_coord)
+                                    else:
+                                        # Fallback to individual updates
+                                        for neuron_id in neurons_at_coord:
+                                            try:
+                                                neuron_array.set_neuron_property(
+                                                    neuron_id, "membrane_potential", potential_value
+                                                )
+                                                area_stimulated += 1
+                                            except Exception as e:
+                                                self.logger.warning(
+                                                    f"Failed to stimulate neuron {neuron_id}: {str(e)}"
+                                                )
+                                                area_failed += 1
+                                else:
+                                    area_failed += len(neurons_at_coord)
+                            except Exception as e:
+                                self.logger.warning(
+                                    f"Failed to stimulate neurons at {coord_tuple}: {str(e)}"
+                                )
+                                area_failed += len(neurons_at_coord)
+                    
+                    area_results[cortical_id] = {
+                        "success": True,
+                        "stimulated_count": area_stimulated,
+                        "failed_count": area_failed,
+                        "unique_coordinates": len(unique_coords),
+                        "total_neurons_found": len(neuron_ids_array),
+                        "optimization_used": "simd_vectorized"
+                    }
+                    
+                    total_stimulated += area_stimulated
+                    total_failed += area_failed
+                    
+                except Exception as e:
+                    self.logger.error(f"Error processing area {cortical_id}: {str(e)}")
+                    area_results[cortical_id] = {
+                        "success": False,
+                        "error": str(e)
+                    }
+                    continue
+            
+            return {
+                "success": True,
+                "total_stimulated": total_stimulated,
+                "total_failed": total_failed,
+                "areas_processed": len(neural_data),
+                "area_results": area_results,
+                "method": "unified_coordinate_based_simd_optimized"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in unified neuron stimulation: {str(e)}")
             return {"success": False, "error": str(e)}
 
     def get_burst_engine_config(self) -> Dict[str, Any]:

@@ -436,7 +436,6 @@ class GenomeService(BaseService):
                     )
 
                     # Log current burst engine state for monitoring
-                    from feagi.core.state_manager import ServiceState
 
                     current_burst_state = self.state_manager.get_burst_engine_state()
                     self.logger.info(
@@ -447,6 +446,22 @@ class GenomeService(BaseService):
                     self.logger.info(
                         "🎯 Genome loading complete - process manager will handle service coordination"
                     )
+                    
+                    # CRITICAL: Emit GENOME_LOADED event to trigger burst engine startup
+                    try:
+                        from feagi.utils.event_system import EventType, get_event_system
+                        event_system = get_event_system()
+                        if event_system:
+                            event_system.emit_event(
+                                EventType.GENOME_LOADED, 
+                                data={"filename": filename, "cortical_areas": cortical_area_count}
+                            )
+                            self.logger.info(f"📡 GENOME_LOADED event emitted for '{filename}'")
+                        else:
+                            self.logger.warning("Event system not available - process manager may not start burst engine")
+                    except Exception as event_error:
+                        self.logger.warning(f"Failed to emit GENOME_LOADED event: {event_error}")
+                        # Don't fail genome loading for event emission issues
 
                 except Exception as dev_error:
                     self.logger.error(
@@ -750,6 +765,28 @@ class GenomeService(BaseService):
     def _handle_embryogenesis_progress(self, stage, percentage, message):
         """Handle progress updates from the neuroembryogenesis process."""
         self.logger.info(f"{stage} {percentage:.1f}% - {message}", status="[PROC]")
+        
+        # Update state manager with development stage
+        if self.state_manager:
+            from feagi.bdu.embryogenesis.neuroembryogenesis import DevelopmentStage
+            
+            # Map DevelopmentStage enum to integer values for state manager
+            stage_mapping = {
+                DevelopmentStage.INITIALIZATION: 0,
+                DevelopmentStage.CORTICOGENESIS: 1,
+                DevelopmentStage.VOXELOGENESIS: 2,
+                DevelopmentStage.NEUROGENESIS: 3,
+                DevelopmentStage.SYNAPTOGENESIS: 4,
+                DevelopmentStage.COMPLETED: 5,
+                DevelopmentStage.FAILED: 6,
+            }
+            
+            stage_value = stage_mapping.get(stage, 0)
+            
+            # Update neuroembryogenesis stage in state manager
+            if hasattr(self.state_manager._state, 'neuroembryogenesis_stage'):
+                self.state_manager._state.neuroembryogenesis_stage = stage_value
+                self.state_manager._state.neuroembryogenesis_progress = int(percentage)
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
         """Get the currently loaded genome data."""
@@ -1999,77 +2036,7 @@ class GenomeService(BaseService):
     # These methods handle genome loading and management through proper data flow:
     # API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
 
-    def load_genome_from_data(
-        self, genome_data: Dict[str, Any], filename: str = "genome.json"
-    ) -> Dict[str, Any]:
-        """
-        Load genome from data through proper genome modification pipeline.
 
-        ARCHITECTURE COMPLIANCE: This method ensures genome loading
-        goes through the proper data flow to maintain genome consistency.
-
-        Args:
-            genome_data: Dictionary containing genome data
-            filename: Name of the genome file
-
-        Returns:
-            Dict containing load result information
-        """
-        try:
-            # Begin genome transaction for atomic modification
-            if self.state_manager:
-                transaction = self.state_manager.begin_genome_transaction()
-            else:
-                transaction = None
-
-            try:
-                # Validate genome data
-                if not genome_data:
-                    raise ValueError("Genome data cannot be empty")
-
-                # Set the genome through proper pipeline
-                self._current_genome = genome_data
-
-                # Trigger NeuroEmbryogenesis to process the new genome
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
-
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
-
-                # CRITICAL FIX: Use develop_brain_from_genome_data instead of load_genome
-                # This properly loads the genome data and develops the brain
-                success = embryogenesis.develop_brain_from_genome_data(genome_data)
-
-                if success and transaction:
-                    transaction.commit()
-                elif transaction:
-                    transaction.rollback()
-                    return {"success": False, "error": "Genome loading failed"}
-
-                if success:
-                    self.logger.info(f"Loaded genome: {filename}")
-                    return {
-                        "success": True,
-                        "message": f"Genome {filename} loaded successfully",
-                        "genome_validity": True,
-                        "cortical_area_count": len(
-                            genome_data.get("cortical_areas", {})
-                        ),
-                    }
-                else:
-                    return {"success": False, "error": "Genome loading failed"}
-
-            except Exception as e:
-                if transaction:
-                    transaction.rollback()
-                raise e
-
-        except Exception as e:
-            self.logger.error(f"Error loading genome: {str(e)}")
-            return {"success": False, "error": str(e)}
 
     def reset_genome(self) -> bool:
         """
