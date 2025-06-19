@@ -474,6 +474,8 @@ class NeuronArray:
 
         self._aligned_thresholds = CacheAlignedArray(self.aligned_capacity, np.float32)
         self.thresholds = self._aligned_thresholds.array
+        # Initialize thresholds to 1.0 (default firing threshold)
+        self.thresholds.fill(1.0)
 
         self._aligned_decay_rates = CacheAlignedArray(self.aligned_capacity, np.float32)
         self.decay_rates = self._aligned_decay_rates.array
@@ -1234,7 +1236,11 @@ class NeuronArray:
         # Convert indices to neuron IDs
         neuron_ids = []
         # Vectorized index-to-neuron-ID conversion for RTOS/GPU compliance
-        valid_indices = indices[self.valid_mask[indices]]
+        if len(indices) > 0:
+            # Filter indices to only valid ones
+            valid_indices = [idx for idx in indices if self.valid_mask[idx]]
+        else:
+            valid_indices = []
 
         if len(valid_indices) > 0:
             # Use vectorized lookup using the pre-built lookup array

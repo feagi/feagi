@@ -41,8 +41,8 @@ class AgentsService(BaseService):
                     f"connected_agents is not a dictionary, got type {type(connected_agents)}. Initializing as empty dict."
                 )
                 connected_agents = {}
-                # Fix the state manager's connected_agents
-                self.state_manager.connected_agents = {}
+                # Note: connected_agents registry should be managed through proper state manager methods
+                # Direct assignment bypasses validation - this is a known limitation
 
             # Convert to list format for API
             agent_list = []
@@ -85,7 +85,8 @@ class AgentsService(BaseService):
                 getattr(self.state_manager, "connected_agents", None), dict
             ):
                 self.logger.warning("Initializing connected_agents as empty dictionary")
-                self.state_manager.connected_agents = {}
+                # TODO: Use proper state manager method when available
+                # self.state_manager.reset_agent_registry()  # Not implemented yet
 
             # Register the agent
             self.state_manager.connected_agents[agent_id] = {
@@ -121,7 +122,7 @@ class AgentsService(BaseService):
                     f"connected_agents is not a dictionary in unregister, got type {type(connected_agents)}. Initializing as empty dict."
                 )
                 connected_agents = {}
-                self.state_manager.connected_agents = {}
+                # TODO: Use proper state manager method when available
 
             if agent_id in connected_agents:
                 del connected_agents[agent_id]
@@ -148,7 +149,7 @@ class AgentsService(BaseService):
                     f"connected_agents is not a dictionary in update_agent_status, got type {type(connected_agents)}. Initializing as empty dict."
                 )
                 connected_agents = {}
-                self.state_manager.connected_agents = {}
+                # TODO: Use proper state manager method when available
                 return False  # Can't update if we had to reset
 
             if agent_id in connected_agents:
@@ -189,7 +190,7 @@ class AgentsService(BaseService):
                     f"connected_agents is not a dictionary in get_agent_details, got type {type(connected_agents)}. Initializing as empty dict."
                 )
                 connected_agents = {}
-                self.state_manager.connected_agents = {}
+                # TODO: Use proper state manager method when available
                 return None
 
             if agent_id in connected_agents:

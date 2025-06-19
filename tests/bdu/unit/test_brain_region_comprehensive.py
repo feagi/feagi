@@ -5,9 +5,8 @@ This test suite focuses on covering the missing areas in the brain_region.py mod
 including region management, genome operations, and the BrainRegion class.
 """
 
-import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import patch
 
 import pytest
 

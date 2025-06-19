@@ -230,6 +230,56 @@ async def get_system_state():
 - **Direct Memory Access**: Cortical area data retrieved directly from memory-mapped arrays
 - **Vectorized Operations**: Bulk data operations using NumPy for efficient neural data access
 - **Cache-Friendly**: Singleton pattern enables efficient CPU cache utilization
+- **SIMD Neural Stimulation**: Vectorized coordinate-based neural injection with O(N) complexity
+
+### SIMD-Optimized Neural Stimulation Format
+
+The unified neural stimulation API uses a coordinate-based format optimized for SIMD operations:
+
+```python
+# POST /v1/neural/stimulate
+{
+    "neural_data": {
+        "cortical_area_1": {
+            "coordinates_x": [1, 2, 3, 4, 5],        # np.uint32 array
+            "coordinates_y": [10, 11, 12, 13, 14],   # np.uint32 array  
+            "coordinates_z": [0, 0, 1, 1, 2],        # np.uint32 array
+            "membrane_potentials": [0.8, 1.2, 0.9, 1.1, 0.7]  # np.float32 array
+        },
+        "cortical_area_2": {
+            "coordinates_x": [5, 6, 7],
+            "coordinates_y": [20, 21, 22], 
+            "coordinates_z": [1, 1, 2],
+            "membrane_potentials": [1.0, 0.9, 1.3]
+        }
+    }
+}
+
+# Response format
+{
+    "success": true,
+    "total_stimulated": 1247,
+    "total_failed": 0,
+    "areas_processed": 2,
+    "area_results": {
+        "cortical_area_1": {
+            "success": true,
+            "stimulated_count": 847,
+            "failed_count": 0,
+            "unique_coordinates": 5,
+            "total_neurons_found": 847,
+            "optimization_used": "simd_vectorized"
+        }
+    },
+    "method": "unified_coordinate_based_simd_optimized"
+}
+```
+
+**Performance Benefits:**
+- **Eliminates Python Loops**: Uses numpy vectorized operations
+- **Batch Coordinate Lookup**: O(N) complexity instead of O(N×M)
+- **Zero Data Conversion**: Direct compatibility with ZMQ sensory streams
+- **Cache-Aligned Operations**: Optimal memory access patterns
 
 ### State Synchronization
 

@@ -5,15 +5,9 @@ This test suite focuses on covering the missing areas in the patterns.py module,
 including pattern validation, coordinate matching, and pattern-based coordinate generation.
 """
 
-from typing import Any, List, Set, Tuple
 from unittest.mock import patch
 
-import pytest
-
 from feagi.bdu.connectivity.rules.patterns import (
-    AreaId,
-    BoundingBox,
-    Position,
     apply_pattern_to_coordinates,
     calculate_pattern_offset,
     check_pattern_validity,

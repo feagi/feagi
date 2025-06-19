@@ -87,8 +87,8 @@ def mock_activity_generator():
 @pytest.fixture
 def test_runner(mock_core_api):
     """Create a FeagiTestRunner instance for testing."""
-    # Patch the FeagiStateManager.instance() method
-    with patch("feagi.test_mode.FeagiStateManager") as mock_state_manager_cls:
+    # Patch the FeagiStateManager.instance() method from the correct location
+    with patch("feagi.core.state_manager.FeagiStateManager") as mock_state_manager_cls:
         mock_state_manager = MagicMock()
         mock_state_manager_cls.instance.return_value = mock_state_manager
 

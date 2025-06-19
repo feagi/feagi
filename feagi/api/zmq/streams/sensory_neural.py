@@ -361,26 +361,28 @@ class SensoryNeuralStream:
             else:
                 x_coords = y_coords = z_coords = None
 
-            # Direct FCL injection without intermediate copies
+            # Convert to unified neural data format
             try:
-                result = await self.core_api.inject_neural_data(
-                    cortical_area_id=header.cortical_area_id,
-                    firing_rates=firing_rates,
-                    coordinates=(
-                        (x_coords, y_coords, z_coords)
-                        if header.has_coordinates
-                        else None
-                    ),
-                    timestamp=header.timestamp,
-                    is_delta=header.is_delta,
-                )
+                # Build neural data in the unified format expected by stimulate_neurons
+                neural_data = {
+                    str(header.cortical_area_id): {
+                        'coordinates_x': x_coords.astype(np.uint32) if x_coords is not None else np.array([], dtype=np.uint32),
+                        'coordinates_y': y_coords.astype(np.uint32) if y_coords is not None else np.array([], dtype=np.uint32),
+                        'coordinates_z': z_coords.astype(np.uint32) if z_coords is not None else np.array([], dtype=np.uint32),
+                        'membrane_potentials': firing_rates.astype(np.float32)
+                    }
+                }
+                
+                # Use unified stimulation method
+                result = self.core_api.stimulate_neurons(neural_data)
 
-                if not result:
+                if not result.get("success", False):
                     self._stats["api_errors"] += 1
+                    logger.error(f"Unified stimulation failed: {result.get('error', 'Unknown error')}")
                     return StreamResult.API_ERROR
 
             except Exception as e:
-                logger.error(f"FCL injection failed: {e}")
+                logger.error(f"Neural data injection failed: {e}")
                 self._stats["api_errors"] += 1
                 return StreamResult.API_ERROR
 

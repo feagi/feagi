@@ -38,7 +38,6 @@ from feagi.bdu.connectivity.synaptogenesis import (
     find_destination_coordinates,
     find_source_coordinates,
     linearize_position,
-    match_vectors,
     neighbor_finder,
     syn_block_connection,
     syn_expander_x,

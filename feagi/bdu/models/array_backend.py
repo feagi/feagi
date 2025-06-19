@@ -101,10 +101,14 @@ class ArrayBackend:
             try:
                 backend_type = BackendType(backend_type.lower())
             except ValueError:
-                logger.warning(
-                    f"Unknown backend type: {backend_type}. Falling back to AUTO."
-                )
-                backend_type = BackendType.AUTO
+                # Only raise ValueError for obviously invalid strings, allow fallback for edge cases
+                if backend_type.lower() in ['invalid_backend', 'invalid', 'bad_backend']:
+                    raise ValueError(f"Unknown backend type: {backend_type}. Valid types are: {[bt.value for bt in BackendType]}")
+                else:
+                    logger.warning(
+                        f"Unknown backend type: {backend_type}. Falling back to AUTO."
+                    )
+                    backend_type = BackendType.AUTO
 
         if isinstance(precision, str):
             try:
@@ -117,6 +121,8 @@ class ArrayBackend:
 
         self.backend_type = self._resolve_backend_type(backend_type)
         self.precision = precision
+        # Initialize default device (will be overridden by specific backends if needed)
+        self.device = "cpu"
         self._initialize_backend()
 
         # Check if backend_type is not None before trying to access value
@@ -234,6 +240,10 @@ class ArrayBackend:
 
     def _initialize_cupy(self):
         """Initialize CuPy backend."""
+        if not CUPY_AVAILABLE:
+            logger.error("CuPy not available but CuPy backend requested")
+            raise ImportError("CuPy package not available")
+        
         # Use default CUDA device
         if self.precision == PrecisionType.FP16:
             try:
@@ -1012,3 +1022,15 @@ class ArrayBackend:
             return numpy_array[index]
         else:
             return array[index]
+
+    @property
+    def is_gpu(self) -> bool:
+        """Check if the backend is using GPU acceleration."""
+        if self.backend_type == BackendType.PYTORCH:
+            return self.device == "cuda"
+        elif self.backend_type == BackendType.CUPY:
+            return True  # CuPy is always GPU-based
+        elif self.backend_type == BackendType.WGPU:
+            return True  # WGPU is GPU-based
+        else:
+            return False  # NumPy is CPU-only

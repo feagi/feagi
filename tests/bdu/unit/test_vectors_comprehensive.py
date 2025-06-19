@@ -7,8 +7,6 @@ vector operations, position validation, and candidate generation.
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from feagi.bdu.connectivity.rules.vectors import (
     apply_vector_offset,
     evaluate_expression,

@@ -100,14 +100,13 @@ def connectome_manager():
 def core_api_service(connectome_manager):
     """Create a CoreAPIService instance with a mock ConnectomeManager."""
     # Patch the initialization to avoid needing Neuroembryogenesis and other dependencies
-    with patch("feagi.api.core.services.core_api_service.FeagiStateManager"):
-        with patch("feagi.api.core.services.core_api_service.FEAGI"):
-            service = CoreAPIService(connectome_manager)
+    with patch("feagi.core.state_manager.FeagiStateManager"):
+        service = CoreAPIService(connectome_manager)
 
-            # Mock any other methods that might be called during tests
-            service._burst_engine = MagicMock()
+        # Mock any other methods that might be called during tests
+        service._burst_engine = MagicMock()
 
-            return service
+        return service
 
 
 def test_get_membrane_potentials(core_api_service, connectome_manager):

@@ -74,10 +74,13 @@ def mock_core_api():
         # Mock remove_input_source
         mock.remove_input_source.return_value = True
 
-        # Mock stimulate_cortical_area
-        mock.stimulate_cortical_area.return_value = {
-            "stimulated_neurons": 100,
-            "timestamp": 123456789,
+        # Mock stimulate_neurons (unified method)
+        mock.stimulate_neurons.return_value = {
+            "success": True,
+            "total_stimulated": 100,
+            "total_failed": 0,
+            "areas_processed": 1,
+            "method": "unified_coordinate_based"
         }
 
         yield mock
@@ -263,7 +266,7 @@ def test_remove_nonexistent_input_source(client, mock_core_api):
 
 
 def test_stimulate_cortical_area(client, mock_core_api):
-    """Test stimulating a cortical area."""
+    """Test stimulating a cortical area using unified method."""
     # Mock to return the area when checking if it exists
     mock_core_api.get_cortical_area.return_value = {
         "id": "101",
@@ -275,7 +278,7 @@ def test_stimulate_cortical_area(client, mock_core_api):
         "pattern": "random",
         "intensity": 0.8,
         "duration": 3,
-        "coordinates": None,
+        "coordinates": [{"x": 1, "y": 1, "z": 0}, {"x": 2, "y": 2, "z": 0}],  # Required for unified method
     }
 
     response = client.post("/v1/inputs/stimulate_area/101", json=stimulation_data)
@@ -283,13 +286,13 @@ def test_stimulate_cortical_area(client, mock_core_api):
     if response.status_code == 200:
         data = response.json()
 
-        # Check the response
-        assert "stimulated_neurons" in data
-        assert "timestamp" in data
-        assert data["stimulated_neurons"] == 100  # From our mock
+        # Check the response for unified method format
+        assert "success" in data
+        assert "total_stimulated" in data
+        assert data["total_stimulated"] == 100  # From our mock
 
-        # Verify the mock was called with the correct parameters
-        mock_core_api.stimulate_cortical_area.assert_called_once()
+        # Verify the mock was called with the unified method
+        mock_core_api.stimulate_neurons.assert_called_once()
 
 
 def test_stimulate_nonexistent_cortical_area(client, mock_core_api):
@@ -312,7 +315,7 @@ def test_stimulate_nonexistent_cortical_area(client, mock_core_api):
 
 
 def test_stimulate_cortical_area_with_coordinates(client, mock_core_api):
-    """Test stimulating a cortical area with specific coordinates."""
+    """Test stimulating a cortical area with specific coordinates using unified method."""
     # Mock to return the area when checking if it exists
     mock_core_api.get_cortical_area.return_value = {
         "id": "101",
@@ -325,7 +328,11 @@ def test_stimulate_cortical_area_with_coordinates(client, mock_core_api):
         "pattern": "specific",
         "intensity": 0.9,
         "duration": 2,
-        "coordinates": {"x": [2, 3, 4], "y": [2, 3, 4], "z": [1, 2, 3]},
+        "coordinates": [
+            {"x": 2, "y": 2, "z": 1},
+            {"x": 3, "y": 3, "z": 2},
+            {"x": 4, "y": 4, "z": 3}
+        ],  # Unified format
     }
 
     response = client.post("/v1/inputs/stimulate_area/101", json=stimulation_data)
@@ -333,10 +340,10 @@ def test_stimulate_cortical_area_with_coordinates(client, mock_core_api):
     if response.status_code == 200:
         data = response.json()
 
-        # Check the response
-        assert "stimulated_neurons" in data
-        assert "timestamp" in data
-        assert data["stimulated_neurons"] == 100  # From our mock
+        # Check the response for unified method format
+        assert "success" in data
+        assert "total_stimulated" in data
+        assert data["total_stimulated"] == 100  # From our mock
 
-        # Verify the mock was called
-        mock_core_api.stimulate_cortical_area.assert_called_once()
+        # Verify the mock was called with unified method
+        mock_core_api.stimulate_neurons.assert_called_once()

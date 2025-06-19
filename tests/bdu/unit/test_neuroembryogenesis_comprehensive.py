@@ -8,7 +8,6 @@ including brain development, genome processing, and cortical area creation.
 import json
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
 
 import pytest
 

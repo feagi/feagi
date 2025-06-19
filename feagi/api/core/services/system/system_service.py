@@ -215,8 +215,13 @@ class SystemService(BaseService):
         try:
             if self.state_manager:
                 if not hasattr(self.state_manager, "user_preferences"):
-                    self.state_manager.user_preferences = {}
-                self.state_manager.user_preferences.update(preferences)
+                    # TODO: Use proper state manager method when available
+                    # self.state_manager.initialize_user_preferences()
+                    pass
+                # TODO: Use proper state manager method when available  
+                # self.state_manager.update_user_preferences(preferences)
+                if hasattr(self.state_manager, "user_preferences"):
+                    self.state_manager.user_preferences.update(preferences)
 
             return True
         except Exception as e:
@@ -302,6 +307,8 @@ class SystemService(BaseService):
                 raise ValueError(f"Path is not a directory: {path}")
 
             if self.state_manager:
+                # TODO: Use proper state manager method when available
+                # self.state_manager.set_circuit_library_path(path)
                 self.state_manager.circuit_library_path = path
 
             return True
@@ -353,6 +360,7 @@ class SystemService(BaseService):
         """Set visualization skip rate."""
         try:
             if self.state_manager:
+                # TODO: Use proper state manager method when available
                 self.state_manager.visualization_skip_rate = skip_rate
             return True
         except Exception as e:
@@ -377,6 +385,7 @@ class SystemService(BaseService):
         """Set visualization suppression threshold."""
         try:
             if self.state_manager:
+                # TODO: Use proper state manager method when available
                 self.state_manager.visualization_suppression_threshold = threshold
             return True
         except Exception as e:

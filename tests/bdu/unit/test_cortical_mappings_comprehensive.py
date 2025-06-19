@@ -5,8 +5,7 @@ This test suite focuses on covering the missing areas in the cortical_mappings.p
 including mapping restrictions, defaults, cortical mappings, and coordinate transformations.
 """
 
-from typing import Any, Dict
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

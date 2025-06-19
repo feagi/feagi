@@ -92,10 +92,8 @@ class CoreAPIService:
         self._agents_service = AgentsService(connectome_manager, self.state_manager)
         self._network_service = NetworkService(connectome_manager, self.state_manager)
 
-        # CRITICAL: Pass brain service to genome service to ensure singleton BurstEngine usage
-        self._genome_service = GenomeService(
-            connectome_manager, self.state_manager, self._brain_service
-        )
+        # Initialize genome service with clean architecture - no service dependencies
+        self._genome_service = GenomeService(connectome_manager, self.state_manager)
 
         # Validate state manager consistency across services
         self._validate_service_state_consistency()
@@ -238,9 +236,7 @@ class CoreAPIService:
     # GENOME SERVICE DELEGATION
     # =================================================================
 
-    def load_essential_genome(self) -> Dict[str, Any]:
-        """Load the essential genome."""
-        return self._genome_service.load_default_genome("essential")
+
 
     def load_barebones_genome(self) -> Dict[str, Any]:
         """Load the barebones genome."""
@@ -266,7 +262,24 @@ class CoreAPIService:
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager → NeuroEmbryogenesis
         """
-        return self._genome_service.load_genome_from_data(genome_data, filename)
+        # Load genome through genome service
+        result = self._genome_service.load_genome(genome_data, filename)
+        
+        # If genome loading was successful, initialize spatial hash cache with final dimensions
+        if result.get("success", False):
+            self.logger.info("Genome loaded successfully - initializing spatial hash cache with final cortical area dimensions...")
+            
+            # Initialize spatial hash cache after all cortical areas are loaded
+            spatial_hash_success = self.initialize_spatial_hash_cache()
+            if spatial_hash_success:
+                self.logger.info("✅ Spatial hash cache initialization complete")
+                # Add spatial hash success info to result without overriding existing data
+                result["spatial_hash_initialized"] = True
+            else:
+                self.logger.warning("⚠️ Spatial hash cache initialization failed - continuing with default cache")
+                result["spatial_hash_initialized"] = False
+        
+        return result
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
         """Get the currently loaded genome data."""
@@ -384,19 +397,6 @@ class CoreAPIService:
     ) -> Optional[Dict[str, Any]]:
         """Get connectivity information for a specific cortical area."""
         return self._cortical_area_service.get_area_connectivity(cortical_id, direction)
-
-    def stimulate_cortical_area(
-        self,
-        cortical_id: str,
-        pattern: str = "random",
-        intensity: float = 1.0,
-        duration: int = 1,
-        coordinates: Optional[List[Dict[str, int]]] = None,
-    ) -> Dict[str, Any]:
-        """Stimulate a cortical area with the specified pattern."""
-        return self._cortical_area_service.stimulate_area(
-            cortical_id, pattern, intensity, duration, coordinates
-        )
 
     def get_cortical_id_list(self) -> List[str]:
         """Get a list of all cortical area IDs (6-character strings) in the current genome."""
@@ -575,10 +575,31 @@ class CoreAPIService:
         return self._brain_service.get_performance_metrics()
 
     def stimulate_neurons(
-        self, neuron_ids: List[str], intensity: float = 1.0
+        self, 
+        neural_data: Dict[str, Dict[str, np.ndarray]]
     ) -> Dict[str, Any]:
-        """Stimulate specific neurons with given intensity."""
-        return self._brain_service.stimulate_neurons(neuron_ids, intensity)
+        """
+        Unified method to stimulate neurons using coordinate-based data format.
+        
+        This method handles both individual neuron stimulation and cortical area stimulation
+        by converting coordinates to neuron IDs and injecting them into FCL.
+        
+        Args:
+            neural_data: Data in the format:
+                {
+                    'cortical_area_1': {
+                        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint32),
+                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint32),
+                        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint32),
+                        'membrane_potentials': np.array([0.8, 1.2, 0.9, ...], dtype=np.float32),
+                    },
+                    'cortical_area_2': { ... }
+                }
+        
+        Returns:
+            Dict containing stimulation results and statistics
+        """
+        return self._brain_service.stimulate_neurons_unified(neural_data)
 
     def get_burst_engine_config(self) -> Dict[str, Any]:
         """Get burst engine configuration."""
@@ -1078,10 +1099,13 @@ class CoreAPIService:
     def get_membrane_potentials(self, neuron_ids: List[int]) -> Dict[int, float]:
         """Get membrane potentials for specific neurons."""
         try:
-            # This should get real membrane potentials from the brain service
-            raise NotImplementedError(
-                "Getting membrane potentials is not yet implemented"
-            )
+            # Get membrane potentials from connectome manager
+            potentials = {}
+            for neuron_id in neuron_ids:
+                if neuron_id in self._connectome_manager.neurons:
+                    neuron = self._connectome_manager.neurons[neuron_id]
+                    potentials[neuron_id] = neuron.get("membrane_potential", 0.0)
+            return potentials
         except Exception as e:
             self.logger.error(f"Error getting membrane potentials: {str(e)}")
             raise ValueError(f"Failed to get membrane potentials: {str(e)}") from e
@@ -1089,7 +1113,10 @@ class CoreAPIService:
     def update_membrane_potentials(self, potentials: Dict[int, float]) -> bool:
         """Update membrane potentials for specific neurons."""
         try:
-            # This would need implementation in connectome service
+            # Update membrane potentials in connectome manager
+            for neuron_id, potential in potentials.items():
+                if neuron_id in self._connectome_manager.neurons:
+                    self._connectome_manager.neurons[neuron_id]["membrane_potential"] = potential
             return True
         except Exception as e:
             self.logger.error(f"Error updating membrane potentials: {str(e)}")
@@ -1718,14 +1745,29 @@ class CoreAPIService:
     # =================================================================
 
     def trigger_manual_stimulation(self, stimulation_payload: Dict[str, Any]) -> bool:
-        """Trigger manual stimulation."""
+        """Trigger manual stimulation using unified method."""
         try:
             cortical_id = stimulation_payload.get("cortical_id")
             intensity = stimulation_payload.get("intensity", 1.0)
+            coordinates = stimulation_payload.get("coordinates", None)
+            
             if cortical_id:
-                return self.stimulate_cortical_area(
-                    cortical_id, intensity=intensity
-                ).get("success", False)
+                # Create simple neural data for stimulation
+                # If no coordinates provided, this would need area-specific implementation
+                if coordinates:
+                    neural_data = {
+                        cortical_id: {
+                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint32),
+                            'membrane_potentials': np.array([intensity] * len(coordinates), dtype=np.float32)
+                        }
+                    }
+                    return self.stimulate_neurons(neural_data).get("success", False)
+                else:
+                    # For backward compatibility, log that coordinates are needed
+                    self.logger.warning(f"Manual stimulation requires coordinates for area {cortical_id}")
+                    return False
             return False
         except Exception as e:
             self.logger.error(f"Error triggering manual stimulation: {str(e)}")
@@ -1734,15 +1776,31 @@ class CoreAPIService:
     def trigger_sustained_stimulation(
         self, stimulation_payload: Dict[str, Any]
     ) -> bool:
-        """Trigger sustained stimulation."""
+        """Trigger sustained stimulation using unified method."""
         try:
             cortical_id = stimulation_payload.get("cortical_id")
             intensity = stimulation_payload.get("intensity", 1.0)
             duration = stimulation_payload.get("duration", 10)
+            coordinates = stimulation_payload.get("coordinates", None)
+            
             if cortical_id:
-                return self.stimulate_cortical_area(
-                    cortical_id, intensity=intensity, duration=duration
-                ).get("success", False)
+                # Create simple neural data for stimulation
+                # If no coordinates provided, this would need area-specific implementation
+                if coordinates:
+                    neural_data = {
+                        cortical_id: {
+                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint32),
+                            'membrane_potentials': np.array([intensity] * len(coordinates), dtype=np.float32)
+                        }
+                    }
+                    # TODO: Implement duration handling for sustained stimulation
+                    return self.stimulate_neurons(neural_data).get("success", False)
+                else:
+                    # For backward compatibility, log that coordinates are needed
+                    self.logger.warning(f"Sustained stimulation requires coordinates for area {cortical_id}")
+                    return False
             return False
         except Exception as e:
             self.logger.error(f"Error triggering sustained stimulation: {str(e)}")
@@ -1870,8 +1928,16 @@ class CoreAPIService:
     ) -> List[int]:
         """Batch create neurons."""
         try:
-            # This would need implementation
-            return []
+            # Create neurons using connectome manager
+            neuron_ids = []
+            for position in positions:
+                neuron_id = self._connectome_manager.create_neuron(
+                    cortical_id=area_id,
+                    position=position,
+                    **(properties or {})
+                )
+                neuron_ids.append(neuron_id)
+            return neuron_ids
         except Exception as e:
             self.logger.error(f"Error batch creating neurons: {str(e)}")
             return []
@@ -1879,11 +1945,51 @@ class CoreAPIService:
     def batch_create_synapses(self, connections: List[Tuple[int, int, float]]) -> int:
         """Batch create synapses."""
         try:
-            # This would need implementation
-            return 0
+            # Create synapses using connectome manager
+            created_count = 0
+            for pre_neuron_id, post_neuron_id, weight in connections:
+                success = self._connectome_manager.create_synapse(
+                    pre_neuron_id=pre_neuron_id,
+                    post_neuron_id=post_neuron_id,
+                    weight=weight
+                )
+                if success:
+                    created_count += 1
+            return created_count
         except Exception as e:
             self.logger.error(f"Error batch creating synapses: {str(e)}")
             return 0
+
+    # =================================================================
+    # SPATIAL HASH CACHE MANAGEMENT
+    # =================================================================
+
+    def get_max_cortical_area_dimensions(self) -> Tuple[int, int, int]:
+        """Get the maximum dimensions across all cortical areas.
+        
+        This method provides centralized access to cortical area dimension 
+        calculations for spatial hash sizing and other use cases.
+        
+        Returns:
+            Tuple of (max_x, max_y, max_z) dimensions
+        """
+        try:
+            return self._connectome_manager.get_max_cortical_area_dimensions()
+        except Exception as e:
+            self.logger.error(f"Error getting max cortical area dimensions: {str(e)}")
+            return (8, 8, 8)  # Safe fallback dimensions
+
+    def initialize_spatial_hash_cache(self) -> bool:
+        """Initialize the spatial hash cache (simplified for Morton system).
+        
+        Returns:
+            True if initialization successful, False otherwise
+        """
+        try:
+            return self._connectome_manager.initialize_spatial_hash_cache()
+        except Exception as e:
+            self.logger.error(f"Error initializing spatial hash cache: {str(e)}")
+            return False
 
     # =================================================================
     # ROBOT/GAZEBO METHODS

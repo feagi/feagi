@@ -239,11 +239,13 @@ class BaseService:
                 total_synapses = self._connectome_manager.get_total_synapse_count()
 
             # Update brain statistics
-            self.state_manager.brain_stats = {
+            result = self.state_manager.set_brain_stats({
                 "neuron_count": total_neurons,
                 "synapse_count": total_synapses,
                 "cortical_area_count": cortical_area_count,
-            }
+            })
+            if result.is_err:
+                self.logger.warning("Failed to set brain stats")
 
             # Update cortical list
             cortical_ids = []
@@ -253,25 +255,35 @@ class BaseService:
                         cortical_ids.append(area.cortical_id)
                     else:
                         cortical_ids.append(f"CID{area_idx:03d}")
-            self.state_manager.cortical_list = cortical_ids
+            result = self.state_manager.set_cortical_list(cortical_ids)
+            if result.is_err:
+                self.logger.warning("Failed to set cortical list")
 
             # Ensure other required attributes exist
             if (
                 not hasattr(self.state_manager, "connected_agents")
                 or self.state_manager.connected_agents is None
             ):
-                self.state_manager.connected_agents = {}  # Dictionary of connected agents, not a count
+                result = self.state_manager.set_connected_agents({})
+                if result.is_err:
+                    self.logger.warning("Failed to initialize connected agents")
 
             if not hasattr(self.state_manager, "changes_saved_externally"):
-                self.state_manager.changes_saved_externally = False
+                result = self.state_manager.set_changes_saved_externally(False)
+                if result.is_err:
+                    self.logger.warning("Failed to set changes_saved_externally")
 
             if not hasattr(self.state_manager, "exit_condition"):
-                self.state_manager.exit_condition = False
+                # Use proper state manager method
+                result = self.state_manager.set_exit_condition(False)
+                if result.is_err:
+                    self.logger.warning("Failed to set exit condition")
+                    # Continue anyway - this is not critical
 
             if not hasattr(self.state_manager, "genome_validity"):
-                self.state_manager.genome_validity = (
-                    True  # Assume valid if genome is loaded
-                )
+                result = self.state_manager.set_genome_validity(True)
+                if result.is_err:
+                    self.logger.warning("Failed to set genome validity")
 
             self.logger.info("State synchronization completed successfully")
             return True

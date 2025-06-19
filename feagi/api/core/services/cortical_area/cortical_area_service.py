@@ -577,30 +577,9 @@ class CorticalAreaService(BaseService):
             )
             raise ValueError(f"Failed to retrieve connectivity: {str(e)}")
 
-    def stimulate_area(
-        self,
-        cortical_id: str,
-        pattern: str = "random",
-        intensity: float = 1.0,
-        duration: int = 1,
-        coordinates: Optional[List[Dict[str, int]]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Stimulate a cortical area with the specified pattern.
-
-        Args:
-            cortical_id: 6-character string identifier
-            pattern: Stimulation pattern
-            intensity: Stimulation intensity
-            duration: Stimulation duration
-            coordinates: Optional coordinate list
-
-        Returns:
-            Stimulation result
-        """
-
-        # This should be implemented properly, not return placeholder data
-        raise NotImplementedError("Cortical area stimulation is not yet implemented")
+    # REMOVED: stimulate_area method - consolidated into unified stimulate_neurons method
+    # in core API service. All stimulation now goes through the coordinate-based 
+    # unified approach for consistency and performance.
 
     def get_id_list(self) -> List[str]:
         """

@@ -4,8 +4,6 @@ Tests the complete flow: PUT mapping -> synapse creation -> GET validation
 Reproduces the exact scenario from debug logs: ___pwr -> iv00_C using block_to_block
 """
 
-import os
-import tempfile
 
 import pytest
 

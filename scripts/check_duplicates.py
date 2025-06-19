@@ -21,7 +21,7 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List
 
 
 class FunctionInfo:
@@ -278,7 +278,7 @@ class DuplicateDetector:
                         f"   💡 SUGGESTION: Use {canonical.file_path} as canonical implementation"
                     )
                 else:
-                    print(f"   💡 SUGGESTION: Move to feagi/bdu/utils/ or feagi/utils/")
+                    print("   💡 SUGGESTION: Move to feagi/bdu/utils/ or feagi/utils/")
 
         if self.duplicates and not has_critical:
             print("⚠️  DUPLICATES FOUND:")
@@ -290,7 +290,7 @@ class DuplicateDetector:
                         print(f"   📍 {func_info.file_path}:{func_info.line_number}")
 
         if has_duplicates:
-            print(f"\n📊 SUMMARY:")
+            print("\n📊 SUMMARY:")
             print(f"   Total duplicate functions: {len(self.duplicates)}")
             print(f"   Critical duplicates: {len(self.critical_duplicates)}")
             print(
@@ -299,14 +299,14 @@ class DuplicateDetector:
 
             if has_critical:
                 print(
-                    f"\n🚨 CRITICAL: This commit introduces or maintains critical duplicates!"
+                    "\n🚨 CRITICAL: This commit introduces or maintains critical duplicates!"
                 )
-                print(f"   These functions MUST be consolidated before merging.")
+                print("   These functions MUST be consolidated before merging.")
                 return True
             else:
-                print(f"\n⚠️  WARNING: Non-critical duplicates found.")
+                print("\n⚠️  WARNING: Non-critical duplicates found.")
                 print(
-                    f"   Consider consolidating these functions to improve maintainability."
+                    "   Consider consolidating these functions to improve maintainability."
                 )
         else:
             print("✅ No duplicate functions found!")
@@ -318,7 +318,7 @@ class DuplicateDetector:
         if not self.duplicates:
             return
 
-        print(f"\n🔧 SUGGESTED FIXES:")
+        print("\n🔧 SUGGESTED FIXES:")
         print("=" * 20)
 
         for func_name, func_list in self.duplicates.items():
@@ -342,9 +342,9 @@ class DuplicateDetector:
                         f"      Add import: from {self.path_to_import(canonical.file_path)} import {func_name}"
                     )
             else:
-                print(f"   1. Choose one implementation as canonical")
-                print(f"   2. Move to appropriate utils module")
-                print(f"   3. Update imports in other locations")
+                print("   1. Choose one implementation as canonical")
+                print("   2. Move to appropriate utils module")
+                print("   3. Update imports in other locations")
 
     def path_to_import(self, file_path: str) -> str:
         """Convert file path to Python import path."""

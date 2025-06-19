@@ -90,7 +90,7 @@ def _is_debug_bdu_enabled() -> bool:
     """
     Check if BDU (Brain Development Unit) debugging is enabled.
 
-    Returns:
+        Returns:
         True if BDU debugging is enabled, False otherwise
     """
     try:
@@ -149,11 +149,11 @@ def linearize_position(position: Position, dimensions: Position) -> LinearPositi
     """
     Convert a 3D position to a linearized 1D index.
 
-    Args:
+        Args:
         position: 3D position (x, y, z)
         dimensions: Dimensions of the cortical area (width, height, depth)
 
-    Returns:
+        Returns:
         Linearized position index
     """
     x, y, z = position
@@ -165,11 +165,11 @@ def delinearize_position(linear_pos: LinearPosition, dimensions: Position) -> Po
     """
     Convert a linearized 1D index back to a 3D position.
 
-    Args:
+        Args:
         linear_pos: Linearized position index
         dimensions: Dimensions of the cortical area (width, height, depth)
 
-    Returns:
+        Returns:
         3D position (x, y, z)
     """
     width, height, depth = dimensions
@@ -184,10 +184,10 @@ def preprocess_expression(expr: str) -> str:
     """
     Preprocess algebraic expressions for evaluation.
 
-    Args:
+        Args:
         expr: Expression string
 
-    Returns:
+        Returns:
         Preprocessed expression string
     """
     # Add * for implicit multiplication (e.g., 2x -> 2*x)
@@ -201,11 +201,11 @@ def evaluate_expression(expr: Union[str, int], x: int, y: int, z: int) -> int:
     """
     Evaluate an algebraic expression with the given x, y, z values.
 
-    Args:
+        Args:
         expr: Expression string or integer value
         x, y, z: Variable values
 
-    Returns:
+        Returns:
         Evaluated integer result
     """
     if isinstance(expr, (int, float)):

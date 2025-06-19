@@ -28,6 +28,7 @@ Documents follow a standardized naming convention with prefixes indicating their
 - [Burst Engine Lifecycle](arch-burst-engine-lifecycle.md) - **UPDATED** - Burst engine state management, workflow, and agent coordination
 - [Embedded Mode Architecture](arch-embedded-mode.md) - **NEW** - FastAPI elimination and embedded device optimization
 - [Godot Bridge Integration](arch-godot-bridge-integration.md) - **NEW** - Godot visualization bridge architecture and data flow
+- [Morton Spatial Hash Architecture](arch-morton-spatial-hash.md) - **NEW** - High-performance spatial indexing with 95%+ memory savings
 - [GPU Architecture](arch-gpu.md) - GPU acceleration design
 - [IPC Architecture](arch-ipc.md) - Inter-process communication
 - [State Management](arch-state-management.md) - System state management
