@@ -229,15 +229,22 @@ class ConnectomeManager:
             self._init_multi_gpu(multi_gpu_config)
 
         # Initialize global spatial hash system for ultra-fast coordinate lookups
-        # Note: Will be properly sized during genome loading via resize_for_genome()
-        from feagi.bdu.spatial_hash import initialize_spatial_hash, SpatialHashConfig
-        spatial_config = SpatialHashConfig(
-            max_dimension=256,  # Default - will be updated based on genome
-            enable_simd=True,
-            genome_based_sizing=True
-        )
-        self._spatial_hash = initialize_spatial_hash(spatial_config)
-        self.logger.info("[CONNECTOME] Global spatial hash system initialized (awaiting genome analysis)")
+        from feagi.bdu.spatial_hash import get_spatial_hash
+        self._spatial_hash = get_spatial_hash()
+        self.logger.info("[CONNECTOME] Morton spatial hash system initialized")
+
+        # Register Morton spatial hash with state manager
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            
+            # Register current Morton implementation details
+            morton_coordinate_limit = (1 << 21)  # 21-bit Morton encoding limit
+            state_manager.set_morton_class_info("RoaringSpatialHash", morton_coordinate_limit)
+            
+            self.logger.info(f"[CONNECTOME] Registered Morton spatial hash with state manager: limit={morton_coordinate_limit}")
+        except Exception as e:
+            self.logger.warning(f"[CONNECTOME] Failed to register Morton spatial hash with state manager: {e}")
 
         ConnectomeManager._initialized = True
 
@@ -286,6 +293,14 @@ class ConnectomeManager:
             logger.info(f"   Current neuron capacity: {self.max_neurons:,}")
             logger.info(f"   Optimal neuron capacity: {optimal_neuron_size:,}")
             
+            # CRITICAL FIX: Skip dynamic sizing if neurons already exist (e.g., during test mode)
+            # This prevents spatial hash corruption and neuron loss during genome loading
+            current_neuron_count = self.get_neuron_count()
+            if current_neuron_count > 0:
+                logger.info(f"⚠️  [DYNAMIC SIZING] Skipping resize - {current_neuron_count:,} neurons already exist")
+                logger.info(f"ℹ️  [DYNAMIC SIZING] This prevents spatial hash corruption during test mode")
+                return False
+            
             # Check if resizing is beneficial (reduce by at least 50% or increase if needed)
             if optimal_neuron_size < self.max_neurons * 0.5 or optimal_neuron_size > self.max_neurons:
                 logger.info(f"🔄 [DYNAMIC SIZING] Resizing connectome from {self.max_neurons:,} to {optimal_neuron_size:,} neurons")
@@ -297,20 +312,58 @@ class ConnectomeManager:
                 self.max_neurons = optimal_neuron_size
                 self.max_synapses = optimal_synapse_size
                 
+                # Get current backend before reinitializing
+                current_backend = getattr(self.neuron_array, 'backend', 'cpu')
+                
                 # Reinitialize high-performance synapse storage with new size
                 self.synapse_array = GlobalSynapseArray(
                     max_synapses=self.max_synapses, 
-                    backend=backend
+                    backend=current_backend
                 )
                 
                 # Reinitialize neuron array with new capacity
-                backend = getattr(self.neuron_array, 'backend', 'cpu')
-                self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=backend)
+                self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=current_backend)
                 
                 # Clear and reinitialize mappings
-                self.neuron_id_to_index = {}
-                self.index_to_neuron_id = {}
-                self._neuron_to_position = {}
+                if hasattr(self, 'neuron_id_to_index'):
+                    self.neuron_id_to_index.clear()
+                else:
+                    self.neuron_id_to_index = {}
+                    
+                if hasattr(self, 'index_to_neuron_id'):
+                    self.index_to_neuron_id.clear()
+                else:
+                    self.index_to_neuron_id = {}
+                    
+                if hasattr(self, '_neuron_to_position'):
+                    self._neuron_to_position.clear()
+                else:
+                    self._neuron_to_position = {}
+                
+                # CRITICAL FIX: Clear and rebuild Morton spatial hash after resizing
+                # This prevents stale neuron references in the spatial hash
+                from feagi.bdu.spatial_hash import get_spatial_hash
+                spatial_hash = get_spatial_hash()
+                spatial_hash.clear()
+                logger.info("🧹 [DYNAMIC SIZING] Cleared Morton spatial hash after resize")
+                
+                # Re-register all existing neurons in the spatial hash
+                total_reregistered = 0
+                for cortical_id, area in self.cortical_areas.items():
+                    area_neurons = area.get_all_neurons()
+                    for neuron_id in area_neurons:
+                        try:
+                            position = self.get_neuron_position(neuron_id)
+                            x, y, z = position
+                            success = spatial_hash.add_neuron(cortical_id, x, y, z, neuron_id)
+                            if success:
+                                total_reregistered += 1
+                            else:
+                                self.logger.warning(f"Failed to re-register neuron {neuron_id} at ({x},{y},{z}) in spatial hash")
+                        except Exception as e:
+                            self.logger.warning(f"Error re-registering neuron {neuron_id}: {e}")
+                
+                logger.info(f"🔄 [DYNAMIC SIZING] Re-registered {total_reregistered} neurons in Morton spatial hash")
                 
                 logger.info("✅ [DYNAMIC SIZING] Connectome resized successfully!")
                 logger.info(f"   Memory savings: {(old_neuron_capacity - optimal_neuron_size) / old_neuron_capacity * 100:.1f}%")
@@ -793,19 +846,30 @@ class ConnectomeManager:
         else:
             self.active_neurons[:] = False
 
+        # Convert fired indices to neuron IDs FIRST - CRITICAL FIX: Use correct vectorized method
+        if fired_indices:
+            fired_neuron_ids = self._vectorized_index_to_neuron_id(
+                np.array(fired_indices)
+            )
+            # Convert to Python list of integers for FCL compatibility
+            fired_neuron_ids = fired_neuron_ids.tolist()
+        else:
+            fired_neuron_ids = []
+
         # Update FCL manager with fired neurons
         if hasattr(self, "fcl_manager") and self.fcl_manager:
             # Convert fired neurons to the format expected by FCL manager
             # FCL expects current_timestep first, then neurons_by_cortical
             neurons_by_cortical = {}
-            if fired_neurons:
+            if fired_neuron_ids:
                 # DEBUG: Log fired neurons and mapping status
-                logger.debug(f"FCL UPDATE: {len(fired_neurons)} neurons fired: {fired_neurons[:10]}...")
+                logger.debug(f"FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}...")
                 
                 # Vectorized grouping of fired neurons by cortical area
-                fired_neurons_array = np.array(fired_neurons, dtype=np.int32)
+                fired_neurons_array = np.array(fired_neuron_ids, dtype=np.int32)
 
-                # Get valid neurons (filter out those not in mapping)
+                # All fired_neuron_ids should be valid since they came from indices
+                # But verify the mapping exists for safety
                 valid_mask = np.array(
                     [nid in self.neuron_id_to_index for nid in fired_neurons_array]
                 )
@@ -845,16 +909,6 @@ class ConnectomeManager:
                 logger.debug("FCL UPDATE: No fired neurons to update")
 
             self.fcl_manager.update_fcl(self.current_timestep, neurons_by_cortical)
-
-        # Convert fired indices to neuron IDs - CRITICAL FIX: Use correct vectorized method
-        if fired_indices:
-            fired_neuron_ids = self._vectorized_index_to_neuron_id(
-                np.array(fired_indices)
-            )
-            # Convert to Python list of integers for FCL compatibility
-            fired_neuron_ids = fired_neuron_ids.tolist()
-        else:
-            fired_neuron_ids = []
 
         # Increment timestep
         self.current_timestep += 1
@@ -1513,8 +1567,22 @@ class ConnectomeManager:
             Unique ID of the created cortical area
 
         Raises:
-            ValueError: If an area with the same name already exists
+            ValueError: If an area with the same name already exists or dimensions exceed Morton limits
         """
+        # Validate cortical area dimensions against Morton spatial hash limits
+        from feagi.core.state_manager import get_state_manager
+        state_manager = get_state_manager()
+        
+        validation_result = state_manager.validate_cortical_area_dimensions(dimensions)
+        if validation_result.is_err:
+            morton_limit = state_manager.get_morton_coordinate_limit()
+            morton_class = state_manager.get_morton_class_name()
+            raise ValueError(
+                f"Cortical area dimensions {dimensions} exceed {morton_class} coordinate limits. "
+                f"Maximum allowed per dimension: {morton_limit}. "
+                f"Consider using smaller cortical areas or upgrading to 64-bit Morton encoding."
+            )
+        
         # Check if an area with this name already exists
         for area in self.cortical_areas.values():
             if area.name == name:
@@ -1683,10 +1751,7 @@ class ConnectomeManager:
         return tuple(max_dims)
 
     def initialize_spatial_hash_cache(self) -> bool:
-        """Initialize the spatial hash cache with current cortical area dimensions.
-        
-        This method should be called AFTER all cortical areas are loaded to ensure
-        the spatial hash cache is properly sized for the actual cortical areas.
+        """Initialize the spatial hash cache (simplified for Morton system).
         
         Returns:
             True if initialization successful, False otherwise
@@ -1696,24 +1761,20 @@ class ConnectomeManager:
             return False
             
         try:
-            logger.info("🗺️  [SPATIAL HASH] Initializing cache with current cortical area dimensions...")
+            logger.info("🗺️  [SPATIAL HASH] Initializing Morton spatial hash...")
             
-            # Get maximum cortical area dimensions from the loaded areas
+            # Get maximum cortical area dimensions for logging only
             max_dims = self.get_max_cortical_area_dimensions()
+            logger.info(f"🗺️  [SPATIAL HASH] Cortical area dimensions: {max_dims}")
             
-            # Initialize spatial hash with calculated dimensions
+            # Morton system is always ready - no initialization needed
             self._spatial_hash.initialize_for_dimensions(max_dims)
             
-            # Wait for spatial hash to be ready
-            if self._spatial_hash.wait_for_ready(timeout_seconds=60.0):
-                logger.info("✅ [SPATIAL HASH] Cache initialization complete")
-                return True
-            else:
-                logger.warning("⚠️  [SPATIAL HASH] Timeout waiting for cache initialization")
-                return False
+            logger.info("✅ [SPATIAL HASH] Morton system ready")
+            return True
                 
         except Exception as e:
-            logger.error(f"❌ [SPATIAL HASH] Failed to initialize cache: {e}")
+            logger.error(f"❌ [SPATIAL HASH] Failed to initialize: {e}")
             return False
 
     def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
@@ -2336,6 +2397,17 @@ class ConnectomeManager:
         # Store neuron-area relationship for each created neuron
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
+
+        # CRITICAL FIX: Register neurons in Morton spatial hash for coordinate-based lookups
+        # This enables neural injection, batch_voxel_to_neuron_lookup, and test mode to work
+        from feagi.bdu.spatial_hash import get_spatial_hash
+        spatial_hash = get_spatial_hash()
+        
+        for i, neuron_id in enumerate(neuron_ids):
+            x, y, z = positions[i]
+            success = spatial_hash.add_neuron(cortical_id, x, y, z, neuron_id)
+            if not success:
+                self.logger.warning(f"Failed to register neuron {neuron_id} at ({x},{y},{z}) in spatial hash")
 
         return neuron_ids
 
@@ -4795,3 +4867,71 @@ class ConnectomeManager:
                 result.append((neuron_id, post_synaptic_current))
 
         return result
+
+    # ======================================================================
+    # CORTICAL AREA DIMENSION VALIDATION
+    # ======================================================================
+
+    def get_max_allowable_cortical_area_dimensions(self) -> Tuple[int, int, int]:
+        """Get the maximum allowable cortical area dimensions based on Morton spatial hash limits.
+        
+        Returns:
+            Tuple of (max_width, max_height, max_depth) that can be safely created
+        """
+        from feagi.core.state_manager import get_state_manager
+        state_manager = get_state_manager()
+        
+        morton_limit = state_manager.get_morton_coordinate_limit()
+        # Morton limit is per coordinate, so cortical area dimensions must be less than this
+        max_dimension = morton_limit - 1  # Leave room for 0-based indexing
+        
+        return (max_dimension, max_dimension, max_dimension)
+    
+    def validate_cortical_area_dimensions_safe(self, dimensions: Tuple[int, int, int]) -> bool:
+        """Safely validate cortical area dimensions without raising exceptions.
+        
+        Args:
+            dimensions: Tuple of (width, height, depth) dimensions
+            
+        Returns:
+            True if dimensions are within Morton limits, False otherwise
+        """
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            
+            validation_result = state_manager.validate_cortical_area_dimensions(dimensions)
+            return validation_result.is_ok
+        except Exception as e:
+            logger.error(f"Error validating cortical area dimensions: {e}")
+            return False
+    
+    def get_morton_spatial_hash_info(self) -> Dict[str, Any]:
+        """Get information about the active Morton spatial hash implementation.
+        
+        Returns:
+            Dictionary containing Morton class name, coordinate limits, and other info
+        """
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            
+            max_dims = self.get_max_allowable_cortical_area_dimensions()
+            
+            return {
+                "morton_class": state_manager.get_morton_class_name(),
+                "coordinate_limit": state_manager.get_morton_coordinate_limit(),
+                "max_cortical_area_dimensions": max_dims,
+                "coordinate_bits_per_dimension": 21,  # Current implementation
+                "supports_negative_coordinates": False,
+                "memory_efficient": True,
+                "spatial_locality_preserved": True
+            }
+        except Exception as e:
+            logger.error(f"Error getting Morton spatial hash info: {e}")
+            return {
+                "morton_class": "Unknown",
+                "coordinate_limit": 1024,  # Safe fallback
+                "max_cortical_area_dimensions": (1023, 1023, 1023),
+                "error": str(e)
+            }

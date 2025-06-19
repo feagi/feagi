@@ -152,7 +152,12 @@ class FeagiStateManager:
         self._atomic_brain_ready = AtomicU8(self._state.brain_readiness)
         self._atomic_version = AtomicU8(0)
         
+        # Initialize Morton spatial hash tracking
+        self._morton_coordinate_limit = (1 << 21)  # 2,097,152 per dimension for 21-bit Morton encoding
+        self._morton_class_name = "RoaringSpatialHash"  # Current active Morton implementation
+        
         logger.info("FeagiStateManager initialized")
+        logger.info(f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}")
     
     # === GENOME STATE MANAGEMENT ===
     
@@ -528,28 +533,30 @@ class FeagiStateManager:
         
         return True
     
-    def wait_for_critical_services(
-        self, timeout_seconds: float = 10.0, check_interval: float = 0.5
-    ) -> bool:
+    def get_critical_service_readiness_report(self) -> Dict[str, Any]:
         """
-        Wait for critical services to become ready.
+        Get detailed report of critical service readiness for event-driven decisions.
         
-        Args:
-            timeout_seconds: Maximum time to wait
-            check_interval: Time between checks
-            
         Returns:
-            True if services became ready, False if timeout
+            Dict containing service states and readiness conditions
         """
-        import time
+        critical_status = self.get_critical_services_status()
         
-        start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
-            if self.is_system_ready_for_fq_samplers():
-                return True
-            time.sleep(check_interval)
-        
-        return False
+        return {
+            "services": {
+                service: {
+                    "state": state.value,
+                    "is_error": state.value == "ERROR",
+                    "is_ready": state.value == "READY"
+                }
+                for service, state in critical_status.items()
+            },
+            "genome_loaded": self.is_genome_loaded(),
+            "brain_ready": self.get_brain_readiness(),
+            "burst_engine_available": self.get_burst_engine_state() in ["READY", "ON_HOLD", "UNAVAILABLE"],
+            "has_error_states": any(state.value == "ERROR" for state in critical_status.values()),
+            "system_ready_for_fq_samplers": self.is_system_ready_for_fq_samplers()
+        }
     
     # === CONNECTED AGENTS MANAGEMENT ===
     
@@ -1223,6 +1230,81 @@ class FeagiStateManager:
                 # Rollback on storage failure
                 self._state.genome_counter = old_counter
                 return store_result
+        
+        return Result.ok(None)
+
+    # === MORTON SPATIAL HASH STATE MANAGEMENT ===
+    
+    def get_morton_coordinate_limit(self) -> int:
+        """Get the maximum coordinate value supported by the active Morton spatial hash.
+        
+        Returns:
+            Maximum coordinate value per dimension (exclusive)
+        """
+        return self._morton_coordinate_limit
+    
+    def get_morton_class_name(self) -> str:
+        """Get the name of the active Morton spatial hash class.
+        
+        Returns:
+            Name of the Morton spatial hash implementation
+        """
+        return self._morton_class_name
+    
+    def set_morton_class_info(self, class_name: str, coordinate_limit: int) -> Result[None]:
+        """Update Morton spatial hash class information.
+        
+        Args:
+            class_name: Name of the Morton class implementation
+            coordinate_limit: Maximum coordinate value per dimension
+            
+        Returns:
+            Result indicating success or failure
+        """
+        if coordinate_limit <= 0:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        with self._instance_lock:
+            old_class = self._morton_class_name
+            old_limit = self._morton_coordinate_limit
+            
+            self._morton_class_name = class_name
+            self._morton_coordinate_limit = coordinate_limit
+            
+            logger.info(f"Morton spatial hash updated: {old_class} -> {class_name}, limit: {old_limit} -> {coordinate_limit}")
+            
+        return Result.ok(None)
+    
+    def is_coordinate_within_morton_limits(self, x: int, y: int, z: int) -> bool:
+        """Check if coordinates are within Morton encoding limits.
+        
+        Args:
+            x, y, z: 3D coordinates to validate
+            
+        Returns:
+            True if coordinates are within limits, False otherwise
+        """
+        limit = self._morton_coordinate_limit
+        return (0 <= x < limit and 0 <= y < limit and 0 <= z < limit)
+    
+    def validate_cortical_area_dimensions(self, dimensions: tuple) -> Result[None]:
+        """Validate that cortical area dimensions are within Morton limits.
+        
+        Args:
+            dimensions: Tuple of (width, height, depth) dimensions
+            
+        Returns:
+            Result indicating if dimensions are valid
+        """
+        if len(dimensions) != 3:
+            return Result.err(StateError.VALIDATION_FAILED)
+        
+        width, height, depth = dimensions
+        limit = self._morton_coordinate_limit
+        
+        if width >= limit or height >= limit or depth >= limit:
+            logger.error(f"Cortical area dimensions {dimensions} exceed Morton limit {limit}")
+            return Result.err(StateError.VALIDATION_FAILED)
         
         return Result.ok(None)
 

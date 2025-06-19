@@ -24,11 +24,49 @@ import time
 from pathlib import Path
 import pickle
 import hashlib
+from collections import defaultdict
 
+# Try to import roaring bitmap - fall back to set if not available
 try:
     from pyroaring import BitMap as RoaringBitmap
+    ROARING_AVAILABLE = True
 except ImportError:
-    raise ImportError("pyroaring is required. Install with: pip install pyroaring")
+    # Fallback implementation using Python set
+    class RoaringBitmap:
+        def __init__(self, values=None):
+            self._data = set(values or [])
+        
+        def add(self, value):
+            self._data.add(value)
+        
+        def __contains__(self, value):
+            return value in self._data
+        
+        def __len__(self):
+            return len(self._data)
+        
+        def __iter__(self):
+            return iter(self._data)
+        
+        def __and__(self, other):
+            result = RoaringBitmap()
+            result._data = self._data & other._data
+            return result
+        
+        def __or__(self, other):
+            result = RoaringBitmap()
+            result._data = self._data | other._data
+            return result
+        
+        def __iand__(self, other):
+            self._data &= other._data
+            return self
+        
+        def __ior__(self, other):
+            self._data |= other._data
+            return self
+    
+    ROARING_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +166,12 @@ class RoaringSpatialHash:
         Args:
             cache_dir: Directory for caching bitmap data
         """
-        self._state = MortonSpatialHashState.UNINITIALIZED
+        self._state = MortonSpatialHashState.READY  # FIXED: Start in READY state
         self._lock = threading.RLock()
         
         # Core data structures
         self.cortical_bitmaps: Dict[str, RoaringBitmap] = {}
-        self.neuron_map: Dict[Tuple[str, int], int] = {}  # (cortical_area, morton_code) → neuron_id
+        self.neuron_map: Dict[Tuple[str, int], List[int]] = defaultdict(list)
         self.coordinate_map: Dict[int, Tuple[str, int, int, int]] = {}  # neuron_id → (cortical_area, x, y, z)
         
         # Statistics
@@ -145,7 +183,7 @@ class RoaringSpatialHash:
         self.cache_dir = cache_dir or Path("cache/morton_spatial_hash")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
-        logger.info("[MORTON SPATIAL HASH] Initialized with roaring bitmap architecture")
+        logger.info(f"[MORTON SPATIAL HASH] Initialized with roaring bitmap architecture (ROARING_AVAILABLE: {ROARING_AVAILABLE})")
     
     def _set_state(self, new_state: MortonSpatialHashState):
         """Update the system state with thread safety."""
@@ -188,8 +226,10 @@ class RoaringSpatialHash:
                 self.cortical_bitmaps[cortical_area].add(morton_code)
                 
                 # Store neuron mappings (include cortical area in key)
-                self.neuron_map[(cortical_area, morton_code)] = neuron_id
-                self.coordinate_map[neuron_id] = (cortical_area, x, y, z)
+                coordinate_key = (cortical_area, morton_code)
+                if neuron_id not in self.neuron_map[coordinate_key]:
+                    self.neuron_map[coordinate_key].append(neuron_id)
+                    self.coordinate_map[neuron_id] = (cortical_area, x, y, z)
                 
                 self.total_coordinates += 1
                 return True
@@ -215,13 +255,40 @@ class RoaringSpatialHash:
             # Check if coordinate exists in cortical area
             if cortical_area in self.cortical_bitmaps:
                 if morton_code in self.cortical_bitmaps[cortical_area]:
-                    return self.neuron_map.get((cortical_area, morton_code))
+                    coordinate_key = (cortical_area, morton_code)
+                    return self.neuron_map[coordinate_key][0] if self.neuron_map[coordinate_key] else None
             
             return None
             
         except Exception as e:
             logger.error(f"[MORTON SPATIAL HASH] Error getting neuron: {e}")
             return None
+    
+    def get_neurons_at_coordinate(self, cortical_area: str, x: int, y: int, z: int) -> List[int]:
+        """
+        Get all neuron IDs at specific coordinate.
+        
+        Args:
+            cortical_area: Cortical area identifier
+            x, y, z: 3D coordinates
+            
+        Returns:
+            List of neuron IDs at the coordinate
+        """
+        try:
+            morton_code = MortonUtils.morton_encode_3d(x, y, z)
+            
+            # Check if coordinate exists in cortical area
+            if cortical_area in self.cortical_bitmaps:
+                if morton_code in self.cortical_bitmaps[cortical_area]:
+                    coordinate_key = (cortical_area, morton_code)
+                    return self.neuron_map[coordinate_key].copy()
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"[MORTON SPATIAL HASH] Error getting neurons: {e}")
+            return []
     
     def get_neurons_in_region(self, cortical_area: str, x1: int, y1: int, z1: int, 
                              x2: int, y2: int, z2: int) -> List[int]:
@@ -249,9 +316,9 @@ class RoaringSpatialHash:
             # Get neuron IDs
             neuron_ids = []
             for morton_code in intersection:
-                neuron_key = (cortical_area, morton_code)
-                if neuron_key in self.neuron_map:
-                    neuron_ids.append(self.neuron_map[neuron_key])
+                coordinate_key = (cortical_area, morton_code)
+                if coordinate_key in self.neuron_map:
+                    neuron_ids.extend(self.neuron_map[coordinate_key])
             
             return neuron_ids
             
@@ -380,7 +447,19 @@ class RoaringSpatialHash:
             
             # Restore state
             self.cortical_bitmaps = cache_data["cortical_bitmaps"]
-            self.neuron_map = cache_data["neuron_map"]
+            
+            # Handle backward compatibility: convert old single-neuron format to list format
+            loaded_neuron_map = cache_data["neuron_map"]
+            self.neuron_map = defaultdict(list)
+            
+            for key, value in loaded_neuron_map.items():
+                if isinstance(value, list):
+                    # New format: already a list
+                    self.neuron_map[key] = value
+                else:
+                    # Old format: single neuron ID, convert to list
+                    self.neuron_map[key] = [value]
+            
             self.coordinate_map = cache_data["coordinate_map"]
             self.total_coordinates = cache_data["total_coordinates"]
             self.total_areas = cache_data["total_areas"]
@@ -391,6 +470,122 @@ class RoaringSpatialHash:
         except Exception as e:
             logger.error(f"[MORTON SPATIAL HASH] Error loading cache: {e}")
             return False
+
+    # ConnectomeManager compatibility methods
+    def initialize_for_dimensions(self, max_dims: Tuple[int, int, int]) -> None:
+        """
+        Initialize spatial hash for specific dimensions (compatibility method).
+        
+        Args:
+            max_dims: Maximum dimensions (advisory only for Morton encoding)
+        """
+        with self._lock:
+            self._set_state(MortonSpatialHashState.READY)
+            logger.info(f"[MORTON SPATIAL HASH] Initialized for dimensions: {max_dims}")
+            logger.info(f"[MORTON SPATIAL HASH] Morton encoding handles any coordinate range automatically")
+
+    def wait_for_ready(self, timeout_seconds: float = 60.0) -> bool:
+        """
+        Wait for spatial hash to become ready.
+        
+        Args:
+            timeout_seconds: Maximum time to wait
+            
+        Returns:
+            True if ready within timeout, False otherwise
+        """
+        import time
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout_seconds:
+            if self.is_ready():
+                return True
+            time.sleep(0.1)
+        
+        return False
+
+    def expand_cache_for_new_area(self, position: Tuple[int, int, int], 
+                                 dimensions: Tuple[int, int, int]) -> bool:
+        """
+        Expand cache for new cortical area (compatibility method).
+        
+        Note: Morton encoding handles any coordinate range automatically.
+        
+        Args:
+            position: Position of new area (ignored)
+            dimensions: Dimensions of new area (ignored)
+            
+        Returns:
+            Always True (Morton encoding handles expansion automatically)
+        """
+        logger.debug(f"[MORTON SPATIAL HASH] Cache expansion requested for pos={position}, dims={dimensions}")
+        logger.debug(f"[MORTON SPATIAL HASH] Morton encoding handles expansion automatically")
+        return True
+
+    def add_coordinate(self, cortical_area: str, x: int, y: int, z: int, neuron_id: int) -> bool:
+        """
+        Add coordinate (compatibility method - delegates to add_neuron).
+        
+        Args:
+            cortical_area: Cortical area identifier
+            x, y, z: 3D coordinates
+            neuron_id: Neuron identifier
+            
+        Returns:
+            True if added successfully
+        """
+        return self.add_neuron(cortical_area, x, y, z, neuron_id)
+
+    def get_neuron_id(self, cortical_area: str, x: int, y: int, z: int) -> Optional[int]:
+        """
+        Get neuron ID at coordinate (compatibility method - delegates to get_neuron_at_coordinate).
+        
+        Args:
+            cortical_area: Cortical area identifier
+            x, y, z: 3D coordinates
+            
+        Returns:
+            Neuron ID if found, None otherwise
+        """
+        return self.get_neuron_at_coordinate(cortical_area, x, y, z)
+
+    def batch_coordinate_lookup(self, candidate_positions: Set[Tuple[int, int, int]], 
+                               neuron_positions: List[Tuple[int, int, int]]) -> List[Tuple[int, int]]:
+        """
+        Fast batch lookup for matching candidate positions to neuron positions.
+        
+        Args:
+            candidate_positions: Set of (x, y, z) coordinates to search for
+            neuron_positions: List of (x, y, z) coordinates where neurons exist
+            
+        Returns:
+            List of (candidate_idx, neuron_idx) pairs for matching coordinates
+        """
+        try:
+            # Convert to lists for indexing
+            candidate_list = list(candidate_positions)
+            matches = []
+            
+            # Create fast lookup from position to neuron index
+            pos_to_neuron_idx = {}
+            for neuron_idx, pos in enumerate(neuron_positions):
+                if len(pos) >= 3:  # Ensure we have x, y, z
+                    coord = (int(pos[0]), int(pos[1]), int(pos[2]))
+                    pos_to_neuron_idx[coord] = neuron_idx
+            
+            # Find matches
+            for candidate_idx, candidate_pos in enumerate(candidate_list):
+                if len(candidate_pos) >= 3:  # Ensure we have x, y, z
+                    coord = (int(candidate_pos[0]), int(candidate_pos[1]), int(candidate_pos[2]))
+                    if coord in pos_to_neuron_idx:
+                        neuron_idx = pos_to_neuron_idx[coord]
+                        matches.append((candidate_idx, neuron_idx))
+            
+            return matches
+            
+        except Exception as e:
+            logger.warning(f"[MORTON SPATIAL HASH] Error in batch_coordinate_lookup: {e}")
+            return []
 
 
 # Singleton instance for global access
@@ -413,4 +608,84 @@ def reset_morton_spatial_hash():
     global _morton_spatial_hash_instance
     
     with _morton_instance_lock:
-        _morton_spatial_hash_instance = None 
+        _morton_spatial_hash_instance = None
+
+
+def get_morton_coordinate_limits() -> Dict[str, int]:
+    """Get Morton encoding coordinate limits and information.
+    
+    Returns:
+        Dictionary containing coordinate limits and encoding information
+    """
+    return {
+        "max_coordinate_per_dimension": (1 << 21) - 1,  # 2,097,151 (21-bit limit)
+        "coordinate_limit_exclusive": (1 << 21),  # 2,097,152
+        "bits_per_dimension": 21,
+        "total_bits_used": 63,  # 21 * 3 dimensions
+        "supports_negative_coordinates": False,
+        "encoding_type": "morton_3d_z_order",
+        "memory_efficient": True,
+        "spatial_locality_preserved": True
+    }
+
+
+def validate_coordinate_range(x: int, y: int, z: int) -> bool:
+    """Validate that coordinates are within Morton encoding limits.
+    
+    Args:
+        x, y, z: 3D coordinates to validate
+        
+    Returns:
+        True if coordinates are valid, False otherwise
+    """
+    limit = 1 << 21  # 21-bit limit
+    return (0 <= x < limit and 0 <= y < limit and 0 <= z < limit)
+
+
+def get_max_cortical_area_dimensions() -> Tuple[int, int, int]:
+    """Get maximum safe cortical area dimensions for Morton encoding.
+    
+    Returns:
+        Tuple of (max_width, max_height, max_depth) that can be safely used
+    """
+    # Leave room for 0-based indexing
+    max_dim = (1 << 21) - 1  # 2,097,151
+    return (max_dim, max_dim, max_dim)
+
+
+def analyze_coordinate_requirements(max_x: int, max_y: int, max_z: int) -> Dict[str, Any]:
+    """Analyze coordinate requirements and suggest optimal Morton configuration.
+    
+    Args:
+        max_x, max_y, max_z: Maximum coordinates that will be used
+        
+    Returns:
+        Dictionary with analysis results and recommendations
+    """
+    limits = get_morton_coordinate_limits()
+    max_allowed = limits["max_coordinate_per_dimension"]
+    
+    analysis = {
+        "requested_max": (max_x, max_y, max_z),
+        "morton_limit": max_allowed,
+        "fits_in_21_bit": all(coord <= max_allowed for coord in [max_x, max_y, max_z]),
+        "exceeds_limit_by": {
+            "x": max(0, max_x - max_allowed),
+            "y": max(0, max_y - max_allowed), 
+            "z": max(0, max_z - max_allowed)
+        },
+        "recommendations": []
+    }
+    
+    if analysis["fits_in_21_bit"]:
+        analysis["recommendations"].append("✅ Coordinates fit within current 21-bit Morton encoding")
+    else:
+        analysis["recommendations"].extend([
+            "⚠️  Coordinates exceed 21-bit Morton encoding limits",
+            "🔧 Consider splitting large cortical areas into smaller ones",
+            "🚀 Or upgrade to 64-bit Morton encoding for unlimited range",
+            f"📊 Current limit: {max_allowed:,} per dimension",
+            f"📊 Required: {max(max_x, max_y, max_z):,} per dimension"
+        ])
+    
+    return analysis 

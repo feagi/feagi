@@ -1980,10 +1980,7 @@ class CoreAPIService:
             return (8, 8, 8)  # Safe fallback dimensions
 
     def initialize_spatial_hash_cache(self) -> bool:
-        """Initialize the spatial hash cache with current cortical area dimensions.
-        
-        This method should be called AFTER all cortical areas are loaded during
-        genome initialization to ensure optimal cache sizing.
+        """Initialize the spatial hash cache (simplified for Morton system).
         
         Returns:
             True if initialization successful, False otherwise

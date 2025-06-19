@@ -1309,71 +1309,53 @@ class ProcessManager:
         """
         logger.info(f"🔥 Creating FQ Sampler: mode={mode}, frequency={frequency}Hz")
 
-        # ===== CRITICAL SERVICE READINESS GATE (STARTUP ONLY) =====
-        # ONLY block FQ sampler creation during initial startup phase
-        # During runtime, agents should be able to register immediately
+        # ===== EVENT-DRIVEN CRITICAL SERVICE READINESS =====
+        # FEAGI operates on EVENTS and CONDITIONS, not timeouts!
+        # Check current state conditions and proceed based on actual system state
         if self._startup_phase:
             logger.debug(
-                "🔄 Startup phase: Checking critical service readiness for FQ sampler creation"
+                "🔄 Startup phase: Checking critical service state conditions for FQ sampler creation"
             )
             try:
                 from feagi.core.state_manager import get_state_manager
 
                 state_manager = get_state_manager()
 
-                # Check if system is ready for FQ samplers
-                if not state_manager.is_system_ready_for_fq_samplers():
-                    logger.warning(
-                        f"🚨 BLOCKED: FQ sampler creation for mode '{mode}' - critical services not ready"
+                # EVENT-DRIVEN: Check actual service states, don't wait with timeouts
+                critical_status = state_manager.get_critical_services_status()
+                
+                # Check for actual ERROR states that would prevent FQ sampler creation
+                error_states = []
+                for service, state in critical_status.items():
+                    if state.value == "ERROR":
+                        error_states.append(f"{service}: {state.value}")
+
+                if error_states:
+                    logger.error(
+                        f"🚨 BLOCKED: Cannot create FQ sampler for mode '{mode}' - critical services in ERROR state"
                     )
-
-                    # Get detailed status for debugging
-                    critical_status = state_manager.get_critical_services_status()
-                    not_ready = [
-                        service
-                        for service, status in critical_status.items()
-                        if status.value != "READY"
-                    ]
-
-                    if not_ready:
-                        logger.warning(f"🚨 Services not ready: {', '.join(not_ready)}")
-                        for service, status in critical_status.items():
-                            if status.value != "READY":
-                                logger.warning(f"🚨   {service}: {status.value}")
-
-                    # Wait briefly for services to become ready (non-blocking timeout)
-                    timeout_seconds = 10.0
-                    logger.info(
-                        f"🔄 Waiting up to {timeout_seconds} seconds for critical services..."
-                    )
-
-                    if state_manager.wait_for_critical_services(
-                        timeout_seconds=timeout_seconds, check_interval=0.5
-                    ):
-                        logger.info(
-                            "✅ Critical services now ready - proceeding with FQ sampler creation"
-                        )
-                    else:
-                        logger.error(
-                            "❌ TIMEOUT: Critical services still not ready after 10 seconds"
-                        )
-                        logger.error(f"❌ FQ sampler creation DENIED for mode '{mode}'")
-                        return False
+                    for error in error_states:
+                        logger.error(f"🚨   {error}")
+                    return False
                 else:
+                    # STATE-BASED: Services are in valid states (READY, UNAVAILABLE, MISSING are all valid)
+                    # UNAVAILABLE burst engine and MISSING genome are CORRECT for fresh startup
                     logger.debug(
-                        f"✅ Critical services ready - proceeding with FQ sampler creation for mode '{mode}'"
+                        f"✅ Critical services in valid states - proceeding with FQ sampler creation for mode '{mode}'"
                     )
+                    for service, state in critical_status.items():
+                        logger.debug(f"✅   {service}: {state.value}")
 
             except Exception as gate_error:
                 logger.error(
-                    f"🚨 Error in critical service readiness gate: {gate_error}"
+                    f"🚨 Error checking critical service states: {gate_error}"
                 )
-                logger.error(
+                logger.warning(
                     "🚨 Proceeding with FQ sampler creation anyway to maintain backward compatibility"
                 )
         else:
             logger.debug(
-                "🔄 Runtime phase: Skipping critical service check for FQ sampler creation (services already verified)"
+                "🔄 Runtime phase: Critical services already verified during startup"
             )
 
         # ===== END CRITICAL SERVICE READINESS GATE =====

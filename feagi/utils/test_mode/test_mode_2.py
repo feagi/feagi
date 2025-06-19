@@ -103,6 +103,7 @@ class TestMode2Handler:
         """Analyze all cortical areas and collect information about dimensions for coordinate generation."""
         self.cortical_area_info = {}
         self.total_available_volume = 0
+        self.total_available_neurons = 0  # CRITICAL FIX: Initialize neuron counter
 
         for cortical_id, area in self.connectome.cortical_areas.items():
             try:
@@ -120,17 +121,22 @@ class TestMode2Handler:
                 # Calculate volume for coordinate space
                 volume = dimensions[0] * dimensions[1] * dimensions[2]
 
+                # CRITICAL FIX: Count actual neurons in this area (same as test mode 1)
+                neuron_count = len(area.get_all_neurons())
+                self.total_available_neurons += neuron_count
+
                 self.cortical_area_info[cortical_id] = {
                     "dimensions": dimensions,
                     "area_type": area_type,
                     "volume": volume,
+                    "neuron_count": neuron_count,  # Track neuron count per area
                 }
 
                 self.total_available_volume += volume
 
                 logger.debug(
                     f"Area {cortical_id}: dimensions {dimensions}, "
-                    f"volume {volume}, type {area_type}"
+                    f"volume {volume}, neurons {neuron_count}, type {area_type}"
                 )
 
             except Exception as e:
@@ -141,6 +147,7 @@ class TestMode2Handler:
             f"Analyzed {len(self.cortical_area_info)} cortical areas"
         )
         logger.info(f"Total coordinate space volume: {self.total_available_volume}")
+        logger.info(f"Total available neurons: {self.total_available_neurons}")  # Log neuron count
 
     def _select_test_areas(self):
         """Select cortical areas for testing based on configuration."""

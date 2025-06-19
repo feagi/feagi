@@ -333,7 +333,10 @@ class FeagiTestRunner:
         self.initial_fcls = {}
 
         for cortical_id in self.connectome.cortical_areas:
-            fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
+            # CRITICAL FIX: get_cortical_fcl expects cortical_idx (int), not cortical_id (str)
+            cortical_area = self.connectome.cortical_areas[cortical_id]
+            cortical_idx = cortical_area.cortical_idx
+            fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
             self.initial_fcls[cortical_id] = set(fcl) if fcl else set()
 
         logger.info(
@@ -464,7 +467,10 @@ class FeagiTestRunner:
         empty_fcl_count = 0
 
         for cortical_id in self.connectome.cortical_areas:
-            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
+            # CRITICAL FIX: get_cortical_fcl expects cortical_idx (int), not cortical_id (str)
+            cortical_area = self.connectome.cortical_areas[cortical_id]
+            cortical_idx = cortical_area.cortical_idx
+            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
             current_fcl_set = set(current_fcl) if current_fcl else set()
 
             # Count empty FCLs for debugging

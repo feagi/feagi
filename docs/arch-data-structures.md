@@ -17,11 +17,14 @@ All structures are designed with Rust/RTOS compatibility and GPU optimization in
 
 FEAGI uses a **Morton encoding spatial hash system** for efficient neuron location management:
 
-- **Location:** `feagi/bdu/morton_spatial_hash.py`, `feagi/bdu/spatial_hash_adapter.py`
-- **Type:** Morton encoding + Roaring bitmaps with backward compatibility adapter
+- **Location:** `feagi/bdu/morton_spatial_hash.py`, `feagi/bdu/spatial_hash.py`
+- **Type:** Morton encoding + Roaring bitmaps with direct API access
 - **Purpose:** Provides 95%+ memory savings for sparse neural genomes while maintaining spatial locality
 - **Performance:** O(log N) region queries, microsecond multi-area operations
-- **Compatibility:** 100% backward compatible through adapter pattern
+- **Compatibility:** 100% backward compatible through compatibility methods
+- **Multiple Neurons per Coordinate:** Fixed critical bug - now supports multiple neurons at same coordinate
+- **State Manager Integration:** Automatic registration of coordinate limits for system-wide validation
+- **Cortical Area Validation:** Prevents creation of areas exceeding Morton encoding limits (21-bit per dimension)
 
 For detailed information, see [Morton Spatial Hash Architecture](arch-morton-spatial-hash.md).
 

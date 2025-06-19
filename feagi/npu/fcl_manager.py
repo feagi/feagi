@@ -587,12 +587,19 @@ class FCLManager:
         Handles both standard and memory cortical areas.
 
         Args:
-            cortical_idx: ID of the cortical area to query
+            cortical_idx: ID of the cortical area to query (must be integer)
             timestep: Optional timestep to query (defaults to current timestep)
 
         Returns:
             BitMap of neurons firing in the specified area at the specified timestep
+            
+        Raises:
+            TypeError: If cortical_idx is not an integer
         """
+        # CRITICAL FIX: Validate cortical_idx type to prevent silent failures
+        if not isinstance(cortical_idx, int):
+            raise TypeError(f"cortical_idx must be an integer (cortical_idx), got {type(cortical_idx).__name__}: {cortical_idx}")
+        
         if timestep is None:
             timestep = self.current_timestep
 
