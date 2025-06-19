@@ -2148,14 +2148,46 @@ class NeuroEmbryogenesis:
                     logger.debug("[VECTOR-NUMPY] No neurons found at candidate positions")
                     continue
                 
-                # Step 6: Create position-to-neurons mapping for fast lookup
+                # Step 6: Create position-to-neurons mapping using global spatial hash
+                # ULTRA-FAST: Use pre-computed spatial hash system to eliminate all coordinate lookups
                 position_to_neurons = {}
-                for neuron_id, weight in neuron_weight_pairs:
-                    neuron_pos = self.connectome_manager.get_neuron_position(neuron_id)
-                    if neuron_pos:
-                        if neuron_pos not in position_to_neurons:
-                            position_to_neurons[neuron_pos] = []
-                        position_to_neurons[neuron_pos].append((neuron_id, weight))
+                
+                # Build reverse mapping using global spatial hash system
+                if neuron_weight_pairs:
+                    # Import global spatial hash system
+                    from feagi.bdu.spatial_hash import get_spatial_hash
+                    spatial_hash = get_spatial_hash()
+                    
+                    # Extract neuron IDs from the pairs
+                    found_neuron_ids = [pair[0] for pair in neuron_weight_pairs]
+                    
+                    # Get all positions at once using vectorized lookup
+                    if hasattr(self.connectome_manager.neuron_array, 'batch_get_coordinates'):
+                        neuron_positions_batch = self.connectome_manager.neuron_array.batch_get_coordinates(found_neuron_ids)
+                    else:
+                        # Fallback: vectorized coordinate extraction
+                        neuron_indices = [
+                            self.connectome_manager.neuron_array.id_to_index_map[nid] 
+                            for nid in found_neuron_ids 
+                            if nid in self.connectome_manager.neuron_array.id_to_index_map
+                        ]
+                        
+                        if neuron_indices:
+                            indices_array = np.array(neuron_indices, dtype=np.int32)
+                            coords_x = self.connectome_manager.neuron_array.coordinates_x[indices_array]
+                            coords_y = self.connectome_manager.neuron_array.coordinates_y[indices_array]  
+                            coords_z = self.connectome_manager.neuron_array.coordinates_z[indices_array]
+                            neuron_positions_batch = list(zip(coords_x, coords_y, coords_z))
+                        else:
+                            neuron_positions_batch = []
+                    
+                    # Group neurons by position
+                    for i, (neuron_id, weight) in enumerate(neuron_weight_pairs):
+                        if i < len(neuron_positions_batch):
+                            neuron_pos = neuron_positions_batch[i]
+                            if neuron_pos not in position_to_neurons:
+                                position_to_neurons[neuron_pos] = []
+                            position_to_neurons[neuron_pos].append((neuron_id, weight))
                 
                 # Step 7: Create synapses (vectorized where possible)
                 synapse_connections = []

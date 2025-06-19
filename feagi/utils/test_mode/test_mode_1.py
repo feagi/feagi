@@ -230,19 +230,19 @@ class TestMode1Handler:
 
     def _inject_predictable_activations(self):
         """
-        Generate predictable neuron activations from the JSON file and submit them via test runner.
+        Generate predictable coordinate activations from the JSON file and submit them via test runner.
 
-        This method separates neuron selection logic from injection mechanism,
+        This method uses coordinates directly with the unified neural stimulation system,
         following proper architectural separation of concerns.
 
         Returns:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            activations = {}  # Dictionary to hold activations for submission
+            coordinate_activations = {}  # Dictionary to hold coordinate activations for submission
 
             logger.debug(
-                f"Generating predictable activations for {len(self.test_activations_data)} cortical areas"
+                f"Generating predictable coordinate activations for {len(self.test_activations_data)} cortical areas"
             )
 
             for cortical_id, coordinates_list in self.test_activations_data.items():
@@ -254,29 +254,17 @@ class TestMode1Handler:
                         )
                         continue
 
-                    cortical_area = self.connectome.cortical_areas[cortical_id]
-
-                    # Convert coordinates to neuron IDs
-                    selected_neurons = []
+                    # Validate and prepare coordinates
+                    valid_coordinates = []
 
                     for coord in coordinates_list:
                         if isinstance(coord, list) and len(coord) == 3:
                             try:
                                 x, y, z = int(coord[0]), int(coord[1]), int(coord[2])
-
-                                # Find neurons at this coordinate using the correct API
-                                neurons_at_position = (
-                                    cortical_area.get_neurons_at_position((x, y, z))
+                                valid_coordinates.append((x, y, z))
+                                logger.debug(
+                                    f"Added coordinate ({x},{y},{z}) for stimulation in {cortical_id}"
                                 )
-                                if neurons_at_position:
-                                    selected_neurons.extend(neurons_at_position)
-                                    logger.debug(
-                                        f"Found {len(neurons_at_position)} neurons at ({x},{y},{z}) in {cortical_id}"
-                                    )
-                                else:
-                                    logger.debug(
-                                        f"No neurons found at coordinate ({x},{y},{z}) in {cortical_id}"
-                                    )
 
                             except (ValueError, TypeError) as e:
                                 logger.warning(
@@ -289,16 +277,14 @@ class TestMode1Handler:
                             )
                             continue
 
-                    if selected_neurons:
-                        # Remove duplicates while preserving order
-                        selected_neurons = list(dict.fromkeys(selected_neurons))
-                        activations[cortical_id] = selected_neurons
+                    if valid_coordinates:
+                        coordinate_activations[cortical_id] = valid_coordinates
                         logger.debug(
-                            f"Prepared {len(selected_neurons)} neurons for activation in {cortical_id}"
+                            f"Prepared {len(valid_coordinates)} coordinates for activation in {cortical_id}"
                         )
                     else:
                         logger.warning(
-                            f"No valid neurons found for coordinates in {cortical_id}"
+                            f"No valid coordinates found in {cortical_id}"
                         )
 
                 except Exception as e:
@@ -307,27 +293,27 @@ class TestMode1Handler:
                     )
                     continue
 
-            # Submit activations via test runner (proper architecture)
-            if activations:
-                total_neurons = sum(len(neurons) for neurons in activations.values())
+            # Submit coordinate activations via test runner (proper architecture)
+            if coordinate_activations:
+                total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
                 logger.debug(
-                    f"🎯 Submitting {total_neurons} PREDICTABLE neurons across {len(activations)} areas via FCL injection service"
+                    f"🎯 Submitting {total_coordinates} PREDICTABLE coordinates across {len(coordinate_activations)} areas via unified neural stimulation"
                 )
 
-                injected_count = self.test_runner.submit_neuron_activations(
-                    activations, "test_mode_1_predictable"
+                injected_count = self.test_runner.submit_coordinate_activations(
+                    coordinate_activations, "test_mode_1_predictable"
                 )
 
                 if injected_count > 0:
                     logger.debug(
-                        f"✅ Successfully injected {injected_count} predictable neurons"
+                        f"✅ Successfully injected {injected_count} predictable coordinates"
                     )
                     return True
                 else:
-                    logger.warning("Failed to inject predictable neurons")
+                    logger.warning("Failed to inject predictable coordinates")
                     return False
             else:
-                logger.warning("No predictable activations generated")
+                logger.warning("No predictable coordinate activations generated")
                 return False
 
         except Exception as e:
@@ -339,10 +325,10 @@ class TestMode1Handler:
 
     def _inject_random_activations_fallback(self):
         """
-        Generate random neuron activations and submit them via test runner.
+        Generate random coordinate activations and submit them via test runner.
 
-        This method separates neuron selection logic from injection mechanism,
-        following proper architectural separation of concerns.
+        This method acts as a pure sensory data generator, working only with coordinates 
+        and membrane potentials, completely unaware of neuron IDs.
 
         Returns:
             bool: True if data was injected successfully, False otherwise
@@ -359,60 +345,66 @@ class TestMode1Handler:
 
             logger.debug(f"Found {len(cortical_areas)} cortical areas in connectome")
 
-            # Generate activations
-            activations = {}
+            # Generate random coordinate activations
+            coordinate_activations = {}
 
             for cortical_id in cortical_areas:
                 try:
                     # Get the cortical area object
                     cortical_area = self.connectome.cortical_areas[cortical_id]
 
-                    # Get all neurons in this cortical area
-                    all_neurons = cortical_area.get_all_neurons()
-
-                    if not all_neurons:
-                        logger.debug(f"No neurons found in cortical area {cortical_id}")
+                    # Get the dimensions of this cortical area
+                    dimensions = cortical_area.get_cortical_dimensions()
+                    if not dimensions:
+                        logger.debug(f"No dimensions found for cortical area {cortical_id}")
                         continue
 
-                    # Randomly select a subset of neurons (5-15% of total)
-                    selection_percentage = random.uniform(0.05, 0.15)
-                    num_to_select = max(1, int(len(all_neurons) * selection_percentage))
-                    selected_neurons = random.sample(list(all_neurons), num_to_select)
+                    width, height, depth = dimensions
 
-                    activations[cortical_id] = selected_neurons
+                    # Generate random coordinates within the cortical area bounds
+                    num_coordinates = random.randint(5, 20)  # Random number of coordinates
+                    random_coordinates = []
+
+                    for _ in range(num_coordinates):
+                        x = random.randint(0, width - 1)
+                        y = random.randint(0, height - 1)
+                        z = random.randint(0, depth - 1)
+                        random_coordinates.append((x, y, z))
+
+                    coordinate_activations[cortical_id] = random_coordinates
                     logger.debug(
-                        f"Selected {len(selected_neurons)}/{len(all_neurons)} neurons from {cortical_id}"
+                        f"Generated {len(random_coordinates)} random coordinates for {cortical_id}"
                     )
 
                 except Exception as e:
                     logger.error(f"Error processing cortical area {cortical_id}: {e}")
                     continue
 
-            # Submit activations via test runner (proper architecture)
-            if activations:
-                total_neurons = sum(len(neurons) for neurons in activations.values())
+            # Submit coordinate activations via test runner (proper architecture)
+            if coordinate_activations:
+                total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
                 logger.debug(
-                    f"🎲 Submitting {total_neurons} RANDOM neurons across {len(activations)} areas via FCL injection service"
+                    f"🎲 Submitting {total_coordinates} RANDOM coordinates across {len(coordinate_activations)} areas via unified neural stimulation"
                 )
 
-                injected_count = self.test_runner.submit_neuron_activations(
-                    activations, "test_mode_1_random"
+                injected_count = self.test_runner.submit_coordinate_activations(
+                    coordinate_activations, "test_mode_1_random"
                 )
 
                 if injected_count > 0:
                     logger.debug(
-                        f"✅ Successfully injected {injected_count} random neurons (fallback mode)"
+                        f"✅ Successfully injected {injected_count} random coordinates (fallback mode)"
                     )
                     return True
                 else:
-                    logger.warning("Failed to inject random neurons")
+                    logger.warning("Failed to inject random coordinates")
                     return False
             else:
-                logger.warning("No random activations generated")
+                logger.warning("No random coordinate activations generated")
                 return False
 
         except Exception as e:
-            logger.error(f"Error generating random activations: {e}")
+            logger.error(f"Error generating random coordinate activations: {e}")
             import traceback
 
             logger.error(traceback.format_exc())

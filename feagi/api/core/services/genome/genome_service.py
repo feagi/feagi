@@ -447,7 +447,20 @@ class GenomeService(BaseService):
                         "🎯 Genome loading complete - process manager will handle service coordination"
                     )
                     
-                    # CRITICAL: Emit GENOME_LOADED event to trigger burst engine startup
+                    # CRITICAL: Update burst engine with new genome directly since event system is not available
+                    try:
+                        from feagi.npu.burst_engine import BurstEngine
+                        burst_engine = BurstEngine.get_instance()
+                        if burst_engine:
+                            burst_engine.update_with_genome()
+                            self.logger.info("✅ Burst engine updated with new genome successfully")
+                        else:
+                            self.logger.warning("⚠️ Burst engine instance not available for genome update")
+                    except Exception as burst_error:
+                        self.logger.warning(f"Failed to update burst engine with genome: {burst_error}")
+                        # Don't fail genome loading for burst engine update issues
+                    
+                    # CRITICAL: Emit GENOME_LOADED event to trigger burst engine startup (fallback)
                     try:
                         from feagi.utils.event_system import EventType, get_event_system
                         event_system = get_event_system()
@@ -458,7 +471,7 @@ class GenomeService(BaseService):
                             )
                             self.logger.info(f"📡 GENOME_LOADED event emitted for '{filename}'")
                         else:
-                            self.logger.warning("Event system not available - process manager may not start burst engine")
+                            self.logger.warning("Event system not available - using direct burst engine update instead")
                     except Exception as event_error:
                         self.logger.warning(f"Failed to emit GENOME_LOADED event: {event_error}")
                         # Don't fail genome loading for event emission issues

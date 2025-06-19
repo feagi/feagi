@@ -262,7 +262,24 @@ class CoreAPIService:
         ARCHITECTURE COMPLIANCE: WRITE operation routed through GenomeService
         to maintain proper data flow: API → Service → GenomeService → StateManager → NeuroEmbryogenesis
         """
-        return self._genome_service.load_genome(genome_data, filename)
+        # Load genome through genome service
+        result = self._genome_service.load_genome(genome_data, filename)
+        
+        # If genome loading was successful, initialize spatial hash cache with final dimensions
+        if result.get("success", False):
+            self.logger.info("Genome loaded successfully - initializing spatial hash cache with final cortical area dimensions...")
+            
+            # Initialize spatial hash cache after all cortical areas are loaded
+            spatial_hash_success = self.initialize_spatial_hash_cache()
+            if spatial_hash_success:
+                self.logger.info("✅ Spatial hash cache initialization complete")
+                # Add spatial hash success info to result without overriding existing data
+                result["spatial_hash_initialized"] = True
+            else:
+                self.logger.warning("⚠️ Spatial hash cache initialization failed - continuing with default cache")
+                result["spatial_hash_initialized"] = False
+        
+        return result
 
     def get_genome(self) -> Optional[Dict[str, Any]]:
         """Get the currently loaded genome data."""
@@ -1942,6 +1959,40 @@ class CoreAPIService:
         except Exception as e:
             self.logger.error(f"Error batch creating synapses: {str(e)}")
             return 0
+
+    # =================================================================
+    # SPATIAL HASH CACHE MANAGEMENT
+    # =================================================================
+
+    def get_max_cortical_area_dimensions(self) -> Tuple[int, int, int]:
+        """Get the maximum dimensions across all cortical areas.
+        
+        This method provides centralized access to cortical area dimension 
+        calculations for spatial hash sizing and other use cases.
+        
+        Returns:
+            Tuple of (max_x, max_y, max_z) dimensions
+        """
+        try:
+            return self._connectome_manager.get_max_cortical_area_dimensions()
+        except Exception as e:
+            self.logger.error(f"Error getting max cortical area dimensions: {str(e)}")
+            return (8, 8, 8)  # Safe fallback dimensions
+
+    def initialize_spatial_hash_cache(self) -> bool:
+        """Initialize the spatial hash cache with current cortical area dimensions.
+        
+        This method should be called AFTER all cortical areas are loaded during
+        genome initialization to ensure optimal cache sizing.
+        
+        Returns:
+            True if initialization successful, False otherwise
+        """
+        try:
+            return self._connectome_manager.initialize_spatial_hash_cache()
+        except Exception as e:
+            self.logger.error(f"Error initializing spatial hash cache: {str(e)}")
+            return False
 
     # =================================================================
     # ROBOT/GAZEBO METHODS

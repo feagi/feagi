@@ -100,55 +100,47 @@ class TestMode2Handler:
             return False
 
     def _analyze_cortical_areas(self):
-        """Analyze all cortical areas and collect information about neuron counts and dimensions."""
+        """Analyze all cortical areas and collect information about dimensions for coordinate generation."""
         self.cortical_area_info = {}
-        self.total_available_neurons = 0
+        self.total_available_volume = 0
 
         for cortical_id, area in self.connectome.cortical_areas.items():
             try:
-                # Get all neurons in this cortical area
-                all_neurons = area.get_all_neurons()
-                neuron_count = len(all_neurons)
-
-                if neuron_count > 0:
-                    # Get area dimensions
-                    dimensions = getattr(area, "dimensions_3D", (1, 1, 1))
-                    if hasattr(dimensions, "__iter__"):
-                        dimensions = tuple(dimensions)
-                    else:
-                        dimensions = (1, 1, 1)
-
-                    # Get area properties
-                    properties = getattr(area, "properties", {})
-                    area_type = properties.get("group", "Unknown")
-
-                    self.cortical_area_info[cortical_id] = {
-                        "neuron_count": neuron_count,
-                        "dimensions": dimensions,
-                        "area_type": area_type,
-                        "all_neurons": list(all_neurons),
-                        "volume": dimensions[0] * dimensions[1] * dimensions[2],
-                        "density": neuron_count
-                        / (dimensions[0] * dimensions[1] * dimensions[2]),
-                    }
-
-                    self.total_available_neurons += neuron_count
-
-                    logger.debug(
-                        f"Area {cortical_id}: {neuron_count} neurons, "
-                        f"dimensions {dimensions}, type {area_type}"
-                    )
+                # Get area dimensions for coordinate generation
+                dimensions = getattr(area, "dimensions_3D", (1, 1, 1))
+                if hasattr(dimensions, "__iter__"):
+                    dimensions = tuple(dimensions)
                 else:
-                    logger.debug(f"Area {cortical_id}: No neurons found")
+                    dimensions = (1, 1, 1)
+
+                # Get area properties
+                properties = getattr(area, "properties", {})
+                area_type = properties.get("group", "Unknown")
+
+                # Calculate volume for coordinate space
+                volume = dimensions[0] * dimensions[1] * dimensions[2]
+
+                self.cortical_area_info[cortical_id] = {
+                    "dimensions": dimensions,
+                    "area_type": area_type,
+                    "volume": volume,
+                }
+
+                self.total_available_volume += volume
+
+                logger.debug(
+                    f"Area {cortical_id}: dimensions {dimensions}, "
+                    f"volume {volume}, type {area_type}"
+                )
 
             except Exception as e:
                 logger.warning(f"Error analyzing cortical area {cortical_id}: {e}")
                 continue
 
         logger.info(
-            f"Analyzed {len(self.cortical_area_info)} cortical areas with neurons"
+            f"Analyzed {len(self.cortical_area_info)} cortical areas"
         )
-        logger.info(f"Total available neurons: {self.total_available_neurons}")
+        logger.info(f"Total coordinate space volume: {self.total_available_volume}")
 
     def _select_test_areas(self):
         """Select cortical areas for testing based on configuration."""
@@ -173,13 +165,13 @@ class TestMode2Handler:
     def _log_configuration_summary(self):
         """Log a summary of the test configuration."""
         logger.info(
-            "🎲 TEST MODE 2: Numpy-based scalable random neuron generation (using test_genome.json)"
+            "🎲 TEST MODE 2: Numpy-based scalable random coordinate generation (using test_genome.json)"
         )
         logger.info(f"   📊 Available cortical areas: {len(self.cortical_area_info)}")
-        logger.info(f"   🧠 Total available neurons: {self.total_available_neurons}")
+        logger.info(f"   🧠 Total coordinate space volume: {self.total_available_volume}")
         logger.info(f"   🎯 Selected areas for testing: {len(self.selected_areas)}")
         logger.info(
-            f"   🔢 Neurons per area range: {self.neurons_per_area_min}-{self.neurons_per_area_max}"
+            f"   🔢 Coordinates per area range: {self.neurons_per_area_min}-{self.neurons_per_area_max}"
         )
 
     def inject_data(self):
@@ -200,82 +192,77 @@ class TestMode2Handler:
 
     def _inject_numpy_generated_activations(self):
         """
-        Generate random activations using numpy for scalability and submit them via test runner.
+        Generate random coordinate activations using numpy for scalability and submit them via test runner.
 
-        This method separates neuron selection logic from injection mechanism,
-        following proper architectural separation of concerns.
+        This method acts as a pure sensory data generator, working only with coordinates 
+        and membrane potentials, completely unaware of neuron IDs.
 
         Returns:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            activations = {}  # Dictionary to hold activations for submission
+            coordinate_activations = {}  # Dictionary to hold coordinate activations for submission
 
             logger.debug(
-                f"Generating random activations for {len(self.selected_areas)} cortical areas"
+                f"Generating random coordinate activations for {len(self.selected_areas)} cortical areas"
             )
 
             for area_id in self.selected_areas:
                 try:
                     area_info = self.cortical_area_info[area_id]
-                    available_neurons = area_info["all_neurons"]
+                    dimensions = area_info["dimensions"]
+                    width, height, depth = dimensions
 
-                    if not available_neurons:
-                        logger.debug(f"No neurons available in area {area_id}")
-                        continue
-
-                    # Determine number of neurons to activate - simple random within range
-                    max_neurons = min(len(available_neurons), self.neurons_per_area_max)
-                    min_neurons = min(self.neurons_per_area_min, max_neurons)
-                    num_to_activate = np.random.randint(min_neurons, max_neurons + 1)
+                    # Determine number of coordinates to activate - simple random within range
+                    num_to_activate = np.random.randint(self.neurons_per_area_min, self.neurons_per_area_max + 1)
 
                     if num_to_activate <= 0:
                         continue
 
-                    # Use numpy for efficient random selection
-                    selected_indices = np.random.choice(
-                        len(available_neurons),
-                        size=min(num_to_activate, len(available_neurons)),
-                        replace=False,
-                    )
+                    # Generate random coordinates within the cortical area bounds using numpy
+                    random_coordinates = []
+                    for _ in range(num_to_activate):
+                        x = np.random.randint(0, width)
+                        y = np.random.randint(0, height)
+                        z = np.random.randint(0, depth)
+                        random_coordinates.append((x, y, z))
 
-                    selected_neurons = [available_neurons[i] for i in selected_indices]
-                    activations[area_id] = selected_neurons
+                    coordinate_activations[area_id] = random_coordinates
 
                     logger.debug(
-                        f"Generated {len(selected_neurons)} random neurons in {area_id} "
-                        f"(density: {len(selected_neurons) / area_info['neuron_count']:.2%})"
+                        f"Generated {len(random_coordinates)} random coordinates in {area_id} "
+                        f"(area dimensions: {width}x{height}x{depth})"
                     )
 
                 except Exception as e:
-                    logger.error(f"Error generating activations for {area_id}: {e}")
+                    logger.error(f"Error generating coordinate activations for {area_id}: {e}")
                     continue
 
-            # Submit activations via test runner (proper architecture)
-            if activations:
-                total_neurons = sum(len(neurons) for neurons in activations.values())
+            # Submit coordinate activations via test runner (proper architecture)
+            if coordinate_activations:
+                total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
                 logger.info(
-                    f"🎲 Submitting {total_neurons} NUMPY-GENERATED neurons across {len(activations)} areas via FCL injection service"
+                    f"🎲 Submitting {total_coordinates} NUMPY-GENERATED coordinates across {len(coordinate_activations)} areas via unified neural stimulation"
                 )
 
-                injected_count = self.test_runner.submit_neuron_activations(
-                    activations, "test_mode_2_numpy"
+                injected_count = self.test_runner.submit_coordinate_activations(
+                    coordinate_activations, "test_mode_2_numpy"
                 )
 
                 if injected_count > 0:
                     logger.info(
-                        f"✅ Successfully injected {injected_count} numpy-generated neurons"
+                        f"✅ Successfully injected {injected_count} numpy-generated coordinates"
                     )
                     return True
                 else:
-                    logger.warning("Failed to inject numpy-generated neurons")
+                    logger.warning("Failed to inject numpy-generated coordinates")
                     return False
             else:
-                logger.warning("No numpy-generated activations generated")
+                logger.warning("No numpy-generated coordinate activations generated")
                 return False
 
         except Exception as e:
-            logger.error(f"Error generating numpy-based activations: {e}")
+            logger.error(f"Error generating numpy-based coordinate activations: {e}")
             import traceback
 
             logger.error(traceback.format_exc())
