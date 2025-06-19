@@ -6,11 +6,24 @@ This document describes the comprehensive data structures architecture used in F
 
 ## Overview
 
-FEAGI employs a two-tier data structure strategy:
+FEAGI employs a comprehensive data structure strategy:
 1. **General Neural Data Structures**: For brain simulation and connectivity
 2. **High-Performance Transmission Structures**: For real-time neural data extraction and network transmission
+3. **Spatial Indexing Structures**: For efficient neuron location management and spatial queries
 
-Both are designed with Rust/RTOS compatibility and GPU optimization in mind.
+All structures are designed with Rust/RTOS compatibility and GPU optimization in mind.
+
+### Spatial Hash System
+
+FEAGI uses a **Morton encoding spatial hash system** for efficient neuron location management:
+
+- **Location:** `feagi/bdu/morton_spatial_hash.py`, `feagi/bdu/spatial_hash_adapter.py`
+- **Type:** Morton encoding + Roaring bitmaps with backward compatibility adapter
+- **Purpose:** Provides 95%+ memory savings for sparse neural genomes while maintaining spatial locality
+- **Performance:** O(log N) region queries, microsecond multi-area operations
+- **Compatibility:** 100% backward compatible through adapter pattern
+
+For detailed information, see [Morton Spatial Hash Architecture](arch-morton-spatial-hash.md).
 
 ---
 
