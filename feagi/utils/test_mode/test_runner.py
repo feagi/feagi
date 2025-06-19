@@ -64,6 +64,7 @@ class FeagiTestRunner:
         self.test_result = None
         self.initial_fcls = {}
         self.areas_with_activity = set()
+        self.last_fired_count = 0  # Track last burst's fired neuron count
 
         # Test mode handlers
         self.mode_handler = None
@@ -355,62 +356,99 @@ class FeagiTestRunner:
             logger.error(traceback.format_exc())
             return False
 
-    def submit_neuron_activations(self, activations, source_name):
+    def submit_coordinate_activations(self, coordinate_activations, source_name):
         """
-        Submit neuron activations using the standard FCL injection mechanism.
+        Submit coordinate-based activations directly to unified neural stimulation.
 
-        This uses the same injection path as any other FEAGI agent, ensuring consistency
-        and avoiding custom test-mode-specific workflows.
+        This method accepts coordinates directly and converts them to the format
+        expected by the unified neural stimulation system.
 
         Args:
-            activations: Dictionary mapping cortical area IDs to lists of neuron IDs
+            coordinate_activations: Dictionary mapping cortical area IDs to lists of coordinates
+                Format: {'cortical_area_id': [(x1, y1, z1), (x2, y2, z2), ...]}
             source_name: Source identifier for logging (e.g., "test_mode_1")
 
         Returns:
-            int: Number of neurons successfully injected
+            int: Number of coordinates successfully injected
         """
         try:
-            if not activations:
+            if not coordinate_activations:
                 return 0
 
             if not self.core_api:
                 logger.error(f"Core API Service not available for {source_name}")
                 return 0
 
-            total_neurons = sum(len(neurons) for neurons in activations.values())
+            total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
             
-            # Convert cortical area activations to individual neuron IDs
-            # This follows the standard FEAGI pattern used by all agents
-            neuron_ids = []
-            for cortical_area_id, area_neurons in activations.items():
-                for neuron_id in area_neurons:
-                    # Format neuron ID as "cortical_area:neuron_index" (standard FEAGI format)
-                    full_neuron_id = f"{cortical_area_id}:{neuron_id}"
-                    neuron_ids.append(full_neuron_id)
+            # Convert coordinates to unified neural stimulation format
+            neural_data = {}
             
-            if not neuron_ids:
+            for cortical_area_id, coordinates_list in coordinate_activations.items():
+                if not coordinates_list:
+                    continue
+                    
+                # Validate cortical area exists
+                if cortical_area_id not in self.connectome.cortical_areas:
+                    logger.warning(f"Cortical area {cortical_area_id} not found in connectome - skipping")
+                    continue
+                
+                # Convert coordinates to numpy arrays
+                coordinates_x = []
+                coordinates_y = []
+                coordinates_z = []
+                membrane_potentials = []
+                
+                for coord in coordinates_list:
+                    if isinstance(coord, (list, tuple)) and len(coord) == 3:
+                        try:
+                            x, y, z = int(coord[0]), int(coord[1]), int(coord[2])
+                            coordinates_x.append(x)
+                            coordinates_y.append(y)
+                            coordinates_z.append(z)
+                            membrane_potentials.append(1.0)  # Standard stimulation intensity
+                            logger.debug(f"Added coordinate ({x},{y},{z}) for stimulation in {cortical_area_id}")
+                        except (ValueError, TypeError) as e:
+                            logger.warning(f"Invalid coordinate {coord} in {cortical_area_id}: {e}")
+                            continue
+                    else:
+                        logger.warning(f"Invalid coordinate format {coord} in {cortical_area_id}")
+                        continue
+                
+                # Add to neural data if we have valid coordinates
+                if coordinates_x:
+                    import numpy as np
+                    neural_data[cortical_area_id] = {
+                        'coordinates_x': np.array(coordinates_x, dtype=np.uint32),
+                        'coordinates_y': np.array(coordinates_y, dtype=np.uint32),
+                        'coordinates_z': np.array(coordinates_z, dtype=np.uint32),
+                        'membrane_potentials': np.array(membrane_potentials, dtype=np.float32),
+                    }
+                    logger.debug(f"Prepared {len(coordinates_x)} coordinates for stimulation in {cortical_area_id}")
+            
+            if not neural_data:
+                logger.warning(f"No valid coordinates found for {source_name}")
                 return 0
                 
-            # Use the standard FCL injection mechanism through Core API
-            # This is the same path used by all FEAGI agents
+            # Use the unified neural stimulation method
             try:
-                result = self.core_api.stimulate_neurons(neuron_ids, intensity=1.0)
+                result = self.core_api.stimulate_neurons(neural_data)
                 
                 if result.get("success", False):
-                    injected_count = result.get("stimulated_count", 0)
+                    injected_count = result.get("total_stimulated", 0)
                     if injected_count > 0:
-                        logger.debug(f"Standard injection: {injected_count}/{total_neurons} neurons from {source_name}")
+                        logger.debug(f"Coordinate injection: {injected_count}/{total_coordinates} coordinates from {source_name}")
                     return injected_count
                 else:
-                    logger.warning(f"Injection failed for {source_name}: {result.get('error', 'Unknown error')}")
+                    logger.warning(f"Coordinate injection failed for {source_name}: {result.get('error', 'Unknown error')}")
                     return 0
                     
             except Exception as e:
-                logger.warning(f"Standard injection method failed for {source_name}: {str(e)}")
+                logger.warning(f"Coordinate injection method failed for {source_name}: {str(e)}")
                 return 0
 
         except Exception as e:
-            logger.error(f"Error in standard injection for {source_name}: {e}")
+            logger.error(f"Error in coordinate injection for {source_name}: {e}")
             return 0
 
     def check_neural_activity(self):
@@ -423,13 +461,15 @@ class FeagiTestRunner:
         activity_detected = False
         active_fcls = []
         total_active_neurons = 0
+        empty_fcl_count = 0
 
         for cortical_id in self.connectome.cortical_areas:
             current_fcl = self.fcl_manager.get_cortical_fcl(cortical_id)
             current_fcl_set = set(current_fcl) if current_fcl else set()
 
-            # Skip empty FCLs
+            # Count empty FCLs for debugging
             if not current_fcl_set:
+                empty_fcl_count += 1
                 continue
 
             # FIXED: Check for ANY neural activity, not just changes from initial state
@@ -439,15 +479,41 @@ class FeagiTestRunner:
                 active_fcls.append(cortical_id)
                 self.areas_with_activity.add(cortical_id)
                 total_active_neurons += len(current_fcl_set)
-                logger.debug(
+                logger.info(
                     f"Neural activity in area {cortical_id}: {len(current_fcl_set)} neurons firing"
                 )
 
-        # Single summary log instead of individual area logs
+        # Enhanced debugging information
         if activity_detected:
             logger.info(
                 f"Neural activity: {total_active_neurons} neurons active across {len(active_fcls)} areas"
             )
+        else:
+            logger.warning(
+                f"No FCL activity detected in any of {len(self.connectome.cortical_areas)} cortical areas ({empty_fcl_count} empty FCLs)"
+            )
+            
+            # CRITICAL BUG: FCL system not being updated despite neurons firing
+            # This indicates a serious issue with FCL update mechanism that needs investigation
+            try:
+                # Check if burst engine has recent firing data
+                if hasattr(self.burst_engine, 'get_last_burst_stats'):
+                    stats = self.burst_engine.get_last_burst_stats()
+                    if stats and stats.get('fired_neurons', 0) > 0:
+                        fired_count = stats['fired_neurons']
+                        logger.error(
+                            f"FCL BUG DETECTED: Burst engine reports {fired_count} neurons fired but FCL is empty!"
+                        )
+                        logger.error(
+                            "This indicates a critical bug in FCL update mechanism - neurons firing but not recorded in FCL"
+                        )
+                # Also check our tracked firing count
+                if hasattr(self, 'last_fired_count') and self.last_fired_count > 0:
+                    logger.error(
+                        f"FCL BUG CONFIRMED: Test runner tracked {self.last_fired_count} fired neurons but FCL shows no activity"
+                    )
+            except Exception as e:
+                logger.debug(f"Could not get burst stats for FCL debugging: {e}")
 
         return activity_detected, active_fcls
 
@@ -544,19 +610,26 @@ class FeagiTestRunner:
             # Capture initial state
             self.capture_initial_state()
 
-            # Get the IPU (sensory) areas from the connectome
-            ipu_areas = {
-                id: area
-                for id, area in self.connectome.cortical_areas.items()
-                if area.properties.get("group") == "IPU"
-            }
-            if not ipu_areas:
-                logger.error("No IPU areas found in the genome")
+            # Get all cortical areas from the connectome for activity monitoring
+            all_areas = self.connectome.cortical_areas
+            if not all_areas:
+                logger.error("No cortical areas found in the genome")
                 self.test_result = False
                 self.is_running = False
                 return
 
-            logger.info(f"Found {len(ipu_areas)} IPU areas: {list(ipu_areas.keys())}")
+            # Also identify IPU areas for informational purposes
+            ipu_areas = {
+                id: area
+                for id, area in all_areas.items()
+                if area.properties.get("group") == "IPU"
+            }
+
+            logger.info(f"Found {len(all_areas)} total cortical areas for activity monitoring")
+            if ipu_areas:
+                logger.info(f"Including {len(ipu_areas)} IPU areas: {list(ipu_areas.keys())}")
+            else:
+                logger.info("No specific IPU areas found - will monitor all cortical areas")
 
             # Start the test loop
             test_start_time = time.time()
@@ -581,6 +654,19 @@ class FeagiTestRunner:
                 if not self.inject_test_data():
                     logger.warning(f"Failed to inject test data in cycle {cycle_count}")
                     # Continue with the test even if one cycle fails
+
+                # Trigger burst processing to make neurons fire
+                if self.burst_engine and hasattr(self.burst_engine, 'run_test'):
+                    try:
+                        fired_neurons = self.burst_engine.run_test()
+                        if fired_neurons:
+                            self.last_fired_count = len(fired_neurons)
+                            logger.debug(f"Burst triggered: {self.last_fired_count} neurons fired in cycle {cycle_count}")
+                        else:
+                            self.last_fired_count = 0
+                    except Exception as e:
+                        logger.warning(f"Burst trigger failed in cycle {cycle_count}: {e}")
+                        self.last_fired_count = 0
 
                 # Wait for a short time to allow the burst engine to process
                 time.sleep(1.0 / self.frequency_hz)

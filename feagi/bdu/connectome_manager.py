@@ -228,6 +228,17 @@ class ConnectomeManager:
         if multi_gpu_config:
             self._init_multi_gpu(multi_gpu_config)
 
+        # Initialize global spatial hash system for ultra-fast coordinate lookups
+        # Note: Will be properly sized during genome loading via resize_for_genome()
+        from feagi.bdu.spatial_hash import initialize_spatial_hash, SpatialHashConfig
+        spatial_config = SpatialHashConfig(
+            max_dimension=256,  # Default - will be updated based on genome
+            enable_simd=True,
+            genome_based_sizing=True
+        )
+        self._spatial_hash = initialize_spatial_hash(spatial_config)
+        self.logger.info("[CONNECTOME] Global spatial hash system initialized (awaiting genome analysis)")
+
         ConnectomeManager._initialized = True
 
     # ======================================================================
@@ -788,6 +799,9 @@ class ConnectomeManager:
             # FCL expects current_timestep first, then neurons_by_cortical
             neurons_by_cortical = {}
             if fired_neurons:
+                # DEBUG: Log fired neurons and mapping status
+                logger.debug(f"FCL UPDATE: {len(fired_neurons)} neurons fired: {fired_neurons[:10]}...")
+                
                 # Vectorized grouping of fired neurons by cortical area
                 fired_neurons_array = np.array(fired_neurons, dtype=np.int32)
 
@@ -796,6 +810,14 @@ class ConnectomeManager:
                     [nid in self.neuron_id_to_index for nid in fired_neurons_array]
                 )
                 valid_neurons = fired_neurons_array[valid_mask]
+                invalid_neurons = fired_neurons_array[~valid_mask]
+                
+                # DEBUG: Log mapping issues
+                if len(invalid_neurons) > 0:
+                    logger.error(f"FCL BUG: {len(invalid_neurons)} fired neurons not in neuron_id_to_index mapping: {invalid_neurons[:10]}...")
+                    logger.error(f"FCL BUG: This indicates a critical mapping synchronization issue")
+                
+                logger.debug(f"FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update")
 
                 if len(valid_neurons) > 0:
                     # Vectorized index lookup
@@ -815,6 +837,12 @@ class ConnectomeManager:
                         neurons_by_cortical[int(cortical_idx)] = valid_neurons[
                             mask
                         ].tolist()
+                    
+                    logger.debug(f"FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}")
+                else:
+                    logger.warning("FCL UPDATE: No valid neurons to update in FCL")
+            else:
+                logger.debug("FCL UPDATE: No fired neurons to update")
 
             self.fcl_manager.update_fcl(self.current_timestep, neurons_by_cortical)
 
@@ -1557,6 +1585,15 @@ class ConnectomeManager:
         # Synchronize bidirectional cortical mapping
         self._sync_cortical_mapping(area.id, cortical_idx)
 
+        # Expand spatial hash cache if needed for new cortical area
+        if hasattr(self, '_spatial_hash') and self._spatial_hash:
+            try:
+                success = self._spatial_hash.expand_cache_for_new_area(position, dimensions)
+                if not success:
+                    logger.warning(f"⚠️  [SPATIAL HASH] Cache expansion failed for new area {area.id} - may need manual rebuild")
+            except Exception as e:
+                logger.warning(f"⚠️  [SPATIAL HASH] Error expanding cache for new area {area.id}: {e}")
+
         logger.debug(
             f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}"
         )
@@ -1620,6 +1657,64 @@ class ConnectomeManager:
             all_mappings = self.cortical_mapping.get_all_mappings()
             return sorted(list(all_mappings.values()))
         return []
+
+    def get_max_cortical_area_dimensions(self) -> Tuple[int, int, int]:
+        """Calculate the maximum dimensions across all cortical areas.
+        
+        This method provides the maximum cortical area dimensions for spatial hash
+        cache sizing and other components that need to know the largest coordinate
+        space required by any cortical area.
+        
+        IMPORTANT: Returns cortical area dimensions only (local coordinate space),
+        NOT global brain positioning coordinates.
+        
+        Returns:
+            Tuple of (max_x, max_y, max_z) dimensions across all cortical areas
+        """
+        max_dims = [1, 1, 1]  # Minimum reasonable dimensions
+        
+        for area in self.cortical_areas.values():
+            dims = area.dimensions
+            max_dims[0] = max(max_dims[0], dims[0])
+            max_dims[1] = max(max_dims[1], dims[1])
+            max_dims[2] = max(max_dims[2], dims[2])
+        
+        logger.debug(f"[CONNECTOME] Maximum cortical area dimensions: {max_dims[0]}x{max_dims[1]}x{max_dims[2]}")
+        return tuple(max_dims)
+
+    def initialize_spatial_hash_cache(self) -> bool:
+        """Initialize the spatial hash cache with current cortical area dimensions.
+        
+        This method should be called AFTER all cortical areas are loaded to ensure
+        the spatial hash cache is properly sized for the actual cortical areas.
+        
+        Returns:
+            True if initialization successful, False otherwise
+        """
+        if not hasattr(self, '_spatial_hash') or not self._spatial_hash:
+            logger.warning("⚠️  [SPATIAL HASH] No spatial hash instance available")
+            return False
+            
+        try:
+            logger.info("🗺️  [SPATIAL HASH] Initializing cache with current cortical area dimensions...")
+            
+            # Get maximum cortical area dimensions from the loaded areas
+            max_dims = self.get_max_cortical_area_dimensions()
+            
+            # Initialize spatial hash with calculated dimensions
+            self._spatial_hash.initialize_for_dimensions(max_dims)
+            
+            # Wait for spatial hash to be ready
+            if self._spatial_hash.wait_for_ready(timeout_seconds=60.0):
+                logger.info("✅ [SPATIAL HASH] Cache initialization complete")
+                return True
+            else:
+                logger.warning("⚠️  [SPATIAL HASH] Timeout waiting for cache initialization")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ [SPATIAL HASH] Failed to initialize cache: {e}")
+            return False
 
     def get_cortical_area_properties(self, cortical_id: str) -> Dict[str, Any]:
         """
@@ -4626,12 +4721,10 @@ class ConnectomeManager:
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
         """
-        SIMD-optimized batch lookup that converts voxel positions to neuron lists.
+        Ultra-fast batch lookup using global pre-computed spatial hash system.
 
-        This replaces the legacy O(P×N) individual lookups with vectorized operations
-        that process all positions simultaneously using numpy's SIMD capabilities.
-
-        PERFORMANCE: O(N) single vectorized pass, not O(P×N) individual lookups.
+        PERFORMANCE: Uses global spatial hash for O(1) average coordinate matching
+        with zero hash calculation overhead. Eliminates all coordinate comparisons.
 
         Args:
             cortical_id: ID of the cortical area
@@ -4644,15 +4737,16 @@ class ConnectomeManager:
         if not candidate_positions:
             return []
 
+        # Import global spatial hash system
+        from feagi.bdu.spatial_hash import get_spatial_hash
+        spatial_hash = get_spatial_hash()
+
         # Get all neurons in the cortical area
         neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
         if not neurons_in_area:
             return []
 
-        # SIMD OPTIMIZATION 1: Convert candidate positions to numpy array for vectorized operations
-        candidate_positions_array = np.array(list(candidate_positions), dtype=np.uint32)
-        
-        # SIMD OPTIMIZATION 2: Get all neuron positions in batch using vectorized operations
+        # PERFORMANCE OPTIMIZATION: Get all neuron positions in batch using vectorized operations
         if hasattr(self.neuron_array, 'batch_get_coordinates'):
             # Use vectorized batch coordinate retrieval if available
             neuron_positions = self.neuron_array.batch_get_coordinates(neurons_in_area)
@@ -4674,39 +4768,30 @@ class ConnectomeManager:
                     coords_y = self.neuron_array.coordinates_y[indices_array]  
                     coords_z = self.neuron_array.coordinates_z[indices_array]
                     
-                    # Stack into position matrix (N x 3)
-                    neuron_positions = np.column_stack((coords_x, coords_y, coords_z))
+                    # Convert to list of tuples for spatial hash compatibility
+                    neuron_positions = list(zip(coords_x, coords_y, coords_z))
                 else:
-                    neuron_positions = np.array([], dtype=np.uint32).reshape(0, 3)
+                    neuron_positions = []
             else:
-                # Final fallback to individual lookups (still better than original)
+                # Final fallback to individual lookups
                 neuron_positions = []
                 for neuron_id in neurons_in_area:
                     pos = self.get_neuron_position(neuron_id)
                     if pos:
                         neuron_positions.append(pos[:3])  # Take only x, y, z
-                neuron_positions = np.array(neuron_positions, dtype=np.uint32) if neuron_positions else np.array([], dtype=np.uint32).reshape(0, 3)
 
         if len(neuron_positions) == 0:
             return []
 
-        # SIMD OPTIMIZATION 3: Vectorized position matching using broadcasting
-        # This replaces the O(P×N) nested loop with O(1) vectorized operations
-        result = []
+        # ULTRA-FAST COORDINATE MATCHING: Use global spatial hash system
+        # This eliminates all hash calculations and coordinate comparisons
+        matches = spatial_hash.batch_coordinate_lookup(candidate_positions, neuron_positions)
         
-        # For each candidate position, find matching neurons using vectorized comparison
-        for candidate_pos in candidate_positions_array:
-            # Vectorized comparison: check if any neuron position matches candidate
-            # This broadcasts candidate_pos (3,) against neuron_positions (N, 3)
-            matches = np.all(neuron_positions == candidate_pos, axis=1)
-            
-            # Get indices of matching neurons
-            matching_indices = np.where(matches)[0]
-            
-            # Add matching neuron IDs to result
-            for idx in matching_indices:
-                if idx < len(neurons_in_area):  # Bounds check
-                    neuron_id = neurons_in_area[idx]
-                    result.append((neuron_id, post_synaptic_current))
+        # Build result from matches
+        result = []
+        for candidate_idx, neuron_idx in matches:
+            if neuron_idx < len(neurons_in_area):  # Bounds check
+                neuron_id = neurons_in_area[neuron_idx]
+                result.append((neuron_id, post_synaptic_current))
 
         return result
