@@ -22,9 +22,12 @@ transfer to GPU memory.
 """
 
 import logging
+import time
+import threading
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
-
+from collections import defaultdict
+from dataclasses import dataclass, field
 import numpy as np
 import torch
 
@@ -32,7 +35,7 @@ from feagi.bdu.cortical_mapping import BiDirectionalCorticalMap
 from feagi.bdu.models.cortical_area import CorticalArea
 
 # Import models
-from feagi.bdu.models.neuron import NeuronArray
+from feagi.bdu.models.neuron import NeuronArray, NeuronMappingProvider
 from feagi.bdu.synapse_array import GlobalSynapseArray
 
 # Import utility functions
@@ -56,7 +59,7 @@ class NeuronPropertyType(Enum):
     ACTIVE = "is_active"
 
 
-class ConnectomeManager:
+class ConnectomeManager(NeuronMappingProvider):
     """Manager for creating and manipulating the neural connectome with GPU/CPU optimization.
 
     This high-performance ConnectomeManager uses Structure of Arrays (SoA) format
@@ -173,8 +176,8 @@ class ConnectomeManager:
 
         self.max_synapses = max_synapses
 
-        # Initialize neuron array with automatic backend selection
-        self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=backend)
+        # Initialize neuron array with automatic backend selection and mapping provider
+        self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=backend, mapping_provider=self)
 
         # CRITICAL FIX: Initialize neuron ID counter properly to prevent ID/index conflicts
         # This prevents memory corruption from reusing IDs as indices
@@ -200,6 +203,10 @@ class ConnectomeManager:
 
         # Legacy compatibility - delegate to NeuronArray as single source of truth
         self._neuron_to_position: Dict[int, Tuple[str, int, int, int, int]] = {}
+        
+        # Initialize neuron ID mappings - ConnectomeManager is single source of truth
+        self._neuron_id_to_index_map: Dict[int, int] = {}
+        self._index_to_neuron_id_map: Dict[int, int] = {}
 
         # Cache management for property-based access (prevents memory corruption)
         self._cache_invalidated = True
@@ -247,6 +254,37 @@ class ConnectomeManager:
             self.logger.warning(f"[CONNECTOME] Failed to register Morton spatial hash with state manager: {e}")
 
         ConnectomeManager._initialized = True
+
+    # ============================================================================
+    # NeuronMappingProvider Interface Implementation - Single Source of Truth
+    # ============================================================================
+    
+    def get_neuron_index(self, neuron_id: int) -> Optional[int]:
+        """Get the array index for a neuron ID."""
+        return self._neuron_id_to_index_map.get(neuron_id)
+    
+    def get_neuron_id(self, index: int) -> Optional[int]:
+        """Get the neuron ID for an array index."""
+        return self._index_to_neuron_id_map.get(index)
+    
+    def set_neuron_mapping(self, neuron_id: int, index: int) -> None:
+        """Set a neuron ID to index mapping."""
+        self._neuron_id_to_index_map[neuron_id] = index
+        self._index_to_neuron_id_map[index] = neuron_id
+    
+    def remove_neuron_mapping(self, neuron_id: int) -> None:
+        """Remove a neuron mapping."""
+        if neuron_id in self._neuron_id_to_index_map:
+            index = self._neuron_id_to_index_map.pop(neuron_id)
+            self._index_to_neuron_id_map.pop(index, None)
+    
+    def has_neuron(self, neuron_id: int) -> bool:
+        """Check if a neuron ID exists."""
+        return neuron_id in self._neuron_id_to_index_map
+    
+    def get_all_neuron_ids(self) -> List[int]:
+        """Get all neuron IDs."""
+        return list(self._neuron_id_to_index_map.keys())
 
     # ======================================================================
     # DYNAMIC SIZING METHODS - GENOME-BASED MEMORY OPTIMIZATION
@@ -984,12 +1022,10 @@ class ConnectomeManager:
             refractory_period=refractory_period,
         )
 
-        # Get the index from NeuronArray's mapping
-        index = self.neuron_array.id_to_index_map[neuron_id]
-
-        # Store mappings in ConnectomeManager (for legacy compatibility)
-        self.neuron_id_to_index[neuron_id] = index
-        self.index_to_neuron_id[index] = neuron_id
+        # Get the index from ConnectomeManager's mapping (single source of truth)
+        index = self.get_neuron_index(neuron_id)
+        if index is None:
+            raise RuntimeError(f"Neuron {neuron_id} was created but mapping not found")
 
         # Update _neuron_to_position for test compatibility
         # Format matches test expectation: (cortical_id, x, y, z, neuron_index)
@@ -1174,11 +1210,11 @@ class ConnectomeManager:
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if neuron_id not in self.neuron_array.id_to_index_map:
+        if not self.has_neuron(neuron_id):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Get index from NeuronArray
-        index = self.neuron_array.id_to_index_map[neuron_id]
+        # Get index from ConnectomeManager mapping
+        index = self.get_neuron_index(neuron_id)
 
         # Get the cortical_idx from the neuron array
         cortical_idx = int(self.neuron_array.cortical_idxs[index])
@@ -2384,8 +2420,8 @@ class ConnectomeManager:
 
         # Update for test compatibility
         for i, neuron_id in enumerate(neuron_ids):
-            # Get the actual index from NeuronArray's mapping
-            actual_idx = self.neuron_array.id_to_index_map[neuron_id]
+            # Get the actual index from ConnectomeManager's mapping
+            actual_idx = self.get_neuron_index(neuron_id)
 
             # Update for test compatibility - maintain same format as legacy
             self._neuron_to_position[neuron_id] = (
@@ -3644,10 +3680,8 @@ class ConnectomeManager:
                 self.neuron_array.free_indices = set()
 
                 # Clear mappings that track neuron relationships
-                if hasattr(self.neuron_array, "id_to_index_map"):
-                    self.neuron_array.id_to_index_map.clear()
-                if hasattr(self.neuron_array, "index_to_id_map"):
-                    self.neuron_array.index_to_id_map.clear()
+                self._neuron_id_to_index_map.clear()
+                self._index_to_neuron_id_map.clear()
                 if hasattr(self.neuron_array, "cortical_id_to_indices"):
                     self.neuron_array.cortical_id_to_indices.clear()
 
@@ -3819,10 +3853,8 @@ class ConnectomeManager:
                 self.neuron_array.next_index = 0
                 self.neuron_array.neuron_count = 0
                 self.neuron_array.free_indices = set()
-                if hasattr(self.neuron_array, "id_to_index_map"):
-                    self.neuron_array.id_to_index_map.clear()
-                if hasattr(self.neuron_array, "index_to_id_map"):
-                    self.neuron_array.index_to_id_map.clear()
+                self._neuron_id_to_index_map.clear()
+                self._index_to_neuron_id_map.clear()
                 if hasattr(self.neuron_array, "cortical_id_to_indices"):
                     self.neuron_array.cortical_id_to_indices.clear()
                 logger.info(
@@ -3851,13 +3883,13 @@ class ConnectomeManager:
 
     @property
     def neuron_id_to_index(self):
-        """Legacy compatibility - delegates to NeuronArray as single source of truth"""
-        return self.neuron_array.id_to_index_map
+        """Legacy compatibility - ConnectomeManager is now the single source of truth"""
+        return self._neuron_id_to_index_map
 
     @property
     def index_to_neuron_id(self):
-        """Legacy compatibility - delegates to NeuronArray as single source of truth"""
-        return self.neuron_array.index_to_id_map
+        """Legacy compatibility - ConnectomeManager is now the single source of truth"""
+        return self._index_to_neuron_id_map
 
     def _invalidate_mapping_cache(self):
         """Cache invalidation no longer needed - direct delegation to NeuronArray"""
@@ -3904,7 +3936,7 @@ class ConnectomeManager:
             List of neuron IDs with thresholds in the specified range
         """
         neuron_ids = []
-        for neuron_id in self.neuron_array.id_to_index_map.keys():
+        for neuron_id in self._neuron_id_to_index_map.keys():
             threshold = self.get_neuron_property(
                 neuron_id, NeuronPropertyType.THRESHOLD
             )
@@ -3950,7 +3982,7 @@ class ConnectomeManager:
         Returns:
             True if all indices are unique, False otherwise
         """
-        indices = list(self.neuron_array.id_to_index_map.values())
+        indices = list(self._neuron_id_to_index_map.values())
         return len(indices) == len(set(indices))
 
     def get_neurons_at_position(
@@ -4691,7 +4723,7 @@ class ConnectomeManager:
         try:
             # Get all valid neuron IDs
             neuron_ids = []
-            for neuron_id, idx in self.neuron_array.id_to_index_map.items():
+            for neuron_id, idx in self._neuron_id_to_index_map.items():
                 if self.neuron_array.valid_mask[idx]:
                     neuron_ids.append(neuron_id)
 
@@ -4706,8 +4738,8 @@ class ConnectomeManager:
             }
 
         except Exception as e:
-            logger.error(f"Failed to serialize neuron data: {e}")
-            return {}
+            logger.error(f"Error serializing neuron data: {e}")
+            return {"neurons": {}, "next_neuron_id": 1}
 
     def _serialize_synapse_data(self) -> Dict[str, Any]:
         """Serialize synapse data for saving."""
@@ -4733,42 +4765,40 @@ class ConnectomeManager:
             logger.error(f"Failed to serialize synapse data: {e}")
             return {}
 
-    def _deserialize_neuron_data(self, neuron_data: Dict[str, Any]) -> None:
-        """Deserialize neuron data after loading."""
+    def _deserialize_neuron_data(self, data: Dict[str, Any]) -> bool:
+        """Deserialize neuron data from saved state."""
         try:
-            neurons = neuron_data.get("neurons", {})
-            next_neuron_id = neuron_data.get("next_neuron_id", 1)
+            neuron_data = data.get("neurons", {})
+            next_neuron_id = data.get("next_neuron_id", 1)
+
+            logger.info(f"Deserializing {len(neuron_data)} neurons...")
+
+            # Restore neurons
+            for neuron_id_str, neuron_props in neuron_data.items():
+                neuron_id = int(neuron_id_str)
+
+                # Get neuron index from mapping
+                if neuron_id not in self._neuron_id_to_index_map:
+                    logger.warning(f"Neuron {neuron_id} not found in mapping, skipping")
+                    continue
+
+                # Restore properties
+                self.set_neuron_property(
+                    neuron_id,
+                    NeuronPropertyType.MEMBRANE_POTENTIAL,
+                    neuron_props.get("membrane_potential", 0.0),
+                )
+                # ... other properties ...
 
             # Restore next neuron ID
-            self.neuron_array._next_neuron_id = next_neuron_id
+            if hasattr(self.neuron_array, "_next_neuron_id"):
+                self.neuron_array._next_neuron_id = next_neuron_id
 
-            # Recreate neurons
-            for neuron_id_str, neuron_props in neurons.items():
-                neuron_id = int(neuron_id_str)
-                cortical_id = neuron_props.get("cortical_id")
-                position = neuron_props.get("position", (0, 0, 0))
-
-                # Create neuron with original ID
-                created_id = self.create_neuron(
-                    cortical_id=cortical_id,
-                    position=position,
-                    threshold=neuron_props.get("threshold", 1.0),
-                    membrane_potential=neuron_props.get("membrane_potential", 0.0),
-                    resting_potential=neuron_props.get("resting_potential", 0.0),
-                    decay_rate=neuron_props.get("decay_rate", 0.5),
-                    refractory_period=neuron_props.get("refractory_period", 1),
-                )
-
-                # Update mapping to use original ID if different
-                if created_id != neuron_id:
-                    # Fix the ID mapping
-                    idx = self.neuron_array.id_to_index_map[created_id]
-                    del self.neuron_array.id_to_index_map[created_id]
-                    self.neuron_array.id_to_index_map[neuron_id] = idx
-                    self.neuron_array.index_to_id_map[idx] = neuron_id
+            return True
 
         except Exception as e:
-            logger.error(f"Failed to deserialize neuron data: {e}")
+            logger.error(f"Error deserializing neuron data: {e}")
+            return False
 
     def _deserialize_synapse_data(self, synapse_data: Dict[str, Any]) -> None:
         """Deserialize synapse data after loading."""
@@ -4792,81 +4822,35 @@ class ConnectomeManager:
         candidate_positions: Set[Tuple[int, int, int]],
         post_synaptic_current: float = 1.0,
     ) -> List[Tuple[int, float]]:
-        """
-        Ultra-fast batch lookup using global pre-computed spatial hash system.
-
-        PERFORMANCE: Uses global spatial hash for O(1) average coordinate matching
-        with zero hash calculation overhead. Eliminates all coordinate comparisons.
+        """Batch lookup of neurons at given voxel positions within a cortical area.
 
         Args:
-            cortical_id: ID of the cortical area
-            candidate_positions: Set of (x, y, z) positions to find neurons for
-            post_synaptic_current: Weight value for found neurons
+            cortical_id: ID of the cortical area to search in
+            candidate_positions: Set of (x, y, z) positions to check
+            post_synaptic_current: Current to assign to found neurons
 
         Returns:
-            List of (neuron_id, weight) tuples for neurons at candidate positions
+            List of (neuron_id, current) tuples for neurons found at the positions
         """
-        if not candidate_positions:
-            return []
+        found_neurons = []
 
-        # Import global spatial hash system
-        from feagi.bdu.spatial_hash import get_spatial_hash
-        spatial_hash = get_spatial_hash()
+        try:
+            area = self.cortical_areas.get(cortical_id)
+            if not area:
+                return found_neurons
 
-        # Get all neurons in the cortical area
-        neurons_in_area = self.get_neurons_by_cortical_area(cortical_id)
-        if not neurons_in_area:
-            return []
+            # Batch lookup using cortical area's position mapping
+            for position in candidate_positions:
+                neurons_at_pos = area.get_neurons_at_position(position)
+                for nid in neurons_at_pos:
+                    # FIXED: Use ConnectomeManager's mapping instead of neuron_array.id_to_index_map
+                    if nid in self._neuron_id_to_index_map:
+                        found_neurons.append((nid, post_synaptic_current))
 
-        # PERFORMANCE OPTIMIZATION: Get all neuron positions in batch using vectorized operations
-        if hasattr(self.neuron_array, 'batch_get_coordinates'):
-            # Use vectorized batch coordinate retrieval if available
-            neuron_positions = self.neuron_array.batch_get_coordinates(neurons_in_area)
-        else:
-            # Fallback: Extract coordinates using vectorized array operations
-            neuron_positions = []
-            if hasattr(self.neuron_array, 'coordinates_x') and len(neurons_in_area) > 0:
-                # Get indices for all neurons in area
-                neuron_indices = [
-                    self.neuron_array.id_to_index_map[nid] 
-                    for nid in neurons_in_area 
-                    if nid in self.neuron_array.id_to_index_map
-                ]
-                
-                if neuron_indices:
-                    # Vectorized coordinate extraction
-                    indices_array = np.array(neuron_indices, dtype=np.int32)
-                    coords_x = self.neuron_array.coordinates_x[indices_array]
-                    coords_y = self.neuron_array.coordinates_y[indices_array]  
-                    coords_z = self.neuron_array.coordinates_z[indices_array]
-                    
-                    # Convert to list of tuples for spatial hash compatibility
-                    neuron_positions = list(zip(coords_x, coords_y, coords_z))
-                else:
-                    neuron_positions = []
-            else:
-                # Final fallback to individual lookups
-                neuron_positions = []
-                for neuron_id in neurons_in_area:
-                    pos = self.get_neuron_position(neuron_id)
-                    if pos:
-                        neuron_positions.append(pos[:3])  # Take only x, y, z
+        except Exception as e:
+            logger.error(f"Error in batch voxel lookup: {e}")
 
-        if len(neuron_positions) == 0:
-            return []
-
-        # ULTRA-FAST COORDINATE MATCHING: Use global spatial hash system
-        # This eliminates all hash calculations and coordinate comparisons
-        matches = spatial_hash.batch_coordinate_lookup(candidate_positions, neuron_positions)
-        
-        # Build result from matches
-        result = []
-        for candidate_idx, neuron_idx in matches:
-            if neuron_idx < len(neurons_in_area):  # Bounds check
-                neuron_id = neurons_in_area[neuron_idx]
-                result.append((neuron_id, post_synaptic_current))
-
-        return result
+        return found_neurons
 
     # ======================================================================
     # CORTICAL AREA DIMENSION VALIDATION

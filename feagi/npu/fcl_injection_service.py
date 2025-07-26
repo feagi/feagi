@@ -275,8 +275,8 @@ class FCLInjectionService:
                 neuron_array = self.connectome_manager.neuron_array
                 for neuron_id in power_neurons:
                     # For power neurons, set membrane potential to PSP value (use correct attribute name)
-                    if neuron_id in neuron_array.id_to_index_map:
-                        idx = neuron_array.id_to_index_map[neuron_id]
+                    idx = self.connectome_manager.get_neuron_index(neuron_id)
+                    if idx is not None:
                         neuron_array.membrane_potentials[idx] = psp_value
 
             # Now inject power neurons into FCL (with proper membrane potentials set)

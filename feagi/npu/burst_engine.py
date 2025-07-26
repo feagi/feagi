@@ -720,7 +720,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     )
 
                     # Count actual valid entries in ID mapping as source of truth
-                    actual_valid_count = len(neuron_array.id_to_index_map)
+                    actual_valid_count = len(self.connectome_manager.neuron_id_to_index)
                     logger.info(
                         f"[SYNC FIX] ID mapping reports {actual_valid_count} neurons"
                     )
@@ -728,7 +728,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     # Rebuild valid_mask based on actual ID mappings (source of truth)
                     corrected_valid_mask = np.zeros_like(valid_mask, dtype=bool)
                     # GPU/SIMD-friendly vectorized operation - no Python loops!
-                    indices = np.array(list(neuron_array.id_to_index_map.values()))
+                    indices = np.array(list(self.connectome_manager.neuron_id_to_index.values()))
                     valid_indices = indices[
                         (indices >= 0) & (indices < len(corrected_valid_mask))
                     ]

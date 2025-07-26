@@ -902,11 +902,10 @@ class NeuroEmbryogenesis:
                 neuron_ids = list(range(neuron_array._next_neuron_id, neuron_array._next_neuron_id + area_neuron_count))
                 neuron_array._next_neuron_id += area_neuron_count
 
-                # FAST: Update mappings in bulk
+                # FAST: Update mappings in bulk via ConnectomeManager (single source of truth)
                 indices = np.arange(start_idx, end_idx, dtype=np.int32)
                 for j, neuron_id in enumerate(neuron_ids):
-                    neuron_array.id_to_index_map[neuron_id] = start_idx + j
-                    neuron_array.index_to_id_map[start_idx + j] = neuron_id
+                    self.connectome_manager.set_neuron_mapping(neuron_id, start_idx + j)
 
                 # FAST: Set uniform properties with vectorized array slicing
                 base_threshold = properties.get("fire_t", 1.0)
@@ -975,6 +974,21 @@ class NeuroEmbryogenesis:
                                     voxel_neurons.append(neuron_ids[neuron_idx])
                                     neuron_idx += 1
                             self.voxel_neuron_map[cortical_id][position] = voxel_neurons
+
+                # CRITICAL FIX: Sync neurons with cortical area objects using vectorized operations
+                # PERFORMANCE: Use bulk set operations and dict comprehensions instead of loops
+                # Add all created neurons to cortical area in one bulk operation
+                area._neuron_indices.update(neuron_ids)
+                
+                # PERFORMANCE: Bulk update position mappings using zip and dict operations
+                # The positions list is already calculated above in vectorized fashion
+                area._position_map.update(zip(neuron_ids, positions))
+                
+                # PERFORMANCE: Bulk update position-to-neurons mapping using defaultdict-style logic
+                for neuron_id, position in zip(neuron_ids, positions):
+                    if position not in area._position_to_neurons:
+                        area._position_to_neurons[position] = []
+                    area._position_to_neurons[position].append(neuron_id)
 
                 # Update array state
                 neuron_array.next_index = end_idx
@@ -2006,10 +2020,13 @@ class NeuroEmbryogenesis:
                     else:
                         # Fallback: vectorized coordinate extraction
                         neuron_indices = [
-                            self.connectome_manager.neuron_array.id_to_index_map[nid] 
+                            self.connectome_manager.get_neuron_index(nid) 
                             for nid in found_neuron_ids 
-                            if nid in self.connectome_manager.neuron_array.id_to_index_map
+                            if self.connectome_manager.has_neuron(nid)
                         ]
+                        
+                        # Filter out None values from the mapping lookups
+                        neuron_indices = [idx for idx in neuron_indices if idx is not None]
                         
                         if neuron_indices:
                             indices_array = np.array(neuron_indices, dtype=np.int32)
