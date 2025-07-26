@@ -365,6 +365,46 @@ class GenomeService(BaseService):
                     f"[OK] Connectome preparation complete: {preparation_result.get('message', 'Ready for genome loading')}"
                 )
 
+                # GENOME-FIRST ARCHITECTURE: Analyze requirements BEFORE brain development
+                self.logger.info("Analyzing genome requirements for optimal ConnectomeManager sizing...")
+                requirements = self._analyze_genome_requirements(genome_data)
+                
+                # Ensure ConnectomeManager has adequate capacity
+                if self._connectome_manager:
+                    current_capacity = getattr(self._connectome_manager, 'max_neurons', 0)
+                    required_capacity = requirements['recommended_neuron_capacity']
+                    
+                    if current_capacity < required_capacity:
+                        self.logger.error(f"[GENOME] INSUFFICIENT CAPACITY: {current_capacity:,} < {required_capacity:,}")
+                        
+                        # Try dynamic resize if available
+                        if hasattr(self._connectome_manager, 'resize_for_genome'):
+                            try:
+                                self.logger.info(f"[GENOME] Attempting dynamic resize to {required_capacity:,} neurons...")
+                                resize_result = self._connectome_manager.resize_for_genome(genome_data)
+                                if resize_result.get('success'):
+                                    self.logger.info(f"[GENOME] ✅ Connectome resized: {resize_result.get('message', 'Success')}")
+                                else:
+                                    self.logger.error(f"[GENOME] ❌ Connectome resize failed: {resize_result.get('message', 'Unknown')}")
+                                    if self.state_manager:
+                                        from feagi.core.state_manager import GenomeState
+                                        self.state_manager.set_genome_state(GenomeState.ERROR)
+                                    return {"success": False, "message": f"Insufficient capacity: need {required_capacity:,} neurons"}
+                            except Exception as e:
+                                self.logger.error(f"[GENOME] ❌ Connectome resize exception: {e}")
+                                if self.state_manager:
+                                    from feagi.core.state_manager import GenomeState
+                                    self.state_manager.set_genome_state(GenomeState.ERROR)
+                                return {"success": False, "message": f"Resize failed: {e}"}
+                        else:
+                            self.logger.error("[GENOME] ❌ ConnectomeManager doesn't support dynamic resizing")
+                            if self.state_manager:
+                                from feagi.core.state_manager import GenomeState
+                                self.state_manager.set_genome_state(GenomeState.ERROR)
+                            return {"success": False, "message": f"Insufficient capacity: need {required_capacity:,} neurons, have {current_capacity:,}"}
+                    else:
+                        self.logger.info(f"[GENOME] ✅ Adequate capacity: {current_capacity:,} >= {required_capacity:,}")
+
                 # ARCHITECTURE IMPROVEMENT: Build brain from state manager's genome (not temp file)
                 # This ensures connectome manager always uses the sanitized genome from state manager
                 self.logger.info(
@@ -462,16 +502,20 @@ class GenomeService(BaseService):
                     
                     # CRITICAL: Emit GENOME_LOADED event to trigger burst engine startup (fallback)
                     try:
-                        from feagi.utils.event_system import EventType, get_event_system
-                        event_system = get_event_system()
-                        if event_system:
-                            event_system.emit_event(
-                                EventType.GENOME_LOADED, 
-                                data={"filename": filename, "cortical_areas": cortical_area_count}
-                            )
+                        from feagi.utils.event_system import EventType, EventPriority, emit_event
+                        # Get cortical area count for event data
+                        current_cortical_area_count = len(
+                            getattr(self._connectome_manager, "cortical_areas", {})
+                        )
+                        success = emit_event(
+                            EventType.GENOME_LOADED, 
+                            data={"filename": filename, "cortical_areas": current_cortical_area_count},
+                            priority=EventPriority.HIGH
+                        )
+                        if success:
                             self.logger.info(f"📡 GENOME_LOADED event emitted for '{filename}'")
                         else:
-                            self.logger.warning("Event system not available - using direct burst engine update instead")
+                            self.logger.warning("Failed to emit GENOME_LOADED event - using direct burst engine update instead")
                     except Exception as event_error:
                         self.logger.warning(f"Failed to emit GENOME_LOADED event: {event_error}")
                         # Don't fail genome loading for event emission issues
@@ -2682,3 +2726,95 @@ class GenomeService(BaseService):
         except Exception as e:
             self.logger.error(f"Error deleting brain region: {str(e)}")
             return False
+
+    def _analyze_genome_requirements(self, genome_data: Dict[str, Any]) -> Dict[str, int]:
+        """
+        Analyze genome to calculate required neuron and synapse capacity.
+        
+        This method must be called BEFORE ConnectomeManager initialization
+        to ensure adequate capacity for the genome.
+        
+        Args:
+            genome_data: The genome dictionary to analyze
+            
+        Returns:
+            Dictionary with required capacities:
+            {
+                "neurons_required": int,
+                "synapses_required": int,
+                "recommended_neuron_capacity": int,
+                "recommended_synapse_capacity": int
+            }
+        """
+        try:
+            # Use existing GenomeProcessor to parse genome properly
+            from feagi.evo.genome_processor import GenomeProcessor
+            
+            processor = GenomeProcessor(genome_data)
+            cortical_areas = processor.extract_cortical_areas()
+            cortical_mappings = processor.extract_cortical_mappings()
+            
+            total_neurons = 0
+            total_synapses = 0
+            
+            # Calculate neurons from cortical areas
+            for cortical_id, area_props in cortical_areas.items():
+                if "dimensions" in area_props:
+                    dims = area_props["dimensions"]
+                    if len(dims) >= 3:
+                        # CRITICAL: Account for neuron density (neurons per voxel)
+                        neurons_per_voxel = area_props.get("neurons_per_voxel", 1)
+                        area_neurons = dims[0] * dims[1] * dims[2] * neurons_per_voxel
+                        total_neurons += area_neurons
+                        
+                        self.logger.debug(f"[GENOME ANALYSIS] {cortical_id}: {area_neurons:,} neurons ({dims[0]}x{dims[1]}x{dims[2]} * {neurons_per_voxel} neurons/voxel)")
+           
+            # Estimate synapses from cortical mappings
+            for src_id, dst_mappings in cortical_mappings.items():
+                for dst_id, connections in dst_mappings.items():
+                    # Rough estimate: each connection creates synapses proportional to area sizes
+                    src_area = cortical_areas.get(src_id)
+                    dst_area = cortical_areas.get(dst_id)
+                    
+                    if src_area and dst_area and "dimensions" in src_area and "dimensions" in dst_area:
+                        src_neurons = src_area["dimensions"][0] * src_area["dimensions"][1] * src_area["dimensions"][2]
+                        dst_neurons = dst_area["dimensions"][0] * dst_area["dimensions"][1] * dst_area["dimensions"][2]
+                        
+                        # Estimate synapses per connection (conservative estimate)
+                        synapses_per_connection = min(src_neurons, dst_neurons) // 10
+                        total_synapses += synapses_per_connection * len(connections)
+           
+            # Apply buffer multiplier for safety (50% extra capacity)
+            buffer_multiplier = 1.5
+            min_neuron_capacity = 100_000
+            min_synapse_capacity = 1_000_000
+            
+            recommended_neurons = max(
+                int(total_neurons * buffer_multiplier),
+                min_neuron_capacity
+            )
+            recommended_synapses = max(
+                int(total_synapses * buffer_multiplier), 
+                min_synapse_capacity
+            )
+            
+            self.logger.info(f"[GENOME ANALYSIS] Required neurons: {total_neurons:,}")
+            self.logger.info(f"[GENOME ANALYSIS] Required synapses: {total_synapses:,}")
+            self.logger.info(f"[GENOME ANALYSIS] Recommended capacity: {recommended_neurons:,} neurons, {recommended_synapses:,} synapses")
+            
+            return {
+                "neurons_required": total_neurons,
+                "synapses_required": total_synapses,
+                "recommended_neuron_capacity": recommended_neurons,
+                "recommended_synapse_capacity": recommended_synapses
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error analyzing genome requirements: {e}")
+            # Return safe defaults if analysis fails
+            return {
+                "neurons_required": 0,
+                "synapses_required": 0,
+                "recommended_neuron_capacity": 100_000,
+                "recommended_synapse_capacity": 1_000_000
+            }
