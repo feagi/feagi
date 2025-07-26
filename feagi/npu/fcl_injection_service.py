@@ -263,60 +263,21 @@ class FCLInjectionService:
                     )
                 return 0
 
-            # CRITICAL FIX: Set power neurons' membrane potential above threshold
-            # BEFORE adding them to FCL so they will actually fire!
-            try:
-                if self.connectome_manager and hasattr(
-                    self.connectome_manager, "neuron_array"
-                ):
-                    neuron_array = self.connectome_manager.neuron_array
-                    if hasattr(neuron_array, "set_neuron_property"):
-                        # Set membrane potential to 1.5 (above threshold of 1.0) for all power neurons
-                        success_count = 0
-                        for neuron_id in power_neurons:
-                            try:
-                                neuron_array.set_neuron_property(
-                                    neuron_id, "membrane_potential", 1.5
-                                )
-                                success_count += 1
-                                if current_timestep % 100 == 0:  # Log occasionally
-                                    logger.debug(
-                                        f"[POWER MP FIX] Set membrane_potential=1.5 for power neuron {neuron_id}"
-                                    )
-                            except Exception as e:
-                                if current_timestep % 100 == 0:  # Log occasionally
-                                    logger.warning(
-                                        f"[POWER MP FIX] Failed to set MP for neuron {neuron_id}: {e}"
-                                    )
-
-                        if (
-                            success_count > 0 and current_timestep % 100 == 0
-                        ):  # Log occasionally
-                            logger.info(
-                                f"[POWER MP FIX] Successfully set membrane potential for {success_count}/{len(power_neurons)} power neurons"
-                            )
-                        elif (
-                            success_count == 0 and current_timestep % 100 == 0
-                        ):  # Log occasionally
-                            logger.warning(
-                                f"[POWER MP FIX] Failed to set membrane potential for any of the {len(power_neurons)} power neurons"
-                            )
-                    else:
-                        if current_timestep % 500 == 0:  # Log very occasionally
-                            logger.warning(
-                                "[POWER MP FIX] NeuronArray does not support set_neuron_property method"
-                            )
+            # FAST: Set membrane potential to PSP value from cortical area properties
+            if self.connectome_manager and hasattr(self.connectome_manager, "neuron_array"):
+                # Get PSP value from power area properties via connectome manager
+                power_area = self.connectome_manager.get_cortical_area("___pwr")
+                if power_area and power_area.properties:
+                    psp_value = power_area.properties.get("postsynaptic_current", 500.0)
                 else:
-                    if current_timestep % 500 == 0:  # Log very occasionally
-                        logger.warning(
-                            "[POWER MP FIX] ConnectomeManager or neuron_array not available"
-                        )
-
-            except Exception as e:
-                if current_timestep % 100 == 0:  # Log occasionally
-                    logger.error(
-                        f"[POWER MP FIX] Error setting membrane potentials for power neurons: {e}"
-                    )
+                    psp_value = 500.0  # Fallback to essential genome default
+                
+                neuron_array = self.connectome_manager.neuron_array
+                for neuron_id in power_neurons:
+                    # For power neurons, set membrane potential to PSP value (use correct attribute name)
+                    if neuron_id in neuron_array.id_to_index_map:
+                        idx = neuron_array.id_to_index_map[neuron_id]
+                        neuron_array.membrane_potentials[idx] = psp_value
 
             # Now inject power neurons into FCL (with proper membrane potentials set)
             # This happens EVERY BURST to provide constant power supply

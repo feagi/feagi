@@ -106,23 +106,12 @@ async def check_active_genome(request: Request):
     Dependency to check if there is an active genome.
     Raises an HTTPException if no genome is loaded.
     """
-    from feagi.core.state_manager import FeagiStateManager
+    from feagi.api.rest.dependencies import get_core_api_service
 
     try:
-        # ARCHITECTURE COMPLIANCE: Check state manager for genome (single source of truth)
-        state_manager = FeagiStateManager.instance()
-
-        # Check if genome is loaded in state manager
-        if not state_manager.is_genome_loaded():
+        core_api = get_core_api_service()
+        if not core_api or not core_api.genome_is_loaded():
             raise HTTPException(status_code=400, detail="No genome loaded!")
-
-        # Additional check: ensure genome data is actually available
-        if not hasattr(state_manager, "genome") or not state_manager.genome:
-            raise HTTPException(status_code=400, detail="No genome loaded!")
-
-    except HTTPException:
-        # Re-raise HTTPExceptions as-is
-        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Genome access error: {str(e)}")
 
@@ -141,7 +130,7 @@ async def check_burst_engine(request: Request):
 
 async def check_burst_engine_or_allow_genome_ops(request: Request):
     """
-    Similar to check_burst_engine, but also allows genome operations
+    Similar to check_burst_engine, but also allows genome operations and burst engine control operations
     when the burst engine is not yet running.
     """
     from feagi.core.state_manager import FeagiStateManager, ServiceState
@@ -152,6 +141,9 @@ async def check_burst_engine_or_allow_genome_ops(request: Request):
         or request.url.path.endswith("/v1/genome/download")
         or request.url.path.endswith("/v1/genome/genome_number")
         or request.url.path.endswith("/v1/genome/file_name")
+        or request.url.path.endswith("/v1/burst_engine/start")
+        or request.url.path.endswith("/v1/burst_engine/stop")
+        or request.url.path.endswith("/v1/burst_engine/status")
     ):
         return
 
@@ -166,6 +158,7 @@ async def check_burst_engine_or_allow_config_ops(request: Request):
     Similar to check_burst_engine, but also allows configuration operations
     like getting stimulation_period when the burst engine is not yet running.
     """
+    from feagi.core.state_manager import FeagiStateManager, ServiceState
 
     # Allow configuration/read-only operations even when burst engine not READY
     config_read_endpoints = [

@@ -658,7 +658,7 @@ def create_rest_app(connectome: ConnectomeManager = None):
         get_burst_engine_router(),
         prefix="/v1/burst_engine",
         tags=["BURST ENGINE"],
-        dependencies=[Depends(check_burst_engine)],
+        dependencies=[Depends(check_burst_engine_or_allow_genome_ops)],
         responses=standard_response,
     )
 
