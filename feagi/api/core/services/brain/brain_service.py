@@ -650,36 +650,34 @@ class BrainService(BaseService):
                         }
                         continue
                     
-                    # SIMD OPTIMIZATION 3: Vectorized position→neurons mapping
-                    # Build efficient lookup using numpy operations
+                    # SIMD OPTIMIZATION 3: Vectorized position→neurons mapping using CORRECT batch method
+                    # Build efficient lookup using actual batch API
                     position_to_neurons = {}
                     neuron_ids_array = np.array([nid for nid, _ in neuron_weight_pairs], dtype=np.int64)
                     
-                    # Get all neuron positions in batch (if available)
-                    if hasattr(self._connectome_manager, 'batch_get_neuron_positions'):
-                        # Use batch method if available
-                        neuron_positions = self._connectome_manager.batch_get_neuron_positions(neuron_ids_array)
+                    # ARCHITECTURAL FIX: Direct batch coordinate extraction from neuron array
+                    # No fallbacks - use direct vectorized access to coordinate arrays
+                    try:
+                        # Get indices for all neuron IDs
+                        indices = np.array([self._connectome_manager.neuron_id_to_index[nid] for nid in neuron_ids_array])
+                        
+                        # Batch extract coordinates using vectorized array access
+                        neuron_array = self._connectome_manager.neuron_array
+                        coords_x = neuron_array.coordinates_x[indices]
+                        coords_y = neuron_array.coordinates_y[indices] 
+                        coords_z = neuron_array.coordinates_z[indices]
+                        
+                        # Build position→neurons mapping efficiently
                         for i, neuron_id in enumerate(neuron_ids_array):
-                            pos = neuron_positions[i]
-                            if pos is not None:
-                                pos_tuple = tuple(pos[:3])  # Take first 3 elements (x, y, z)
-                                if pos_tuple not in position_to_neurons:
-                                    position_to_neurons[pos_tuple] = []
-                                position_to_neurons[pos_tuple].append(neuron_id)
-                    else:
-                        # Fallback to individual lookups (still better than original loops)
-                        for neuron_id, _ in neuron_weight_pairs:
-                            neuron_pos = self._connectome_manager.get_neuron_position(neuron_id)
-                            if neuron_pos:
-                                # Convert from (area_id, x, y, z, idx) format to (x, y, z)
-                                if len(neuron_pos) >= 4:
-                                    pos_tuple = (neuron_pos[1], neuron_pos[2], neuron_pos[3])
-                                else:
-                                    pos_tuple = neuron_pos[:3]
+                            pos_tuple = (int(coords_x[i]), int(coords_y[i]), int(coords_z[i]))
+                            if pos_tuple not in position_to_neurons:
+                                position_to_neurons[pos_tuple] = []
+                            position_to_neurons[pos_tuple].append(neuron_id)
                                 
-                                if pos_tuple not in position_to_neurons:
-                                    position_to_neurons[pos_tuple] = []
-                                position_to_neurons[pos_tuple].append(neuron_id)
+                    except Exception as e:
+                        # ARCHITECTURAL ENFORCEMENT: No fallbacks - fail fast and deterministically
+                        self.logger.error(f"CRITICAL: Batch coordinate extraction failed: {e}")
+                        raise RuntimeError(f"Batch coordinate extraction failed - FEAGI architectural violation: {e}")
                     
                     # SIMD OPTIMIZATION 4: Vectorized stimulation application
                     # Group coordinates by unique positions and apply stimulation in batches
@@ -703,38 +701,27 @@ class BrainService(BaseService):
                             # (all coordinates at same position get same stimulation)
                             potential_value = float(coord_potentials[0])
                             
-                            # SIMD OPTIMIZATION 5: Batch membrane potential update
+                            # SIMD OPTIMIZATION 5: Batch membrane potential update using CORRECT method
                             try:
-                                if hasattr(self._connectome_manager, 'neuron_array'):
-                                    neuron_array = self._connectome_manager.neuron_array
-                                    if hasattr(neuron_array, 'batch_update_membrane_potentials'):
-                                        # Use vectorized batch update
-                                        neuron_array.batch_update_membrane_potentials(
-                                            neurons_at_coord, 
-                                            [potential_value] * len(neurons_at_coord)
-                                        )
-                                        area_stimulated += len(neurons_at_coord)
-                                        stimulated_neurons_for_fcl.extend(neurons_at_coord)
-                                    else:
-                                        # Fallback to individual updates
-                                        for neuron_id in neurons_at_coord:
-                                            try:
-                                                neuron_array.set_neuron_property(
-                                                    neuron_id, "membrane_potential", potential_value
-                                                )
-                                                area_stimulated += 1
-                                                stimulated_neurons_for_fcl.append(neuron_id)
-                                            except Exception as e:
-                                                self.logger.warning(
-                                                    f"Failed to stimulate neuron {neuron_id}: {str(e)}"
-                                                )
-                                                area_failed += 1
-                                else:
-                                    area_failed += len(neurons_at_coord)
-                            except Exception as e:
-                                self.logger.warning(
-                                    f"Failed to stimulate neurons at {coord_tuple}: {str(e)}"
+                                # ARCHITECTURAL FIX: Use the correct batch method that actually exists!
+                                # batch_update_neuron_properties with "membrane_potential" parameter
+                                success = self._connectome_manager.batch_update_neuron_properties(
+                                    neurons_at_coord,
+                                    "membrane_potential", 
+                                    potential_value  # Single value applied to all neurons
                                 )
+                                
+                                if success:
+                                    area_stimulated += len(neurons_at_coord)
+                                    stimulated_neurons_for_fcl.extend(neurons_at_coord)
+                                else:
+                                    # ARCHITECTURAL ENFORCEMENT: No fallbacks - log error and fail deterministically
+                                    self.logger.error(f"CRITICAL: Batch membrane potential update failed for {len(neurons_at_coord)} neurons at {coord_tuple}")
+                                    area_failed += len(neurons_at_coord)
+                                    
+                            except Exception as e:
+                                # ARCHITECTURAL ENFORCEMENT: No fallbacks - fail fast and deterministically  
+                                self.logger.error(f"CRITICAL: Batch stimulation failed at {coord_tuple}: {str(e)}")
                                 area_failed += len(neurons_at_coord)
                     
                     # CRITICAL FIX: Add stimulated neurons to FCL so they can fire!
