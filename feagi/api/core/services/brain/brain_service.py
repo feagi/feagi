@@ -76,12 +76,21 @@ class BrainService(BaseService):
 
     def start_burst_engine(self) -> bool:
         """Start the burst engine."""
-        # PERFORMANCE: Removed disk I/O debug logging
-        
+        # Unconditional debug logging
         try:
-            state_manager = FeagiStateManager.instance()
-            if not state_manager:
-                logger.error("No state manager available")
+            with open("/tmp/feagi_injection_debug.log", "a") as f:
+                import datetime
+
+                f.write(
+                    f"{datetime.datetime.now()}: Brain service start_burst_engine() called\n"
+                )
+        except Exception:
+            pass
+
+        try:
+            if not self.state_manager:
+                # Can't check debug flag without state manager
+                print("[DEBUG] BRAIN SERVICE: No state manager available")
                 return False
 
             # Get the singleton burst engine instance
@@ -218,14 +227,28 @@ class BrainService(BaseService):
                 self.logger.debug(
                     f"BRAIN SERVICE: Checking genome status - loaded: {genome_loaded}"
                 )
-                # PERFORMANCE: Removed disk I/O debug logging
+                # Write to debug file
+                try:
+                    with open("/tmp/feagi_injection_debug.log", "a") as f:
+                        import datetime
+
+                        f.write(
+                            f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n"
+                        )
+                except Exception:
+                    pass
 
                 if genome_loaded:
                     self.logger.debug(
                         "BRAIN SERVICE: Genome already loaded, calling update_with_genome()"
                     )
                     try:
-                        # PERFORMANCE: Removed disk I/O debug logging
+                        with open("/tmp/feagi_injection_debug.log", "a") as f:
+                            import datetime
+
+                            f.write(
+                                f"{datetime.datetime.now()}: Brain service calling update_with_genome()\n"
+                            )
                         burst_engine.update_with_genome()
                         self.logger.info(
                             "Updated burst engine with existing genome - injection service initialized"
@@ -234,7 +257,15 @@ class BrainService(BaseService):
                         self.logger.warning(
                             f"Failed to update burst engine with existing genome: {str(e)}"
                         )
-                        # PERFORMANCE: Removed disk I/O debug logging
+                        try:
+                            with open("/tmp/feagi_injection_debug.log", "a") as f:
+                                import datetime
+
+                                f.write(
+                                    f"{datetime.datetime.now()}: Brain service error: {str(e)}\n"
+                                )
+                        except Exception:
+                            pass
 
                 return True
             else:
@@ -456,12 +487,9 @@ class BrainService(BaseService):
             if hasattr(self._connectome_manager, "reset_neural_states"):
                 self._connectome_manager.reset_neural_states()
 
-            # ARCHITECTURAL FIX: Reset timestep using FeagiStateManager as single source of truth
-            from feagi.core.state_manager import FeagiStateManager
-            state_manager = FeagiStateManager.instance()
-            reset_result = state_manager.reset_timestep()
-            if reset_result.is_err:
-                self.logger.warning(f"Failed to reset timestep: {reset_result.unwrap_err()}")
+            # Reset timestep
+            if hasattr(self._connectome_manager, "current_timestep"):
+                self._connectome_manager.current_timestep = 0
 
             # Clear FCL if available
             if hasattr(self._connectome_manager, "reset_fcl"):
@@ -650,40 +678,41 @@ class BrainService(BaseService):
                         }
                         continue
                     
-                    # SIMD OPTIMIZATION 3: Vectorized position→neurons mapping using CORRECT batch method
-                    # Build efficient lookup using actual batch API
+                    # SIMD OPTIMIZATION 3: Vectorized position→neurons mapping
+                    # Build efficient lookup using numpy operations
                     position_to_neurons = {}
                     neuron_ids_array = np.array([nid for nid, _ in neuron_weight_pairs], dtype=np.int64)
                     
-                    # ARCHITECTURAL FIX: Direct batch coordinate extraction from neuron array
-                    # No fallbacks - use direct vectorized access to coordinate arrays
-                    try:
-                        # Get indices for all neuron IDs
-                        indices = np.array([self._connectome_manager.neuron_id_to_index[nid] for nid in neuron_ids_array])
-                        
-                        # Batch extract coordinates using vectorized array access
-                        neuron_array = self._connectome_manager.neuron_array
-                        coords_x = neuron_array.coordinates_x[indices]
-                        coords_y = neuron_array.coordinates_y[indices] 
-                        coords_z = neuron_array.coordinates_z[indices]
-                        
-                        # Build position→neurons mapping efficiently
+                    # Get all neuron positions in batch (if available)
+                    if hasattr(self._connectome_manager, 'batch_get_neuron_positions'):
+                        # Use batch method if available
+                        neuron_positions = self._connectome_manager.batch_get_neuron_positions(neuron_ids_array)
                         for i, neuron_id in enumerate(neuron_ids_array):
-                            pos_tuple = (int(coords_x[i]), int(coords_y[i]), int(coords_z[i]))
-                            if pos_tuple not in position_to_neurons:
-                                position_to_neurons[pos_tuple] = []
-                            position_to_neurons[pos_tuple].append(neuron_id)
+                            pos = neuron_positions[i]
+                            if pos is not None:
+                                pos_tuple = tuple(pos[:3])  # Take first 3 elements (x, y, z)
+                                if pos_tuple not in position_to_neurons:
+                                    position_to_neurons[pos_tuple] = []
+                                position_to_neurons[pos_tuple].append(neuron_id)
+                    else:
+                        # Fallback to individual lookups (still better than original loops)
+                        for neuron_id, _ in neuron_weight_pairs:
+                            neuron_pos = self._connectome_manager.get_neuron_position(neuron_id)
+                            if neuron_pos:
+                                # Convert from (area_id, x, y, z, idx) format to (x, y, z)
+                                if len(neuron_pos) >= 4:
+                                    pos_tuple = (neuron_pos[1], neuron_pos[2], neuron_pos[3])
+                                else:
+                                    pos_tuple = neuron_pos[:3]
                                 
-                    except Exception as e:
-                        # ARCHITECTURAL ENFORCEMENT: No fallbacks - fail fast and deterministically
-                        self.logger.error(f"CRITICAL: Batch coordinate extraction failed: {e}")
-                        raise RuntimeError(f"Batch coordinate extraction failed - FEAGI architectural violation: {e}")
+                                if pos_tuple not in position_to_neurons:
+                                    position_to_neurons[pos_tuple] = []
+                                position_to_neurons[pos_tuple].append(neuron_id)
                     
                     # SIMD OPTIMIZATION 4: Vectorized stimulation application
                     # Group coordinates by unique positions and apply stimulation in batches
                     area_stimulated = 0
                     area_failed = 0
-                    stimulated_neurons_for_fcl = []  # Track for FCL injection
                     
                     # Process each unique coordinate position
                     for unique_idx, unique_coord in enumerate(unique_coords):
@@ -701,63 +730,37 @@ class BrainService(BaseService):
                             # (all coordinates at same position get same stimulation)
                             potential_value = float(coord_potentials[0])
                             
-                            # SIMD OPTIMIZATION 5: Batch membrane potential update using CORRECT method
+                            # SIMD OPTIMIZATION 5: Batch membrane potential update
                             try:
-                                # ARCHITECTURAL FIX: Use the correct batch method that actually exists!
-                                # batch_update_neuron_properties with "membrane_potential" parameter
-                                success = self._connectome_manager.batch_update_neuron_properties(
-                                    neurons_at_coord,
-                                    "membrane_potential", 
-                                    potential_value  # Single value applied to all neurons
-                                )
-                                
-                                if success:
-                                    area_stimulated += len(neurons_at_coord)
-                                    stimulated_neurons_for_fcl.extend(neurons_at_coord)
+                                if hasattr(self._connectome_manager, 'neuron_array'):
+                                    neuron_array = self._connectome_manager.neuron_array
+                                    if hasattr(neuron_array, 'batch_update_membrane_potentials'):
+                                        # Use vectorized batch update
+                                        neuron_array.batch_update_membrane_potentials(
+                                            neurons_at_coord, 
+                                            [potential_value] * len(neurons_at_coord)
+                                        )
+                                        area_stimulated += len(neurons_at_coord)
+                                    else:
+                                        # Fallback to individual updates
+                                        for neuron_id in neurons_at_coord:
+                                            try:
+                                                neuron_array.set_neuron_property(
+                                                    neuron_id, "membrane_potential", potential_value
+                                                )
+                                                area_stimulated += 1
+                                            except Exception as e:
+                                                self.logger.warning(
+                                                    f"Failed to stimulate neuron {neuron_id}: {str(e)}"
+                                                )
+                                                area_failed += 1
                                 else:
-                                    # ARCHITECTURAL ENFORCEMENT: No fallbacks - log error and fail deterministically
-                                    self.logger.error(f"CRITICAL: Batch membrane potential update failed for {len(neurons_at_coord)} neurons at {coord_tuple}")
                                     area_failed += len(neurons_at_coord)
-                                    
                             except Exception as e:
-                                # ARCHITECTURAL ENFORCEMENT: No fallbacks - fail fast and deterministically  
-                                self.logger.error(f"CRITICAL: Batch stimulation failed at {coord_tuple}: {str(e)}")
-                                area_failed += len(neurons_at_coord)
-                    
-                    # CRITICAL FIX: Add stimulated neurons to FCL so they can fire!
-                    if stimulated_neurons_for_fcl:
-                        try:
-                            # Get FCL injection service from burst engine
-                            burst_engine = self._get_burst_engine()
-                            if burst_engine and hasattr(burst_engine, 'injection_service'):
-                                fcl_service = burst_engine.injection_service
-                                
-                                # Prepare activations for FCL injection
-                                activations = {cortical_id: stimulated_neurons_for_fcl}
-                                
-                                # ARCHITECTURAL FIX: Use FeagiStateManager as single source of truth for timestep
-                                from feagi.core.state_manager import FeagiStateManager
-                                state_manager = FeagiStateManager.instance()
-                                current_timestep = state_manager.get_current_timestep()
-                                
-                                fcl_injected = fcl_service.inject_external_activations(
-                                    activations=activations,
-                                    current_timestep=current_timestep,
-                                    source="unified_stimulation"
+                                self.logger.warning(
+                                    f"Failed to stimulate neurons at {coord_tuple}: {str(e)}"
                                 )
-                                
-                                if fcl_injected > 0:
-                                    self.logger.info(f"✅ FCL INJECTION: Added {fcl_injected} stimulated neurons to FCL in area {cortical_id}")
-                                else:
-                                    self.logger.warning(f"❌ FCL INJECTION: Failed to add neurons to FCL in area {cortical_id}")
-                            else:
-                                self.logger.warning("❌ FCL injection service not available - neurons stimulated but won't fire!")
-                                
-                        except Exception as e:
-                            self.logger.error(f"❌ FCL INJECTION ERROR: {e}")
-                            # Don't fail the whole stimulation if FCL injection fails
-                            import traceback
-                            self.logger.error(traceback.format_exc())
+                                area_failed += len(neurons_at_coord)
                     
                     area_results[cortical_id] = {
                         "success": True,

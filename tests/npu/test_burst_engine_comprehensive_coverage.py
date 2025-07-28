@@ -53,18 +53,9 @@ class MockConnectomeManager:
             "power_area": Mock(id="power_area", properties={"__power_injection": True}),
         }
         self.fcl_manager = Mock()
-        
-        # NEW ARCHITECTURE: Mock neural processor for new FCL auto-fire system
-        self._neural_processor = Mock()
-        self._neural_processor.get_performance_stats.return_value = {
-            'avg_fcl_size': 3.0,  # Simulate 3 neurons firing
-            'avg_processing_time_ms': 0.5
-        }
 
-    def update_membrane_potentials(self, decay_factor=None, current_timestep=None):
-        """Updated to support new FCL auto-fire architecture signature."""
-        # NEW ARCHITECTURE: Return neurons that will fire in NEXT burst
-        return [4, 5, 6]
+    def update_membrane_potentials(self):
+        return [1, 2, 3]
 
     def get_optimized_core(self):
         return None
@@ -141,8 +132,8 @@ def test_burst_engine_debug_process_burst():
         # Should have called injection service
         engine.injection_service.inject_pre_burst.assert_called_once()
 
-        # NEW ARCHITECTURE: Returns empty list (fired neurons handled internally)
-        assert result == []
+        # Should return fired neurons
+        assert result == [1, 2, 3]
 
 
 def test_burst_engine_special_area_initialization():
@@ -153,43 +144,42 @@ def test_burst_engine_special_area_initialization():
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
     ), patch(
-        "feagi.npu.special_area_handler.SpecialAreaHandler"
+        "feagi.npu.burst_engine.SpecialAreaHandler"
     ) as mock_special_handler_class, patch(
-        "feagi.npu.fcl_injection_service.FCLInjectionService"
+        "feagi.npu.burst_engine.FCLInjectionService"
     ) as mock_injection_service_class:
-            # Setup mocks
-            mock_special_handler = Mock()
-            mock_special_handler.get_power_areas.return_value = {"power_area"}
-            mock_special_handler.get_power_area_neurons.return_value = [1, 2, 3]  # List with len()
-            mock_special_handler_class.return_value = mock_special_handler
+        # Setup mocks
+        mock_special_handler = Mock()
+        mock_special_handler.get_power_areas.return_value = {"power_area"}
+        mock_special_handler_class.return_value = mock_special_handler
 
-            mock_injection_service = Mock()
-            mock_injection_service.get_power_injection_preview.return_value = {
-                "preview": "data"
-            }
-            mock_injection_service_class.return_value = mock_injection_service
+        mock_injection_service = Mock()
+        mock_injection_service.get_power_injection_preview.return_value = {
+            "preview": "data"
+        }
+        mock_injection_service_class.return_value = mock_injection_service
 
-            cm = MockConnectomeManager()
+        cm = MockConnectomeManager()
 
-            # Test initialization with injection enabled
-            engine = BurstEngine(
-                connectome_manager=cm,
-                config={
-                    "target_frequency": 100,
-                    "enable_injection": True,
-                    "special_area_config": {"test": "config"},
-                    "injection_config": {"injection": "config"},
-                },
-            )
+        # Test initialization with injection enabled
+        engine = BurstEngine(
+            connectome_manager=cm,
+            config={
+                "target_frequency": 100,
+                "enable_injection": True,
+                "special_area_config": {"test": "config"},
+                "injection_config": {"injection": "config"},
+            },
+        )
 
-            # Verify services were initialized
-            assert engine.special_area_handler is not None
-            assert engine.injection_service is not None
+        # Verify services were initialized
+        assert engine.special_area_handler is not None
+        assert engine.injection_service is not None
 
-            # Verify initialization calls
-            mock_special_handler_class.assert_called_once()
-            mock_special_handler.get_power_area_neurons.assert_called_once()
-            mock_injection_service_class.assert_called_once()
+        # Verify initialization calls
+        mock_special_handler_class.assert_called_once()
+        mock_special_handler.detect_special_areas.assert_called_once()
+        mock_injection_service_class.assert_called_once()
 
 
 def test_burst_engine_special_area_initialization_disabled():
@@ -221,7 +211,7 @@ def test_burst_engine_special_area_initialization_error():
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
     ), patch(
-        "feagi.npu.special_area_handler.SpecialAreaHandler", side_effect=Exception("Init error")
+        "feagi.npu.burst_engine.SpecialAreaHandler", side_effect=Exception("Init error")
     ):
         cm = MockConnectomeManager()
 
@@ -243,7 +233,7 @@ def test_burst_engine_special_area_initialization_no_power_areas():
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
-    ), patch("feagi.npu.special_area_handler.SpecialAreaHandler") as mock_special_handler_class:
+    ), patch("feagi.npu.burst_engine.SpecialAreaHandler") as mock_special_handler_class:
         # Setup mock with no power areas
         mock_special_handler = Mock()
         mock_special_handler.get_power_areas.return_value = set()  # No power areas
@@ -488,8 +478,7 @@ def test_burst_engine_injection_timing_variants():
         result = engine._process_burst()
 
         # Should not crash without injection service
-        # NEW ARCHITECTURE: Returns empty list (fired neurons handled internally)
-        assert result == []
+        assert result == [1, 2, 3]
 
 
 def test_burst_engine_update_with_genome():
@@ -612,37 +601,21 @@ def test_burst_engine_set_injection_enabled():
 
 
 def test_fq_sampler_run_global_mode():
-    """Test FQSampler run method in global mode with mock connectome manager."""
+    """Test FQSampler run method in global mode (no connectome manager)."""
     fire_queue_provider = Mock()
-    sample_data = {
+    fire_queue_provider.get_fire_queue.return_value = {
         "neuron_ids": [1, 2, 3, 4, 5],
         "membrane_potentials": [0.8, 1.2, 0.9, 1.1, 0.7],
         "thresholds": [1.0, 1.0, 1.0, 1.0, 1.0],
         "consecutive_fire_counts": [1, 2, 1, 1, 3],
         "refractory_counters": [0, 0, 0, 0, 0],
     }
-    fire_queue_provider.get_fire_queue.return_value = sample_data
-    fire_queue_provider.get_area_fire_queue_zerocopy.return_value = sample_data
-    fire_queue_provider.get_area_fire_queue.return_value = sample_data
-
-    # Create mock connectome manager with FCL manager  
-    mock_connectome_manager = Mock()
-    mock_fcl_manager = Mock()
-    mock_fcl_manager.get_active_corticals.return_value = [1, 2]  # Cortical indices
-    
-    # Mock FCL bitmap with length
-    mock_fcl_bitmap = [1, 2, 3]  # List with some neurons
-    mock_fcl_manager.get_cortical_fcl.return_value = mock_fcl_bitmap
-    
-    # Mock cortical ID mapping
-    mock_connectome_manager.get_cortical_id_for_idx.side_effect = lambda idx: f"area_{idx}"
-    mock_connectome_manager.fcl_manager = mock_fcl_manager
 
     output_queue = Queue()
 
     sampler = UnifiedFQSampler(
-        fire_queue_provider, 100, "visualization", output_queue, mock_connectome_manager
-    )
+        fire_queue_provider, 100, output_queue
+    )  # No connectome manager
     sampler.set_visualization_subscribers(True)
 
     # Run for a short time
@@ -661,7 +634,7 @@ def test_fq_sampler_run_no_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
     # Don't set any subscribers
 
     # Run for a short time
@@ -691,7 +664,7 @@ def test_fq_sampler_queue_full_handling():
     output_queue.put("blocking_item")
 
     sampler = UnifiedFQSampler(
-        fire_queue_provider, 1000, "visualization", output_queue
+        fire_queue_provider, 1000, output_queue
     )  # High frequency
     sampler.set_visualization_subscribers(True)
 
@@ -711,7 +684,7 @@ def test_fq_sampler_update_area_sample_rate():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
 
     # Test updating sample rate
     sampler.update_area_sample_rate("test_area", 75.0)
@@ -724,7 +697,7 @@ def test_fq_sampler_set_motor_subscribers():
     fire_queue_provider = Mock()
     output_queue = Queue()
 
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
 
     # Test setting motor subscribers
     sampler.set_motor_subscribers(True)
@@ -740,7 +713,7 @@ def test_fq_sampler_sample_area_fire_queue():
     fire_queue_provider.get_area_fire_queue.return_value = {"area_data": [1, 2, 3]}
 
     output_queue = Queue()
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
 
     # Test area sampling
     sampler._sample_area_fire_queue("test_area")
@@ -755,7 +728,7 @@ def test_fq_sampler_sample_global_fire_queue():
     fire_queue_provider.get_global_fire_queue.return_value = {"global_data": [1, 2, 3]}
 
     output_queue = Queue()
-    sampler = UnifiedFQSampler(fire_queue_provider, 100, "visualization", output_queue)
+    sampler = UnifiedFQSampler(fire_queue_provider, 100, output_queue)
 
     # Test global sampling
     sampler._sample_global_fire_queue()

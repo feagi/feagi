@@ -338,11 +338,7 @@ class FCLManager:
         self.memory_cortical_indices: Set[CorticalIdx] = set()
 
         self.current_window_index: int = 0
-        
-        # ARCHITECTURAL FIX: Use FeagiStateManager as single source of truth for timestep
-        from feagi.core.state_manager import FeagiStateManager
-        self.state_manager = FeagiStateManager.instance()
-        # Remove local timestep - use state_manager.get_current_timestep() instead
+        self.current_timestep: int = 0
 
         # Membrane potential update queue
         self.membrane_update_queue: List[MembraneUpdate] = []
@@ -353,17 +349,6 @@ class FCLManager:
 
         # Logger
         self.logger = setup_logger("feagi.npu.fcl_manager")
-
-    @property
-    def current_timestep(self) -> int:
-        """
-        Get current timestep from FeagiStateManager (backward compatibility).
-        
-        ARCHITECTURAL FIX: All timestep access now goes through FeagiStateManager
-        as the single source of truth. This property maintains backward compatibility
-        for existing code that accesses self.current_timestep directly.
-        """
-        return self.state_manager.get_current_timestep()
 
     def register_memory_cortical(
         self, cortical_idx: CorticalIdx, window_size: int
@@ -512,29 +497,11 @@ class FCLManager:
             current_timestep: Current simulation timestep
             neurons_by_cortical: Dictionary mapping cortical_idx -> list/set/bitmap of neuron_ids
         """
-        # ARCHITECTURAL FIX: Validate timestep consistency with FeagiStateManager
-        state_manager_timestep = self.state_manager.get_current_timestep()
-        if current_timestep != state_manager_timestep:
-            # Debug level since this is expected behavior that gets auto-corrected
-            self.logger.debug(
-                f"FCL timestep corrected: received {current_timestep} → using {state_manager_timestep} from state manager"
-            )
-            current_timestep = state_manager_timestep
-        
-        # Debug: Track FCL updates (reduced verbosity)
-        total_neurons = sum(len(neuron_list) if hasattr(neuron_list, '__len__') else 0 
-                           for neuron_list in neurons_by_cortical.values())
-        if total_neurons > 5:  # Only log significant updates to reduce spam
-            self.logger.info(f"FCL UPDATE: timestep={current_timestep}, total_neurons={total_neurons}, "
-                           f"areas={len(neurons_by_cortical)}")  # Log area count, not IDs
+        self.current_timestep = current_timestep
         standard_index = current_timestep % self.default_window_size
 
-        # CRITICAL FIX: Only clear global FCL if this is a new timestep
-        # Multiple cortical areas can update the same timestep, we should accumulate not overwrite
-        if not hasattr(self, '_last_cleared_timestep') or self._last_cleared_timestep != current_timestep:
-            # Clear the oldest global bitmap for reuse only when timestep advances
-            self.global_fcl_history[standard_index].clear()
-            self._last_cleared_timestep = current_timestep
+        # Clear the oldest global bitmap for reuse
+        self.global_fcl_history[standard_index].clear()
 
         # Track firing statistics
         burst_total = 0
@@ -1165,13 +1132,8 @@ class FCLManager:
     def advance_timestep(self) -> None:
         """
         Advance to the next timestep, shifting FCL history.
-        
-        ARCHITECTURAL FIX: Uses FeagiStateManager as single source of truth for timestep.
-        This method now delegates timestep advancement to FeagiStateManager while
-        maintaining FCL history window management.
         """
-        # ARCHITECTURAL FIX: Use FeagiStateManager for timestep advancement
-        new_timestep = self.state_manager.advance_timestep()
+        self.current_timestep += 1
         self.current_window_index = (
             self.current_window_index + 1
         ) % self.default_window_size
@@ -1183,7 +1145,7 @@ class FCLManager:
             # Only use custom index calculation for memory corticals
             if self.is_memory_cortical(cortical_idx):
                 idx = self._get_custom_cortical_index(
-                    cortical_idx, new_timestep
+                    cortical_idx, self.current_timestep
                 )
             else:
                 # For standard corticals, use the current window index

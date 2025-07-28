@@ -118,10 +118,10 @@ class TestMode1Handler:
 
             if not json_path.exists():
                 logger.info(
-                    "No test_mode_activations.json found - creating dynamic test coordinates"
+                    "No test_mode_activations.json found - using random neuron injection fallback"
                 )
                 self.use_predictable_activations = False
-                return self._create_dynamic_test_coordinates()
+                return True  # Not an error - we can fall back to random
 
             logger.info(f"Loading predictable neuron activations from: {json_path}")
 
@@ -134,17 +134,9 @@ class TestMode1Handler:
                 self.use_predictable_activations = False
                 return False
 
-            # Validate each cortical area entry and fix mismatches
+            # Validate each cortical area entry
             total_neurons = 0
             valid_areas = 0
-            
-            # Check which areas exist and create new data for valid areas only
-            validated_data = {}
-            available_areas = list(self.connectome.cortical_areas.keys())
-            
-            logger.info(f"🔍 VALIDATING JSON AREAS against current genome")
-            logger.info(f"   📊 Available areas in genome: {len(available_areas)}")
-            logger.info(f"   🎯 Sample areas: {available_areas[:5]}")
 
             for cortical_id, coordinates in self.test_activations_data.items():
                 if not isinstance(coordinates, list):
@@ -153,65 +145,38 @@ class TestMode1Handler:
                     )
                     continue
 
-                # Check if this area exists in current genome
-                if cortical_id not in self.connectome.cortical_areas:
-                    logger.warning(f"❌ Area {cortical_id} from JSON not found in current genome")
-                    continue
-                    
-                # Validate that area has neurons
-                area = self.connectome.cortical_areas[cortical_id]
-                area_neurons = area.get_all_neurons()
-                if not area_neurons:
-                    logger.warning(f"❌ Area {cortical_id} has no neurons")
-                    continue
-
                 valid_coords = 0
-                validated_coords = []
-                
                 for coord in coordinates:
                     if isinstance(coord, list) and len(coord) == 3:
+                        # Validate that coordinates are numbers
                         try:
-                            x, y, z = int(coord[0]), int(coord[1]), int(coord[2])
-                            
-                            # Test if this coordinate actually has neurons
-                            candidate_positions = {(x, y, z)}
-                            neuron_pairs = self.connectome.batch_voxel_to_neuron_lookup(
-                                cortical_id=cortical_id,
-                                candidate_positions=candidate_positions,
-                                post_synaptic_current=1.0
-                            )
-                            
-                            if neuron_pairs:
-                                validated_coords.append([x, y, z])
-                                valid_coords += len(neuron_pairs)
-                                logger.debug(f"   ✅ {cortical_id}({x},{y},{z}): {len(neuron_pairs)} neurons")
+                            x, y, z = coord
+                            if all(isinstance(c, (int, float)) for c in [x, y, z]):
+                                valid_coords += 1
                             else:
-                                logger.debug(f"   ❌ {cortical_id}({x},{y},{z}): no neurons found")
-                                
-                        except (ValueError, TypeError) as e:
-                            logger.warning(f"Invalid coordinate {coord} in {cortical_id}: {e}")
-                            continue
+                                logger.warning(
+                                    f"Invalid coordinate in {cortical_id}: {coord} - coordinates must be numbers"
+                                )
+                        except (ValueError, TypeError):
+                            logger.warning(
+                                f"Invalid coordinate in {cortical_id}: {coord}"
+                            )
                     else:
-                        logger.warning(f"Invalid coordinate format {coord} in {cortical_id}")
-                        continue
+                        logger.warning(
+                            f"Invalid coordinate format in {cortical_id}: {coord} - should be [x,y,z]"
+                        )
 
-                if validated_coords:
-                    validated_data[cortical_id] = validated_coords
-                    total_neurons += valid_coords
+                if valid_coords > 0:
                     valid_areas += 1
-                    logger.info(f"   ✅ {cortical_id}: {len(validated_coords)} coords → {valid_coords} neurons")
+                    total_neurons += valid_coords
+                    logger.debug(
+                        f"Loaded {valid_coords} valid coordinates for cortical area {cortical_id}"
+                    )
                 else:
-                    logger.warning(f"   ❌ {cortical_id}: no valid coordinates found")
+                    logger.warning(
+                        f"No valid coordinates found for cortical area {cortical_id}"
+                    )
 
-            # If no valid areas found, create dynamic coordinates
-            if not validated_data:
-                logger.warning("❌ No valid areas found in JSON - creating dynamic test coordinates")
-                self.use_predictable_activations = False
-                return self._create_dynamic_test_coordinates()
-
-            # Use validated data
-            self.test_activations_data = validated_data
-            
             if valid_areas > 0:
                 self.use_predictable_activations = True
                 self.valid_areas_count = valid_areas
@@ -227,105 +192,21 @@ class TestMode1Handler:
                 return True
             else:
                 logger.error(
-                    "No valid cortical areas found in JSON - falling back to dynamic creation"
+                    "No valid cortical areas found in JSON - falling back to random injection"
                 )
                 self.use_predictable_activations = False
-                return self._create_dynamic_test_coordinates()
+                return True  # Not a failure - we can fall back
 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in test_mode_activations.json: {e}")
             self.use_predictable_activations = False
-            return self._create_dynamic_test_coordinates()
+            return False
         except Exception as e:
             logger.error(f"Error loading test_mode_activations.json: {e}")
             import traceback
 
             logger.error(traceback.format_exc())
             self.use_predictable_activations = False
-            return self._create_dynamic_test_coordinates()
-    
-    def _create_dynamic_test_coordinates(self):
-        """
-        Create dynamic test coordinates based on current genome's cortical areas.
-        
-        This ensures we always have valid test coordinates that correspond to actual neurons.
-        
-        Returns:
-            bool: True if dynamic coordinates were created successfully
-        """
-        try:
-            logger.info("🎯 Creating dynamic test coordinates from current genome")
-            
-            # Get available cortical areas that have neurons
-            available_areas = {}
-            for area_id, area in self.connectome.cortical_areas.items():
-                neurons = area.get_all_neurons()
-                if neurons and len(neurons) > 0:
-                    # Skip power areas as they're already firing
-                    if not area_id.endswith('_pwr') and area_id != '___pwr':
-                        available_areas[area_id] = {
-                            'area': area,
-                            'neuron_count': len(neurons),
-                            'neurons': list(neurons)
-                        }
-            
-            if not available_areas:
-                logger.error("No suitable cortical areas found for dynamic test creation")
-                return False
-                
-            logger.info(f"   📊 Found {len(available_areas)} suitable areas")
-            
-            # Create test coordinates by sampling actual neuron positions
-            self.test_activations_data = {}
-            total_test_neurons = 0
-            
-            for area_id, area_info in list(available_areas.items())[:3]:  # Use first 3 areas
-                logger.info(f"   🎯 Creating coordinates for {area_id}")
-                
-                # Sample 3-5 neurons from this area
-                sample_neurons = area_info['neurons'][:5]
-                coordinates = []
-                
-                for neuron_id in sample_neurons:
-                    # Get the neuron's position
-                    neuron_pos = self.connectome.get_neuron_position(neuron_id)
-                    if neuron_pos and len(neuron_pos) >= 4:
-                        # Extract x, y, z from position (format: [area_id, x, y, z, idx])
-                        x, y, z = neuron_pos[1], neuron_pos[2], neuron_pos[3]
-                        coordinates.append([int(x), int(y), int(z)])
-                        logger.debug(f"      🧠 Neuron {neuron_id} at ({x},{y},{z})")
-                
-                if coordinates:
-                    self.test_activations_data[area_id] = coordinates
-                    total_test_neurons += len(coordinates)
-                    logger.info(f"      ✅ Added {len(coordinates)} coordinates")
-            
-            if self.test_activations_data:
-                self.use_predictable_activations = True
-                self.valid_areas_count = len(self.test_activations_data)
-                self.total_neurons_to_activate = total_test_neurons
-                
-                logger.info("✅ Dynamic test coordinates created successfully:")
-                logger.info(f"   📊 {self.valid_areas_count} areas, {total_test_neurons} coordinates")
-                
-                # Save dynamic coordinates for debugging
-                try:
-                    dynamic_path = Path("feagi/dynamic_test_coordinates.json")
-                    with open(dynamic_path, 'w') as f:
-                        json.dump(self.test_activations_data, f, indent=2)
-                    logger.info(f"   💾 Saved to: {dynamic_path}")
-                except Exception as e:
-                    logger.warning(f"Could not save dynamic coordinates: {e}")
-                
-                return True
-            else:
-                logger.error("Failed to create any dynamic test coordinates")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error creating dynamic test coordinates: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
             return False
 
     def inject_data(self):

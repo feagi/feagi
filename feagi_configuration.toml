@@ -103,18 +103,6 @@ batch_size = 1000              # neurons per batch
 use_sparse_computation = true   # optimize for sparse networks
 enable_plasticity = true       # learning mechanisms
 
-# Fire queue configuration
-fire_queue_max_percentage = 20.0  # Maximum fire queue size as percentage of total neurons (default: 20%)
-                                   # This limits memory usage during synaptic propagation
-                                   # Higher values allow more concurrent processing but use more memory
-                                   # Lower values reduce memory usage but may limit performance
-
-# ZERO-ALLOCATION BUFFER CONFIGURATION: For RTOS/embedded compatibility
-max_firing_percentage = 30.0      # Maximum percentage of neurons that can fire simultaneously (default: 30%)
-                                   # Used to size permanent buffers for zero-allocation operation
-max_synapses_per_neuron = 1000     # Maximum synapses per neuron for buffer sizing (default: 1000)
-                                   # Conservative estimate for worst-case memory allocation
-
 [connectome]
 # Connectome sizing and memory allocation
 # These values determine the minimum reserved space for neurons and synapses

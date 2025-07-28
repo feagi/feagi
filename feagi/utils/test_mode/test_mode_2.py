@@ -36,9 +36,10 @@ class TestMode2Handler:
         self.connectome = test_runner.connectome
         self.fcl_manager = test_runner.fcl_manager
 
-        # Test Mode 2 configuration: sample 20% of existing neurons per area
-        self.neuron_sample_percentage = 20.0  # Percentage of neurons to sample per area
-        self.area_selection_percentage = 1.0  # Percentage of areas to include
+        # Simple defaults for numpy-based random generation
+        self.neurons_per_area_min = 100
+        self.neurons_per_area_max = 1000
+        self.area_selection_percentage = 1.0
 
         # Statistics and state
         self.cortical_area_info = {}
@@ -171,13 +172,13 @@ class TestMode2Handler:
     def _log_configuration_summary(self):
         """Log a summary of the test configuration."""
         logger.info(
-            "🎯 TEST MODE 2: Neuron sampling from existing cortical areas (using test_genome.json)"
+            "🎲 TEST MODE 2: Numpy-based scalable random coordinate generation (using test_genome.json)"
         )
         logger.info(f"   📊 Available cortical areas: {len(self.cortical_area_info)}")
-        logger.info(f"   🧠 Total available neurons: {self.total_available_neurons}")
+        logger.info(f"   🧠 Total coordinate space volume: {self.total_available_volume}")
         logger.info(f"   🎯 Selected areas for testing: {len(self.selected_areas)}")
         logger.info(
-            f"   📊 Neuron sampling percentage: {self.neuron_sample_percentage}% of existing neurons per area"
+            f"   🔢 Coordinates per area range: {self.neurons_per_area_min}-{self.neurons_per_area_max}"
         )
 
     def inject_data(self):
@@ -188,7 +189,7 @@ class TestMode2Handler:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            return self._inject_direct_neuron_activations()
+            return self._inject_numpy_generated_activations()
         except Exception as e:
             logger.error(f"Error injecting Test Mode 2 data: {e}")
             import traceback
@@ -196,112 +197,75 @@ class TestMode2Handler:
             logger.error(traceback.format_exc())
             return False
 
-    def _inject_direct_neuron_activations(self):
+    def _inject_numpy_generated_activations(self):
         """
-        Sample and directly stimulate neurons from each cortical area, bypassing coordinate conversion.
+        Generate random coordinate activations using numpy for scalability and submit them via test runner.
 
-        This method samples actual neurons from genome-created cortical areas, sets their
-        membrane potentials directly, and injects them into the FCL without any coordinate
-        conversion overhead. This is the most efficient approach for sensory data testing.
+        This method acts as a pure sensory data generator, working only with coordinates 
+        and membrane potentials, completely unaware of neuron IDs.
 
         Returns:
-            bool: True if neurons were stimulated and injected successfully, False otherwise
+            bool: True if data was injected successfully, False otherwise
         """
         try:
-            neuron_activations = {}  # Dictionary to hold neuron IDs for direct FCL injection
+            coordinate_activations = {}  # Dictionary to hold coordinate activations for submission
 
             logger.debug(
-                f"Sampling {self.neuron_sample_percentage}% of existing neurons from {len(self.selected_areas)} cortical areas"
+                f"Generating random coordinate activations for {len(self.selected_areas)} cortical areas"
             )
 
             for area_id in self.selected_areas:
                 try:
-                    # Get the cortical area object
-                    area = self.connectome.cortical_areas.get(area_id)
-                    if not area:
-                        logger.warning(f"Cortical area {area_id} not found in connectome")
+                    area_info = self.cortical_area_info[area_id]
+                    dimensions = area_info["dimensions"]
+                    width, height, depth = dimensions
+
+                    # Determine number of coordinates to activate - simple random within range
+                    num_to_activate = np.random.randint(self.neurons_per_area_min, self.neurons_per_area_max + 1)
+
+                    if num_to_activate <= 0:
                         continue
 
-                    # Get all existing neurons in this area
-                    all_neurons = area.get_all_neurons()
-                    if not all_neurons:
-                        logger.warning(f"No neurons found in cortical area {area_id}")
-                        continue
+                    # Generate random coordinates within the cortical area bounds using numpy
+                    random_coordinates = []
+                    for _ in range(num_to_activate):
+                        x = np.random.randint(0, width)
+                        y = np.random.randint(0, height)
+                        z = np.random.randint(0, depth)
+                        random_coordinates.append((x, y, z))
 
-                    # Calculate sample size based on configured percentage
-                    sample_size = max(1, int(len(all_neurons) * (self.neuron_sample_percentage / 100.0)))
-                    sample_size = min(sample_size, len(all_neurons))
+                    coordinate_activations[area_id] = random_coordinates
 
-                    # Randomly sample the configured percentage of neurons
-                    sampled_neurons = np.random.choice(all_neurons, size=sample_size, replace=False)
-
-                    # Directly stimulate sampled neurons (bypass coordinate conversion)
-                    if len(sampled_neurons) > 0:
-                        # Set membrane potentials directly on sampled neurons
-                        membrane_potential = 3.0  # High stimulation value
-                        
-                        for neuron_id in sampled_neurons:
-                            try:
-                                self.connectome.set_neuron_property(neuron_id, "membrane_potential", membrane_potential)
-                            except Exception as e:
-                                logger.warning(f"Failed to set membrane potential for neuron {neuron_id}: {e}")
-                        
-                        # Collect neurons for FCL injection
-                        if area_id not in neuron_activations:
-                            neuron_activations[area_id] = []
-                        neuron_activations[area_id].extend(sampled_neurons)
-
-                        logger.info(
-                            f"Stimulated {len(sampled_neurons)} neurons ({sample_size}/{len(all_neurons)} = "
-                            f"{len(sampled_neurons)/len(all_neurons)*100:.1f}%) in {area_id}"
-                        )
+                    logger.debug(
+                        f"Generated {len(random_coordinates)} random coordinates in {area_id} "
+                        f"(area dimensions: {width}x{height}x{depth})"
+                    )
 
                 except Exception as e:
-                    logger.error(f"Error sampling neurons from {area_id}: {e}")
+                    logger.error(f"Error generating coordinate activations for {area_id}: {e}")
                     continue
 
-            # Directly inject neurons into FCL (bypass coordinate conversion entirely)
-            if neuron_activations:
-                total_neurons_stimulated = sum(len(neurons) for neurons in neuron_activations.values())
+            # Submit coordinate activations via test runner (proper architecture)
+            if coordinate_activations:
+                total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
                 logger.info(
-                    f"🎯 Directly injecting {total_neurons_stimulated} STIMULATED neurons ({self.neuron_sample_percentage}% sample) into FCL across {len(neuron_activations)} areas"
+                    f"🎲 Submitting {total_coordinates} NUMPY-GENERATED coordinates across {len(coordinate_activations)} areas via unified neural stimulation"
                 )
 
-                # Get FCL injection service from burst engine
-                try:
-                    burst_engine = self.test_runner.burst_engine
-                    if burst_engine and hasattr(burst_engine, 'injection_service'):
-                        fcl_service = burst_engine.injection_service
-                        
-                        # Get current timestep from state manager
-                        from feagi.core.state_manager import FeagiStateManager
-                        state_manager = FeagiStateManager.instance()
-                        current_timestep = state_manager.get_current_timestep()
-                        
-                        # Direct FCL injection (bypass coordinate conversion)
-                        injected_count = fcl_service.inject_external_activations(
-                            activations=neuron_activations,  # Contains neuron IDs directly - no conversion needed
-                            current_timestep=current_timestep,
-                            source="test_mode_2_direct"
-                        )
-                        
-                        if injected_count > 0:
-                            logger.info(
-                                f"✅ Successfully injected {injected_count} neurons directly into FCL (100% hit rate, zero conversion overhead)"
-                            )
-                            return True
-                        else:
-                            logger.warning("Failed to inject neurons into FCL")
-                            return False
-                    else:
-                        logger.error("FCL injection service not available")
-                        return False
-                        
-                except Exception as e:
-                    logger.error(f"Error in direct FCL injection: {e}")
+                injected_count = self.test_runner.submit_coordinate_activations(
+                    coordinate_activations, "test_mode_2_numpy"
+                )
+
+                if injected_count > 0:
+                    logger.info(
+                        f"✅ Successfully injected {injected_count} numpy-generated coordinates"
+                    )
+                    return True
+                else:
+                    logger.warning("Failed to inject numpy-generated coordinates")
                     return False
             else:
-                logger.warning("No neurons stimulated for injection")
+                logger.warning("No numpy-generated coordinate activations generated")
                 return False
 
         except Exception as e:

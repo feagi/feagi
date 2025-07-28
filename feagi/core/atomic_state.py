@@ -206,7 +206,7 @@ class RustCompatibleState(ctypes.Structure):
     the same memory layout as the equivalent Rust struct with #[repr(C)].
     
     Layout:
-    - Total size: 72 bytes (extended for timestep support)
+    - Total size: 64 bytes (cache line aligned)
     - All fields are packed with explicit padding
     - Compatible with both little and big endian systems
     """
@@ -226,26 +226,25 @@ class RustCompatibleState(ctypes.Structure):
         ("agent_count", ctypes.c_uint32),           # 8-11: Number of connected agents
         ("burst_frequency", ctypes.c_uint32),       # 12-15: Burst frequency in Hz
         
-        # Versioning and timing (24 bytes)
+        # Versioning and timing (16 bytes)
         ("state_version", ctypes.c_uint64),         # 16-23: State change counter
         ("last_modified", ctypes.c_uint64),         # 24-31: Timestamp of last change
-        ("current_timestep", ctypes.c_uint64),      # 32-39: Current simulation timestep
         
         # Development tracking (8 bytes)
-        ("neuroembryogenesis_stage", ctypes.c_uint8),    # 40: Development stage
-        ("neuroembryogenesis_progress", ctypes.c_uint8), # 41: Progress percentage
-        ("_reserved2", ctypes.c_uint16),                 # 42-43: Reserved
-        ("development_duration", ctypes.c_uint32),       # 44-47: Duration in ms
+        ("neuroembryogenesis_stage", ctypes.c_uint8),    # 32: Development stage
+        ("neuroembryogenesis_progress", ctypes.c_uint8), # 33: Progress percentage
+        ("_reserved2", ctypes.c_uint16),                 # 34-35: Reserved
+        ("development_duration", ctypes.c_uint32),       # 36-39: Duration in ms
         
         # Statistics (16 bytes) 
-        ("neuron_count", ctypes.c_uint32),          # 48-51: Total neurons
-        ("synapse_count", ctypes.c_uint32),         # 52-55: Total synapses
-        ("cortical_area_count", ctypes.c_uint16),   # 56-57: Number of cortical areas
-        ("_reserved3", ctypes.c_uint16),            # 58-59: Reserved
-        ("memory_usage", ctypes.c_uint32),          # 60-63: Memory usage in bytes
+        ("neuron_count", ctypes.c_uint32),          # 40-43: Total neurons
+        ("synapse_count", ctypes.c_uint32),         # 44-47: Total synapses
+        ("cortical_area_count", ctypes.c_uint16),   # 48-49: Number of cortical areas
+        ("_reserved3", ctypes.c_uint16),            # 50-51: Reserved
+        ("memory_usage", ctypes.c_uint32),          # 52-55: Memory usage in bytes
         
-        # Padding to 72 bytes (extended for timestep)
-        ("_padding", ctypes.c_uint8 * 8),           # 64-71: Padding
+        # Padding to 64 bytes (cache line aligned)
+        ("_padding", ctypes.c_uint8 * 8),           # 56-63: Padding
     ]
     
     def __init__(self):
@@ -263,7 +262,6 @@ class RustCompatibleState(ctypes.Structure):
         self.burst_frequency = 0
         self.state_version = 0
         self.last_modified = int(time.time() * 1000)  # Current timestamp in ms
-        self.current_timestep = 0  # Simulation timestep starts at 0
         self.neuroembryogenesis_stage = 0  # INITIALIZATION
         self.neuroembryogenesis_progress = 0
         self.development_duration = 0

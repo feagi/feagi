@@ -186,8 +186,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         self.genome_loaded = False
         self._running = False  # This will now trigger the setter with debug logging
-        # ARCHITECTURAL FIX: Remove internal timestep - use FeagiStateManager as single source of truth
-        # self.burst_count = 0  # Replaced by state_manager.get_current_timestep()
+        self.burst_count = 0
         self.last_burst_time = 0.0
 
         # Initialize generic injection service (area-agnostic)
@@ -282,14 +281,14 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             from feagi.npu.special_area_handler import SpecialAreaHandler
 
             # Create special area handler
-            self.special_area_handler = SpecialAreaHandler(self.connectome_manager)
+            special_area_handler = SpecialAreaHandler(self.connectome_manager)
             logger.info(
                 f"[INJECTION INIT] Created SpecialAreaHandler for burst engine instance {self._instance_id}"
             )
 
             # Create FCL injection service
             self.injection_service = FCLInjectionService(
-                fcl_manager=self.fcl_manager, special_area_handler=self.special_area_handler
+                fcl_manager=self.fcl_manager, special_area_handler=special_area_handler
             )
             logger.info(
                 f"[INJECTION INIT] Created FCLInjectionService for burst engine instance {self._instance_id}"
@@ -297,7 +296,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
             # Test power area detection immediately
             try:
-                power_neurons = self.special_area_handler.get_power_area_neurons()
+                power_neurons = special_area_handler.get_power_area_neurons()
                 if power_neurons:
                     logger.info(
                         f"[INJECTION INIT] Successfully detected {len(power_neurons)} power area neurons during initialization"
@@ -320,7 +319,6 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 f"[INJECTION INIT] Failed to initialize injection service for burst engine {self._instance_id}: {e}"
             )
             self.injection_service = None
-            self.special_area_handler = None
 
     def _process_burst(self):
         """Core burst processing with embedded optimization.
@@ -339,80 +337,109 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
             burst_start_time = time.perf_counter()
 
-            # PHASE 1: FCL debugging and logging
-            fcl_debug_start = time.perf_counter()
-            # PERFORMANCE: Simplified FCL logging - removed expensive array processing
-            if hasattr(self, "fcl_manager") and self.fcl_manager and self.debug_npu:
+            # LOG RAW FCL t-1 CONTENT FOR DEBUGGING VISUALIZATION ISSUES
+            if hasattr(self, "fcl_manager") and self.fcl_manager:
                 try:
-                    # Only log FCL size occasionally instead of processing arrays every burst
-                    if self.state_manager.get_current_timestep() % 100 == 0:  # Every 100 bursts
-                        fcl_t_minus_1 = self.fcl_manager.get_fcl(offset=-1)
-                        if fcl_t_minus_1 and not fcl_t_minus_1.is_empty():
-                            logger.debug(f"🔥 FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons")
-                        else:
-                            logger.debug("🔥 FCL t-1 CONTENT: EMPTY")
+                    # Get FCL from previous timestep (t-1) - this is what FQ sampler reads
+                    fcl_t_minus_1 = self.fcl_manager.get_fcl(offset=-1)
+                    if fcl_t_minus_1 and not fcl_t_minus_1.is_empty():
+                        neuron_list = list(fcl_t_minus_1)[:10]  # Show first 10 neurons
+                        logger.debug(
+                            f"🔥 🔥 FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}"
+                        )
+
+                        # Show which cortical areas these neurons belong to using vectorized operation
+                        if hasattr(self.connectome_manager, "neuron_array") and hasattr(
+                            self.connectome_manager.neuron_array, "cortical_area_id"
+                        ):
+                            # Convert FCL to numpy array for vectorized processing
+                            neuron_ids_array = np.array(
+                                list(fcl_t_minus_1), dtype=np.int32
+                            )
+                            max_idx = len(
+                                self.connectome_manager.neuron_array.cortical_area_id
+                            )
+
+                            # Vectorized bounds checking and area extraction
+                            valid_mask = neuron_ids_array < max_idx
+                            valid_neuron_ids = neuron_ids_array[valid_mask]
+
+                            if len(valid_neuron_ids) > 0:
+                                # Vectorized area extraction
+                                areas = self.connectome_manager.neuron_array.cortical_area_id[
+                                    valid_neuron_ids
+                                ]
+
+                                # Vectorized string conversion
+                                area_strs = np.array(
+                                    [
+                                        (
+                                            area.decode("utf-8")
+                                            if isinstance(area, bytes)
+                                            else str(area)
+                                        )
+                                        for area in areas
+                                    ]
+                                )
+
+                                # Count unique areas using NumPy
+                                unique_areas, counts = np.unique(
+                                    area_strs, return_counts=True
+                                )
+                                area_count = dict(
+                                    zip(unique_areas[:5], counts[:5])
+                                )  # First 5 areas
+
+                                logger.debug(
+                                    f"🔥 🔥 FCL t-1 AREAS: {area_count}..."
+                                )  # Show first 5 areas
+                    else:
+                        logger.debug("🔥 FCL t-1 CONTENT: EMPTY")
                 except Exception as e:
                     logger.debug(f"🔥 FCL t-1 LOGGING ERROR: {e}")
-            fcl_debug_time = time.perf_counter() - fcl_debug_start
 
-            # PHASE 2: External candidates injection (all special area types)
-            injection_pre_start = time.perf_counter()
+            # 1. External candidates injection (all special area types)
             if self.injection_service and self.enable_injection:
-                self.injection_service.inject_pre_burst(self.state_manager.get_current_timestep())
-            injection_pre_time = time.perf_counter() - injection_pre_start
+                self.injection_service.inject_pre_burst(self.burst_count)
 
-            # PHASE 3: Neural processing using new FCL auto-fire architecture  
-            neural_start = time.perf_counter()
-            
-            # ARCHITECTURAL FIX: FeagiStateManager is now the single source of truth for timestep
-            # No need to set connectome_manager.current_timestep - components get it from state manager
-            pre_timestamp_start = time.perf_counter()
-            current_timestep = self.state_manager.get_current_timestep()
-            pre_timestamp_time = time.perf_counter() - pre_timestamp_start
-            
-            # MICRO-TIMING: Attribute access overhead
-            attr_access_start = time.perf_counter()
-            neural_processor = self.connectome_manager._neural_processor
-            attr_access_time = time.perf_counter() - attr_access_start
-            
-            # MICRO-TIMING: Direct method call (this should be 0.04ms)
-            method_call_start = time.perf_counter()
-            next_burst_neurons = neural_processor.process_neural_burst(current_timestep)
-            method_call_time = time.perf_counter() - method_call_start
-            
-            neural_time = time.perf_counter() - neural_start
-            
-            # Optional micro-timing (disabled for performance)
-            # if neural_time > 0.005:  # Only log exceptionally slow bursts
-            #     logger.info(f"BURST MICRO-TIMING (slow={neural_time*1000:.2f}ms): method={method_call_time*1000:.2f}ms")
-            
-            # SINGLE SOURCE OF TRUTH: Get fired data from canonical NPU tracking
-            fired_count = self.connectome_manager._neural_processor.get_current_burst_fired_count()
-            fired_neurons = self.connectome_manager._neural_processor.get_current_burst_fired_neurons()
+            # 2. Unified neural computation using embedded optimizations
+            # This now automatically uses SIMD, cache-aligned arrays, and block-sparse matrices
+            fired_neurons = self.connectome_manager.update_membrane_potentials(
+                current_timestep=self.burst_count
+            )
 
-            # PHASE 4: Additional injection phases if needed
-            injection_during_start = time.perf_counter()
+            # 3. Additional injection phases if needed
             if self.injection_service and self.enable_injection:
-                self.injection_service.inject_during_burst(current_timestep)
-                self.injection_service.inject_post_burst(current_timestep)
-            injection_during_time = time.perf_counter() - injection_during_start
+                self.injection_service.inject_during_burst(self.burst_count)
+                self.injection_service.inject_post_burst(self.burst_count)
 
-            # PHASE 5: Debug output if enabled
-            debug_start = time.perf_counter()
+            # 4. Debug output if enabled
             if self.debug_npu:
                 self._debug_fire_queue_output()
-            debug_time = time.perf_counter() - debug_start
 
-            # PERFORMANCE: Log detailed burst timing breakdown
-            total_burst_time = time.perf_counter() - burst_start_time
-            if fired_count > 0 or total_burst_time > 0.005:
-                logger.info(f"BURST ENGINE TIMING (fired={fired_count:.0f}): "
-                           f"Total={total_burst_time*1000:.2f}ms, "
-                           f"FCL_debug={fcl_debug_time*1000:.2f}ms, "
-                           f"Pre_inject={injection_pre_time*1000:.2f}ms, "
-                           f"Neural={neural_time*1000:.2f}ms, "
-                           f"Post_inject={injection_during_time*1000:.2f}ms, "
-                           f"Debug={debug_time*1000:.2f}ms")
+            # 5. Performance tracking for embedded optimization
+            burst_time = time.perf_counter() - burst_start_time
+
+            # Log performance periodically for embedded systems
+            if self.burst_count % 100 == 0:  # Every 100 bursts
+                perf_summary = (
+                    self.connectome_manager.neuron_array.get_performance_summary()
+                )
+                avg_burst_time_ms = burst_time * 1000
+
+                if avg_burst_time_ms < 66.7:  # Under 15Hz target
+                    status = "✅ TARGET"
+                elif avg_burst_time_ms < 100:  # Under 10Hz
+                    status = "⚠️  CLOSE"
+                else:
+                    status = "❌ SLOW"
+
+                logger.info(
+                    f"EMBEDDED BURST PERFORMANCE [Burst {self.burst_count}]: "
+                    f"{avg_burst_time_ms:.2f}ms ({status}), "
+                    f"fired: {len(fired_neurons)}, "
+                    f"SIMD: {perf_summary.get('simd_enabled', False)}"
+                )
 
             return fired_neurons
 
@@ -439,8 +466,16 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         Returns:
             List of neuron IDs that fired in this burst
         """
-        # PERFORMANCE: Removed disk I/O from hot path - was causing 187ms delays
-        
+        # Unconditional proof that this method is being called
+        try:
+            with open("/tmp/feagi_enhanced_burst.log", "a") as f:
+                import datetime
+
+                f.write(
+                    f"{datetime.datetime.now()}: _process_burst_with_power_injection called, timestep={current_timestep}, injection_service={type(self.injection_service).__name__ if self.injection_service else 'None'}\n"
+                )
+        except Exception:
+            pass
         # Debug logging if --debug-npu is enabled
         if self.debug_npu:
             logger.debug(
@@ -533,8 +568,18 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
                 # Execute burst processing
                 try:
-                    # PERFORMANCE: Removed disk I/O proof logging - was causing delays
-                    
+                    # Unconditional proof that run loop is executing
+                    if self.burst_count % 100 == 0:  # Every 100 bursts to avoid spam
+                        try:
+                            with open("/tmp/feagi_run_loop.log", "a") as f:
+                                import datetime
+
+                                f.write(
+                                    f"{datetime.datetime.now()}: run() loop executing, about to call _process_burst(), burst_count={self.burst_count}\n"
+                                )
+                        except Exception:
+                            pass
+
                     # fired_neurons = self._process_burst()  # Unused variable removed
                     self._process_burst()
                     processing_end = time.perf_counter()
@@ -555,8 +600,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                     logger.error(f"Error in burst processing: {e}")
                     processing_duration = time.perf_counter() - processing_start
 
-                # ARCHITECTURAL FIX: Use FeagiStateManager as single source of truth for timestep
-                current_timestep = self.state_manager.advance_timestep()
+                self.burst_count += 1
                 self.last_burst_time = time.time()
 
                 # RTOS-COMPATIBLE: Precise timing control
@@ -622,8 +666,8 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 status="[TEST]",
             )
 
-            # ARCHITECTURAL FIX: Use FeagiStateManager as single source of truth for timestep
-            self.state_manager.advance_timestep()
+            # Increment burst count for test bursts too
+            self.burst_count += 1
 
             return fired_neurons
 
@@ -639,65 +683,132 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         connectome manager to refresh the engine's understanding of the neural network.
         """
         logger.info("Updating burst engine with new genome", status="[CONFIG]")
-        # PERFORMANCE: Removed disk I/O from hot path
-        
+        # Write to debug file for development tracking
         try:
-            # Reinitialize injection service with new genome
-            self._initialize_injection_service()
-            logger.info("Burst engine updated with new genome successfully")
-        except Exception as e:
-            logger.error(f"Failed to update burst engine with new genome: {e}")
+            with open("/tmp/feagi_injection_debug.log", "a") as f:
+                import datetime
 
-        # Also update line 772 area
-        if hasattr(self, 'injection_service') and self.injection_service:
-            service_type = type(self.injection_service).__name__
-            logger.info(
-                f"[INJECTION INIT] Injection service initialized: {service_type}"
+                f.write(f"{datetime.datetime.now()}: update_with_genome() called\n")
+        except Exception:
+            pass
+
+        try:
+            # CRITICAL FIX: Synchronize neuron array data to prevent size mismatches
+            # This fixes the "(13452,) (13846,) (13452,)" broadcasting error
+            if hasattr(self.connectome_manager, "neuron_array"):
+                neuron_array = self.connectome_manager.neuron_array
+                actual_neuron_count = neuron_array.neuron_count
+                valid_neurons = (
+                    int(np.sum(neuron_array.valid_mask))
+                    if hasattr(neuron_array, "valid_mask")
+                    else actual_neuron_count
+                )
+
+                logger.info(
+                    f"[SYNC FIX] Neuron array sync: {actual_neuron_count} total neurons, {valid_neurons} valid neurons"
+                )
+
+                # CRITICAL: Ensure valid_mask consistency with neuron_count
+                if valid_neurons != actual_neuron_count:
+                    logger.warning(
+                        f"[SYNC FIX] Valid mask mismatch detected: {valid_neurons} valid vs {actual_neuron_count} total"
+                    )
+
+                    # Force valid_mask synchronization
+                    valid_mask = self.connectome_manager.neuron_array.backend.to_numpy(
+                        neuron_array.valid_mask
+                    )
+
+                    # Count actual valid entries in ID mapping as source of truth
+                    actual_valid_count = len(self.connectome_manager.neuron_id_to_index)
+                    logger.info(
+                        f"[SYNC FIX] ID mapping reports {actual_valid_count} neurons"
+                    )
+
+                    # Rebuild valid_mask based on actual ID mappings (source of truth)
+                    corrected_valid_mask = np.zeros_like(valid_mask, dtype=bool)
+                    # GPU/SIMD-friendly vectorized operation - no Python loops!
+                    indices = np.array(list(self.connectome_manager.neuron_id_to_index.values()))
+                    valid_indices = indices[
+                        (indices >= 0) & (indices < len(corrected_valid_mask))
+                    ]
+                    corrected_valid_mask[valid_indices] = True
+
+                    # Update the valid_mask in the neuron array
+                    neuron_array.valid_mask = neuron_array.backend.array(
+                        corrected_valid_mask
+                    )
+                    neuron_array.neuron_count = actual_valid_count
+
+                    logger.info(
+                        f"[SYNC FIX] Corrected valid_mask: {np.sum(corrected_valid_mask)} valid neurons"
+                    )
+
+                # CRITICAL: Invalidate any cached arrays in burst engine to force refresh
+                if hasattr(self, "_cached_valid_neurons"):
+                    delattr(self, "_cached_valid_neurons")
+                if hasattr(self, "_cached_neuron_count"):
+                    delattr(self, "_cached_neuron_count")
+
+                logger.info(
+                    "[SYNC FIX] Neuron array synchronization completed", status="[OK]"
+                )
+
+            # Get current cortical areas for comparison
+            new_cortical_areas = (
+                list(self.connectome_manager.cortical_areas.values())
+                if hasattr(self.connectome_manager, "cortical_areas")
+                else []
             )
-            # PERFORMANCE: Removed disk I/O debug logging - violates RTOS/embedded rules
+            new_shed_areas = set(
+                area.id
+                for area in new_cortical_areas
+                if area.properties.get("__shed", False)
+            )
 
-        # Get current cortical areas for comparison
-        new_cortical_areas = (
-            list(self.connectome_manager.cortical_areas.values())
-            if hasattr(self.connectome_manager, "cortical_areas")
-            else []
-        )
-        new_shed_areas = set(
-            area.id
-            for area in new_cortical_areas
-            if area.properties.get("__shed", False)
-        )
+            # Always ensure injection service is initialized when genome is loaded
+            # Update cortical areas from connectome
+            self.cortical_areas = new_cortical_areas
+            self.shed_areas = new_shed_areas
 
-        # Always ensure injection service is initialized when genome is loaded
-        # Update cortical areas from connectome
-        self.cortical_areas = new_cortical_areas
-        self.shed_areas = new_shed_areas
+            # Always initialize injection service to ensure proper special area detection
+            logger.debug(
+                "[DEBUG] BURST ENGINE: Re-initializing injection service with genome data"
+            )
 
-        # Always initialize injection service to ensure proper special area detection
-        logger.debug(
-            "[DEBUG] BURST ENGINE: Re-initializing injection service with genome data"
-        )
+            self._initialize_injection_service()
 
-        self._initialize_injection_service()
+            service_type = (
+                type(self.injection_service).__name__
+                if self.injection_service
+                else "None"
+            )
+            logger.debug(
+                f"[DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}"
+            )
+            # Write to debug file for development
+            try:
+                with open("/tmp/feagi_injection_debug.log", "a") as f:
+                    import datetime
 
-        service_type = (
-            type(self.injection_service).__name__
-            if self.injection_service
-            else "None"
-        )
-        logger.debug(
-            f"[DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}"
-        )
-        # PERFORMANCE: Removed disk I/O debug logging - violates RTOS/embedded rules
+                    f.write(
+                        f"{datetime.datetime.now()}: Injection service after init: {service_type}\n"
+                    )
+            except Exception:
+                pass
 
-        # Mark genome as loaded
-        self.genome_loaded = True
+            # Mark genome as loaded
+            self.genome_loaded = True
 
-        logger.info(
-            f"Burst engine updated: {len(self.cortical_areas)} cortical areas, "
-            f"{len(self.shed_areas)} shed areas",
-            status="[CONFIG]",
-        )
+            logger.info(
+                f"Burst engine updated: {len(self.cortical_areas)} cortical areas, "
+                f"{len(self.shed_areas)} shed areas",
+                status="[CONFIG]",
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating burst engine with genome: {e}")
+            self.genome_loaded = False
 
     def refresh_special_areas(self) -> None:
         """
@@ -815,7 +926,16 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             return False
 
         try:
-            # PERFORMANCE: Removed disk I/O debug logging - violates RTOS/embedded rules
+            # Unconditional proof that run_with_fire_queue is being called
+            try:
+                with open("/tmp/feagi_fire_queue.log", "a") as f:
+                    import datetime
+
+                    f.write(
+                        f"{datetime.datetime.now()}: run_with_fire_queue called, about to call _process_burst_with_power_injection\n"
+                    )
+            except Exception:
+                pass
 
             # FCL manager uses sliding window with current timestep always 0
             current_timestep = 0  # Fixed: always use 0 for current timestep

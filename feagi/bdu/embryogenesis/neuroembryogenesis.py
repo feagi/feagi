@@ -895,14 +895,8 @@ class NeuroEmbryogenesis:
                 start_idx = neuron_array.next_index
                 end_idx = start_idx + area_neuron_count
                 
-                # CAPACITY FIX: Check against current_capacity and grow arrays if needed
-                if end_idx > neuron_array.current_capacity:
-                    logger.info(f"Growing neural arrays: need {end_idx}, have {neuron_array.current_capacity}")
-                    neuron_array._ensure_capacity(end_idx)
-                
-                # Secondary check against absolute maximum
                 if end_idx > neuron_array.max_neurons:
-                    raise ValueError(f"Area requires {area_neuron_count} neurons, would exceed maximum capacity {neuron_array.max_neurons}")
+                    raise ValueError(f"Not enough capacity for {area_neuron_count} neurons")
 
                 # FAST: Generate neuron IDs in bulk
                 neuron_ids = list(range(neuron_array._next_neuron_id, neuron_array._next_neuron_id + area_neuron_count))
@@ -917,10 +911,6 @@ class NeuroEmbryogenesis:
                 base_threshold = properties.get("fire_t", 1.0)
                 base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
                 base_refractory = properties.get("refrac", 1)
-                
-                # NEW: Extract snooze properties from genome
-                base_snooze_period = int(properties.get("snooze_length", 0))
-                base_consecutive_limit = int(properties.get("consecutive_fire_cnt_max", 0))
 
                 # SoA OPTIMIZATION: Set all properties with single array operations
                 neuron_array.valid_mask[start_idx:end_idx] = True
@@ -930,13 +920,6 @@ class NeuroEmbryogenesis:
                 neuron_array.decay_rates[start_idx:end_idx] = base_decay_rate
                 neuron_array.refractory_periods[start_idx:end_idx] = base_refractory
                 neuron_array.refractory_counters[start_idx:end_idx] = 0
-                
-                # NEW: Set snooze properties from genome
-                neuron_array.snooze_periods[start_idx:end_idx] = base_snooze_period
-                neuron_array.snooze_counters[start_idx:end_idx] = 0
-                neuron_array.consecutive_fire_counts[start_idx:end_idx] = 0
-                neuron_array.consecutive_fire_limits[start_idx:end_idx] = base_consecutive_limit
-                
                 neuron_array.cortical_idxs[start_idx:end_idx] = area.cortical_idx
                 neuron_array.is_active[start_idx:end_idx] = True
 

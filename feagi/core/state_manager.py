@@ -193,85 +193,6 @@ class FeagiStateManager:
         
         return Result.ok(None)
     
-    # === TIMESTEP MANAGEMENT (SINGLE SOURCE OF TRUTH) ===
-    
-    def get_current_timestep(self) -> int:
-        """
-        Get current simulation timestep.
-        
-        SINGLE SOURCE OF TRUTH: All components must use this for timestep synchronization.
-        No component should maintain its own timestep counter.
-        
-        Returns:
-            Current simulation timestep (starts at 0)
-        """
-        return self._state.current_timestep
-    
-    def set_current_timestep(self, timestep: int) -> Result[None]:
-        """
-        Set current simulation timestep.
-        
-        Args:
-            timestep: New timestep value (must be >= 0)
-            
-        Returns:
-            Result indicating success or failure
-        """
-        if not isinstance(timestep, int) or timestep < 0:
-            return Result.err(StateError.VALIDATION_FAILED)
-        
-        with self._instance_lock:
-            old_timestep = self._state.current_timestep
-            self._state.current_timestep = timestep
-            self._increment_version()
-            
-            # Log state change
-            self._log_state_change("current_timestep", old_timestep, timestep)
-            
-            # Persist to storage
-            store_result = self._storage.store_state(self._state)
-            if store_result.is_err:
-                # Rollback on storage failure
-                self._state.current_timestep = old_timestep
-                return store_result
-        
-        return Result.ok(None)
-    
-    def advance_timestep(self) -> int:
-        """
-        Advance to the next simulation timestep.
-        
-        ATOMIC OPERATION: Thread-safe increment of global simulation time.
-        This is the primary method for advancing simulation time.
-        
-        Returns:
-            New timestep value after increment
-        """
-        with self._instance_lock:
-            old_timestep = self._state.current_timestep
-            new_timestep = old_timestep + 1
-            self._state.current_timestep = new_timestep
-            self._increment_version()
-            
-            # Log state change
-            self._log_state_change("current_timestep", old_timestep, new_timestep)
-            
-            # Note: No persistence for performance - timestep advances frequently
-            # Persistence only happens on explicit set_current_timestep calls
-            
-        return new_timestep
-    
-    def reset_timestep(self) -> Result[None]:
-        """
-        Reset simulation timestep to 0.
-        
-        Used when starting new simulations or resetting state.
-        
-        Returns:
-            Result indicating success or failure
-        """
-        return self.set_current_timestep(0)
-    
     # === BURST ENGINE STATE MANAGEMENT ===
     
     def get_burst_engine_state(self) -> int:
@@ -787,7 +708,6 @@ class FeagiStateManager:
                     "burst_engine": self.get_burst_engine_state(),
                     "fq_sampler": self.get_fq_sampler_state(),
                     "brain_readiness": self.get_brain_readiness(),
-                    "current_timestep": self.get_current_timestep(),
                 },
                 "development": {
                     "neuroembryogenesis_stage": self._state.neuroembryogenesis_stage,
@@ -920,7 +840,6 @@ class FeagiStateManager:
             logger.info(f"Brain Readiness: {self.get_brain_readiness()}")
             logger.info(f"Burst Engine State: {self.get_burst_engine_state()}")
             logger.info(f"FQ Sampler State: {self.get_fq_sampler_state()}")
-            logger.info(f"Current Timestep: {self.get_current_timestep()}")
             logger.info(f"Exit Condition: {self.get_exit_condition()}")
             
             # Additional state info

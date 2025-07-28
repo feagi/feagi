@@ -2176,9 +2176,7 @@ class CoreAPIService:
                 hasattr(self._connectome_manager, "fcl_manager")
                 and self._connectome_manager.fcl_manager
             ):
-                # ARCHITECTURAL FIX: Use explicit timestep from FeagiStateManager
-                current_timestep = self.state_manager.get_current_timestep()
-                global_fcl = self._connectome_manager.fcl_manager.get_global_fcl(current_timestep)
+                global_fcl = self._connectome_manager.fcl_manager.get_global_fcl()
 
                 if global_fcl.is_empty():
                     return None
