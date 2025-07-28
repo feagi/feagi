@@ -2298,7 +2298,7 @@ class CoreAPIService:
                 # CRITICAL FIX: Convert neuron IDs to indices for array access
                 firing_indices = []
                 for neuron_id in firing_neuron_ids:
-                    neuron_index = connectome_manager.get_neuron_index(neuron_id)
+                    neuron_index = self._connectome_manager.get_neuron_index(neuron_id)
                     if neuron_index is not None:
                         firing_indices.append(neuron_index)
 
