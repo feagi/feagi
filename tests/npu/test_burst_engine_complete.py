@@ -66,9 +66,11 @@ class MockConnectomeManager:
         # Set get_optimized_core as a MagicMock so we can check if it was called
         self.get_optimized_core = MagicMock(return_value=Mock())
 
-    def update_membrane_potentials(self):
+    def update_membrane_potentials(self, decay_factor=None, current_timestep=None):
+        """Updated to support new FCL auto-fire architecture signature."""
         self.calls += 1
-        return [1, 2, 3]  # Return some fired neurons
+        # NEW ARCHITECTURE: Return neurons that will fire in NEXT burst
+        return [4, 5, 6]  # Return next burst neurons
 
     def get_cortical_area(self, cortical_id):
         return self.cortical_areas.get(cortical_id)
@@ -554,7 +556,7 @@ def test_fq_sampler_connectivity():
 
 
 def test_process_burst_method(mock_connectome_manager, mock_state_manager):
-    """Test the _process_burst method."""
+    """Test the _process_burst method with new FCL auto-fire architecture."""
     with patch(
         "feagi.npu.burst_engine.FeagiStateManager.instance",
         return_value=mock_state_manager,
@@ -565,10 +567,18 @@ def test_process_burst_method(mock_connectome_manager, mock_state_manager):
             config={"target_frequency": 20},
         )
 
-        # Mock the update_membrane_potentials method to track calls
+        # Mock the update_membrane_potentials method to return next burst neurons
         mock_connectome_manager.update_membrane_potentials = MagicMock(
-            return_value=[1, 2, 3]
+            return_value=[4, 5, 6]  # These represent NEXT burst neurons
         )
+        
+        # Mock neural processor for new architecture
+        mock_neural_processor = MagicMock()
+        mock_neural_processor.get_performance_stats.return_value = {
+            'avg_fcl_size': 3.0,  # Current burst fired count
+            'avg_processing_time_ms': 0.5
+        }
+        mock_connectome_manager._neural_processor = mock_neural_processor
 
         # Call the _process_burst method
         result = engine._process_burst()
@@ -576,8 +586,12 @@ def test_process_burst_method(mock_connectome_manager, mock_state_manager):
         # Verify that update_membrane_potentials was called
         mock_connectome_manager.update_membrane_potentials.assert_called_once()
 
-        # Verify the result
-        assert result == [1, 2, 3]
+        # NEW ARCHITECTURE: Result is empty list (fired neurons handled internally)
+        # The actual fired neuron information is available through neural processor stats
+        assert result == []
+        
+        # Verify neural processor stats were accessed
+        mock_neural_processor.get_performance_stats.assert_called()
 
 
 @pytest.mark.skip(

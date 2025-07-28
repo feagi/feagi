@@ -387,8 +387,10 @@ class CorticalAreaService(BaseService):
             # Get all neurons in this area
             neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_id)
 
-            # Current timestep
-            current_time = self._connectome_manager.current_timestep
+            # ARCHITECTURAL FIX: Get current timestep from FeagiStateManager as single source of truth
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            current_time = state_manager.get_current_timestep()
 
             # Get neurons that fired within the window
             active_neurons = []

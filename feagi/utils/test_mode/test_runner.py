@@ -421,13 +421,18 @@ class FeagiTestRunner:
                 # Add to neural data if we have valid coordinates
                 if coordinates_x:
                     import numpy as np
+                    
+                    # ENSURE SUFFICIENT STIMULATION: Use high membrane potential to guarantee firing
+                    high_potential = 3.0  # Well above typical firing threshold
+                    membrane_potentials = [high_potential] * len(coordinates_x)
+                    
                     neural_data[cortical_area_id] = {
                         'coordinates_x': np.array(coordinates_x, dtype=np.uint32),
                         'coordinates_y': np.array(coordinates_y, dtype=np.uint32),
                         'coordinates_z': np.array(coordinates_z, dtype=np.uint32),
                         'membrane_potentials': np.array(membrane_potentials, dtype=np.float32),
                     }
-                    logger.debug(f"Prepared {len(coordinates_x)} coordinates for stimulation in {cortical_area_id}")
+                    logger.info(f"🎯 Prepared {len(coordinates_x)} coordinates for stimulation in {cortical_area_id} (potential={high_potential})")
             
             if not neural_data:
                 logger.warning(f"No valid coordinates found for {source_name}")
@@ -466,12 +471,28 @@ class FeagiTestRunner:
         total_active_neurons = 0
         empty_fcl_count = 0
 
+        # ARCHITECTURAL FIX: Check FCL at the timestep that was just processed (t-1)
+        # The neural processor processes a burst, then state manager advances timestep
+        # So we need to check the previous timestep to see what just fired
+        from feagi.core.state_manager import FeagiStateManager
+        state_manager = FeagiStateManager.instance()
+        current_timestep = state_manager.get_current_timestep()
+        
+        # CRITICAL FIX: Check the timestep that was just processed, not the current timestep
+        check_timestep = current_timestep - 1 if current_timestep > 0 else 0
+        
         for cortical_id in self.connectome.cortical_areas:
             # CRITICAL FIX: get_cortical_fcl expects cortical_idx (int), not cortical_id (str)
             cortical_area = self.connectome.cortical_areas[cortical_id]
             cortical_idx = cortical_area.cortical_idx
-            current_fcl = self.fcl_manager.get_cortical_fcl(cortical_idx)
-            current_fcl_set = set(current_fcl) if current_fcl else set()
+            
+            # ARCHITECTURAL FIX: Check FCL at the timestep that was just processed
+            processed_fcl = self.fcl_manager.get_cortical_fcl(cortical_idx, check_timestep)
+            current_fcl_set = set(processed_fcl) if processed_fcl else set()
+            
+            # Debug: Log FCL checking for significant activity only
+            if len(current_fcl_set) > 5:  # Only log significant activity
+                logger.info(f"FCL Check {cortical_id}: timestep={check_timestep}, neurons={len(current_fcl_set)}")
 
             # Count empty FCLs for debugging
             if not current_fcl_set:

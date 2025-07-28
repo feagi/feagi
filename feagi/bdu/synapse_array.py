@@ -333,17 +333,80 @@ class GlobalSynapseArray:
         return True
     
     def get_outgoing_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
-        """Get all outgoing connections from a neuron."""
+        """Get all outgoing connections from a neuron with vectorized NumPy operations."""
         if neuron_id not in self.pre_neuron_index:
             return []
         
-        connections = []
-        for slot_idx in self.pre_neuron_index[neuron_id]:
-            post_id = int(self.post_neuron_ids[slot_idx])
-            weight = float(self.weights[slot_idx])
-            connections.append((post_id, weight))
+        # PERFORMANCE OPTIMIZATION: Use vectorized operations instead of Python loops
+        slot_indices = self.pre_neuron_index[neuron_id]
+        if not slot_indices:
+            return []
+        
+        # Convert to numpy array for vectorized operations
+        slot_array = np.array(slot_indices, dtype=np.int32)
+        
+        # Vectorized extraction using advanced indexing - SIMD optimized
+        post_ids = self.post_neuron_ids[slot_array]
+        weights = self.weights[slot_array]
+        
+        # Vectorized conversion and zip - much faster than Python loop
+        connections = list(zip(post_ids.astype(int), weights.astype(float)))
         
         return connections
+
+    def get_connections_into_buffer(self, neuron_ids: np.ndarray, target_buffer: np.ndarray, weight_buffer: np.ndarray) -> int:
+        """
+        ZERO-ALLOCATION synaptic lookup writing directly into provided buffers.
+        
+        PERMANENT BUFFER ARCHITECTURE: No allocations, no deallocations, no GC pressure.
+        
+        Args:
+            neuron_ids: NumPy array of neuron IDs to get connections for
+            target_buffer: Pre-allocated buffer to write target neuron IDs into
+            weight_buffer: Pre-allocated buffer to write weights into
+            
+        Returns:
+            Number of connections written to buffers
+        """
+        # ULTRA-DETAILED TIMING: Find bottlenecks in synaptic lookup
+        import time
+        start_total = time.perf_counter()
+        
+        if len(neuron_ids) == 0:
+            return 0
+        
+        # WRITE DIRECTLY: No intermediate allocations
+        start_loop = time.perf_counter()
+        write_pos = 0
+        dict_lookups = 0
+        total_connections = 0
+        
+        for neuron_id in neuron_ids:
+            dict_lookups += 1
+            if neuron_id in self.pre_neuron_index and self.pre_neuron_index[neuron_id]:
+                slot_indices = self.pre_neuron_index[neuron_id]
+                connection_count = len(slot_indices)
+                total_connections += connection_count
+                
+                # BOUNDS CHECK: Ensure buffer capacity
+                if write_pos + connection_count > len(target_buffer):
+                    logger.error(f"Buffer overflow! Need {write_pos + connection_count}, have {len(target_buffer)}")
+                    break
+                
+                # DIRECT WRITE: No array creation, just assignment
+                for slot_idx in slot_indices:
+                    target_buffer[write_pos] = self.post_neuron_ids[slot_idx]
+                    weight_buffer[write_pos] = self.weights[slot_idx]
+                    write_pos += 1
+        
+        loop_time = time.perf_counter() - start_loop
+        total_time = time.perf_counter() - start_total
+        
+        # Optional detailed logging (disabled for performance)
+        # if total_time > 0.005:  # Only log if unusually slow
+        #     logger.info(f"SYNAPSE_LOOKUP (slow={total_time*1000:.2f}ms): connections={total_connections}")
+        
+        return write_pos
     
     def get_incoming_connections(self, neuron_id: int) -> List[Tuple[int, float]]:
         """Get all incoming connections to a neuron."""

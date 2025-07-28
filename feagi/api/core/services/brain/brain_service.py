@@ -76,21 +76,12 @@ class BrainService(BaseService):
 
     def start_burst_engine(self) -> bool:
         """Start the burst engine."""
-        # Unconditional debug logging
+        # PERFORMANCE: Removed disk I/O debug logging
+        
         try:
-            with open("/tmp/feagi_injection_debug.log", "a") as f:
-                import datetime
-
-                f.write(
-                    f"{datetime.datetime.now()}: Brain service start_burst_engine() called\n"
-                )
-        except Exception:
-            pass
-
-        try:
-            if not self.state_manager:
-                # Can't check debug flag without state manager
-                print("[DEBUG] BRAIN SERVICE: No state manager available")
+            state_manager = FeagiStateManager.instance()
+            if not state_manager:
+                logger.error("No state manager available")
                 return False
 
             # Get the singleton burst engine instance
@@ -227,28 +218,14 @@ class BrainService(BaseService):
                 self.logger.debug(
                     f"BRAIN SERVICE: Checking genome status - loaded: {genome_loaded}"
                 )
-                # Write to debug file
-                try:
-                    with open("/tmp/feagi_injection_debug.log", "a") as f:
-                        import datetime
-
-                        f.write(
-                            f"{datetime.datetime.now()}: Brain service start - genome loaded: {genome_loaded}\n"
-                        )
-                except Exception:
-                    pass
+                # PERFORMANCE: Removed disk I/O debug logging
 
                 if genome_loaded:
                     self.logger.debug(
                         "BRAIN SERVICE: Genome already loaded, calling update_with_genome()"
                     )
                     try:
-                        with open("/tmp/feagi_injection_debug.log", "a") as f:
-                            import datetime
-
-                            f.write(
-                                f"{datetime.datetime.now()}: Brain service calling update_with_genome()\n"
-                            )
+                        # PERFORMANCE: Removed disk I/O debug logging
                         burst_engine.update_with_genome()
                         self.logger.info(
                             "Updated burst engine with existing genome - injection service initialized"
@@ -257,15 +234,7 @@ class BrainService(BaseService):
                         self.logger.warning(
                             f"Failed to update burst engine with existing genome: {str(e)}"
                         )
-                        try:
-                            with open("/tmp/feagi_injection_debug.log", "a") as f:
-                                import datetime
-
-                                f.write(
-                                    f"{datetime.datetime.now()}: Brain service error: {str(e)}\n"
-                                )
-                        except Exception:
-                            pass
+                        # PERFORMANCE: Removed disk I/O debug logging
 
                 return True
             else:
@@ -487,9 +456,12 @@ class BrainService(BaseService):
             if hasattr(self._connectome_manager, "reset_neural_states"):
                 self._connectome_manager.reset_neural_states()
 
-            # Reset timestep
-            if hasattr(self._connectome_manager, "current_timestep"):
-                self._connectome_manager.current_timestep = 0
+            # ARCHITECTURAL FIX: Reset timestep using FeagiStateManager as single source of truth
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            reset_result = state_manager.reset_timestep()
+            if reset_result.is_err:
+                self.logger.warning(f"Failed to reset timestep: {reset_result.unwrap_err()}")
 
             # Clear FCL if available
             if hasattr(self._connectome_manager, "reset_fcl"):
@@ -713,6 +685,7 @@ class BrainService(BaseService):
                     # Group coordinates by unique positions and apply stimulation in batches
                     area_stimulated = 0
                     area_failed = 0
+                    stimulated_neurons_for_fcl = []  # Track for FCL injection
                     
                     # Process each unique coordinate position
                     for unique_idx, unique_coord in enumerate(unique_coords):
@@ -741,6 +714,7 @@ class BrainService(BaseService):
                                             [potential_value] * len(neurons_at_coord)
                                         )
                                         area_stimulated += len(neurons_at_coord)
+                                        stimulated_neurons_for_fcl.extend(neurons_at_coord)
                                     else:
                                         # Fallback to individual updates
                                         for neuron_id in neurons_at_coord:
@@ -749,6 +723,7 @@ class BrainService(BaseService):
                                                     neuron_id, "membrane_potential", potential_value
                                                 )
                                                 area_stimulated += 1
+                                                stimulated_neurons_for_fcl.append(neuron_id)
                                             except Exception as e:
                                                 self.logger.warning(
                                                     f"Failed to stimulate neuron {neuron_id}: {str(e)}"
@@ -761,6 +736,41 @@ class BrainService(BaseService):
                                     f"Failed to stimulate neurons at {coord_tuple}: {str(e)}"
                                 )
                                 area_failed += len(neurons_at_coord)
+                    
+                    # CRITICAL FIX: Add stimulated neurons to FCL so they can fire!
+                    if stimulated_neurons_for_fcl:
+                        try:
+                            # Get FCL injection service from burst engine
+                            burst_engine = self._get_burst_engine()
+                            if burst_engine and hasattr(burst_engine, 'injection_service'):
+                                fcl_service = burst_engine.injection_service
+                                
+                                # Prepare activations for FCL injection
+                                activations = {cortical_id: stimulated_neurons_for_fcl}
+                                
+                                # ARCHITECTURAL FIX: Use FeagiStateManager as single source of truth for timestep
+                                from feagi.core.state_manager import FeagiStateManager
+                                state_manager = FeagiStateManager.instance()
+                                current_timestep = state_manager.get_current_timestep()
+                                
+                                fcl_injected = fcl_service.inject_external_activations(
+                                    activations=activations,
+                                    current_timestep=current_timestep,
+                                    source="unified_stimulation"
+                                )
+                                
+                                if fcl_injected > 0:
+                                    self.logger.info(f"✅ FCL INJECTION: Added {fcl_injected} stimulated neurons to FCL in area {cortical_id}")
+                                else:
+                                    self.logger.warning(f"❌ FCL INJECTION: Failed to add neurons to FCL in area {cortical_id}")
+                            else:
+                                self.logger.warning("❌ FCL injection service not available - neurons stimulated but won't fire!")
+                                
+                        except Exception as e:
+                            self.logger.error(f"❌ FCL INJECTION ERROR: {e}")
+                            # Don't fail the whole stimulation if FCL injection fails
+                            import traceback
+                            self.logger.error(traceback.format_exc())
                     
                     area_results[cortical_id] = {
                         "success": True,

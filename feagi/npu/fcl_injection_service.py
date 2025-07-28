@@ -103,7 +103,18 @@ class FCLInjectionService:
 
         # Configuration attributes expected by other components
         self.batch_size = 1000  # Default batch size for processing neurons
-        self.enable_probabilistic = True  # Enable probabilistic injection by default
+        self.enable_probabilistic = True
+        
+        # PERFORMANCE: Cache state manager reference for timing calculations
+        self._cached_state_manager = None
+        try:
+            from feagi.core.state_manager import FeagiStateManager
+            self._cached_state_manager = FeagiStateManager.instance()
+        except Exception:
+            logger.warning("Could not cache state manager reference for timing calculations")
+            
+        # Track pending injection count for backpressure
+        self._pending_injection_count = 0
         self.last_injection_duration = 0.0
 
         # Statistics tracking
@@ -236,48 +247,46 @@ class FCLInjectionService:
             Number of power neurons injected
         """
         try:
-            # Write proof EVERY call for debugging to see what's happening
-            with open("/tmp/feagi_injection_proof.log", "a") as f:
-                f.write(
-                    f"[{current_timestep}] inject_pre_burst called (every burst mode)\n"
-                )
-
-            # Get power area neurons from special area handler (cortical_idx=1)
-            # This happens EVERY burst to provide constant power supply
-            power_neurons = self.special_area_handler.get_power_area_neurons()
-
-            # Write proof EVERY call showing what neurons were found
-            with open("/tmp/feagi_injection_proof.log", "a") as f:
-                if power_neurons:
-                    f.write(
-                        f"[{current_timestep}] Found {len(power_neurons)} power neurons: {power_neurons} (injecting every burst)\n"
-                    )
+            # PERFORMANCE OPTIMIZATION: Cache power neurons and PSP value to avoid repeated lookups
+            if not hasattr(self, '_cached_power_neurons') or current_timestep % 100 == 0:
+                # Refresh cache every 100 timesteps or on first run
+                self._cached_power_neurons = self.special_area_handler.get_power_area_neurons()
+                
+                # Cache PSP value from power area properties
+                if self.connectome_manager and hasattr(self.connectome_manager, "neuron_array"):
+                    power_area = self.connectome_manager.get_cortical_area("___pwr")
+                    if power_area and power_area.properties:
+                        self._cached_psp_value = power_area.properties.get("postsynaptic_current", 500.0)
+                    else:
+                        self._cached_psp_value = 500.0  # Fallback to essential genome default
                 else:
-                    f.write(f"[{current_timestep}] NO POWER NEURONS FOUND\n")
+                    self._cached_psp_value = 500.0
+            
+            power_neurons = self._cached_power_neurons
 
+            # Debug logging without disk I/O (reduce frequency)
             if not power_neurons:
-                # Only log this occasionally to avoid spam
-                if current_timestep % 100 == 0:
-                    logger.debug(
-                        f"No power area neurons found for injection at timestep {current_timestep}"
-                    )
+                if current_timestep % 1000 == 0:  # Log only every 1000 timesteps
+                    logger.warning("No power neurons found for injection")
                 return 0
 
-            # FAST: Set membrane potential to PSP value from cortical area properties
+            # PERFORMANCE: Vectorized membrane potential setting
             if self.connectome_manager and hasattr(self.connectome_manager, "neuron_array"):
-                # Get PSP value from power area properties via connectome manager
-                power_area = self.connectome_manager.get_cortical_area("___pwr")
-                if power_area and power_area.properties:
-                    psp_value = power_area.properties.get("postsynaptic_current", 500.0)
-                else:
-                    psp_value = 500.0  # Fallback to essential genome default
-                
                 neuron_array = self.connectome_manager.neuron_array
+                psp_value = self._cached_psp_value
+                
+                # PERFORMANCE: Batch convert neuron IDs to indices
+                indices = []
                 for neuron_id in power_neurons:
-                    # For power neurons, set membrane potential to PSP value (use correct attribute name)
                     idx = self.connectome_manager.get_neuron_index(neuron_id)
                     if idx is not None:
-                        neuron_array.membrane_potentials[idx] = psp_value
+                        indices.append(idx)
+                
+                # PERFORMANCE: Vectorized membrane potential update using NumPy
+                if indices:
+                    import numpy as np
+                    indices_array = np.array(indices, dtype=np.int32)
+                    neuron_array.membrane_potentials[indices_array] = psp_value
 
             # Now inject power neurons into FCL (with proper membrane potentials set)
             # This happens EVERY BURST to provide constant power supply
@@ -435,7 +444,16 @@ class FCLInjectionService:
 
             # Use proper cortical area mapping so FQ sampler can filter correctly
             neurons_by_cortical = {cortical_idx: neurons_to_inject}
-            self.fcl_manager.update_fcl(current_timestep, neurons_by_cortical)
+            
+            # ARCHITECTURAL FIX: Get the actual next timestep from FeagiStateManager
+            # The state manager has already advanced after burst processing, so we inject into its current timestep
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            next_timestep = state_manager.get_current_timestep()
+            
+            # Inject neurons into FCL for next timestep
+            
+            self.fcl_manager.update_fcl(next_timestep, neurons_by_cortical)
             logger.debug(
                 f"FCL candidate addition: Added {len(neurons_to_inject)} candidates from {cortical_id} (cortical_idx={cortical_idx}) to FCL"
             )
@@ -563,12 +581,27 @@ class FCLInjectionService:
             Number of neurons successfully injected (0 if rejected due to backpressure)
         """
         try:
-            # BACKPRESSURE CHECK: Verify burst engine is ready for injection
-            if not self._check_burst_engine_ready():
+            # BACKPRESSURE CHECK: Apply source-based backpressure policy
+            critical_sources = {
+                "unified_stimulation",  # Test mode, manual stimulation
+                "power_injection",      # Brain power areas  
+                "test_mode_1",          # Test mode 1
+                "test_mode_2",          # Test mode 2
+                "emergency_injection"   # Safety-critical injections
+            }
+            
+            # Calculate total injection size for capacity check
+            total_injection_size = sum(len(neuron_ids) for neuron_ids in activations.values())
+            
+            if source not in critical_sources and not self._check_injection_capacity(total_injection_size):
                 logger.warning(
-                    f"Rejecting injection from {source} - burst engine not ready"
+                    f"Rejecting injection from {source} - insufficient capacity for {total_injection_size} neurons"
                 )
                 return 0
+            elif source in critical_sources:
+                logger.debug(f"Allowing critical injection from {source} (bypassing backpressure)")
+            else:
+                logger.debug(f"Allowing injection from {source} - burst engine ready")
 
             total_injected = 0
 
@@ -576,6 +609,9 @@ class FCLInjectionService:
                 logger.debug(f"No activations provided by {source}")
                 return 0
 
+            # Track pending injection for queue monitoring
+            self._pending_injection_count += 1
+            
             logger.debug(
                 f"Processing external activations from {source}: {len(activations)} cortical areas"
             )
@@ -653,50 +689,96 @@ class FCLInjectionService:
             else:
                 logger.warning(f"No external candidates were injected from {source}")
 
+            # Decrement pending injection count
+            self._pending_injection_count = max(0, self._pending_injection_count - 1)
+            
             return total_injected
 
         except Exception as e:
+            # Decrement pending injection count on error
+            self._pending_injection_count = max(0, self._pending_injection_count - 1)
+            
             logger.error(f"Error in external activations injection from {source}: {e}")
             import traceback
 
             logger.error(traceback.format_exc())
             return 0
 
-    def _check_burst_engine_ready(self) -> bool:
+    def _check_injection_capacity(self, injection_size: int) -> bool:
         """
-        Check if the burst engine is ready to accept new injections.
-
-        PERFORMANCE: Optimized for RTOS/SIMD/GPU environments with minimal overhead.
-        Uses cached state checks to avoid expensive API calls during high-frequency operation.
-
+        Check if injection service can handle the load within timing constraints.
+        
+        PERFORMANCE-BASED BACKPRESSURE: Rejects only when timing constraints would be violated,
+        not based on arbitrary state machine logic.
+        
+        Args:
+            injection_size: Number of neurons to inject
+            
         Returns:
-            True if ready to accept injections, False otherwise
+            True if injection can be processed within timing constraints, False otherwise
         """
-        # PERFORMANCE: Cache the state manager reference to avoid repeated lookups
-        if not hasattr(self, "_cached_state_manager"):
-            try:
-                from feagi.core.state_manager import FeagiStateManager
-
-                self._cached_state_manager = FeagiStateManager.instance()
-            except Exception:
-                self._cached_state_manager = None
-
-        # PERFORMANCE: Fast path - if no state manager, allow injection (fail-open for performance)
-        if not self._cached_state_manager:
-            return True
-
-        # PERFORMANCE: Single state check - avoid multiple API calls
         try:
-            from feagi.core.state_manager import ServiceState
-
-            burst_state = self._cached_state_manager.get_burst_engine_state()
-
-            # RTOS-FRIENDLY: Simple state comparison, no complex logic
-            return burst_state == ServiceState.READY
-
-        except Exception:
-            # PERFORMANCE: Fail-open on error to maintain injection throughput
+            # FAST PATH: For small injections, always allow (< 1000 neurons)
+            if injection_size < 1000:
+                return True
+                
+            # Get burst interval for timing calculations
+            burst_interval = self._get_burst_interval_seconds()
+            if burst_interval is None or burst_interval <= 0:
+                return True  # No timing constraints known, allow injection
+                
+            # Estimate injection processing time based on neuron count
+            # Conservative estimate: 1μs per neuron for FCL operations
+            estimated_injection_time = injection_size * 1e-6  # 1 microsecond per neuron
+            
+            # Apply 80% safety margin to burst interval
+            max_allowed_time = burst_interval * 0.8
+            
+            if estimated_injection_time > max_allowed_time:
+                # TIMING VIOLATION: Injection would take too long
+                logger.warning(
+                    f"BACKPRESSURE: Injection too large ({injection_size} neurons, "
+                    f"est. {estimated_injection_time*1000:.2f}ms) for burst interval "
+                    f"({burst_interval*1000:.2f}ms)"
+                )
+                return False
+                
+            # Check if we have queue capacity
+            if hasattr(self, '_pending_injection_count'):
+                if self._pending_injection_count > 10:  # Max 10 pending injections
+                    logger.warning("BACKPRESSURE: Injection queue full")
+                    return False
+                    
             return True
+            
+        except Exception as e:
+            # FAIL-OPEN: Allow injection on error to maintain system operation
+            logger.debug(f"Injection capacity check failed, allowing injection: {e}")
+            return True
+            
+    def _get_burst_interval_seconds(self) -> float:
+        """Get current burst interval in seconds for timing calculations."""
+        try:
+            if hasattr(self, '_cached_state_manager') and self._cached_state_manager:
+                # Try to get burst frequency from state manager
+                if hasattr(self._cached_state_manager, 'get_burst_frequency'):
+                    frequency = self._cached_state_manager.get_burst_frequency()
+                    if frequency and frequency > 0:
+                        return 1.0 / frequency
+                        
+            # Fallback: Try to get from burst engine directly
+            from feagi.npu.burst_engine import BurstEngine
+            burst_engine = BurstEngine.get_instance()
+            if burst_engine and hasattr(burst_engine, 'get_frequency_config'):
+                config = burst_engine.get_frequency_config()
+                if config and 'burst_interval_seconds' in config:
+                    return config['burst_interval_seconds']
+                    
+            # Default: Assume 10Hz (100ms interval) if no config available
+            return 0.1
+            
+        except Exception:
+            return 0.1  # Conservative default
 
     def _get_all_batches(self) -> List[InjectionBatch]:
         """Get all injection batches across all timing phases."""
