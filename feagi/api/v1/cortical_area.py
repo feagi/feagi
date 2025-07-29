@@ -174,19 +174,37 @@ class CorticalAreaAPI:
 
             # Extract coordinates using structural defaults for spatial positioning
             coordinates = area_data.get("coordinates", {})
-            coordinates_3d = [
-                coordinates.get("x", self._get_structural_default("coordinate")),
-                coordinates.get("y", self._get_structural_default("coordinate")),
-                coordinates.get("z", self._get_structural_default("coordinate")),
-            ]
+            if isinstance(coordinates, (list, tuple)):
+                # Handle tuple/list format: (x, y, z)
+                coordinates_3d = list(coordinates) if len(coordinates) >= 3 else [
+                    coordinates[0] if len(coordinates) > 0 else self._get_structural_default("coordinate"),
+                    coordinates[1] if len(coordinates) > 1 else self._get_structural_default("coordinate"),
+                    coordinates[2] if len(coordinates) > 2 else self._get_structural_default("coordinate"),
+                ]
+            else:
+                # Handle dict format: {"x": x, "y": y, "z": z}
+                coordinates_3d = [
+                    coordinates.get("x", self._get_structural_default("coordinate")),
+                    coordinates.get("y", self._get_structural_default("coordinate")),
+                    coordinates.get("z", self._get_structural_default("coordinate")),
+                ]
 
             # Extract dimensions using structural defaults for spatial dimensions
             dimensions = area_data.get("dimensions", {})
-            cortical_dimensions = [
-                dimensions.get("width", self._get_structural_default("dimension")),
-                dimensions.get("height", self._get_structural_default("dimension")),
-                dimensions.get("depth", self._get_structural_default("dimension")),
-            ]
+            if isinstance(dimensions, (list, tuple)):
+                # Handle tuple/list format: (width, height, depth)
+                cortical_dimensions = list(dimensions) if len(dimensions) >= 3 else [
+                    dimensions[0] if len(dimensions) > 0 else self._get_structural_default("dimension"),
+                    dimensions[1] if len(dimensions) > 1 else self._get_structural_default("dimension"),
+                    dimensions[2] if len(dimensions) > 2 else self._get_structural_default("dimension"),
+                ]
+            else:
+                # Handle dict format: {"width": w, "height": h, "depth": d}
+                cortical_dimensions = [
+                    dimensions.get("width", self._get_structural_default("dimension")),
+                    dimensions.get("height", self._get_structural_default("dimension")),
+                    dimensions.get("depth", self._get_structural_default("dimension")),
+                ]
 
             # Build legacy format response using template defaults for neural properties and structural defaults for spatial/organizational properties
             legacy_properties = {

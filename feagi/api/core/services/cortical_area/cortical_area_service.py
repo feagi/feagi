@@ -244,13 +244,16 @@ class CorticalAreaService(BaseService):
         Returns:
             Updated area information or None if not found
         """
+        self.logger.info(f"DEBUG: CorticalAreaService.update_area called with cortical_id={cortical_id}")
+        self.logger.info(f"DEBUG: Parameters: name={name}, coordinates={coordinates}, dimensions={dimensions}, area_type={area_type}, parameters={parameters}")
+        
         if not self._genome_service:
-            self.logger.error("GenomeService not available for WRITE operations")
+            self.logger.error("GenomeService not available for WRITE operations - cortical area updates are disabled")
             return None
 
         try:
             # ARCHITECTURE COMPLIANCE: Route WRITE operation through GenomeService
-            return self._genome_service.update_cortical_area(
+            result = self._genome_service.update_cortical_area(
                 cortical_id=cortical_id,
                 name=name,
                 coordinates=coordinates,
@@ -258,6 +261,8 @@ class CorticalAreaService(BaseService):
                 area_type=area_type,
                 parameters=parameters,
             )
+            self.logger.info(f"DEBUG: GenomeService.update_cortical_area returned: {result}")
+            return result
         except Exception as e:
             self.logger.error(
                 f"Error updating cortical area with cortical_id '{cortical_id}': {str(e)}"

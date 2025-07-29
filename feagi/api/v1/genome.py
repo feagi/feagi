@@ -26,7 +26,7 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 
 import json
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, UploadFile
 from pydantic import BaseModel
@@ -48,6 +48,9 @@ from .schemas import (
     GenomeUploadResponse,
     SuccessResponse,
 )
+
+# Import genome conversion functions for hierarchical <-> flat conversion
+from feagi.evo.genome_processor import genome_v1_v2_converter
 
 logger = setup_logger(__name__)
 
@@ -389,11 +392,25 @@ class GenomeAPI:
     def download_genome(self) -> GenomeDownloadResponse:
         """Download the current genome."""
         try:
+            # Get hierarchical genome from service
             genome_data = self.core_api_service.get_current_genome()
-            filename = (
-                self.core_api_service.get_genome_file_name() or "current_genome.json"
-            )
-
+            filename = self.core_api_service.get_genome_filename()
+            
+            if not genome_data:
+                raise ValueError("No genome data available")
+            
+            # Convert hierarchical format to flat format for export/download
+            # ARCHITECTURE: Hierarchical is for working, flat is for storage/export
+            if "blueprint" in genome_data and isinstance(genome_data["blueprint"], dict):
+                # Check if already flat format (has flattened keys)
+                blueprint_keys = list(genome_data["blueprint"].keys())
+                if blueprint_keys and not any("10c-" in key and "-cx-" in key for key in blueprint_keys[:5]):
+                    # Convert hierarchical to flat format for export
+                    logger.info("Converting hierarchical genome to flat format for download")
+                    flat_genome = genome_v1_v2_converter(genome_data)
+                    genome_data = flat_genome
+                    logger.info(f"Converted to flat format with {len(flat_genome.get('blueprint', {}))} entries")
+            
             return GenomeDownloadResponse(genome_data=genome_data, filename=filename)
         except Exception as e:
             logger.error(f"Error downloading genome: {e}")

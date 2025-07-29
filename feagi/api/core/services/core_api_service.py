@@ -367,11 +367,15 @@ class CoreAPIService:
         self, cortical_id: str, properties: Dict[str, Any]
     ) -> bool:
         """Update properties of an existing cortical area (wrapper for API compatibility)."""
+        self.logger.info(f"DEBUG: CoreAPIService.update_cortical_area_properties called with cortical_id={cortical_id}, properties={properties}")
         try:
             result = self._cortical_area_service.update_area(
                 cortical_id, parameters=properties
             )
-            return result is not None
+            self.logger.info(f"DEBUG: cortical_area_service.update_area returned: {result}")
+            success = result is not None
+            self.logger.info(f"DEBUG: Returning success={success}")
+            return success
         except Exception as e:
             self.logger.error(
                 f"Error updating cortical area properties for {cortical_id}: {str(e)}"
