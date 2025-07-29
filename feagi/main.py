@@ -390,6 +390,8 @@ def main():
             cli_overrides["log_level"] = args.log_level
         if args.debug_api:
             cli_overrides["debug_api"] = True
+            # Set environment variable for middleware detection
+            os.environ["FEAGI_DEBUG_API"] = "1"
             logger.info("API debug logging enabled via --debug-api flag")
 
         if args.debug_npu:

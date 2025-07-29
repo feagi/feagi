@@ -22,7 +22,7 @@ import traceback
 
 from feagi.utils.logger import setup_logger
 
-logger = setup_logger(name="api__server")
+logger = setup_logger(name="feagi.api.rest.app")
 logger.info("...")
 import json
 from pathlib import Path
@@ -242,9 +242,39 @@ async def log_requests(request: Request, call_next):
 
     Enhanced to capture request body and response details for comprehensive debugging.
     """
-    # Check if debug API logging is enabled
+    # Check if debug API logging is enabled - try multiple methods to detect it
     state_manager = FeagiStateManager.instance()
-    debug_api_enabled = state_manager.is_debug_api_enabled()
+    debug_api_enabled = False
+    
+    # Method 1: Check state manager
+    try:
+        debug_api_enabled = state_manager.is_debug_api_enabled()
+    except:
+        pass
+    
+    # Method 2: Check environment variable as fallback
+    if not debug_api_enabled:
+        import os
+        debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
+    
+    # Method 3: Check for debug flag in command line (ultimate fallback)
+    if not debug_api_enabled:
+        import sys
+        debug_api_enabled = "--debug-api" in sys.argv
+
+    # Always show diagnostic info to understand what's happening
+    if not hasattr(log_requests, "_diagnostic_shown"):
+        try:
+            debug_config = getattr(state_manager, '_debug_config', {})
+            logger.error(f"[DIAGNOSTIC] API Debug Status Check:")
+            logger.error(f"[DIAGNOSTIC]   Method 1 (state_manager): {state_manager.is_debug_api_enabled() if hasattr(state_manager, 'is_debug_api_enabled') else 'method missing'}")
+            logger.error(f"[DIAGNOSTIC]   Method 2 (env var): {os.environ.get('FEAGI_DEBUG_API', 'not set')}")
+            logger.error(f"[DIAGNOSTIC]   Method 3 (sys.argv): {'--debug-api' in sys.argv}")
+            logger.error(f"[DIAGNOSTIC]   Final debug_api_enabled: {debug_api_enabled}")
+            logger.error(f"[DIAGNOSTIC]   _debug_config: {debug_config}")
+        except Exception as e:
+            logger.error(f"[DIAGNOSTIC] Error checking debug status: {e}")
+        log_requests._diagnostic_shown = True
 
     if not debug_api_enabled:
         # If debug is not enabled, just pass through without logging
@@ -811,6 +841,12 @@ def create_rest_app(connectome: ConnectomeManager = None):
 
     state_manager = FeagiStateManager.instance()
     state_manager.set_api_state(ServiceState.READY)
+
+    # Log debug information about the created app
+    logger.error(f"[APP-CREATION] FastAPI app created successfully")
+    logger.error(f"[APP-CREATION] Debug API enabled: {state_manager.is_debug_api_enabled()}")
+    logger.error(f"[APP-CREATION] App middleware count: {len(app.user_middleware)}")
+    logger.error(f"[APP-CREATION] Middleware types: {[str(type(m)) for m in app.user_middleware]}")
 
     return app
 

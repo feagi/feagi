@@ -597,8 +597,11 @@ class VisualizationStream:
                             f"{compression_time_ms:.1f}ms"
                         )
                 else:
-                    # Compression didn't help, use original data
-                    logger.debug(f"[LZ4] Skipped - {compression_info['reason']}")
+                    # Compression didn't help, use original data - gate with debug flag
+                    from feagi.core.state_manager import FeagiStateManager
+                    state_manager = FeagiStateManager.instance()
+                    if state_manager.is_debug_zmq_outbound_enabled():
+                        logger.info(f"[ZMQ-OUT-DEBUG] LZ4 Skipped - {compression_info['reason']}")
 
             except Exception as e:
                 logger.warning(f"[LZ4] Compression failed: {e}, sending uncompressed")
@@ -1080,10 +1083,14 @@ class VisualizationStream:
             byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
             binary_data = byte_structure.copy_out_as_byte_vector()
 
-            logger.debug(
-                f"Encoded {len(for_visualization)} areas into {len(binary_data)} "
-                f"bytes using high-performance NumPy approach (neuron_c pattern)"
-            )
+            # Gate encoding logs with debug flag
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            if state_manager.is_debug_zmq_outbound_enabled():
+                logger.info(
+                    f"[ZMQ-OUT-DEBUG] Encoded {len(for_visualization)} areas into {len(binary_data)} "
+                    f"bytes using high-performance NumPy approach (neuron_c pattern)"
+                )
             return binary_data
 
         except ImportError:

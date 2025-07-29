@@ -263,7 +263,7 @@ def create_lz4_compressor(
     enabled: bool = True,
     min_size_threshold: int = 100,
     enable_stats: bool = True,
-    require_lz4: bool = False,
+    require_lz4: bool = True,
 ) -> LZ4Compressor:
     """
     Create LZ4 compressor for FEAGI streams with TOML configuration support.
