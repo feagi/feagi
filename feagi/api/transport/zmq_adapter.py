@@ -44,6 +44,7 @@ from typing import Any, Dict, Optional
 EMBEDDED_MODE = os.environ.get("FEAGI_EMBEDDED_MODE", "0") == "1"
 
 from feagi.api.core.services.core_api_service import CoreAPIService
+from feagi.api.v1.burst_engine import BurstEngineAPI
 from feagi.api.v1.connectome import create_connectome_api
 from feagi.api.v1.cortical_area import create_cortical_area_api
 from feagi.api.v1.feagi_agent import create_feagi_agent_api
@@ -163,6 +164,7 @@ else:
             self.genome_api = create_genome_api(core_api_service)
             self.connectome_api = create_connectome_api(core_api_service)
             self.agent_api = create_feagi_agent_api(core_api_service)
+            self.burst_engine_api = BurstEngineAPI(core_api_service)
             self.route_handlers = {}
             self._initialize_route_handlers()
 
@@ -220,6 +222,10 @@ else:
                 "GET:/v1/connectome/cortical_areas/list/summary": self._handle_get_cortical_areas_summary,
                 "GET:/v1/connectome/cortical_areas/list/detailed": self._handle_get_cortical_areas_detailed,
                 "GET:/v1/connectome/cortical_areas/list/transforming": self._handle_get_transforming_cortical_areas,
+                # ===== Burst Engine Endpoints (using v1 API) =====
+                "GET:/v1/burst_engine/stimulation_period": self._handle_get_stimulation_period,
+                "POST:/v1/burst_engine/stimulation_period": self._handle_change_stimulation_period,
+                "GET:/v1/burst_engine/status": self._handle_get_burst_engine_status,
                 # ===== Status Endpoint (maps to health_check) =====
                 "GET:/v1/status": self._handle_get_health_check,
             }
@@ -628,6 +634,25 @@ else:
         ):
             """Handler for GET /v1/connectome/cortical_areas/list/transforming"""
             return await self.connectome_api.get_transforming_cortical_areas()
+
+        # ===== Burst Engine Handler Implementations (using v1 API) =====
+
+        async def _handle_get_stimulation_period(self, params, query, body, headers):
+            """Handler for GET /v1/burst_engine/stimulation_period"""
+            return self.burst_engine_api.get_stimulation_period()
+
+        async def _handle_change_stimulation_period(self, params, query, body, headers):
+            """Handler for POST /v1/burst_engine/stimulation_period"""
+            # Create StimulationPeriodRequest from the body using the new simplified format
+            from feagi.api.v1.burst_engine import StimulationPeriodRequest
+            
+            # Create the request object by unpacking the body (expects {"stimulation_period": 0.1})
+            request = StimulationPeriodRequest(**body)
+            return self.burst_engine_api.change_stimulation_period(request)
+
+        async def _handle_get_burst_engine_status(self, params, query, body, headers):
+            """Handler for GET /v1/burst_engine/status"""
+            return await self.burst_engine_api.get_burst_engine_status()
 
         # ===== Agent Handler Implementations (using v1 API) =====
 

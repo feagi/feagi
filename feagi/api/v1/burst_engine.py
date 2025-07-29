@@ -50,6 +50,12 @@ class BurstEngineRequest(BaseModel):
     burst_engine_config: Dict[str, Any]
 
 
+class StimulationPeriodRequest(BaseModel):
+    """Request model for stimulation period endpoint."""
+
+    stimulation_period: float
+
+
 # Define the convenience decorator for burst engine endpoints
 def burst_engine_endpoint(
     methods, path, request_model=None, response_model=None, description=None
@@ -94,19 +100,33 @@ class BurstEngineAPI:
     @burst_engine_endpoint(
         "POST",
         "/stimulation_period",
-        request_model=BurstEngineRequest,
+        request_model=StimulationPeriodRequest,
         response_model=SuccessResponse,
     )
-    def change_stimulation_period(self, message: BurstEngineRequest) -> SuccessResponse:
+    def change_stimulation_period(self, message: StimulationPeriodRequest) -> SuccessResponse:
         """Enables changes against various Burst Engine parameters."""
         try:
-            burst_config = {"burst_management": message.burst_engine_config}
-            success = self.core_api_service.send_burst_management_message(burst_config)
+            # Extract stimulation period directly from the request
+            stimulation_period = message.stimulation_period
+            
+            # Validate stimulation period
+            if stimulation_period <= 0:
+                raise ValueError("Invalid stimulation_period: must be a positive number.")
+            
+            # Convert stimulation period (seconds) to frequency (Hz)
+            # frequency = 1 / period
+            burst_frequency_hz = 1.0 / float(stimulation_period)
+            
+            # Update burst engine configuration using the correct method
+            config_update = {"burst_frequency_hz": burst_frequency_hz}
+            success = self.core_api_service.update_burst_engine_config(config_update)
 
             if not success:
                 raise ValueError("Failed to change stimulation period")
 
-            return SuccessResponse(message="Stimulation period changed successfully")
+            logger.info(f"Successfully updated stimulation period to {stimulation_period}s (frequency: {burst_frequency_hz}Hz)")
+            return SuccessResponse(message=f"Stimulation period changed to {stimulation_period}s successfully")
+            
         except Exception as e:
             logger.error(f"Error changing stimulation period: {e}")
             raise ValueError(f"Failed to change stimulation period: {str(e)}")

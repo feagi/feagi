@@ -856,11 +856,11 @@ class BrainService(BaseService):
             return {"error": str(e)}
 
     def get_burst_timer(self) -> float:
-        """Get burst timer (stimulation period) from burst engine."""
+        """Get burst timer (stimulation period) from state manager (authoritative source)."""
         try:
             if self.state_manager:
-                # Get burst frequency and convert to period in seconds
-                frequency = getattr(self.state_manager, "burst_frequency", 1.0)
+                # Read from state_manager - the single source of truth
+                frequency = self.state_manager.get_burst_frequency()
                 if frequency > 0:
                     return 1.0 / frequency
                 return 1.0  # Default 1 second period

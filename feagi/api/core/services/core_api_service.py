@@ -1185,23 +1185,31 @@ class CoreAPIService:
     def update_burst_engine_config(self, config: Dict[str, Any]) -> bool:
         """Update burst engine configuration - RTOS-safe."""
         try:
-            # Get the singleton burst engine instance
-            burst_engine = self.get_burst_engine()
-            if not burst_engine:
-                self.logger.error(
-                    "No burst engine instance available for config update"
-                )
+            # Get state manager - the authoritative source for system state
+            state_manager = self.get_state_manager()
+            if not state_manager:
+                self.logger.error("No state manager available for config update")
                 return False
 
             # RTOS-SAFE: Update frequency if provided
             if "burst_frequency_hz" in config:
                 frequency = config["burst_frequency_hz"]
-                if not burst_engine.update_frequency(frequency):
-                    self.logger.error(
-                        f"Failed to update burst frequency to {frequency}Hz"
-                    )
+                
+                # Validate frequency
+                if frequency <= 0.0 or frequency > 10000.0:  # Max 10kHz for safety
+                    self.logger.error(f"Invalid frequency {frequency}Hz (must be 0 < freq <= 10000)")
                     return False
-                self.logger.info(f"Updated burst frequency to {frequency}Hz")
+                
+                # Write to state_manager - the single source of truth
+                state_manager.set_burst_frequency(frequency)
+                self.logger.info(f"Updated burst frequency to {frequency}Hz in state manager")
+                
+                # Also update burst engine for immediate effect (it should sync from state_manager)
+                burst_engine = self.get_burst_engine()
+                if burst_engine:
+                    if not burst_engine.update_frequency(frequency):
+                        self.logger.warning(f"Failed to sync burst engine with new frequency {frequency}Hz")
+                        # Don't return False here - state_manager update succeeded
 
             return True
         except Exception as e:
