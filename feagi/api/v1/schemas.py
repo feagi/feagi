@@ -24,7 +24,7 @@ regardless of transport protocol (HTTP, ZMQ, etc.).
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, Field, AliasChoices
 
 # ===== System Schemas =====
 
@@ -321,7 +321,7 @@ class CorticalNameRequest(BaseModel):
 class CorticalIdListRequest(BaseModel):
     """Request model for operations on multiple cortical areas."""
 
-    cortical_ids: List[str]
+    cortical_ids: List[str] = Field(validation_alias=AliasChoices("cortical_ids", "cortical_id_list"))
 
 
 class CorticalPropertiesUpdateRequest(BaseModel):

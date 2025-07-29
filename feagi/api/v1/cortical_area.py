@@ -44,6 +44,7 @@ from feagi.api.v1.schemas import (
     MappingRestrictionsResponse,
     NeuronCountResponse,
     SuccessResponse,
+    CorticalPropertiesUpdateRequest,
 )
 from feagi.utils.logger import setup_logger
 
@@ -313,12 +314,19 @@ class CorticalAreaAPI:
         except Exception as e:
             raise ValueError(f"Error retrieving cortical properties: {str(e)}")
 
-    @cortical_area_endpoint("PUT", "/cortical_area", response_model=SuccessResponse)
+    @cortical_area_endpoint(
+        "PUT", "/cortical_area", 
+        request_model=CorticalPropertiesUpdateRequest,
+        response_model=SuccessResponse
+    )
     def update_cortical_area_properties(
-        self, properties: Dict[str, Any]
+        self, request: CorticalPropertiesUpdateRequest
     ) -> SuccessResponse:
         """Update properties of a cortical area."""
         try:
+            # Convert request to dictionary for backward compatibility
+            properties = request.model_dump()
+            
             # Extract cortical_id and remove it from properties
             cortical_id = properties.get("cortical_id", None)
             if not cortical_id:
@@ -328,17 +336,24 @@ class CorticalAreaAPI:
             properties_to_update = properties.copy()
             properties_to_update.pop("cortical_id", None)
 
-            # Use the CoreAPIService to update the properties
-            success = self.core_api_service.update_cortical_area_properties(
-                cortical_id=cortical_id, properties=properties_to_update
+            # Call the update operation
+            result = self.core_api_service.update_cortical_area_properties(
+                cortical_id, properties_to_update
             )
 
-            if not success:
-                raise ValueError("Failed to update cortical area properties")
-
-            return SuccessResponse(
-                message=f"Cortical area {cortical_id} update request submitted"
-            )
+            if result:
+                return SuccessResponse(
+                    success=True, message="Cortical area properties updated successfully"
+                )
+            else:
+                # Check if the cortical area exists for better error messaging
+                existing_area = self.core_api_service.get_cortical_area(cortical_id)
+                if not existing_area:
+                    raise ValueError(f"Cortical area '{cortical_id}' does not exist")
+                else:
+                    raise ValueError(
+                        "Failed to update cortical area properties - write operations may be disabled"
+                    )
         except Exception as e:
             raise ValueError(f"Error updating cortical area: {str(e)}")
 

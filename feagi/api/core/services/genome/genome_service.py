@@ -1387,18 +1387,31 @@ class GenomeService(BaseService):
                     )
                     return None
 
-                # Check if cortical area exists
+                # Check if cortical area exists in blueprint (where they're actually stored)
                 if (
-                    "cortical_areas" not in current_genome
-                    or cortical_id not in current_genome["cortical_areas"]
+                    "blueprint" not in current_genome
+                    or cortical_id not in current_genome["blueprint"]
                 ):
+                    # DEBUG: Log genome structure for debugging
+                    self.logger.warning(f"DEBUG: genome keys: {list(current_genome.keys())}")
+                    if "blueprint" in current_genome:
+                        blueprint_keys = list(current_genome["blueprint"].keys())
+                        self.logger.warning(f"DEBUG: blueprint has {len(blueprint_keys)} entries: {blueprint_keys[:10]}...")
+                        if cortical_id not in current_genome["blueprint"]:
+                            # Check if it's a case sensitivity issue or similar ID
+                            similar_ids = [area_id for area_id in blueprint_keys if cortical_id.lower() in area_id.lower() or area_id.lower() in cortical_id.lower()]
+                            if similar_ids:
+                                self.logger.warning(f"DEBUG: Found similar IDs: {similar_ids}")
+                    else:
+                        self.logger.warning("DEBUG: No 'blueprint' section in genome")
+                    
                     self.logger.warning(
                         f"Cortical area {cortical_id} not found in genome"
                     )
                     return None
 
-                # Get existing area definition
-                area_def = current_genome["cortical_areas"][cortical_id]
+                # Get existing area definition from blueprint
+                area_def = current_genome["blueprint"][cortical_id]
 
                 # Update fields if provided
                 if name is not None:
@@ -1496,18 +1509,18 @@ class GenomeService(BaseService):
                     )
                     return False
 
-                # Check if cortical area exists
+                # Check if cortical area exists in blueprint
                 if (
-                    "cortical_areas" not in current_genome
-                    or cortical_id not in current_genome["cortical_areas"]
+                    "blueprint" not in current_genome
+                    or cortical_id not in current_genome["blueprint"]
                 ):
                     self.logger.warning(
                         f"Cortical area {cortical_id} not found in genome"
                     )
                     return False
 
-                # Remove from genome structure
-                del current_genome["cortical_areas"][cortical_id]
+                # Remove from blueprint section
+                del current_genome["blueprint"][cortical_id]
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome

@@ -82,8 +82,13 @@ class CoreAPIService:
 
         # Initialize all domain services with the SAME state manager instance
         self._system_service = SystemService(connectome_manager, self.state_manager)
+        
+        # Initialize genome service first - needed by other services for WRITE operations
+        self._genome_service = GenomeService(connectome_manager, self.state_manager)
+        
+        # Initialize cortical area service WITH genome service for WRITE operations
         self._cortical_area_service = CorticalAreaService(
-            connectome_manager, self.state_manager
+            connectome_manager, self.state_manager, self._genome_service
         )
         self._connectome_service = ConnectomeService(
             connectome_manager, self.state_manager
@@ -91,9 +96,6 @@ class CoreAPIService:
         self._brain_service = BrainService(connectome_manager, self.state_manager)
         self._agents_service = AgentsService(connectome_manager, self.state_manager)
         self._network_service = NetworkService(connectome_manager, self.state_manager)
-
-        # Initialize genome service with clean architecture - no service dependencies
-        self._genome_service = GenomeService(connectome_manager, self.state_manager)
 
         # Validate state manager consistency across services
         self._validate_service_state_consistency()

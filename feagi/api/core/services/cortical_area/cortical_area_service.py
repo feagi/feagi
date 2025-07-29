@@ -202,7 +202,7 @@ class CorticalAreaService(BaseService):
         to maintain proper data flow and ensure genome consistency.
         """
         if not self._genome_service:
-            self.logger.error("GenomeService not available for WRITE operations")
+            self.logger.error("GenomeService not available for WRITE operations - cortical area creation is disabled")
             return None
 
         try:
@@ -278,7 +278,7 @@ class CorticalAreaService(BaseService):
             True if successfully deleted, False otherwise
         """
         if not self._genome_service:
-            self.logger.error("GenomeService not available for WRITE operations")
+            self.logger.error("GenomeService not available for WRITE operations - cortical area deletion is disabled")
             return False
 
         try:
