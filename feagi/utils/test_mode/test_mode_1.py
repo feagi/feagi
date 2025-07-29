@@ -1,8 +1,11 @@
 """
-Test Mode 1: JSON-based Predictable Neuron Activations
+Test Mode 1: JSON-based Deterministic Neuron Activations
 
-This module handles the original JSON-based test mode that uses
-test_mode_activations.json for predictable neuron injection.
+This module handles the deterministic JSON-based test mode that REQUIRES
+test_mode_activations.json for predictable neuron injection. 
+
+CRITICAL: Test Mode 1 will fail if the JSON file is not found - there are 
+no fallbacks to ensure testing remains deterministic and repeatable.
 """
 
 import json
@@ -15,11 +18,14 @@ logger = setup_logger("feagi.test_mode.mode_1")
 
 class TestMode1Handler:
     """
-    Handler for Test Mode 1: JSON-based predictable neuron activations.
+    Handler for Test Mode 1: JSON-based deterministic neuron activations.
 
-    This mode uses a JSON file (test_mode_activations.json) to specify exactly
+    This mode REQUIRES a JSON file (test_mode_activations.json) to specify exactly
     which neurons should be activated at specific coordinates, providing
     deterministic and repeatable testing.
+    
+    FAILS FAST: If the JSON file is missing or invalid, this mode will exit with
+    an error rather than fall back to random injection to maintain test integrity.
     """
 
     def __init__(self, test_runner):
@@ -102,26 +108,30 @@ class TestMode1Handler:
         """
         Load predictable neuron activations from test_mode_activations.json.
 
-        If the file exists in the same folder as the main test_mode.py module,
-        it will be loaded and used for predictable neuron injection.
+        The file must exist in the feagi/utils/test_mode/ directory alongside
+        this handler module for deterministic neuron injection.
 
         Returns:
             bool: True if JSON file was loaded successfully, False otherwise
         """
         try:
-            # Get the directory where the original test_mode.py module is located
-            # This ensures backwards compatibility with existing JSON files
-            from feagi import test_mode as legacy_test_mode
-
-            module_dir = Path(legacy_test_mode.__file__).parent
+            # Get the directory where the current test_mode_1.py module is located
+            # This ensures the JSON file is expected in the same directory as the handler
+            module_dir = Path(__file__).parent
             json_path = module_dir / "test_mode_activations.json"
 
             if not json_path.exists():
-                logger.info(
-                    "No test_mode_activations.json found - using random neuron injection fallback"
+                logger.error(
+                    f"CRITICAL: test_mode_activations.json not found at {json_path}"
+                )
+                logger.error(
+                    "Test Mode 1 requires predictable neuron injection - cannot proceed without JSON file"
+                )
+                logger.error(
+                    "Please create test_mode_activations.json with neuron coordinates or use a different test mode"
                 )
                 self.use_predictable_activations = False
-                return True  # Not an error - we can fall back to random
+                return False  # This is a critical error for Test Mode 1
 
             logger.info(f"Loading predictable neuron activations from: {json_path}")
 
@@ -192,10 +202,13 @@ class TestMode1Handler:
                 return True
             else:
                 logger.error(
-                    "No valid cortical areas found in JSON - falling back to random injection"
+                    "CRITICAL: No valid cortical areas found in JSON file"
+                )
+                logger.error(
+                    "Test Mode 1 requires valid neuron coordinates - cannot proceed"
                 )
                 self.use_predictable_activations = False
-                return True  # Not a failure - we can fall back
+                return False  # This is a critical error for Test Mode 1
 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in test_mode_activations.json: {e}")
@@ -211,16 +224,23 @@ class TestMode1Handler:
 
     def inject_data(self):
         """
-        Inject neuron activations based on the JSON configuration.
+        Inject predictable neuron activations based on the JSON configuration.
 
         Returns:
             bool: True if data was injected successfully, False otherwise
         """
         try:
-            if self.use_predictable_activations and self.test_activations_data:
-                return self._inject_predictable_activations()
-            else:
-                return self._inject_random_activations_fallback()
+            if not self.use_predictable_activations or not self.test_activations_data:
+                logger.error(
+                    "CRITICAL: Test Mode 1 cannot inject data - predictable activations not available"
+                )
+                logger.error(
+                    "Ensure test_mode_activations.json is loaded and contains valid data"
+                )
+                return False
+                
+            return self._inject_predictable_activations()
+            
         except Exception as e:
             logger.error(f"Error injecting Test Mode 1 data: {e}")
             import traceback
@@ -323,89 +343,4 @@ class TestMode1Handler:
             logger.error(traceback.format_exc())
             return False
 
-    def _inject_random_activations_fallback(self):
-        """
-        Generate random coordinate activations and submit them via test runner.
-
-        This method acts as a pure sensory data generator, working only with coordinates 
-        and membrane potentials, completely unaware of neuron IDs.
-
-        Returns:
-            bool: True if data was injected successfully, False otherwise
-        """
-        try:
-            import random
-
-            # Get all cortical areas from the loaded connectome
-            cortical_areas = list(self.connectome.cortical_areas.keys())
-
-            if not cortical_areas:
-                logger.error("No cortical areas found in connectome")
-                return False
-
-            logger.debug(f"Found {len(cortical_areas)} cortical areas in connectome")
-
-            # Generate random coordinate activations
-            coordinate_activations = {}
-
-            for cortical_id in cortical_areas:
-                try:
-                    # Get the cortical area object
-                    cortical_area = self.connectome.cortical_areas[cortical_id]
-
-                    # Get the dimensions of this cortical area
-                    dimensions = cortical_area.get_cortical_dimensions()
-                    if not dimensions:
-                        logger.debug(f"No dimensions found for cortical area {cortical_id}")
-                        continue
-
-                    width, height, depth = dimensions
-
-                    # Generate random coordinates within the cortical area bounds
-                    num_coordinates = random.randint(5, 20)  # Random number of coordinates
-                    random_coordinates = []
-
-                    for _ in range(num_coordinates):
-                        x = random.randint(0, width - 1)
-                        y = random.randint(0, height - 1)
-                        z = random.randint(0, depth - 1)
-                        random_coordinates.append((x, y, z))
-
-                    coordinate_activations[cortical_id] = random_coordinates
-                    logger.debug(
-                        f"Generated {len(random_coordinates)} random coordinates for {cortical_id}"
-                    )
-
-                except Exception as e:
-                    logger.error(f"Error processing cortical area {cortical_id}: {e}")
-                    continue
-
-            # Submit coordinate activations via test runner (proper architecture)
-            if coordinate_activations:
-                total_coordinates = sum(len(coords) for coords in coordinate_activations.values())
-                logger.debug(
-                    f"🎲 Submitting {total_coordinates} RANDOM coordinates across {len(coordinate_activations)} areas via unified neural stimulation"
-                )
-
-                injected_count = self.test_runner.submit_coordinate_activations(
-                    coordinate_activations, "test_mode_1_random"
-                )
-
-                if injected_count > 0:
-                    logger.debug(
-                        f"✅ Successfully injected {injected_count} random coordinates (fallback mode)"
-                    )
-                    return True
-                else:
-                    logger.warning("Failed to inject random coordinates")
-                    return False
-            else:
-                logger.warning("No random coordinate activations generated")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error generating random coordinate activations: {e}")
-            import traceback
-
-            logger.error(traceback.format_exc())
-            return False
+# Random activation fallback method removed - Test Mode 1 is deterministic only
