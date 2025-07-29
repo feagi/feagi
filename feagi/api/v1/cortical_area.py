@@ -912,23 +912,16 @@ class CorticalAreaAPI:
     # ===== Multi-Cortical Operations =====
 
     @cortical_area_endpoint(
-        "POST", "/multi/cortical_area_properties", response_model=List[Dict[str, Any]]
+        "POST", "/multi/cortical_area_properties", 
+        request_model=CorticalIdListRequest,
+        response_model=List[Dict[str, Any]]
     )
     def get_multiple_cortical_properties(
-        self, request_data: Dict[str, Any]
+        self, request: CorticalIdListRequest
     ) -> List[Dict[str, Any]]:
         """Get properties for multiple cortical areas with flexible field name support."""
         try:
-            # Handle both 'cortical_ids' (new) and 'cortical_id_list' (legacy) field names
-            cortical_ids = []
-            if "cortical_ids" in request_data:
-                cortical_ids = request_data["cortical_ids"]
-            elif "cortical_id_list" in request_data:
-                cortical_ids = request_data["cortical_id_list"]
-            else:
-                raise ValueError(
-                    "Missing required field: 'cortical_ids' or 'cortical_id_list'"
-                )
+            cortical_ids = request.cortical_ids
 
             if not isinstance(cortical_ids, list):
                 raise ValueError("cortical_ids must be a list")

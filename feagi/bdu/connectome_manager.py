@@ -110,9 +110,12 @@ class ConnectomeManager(NeuronMappingProvider):
                 status="[TARGET]",
             )
         else:
-            logger.debug(
-                "Returning existing ConnectomeManager singleton", status="[LINK]"
-            )
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            if state_manager.is_debug_bdu_enabled():
+                logger.info(
+                    "[BDU-DEBUG] Returning existing ConnectomeManager singleton", status="[LINK]"
+                )
         return cls._instance
 
     @classmethod
@@ -662,10 +665,13 @@ class ConnectomeManager(NeuronMappingProvider):
             while next_idx in used_indices:
                 next_idx += 1
 
-            logger.debug(
-                f"[STATE] cortical_idx allocation: reserved={reserved_indices}, "
-                f"used={sorted(used_indices)}, next_available={next_idx}"
-            )
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            if state_manager.is_debug_bdu_enabled():
+                logger.info(
+                    f"[BDU-DEBUG] cortical_idx allocation: reserved={reserved_indices}, "
+                    f"used={sorted(used_indices)}, next_available={next_idx}"
+                )
 
             return next_idx
 
@@ -900,8 +906,11 @@ class ConnectomeManager(NeuronMappingProvider):
             # FCL expects current_timestep first, then neurons_by_cortical
             neurons_by_cortical = {}
             if fired_neuron_ids:
-                # DEBUG: Log fired neurons and mapping status
-                logger.debug(f"FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}...")
+                # DEBUG: Log fired neurons and mapping status (gated by --debug-bdu flag)
+                from feagi.core.state_manager import get_state_manager
+                state_manager = get_state_manager()
+                if state_manager.is_debug_bdu_enabled():
+                    logger.info(f"[BDU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}...")
                 
                 # Vectorized grouping of fired neurons by cortical area
                 fired_neurons_array = np.array(fired_neuron_ids, dtype=np.int32)
@@ -919,7 +928,8 @@ class ConnectomeManager(NeuronMappingProvider):
                     logger.error(f"FCL BUG: {len(invalid_neurons)} fired neurons not in neuron_id_to_index mapping: {invalid_neurons[:10]}...")
                     logger.error(f"FCL BUG: This indicates a critical mapping synchronization issue")
                 
-                logger.debug(f"FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update")
+                if state_manager.is_debug_bdu_enabled():
+                    logger.info(f"[BDU-DEBUG] FCL UPDATE: {len(valid_neurons)} valid neurons for FCL update")
 
                 if len(valid_neurons) > 0:
                     # Vectorized index lookup
@@ -940,11 +950,13 @@ class ConnectomeManager(NeuronMappingProvider):
                             mask
                         ].tolist()
                     
-                    logger.debug(f"FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}")
+                    if state_manager.is_debug_bdu_enabled():
+                        logger.info(f"[BDU-DEBUG] FCL UPDATE: Grouped into {len(neurons_by_cortical)} cortical areas: {list(neurons_by_cortical.keys())}")
                 else:
                     logger.warning("FCL UPDATE: No valid neurons to update in FCL")
             else:
-                logger.debug("FCL UPDATE: No fired neurons to update")
+                if state_manager.is_debug_bdu_enabled():
+                    logger.info("[BDU-DEBUG] FCL UPDATE: No fired neurons to update")
 
             self.fcl_manager.update_fcl(self.current_timestep, neurons_by_cortical)
 
@@ -1034,9 +1046,12 @@ class ConnectomeManager(NeuronMappingProvider):
         # Add to cortical area
         area.add_neuron(neuron_id, position)
 
-        logger.debug(
-            f"Created neuron {neuron_id} in area {area.name} at position {position}"
-        )
+        from feagi.core.state_manager import get_state_manager
+        state_manager = get_state_manager()
+        if state_manager.is_debug_bdu_enabled():
+            logger.info(
+                f"[BDU-DEBUG] Created neuron {neuron_id} in area {area.name} at position {position}"
+            )
         return neuron_id
 
     def get_neuron(self, neuron_id: int) -> Dict[str, Any]:
@@ -1783,7 +1798,10 @@ class ConnectomeManager(NeuronMappingProvider):
             max_dims[1] = max(max_dims[1], dims[1])
             max_dims[2] = max(max_dims[2], dims[2])
         
-        logger.debug(f"[CONNECTOME] Maximum cortical area dimensions: {max_dims[0]}x{max_dims[1]}x{max_dims[2]}")
+        from feagi.core.state_manager import get_state_manager
+        state_manager = get_state_manager()
+        if state_manager.is_debug_bdu_enabled():
+            logger.info(f"[BDU-DEBUG] Maximum cortical area dimensions: {max_dims[0]}x{max_dims[1]}x{max_dims[2]}")
         return tuple(max_dims)
 
     def initialize_spatial_hash_cache(self) -> bool:
@@ -1972,7 +1990,10 @@ class ConnectomeManager(NeuronMappingProvider):
                     self.delete_neuron(neuron_id)
                 except (KeyError, ValueError) as e:
                     # Neuron may have been already deleted or corrupted
-                    logger.debug(f"Could not delete neuron {neuron_id}: {e}")
+                    from feagi.core.state_manager import get_state_manager
+                    state_manager = get_state_manager()
+                    if state_manager.is_debug_bdu_enabled():
+                        logger.info(f"[BDU-DEBUG] Could not delete neuron {neuron_id}: {e}")
                     pass
 
         # Remove from any brain region using vectorized search

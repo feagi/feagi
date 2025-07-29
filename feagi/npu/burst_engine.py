@@ -127,16 +127,18 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         self._running_state = value
 
         # WGPU-COMPATIBLE: Check debug_npu config instead of environment variable
-        if hasattr(self, "debug_npu") and self.debug_npu and old_value != value:
+        # Check if NPU debug mode is enabled via --debug-npu flag
+        state_manager = FeagiStateManager.instance()
+        if state_manager.is_debug_npu_enabled() and old_value != value:
             # WGPU-COMPATIBLE: Use logger instead of print for debug output
-            logger.debug(
-                f"[DEBUG] BURST ENGINE: Instance {self._instance_id} _running changed: {old_value} -> {value}"
+            logger.info(
+                f"[NPU-DEBUG] BURST ENGINE: Instance {self._instance_id} _running changed: {old_value} -> {value}"
             )
             import traceback
 
-            logger.debug("[DEBUG] BURST ENGINE: Stack trace:")
+            logger.info("[NPU-DEBUG] BURST ENGINE: Stack trace:")
             for line in traceback.format_stack():
-                logger.debug(f"    {line.strip()}")
+                logger.info(f"    {line.strip()}")
 
     def __init__(
         self,
@@ -338,14 +340,15 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             burst_start_time = time.perf_counter()
 
             # LOG RAW FCL t-1 CONTENT FOR DEBUGGING VISUALIZATION ISSUES
-            if hasattr(self, "fcl_manager") and self.fcl_manager:
+            state_manager = FeagiStateManager.instance()
+            if hasattr(self, "fcl_manager") and self.fcl_manager and state_manager.is_debug_npu_enabled():
                 try:
                     # Get FCL from previous timestep (t-1) - this is what FQ sampler reads
                     fcl_t_minus_1 = self.fcl_manager.get_fcl(offset=-1)
                     if fcl_t_minus_1 and not fcl_t_minus_1.is_empty():
                         neuron_list = list(fcl_t_minus_1)[:10]  # Show first 10 neurons
-                        logger.debug(
-                            f"🔥 🔥 FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}"
+                        logger.info(
+                            f"🔥 [NPU-DEBUG] FCL t-1 CONTENT: {len(fcl_t_minus_1)} total neurons, first 10: {neuron_list}"
                         )
 
                         # Show which cortical areas these neurons belong to using vectorized operation
@@ -390,13 +393,13 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                                     zip(unique_areas[:5], counts[:5])
                                 )  # First 5 areas
 
-                                logger.debug(
-                                    f"🔥 🔥 FCL t-1 AREAS: {area_count}..."
+                                logger.info(
+                                    f"🔥 [NPU-DEBUG] FCL t-1 AREAS: {area_count}..."
                                 )  # Show first 5 areas
                     else:
-                        logger.debug("🔥 FCL t-1 CONTENT: EMPTY")
+                        logger.info("🔥 [NPU-DEBUG] FCL t-1 CONTENT: EMPTY")
                 except Exception as e:
-                    logger.debug(f"🔥 FCL t-1 LOGGING ERROR: {e}")
+                    logger.info(f"🔥 [NPU-DEBUG] FCL t-1 LOGGING ERROR: {e}")
 
             # 1. External candidates injection (all special area types)
             if self.injection_service and self.enable_injection:
@@ -477,58 +480,59 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         except Exception:
             pass
         # Debug logging if --debug-npu is enabled
-        if self.debug_npu:
-            logger.debug(
-                f"[DEBUG] BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}"
+        state_manager = FeagiStateManager.instance()
+        if state_manager.is_debug_npu_enabled():
+            logger.info(
+                f"[NPU-DEBUG] BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}"
             )
 
             # Check injection service availability
             if self.injection_service:
-                logger.debug(
-                    "[DEBUG] BURST ENGINE: Enhanced injection service AVAILABLE"
+                logger.info(
+                    "[NPU-DEBUG] BURST ENGINE: Enhanced injection service AVAILABLE"
                 )
             else:
-                logger.debug("[DEBUG] BURST ENGINE: NO ENHANCED INJECTION SERVICE!")
+                logger.info("[NPU-DEBUG] BURST ENGINE: NO ENHANCED INJECTION SERVICE!")
 
         # 1. External candidates injection (pre-burst phase)
         #    Add candidates to FCL for external sources (power areas, sensory input, etc.)
         if self.injection_service:
-            if self.debug_npu:
-                logger.debug(
-                    "[DEBUG] BURST ENGINE: Adding enhanced pre-burst candidates to FCL"
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    "[NPU-DEBUG] BURST ENGINE: Adding enhanced pre-burst candidates to FCL"
                 )
             self.injection_service.inject_pre_burst(current_timestep)
 
         # 2. Core neural computation (synaptic propagation)
         #    Process ALL FCL candidates (internal + external) in one unified sweep
-        if self.debug_npu:
-            logger.debug(
-                "[DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
+        if state_manager.is_debug_npu_enabled():
+            logger.info(
+                "[NPU-DEBUG] BURST ENGINE: Processing all enhanced FCL candidates (internal + external)"
             )
 
         fired_neurons = self.connectome_manager.update_membrane_potentials()
 
-        if self.debug_npu:
+        if state_manager.is_debug_npu_enabled():
             fired_count = len(fired_neurons) if fired_neurons else 0
-            logger.debug(
-                f"[DEBUG] BURST ENGINE: Enhanced processing - {fired_count} neurons fired from FCL"
+            logger.info(
+                f"[NPU-DEBUG] BURST ENGINE: Enhanced processing - {fired_count} neurons fired from FCL"
             )
 
         # 3. Additional external injections (during-burst phase)
         #    For modulator areas or other special processing during burst
         if self.injection_service:
-            if self.debug_npu:
-                logger.debug(
-                    "[DEBUG] BURST ENGINE: Adding enhanced during-burst candidates to FCL"
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    "[NPU-DEBUG] BURST ENGINE: Adding enhanced during-burst candidates to FCL"
                 )
             self.injection_service.inject_during_burst(current_timestep)
 
         # 4. Post-burst external injections
         #    For cleanup, memory consolidation, or other post-processing
         if self.injection_service:
-            if self.debug_npu:
-                logger.debug(
-                    "[DEBUG] BURST ENGINE: Adding enhanced post-burst candidates to FCL"
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    "[NPU-DEBUG] BURST ENGINE: Adding enhanced post-burst candidates to FCL"
                 )
             self.injection_service.inject_post_burst(current_timestep)
 
@@ -772,9 +776,11 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             self.shed_areas = new_shed_areas
 
             # Always initialize injection service to ensure proper special area detection
-            logger.debug(
-                "[DEBUG] BURST ENGINE: Re-initializing injection service with genome data"
-            )
+            state_manager = FeagiStateManager.instance()
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    "[NPU-DEBUG] BURST ENGINE: Re-initializing injection service with genome data"
+                )
 
             self._initialize_injection_service()
 
@@ -783,9 +789,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 if self.injection_service
                 else "None"
             )
-            logger.debug(
-                f"[DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}"
-            )
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    f"[NPU-DEBUG] BURST ENGINE: Injection service re-initialized, current service: {service_type}"
+                )
             # Write to debug file for development
             try:
                 with open("/tmp/feagi_injection_debug.log", "a") as f:
@@ -947,9 +954,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
             processing_time = time.perf_counter() - start_time
 
-            if self.debug_npu:
-                logger.debug(
-                    f"Fire queue processing completed in {processing_time * 1000:.2f}ms, "
+            state_manager = FeagiStateManager.instance()
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    f"[NPU-DEBUG] Fire queue processing completed in {processing_time * 1000:.2f}ms, "
                     f"{len(fired_neurons)} neurons fired"
                 )
 

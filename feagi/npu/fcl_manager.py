@@ -559,9 +559,13 @@ class FCLManager:
         self.total_neurons_fired = burst_total
         self.current_window_index = standard_index
 
-        self.logger.debug(
-            f"FCL updated for timestep {current_timestep}: {burst_total} neurons fired across {len(neurons_by_cortical)} cortical areas, {neurons_by_cortical}"
-        )
+        # Gate debug logging with --debug-npu flag
+        from feagi.core.state_manager import FeagiStateManager
+        state_manager = FeagiStateManager.instance()
+        if state_manager.is_debug_npu_enabled():
+            self.logger.info(
+                f"[NPU-DEBUG] FCL updated for timestep {current_timestep}: {burst_total} neurons fired across {len(neurons_by_cortical)} cortical areas, {neurons_by_cortical}"
+            )
 
     def get_global_fcl(self, timestep: Optional[int] = None) -> BitMap:
         """

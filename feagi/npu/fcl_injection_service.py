@@ -171,17 +171,22 @@ class FCLInjectionService:
                     neuron_ids = power_neurons[cortical_id]
                     config = configs[idx]
 
-                    logger.debug(
-                        f"Processing power area {cortical_id} with {len(neuron_ids)} neurons"
-                    )
+                    # Check if NPU debug is enabled for detailed injection logging
+                    from feagi.core.state_manager import FeagiStateManager
+                    state_manager = FeagiStateManager.instance()
+                    if state_manager.is_debug_npu_enabled():
+                        logger.info(
+                            f"[NPU-DEBUG] Processing power area {cortical_id} with {len(neuron_ids)} neurons"
+                        )
 
                     # Determine timing
                     timing_str = config.injection_timing
                     try:
                         timing = InjectionTiming(timing_str)
-                        logger.debug(
-                            f"Power area {cortical_id} uses {timing_str} timing"
-                        )
+                        if state_manager.is_debug_npu_enabled():
+                            logger.info(
+                                f"[NPU-DEBUG] Power area {cortical_id} uses {timing_str} timing"
+                            )
                     except ValueError:
                         logger.warning(
                             f"Invalid injection timing '{timing_str}' for area {cortical_id}, using PRE_BURST"
@@ -258,9 +263,12 @@ class FCLInjectionService:
             if not power_neurons:
                 # Only log this occasionally to avoid spam
                 if current_timestep % 100 == 0:
-                    logger.debug(
-                        f"No power area neurons found for injection at timestep {current_timestep}"
-                    )
+                    from feagi.core.state_manager import FeagiStateManager
+                    state_manager = FeagiStateManager.instance()
+                    if state_manager.is_debug_npu_enabled():
+                        logger.info(
+                            f"[NPU-DEBUG] No power area neurons found for injection at timestep {current_timestep}"
+                        )
                 return 0
 
             # FAST: Set membrane potential to PSP value from cortical area properties
@@ -336,13 +344,18 @@ class FCLInjectionService:
         Returns:
             Number of neurons injected
         """
+        from feagi.core.state_manager import FeagiStateManager
+        state_manager = FeagiStateManager.instance()
+        
         if not self._injection_batches[timing]:
-            logger.debug(f"No injection batches for {timing.value} phase")
+            if state_manager.is_debug_npu_enabled():
+                logger.info(f"[NPU-DEBUG] No injection batches for {timing.value} phase")
             return 0
 
-        logger.debug(
-            f"Starting {timing.value} injection phase with {len(self._injection_batches[timing])} batches"
-        )
+        if state_manager.is_debug_npu_enabled():
+            logger.info(
+                f"[NPU-DEBUG] Starting {timing.value} injection phase with {len(self._injection_batches[timing])} batches"
+            )
 
         start_time = time.perf_counter()
         total_injected = 0
@@ -370,7 +383,8 @@ class FCLInjectionService:
                 f"FCL INJECTION: Added {total_injected} candidates to FCL in {timing.value} phase ({self.last_injection_duration:.4f}s)"
             )
         else:
-            logger.debug(f"No candidates added to FCL in {timing.value} phase")
+            if state_manager.is_debug_npu_enabled():
+                logger.info(f"[NPU-DEBUG] No candidates added to FCL in {timing.value} phase")
 
         return total_injected
 
@@ -572,13 +586,18 @@ class FCLInjectionService:
 
             total_injected = 0
 
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
+            
             if not activations:
-                logger.debug(f"No activations provided by {source}")
+                if state_manager.is_debug_npu_enabled():
+                    logger.info(f"[NPU-DEBUG] No activations provided by {source}")
                 return 0
 
-            logger.debug(
-                f"Processing external activations from {source}: {len(activations)} cortical areas"
-            )
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    f"[NPU-DEBUG] Processing external activations from {source}: {len(activations)} cortical areas"
+                )
 
             for cortical_id, neuron_ids in activations.items():
                 if not neuron_ids:
