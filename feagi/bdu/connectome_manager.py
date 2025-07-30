@@ -1902,6 +1902,64 @@ class ConnectomeManager(NeuronMappingProvider):
             self.logger.error(f"Error getting properties for area {cortical_id}: {e}")
             return {}
 
+    def update_cortical_area_properties(
+        self, 
+        cortical_id: str, 
+        property_updates: Dict[str, Any]
+    ) -> bool:
+        """
+        Update properties of a cortical area.
+        
+        This method ensures ConnectomeManager stays synchronized with genome changes.
+        Called by GenomeService after genome updates to maintain consistency.
+        
+        Args:
+            cortical_id: String identifier for cortical area
+            property_updates: Dictionary of property_name -> new_value
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            if cortical_id not in self.cortical_areas:
+                self.logger.error(f"Cannot update properties: Cortical area {cortical_id} not found")
+                return False
+                
+            area = self.cortical_areas[cortical_id]
+            
+            # Ensure area has properties dictionary
+            if not hasattr(area, 'properties') or area.properties is None:
+                area.properties = {}
+                
+            # Update each property
+            updated_properties = []
+            for prop_name, new_value in property_updates.items():
+                # Handle special property name mappings
+                if prop_name == "neuron_consecutive_fire_count":
+                    # Update both the full name and the abbreviated name that the API looks for
+                    area.properties['consecutive_fire_cnt_max'] = new_value
+                    area.properties['c_fr_c'] = new_value  # The API looks for this field first
+                    updated_properties.append(f"consecutive_fire_cnt_max={new_value}, c_fr_c={new_value}")
+                elif prop_name == "cortical_name":
+                    area.name = str(new_value)
+                    updated_properties.append(f"name='{new_value}'")
+                else:
+                    # Direct property update
+                    area.properties[prop_name] = new_value
+                    updated_properties.append(f"{prop_name}={new_value}")
+                    
+            if updated_properties:
+                self.logger.info(
+                    f"[CONNECTOME-SYNC] Updated cortical area {cortical_id}: "
+                    f"{', '.join(updated_properties)}"
+                )
+                
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to update cortical area {cortical_id} properties: {e}")
+            return False
+
     def _convert_numpy_types_to_python(self, obj: Any) -> Any:
         """Convert numpy types to native Python types for JSON serialization.
 

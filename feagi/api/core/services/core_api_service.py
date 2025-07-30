@@ -369,8 +369,18 @@ class CoreAPIService:
         """Update properties of an existing cortical area (wrapper for API compatibility)."""
         self.logger.info(f"DEBUG: CoreAPIService.update_cortical_area_properties called with cortical_id={cortical_id}, properties={properties}")
         try:
+            # CRITICAL FIX: Extract parameters from nested structure
+            if "parameters" in properties and isinstance(properties["parameters"], dict):
+                # Extract the actual parameters from the nested structure
+                actual_parameters = properties["parameters"]
+                self.logger.info(f"DEBUG: Extracted actual parameters: {actual_parameters}")
+            else:
+                # Properties are already in the correct format
+                actual_parameters = properties
+                self.logger.info(f"DEBUG: Using properties directly as parameters: {actual_parameters}")
+            
             result = self._cortical_area_service.update_area(
-                cortical_id, parameters=properties
+                cortical_id, parameters=actual_parameters
             )
             self.logger.info(f"DEBUG: cortical_area_service.update_area returned: {result}")
             success = result is not None

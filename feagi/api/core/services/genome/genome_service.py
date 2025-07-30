@@ -1398,44 +1398,44 @@ class GenomeService(BaseService):
         import time
         start_time = time.time()
         
-        self.logger.info(f"DEBUG: Starting intelligent update for {cortical_id}")
-        self.logger.info(f"DEBUG: Parameters to update: name={name}, coordinates={coordinates}, dimensions={dimensions}, area_type={area_type}, parameters={parameters}")
+
         
         try:
             if not self.is_genome_loaded():
-                self.logger.error("DEBUG: Cannot update cortical area: No genome loaded")
+                self.logger.error("Cannot update cortical area: No genome loaded")
                 return None
 
-            # Validate cortical area exists in hierarchical blueprint
-            if cortical_id not in self._current_genome.get("blueprint", {}):
-                self.logger.error(f"DEBUG: Cortical area {cortical_id} not found in blueprint")
+            if cortical_id not in self._current_genome["blueprint"]:
+                self.logger.error(f"Cannot update cortical area: {cortical_id} not found in genome")
                 return None
 
-            # Begin genome transaction for atomic modification
+            # Start transaction if state manager is available
             if self.state_manager:
                 transaction = self.state_manager.begin_genome_transaction()
             else:
                 transaction = None
 
             try:
-                # BUILD CHANGE DICTIONARY from provided arguments
+                # Collect all non-None changes into a single dictionary
                 changes = {}
                 if name is not None:
                     changes["cortical_name"] = name
                 if coordinates is not None:
-                    changes["coordinates_3d"] = coordinates  
+                    changes["coordinates_3d"] = coordinates
                 if dimensions is not None:
                     changes["cortical_dimensions"] = dimensions
                 if area_type is not None:
                     changes["cortical_type"] = area_type
                 if parameters is not None:
-                    changes.update(parameters)  # Flatten parameter changes into top level
-                    
+                    changes.update(parameters)
+
                 if not changes:
-                    self.logger.info(f"No changes provided for {cortical_id}")
+                    self.logger.warning(f"No changes provided for cortical area {cortical_id}")
+                    if transaction:
+                        transaction.rollback()
                     return self._current_genome["blueprint"][cortical_id]
-                    
-                # CLASSIFY CHANGES for intelligent routing
+
+                # INTELLIGENT ROUTING: Classify changes for optimal performance
                 from feagi.api.core.services.genome.change_classifier import (
                     CorticalChangeClassifier, ChangeType
                 )
@@ -2885,7 +2885,15 @@ class GenomeService(BaseService):
             from feagi.api.core.services.genome.parameter_updater import CorticalParameterUpdater
             updater = CorticalParameterUpdater(self._connectome_manager)
             
-            success = updater.update_neuron_parameters(cortical_id, parameter_changes)
+            # Update neurons in arrays
+            neuron_update_success = updater.update_neuron_parameters(cortical_id, parameter_changes)
+            
+            # Update ConnectomeManager cortical area properties for consistency
+            connectome_update_success = self._connectome_manager.update_cortical_area_properties(
+                cortical_id, parameter_changes
+            )
+            
+            success = neuron_update_success and connectome_update_success
             
             if success and transaction:
                 transaction.commit()
@@ -2944,11 +2952,10 @@ class GenomeService(BaseService):
             # Commit genome changes
             self._current_genome = current_genome
             
-            # Direct metadata updates in ConnectomeManager
-            from feagi.api.core.services.genome.parameter_updater import CorticalParameterUpdater
-            updater = CorticalParameterUpdater(self._connectome_manager)
-            
-            success = updater.update_metadata_only(cortical_id, metadata_changes)
+            # Update ConnectomeManager cortical area properties for consistency
+            success = self._connectome_manager.update_cortical_area_properties(
+                cortical_id, metadata_changes
+            )
             
             if success and transaction:
                 transaction.commit()
