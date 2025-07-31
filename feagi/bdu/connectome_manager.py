@@ -1103,6 +1103,63 @@ class ConnectomeManager(NeuronMappingProvider):
 
         return result
 
+    def get_neuron_properties(self, neuron_id: int) -> Dict[str, Any]:
+        """Get all properties of a specific neuron including synaptic connections.
+        
+        Args:
+            neuron_id: ID of the neuron
+            
+        Returns:
+            Dictionary with all neuron properties including incoming and outgoing synapses
+            
+        Raises:
+            KeyError: If the neuron_id doesn't exist
+        """
+        # Get basic neuron properties
+        properties = self.get_neuron(neuron_id)
+        
+        # Add synaptic connection information
+        try:
+            # Get outgoing synapses (this neuron -> other neurons)
+            outgoing_synapses = self.get_outgoing_connections(neuron_id)
+            properties['outgoing_synapses'] = [
+                {
+                    'target_neuron_id': target_id,
+                    'weight': float(weight)
+                }
+                for target_id, weight in outgoing_synapses
+            ]
+            
+            # Get incoming synapses (other neurons -> this neuron)
+            incoming_synapses = self.get_incoming_connections(neuron_id)
+            properties['incoming_synapses'] = [
+                {
+                    'source_neuron_id': source_id,
+                    'weight': float(weight)
+                }
+                for source_id, weight in incoming_synapses
+            ]
+            
+            # Add synapse counts for quick reference
+            properties['synapse_counts'] = {
+                'outgoing': len(outgoing_synapses),
+                'incoming': len(incoming_synapses),
+                'total': len(outgoing_synapses) + len(incoming_synapses)
+            }
+            
+        except Exception as e:
+            # If synapse lookup fails, still return basic properties but log the error
+            self.logger.warning(f"Failed to retrieve synapse information for neuron {neuron_id}: {e}")
+            properties['outgoing_synapses'] = []
+            properties['incoming_synapses'] = []
+            properties['synapse_counts'] = {
+                'outgoing': 0,
+                'incoming': 0,
+                'total': 0
+            }
+        
+        return properties
+
     def get_neuron_property(
         self, neuron_id: int, property_name: Union[str, NeuronPropertyType]
     ) -> Any:
@@ -3625,6 +3682,22 @@ class ConnectomeManager(NeuronMappingProvider):
         """Alias for next_neuron_id for backward compatibility with tests."""
         return self.next_neuron_id
 
+    def enable_refractory_debug_logging(self):
+        """Enable debug logging for refractory period behavior in the neuron array."""
+        if hasattr(self, 'neuron_array') and self.neuron_array:
+            self.neuron_array.enable_refractory_debug()
+            print("🔬 [CONNECTOME] Refractory debug logging enabled")
+        else:
+            print("❌ [CONNECTOME] No neuron array available")
+
+    def disable_refractory_debug_logging(self):
+        """Disable debug logging for refractory period behavior in the neuron array."""
+        if hasattr(self, 'neuron_array') and self.neuron_array:
+            self.neuron_array.disable_refractory_debug()
+            print("🔇 [CONNECTOME] Refractory debug logging disabled")
+        else:
+            print("❌ [CONNECTOME] No neuron array available")
+
     def delete_neurons(self, neuron_ids: List[int]) -> int:
         """Delete multiple neurons at once.
 
@@ -3819,6 +3892,79 @@ class ConnectomeManager(NeuronMappingProvider):
             "synapses_cleared": synapses_cleared,
         }
 
+    def _ensure_brain_regions_structure(self, genome_data: Dict[str, Any]) -> None:
+        """
+        Ensure that brain_regions structure exists in the genome and ConnectomeManager.
+        
+        This method automatically creates a default "root" brain region if none exists,
+        ensuring compatibility with cortical area creation APIs and proper organization.
+        
+        Args:
+            genome_data: The genome data being loaded
+        """
+        logger.info("[BRAIN REGIONS] Checking brain regions structure...")
+        
+        # Check if brain_regions exists in genome data
+        if "brain_regions" not in genome_data:
+            logger.info("[BRAIN REGIONS] No brain_regions found in genome - creating default structure")
+            genome_data["brain_regions"] = {}
+        
+        # Ensure root region exists
+        if "root" not in genome_data["brain_regions"]:
+            logger.info("[BRAIN REGIONS] Creating default 'root' brain region")
+            
+            # Get existing cortical areas from blueprint to assign to root region
+            existing_areas = []
+            blueprint = genome_data.get("blueprint", {})
+            if blueprint:
+                # Handle both flat (gene-based) and hierarchical blueprint formats
+                if any(key.startswith("_____10c-") for key in blueprint.keys()):
+                    # Flat format: extract cortical IDs from gene names
+                    cortical_ids = set()
+                    for gene_name in blueprint.keys():
+                        if gene_name.startswith("_____10c-") and "-cx-" in gene_name:
+                            # Extract cortical ID from gene name: _____10c-cortical_id-cx-property-type
+                            parts = gene_name.split("-")
+                            if len(parts) >= 3:
+                                cortical_id = parts[1]
+                                cortical_ids.add(cortical_id)
+                    existing_areas = list(cortical_ids)
+                    logger.info(f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in flat blueprint: {existing_areas}")
+                else:
+                    # Hierarchical format: cortical IDs are direct keys
+                    existing_areas = list(blueprint.keys())
+                    logger.info(f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in hierarchical blueprint: {existing_areas}")
+            
+            # Create default root region with existing areas
+            genome_data["brain_regions"]["root"] = {
+                "title": "Root Brain Region",
+                "description": "Default root region for brain organization",
+                "parent_region_id": None,
+                "coordinate_2d": [0, 0],
+                "coordinate_3d": [0, 0, 0],
+                "areas": existing_areas,
+                "regions": [],
+                "inputs": [],
+                "outputs": [],
+                "signature": ""
+            }
+            
+            logger.info(f"[BRAIN REGIONS] Created root region with {len(existing_areas)} cortical areas")
+        
+        # Initialize ConnectomeManager's brain_regions from genome
+        if not hasattr(self, 'brain_regions'):
+            self.brain_regions = {}
+        
+        # Sync ConnectomeManager's brain_regions with genome
+        self.brain_regions.update(genome_data["brain_regions"])
+        
+        # Store reference to genome for API access
+        if not hasattr(self, 'genome'):
+            self.genome = {}
+        self.genome["brain_regions"] = genome_data["brain_regions"]
+        
+        logger.info(f"[BRAIN REGIONS] Brain regions structure ensured - {len(self.brain_regions)} regions available")
+
     def prepare_for_new_genome(
         self, genome_data: Dict[str, Any], save_current_state: bool = True
     ) -> Dict[str, Any]:
@@ -3892,8 +4038,12 @@ class ConnectomeManager(NeuronMappingProvider):
             status="[OK]",
         )
 
-        # STEP 5: CHECK MEMORY CAPACITY AND REALLOCATE IF NEEDED
-        logger.info("Step 5: Checking memory capacity requirements")
+        # STEP 5: ENSURE BRAIN REGIONS STRUCTURE EXISTS
+        logger.info("Step 5: Ensuring brain regions structure exists")
+        self._ensure_brain_regions_structure(genome_data)
+
+        # STEP 6: CHECK MEMORY CAPACITY AND REALLOCATE IF NEEDED
+        logger.info("Step 6: Checking memory capacity requirements")
         # Estimate memory requirements from genome (simplified)
         estimated_neurons = (
             len(genome_data.get("blueprint", {}).get("cortical_areas", {})) * 1000

@@ -132,7 +132,7 @@ class NeuronArray:
 
     def __init__(self, max_neurons: int = 10_000_000, backend: Optional[str] = None, mapping_provider: Optional[NeuronMappingProvider] = None):
         """Initialize ultra-high-performance NeuronArray.
-
+        
         Args:
             max_neurons: Maximum number of neurons to support
             backend: Backend type to use (numpy, pytorch, cupy, webgpu, rust, or auto)
@@ -140,7 +140,10 @@ class NeuronArray:
         """
         self.max_neurons = max_neurons
         self.mapping_provider = mapping_provider
-
+        
+        # Debug flags for diagnostics
+        self._debug_refractory = False  # Controls refractory period debug logging
+        
         # Align capacity to SIMD vector boundaries
         self.aligned_capacity = (max_neurons + VECTOR_WIDTH - 1) & ~(VECTOR_WIDTH - 1)
 
@@ -308,8 +311,70 @@ class NeuronArray:
         # PHASE 4: Threshold checking and firing decision (SIMD-optimized)
         fired_mask = simd_firing_check(self.membrane_potentials, self.thresholds, can_update_mask)
 
-        # PHASE 5: Extract fired neuron IDs
+        # PHASE 5: Process firing consequences (CRITICAL FIX!)
         fired_indices = np.where(fired_mask)[0]
+        if len(fired_indices) > 0:
+            # DEBUG LOGGING FOR REFRACTORY PERIOD BUG INVESTIGATION
+            # Check cortical areas of fired neurons (needed for debug analysis)
+            cortical_areas = {}
+            for idx in fired_indices:
+                cortical_idx = self.cortical_idxs[idx] if idx < len(self.cortical_idxs) else "N/A"
+                if cortical_idx not in cortical_areas:
+                    cortical_areas[cortical_idx] = []
+                cortical_areas[cortical_idx].append(idx)
+            
+            if self._debug_refractory:
+                print(f"\n🔥 NEURON DEBUG: Timestep {timestep} - {len(fired_indices)} neurons firing")
+                print(f"   Fired indices: {fired_indices}")
+                print(f"   Fired by cortical area: {cortical_areas}")
+                
+                # Show refractory counters BEFORE setting
+                print(f"   Refractory counters BEFORE: {self.refractory_counters[fired_indices]}")
+                print(f"   Refractory periods to set: {self.refractory_periods[fired_indices]}")
+            
+            # Reset membrane potentials of fired neurons to resting potential
+            self.membrane_potentials[fired_indices] = self.resting_potentials[fired_indices]
+            
+            # Set refractory counters to refractory periods (CRITICAL FOR REFRACTORY PERIOD ENFORCEMENT!)
+            self.refractory_counters[fired_indices] = self.refractory_periods[fired_indices]
+            
+            if self._debug_refractory:
+                # Show refractory counters AFTER setting
+                print(f"   Refractory counters AFTER: {self.refractory_counters[fired_indices]}")
+                
+                # CRITICAL DEBUG: Check if OTHER neurons in same cortical areas are affected
+                for cortical_idx, fired_in_area in cortical_areas.items():
+                    if cortical_idx == "N/A":
+                        continue
+                        
+                    # Find ALL neurons in this cortical area
+                    all_in_area = np.where(self.cortical_idxs == cortical_idx)[0]
+                    non_fired_in_area = [idx for idx in all_in_area if idx not in fired_indices]
+                    
+                    if len(non_fired_in_area) > 0:
+                        print(f"   🧪 Area {cortical_idx}: {len(fired_in_area)} fired, {len(non_fired_in_area)} didn't fire")
+                        print(f"      Non-fired indices: {non_fired_in_area[:5]}...")  # Show first 5
+                        print(f"      Non-fired refractory counters: {self.refractory_counters[non_fired_in_area[:5]]}")
+                        
+                        # BUG DETECTION: Check if non-fired neurons incorrectly became refractory
+                        incorrect_refractory = self.refractory_counters[non_fired_in_area] > 0
+                        if np.any(incorrect_refractory):
+                            buggy_indices = np.array(non_fired_in_area)[incorrect_refractory]
+                            print(f"   🚨 BUG DETECTED: Non-fired neurons became refractory: {buggy_indices}")
+                            print(f"      Their refractory counters: {self.refractory_counters[buggy_indices]}")
+                            print(f"      This confirms AREA-WIDE REFRACTORY SUPPRESSION!")
+                            
+                            # Check memory addresses to see if they're sharing memory
+                            fired_addr = id(self.refractory_counters[fired_indices[0]] if fired_indices else None)
+                            buggy_addr = id(self.refractory_counters[buggy_indices[0]] if len(buggy_indices) > 0 else None)
+                            print(f"      Memory check - Fired neuron addr: {fired_addr}, Buggy neuron addr: {buggy_addr}")
+                            
+                            if fired_addr == buggy_addr:
+                                print(f"      🎯 ROOT CAUSE: SHARED MEMORY - neurons sharing same refractory counter!")
+                            else:
+                                print(f"      🎯 ROOT CAUSE: INDEXING BUG - incorrect array slicing/indexing!")
+
+        # PHASE 6: Extract fired neuron IDs
         fired_neurons = []
         for idx in fired_indices:
             neuron_id = self._get_neuron_id(idx)
@@ -317,6 +382,16 @@ class NeuronArray:
                 fired_neurons.append(neuron_id)
 
         return fired_neurons
+
+    def enable_refractory_debug(self):
+        """Enable debug logging for refractory period behavior."""
+        self._debug_refractory = True
+        print("🔬 Refractory period debug logging ENABLED")
+
+    def disable_refractory_debug(self):
+        """Disable debug logging for refractory period behavior."""
+        self._debug_refractory = False
+        print("🔇 Refractory period debug logging DISABLED")
 
     def update_membrane_potentials(self, synapse_indices=None, synapse_data=None, timestep: Optional[int] = None, decay_factor: Optional[float] = None):
         """High-performance membrane potential update with embedded optimization."""

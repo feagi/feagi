@@ -439,6 +439,47 @@ class NeuronMappingsResponse(BaseModel):
     mappings: Dict[str, Any]
 
 
+class OutgoingSynapse(BaseModel):
+    """Model for an outgoing synaptic connection."""
+    
+    target_neuron_id: int
+    weight: float
+
+
+class IncomingSynapse(BaseModel):
+    """Model for an incoming synaptic connection."""
+    
+    source_neuron_id: int
+    weight: float
+
+
+class SynapseCounts(BaseModel):
+    """Model for synapse count summary."""
+    
+    outgoing: int
+    incoming: int
+    total: int
+
+
+class NeuronPropertiesResponse(BaseModel):
+    """Response model for individual neuron properties."""
+
+    neuron_id: int
+    cortical_id: str
+    cortical_idx: int
+    position: List[float]
+    threshold: float
+    membrane_potential: float
+    resting_potential: float
+    decay_rate: float
+    refractory_period: int
+    refractory_counter: int
+    properties: Dict[str, Any]
+    outgoing_synapses: List[OutgoingSynapse]
+    incoming_synapses: List[IncomingSynapse]
+    synapse_counts: SynapseCounts
+
+
 class BatchNeuronCreationResponse(BaseModel):
     """Response model for batch neuron creation."""
 

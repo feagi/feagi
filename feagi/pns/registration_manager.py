@@ -647,6 +647,30 @@ class RegistrationManager:
                         viz_frequency = self._process_manager._fq_sampler_config.get(
                             "visualization_frequency", 30.0
                         )
+                    
+                    # Use minimum of viz_frequency and FEAGI burst frequency
+                    # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
+                    burst_frequency = None
+                    original_viz_frequency = viz_frequency
+                    
+                    try:
+                        from feagi.core.state_manager import FeagiStateManager
+                        state_manager = FeagiStateManager.instance()
+                        burst_frequency = state_manager.get_burst_frequency()
+                        
+                        if burst_frequency and burst_frequency > 0:
+                            viz_frequency = min(viz_frequency, burst_frequency)
+                            logger.info(
+                                f"🎨 [FREQ-SYNC] STATE MANAGER: Using min(viz={original_viz_frequency}Hz, burst={burst_frequency}Hz) = {viz_frequency}Hz"
+                            )
+                        else:
+                            logger.warning(
+                                f"🎨 [FREQ-SYNC] STATE MANAGER: Invalid burst frequency ({burst_frequency}Hz) - using original viz frequency: {viz_frequency}Hz"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"🎨 [FREQ-SYNC] STATE MANAGER: Failed to get burst frequency - using original viz frequency: {viz_frequency}Hz. Error: {e}"
+                        )
 
                     success = self._process_manager.create_fq_sampler(
                         "visualization", viz_frequency

@@ -1296,6 +1296,49 @@ class ProcessManager:
 
         return stats
 
+    def update_visualization_stream_frequency(self, new_frequency: float) -> int:
+        """
+        Update visualization stream frequency to sync with FQ sampler frequency.
+        
+        CRITICAL FIX: Visualization streams use their own timing (sample_rate),
+        independent of FQ sampler frequency. This method updates both.
+        
+        Args:
+            new_frequency: New frequency in Hz
+            
+        Returns:
+            Number of streams updated
+        """
+        updated_count = 0
+        
+        try:
+            # Update via ZMQ server reference if available
+            if hasattr(self, "_zmq_server") and self._zmq_server:
+                zmq_server = self._zmq_server
+                if hasattr(zmq_server, "_visualization") and zmq_server._visualization:
+                    viz_stream = zmq_server._visualization
+                    if hasattr(viz_stream, "sample_rate"):
+                        old_rate = viz_stream.sample_rate
+                        viz_stream.sample_rate = new_frequency
+                        logger.info(
+                            f"🎬 [FREQ-SYNC] Visualization stream updated: {old_rate}Hz → {new_frequency}Hz"
+                        )
+                        updated_count += 1
+                    else:
+                        logger.warning("🎬 [FREQ-SYNC] Visualization stream found but no sample_rate attribute")
+                else:
+                    logger.debug("🎬 [FREQ-SYNC] No visualization stream found in ZMQ server")
+            else:
+                logger.debug("🎬 [FREQ-SYNC] No ZMQ server reference available")
+                
+            # TODO: Add support for other visualization stream instances if needed
+            # (e.g., standalone streams, additional servers, etc.)
+            
+        except Exception as e:
+            logger.error(f"🎬 [FREQ-SYNC] Error updating visualization stream frequency: {e}")
+            
+        return updated_count
+
     def create_fq_sampler(self, mode: str, frequency: float) -> bool:
         """
         Create and register FQ sampler of the specified mode.

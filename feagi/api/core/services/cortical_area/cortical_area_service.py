@@ -108,13 +108,30 @@ class CorticalAreaService(BaseService):
         Returns:
             Integer index if found, None otherwise
         """
+        self.logger.info(f"DEBUG: _get_cortical_idx_for_id called for cortical_id: {cortical_id}")
+        
         try:
+            # Check if cortical_mapping exists
+            if not hasattr(self._connectome_manager, 'cortical_mapping'):
+                self.logger.error(f"DEBUG: ConnectomeManager has no cortical_mapping attribute")
+                return None
+            
+            if self._connectome_manager.cortical_mapping is None:
+                self.logger.error(f"DEBUG: ConnectomeManager.cortical_mapping is None")
+                return None
+            
             # Use the connectome manager's O(1) mapping method
-            return self._connectome_manager.cortical_mapping.get_idx(cortical_id)
+            result = self._connectome_manager.cortical_mapping.get_idx(cortical_id)
+            self.logger.info(f"DEBUG: cortical_mapping.get_idx({cortical_id}) returned: {result}")
+            return result
+            
         except Exception as e:
             self.logger.error(
-                f"Error mapping cortical_id {cortical_id} to cortical_idx: {str(e)}"
+                f"DEBUG: Error mapping cortical_id {cortical_id} to cortical_idx: {str(e)}"
             )
+            self.logger.error(f"DEBUG: Exception type: {type(e).__name__}")
+            import traceback
+            self.logger.error(f"DEBUG: Traceback: {traceback.format_exc()}")
             return None
 
     def _get_cortical_id_for_idx(self, cortical_idx: int) -> Optional[str]:
@@ -306,16 +323,61 @@ class CorticalAreaService(BaseService):
             List of neuron information or None if area not found
         """
 
+        self.logger.info(f"DEBUG: get_area_neurons called for cortical_id: {cortical_id}")
+
+        # CRITICAL FIX: Try direct approach first, then fallback to mapping
+        try:
+            # Method 1: Try direct neuron retrieval (bypasses mapping issues)
+            neuron_ids = self._connectome_manager.get_neurons_by_area(cortical_id)
+            self.logger.info(f"DEBUG: Direct neuron retrieval for {cortical_id} returned: {len(neuron_ids) if neuron_ids else 0} neurons")
+            
+            if neuron_ids:
+                # Direct approach worked - build result
+                result = []
+                for neuron_id in neuron_ids:
+                    # Get neuron index for accessing property arrays
+                    neuron_index = self._connectome_manager._neuron_id_to_index.get(neuron_id)
+                    if neuron_index is None:
+                        continue
+
+                    # Get neuron position
+                    position = self._connectome_manager.get_neuron_position(neuron_id)
+
+                    # Get neuron properties
+                    membrane_potential = float(self._connectome_manager.neuron_array.membrane_potentials[neuron_index])
+                    threshold = float(self._connectome_manager.neuron_array.thresholds[neuron_index])
+                    decay_rate = float(self._connectome_manager.neuron_array.decay_rates[neuron_index])
+
+                    result.append({
+                        "id": str(neuron_id),
+                        "position": {"x": position[0], "y": position[1], "z": position[2]},
+                        "properties": {
+                            "membrane_potential": membrane_potential,
+                            "threshold": threshold,
+                            "decay_rate": decay_rate,
+                        },
+                    })
+
+                self.logger.info(f"DEBUG: Successfully built result with {len(result)} neurons for {cortical_id}")
+                return result
+
+        except Exception as e:
+            self.logger.error(f"DEBUG: Direct neuron retrieval failed for {cortical_id}: {str(e)}")
+
+        # Method 2: Fallback to original mapping approach
+        self.logger.info(f"DEBUG: Falling back to mapping approach for {cortical_id}")
+        
         # Map cortical_id to cortical_idx
         cortical_idx = self._get_cortical_idx_for_id(cortical_id)
         if cortical_idx is None:
             self.logger.warning(
-                f"Cortical area with cortical_id '{cortical_id}' not found for neuron retrieval"
+                f"Cortical area with cortical_id '{cortical_id}' not found for neuron retrieval via mapping"
             )
             return None
 
         try:
             if cortical_idx not in self._connectome_manager.cortical_areas:
+                self.logger.warning(f"DEBUG: cortical_idx {cortical_idx} not in connectome_manager.cortical_areas")
                 return None
 
             # Get all neurons in this area

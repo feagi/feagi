@@ -366,26 +366,44 @@ class CoreAPIService:
     def update_cortical_area_properties(
         self, cortical_id: str, properties: Dict[str, Any]
     ) -> bool:
-        """Update properties of an existing cortical area (wrapper for API compatibility)."""
-        self.logger.info(f"DEBUG: CoreAPIService.update_cortical_area_properties called with cortical_id={cortical_id}, properties={properties}")
+        """Update properties of an existing cortical area with intelligent routing."""
+        self.logger.info(f"[CORTICAL-UPDATE] CoreAPIService.update_cortical_area_properties called with cortical_id={cortical_id}, properties={properties}")
         try:
-            # CRITICAL FIX: Extract parameters from nested structure
-            if "parameters" in properties and isinstance(properties["parameters"], dict):
-                # Extract the actual parameters from the nested structure
-                actual_parameters = properties["parameters"]
-                self.logger.info(f"DEBUG: Extracted actual parameters: {actual_parameters}")
-            else:
-                # Properties are already in the correct format
-                actual_parameters = properties
-                self.logger.info(f"DEBUG: Using properties directly as parameters: {actual_parameters}")
+            # ARCHITECTURE COMPLIANCE: Route through GenomeService for intelligent routing
+            # This ensures STRUCTURAL changes (like cortical_dimensions) trigger proper rebuild
             
-            result = self._cortical_area_service.update_area(
-                cortical_id, parameters=actual_parameters
+            # Extract individual property types for GenomeService.update_cortical_area()
+            name = properties.get("cortical_name")
+            coordinates = properties.get("coordinates_3d") 
+            dimensions = properties.get("cortical_dimensions")
+            area_type = properties.get("cortical_type")
+            
+            # Collect remaining properties as parameters
+            parameters = {k: v for k, v in properties.items() 
+                         if k not in ["cortical_name", "coordinates_3d", "cortical_dimensions", "cortical_type"]}
+            
+            # Remove empty parameters dict to avoid passing unnecessary data
+            if not parameters:
+                parameters = None
+                
+            self.logger.info(f"[CORTICAL-UPDATE] Routing to GenomeService with intelligent classification: "
+                           f"name={name}, coordinates={coordinates}, dimensions={dimensions}, "
+                           f"area_type={area_type}, parameters={parameters}")
+            
+            # Route through GenomeService for intelligent routing (STRUCTURAL vs PARAMETER vs METADATA)
+            result = self._genome_service.update_cortical_area(
+                cortical_id=cortical_id,
+                name=name,
+                coordinates=coordinates,
+                dimensions=dimensions,
+                area_type=area_type,
+                parameters=parameters
             )
-            self.logger.info(f"DEBUG: cortical_area_service.update_area returned: {result}")
+            
             success = result is not None
-            self.logger.info(f"DEBUG: Returning success={success}")
+            self.logger.info(f"[CORTICAL-UPDATE] GenomeService.update_cortical_area returned success={success}")
             return success
+            
         except Exception as e:
             self.logger.error(
                 f"Error updating cortical area properties for {cortical_id}: {str(e)}"
@@ -413,6 +431,39 @@ class CoreAPIService:
     ) -> Optional[Dict[str, Any]]:
         """Get connectivity information for a specific cortical area."""
         return self._cortical_area_service.get_area_connectivity(cortical_id, direction)
+
+    def get_neuron_properties(self, neuron_id: int) -> Optional[Dict[str, Any]]:
+        """Get detailed properties of a specific neuron including refractory counter."""
+        self.logger.info(f"DEBUG: get_neuron_properties called for neuron_id: {neuron_id} (type: {type(neuron_id)})")
+        
+        try:
+            # Delegate to ConnectomeManager for direct neuron property access
+            connectome_manager = self._cortical_area_service._connectome_manager
+            if not connectome_manager:
+                self.logger.error("ConnectomeManager not available for neuron property access")
+                return None
+            
+            self.logger.info(f"DEBUG: Got connectome_manager, calling get_neuron_properties({neuron_id})")
+            properties = connectome_manager.get_neuron_properties(neuron_id)
+            
+            if not properties:
+                self.logger.warning(f"DEBUG: Neuron {neuron_id} not found - get_neuron_properties returned None/empty")
+                return None
+            
+            # Add neuron_id to the response and convert position tuple to list
+            properties['neuron_id'] = neuron_id
+            if 'position' in properties and isinstance(properties['position'], tuple):
+                properties['position'] = list(properties['position'])
+            
+            self.logger.info(f"DEBUG: Successfully got properties for neuron {neuron_id}: {list(properties.keys())}")
+            return properties
+            
+        except Exception as e:
+            self.logger.error(f"DEBUG: Error getting properties for neuron {neuron_id}: {str(e)}")
+            self.logger.error(f"DEBUG: Exception type: {type(e).__name__}")
+            import traceback
+            self.logger.error(f"DEBUG: Traceback: {traceback.format_exc()}")
+            return None
 
     def get_cortical_id_list(self) -> List[str]:
         """Get a list of all cortical area IDs (6-character strings) in the current genome."""
@@ -1227,10 +1278,134 @@ class CoreAPIService:
                         self.logger.warning(f"Failed to sync burst engine with new frequency {frequency}Hz")
                         # Don't return False here - state_manager update succeeded
 
+                # AUTOMATIC FQ SAMPLER SYNCHRONIZATION
+                # When burst frequency changes, automatically update all active FQ samplers
+                # to ensure they never exceed the new burst frequency
+                self._synchronize_fq_samplers_with_burst_frequency(frequency)
+
             return True
         except Exception as e:
             self.logger.error(f"Error updating burst engine config: {str(e)}")
             return False
+
+    def _synchronize_fq_samplers_with_burst_frequency(self, new_burst_frequency: float) -> None:
+        """
+        Automatically synchronize all active FQ samplers with new burst frequency.
+        
+        Ensures that no FQ sampler exceeds the burst frequency by applying:
+        new_sampler_freq = min(configured_freq, new_burst_freq)
+        
+        Args:
+            new_burst_frequency: New burst frequency in Hz
+        """
+        try:
+            self.logger.info(f"🔄 [AUTO-SYNC] Starting FQ sampler synchronization with burst frequency: {new_burst_frequency}Hz")
+            
+            # Get ProcessManager instance to access FQ samplers
+            try:
+                from feagi.process_manager import get_process_manager
+                process_manager = get_process_manager()
+                if not process_manager:
+                    self.logger.warning("🔄 [AUTO-SYNC] ProcessManager not available - FQ sampler sync skipped")
+                    return
+            except Exception as e:
+                self.logger.warning(f"🔄 [AUTO-SYNC] Cannot access ProcessManager: {e} - FQ sampler sync skipped")
+                return
+            
+            sync_count = 0
+            
+            # Synchronize Visualization FQ Sampler AND Visualization Stream
+            viz_sampler = process_manager.get_viz_fq_sampler()
+            
+            if viz_sampler:
+                try:
+                    # Get configured frequency from ProcessManager (not current frequency)
+                    # This ensures we use the original configured frequency, not the capped one
+                    configured_viz_freq = 30.0  # Default visualization frequency
+                    if hasattr(process_manager, "_fq_sampler_config"):
+                        configured_viz_freq = process_manager._fq_sampler_config.get(
+                            "visualization_frequency", 30.0
+                        )
+                    
+                    current_viz_freq = getattr(viz_sampler, 'sample_frequency', configured_viz_freq)
+                    
+                    # Apply frequency sync rule: min(CONFIGURED_freq, burst_freq)
+                    new_viz_freq = min(configured_viz_freq, new_burst_frequency)
+                    
+                    if new_viz_freq != current_viz_freq:
+                        viz_sampler.set_sample_frequency(new_viz_freq)
+                        
+                        # CRITICAL FIX: Also update visualization stream's sample_rate!
+                        # The visualization stream uses its own timing, independent of FQ sampler
+                        try:
+                            updated_streams = process_manager.update_visualization_stream_frequency(new_viz_freq)
+                            if updated_streams > 0:
+                                self.logger.info(
+                                    f"🎬 [AUTO-SYNC] Updated {updated_streams} visualization stream(s): sample_rate → {new_viz_freq}Hz "
+                                    f"(CRITICAL: streams were using independent timing!)"
+                                )
+                            else:
+                                self.logger.warning(f"🎬 [AUTO-SYNC] No visualization streams found to update sample_rate")
+                        except Exception as e:
+                            self.logger.error(f"🎬 [AUTO-SYNC] Failed to update visualization stream frequency: {e}")
+                        
+                        self.logger.info(
+                            f"🎨 [AUTO-SYNC] Visualization sampler: {current_viz_freq}Hz → {new_viz_freq}Hz "
+                            f"(configured: {configured_viz_freq}Hz, burst limit: {new_burst_frequency}Hz)"
+                        )
+                        sync_count += 1
+                    else:
+                        self.logger.info(
+                            f"🎨 [AUTO-SYNC] Visualization sampler: {current_viz_freq}Hz (no change needed)"
+                        )
+                except Exception as e:
+                    self.logger.error(f"🎨 [AUTO-SYNC] Failed to update visualization sampler: {e}")
+            else:
+                self.logger.warning("🎨 [AUTO-SYNC] No active visualization sampler found")
+            
+            # Synchronize Motor FQ Sampler  
+            motor_sampler = process_manager.get_motor_fq_sampler()
+            
+            if motor_sampler:
+                try:
+                    # Get configured frequency from ProcessManager (not current frequency)  
+                    # This ensures we use the original configured frequency, not the capped one
+                    configured_motor_freq = 100.0  # Default motor frequency
+                    if hasattr(process_manager, "_fq_sampler_config"):
+                        configured_motor_freq = process_manager._fq_sampler_config.get(
+                            "motor_frequency", 100.0
+                        )
+                    
+                    current_motor_freq = getattr(motor_sampler, 'sample_frequency', configured_motor_freq)
+                    
+                    # Apply frequency sync rule: min(CONFIGURED_freq, burst_freq)
+                    new_motor_freq = min(configured_motor_freq, new_burst_frequency)
+                    
+                    if new_motor_freq != current_motor_freq:
+                        motor_sampler.set_sample_frequency(new_motor_freq)
+                        self.logger.info(
+                            f"🚗 [AUTO-SYNC] Motor sampler: {current_motor_freq}Hz → {new_motor_freq}Hz "
+                            f"(configured: {configured_motor_freq}Hz, burst limit: {new_burst_frequency}Hz)"
+                        )
+                        sync_count += 1
+                    else:
+                        self.logger.info(
+                            f"🚗 [AUTO-SYNC] Motor sampler: {current_motor_freq}Hz (no change needed)"
+                        )
+                except Exception as e:
+                    self.logger.error(f"🚗 [AUTO-SYNC] Failed to update motor sampler: {e}")
+            else:
+                self.logger.warning("🚗 [AUTO-SYNC] No active motor sampler found")
+            
+            # Summary log
+            if sync_count > 0:
+                self.logger.info(f"✅ [AUTO-SYNC] Successfully synchronized {sync_count} FQ sampler(s) with burst frequency {new_burst_frequency}Hz")
+            else:
+                self.logger.info(f"✅ [AUTO-SYNC] All FQ samplers already synchronized with burst frequency {new_burst_frequency}Hz")
+                
+        except Exception as e:
+            self.logger.error(f"❌ [AUTO-SYNC] Failed to synchronize FQ samplers: {e}")
+            # Don't raise - this is a nice-to-have feature, shouldn't break frequency updates
 
     def get_network_config(self) -> Dict[str, Any]:
         """Get network configuration."""
@@ -1583,33 +1758,41 @@ class CoreAPIService:
 
             blueprint = genome["blueprint"]
 
-            # The genome structure is flattened, so we need to find the mapping data
-            # Look for the key pattern: "_____10c-{src_cortical_area}-cx-dstmap-d"
-            mapping_key = None
-            for key in blueprint.keys():
-                if f"-{src_cortical_area}-cx-dstmap-d" in key:
-                    mapping_key = key
-                    break
+            # ARCHITECTURE COMPLIANCE: Use hierarchical genome structure
+            # Look for mapping in: blueprint[src_cortical_area]["parameters"]["mapping"][dst_cortical_area]
+            if src_cortical_area not in blueprint:
+                self.logger.debug(
+                    f"Source cortical area '{src_cortical_area}' not found in blueprint"
+                )
+                return []
 
-            if not mapping_key:
+            area_def = blueprint[src_cortical_area]
+            if not isinstance(area_def, dict) or "parameters" not in area_def:
+                self.logger.debug(
+                    f"No parameters found for source cortical area '{src_cortical_area}'"
+                )
+                return []
+
+            parameters = area_def["parameters"]
+            if not isinstance(parameters, dict) or "mapping" not in parameters:
                 self.logger.debug(
                     f"No mapping found for source cortical area '{src_cortical_area}'"
                 )
                 return []
 
-            mapping_dst = blueprint[mapping_key]
-            if not isinstance(mapping_dst, dict):
+            mapping_data = parameters["mapping"]
+            if not isinstance(mapping_data, dict):
                 return []
 
             # Check if destination area is mapped from source
-            if dst_cortical_area not in mapping_dst:
+            if dst_cortical_area not in mapping_data:
                 self.logger.debug(
                     f"No mapping found from '{src_cortical_area}' to '{dst_cortical_area}'"
                 )
                 return []
 
             # Return the mapping data
-            connections = mapping_dst[dst_cortical_area]
+            connections = mapping_data[dst_cortical_area]
             if not connections:
                 return []
 
@@ -1617,7 +1800,7 @@ class CoreAPIService:
             formatted_connections = []
             for connection in connections:
                 if isinstance(connection, list) and len(connection) >= 4:
-                    # Handle the actual genome format: [morphology_id, scalar, multiplier, plasticity_flag]
+                    # Handle the genome format: [morphology_id, scalar, multiplier, plasticity_flag, ...]
                     # Pad with default values for missing fields
                     formatted_connection = {
                         "morphology_id": connection[0],

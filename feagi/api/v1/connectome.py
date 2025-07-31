@@ -45,6 +45,7 @@ from .schemas import (
     CorticalStatsResponse,
     FileUploadRequest,
     NeuronMappingsResponse,
+    NeuronPropertiesResponse,
     PlasticityInfoResponse,
     SuccessResponse,
 )
@@ -135,6 +136,66 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting cortical info: {e}")
             raise ValueError(f"Failed to get cortical info: {str(e)}")
+
+    @connectome_endpoint(
+        "GET", "/neuron/{neuron_id}/properties", response_model=NeuronPropertiesResponse
+    )
+    async def get_neuron_properties(self, neuron_id: int) -> NeuronPropertiesResponse:
+        """Get detailed properties of a specific neuron including refractory counter."""
+        try:
+            properties = self.core_api_service.get_neuron_properties(neuron_id)
+            if not properties:
+                raise ValueError(f"Neuron {neuron_id} not found!")
+            return NeuronPropertiesResponse(**properties)
+        except Exception as e:
+            logger.error(f"Error getting neuron properties for {neuron_id}: {e}")
+            raise ValueError(f"Failed to get neuron properties: {str(e)}")
+
+    @connectome_endpoint(
+        "GET", "/cortical_area/{cortical_id}/neurons", response_model=List[Dict[str, Any]]
+    )
+    async def get_cortical_area_neurons(self, cortical_id: str) -> List[Dict[str, Any]]:
+        """Get all neurons in a specific cortical area with their properties."""
+        try:
+            neurons = self.core_api_service.get_cortical_area_neurons(cortical_id)
+            if neurons is None:
+                raise ValueError(f"Cortical area '{cortical_id}' not found!")
+            return neurons
+        except Exception as e:
+            logger.error(f"Error getting neurons for cortical area {cortical_id}: {e}")
+            raise ValueError(f"Failed to get neurons for cortical area: {str(e)}")
+
+    @connectome_endpoint(
+        "GET", "/area_neurons", response_model=List[Dict[str, Any]]
+    )
+    async def get_area_neurons_by_query(self, cortical_id: str) -> List[Dict[str, Any]]:
+        """Get all neurons in a cortical area (query parameter version)."""
+        try:
+            logger.info(f"DEBUG: get_area_neurons_by_query called with cortical_id: {cortical_id}")
+            neurons = self.core_api_service.get_cortical_area_neurons(cortical_id)
+            if neurons is None:
+                raise ValueError(f"Cortical area '{cortical_id}' not found!")
+            logger.info(f"DEBUG: Successfully retrieved {len(neurons)} neurons for {cortical_id}")
+            return neurons
+        except Exception as e:
+            logger.error(f"Error getting neurons for cortical area {cortical_id}: {e}")
+            raise ValueError(f"Failed to get neurons for cortical area: {str(e)}")
+
+    @connectome_endpoint(
+        "GET", "/neuron_properties", response_model=NeuronPropertiesResponse
+    )
+    async def get_neuron_properties_by_query(self, neuron_id: int) -> NeuronPropertiesResponse:
+        """Get neuron properties (query parameter version)."""
+        try:
+            logger.info(f"DEBUG: get_neuron_properties_by_query called with neuron_id: {neuron_id}")
+            properties = self.core_api_service.get_neuron_properties(neuron_id)
+            if not properties:
+                raise ValueError(f"Neuron {neuron_id} not found!")
+            logger.info(f"DEBUG: Successfully retrieved properties for neuron {neuron_id}")
+            return NeuronPropertiesResponse(**properties)
+        except Exception as e:
+            logger.error(f"Error getting neuron properties for {neuron_id}: {e}")
+            raise ValueError(f"Failed to get neuron properties: {str(e)}")
 
     # ===== Plasticity and Properties =====
 

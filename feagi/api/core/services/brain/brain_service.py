@@ -798,58 +798,44 @@ class BrainService(BaseService):
     def get_burst_engine_config(self) -> Dict[str, Any]:
         """Get burst engine configuration - RTOS-safe."""
         try:
-            # Get real configuration from burst engine
-            burst_engine = self._get_burst_engine()
-            if burst_engine:
-                # RTOS-SAFE: Get current frequency configuration
-                frequency_config = burst_engine.get_frequency_config()
+            # Get frequency directly from STATE MANAGER (single source of truth)
+            state_frequency = 10.0  # Emergency fallback
+            if self.state_manager:
+                try:
+                    state_freq = self.state_manager.get_burst_frequency()
+                    if state_freq and state_freq > 0:
+                        state_frequency = state_freq
+                except Exception:
+                    pass  # Use fallback
+            
+            # Build config from authoritative state manager values
+            base_config = {
+                "burst_frequency_hz": state_frequency,
+                "burst_interval_seconds": 1.0 / state_frequency,
+                "target_frequency_hz": state_frequency,
+                "max_neurons_per_burst": (
+                    getattr(self.state_manager, "max_neurons_per_burst", 1000)
+                    if self.state_manager
+                    else 1000
+                ),
+                "burst_timeout_ms": (
+                    getattr(self.state_manager, "burst_timeout", 1000)
+                    if self.state_manager
+                    else 1000
+                ),
+                "auto_restart": (
+                    getattr(self.state_manager, "auto_restart", True)
+                    if self.state_manager
+                    else True
+                ),
+                "performance_mode": (
+                    getattr(self.state_manager, "performance_mode", "normal")
+                    if self.state_manager
+                    else "normal"
+                ),
+            }
 
-                # Combine with state manager configuration
-                base_config = {
-                    "burst_frequency_hz": frequency_config.get(
-                        "current_frequency_hz", 10.0
-                    ),
-                    "burst_interval_seconds": frequency_config.get(
-                        "burst_interval_seconds", 0.1
-                    ),
-                    "target_frequency_hz": frequency_config.get(
-                        "target_frequency_hz", 10.0
-                    ),
-                    "max_neurons_per_burst": (
-                        getattr(self.state_manager, "max_neurons_per_burst", 1000)
-                        if self.state_manager
-                        else 1000
-                    ),
-                    "burst_timeout_ms": (
-                        getattr(self.state_manager, "burst_timeout", 1000)
-                        if self.state_manager
-                        else 1000
-                    ),
-                    "auto_restart": (
-                        getattr(self.state_manager, "auto_restart", True)
-                        if self.state_manager
-                        else True
-                    ),
-                    "performance_mode": (
-                        getattr(self.state_manager, "performance_mode", "normal")
-                        if self.state_manager
-                        else "normal"
-                    ),
-                }
-
-                return base_config
-            else:
-                # Fallback configuration when burst engine is not available
-                return {
-                    "burst_frequency_hz": 10.0,
-                    "burst_interval_seconds": 0.1,
-                    "target_frequency_hz": 10.0,
-                    "max_neurons_per_burst": 1000,
-                    "burst_timeout_ms": 1000,
-                    "auto_restart": True,
-                    "performance_mode": "normal",
-                    "error": "Burst engine not available",
-                }
+            return base_config
 
         except Exception as e:
             self.logger.error(f"Error getting burst engine config: {str(e)}")

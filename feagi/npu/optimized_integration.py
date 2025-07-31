@@ -256,8 +256,35 @@ def step_simulation_with_fire_queue(
                 fire_queue["neuron_ids"].append(target_id)
                 fire_queue["membrane_potentials"].append(updated_mp)
                 fire_queue["thresholds"].append(1.0)  # Default threshold
-                fire_queue["consecutive_fire_counts"].append(0)  # Placeholder value
-                fire_queue["refractory_counters"].append(0)  # Placeholder value
+                # CRITICAL FIX: Get actual consecutive fire count, not placeholder 0
+                actual_consecutive_fires = 0
+                if hasattr(gna, 'get_consecutive_fire_count'):
+                    actual_consecutive_fires = gna.get_consecutive_fire_count(target_id)
+                elif hasattr(gna, 'neuron_array') and hasattr(gna.neuron_array, 'consecutive_fire_counts'):
+                    # For optimized structures, access consecutive fire counts directly
+                    if target_id < len(gna.neuron_array.consecutive_fire_counts):
+                        actual_consecutive_fires = gna.neuron_array.consecutive_fire_counts[target_id]
+                elif hasattr(gna, '_consecutive_fire_counts'):
+                    # For mock/test structures
+                    if target_id < len(gna._consecutive_fire_counts):
+                        actual_consecutive_fires = gna._consecutive_fire_counts[target_id]
+                        
+                fire_queue["consecutive_fire_counts"].append(actual_consecutive_fires)
+                
+                # CRITICAL FIX: Get actual refractory counter, not placeholder 0
+                actual_refractory_counter = 0
+                if hasattr(gna, 'get_refractory_counter'):
+                    actual_refractory_counter = gna.get_refractory_counter(target_id)
+                elif hasattr(gna, 'neuron_array') and hasattr(gna.neuron_array, 'refractory_counters'):
+                    # For optimized structures, access refractory counters directly
+                    if target_id < len(gna.neuron_array.refractory_counters):
+                        actual_refractory_counter = gna.neuron_array.refractory_counters[target_id]
+                elif hasattr(gna, '_refractory_counters'):
+                    # For mock/test structures
+                    if target_id < len(gna._refractory_counters):
+                        actual_refractory_counter = gna._refractory_counters[target_id]
+                
+                fire_queue["refractory_counters"].append(actual_refractory_counter)
 
         # 4. Extract firing candidates from queue
         new_fire_candidates = []

@@ -414,8 +414,13 @@ class CorticalAreaAPI:
             copy_of = new_custom_cortical_properties.get("copy_of")
 
             # Validate parent region
-            if parent_region_id not in connectome.genome["brain_regions"]:
-                raise ValueError(f"{parent_region_id} does not exist!")
+            # ConnectomeManager ensures brain_regions structure exists during genome loading
+            genome_brain_regions = getattr(connectome, 'genome', {}).get("brain_regions", {})
+            connectome_brain_regions = getattr(connectome, 'brain_regions', {})
+            
+            if (parent_region_id not in genome_brain_regions and 
+                parent_region_id not in connectome_brain_regions):
+                raise ValueError(f"Parent region '{parent_region_id}' does not exist!")
 
             # Generate cortical ID
             temp_name = cortical_name

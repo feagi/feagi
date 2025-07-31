@@ -203,10 +203,34 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         self.state_manager = FeagiStateManager.instance()
 
-        # Support both parameter names for backward compatibility
-        self.desired_frequency = self.config.get(
+        # STATE MANAGER is the SINGLE SOURCE OF TRUTH for burst frequency
+        # Only use config as emergency fallback during initialization
+        config_frequency = self.config.get(
             "desired_frequency_hz", self.config.get("target_frequency", 10.0)
-        )  # Default to 10Hz instead of 1Hz for better performance
+        )
+        
+        # Get frequency from state manager (authoritative source)
+        try:
+            state_frequency = self.state_manager.get_burst_frequency()
+            if state_frequency and state_frequency > 0:
+                self.desired_frequency = state_frequency
+                logger.info(f"[BURST ENGINE] Using state manager frequency: {state_frequency}Hz")
+            else:
+                # Emergency fallback: use config and update state manager
+                self.desired_frequency = config_frequency
+                self.state_manager.set_burst_frequency(config_frequency)
+                logger.warning(
+                    f"[BURST ENGINE] State manager frequency invalid ({state_frequency}Hz) - "
+                    f"using config fallback: {config_frequency}Hz and updating state manager"
+                )
+        except Exception as e:
+            # Emergency fallback: use config frequency
+            self.desired_frequency = config_frequency
+            logger.warning(
+                f"[BURST ENGINE] Failed to get frequency from state manager ({e}) - "
+                f"using config fallback: {config_frequency}Hz"
+            )
+        
         self.target_frequency = self.desired_frequency  # For backward compatibility
 
         # Ensure frequency is never zero to avoid division by zero
@@ -216,6 +240,11 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             )
             self.desired_frequency = 10.0
             self.target_frequency = 10.0
+            # Update state manager with corrected value
+            try:
+                self.state_manager.set_burst_frequency(10.0)
+            except Exception:
+                pass  # Emergency fallback - don't fail initialization
 
         self.burst_interval = 1.0 / self.desired_frequency
 
@@ -879,6 +908,9 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
     def update_frequency(self, frequency_hz: float) -> bool:
         """
         Update burst frequency - RTOS-safe, no dynamic allocation.
+        
+        IMPORTANT: This should only be called by CoreAPIService which manages 
+        the state manager update. The frequency should come FROM state manager.
 
         Args:
             frequency_hz: New frequency in Hz (must be > 0)
@@ -897,22 +929,42 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         # RTOS-SAFE: Minimal logging only if debug enabled
         if self.debug_npu:
-            logger.info(f"[DEBUG] BURST ENGINE: Frequency updated to {frequency_hz}Hz")
+            logger.info(f"[DEBUG] BURST ENGINE: Local frequency updated to {frequency_hz}Hz (from state manager)")
 
         return True
 
     def get_frequency_config(self) -> Dict[str, float]:
         """
-        Get current frequency configuration - RTOS-safe, no allocation.
-
+        Get current frequency configuration from STATE MANAGER (authoritative source).
+        
         Returns:
-            Dictionary with current frequency settings
+            Dictionary with current frequency settings from state manager
         """
-        return {
-            "current_frequency_hz": self.desired_frequency,
-            "burst_interval_seconds": self.burst_interval,
-            "target_frequency_hz": self.target_frequency,
-        }
+        try:
+            # STATE MANAGER is the single source of truth
+            state_frequency = self.state_manager.get_burst_frequency()
+            if state_frequency and state_frequency > 0:
+                return {
+                    "current_frequency_hz": state_frequency,
+                    "burst_interval_seconds": 1.0 / state_frequency,
+                    "target_frequency_hz": state_frequency,
+                }
+            else:
+                # Emergency fallback to local values
+                return {
+                    "current_frequency_hz": self.desired_frequency,
+                    "burst_interval_seconds": self.burst_interval,
+                    "target_frequency_hz": self.target_frequency,
+                    "warning": "Using local fallback - state manager frequency invalid"
+                }
+        except Exception as e:
+            # Emergency fallback to local values
+            return {
+                "current_frequency_hz": self.desired_frequency,
+                "burst_interval_seconds": self.burst_interval,
+                "target_frequency_hz": self.target_frequency,
+                "error": f"Failed to get frequency from state manager: {e}"
+            }
 
     def run_with_fire_queue(
         self, mpf: bool = True, puf: bool = False, max_consecutive_fires: int = 10

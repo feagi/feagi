@@ -528,7 +528,7 @@ class UnifiedFQSampler:
                     continue
 
                 if not area_data or not area_data.get("neuron_ids"):
-                    logger.info(
+                    logger.debug(
                         f"🔥 FQ SAMPLER: No data or no neuron_ids for area {area_id}: area_data={area_data}"
                     )
                     continue
