@@ -509,52 +509,19 @@ class NeuroEmbryogenesis:
 
     def _get_cortical_ids_from_genome(self) -> List[str]:
         """
-        Extract the list of cortical area IDs from the genome blueprint.
+        Extract the list of cortical area IDs from hierarchical genome blueprint.
         
-        ARCHITECTURE: Now supports hierarchical genome format (single source of truth)
-        while maintaining backward compatibility with flat format during transition.
+        ARCHITECTURE: Single source of truth - hierarchical genome format only.
+        No fallbacks, no format detection, one clean reliable path.
 
         Returns:
             List of cortical area IDs
         """
         blueprint = self.genome["blueprint"]
+        cortical_ids = list(blueprint.keys())
         
-        # ARCHITECTURE: Detect genome format and prefer hierarchical
-        # Robust detection - parse for dash pattern, not hardcoded underscores
-        def is_flat_genome_key(key):
-            """Detect flat genome format: *10c-area_id-{cx|nx}-property-type"""
-            import re
-            # Pattern: any prefix ending with 10c-, then area_id, then -cx- or -nx-, then more components
-            return bool(re.match(r'.*10c-[^-]+-[cn]x-.*', key))
-        
-        sample_keys = list(blueprint.keys())[:5] if blueprint else []
-        is_flat_format = any(is_flat_genome_key(key) for key in sample_keys)
-        
-        if is_flat_format:
-            # Legacy flat format: Extract from gene keys
-            logger.info("🔄 [NEUROEMBRYOGENESIS] Processing FLAT genome format (legacy)")
-            cortical_ids = set()
-            
-            for gene_key in blueprint:
-                if not isinstance(gene_key, str):
-                    continue
-
-                parts = gene_key.split("-")
-                if len(parts) < 5:
-                    continue
-
-                # Extract the cortical ID (part after the first hyphen)
-                cortical_id = parts[1]
-                cortical_ids.add(cortical_id)
-
-            logger.info(f"🔄 [FLAT] Found {len(cortical_ids)} cortical areas: {sorted(cortical_ids)}")
-            return list(cortical_ids)
-        else:
-            # ARCHITECTURE: Hierarchical format - direct access (single source of truth)
-            logger.info("✅ [NEUROEMBRYOGENESIS] Processing HIERARCHICAL genome format (preferred)")
-            cortical_ids = list(blueprint.keys())
-            logger.info(f"✅ [HIERARCHICAL] Found {len(cortical_ids)} cortical areas: {sorted(cortical_ids)}")
-            return cortical_ids
+        logger.info(f"✅ [HIERARCHICAL] Found {len(cortical_ids)} cortical areas: {sorted(cortical_ids)}")
+        return cortical_ids
 
     def _setup_cortical_areas(self) -> bool:
         """
