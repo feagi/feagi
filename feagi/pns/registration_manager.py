@@ -20,6 +20,13 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Set
 
+try:
+    from feagi.config.toml_loader import load_feagi_config, get_agent_config
+except ImportError:
+    # Handle cases where configuration might not be available
+    load_feagi_config = None
+    get_agent_config = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +41,7 @@ class AgentRegistrationRequest:
         agent_data_port: Optional[int] = None,
         agent_version: str = "",
         controller_version: str = "",
-        agent_ip: str = "127.0.0.1",
+        agent_ip: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         self.agent_id = agent_id
@@ -43,6 +50,20 @@ class AgentRegistrationRequest:
         self.agent_data_port = agent_data_port
         self.agent_version = agent_version
         self.controller_version = controller_version
+        
+        # Load agent_ip from configuration if not provided
+        if agent_ip is None:
+            try:
+                if load_feagi_config and get_agent_config:
+                    config = load_feagi_config()
+                    agent_config = get_agent_config(config)
+                    agent_ip = agent_config.default_host
+                else:
+                    agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
+            except Exception as e:
+                logger.warning(f"Could not load agent configuration, using fallback: {e}")
+                agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
+        
         self.agent_ip = agent_ip
         self.metadata = metadata or {}
 

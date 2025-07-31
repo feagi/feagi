@@ -96,6 +96,12 @@ visualization_shutdown = 5.0    # Visualization-specific shutdown timeout
 api_service_shutdown = 10.0    # API service shutdown timeout
 fq_sampler_shutdown = 2.0      # FQ sampler shutdown timeout
 
+[agents]
+# Agent registration and communication configuration
+# Default host for agent IP addresses when not explicitly provided
+# Can be overridden with FEAGI_AGENT_DEFAULT_HOST environment variable
+default_host = "127.0.0.1"    # Default host for agent IP addresses, override with FEAGI_AGENT_DEFAULT_HOST
+
 [neural]
 # Neural processing configuration
 burst_engine_timestep = 0.1    # milliseconds

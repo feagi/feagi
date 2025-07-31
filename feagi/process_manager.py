@@ -110,7 +110,7 @@ class ProcessManager:
         self._setup_genome_load_event_handling()
 
     def load_and_validate_ports(
-        self, cli_args: Optional[Dict[str, Any]] = None
+        self, cli_args: Optional[Dict[str, Any]] = None, explicit_config: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Load and validate port configuration from TOML configuration.
@@ -120,6 +120,7 @@ class ProcessManager:
 
         Args:
             cli_args: Optional command-line arguments to override config
+            explicit_config: Optional explicit configuration (for testing), bypasses file loading
 
         Returns:
             Complete configuration dictionary with validated ports and hosts
@@ -130,8 +131,11 @@ class ProcessManager:
             FeagiConfigurationError: If configuration loading fails
         """
         try:
-            # Load TOML configuration with all overrides applied
-            config = load_feagi_config(cli_args=cli_args)
+            # Load TOML configuration with all overrides applied, or use explicit config for testing
+            if explicit_config is not None:
+                config = explicit_config
+            else:
+                config = load_feagi_config(cli_args=cli_args)
 
             # Extract and validate host configuration (will fail if hosts not set)
             host_config = get_host_config(config)
@@ -518,9 +522,9 @@ class ProcessManager:
                 import platform
 
                 if platform.system() == "Windows" and zmq_host in [
-                    "127.0.0.1",
-                    "localhost",
-                ]:  # @architecture:acceptable - Windows compatibility fix
+                    "127.0.0.1",  # @architecture:acceptable - Windows compatibility fix
+                    "localhost",  # @architecture:acceptable - Windows compatibility fix
+                ]:
                     logger.info(
                         f"🪟 Windows detected: Converting ZMQ host '{zmq_host}' to '*' for proper binding"
                     )
@@ -1176,7 +1180,7 @@ class ProcessManager:
                         and self._motor_fq_thread
                         and self._motor_fq_thread.is_alive()
                     ):
-                        self._motor_fq_thread.join(timeout=2.0)
+                        self._motor_fq_thread.join(timeout=thread_join_timeout)
                         if self._motor_fq_thread.is_alive():
                             print(
                                 "Motor FQ Sampler thread did not stop within timeout",
@@ -1205,7 +1209,7 @@ class ProcessManager:
                         and self._viz_fq_thread
                         and self._viz_fq_thread.is_alive()
                     ):
-                        self._viz_fq_thread.join(timeout=2.0)
+                        self._viz_fq_thread.join(timeout=thread_join_timeout)
                         if self._viz_fq_thread.is_alive():
                             print(
                                 "Visualization FQ Sampler thread did not stop within timeout",
@@ -1550,6 +1554,15 @@ class ProcessManager:
         """
         logger.info(f"🔥 Disabling FQ Sampler: mode={mode}")
 
+        # Load timeout configuration
+        try:
+            config = load_feagi_config()
+            timeout_config = get_timeout_config(config)
+            thread_join_timeout = timeout_config.thread_join
+        except Exception as e:
+            logger.warning(f"Could not load timeout config, using fallback: {e}")
+            thread_join_timeout = 2.0  # @architecture:acceptable - emergency fallback
+
         try:
             if mode == "visualization":
                 if self._viz_fq_sampler is not None:
@@ -1564,7 +1577,7 @@ class ProcessManager:
                         self._viz_fq_sampler.stop()
 
                     if self._viz_fq_thread and self._viz_fq_thread.is_alive():
-                        self._viz_fq_thread.join(timeout=2.0)
+                        self._viz_fq_thread.join(timeout=thread_join_timeout)
 
                     self._viz_fq_sampler = None
                     self._viz_fq_thread = None
@@ -1583,7 +1596,7 @@ class ProcessManager:
                         self._motor_fq_sampler.stop()
 
                     if self._motor_fq_thread and self._motor_fq_thread.is_alive():
-                        self._motor_fq_thread.join(timeout=2.0)
+                        self._motor_fq_thread.join(timeout=thread_join_timeout)
 
                     self._motor_fq_sampler = None
                     self._motor_fq_thread = None

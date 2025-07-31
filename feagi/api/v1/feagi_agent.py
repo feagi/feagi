@@ -24,6 +24,13 @@ from fastapi import HTTPException
 from feagi.api.core.services.core_api_service import CoreAPIService
 from feagi.utils.logger import setup_logger
 
+try:
+    from feagi.config.toml_loader import load_feagi_config, get_agent_config
+except ImportError:
+    # Handle cases where configuration might not be available
+    load_feagi_config = None
+    get_agent_config = None
+
 from .decorators import endpoint
 from .schemas import (
     AgentConfigRequest,
@@ -135,7 +142,7 @@ class FeagiAgentAPI:
                 agent_data_port=request.agent_data_port,
                 agent_version=request.agent_version,
                 controller_version=request.controller_version,
-                agent_ip=request.agent_ip or "127.0.0.1",
+                agent_ip=request.agent_ip,  # Let RegistrationRequest handle None with configuration
             )
 
             # Process registration through Registration Manager
@@ -233,6 +240,16 @@ class FeagiAgentAPI:
     )
     async def get_agent_properties(self, agent_id: str) -> AgentPropertiesResponse:
         try:
+            # Get configured default agent IP
+            default_agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
+            try:
+                if load_feagi_config and get_agent_config:
+                    config = load_feagi_config()
+                    agent_config = get_agent_config(config)
+                    default_agent_ip = agent_config.default_host
+            except Exception as e:
+                self.logger.warning(f"Could not load agent configuration, using fallback: {e}")
+            
             # Delegate to Registration Manager for consistent agent information
             from feagi.pns.registration_manager import get_registration_manager
 
@@ -258,7 +275,7 @@ class FeagiAgentAPI:
 
             return AgentPropertiesResponse(
                 agent_type=properties.get("agent_type", ""),
-                agent_ip=properties.get("agent_ip", "127.0.0.1"),
+                agent_ip=properties.get("agent_ip", default_agent_ip),
                 agent_data_port=properties.get("agent_data_port", 0),
                 agent_router_address=agent_router_address or "",
                 agent_version=properties.get("agent_version", ""),

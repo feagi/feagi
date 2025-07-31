@@ -154,6 +154,25 @@ class GenomeConfiguration:
     auto_recovery_on_validation_failure: bool = True  # Default: allow auto-recovery
 
 
+@dataclass
+class AgentConfiguration:
+    """
+    Agent registration and communication configuration.
+    
+    Provides default values for agent registration when not explicitly provided.
+    """
+    
+    default_host: str
+    
+    def __post_init__(self):
+        """Validate agent configuration."""
+        if not self.default_host or self.default_host == "":
+            raise ValueError(
+                "Agent default host is required. Set via FEAGI_AGENT_DEFAULT_HOST environment variable "
+                "or agents.default_host in configuration file."
+            )
+
+
 class FeagiConfigurationError(Exception):
     """Custom exception for FEAGI configuration errors."""
 
@@ -492,6 +511,28 @@ def get_genome_config(config: Dict[str, Any]) -> GenomeConfiguration:
             "auto_recovery_on_validation_failure", True
         )
     )
+
+
+def get_agent_config(config: Dict[str, Any]) -> AgentConfiguration:
+    """
+    Extract and validate agent configuration from loaded TOML config.
+
+    Args:
+        config: Configuration dictionary loaded from TOML
+
+    Returns:
+        AgentConfiguration with validated agent settings
+
+    Raises:
+        ValueError: If required agent configuration is missing or empty
+    """
+    agent_config = config.get("agents", {})
+    default_host = agent_config.get("default_host", "")
+
+    # Allow environment variable override
+    default_host = os.environ.get("FEAGI_AGENT_DEFAULT_HOST", default_host)
+
+    return AgentConfiguration(default_host=default_host)
 
 
 def validate_configuration(config: Dict[str, Any]) -> None:

@@ -15,6 +15,12 @@ from typing import Any, Dict, List, Optional
 from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
 from .state_storage import FileStorage, MemoryStorage, StateStorage
+try:
+    from feagi.config.toml_loader import load_feagi_config, get_agent_config
+except ImportError:
+    # Handle cases where configuration might not be available
+    load_feagi_config = None
+    get_agent_config = None
 
 logger = logging.getLogger(__name__)
 
@@ -1022,7 +1028,7 @@ class FeagiStateManager:
         agent_data_port: Optional[int] = None,
         agent_version: str = "",
         controller_version: str = "",
-        agent_ip: str = "127.0.0.1",
+        agent_ip: Optional[str] = None,
         **kwargs
     ) -> Result[None]:
         """
@@ -1035,9 +1041,22 @@ class FeagiStateManager:
             agent_data_port: Agent data port
             agent_version: Agent version
             controller_version: Controller version  
-            agent_ip: Agent IP address
+            agent_ip: Agent IP address (uses configuration default if None)
             **kwargs: Additional agent data
         """
+        # Load agent_ip from configuration if not provided
+        if agent_ip is None:
+            try:
+                if load_feagi_config and get_agent_config:
+                    config = load_feagi_config()
+                    agent_config = get_agent_config(config)
+                    agent_ip = agent_config.default_host
+                else:
+                    agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
+            except Exception as e:
+                logger.warning(f"Could not load agent configuration, using fallback: {e}")
+                agent_ip = "127.0.0.1"  # @architecture:acceptable - emergency fallback
+        
         agent_data = {
             "agent_id": agent_id,
             "agent_type": agent_type,
