@@ -399,7 +399,10 @@ class NeuroEmbryogenesis:
 
     def _extract_cortical_properties(self, cortical_id: str) -> Dict[str, Any]:
         """
-        Extract cortical area properties from the genome's blueprint.
+        Extract cortical area properties from hierarchical genome format.
+        
+        ARCHITECTURE: Single source of truth - hierarchical genome format only.
+        No fallbacks, no format detection, one clean reliable path.
 
         Args:
             cortical_id: The ID of the cortical area in the genome
@@ -407,87 +410,71 @@ class NeuroEmbryogenesis:
         Returns:
             Dictionary of properties for the cortical area
         """
-        # In FEAGI 2.1, blueprint entries follow the pattern:
-        # _____10c-<cortical_id>-<gene_type>-<property>-<value_type>
-
-        properties = {}
         blueprint = self.genome["blueprint"]
-
-        # Need to collect all properties for this cortical area
-        for gene_key in blueprint:
-            if not isinstance(gene_key, str):
-                continue
-
-            parts = gene_key.split("-")
-            if len(parts) < 4:  # Need at least 4 parts to have a valid key
-                continue
-
-            gene_cortical_id = parts[1]
-            if gene_cortical_id != cortical_id:
-                continue
-
-            # Get the property key and value type
-            if len(parts) >= 5:
-                property_key = parts[3]
-                # value_type = parts[4]  # Unused variable removed
-            else:
-                property_key = parts[-2]
-                # value_type = parts[-1]  # Unused variable removed
-
-            value = blueprint[gene_key]
-
-            # Handle special properties that need processing
-            if "___bbx" in property_key:
-                properties["bbx"] = value
-                if "dimensions" not in properties:
-                    properties["dimensions"] = [0, 0, 0]
-                properties["dimensions"][0] = value
-            elif "___bby" in property_key:
-                properties["bby"] = value
-                if "dimensions" not in properties:
-                    properties["dimensions"] = [0, 0, 0]
-                properties["dimensions"][1] = value
-            elif "___bbz" in property_key:
-                properties["bbz"] = value
-                if "dimensions" not in properties:
-                    properties["dimensions"] = [0, 0, 0]
-                properties["dimensions"][2] = value
-            elif "rcordx" in property_key:
-                properties["rcordx"] = value
-                if "position" not in properties:
-                    properties["position"] = [0, 0, 0]
-                properties["position"][0] = value
-            elif "rcordy" in property_key:
-                properties["rcordy"] = value
-                if "position" not in properties:
-                    properties["position"] = [0, 0, 0]
-                properties["position"][1] = value
-            elif "rcordz" in property_key:
-                properties["rcordz"] = value
-                if "position" not in properties:
-                    properties["position"] = [0, 0, 0]
-                properties["position"][2] = value
-            elif "__name" in property_key:
-                properties["name"] = value
-            elif "_group" in property_key:
-                properties["group"] = value
-            elif "subgrp" in property_key:
-                properties["subgroup"] = value
-            elif "_n_cnt" in property_key:
-                properties["neurons_per_voxel"] = value
-                properties["n_cnt"] = (
-                    value  # Also store with the original name for compatibility
-                )
-            elif "dstmap" in property_key:
-                properties["mapping"] = value
-            else:
-                # Store other properties directly
-                clean_key = property_key.strip(
-                    "_"
-                )  # Remove leading/trailing underscores
-                properties[clean_key] = value
-
+        
+        if cortical_id not in blueprint:
+            logger.warning(f"❌ Cortical area {cortical_id} not found in hierarchical blueprint")
+            return {}
+            
+        area_definition = blueprint[cortical_id]
+        properties = {}
+        
+        # Extract all properties from hierarchical format in one clean pass
+        property_mappings = {
+            # Required properties
+            "cortical_name": "name",
+            "relative_coordinate": "position", 
+            "block_boundaries": "dimensions",
+            
+            # Optional properties - direct mapping
+            "group_id": "group",
+            "sub_group_id": "subgroup", 
+            "cortical_type": "type",
+            "per_voxel_neuron_cnt": "neurons_per_voxel",
+            "cortical_mapping_dst": "mapping",
+            
+            # Neural properties
+            "synapse_attractivity": "synapse_attractivity",
+            "refractory_period": "refractory_period", 
+            "firing_threshold": "firing_threshold",
+            "leak_coefficient": "leak_coefficient",
+            "neuron_excitability": "neuron_excitability",
+            "postsynaptic_current": "postsynaptic_current",
+            "postsynaptic_current_max": "postsynaptic_current_max",
+            "degeneration": "degeneration",
+            "psp_uniform_distribution": "psp_uniform_distribution",
+            "visualization": "visualization",
+            "2d_coordinate": "2d_coordinate",
+            
+            # Memory properties
+            "is_mem_type": "is_mem_type",
+            "longterm_mem_threshold": "longterm_mem_threshold", 
+            "lifespan_growth_rate": "lifespan_growth_rate",
+            "init_lifespan": "init_lifespan",
+            "temporal_depth": "temporal_depth",
+            "consecutive_fire_cnt_max": "consecutive_fire_cnt_max",
+            "snooze_length": "snooze_length"
+        }
+        
+        # Single pass extraction - no duplicates
+        for source_key, target_key in property_mappings.items():
+            if source_key in area_definition:
+                value = area_definition[source_key]
+                properties[target_key] = value
+                
+                # Handle special cases
+                if source_key == "block_boundaries" and len(value) >= 3:
+                    # Set individual dimension properties for ConnectomeManager compatibility
+                    properties["bbx"] = value[0]
+                    properties["bby"] = value[1] 
+                    properties["bbz"] = value[2]
+                elif source_key == "per_voxel_neuron_cnt":
+                    # Set legacy alias for compatibility
+                    properties["n_cnt"] = value
+        
+        logger.debug(f"✅ [HIERARCHICAL] Extracted {len(properties)} properties for {cortical_id}")
         return properties
+
 
     def _calculate_subregion(self, cortical_id: str, morphology: Dict) -> BoundingBox:
         """
@@ -523,26 +510,51 @@ class NeuroEmbryogenesis:
     def _get_cortical_ids_from_genome(self) -> List[str]:
         """
         Extract the list of cortical area IDs from the genome blueprint.
+        
+        ARCHITECTURE: Now supports hierarchical genome format (single source of truth)
+        while maintaining backward compatibility with flat format during transition.
 
         Returns:
             List of cortical area IDs
         """
-        cortical_ids = set()
         blueprint = self.genome["blueprint"]
+        
+        # ARCHITECTURE: Detect genome format and prefer hierarchical
+        # Robust detection - parse for dash pattern, not hardcoded underscores
+        def is_flat_genome_key(key):
+            """Detect flat genome format: *10c-area_id-{cx|nx}-property-type"""
+            import re
+            # Pattern: any prefix ending with 10c-, then area_id, then -cx- or -nx-, then more components
+            return bool(re.match(r'.*10c-[^-]+-[cn]x-.*', key))
+        
+        sample_keys = list(blueprint.keys())[:5] if blueprint else []
+        is_flat_format = any(is_flat_genome_key(key) for key in sample_keys)
+        
+        if is_flat_format:
+            # Legacy flat format: Extract from gene keys
+            logger.info("🔄 [NEUROEMBRYOGENESIS] Processing FLAT genome format (legacy)")
+            cortical_ids = set()
+            
+            for gene_key in blueprint:
+                if not isinstance(gene_key, str):
+                    continue
 
-        for gene_key in blueprint:
-            if not isinstance(gene_key, str):
-                continue
+                parts = gene_key.split("-")
+                if len(parts) < 5:
+                    continue
 
-            parts = gene_key.split("-")
-            if len(parts) < 5:
-                continue
+                # Extract the cortical ID (part after the first hyphen)
+                cortical_id = parts[1]
+                cortical_ids.add(cortical_id)
 
-            # Extract the cortical ID (part after the first hyphen)
-            cortical_id = parts[1]
-            cortical_ids.add(cortical_id)
-
-        return list(cortical_ids)
+            logger.info(f"🔄 [FLAT] Found {len(cortical_ids)} cortical areas: {sorted(cortical_ids)}")
+            return list(cortical_ids)
+        else:
+            # ARCHITECTURE: Hierarchical format - direct access (single source of truth)
+            logger.info("✅ [NEUROEMBRYOGENESIS] Processing HIERARCHICAL genome format (preferred)")
+            cortical_ids = list(blueprint.keys())
+            logger.info(f"✅ [HIERARCHICAL] Found {len(cortical_ids)} cortical areas: {sorted(cortical_ids)}")
+            return cortical_ids
 
     def _setup_cortical_areas(self) -> bool:
         """

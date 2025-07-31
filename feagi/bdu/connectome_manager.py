@@ -363,7 +363,7 @@ class ConnectomeManager(NeuronMappingProvider):
                 )
                 
                 # Reinitialize neuron array with new capacity
-                self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=current_backend)
+                self.neuron_array = NeuronArray(max_neurons=self.max_neurons, backend=current_backend, mapping_provider=self)
                 
                 # Clear and reinitialize mappings
                 if hasattr(self, 'neuron_id_to_index'):
@@ -3830,6 +3830,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 # CRITICAL: Reset the internal index tracking to allow reuse of neurons
                 self.neuron_array.next_index = 0
                 self.neuron_array.free_indices = set()
+                # CRITICAL FIX: Reset NeuronArray's neuron ID counter to prevent ID instability
+                self.neuron_array._next_neuron_id = 1
 
                 # Clear mappings that track neuron relationships
                 self._neuron_id_to_index_map.clear()
@@ -3838,7 +3840,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     self.neuron_array.cortical_id_to_indices.clear()
 
                 logger.info(
-                    "Reset neuron array state and index tracking efficiently",
+                    f"Reset neuron array state and index tracking efficiently - neuron ID counter reset to {self.neuron_array._next_neuron_id}",
                     status="[OK]",
                 )
             except Exception as e:
@@ -3847,6 +3849,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 self.neuron_array.neuron_count = 0
                 self.neuron_array.next_index = 0
                 self.neuron_array.free_indices = set()
+                # CRITICAL FIX: Also reset the neuron ID counter during force reset
+                self.neuron_array._next_neuron_id = 1
                 logger.info("Force-reset critical neuron array counters", status="[OK]")
 
         # 5. Clear all ID mappings in one operation
@@ -3858,6 +3862,15 @@ class ConnectomeManager(NeuronMappingProvider):
         # 6. Reset neuron counter
         if hasattr(self, "next_neuron_id"):
             self.next_neuron_id = 1  # Start from 1, not 0
+            
+        # CRITICAL: Ensure NeuronArray and ConnectomeManager counters are synchronized
+        if hasattr(self, "neuron_array") and hasattr(self.neuron_array, "_next_neuron_id"):
+            if self.neuron_array._next_neuron_id != self.next_neuron_id:
+                logger.warning(
+                    f"🚨 NEURON ID SYNC FIX: NeuronArray counter was {self.neuron_array._next_neuron_id}, "
+                    f"ConnectomeManager counter was {self.next_neuron_id}. Synchronizing both to 1."
+                )
+                self.neuron_array._next_neuron_id = 1
 
         # 7. Clear synapse matrix efficiently
         if hasattr(self, "synapse_matrix"):
@@ -3917,23 +3930,10 @@ class ConnectomeManager(NeuronMappingProvider):
             existing_areas = []
             blueprint = genome_data.get("blueprint", {})
             if blueprint:
-                # Handle both flat (gene-based) and hierarchical blueprint formats
-                if any(key.startswith("_____10c-") for key in blueprint.keys()):
-                    # Flat format: extract cortical IDs from gene names
-                    cortical_ids = set()
-                    for gene_name in blueprint.keys():
-                        if gene_name.startswith("_____10c-") and "-cx-" in gene_name:
-                            # Extract cortical ID from gene name: _____10c-cortical_id-cx-property-type
-                            parts = gene_name.split("-")
-                            if len(parts) >= 3:
-                                cortical_id = parts[1]
-                                cortical_ids.add(cortical_id)
-                    existing_areas = list(cortical_ids)
-                    logger.info(f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in flat blueprint: {existing_areas}")
-                else:
-                    # Hierarchical format: cortical IDs are direct keys
-                    existing_areas = list(blueprint.keys())
-                    logger.info(f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in hierarchical blueprint: {existing_areas}")
+                # ARCHITECTURE: Only support hierarchical format (single source of truth)
+                # Flat format support removed - all genomes converted to hierarchical in GenomeService
+                existing_areas = list(blueprint.keys())
+                logger.info(f"[BRAIN REGIONS] Found {len(existing_areas)} cortical areas in hierarchical blueprint: {existing_areas}")
             
             # Create default root region with existing areas
             genome_data["brain_regions"]["root"] = {
@@ -3958,10 +3958,8 @@ class ConnectomeManager(NeuronMappingProvider):
         # Sync ConnectomeManager's brain_regions with genome
         self.brain_regions.update(genome_data["brain_regions"])
         
-        # Store reference to genome for API access
-        if not hasattr(self, 'genome'):
-            self.genome = {}
-        self.genome["brain_regions"] = genome_data["brain_regions"]
+        # ARCHITECTURE: StateManager is the single source of truth for genome data
+        # No local genome reference needed - always access through StateManager
         
         logger.info(f"[BRAIN REGIONS] Brain regions structure ensured - {len(self.brain_regions)} regions available")
 
@@ -4082,6 +4080,8 @@ class ConnectomeManager(NeuronMappingProvider):
                 self.neuron_array.next_index = 0
                 self.neuron_array.neuron_count = 0
                 self.neuron_array.free_indices = set()
+                # CRITICAL FIX: Reset NeuronArray's neuron ID counter to prevent ID instability
+                self.neuron_array._next_neuron_id = 1
                 self._neuron_id_to_index_map.clear()
                 self._index_to_neuron_id_map.clear()
                 if hasattr(self.neuron_array, "cortical_id_to_indices"):

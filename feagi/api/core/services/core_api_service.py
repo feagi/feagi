@@ -1656,18 +1656,15 @@ class CoreAPIService:
                 f"Searching for morphology '{morphology_name}' usage in {len(blueprint)} cortical areas"
             )
 
-            # The genome structure is flattened, so we need to reconstruct the cortical areas
+            # ARCHITECTURE: Use hierarchical genome structure (single source of truth)
             cortical_areas = {}
 
-            # Parse the flattened structure to extract cortical areas and their mappings
-            for key, value in blueprint.items():
-                if "-cx-dstmap-d" in key:
-                    # Extract cortical area ID from the key
-                    # Format: "_____10c-{area_id}-cx-dstmap-d"
-                    parts = key.split("-")
-                    if len(parts) >= 3:
-                        area_id = parts[1]  # Extract the area ID
-                        cortical_areas[area_id] = value
+            # Extract mappings from hierarchical structure
+            for area_id, area_definition in blueprint.items():
+                if isinstance(area_definition, dict) and "parameters" in area_definition:
+                    parameters = area_definition["parameters"]
+                    if isinstance(parameters, dict) and "mapping" in parameters:
+                        cortical_areas[area_id] = parameters["mapping"]
 
             self.logger.debug(
                 f"Found {len(cortical_areas)} cortical areas with mappings"
