@@ -902,13 +902,15 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # Update FCL manager with fired neurons
         if hasattr(self, "fcl_manager") and self.fcl_manager:
+            # CRITICAL FIX: Initialize state_manager outside if block to ensure scope
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            
             # Convert fired neurons to the format expected by FCL manager
             # FCL expects current_timestep first, then neurons_by_cortical
             neurons_by_cortical = {}
             if fired_neuron_ids:
                 # DEBUG: Log fired neurons and mapping status (gated by --debug-bdu flag)
-                from feagi.core.state_manager import get_state_manager
-                state_manager = get_state_manager()
                 if state_manager.is_debug_bdu_enabled():
                     logger.info(f"[BDU-DEBUG] FCL UPDATE: {len(fired_neuron_ids)} neurons fired: {fired_neuron_ids[:10]}...")
                 
@@ -2135,7 +2137,9 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # CRITICAL: Invalidate lookup arrays after bulk neuron deletion
         if delete_neurons and neurons_to_delete:
-            self.neuron_array._invalidate_index_to_id_lookup_array()
+            # Clear the lookup maps that may be inconsistent after neuron deletion
+            self._neuron_id_to_index_map.clear()
+            self._index_to_neuron_id_map.clear()
             logger.info(
                 f"Invalidated lookup arrays after deleting {len(neurons_to_delete)} neurons"
             )

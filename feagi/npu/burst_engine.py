@@ -363,13 +363,16 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         Designed for 10M neurons at 15Hz on single-core embedded systems.
         """
+        # CRITICAL FIX: Initialize state_manager once at method start to prevent 
+        # "cannot access local variable" errors when exceptions occur
+        state_manager = FeagiStateManager.instance()
+        
         try:
             import time
 
             burst_start_time = time.perf_counter()
 
             # LOG RAW FCL t-1 CONTENT FOR DEBUGGING VISUALIZATION ISSUES
-            state_manager = FeagiStateManager.instance()
             if hasattr(self, "fcl_manager") and self.fcl_manager and state_manager.is_debug_npu_enabled():
                 try:
                     # Get FCL from previous timestep (t-1) - this is what FQ sampler reads
@@ -477,10 +480,13 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
         except Exception as e:
             logger.error(f"Error in burst processing: {e}")
+            # CRITICAL DEBUG: Always log traceback for state_manager errors to identify source
+            import traceback
+            full_traceback = traceback.format_exc()
+            logger.error(f"BURST PROCESSING TRACEBACK:\n{full_traceback}")
+            
             if self.debug_npu:
-                import traceback
-
-                logger.error(f"Burst processing traceback: {traceback.format_exc()}")
+                logger.error(f"Additional burst processing debug info: {full_traceback}")
             return []
 
     def _process_burst_with_power_injection(self, current_timestep: int) -> List[int]:
@@ -498,6 +504,9 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         Returns:
             List of neuron IDs that fired in this burst
         """
+        # CRITICAL FIX: Initialize state_manager to prevent NameError
+        state_manager = FeagiStateManager.instance()
+        
         # Unconditional proof that this method is being called
         try:
             with open("/tmp/feagi_enhanced_burst.log", "a") as f:
@@ -509,7 +518,6 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         except Exception:
             pass
         # Debug logging if --debug-npu is enabled
-        state_manager = FeagiStateManager.instance()
         if state_manager.is_debug_npu_enabled():
             logger.info(
                 f"[NPU-DEBUG] BURST ENGINE _process_burst_with_power_injection called! Instance {self._instance_id}, Timestep: {current_timestep}"
@@ -631,6 +639,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
 
                 except Exception as e:
                     logger.error(f"Error in burst processing: {e}")
+                    # CRITICAL DEBUG: Always log traceback for state_manager errors to identify source
+                    import traceback
+                    full_traceback = traceback.format_exc()
+                    logger.error(f"BURST PROCESSING TRACEBACK (run loop):\n{full_traceback}")
                     processing_duration = time.perf_counter() - processing_start
 
                 self.burst_count += 1

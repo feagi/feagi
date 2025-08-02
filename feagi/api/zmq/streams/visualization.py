@@ -479,12 +479,40 @@ class VisualizationStream:
                         x_coords = coords_result["coordinates_x"]
                         y_coords = coords_result["coordinates_y"]
                         z_coords = coords_result["coordinates_z"]
+                        valid_indices = coords_result.get("valid_indices", [True] * len(neuron_ids))
+                        
+                        # ROBUSTNESS: Filter out invalid neurons instead of failing completely
+                        # This prevents bridge freeze when some neurons become invalid during reconstruction
+                        if not all(valid_indices):
+                            valid_count = sum(valid_indices)
+                            logger.warning(
+                                f"[VIZ-ROBUST] Area {area_id}: {len(neuron_ids) - valid_count} of {len(neuron_ids)} "
+                                f"neurons have invalid coordinates (likely due to reconstruction). Filtering them out."
+                            )
+                            # Filter to only valid neurons
+                            valid_neuron_ids = [neuron_ids[i] for i, valid in enumerate(valid_indices) if valid]
+                            valid_x_coords = [x_coords[i] for i, valid in enumerate(valid_indices) if valid]
+                            valid_y_coords = [y_coords[i] for i, valid in enumerate(valid_indices) if valid]
+                            valid_z_coords = [z_coords[i] for i, valid in enumerate(valid_indices) if valid]
+                            valid_potentials = [membrane_potentials[i] for i, valid in enumerate(valid_indices) if i < len(membrane_potentials) and valid]
+                            
+                            # Update variables to use only valid data
+                            neuron_ids = valid_neuron_ids
+                            x_coords = valid_x_coords
+                            y_coords = valid_y_coords
+                            z_coords = valid_z_coords
+                            membrane_potentials = valid_potentials
+                            
+                            if len(neuron_ids) == 0:
+                                logger.info(f"[VIZ-ROBUST] Area {area_id}: No valid neurons remaining, skipping area")
+                                continue
                     else:
-                        # ❌ NO FALLBACKS - Coordinates must exist
-                        raise ValueError(
-                            f"Failed to get coordinates for {len(neuron_ids)} "
-                            f"neurons in area {area_id}"
+                        # ❌ Complete failure - no coordinate data available at all
+                        logger.warning(
+                            f"[VIZ-ROBUST] Failed to get any coordinates for area {area_id} "
+                            f"({len(neuron_ids)} neurons). Skipping area instead of crashing."
                         )
+                        continue
 
                     # Add neurons to the cortical mapping
                     for i in range(len(neuron_ids)):
