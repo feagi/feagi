@@ -262,7 +262,13 @@ def step_simulation_with_fire_queue(
                     actual_consecutive_fires = gna.get_consecutive_fire_count(target_id)
                 elif hasattr(gna, 'neuron_array') and hasattr(gna.neuron_array, 'consecutive_fire_counts'):
                     # For optimized structures, access consecutive fire counts directly
-                    if target_id < len(gna.neuron_array.consecutive_fire_counts):
+                    # CRITICAL FIX: Use proper neuron ID to array index mapping
+                    if hasattr(gna, 'get_neuron_index'):
+                        index = gna.get_neuron_index(target_id)
+                        if index is not None and index < len(gna.neuron_array.consecutive_fire_counts):
+                            actual_consecutive_fires = gna.neuron_array.consecutive_fire_counts[index]
+                    elif target_id < len(gna.neuron_array.consecutive_fire_counts):
+                        # Fallback: treat as direct index (for backwards compatibility)
                         actual_consecutive_fires = gna.neuron_array.consecutive_fire_counts[target_id]
                 elif hasattr(gna, '_consecutive_fire_counts'):
                     # For mock/test structures
@@ -277,7 +283,13 @@ def step_simulation_with_fire_queue(
                     actual_refractory_counter = gna.get_refractory_counter(target_id)
                 elif hasattr(gna, 'neuron_array') and hasattr(gna.neuron_array, 'refractory_counters'):
                     # For optimized structures, access refractory counters directly
-                    if target_id < len(gna.neuron_array.refractory_counters):
+                    # CRITICAL FIX: Use proper neuron ID to array index mapping
+                    if hasattr(gna, 'get_neuron_index'):
+                        index = gna.get_neuron_index(target_id)
+                        if index is not None and index < len(gna.neuron_array.refractory_counters):
+                            actual_refractory_counter = gna.neuron_array.refractory_counters[index]
+                    elif target_id < len(gna.neuron_array.refractory_counters):
+                        # Fallback: treat as direct index (for backwards compatibility)
                         actual_refractory_counter = gna.neuron_array.refractory_counters[target_id]
                 elif hasattr(gna, '_refractory_counters'):
                     # For mock/test structures

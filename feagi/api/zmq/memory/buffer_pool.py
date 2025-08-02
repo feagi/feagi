@@ -352,7 +352,7 @@ if __name__ == "__main__":
 
     # Neural buffer pool example
     cortical_config = {
-        "visual_cortex": {"neuron_count": 10000, "buffer_count": 16},
+                    "visual_cortex": {"neuron_count": 100000, "buffer_count": 16},  # VISUALIZATION FIX: Increased from 10,000 to 100,000
         "motor_cortex": {"neuron_count": 5000, "buffer_count": 8},
     }
 

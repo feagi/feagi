@@ -181,12 +181,11 @@ class SpecialAreaHandler:
                         sample_neurons = power_neurons[:10]
                         for neuron_id in sample_neurons:
                             try:
-                                if hasattr(
-                                    neuron_array, "cortical_idxs"
-                                ) and neuron_id < len(neuron_array.cortical_idxs):
-                                    actual_cortical_idx = neuron_array.cortical_idxs[
-                                        neuron_id
-                                    ]
+                                if hasattr(neuron_array, "cortical_idxs"):
+                                    # CRITICAL FIX: Use proper neuron ID to array index mapping
+                                    index = connectome_manager.get_neuron_index(neuron_id)
+                                    if index is not None and index < len(neuron_array.cortical_idxs):
+                                        actual_cortical_idx = neuron_array.cortical_idxs[index]
                                     logger.error(
                                         f"   Neuron {neuron_id}: cortical_idx={actual_cortical_idx}"
                                     )

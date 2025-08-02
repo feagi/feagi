@@ -467,7 +467,7 @@ class NeuronPropertiesResponse(BaseModel):
     neuron_id: int
     cortical_id: str
     cortical_idx: int
-    position: List[float]
+    position: List[int]  # PERFORMANCE FIX: Keep positions as integers, no conversion needed
     threshold: float
     membrane_potential: float
     resting_potential: float

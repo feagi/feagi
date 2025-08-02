@@ -156,8 +156,8 @@ class UnifiedFQSampler:
         self._has_visualization_subscribers = False
         self._has_motor_subscribers = False
 
-        # Pre-allocated buffers for zero-copy operations
-        self._buffer_size = 10000  # Configurable based on max expected neurons
+        # Pre-allocated buffers for zero-copy operations  
+        self._buffer_size = 100000  # VISUALIZATION FIX: Increased from 10,000 to 100,000 for large cortical areas
         self._preallocated_buffers = self._initialize_buffers()
 
         # OPU area caching for performance

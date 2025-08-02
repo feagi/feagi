@@ -489,6 +489,30 @@ class CoreAPIService:
         """Get 2D locations of all cortical areas (alias for get_cortical_locations_2d)."""
         return self._cortical_area_service.get_cortical_locations_2d()
 
+    def get_area_neuron_count(self, cortical_id: str) -> int:
+        """Get neuron count for a specific cortical area.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            
+        Returns:
+            Number of neurons in the area
+        """
+        try:
+            if not self._connectome_manager:
+                return 0
+                
+            # Use get_neurons_by_cortical_area which is optimized and vectorized
+            neurons = self._connectome_manager.get_neurons_by_cortical_area(cortical_id)
+            return len(neurons)
+            
+        except KeyError:
+            self.logger.warning(f"Cortical area {cortical_id} not found")
+            return 0
+        except Exception as e:
+            self.logger.error(f"Error getting neuron count for {cortical_id}: {str(e)}")
+            raise e
+
     def get_cortical_area_geometry(self) -> Dict[str, Any]:
         """Get cortical area geometry information."""
         try:
@@ -858,8 +882,10 @@ class CoreAPIService:
                             neuron_array = self._connectome_manager.neuron_array
                             for neuron_id in global_firing_neurons:
                                 try:
-                                    if neuron_id < len(neuron_array):
-                                        neuron = neuron_array[neuron_id]
+                                    # CRITICAL FIX: Use proper neuron ID to array index mapping
+                                    index = self._connectome_manager.get_neuron_index(neuron_id)
+                                    if index is not None:
+                                        neuron = neuron_array[index]
                                         # Only extract coordinates if they actually exist - NO FALLBACKS
                                         if (
                                             "coordinate_3d_x" in neuron
@@ -883,8 +909,10 @@ class CoreAPIService:
                             refractory_counters = []
 
                             for _i, neuron_id in enumerate(neuron_ids):
-                                if neuron_id < len(neuron_array):
-                                    neuron = neuron_array[neuron_id]
+                                # CRITICAL FIX: Use proper neuron ID to array index mapping
+                                index = self._connectome_manager.get_neuron_index(neuron_id)
+                                if index is not None:
+                                    neuron = neuron_array[index]
                                     # Only extract exact properties that exist - NO FALLBACKS AT ALL
                                     if "membrane_potential" in neuron:
                                         membrane_potentials.append(

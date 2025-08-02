@@ -1068,10 +1068,11 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If the neuron_id doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        # CRITICAL FIX: Use direct mapping instead of property
+        if neuron_id not in self._neuron_id_to_index_map:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        index = self.neuron_id_to_index[neuron_id]
+        index = self._neuron_id_to_index_map[neuron_id]
 
         # Convert neuron array data to dictionary
         position = (
@@ -2934,7 +2935,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self,
         rule_ids: List[str],
         weight_override: Optional[float] = None,
-        max_synapses: int = 10000,
+        max_synapses: int = 1_000_000,  # Increased from 10,000 to 1M for large cortical areas
     ) -> Dict[str, int]:
         """Apply multiple connectivity rules at once using vectorized operations.
 
@@ -4549,7 +4550,7 @@ class ConnectomeManager(NeuronMappingProvider):
         self,
         rule_id: str,
         weight_override: Optional[float] = None,
-        max_synapses: int = 10000,
+        max_synapses: int = 1_000_000,  # Increased from 10,000 to 1M for large cortical areas
     ) -> int:
         """Apply a single connectivity rule.
 

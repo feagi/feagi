@@ -1025,14 +1025,14 @@ class CorticalAreaAPI:
 
     # ===== Neuron Operations =====
 
-    @cortical_area_endpoint("GET", "/neuron_count", response_model=NeuronCountResponse)
+    @cortical_area_endpoint("GET", "/{cortical_id}/neuron_count", response_model=NeuronCountResponse)
     def get_area_neuron_count(self, cortical_id: str) -> NeuronCountResponse:
-        """Get neuron count for a cortical area."""
+        """Get neuron count for a specific cortical area."""
         try:
             count = self.core_api_service.get_area_neuron_count(cortical_id)
             return NeuronCountResponse(neuron_count=count)
         except Exception as e:
-            raise ValueError(f"Error getting neuron count: {str(e)}")
+            raise ValueError(f"Error getting neuron count for area {cortical_id}: {str(e)}")
 
     @cortical_area_endpoint("PUT", "/reset", response_model=SuccessResponse)
     def reset_cortical_area(self, cortical_list: List[str]) -> SuccessResponse:
