@@ -2812,17 +2812,44 @@ class CoreAPIService:
             neuron_count = len(neuron_ids)
             # alignment = simd_config["alignment"]  # Unused variable removed
 
+            # CRITICAL FIX: Convert neuron IDs to array indices first
+            # Neuron IDs are NOT array indices - they must be mapped!
+            neuron_indices_list = []
+            valid_neuron_ids = []
+            
+            for neuron_id in neuron_ids:
+                array_index = self._connectome_manager.get_neuron_index(neuron_id)
+                if array_index is not None:
+                    neuron_indices_list.append(array_index)
+                    valid_neuron_ids.append(neuron_id)
+                    
+            if not neuron_indices_list:
+                # No valid neuron IDs found
+                return {
+                    "neuron_ids": neuron_ids,
+                    "coordinates_x": [],
+                    "coordinates_y": [],
+                    "coordinates_z": [],
+                    "valid_indices": [False] * len(neuron_ids),
+                    "performance_stats": {
+                        "simd_used": False,
+                        "backend": simd_config["backend"],
+                        "error": "No valid neuron ID to index mappings found"
+                    },
+                }
+
             # Align memory to SIMD boundaries for optimal performance
             # ✅ CRITICAL FIX: Ensure aligned_size is never zero
+            valid_count = len(neuron_indices_list)
             aligned_size = max(
-                neuron_count,
-                (neuron_count + simd_config["vector_width"] - 1)
+                valid_count,
+                (valid_count + simd_config["vector_width"] - 1)
                 & ~(simd_config["vector_width"] - 1),
             )
 
-            # Pre-allocate aligned arrays (SIMD-friendly)
+            # Pre-allocate aligned arrays (SIMD-friendly) with correct array indices
             neuron_indices = np.zeros(aligned_size, dtype=np.int32)
-            neuron_indices[:neuron_count] = neuron_ids
+            neuron_indices[:valid_count] = neuron_indices_list
 
             # SIMD-optimized bounds checking
             if hasattr(neuron_array, "coordinates_x"):
@@ -2831,25 +2858,25 @@ class CoreAPIService:
                 if simd_config["available"] and simd_config["vector_width"] >= 4:
                     # Vectorized bounds checking using SIMD
                     valid_mask = self._simd_bounds_check(
-                        neuron_indices[:neuron_count], max_neuron_id, simd_config
+                        neuron_indices[:valid_count], max_neuron_id, simd_config
                     )
                 else:
                     # Fallback to numpy vectorized operations
-                    valid_mask = (neuron_indices[:neuron_count] >= 0) & (
-                        neuron_indices[:neuron_count] <= max_neuron_id
+                    valid_mask = (neuron_indices[:valid_count] >= 0) & (
+                        neuron_indices[:valid_count] <= max_neuron_id
                     )
 
-                valid_indices = neuron_indices[:neuron_count][valid_mask]
+                valid_indices = neuron_indices[:valid_count][valid_mask]
             else:
                 self.logger.warning(
                     "Coordinates not available in neuron array, using fallback"
                 )
-                valid_mask = np.ones(neuron_count, dtype=bool)
-                valid_indices = neuron_indices[:neuron_count]
+                valid_mask = np.ones(valid_count, dtype=bool)
+                valid_indices = neuron_indices[:valid_count]
 
             if len(valid_indices) == 0:
                 return {
-                    "neuron_ids": neuron_ids,
+                    "neuron_ids": valid_neuron_ids,
                     "coordinates_x": [],
                     "coordinates_y": [],
                     "coordinates_z": [],
@@ -2880,40 +2907,26 @@ class CoreAPIService:
                     neuron_array, valid_indices, performance_stats
                 )
 
-            # Prepare result arrays with same length as input, filling invalid positions with -1 for uint32
-            # Using -1 (max uint32) as sentinel value instead of NaN for integer coordinates
-            result_x = np.full(
-                neuron_count, np.iinfo(np.uint32).max, dtype=np.uint32
-            )  # ✅ FIXED: Keep uint32
-            result_y = np.full(
-                neuron_count, np.iinfo(np.uint32).max, dtype=np.uint32
-            )  # ✅ FIXED: Keep uint32
-            result_z = np.full(
-                neuron_count, np.iinfo(np.uint32).max, dtype=np.uint32
-            )  # ✅ FIXED: Keep uint32
-
-            # Fill valid positions - coords arrays only contain valid coordinates
-            # We need to map them back to the original neuron_ids positions
-            valid_positions = np.where(valid_mask)[
-                0
-            ]  # Get indices where valid_mask is True
-
-            result_x[valid_positions] = coords_x.astype(
-                np.uint32
-            )  # ✅ FIXED: Ensure uint32
-            result_y[valid_positions] = coords_y.astype(
-                np.uint32
-            )  # ✅ FIXED: Ensure uint32
-            result_z[valid_positions] = coords_z.astype(
-                np.uint32
-            )  # ✅ FIXED: Ensure uint32
+            # CRITICAL FIX: Since we already filtered to valid neurons, 
+            # we can return the coordinates directly without complex remapping
+            # All neurons in valid_neuron_ids have corresponding coordinates
+            
+            # Convert coordinates to uint32 for consistency
+            result_x = coords_x.astype(np.uint32)
+            result_y = coords_y.astype(np.uint32) 
+            result_z = coords_z.astype(np.uint32)
+            
+            # Create valid_indices array for original neuron_ids list
+            original_valid_mask = []
+            for neuron_id in neuron_ids:
+                original_valid_mask.append(neuron_id in valid_neuron_ids)
 
             return {
-                "neuron_ids": neuron_ids,
-                "coordinates_x": result_x.tolist(),  # ✅ Will now be integers, not floats
-                "coordinates_y": result_y.tolist(),  # ✅ Will now be integers, not floats
-                "coordinates_z": result_z.tolist(),  # ✅ Will now be integers, not floats
-                "valid_indices": valid_mask.tolist(),
+                "neuron_ids": neuron_ids,  # Return original list order
+                "coordinates_x": result_x.tolist(),  # Only valid coordinates
+                "coordinates_y": result_y.tolist(),  # Only valid coordinates
+                "coordinates_z": result_z.tolist(),  # Only valid coordinates
+                "valid_indices": original_valid_mask,  # Map back to original order
                 "performance_stats": performance_stats,
             }
 
