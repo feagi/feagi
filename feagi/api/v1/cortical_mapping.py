@@ -119,6 +119,32 @@ class CorticalMappingAPI:
         except Exception as e:
             raise ValueError(f"Failed to update mapping properties: {str(e)}")
 
+    @cortical_mapping_endpoint(
+        "DELETE",
+        "/mapping",
+        request_model=CorticalMappingPropertiesRequest,
+        response_model=SuccessResponse,
+    )
+    async def delete_cortical_mapping(
+        self, request: CorticalMappingPropertiesRequest
+    ) -> SuccessResponse:
+        """Delete cortical mapping and all associated synapses between two cortical areas."""
+        try:
+            success = self.core_api_service.delete_cortical_mapping(
+                request.src_cortical_area,
+                request.dst_cortical_area,
+            )
+
+            if not success:
+                raise ValueError("Failed to delete cortical mapping")
+
+            return SuccessResponse(
+                message=f"Cortical mapping deleted successfully from {request.src_cortical_area} to {request.dst_cortical_area}"
+            )
+
+        except Exception as e:
+            raise ValueError(f"Failed to delete cortical mapping: {str(e)}")
+
 
 def create_cortical_mapping_api(core_api_service: CoreAPIService) -> CorticalMappingAPI:
     return CorticalMappingAPI(core_api_service)

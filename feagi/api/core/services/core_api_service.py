@@ -1893,6 +1893,37 @@ class CoreAPIService:
             self.logger.error(f"Error updating cortical mapping properties: {str(e)}")
             return False
 
+    def delete_cortical_mapping(
+        self,
+        src_cortical_area: str,
+        dst_cortical_area: str,
+    ) -> bool:
+        """Delete cortical mapping and all associated synapses between two cortical areas."""
+        try:
+            self.logger.info(
+                f"Deleting cortical mapping from {src_cortical_area} to {dst_cortical_area}"
+            )
+
+            # Route through GenomeService for architecture compliance
+            success = self._genome_service.delete_cortical_mapping(
+                src_cortical_area, dst_cortical_area
+            )
+
+            if success:
+                self.logger.info(
+                    f"Successfully deleted cortical mapping from {src_cortical_area} to {dst_cortical_area}"
+                )
+            else:
+                self.logger.error(
+                    f"Failed to delete cortical mapping from {src_cortical_area} to {dst_cortical_area}"
+                )
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"Error deleting cortical mapping: {str(e)}")
+            return False
+
     def get_detailed_cortical_map(self) -> Dict[str, Any]:
         """
         Get detailed cortical mapping information in the expected format.

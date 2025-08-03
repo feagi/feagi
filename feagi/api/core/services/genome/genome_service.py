@@ -2092,11 +2092,18 @@ class GenomeService(BaseService):
                     )
                     return False
 
-                # Convert mapping_data to the expected format
-                formatted_mapping = {src_area: {dst_area: mapping_data}}
-
-                # Use the existing update_cortical_mapping method
-                success = self.update_cortical_mapping(formatted_mapping)
+                # CRITICAL FIX: Handle empty mapping_data as deletion request
+                if not mapping_data or len(mapping_data) == 0:
+                    self.logger.info(
+                        f"Empty mapping_data detected - treating as deletion request for {src_area} -> {dst_area}"
+                    )
+                    # Use the delete_cortical_mapping method for proper synapse removal
+                    success = self.delete_cortical_mapping(src_area, dst_area)
+                else:
+                    # Convert mapping_data to the expected format for normal updates
+                    formatted_mapping = {src_area: {dst_area: mapping_data}}
+                    # Use the existing update_cortical_mapping method
+                    success = self.update_cortical_mapping(formatted_mapping)
 
                 if success and transaction:
                     transaction.commit()
@@ -2118,6 +2125,146 @@ class GenomeService(BaseService):
 
         except Exception as e:
             self.logger.error(f"Error updating cortical mapping properties: {str(e)}")
+            return False
+
+    def delete_cortical_mapping(
+        self, src_cortical_area: str, dst_cortical_area: str
+    ) -> bool:
+        """
+        Delete cortical mapping and all associated synapses between two cortical areas.
+
+        ARCHITECTURE COMPLIANCE: WRITE operation through proper data flow:
+        API → Service → GenomeService → StateManager.genome → NeuroEmbryogenesis → ConnectomeManager
+
+        Args:
+            src_cortical_area: Source cortical area ID
+            dst_cortical_area: Destination cortical area ID
+
+        Returns:
+            bool: True if mapping was deleted successfully
+        """
+        try:
+            if not src_cortical_area or not dst_cortical_area:
+                self.logger.error(
+                    "Source and destination cortical areas must be specified"
+                )
+                return False
+
+            if not self.is_genome_loaded():
+                self.logger.error("Cannot delete cortical mapping: No genome loaded")
+                return False
+
+            self.logger.info(
+                f"Deleting cortical mapping from {src_cortical_area} to {dst_cortical_area}"
+            )
+
+            # Begin genome transaction for atomic modification
+            if self.state_manager:
+                transaction = self.state_manager.begin_genome_transaction()
+            else:
+                transaction = None
+
+            try:
+                # Get current genome for modification
+                current_genome = self.get_genome()
+                if not current_genome:
+                    self.logger.error(
+                        "Cannot delete cortical mapping: Genome data not available"
+                    )
+                    return False
+
+                # Step 1: SAFETY CHECK - Ensure we're only removing MAPPING, not the cortical area itself
+                blueprint = current_genome.get("blueprint", {})
+                if src_cortical_area not in blueprint:
+                    self.logger.warning(
+                        f"Source cortical area {src_cortical_area} not found in blueprint"
+                    )
+                    return False
+
+                if dst_cortical_area not in blueprint:
+                    self.logger.warning(
+                        f"Destination cortical area {dst_cortical_area} not found in blueprint"
+                    )
+                    return False
+
+                # SAFETY: We're only modifying mapping properties, NOT deleting the cortical area
+                src_area_def = blueprint[src_cortical_area]
+                
+                # Remove from cortical_mapping_dst if it exists
+                mapping_dst = src_area_def.get("cortical_mapping_dst", {})
+                if dst_cortical_area in mapping_dst:
+                    del mapping_dst[dst_cortical_area]
+                    self.logger.info(f"Removed {dst_cortical_area} from {src_cortical_area} mapping destinations")
+                
+                # Remove from parameters.mapping if it exists
+                parameters = src_area_def.get("parameters", {})
+                if "mapping" in parameters:
+                    mapping_params = parameters["mapping"]
+                    if isinstance(mapping_params, dict) and dst_cortical_area in mapping_params:
+                        del mapping_params[dst_cortical_area]
+                        self.logger.info(f"Removed {dst_cortical_area} from {src_cortical_area} mapping parameters")
+
+                # Step 2: Update genome in state manager
+                self._current_genome = current_genome
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
+
+                # Step 3: Remove existing synapses between cortical areas 
+                # Use direct synapse deletion approach (following delete_cortical_connection pattern)
+                connectome_manager = self._connectome_manager
+                if connectome_manager:
+                    try:
+                        # Get all neurons in source and target areas
+                        source_neurons = connectome_manager.get_neurons_by_cortical_area(src_cortical_area)
+                        target_neurons = connectome_manager.get_neurons_by_cortical_area(dst_cortical_area)
+                        
+                        deleted_count = 0
+                        self.logger.info(f"Deleting synapses from {len(source_neurons)} source neurons to {len(target_neurons)} target neurons")
+                        
+                        # Delete all synapses between source and target areas
+                        for source_id in source_neurons:
+                            for target_id in target_neurons:
+                                if connectome_manager.has_synapse(source_id, target_id):
+                                    success_remove = connectome_manager.remove_synapse(source_id, target_id)
+                                    if success_remove:
+                                        deleted_count += 1
+                        
+                        self.logger.info(f"Successfully deleted {deleted_count} synapses between {src_cortical_area} and {dst_cortical_area}")
+                        success = True
+                        
+                    except Exception as e:
+                        self.logger.error(f"Failed to delete synapses between areas: {e}")
+                        success = False
+                        if transaction:
+                            transaction.rollback()
+                        return False
+                else:
+                    self.logger.error("ConnectomeManager not available for synapse deletion")
+                    success = False
+                    if transaction:
+                        transaction.rollback()
+                    return False
+
+                if success and transaction:
+                    transaction.commit()
+                elif transaction:
+                    transaction.rollback()
+                    return False
+
+                if success:
+                    self.logger.info(
+                        f"Successfully deleted cortical mapping from {src_cortical_area} to {dst_cortical_area}"
+                    )
+
+                return success
+
+            except Exception as e:
+                if transaction:
+                    transaction.rollback()
+                raise e
+
+        except Exception as e:
+            self.logger.error(f"Error deleting cortical mapping: {str(e)}")
             return False
 
     # ===== GENOME LOADING AND MANAGEMENT WRITE OPERATIONS =====
