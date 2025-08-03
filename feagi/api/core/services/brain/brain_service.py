@@ -754,6 +754,7 @@ class BrainService(BaseService):
                                                     f"Failed to stimulate neuron {neuron_id}: {str(e)}"
                                                 )
                                                 area_failed += 1
+                                        
                                 else:
                                     area_failed += len(neurons_at_coord)
                             except Exception as e:

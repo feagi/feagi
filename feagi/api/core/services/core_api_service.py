@@ -2087,6 +2087,172 @@ class CoreAPIService:
             self.logger.error(f"Error resetting stimulation script: {str(e)}")
             return False
 
+    def trigger_multi_area_stimulation(self, stimulation_payload: Dict[str, List[List[int]]]) -> Dict[str, Any]:
+        """
+        Trigger manual stimulation across multiple cortical areas using coordinate lists.
+        
+        Uses the existing FCL injection service to properly inject external stimulations
+        into the Fire Candidate List during burst processing.
+        
+        Args:
+            stimulation_payload: Dictionary mapping cortical area IDs to lists of [x, y, z] coordinates
+                Example: {
+                    "___pwr": [[1, 0, 0], [2, 4, 3]], 
+                    "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
+                }
+        
+        Returns:
+            Dictionary containing stimulation results and statistics
+        """
+        try:
+            self.logger.info(f"🔵 trigger_multi_area_stimulation called with {len(stimulation_payload)} areas")
+            
+            if not stimulation_payload:
+                return {"success": False, "error": "Empty stimulation payload"}
+            
+            # Get the burst engine and its FCL injection service
+            burst_engine = self.get_burst_engine()
+            if not burst_engine or not burst_engine.injection_service:
+                return {"success": False, "error": "FCL injection service not available"}
+            
+            injection_service = burst_engine.injection_service
+            
+            # Convert coordinates to neuron IDs for each cortical area
+            activations = {}
+            total_coordinates = 0
+            total_neurons_found = 0
+            area_results = {}
+            
+            for cortical_id, coordinate_list in stimulation_payload.items():
+                if not coordinate_list:
+                    self.logger.warning(f"Empty coordinate list for cortical area {cortical_id}")
+                    continue
+                    
+                # Validate coordinate format
+                for coord in coordinate_list:
+                    if not isinstance(coord, list) or len(coord) != 3:
+                        raise ValueError(f"Invalid coordinate format in {cortical_id}: {coord}. Expected [x, y, z]")
+                    if not all(isinstance(c, int) for c in coord):
+                        raise ValueError(f"Coordinates must be integers in {cortical_id}: {coord}")
+                
+                total_coordinates += len(coordinate_list)
+                
+                # Convert coordinates to voxel positions and find neurons
+                candidate_positions = set(map(tuple, coordinate_list))
+                
+                try:
+                    # Use batch lookup to find neurons at these coordinates
+                    neuron_weight_pairs = self._connectome_manager.batch_voxel_to_neuron_lookup(
+                        cortical_id=cortical_id,
+                        candidate_positions=candidate_positions,
+                        post_synaptic_current=1.0  # Default weight
+                    )
+                    
+                    if neuron_weight_pairs:
+                        # Extract just the neuron IDs
+                        neuron_ids = [neuron_id for neuron_id, _ in neuron_weight_pairs]
+                        activations[cortical_id] = neuron_ids
+                        total_neurons_found += len(neuron_ids)
+                        
+                        area_results[cortical_id] = {
+                            "success": True,
+                            "coordinates_requested": len(coordinate_list),
+                            "neurons_found": len(neuron_ids),
+                            "neuron_ids": neuron_ids[:10] if len(neuron_ids) > 10 else neuron_ids  # Limit for response size
+                        }
+                        
+                        self.logger.debug(f"Found {len(neuron_ids)} neurons at {len(coordinate_list)} coordinates in {cortical_id}")
+                    else:
+                        area_results[cortical_id] = {
+                            "success": False,
+                            "error": f"No neurons found at specified coordinates in {cortical_id}",
+                            "coordinates_requested": len(coordinate_list),
+                            "neurons_found": 0
+                        }
+                        
+                except Exception as e:
+                    self.logger.error(f"Error finding neurons in {cortical_id}: {str(e)}")
+                    area_results[cortical_id] = {
+                        "success": False,
+                        "error": str(e),
+                        "coordinates_requested": len(coordinate_list),
+                        "neurons_found": 0
+                    }
+            
+            if not activations:
+                return {
+                    "success": False, 
+                    "error": "No neurons found at any of the specified coordinates",
+                    "area_results": area_results,
+                    "total_coordinates": total_coordinates
+                }
+            
+            # Get current timestep for injection
+            current_timestep = getattr(self._connectome_manager, 'current_timestep', 0)
+            
+            # Use the existing FCL injection service to inject external activations
+            self.logger.info(f"Injecting {total_neurons_found} neurons from {len(activations)} areas into FCL via injection service")
+            
+            injected_count = injection_service.inject_external_activations(
+                activations=activations,
+                current_timestep=current_timestep,
+                source="manual_stimulation"
+            )
+            
+            # CRITICAL FIX: Trigger an immediate burst to process the injected neurons
+            # Without this, the neurons sit in FCL until the next scheduled burst
+            if injected_count > 0:
+                self.logger.info("🔥 Triggering immediate burst to process manually stimulated neurons")
+                try:
+                    # Use the burst engine's run_with_fire_queue method to trigger immediate processing
+                    burst_success = burst_engine.run_with_fire_queue()
+                    if burst_success:
+                        self.logger.info("✅ Manual stimulation burst processing completed successfully")
+                    else:
+                        self.logger.warning("❌ Manual stimulation burst processing failed")
+                except Exception as burst_error:
+                    self.logger.error(f"Error triggering burst for manual stimulation: {str(burst_error)}")
+            else:
+                self.logger.warning("No neurons were injected, skipping burst trigger")
+            
+            # Prepare response
+            result = {
+                "success": injected_count > 0,
+                "total_neurons_injected": injected_count,
+                "total_coordinates": total_coordinates,
+                "total_neurons_found": total_neurons_found,
+                "areas_processed": len(stimulation_payload),
+                "areas_with_neurons": len(activations),
+                "area_results": area_results,
+                "method": "fcl_injection_service",
+                "current_timestep": current_timestep,
+                "summary": {
+                    "areas_stimulated": len(activations),
+                    "total_coordinates": total_coordinates,
+                    "areas": list(activations.keys())
+                }
+            }
+            
+            if injected_count > 0:
+                self.logger.info(f"✅ Successfully injected {injected_count} neurons into FCL for manual stimulation")
+            else:
+                self.logger.warning("❌ No neurons were injected into FCL")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"🔴 CRITICAL ERROR in trigger_multi_area_stimulation: {str(e)}")
+            import traceback
+            self.logger.error(f"🔴 Traceback: {traceback.format_exc()}")
+            
+            # Return a clear error response indicating the new method failed
+            return {
+                "success": False, 
+                "error": str(e),
+                "method": "fcl_injection_service_FAILED",
+                "fallback_occurred": True
+            }
+
     # =================================================================
     # TRANSACTION AND STATE METHODS
     # =================================================================

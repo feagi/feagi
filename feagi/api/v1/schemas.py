@@ -874,3 +874,23 @@ class PathRequest(BaseModel):
     """Request model for path-based operations."""
 
     path: str
+
+
+# ===== Agent Stimulation Schemas =====
+
+
+class ManualStimulationRequest(BaseModel):
+    """Request model for manual neural stimulation across multiple cortical areas.
+    
+    Example payload:
+    {
+        "stimulation_payload": {
+            "___pwr": [[1, 0, 0], [2, 4, 3]], 
+            "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
+        }
+    }
+    """
+    
+    stimulation_payload: Dict[str, List[List[int]]] = Field(
+        description="Dictionary mapping cortical area IDs to lists of [x, y, z] coordinates"
+    )

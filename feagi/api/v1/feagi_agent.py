@@ -18,6 +18,7 @@ limitations under the License.
 FEAGI v1 Agent API - Single Source of Truth
 """
 
+from typing import Any, Dict
 
 from fastapi import HTTPException
 
@@ -39,6 +40,7 @@ from .schemas import (
     AgentListResponse,
     AgentPropertiesResponse,
     AgentRegistrationRequest,
+    ManualStimulationRequest,
     SuccessResponse,
 )
 
@@ -337,6 +339,47 @@ class FeagiAgentAPI:
 
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             raise ValueError(f"Failed to get FQ sampler status: {str(e)}")
+
+    @agent_endpoint(
+        "POST",
+        "/manual_stimulation",
+        request_model=ManualStimulationRequest,
+        response_model=Dict[str, Any]
+    )
+    async def manual_stimulation(self, request: ManualStimulationRequest) -> Dict[str, Any]:
+        """
+        Trigger manual neural stimulation across multiple cortical areas.
+        
+        Injects neuron activations associated with the payload data into the fire candidate list.
+        
+        Args:
+            request: Manual stimulation request containing stimulation payload with cortical areas 
+                    mapped to coordinate lists
+                    
+        Returns:
+            Dictionary containing stimulation results and statistics
+            
+        Example request body:
+        {
+            "stimulation_payload": {
+                "___pwr": [[1, 0, 0], [2, 4, 3]], 
+                "cx3212": [[1, 1, 0], [12, 24, 33], [0, 0, 0]]
+            }
+        }
+        """
+        try:
+            self.logger.info(f"Manual stimulation request received for {len(request.stimulation_payload)} cortical areas")
+            
+            # Delegate to CoreAPIService for processing
+            result = self.core_api_service.trigger_multi_area_stimulation(request.stimulation_payload)
+            
+            self.logger.info(f"Manual stimulation completed: {result.get('success', False)}")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error processing manual stimulation: {e}")
+            return {"success": False, "error": str(e)}
 
 
 # NOTE: FQ sampler management methods removed - now handled by Registration Manager
