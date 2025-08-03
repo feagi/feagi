@@ -578,6 +578,14 @@ class MorphologyNameRequest(BaseModel):
     morphology_name: str
 
 
+class DirectMorphologyRequest(BaseModel):
+    """Request model for direct morphology creation with client format."""
+
+    morphology_name: str
+    morphology_parameters: Dict[str, Any]
+    morphology_type: str
+
+
 class MorphologyPropertiesResponse(BaseModel):
     """Response model for morphology properties."""
 

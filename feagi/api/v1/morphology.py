@@ -32,6 +32,7 @@ from feagi.utils.logger import setup_logger
 from .decorators import endpoint
 from .schemas import (
     CreateMorphologyRequest,
+    DirectMorphologyRequest,
     MorphologyInfoResponse,
     MorphologyListResponse,
     MorphologyNameRequest,
@@ -149,6 +150,33 @@ class MorphologyAPI:
         """Create a new morphology."""
         try:
             success = self.core_api_service.create_morphology(request.morphology_data)
+            if not success:
+                raise ValueError("Failed to create morphology")
+
+            return SuccessResponse(message="Morphology created successfully")
+        except Exception as e:
+            logger.error(f"Error creating morphology: {e}")
+            raise ValueError(f"Failed to create morphology: {str(e)}")
+
+    @morphology_endpoint(
+        "POST",
+        "/morphology",
+        request_model=DirectMorphologyRequest,
+        response_model=SuccessResponse,
+    )
+    async def create_morphology_direct(
+        self, request: DirectMorphologyRequest
+    ) -> SuccessResponse:
+        """Create a new morphology with direct client format."""
+        try:
+            # Convert client format to internal format
+            morphology_data = {
+                "name": request.morphology_name,
+                "type": request.morphology_type,
+                "parameters": request.morphology_parameters,
+            }
+
+            success = self.core_api_service.create_morphology(morphology_data)
             if not success:
                 raise ValueError("Failed to create morphology")
 

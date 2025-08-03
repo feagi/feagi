@@ -1647,29 +1647,19 @@ class GenomeService(BaseService):
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
+                
+                # Update genome in state manager (single source of truth)
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
 
-                # Trigger NeuroEmbryogenesis to update ConnectomeManager
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
-
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
-
-                # Apply the morphology creation
-                success = embryogenesis.create_morphology(name, morphology_data)
-
-                if success and transaction:
+                # Morphology is now available in genome - NeuroEmbryogenesis will automatically
+                # pick it up through get_morphology_registry() when needed for synaptogenesis
+                
+                if transaction:
                     transaction.commit()
-                elif transaction:
-                    transaction.rollback()
-                    return False
 
-                if success:
-                    self.logger.info(f"Created morphology: {name}")
-
-                return success
+                self.logger.info(f"Successfully created morphology '{name}' of type '{morphology_data['type']}'")
+                return True
 
             except Exception as e:
                 if transaction:
