@@ -75,6 +75,97 @@ except ImportError:
         return (potentials >= thresholds) & can_fire_mask
 
 
+# Enhanced SIMD firing function with excitability support
+def simd_firing_check_with_excitability(potentials, thresholds, can_fire_mask, excitability):
+    """
+    SIMD-optimized firing check with probabilistic excitability.
+
+    Optimizations:
+    1. Fast path when all excitability >= 0.999 (bypasses random generation entirely)
+    2. Vectorized random number generation for excitability < 0.999
+    3. Cache-aligned operations for SIMD efficiency
+
+    Args:
+        potentials: Membrane potentials array
+        thresholds: Firing thresholds array
+        can_fire_mask: Mask for neurons that can fire (not in refractory)
+        excitability: Excitability values (0.0 to 1.0)
+
+    Returns:
+        Boolean mask of neurons that should fire
+    """
+    # PERFORMANCE: Fast path - if ALL excitability values are >= 0.999, use original function
+    if np.all(excitability >= 0.999):
+        return simd_firing_check(potentials, thresholds, can_fire_mask)
+    
+    # PHASE 1: Standard threshold check
+    threshold_met = (potentials >= thresholds) & can_fire_mask
+
+    # PHASE 2: Early exit if no neurons met threshold
+    if not np.any(threshold_met):
+        return threshold_met
+
+    # PHASE 3: Find neurons that need probabilistic check
+    threshold_indices = np.where(threshold_met)[0]
+    relevant_excitability = excitability[threshold_indices]
+
+    # PHASE 4: Fast path for neurons with excitability >= 0.999
+    deterministic_fire = relevant_excitability >= 0.999
+    probabilistic_indices = threshold_indices[~deterministic_fire]
+
+    # PHASE 5: Initialize result with deterministic fires
+    final_fired_mask = np.zeros_like(threshold_met, dtype=bool)
+    final_fired_mask[threshold_indices[deterministic_fire]] = True
+
+    # PHASE 6: Handle probabilistic firing only for neurons that need it
+    if len(probabilistic_indices) > 0:
+        prob_excitability = excitability[probabilistic_indices]
+        random_values = np.random.random(len(probabilistic_indices))
+        probabilistic_fire = random_values < prob_excitability
+        final_fired_mask[probabilistic_indices] = probabilistic_fire
+
+    return final_fired_mask
+
+# Fallback SIMD functions for when numba/specialized SIMD isn't available
+try:
+    from numba import jit
+    NUMBA_AVAILABLE = True
+    
+    @jit(nopython=True)
+    def simd_firing_check_with_excitability_numba(potentials, thresholds, can_fire_mask, excitability):
+        """Numba-optimized version of excitability firing check."""
+        # PERFORMANCE: Fast path - if ALL excitability values are >= 0.999
+        all_deterministic = True
+        for i in range(len(excitability)):
+            if excitability[i] < 0.999:
+                all_deterministic = False
+                break
+        
+        if all_deterministic:
+            return simd_firing_check(potentials, thresholds, can_fire_mask)
+        
+        threshold_met = (potentials >= thresholds) & can_fire_mask
+
+        # Fast path for all excitability >= 0.999
+        needs_probability = np.any((excitability < 0.999) & threshold_met)
+        if not needs_probability:
+            return threshold_met
+
+        # Probabilistic firing
+        fired_mask = np.zeros_like(threshold_met, dtype=np.bool_)
+        for i in range(len(threshold_met)):
+            if threshold_met[i]:
+                if excitability[i] >= 0.999:
+                    fired_mask[i] = True
+                else:
+                    fired_mask[i] = np.random.random() < excitability[i]
+
+        return fired_mask
+    
+except ImportError:
+    NUMBA_AVAILABLE = False
+
+
 # SIMD vector width for cache alignment
 VECTOR_WIDTH = 64
 
@@ -247,8 +338,12 @@ class NeuronArray:
         # Create basic numpy arrays for now - simplified implementation
         self.membrane_potentials = np.zeros(self.aligned_capacity, dtype=np.float32)
         self.resting_potentials = np.zeros(self.aligned_capacity, dtype=np.float32)
+        
+        # Firing-related arrays (grouped for cache locality)
         self.thresholds = np.ones(self.aligned_capacity, dtype=np.float32)  # Default threshold = 1.0
+        self.excitability = np.ones(self.aligned_capacity, dtype=np.float32)  # Default excitability = 1.0 (100%)
         self.decay_rates = np.full(self.aligned_capacity, 0.95, dtype=np.float32)
+        
         self.refractory_periods = np.ones(self.aligned_capacity, dtype=np.int32)
         self.refractory_counters = np.zeros(self.aligned_capacity, dtype=np.int32)
         
@@ -267,7 +362,46 @@ class NeuronArray:
         self.neuron_types = np.zeros(self.aligned_capacity, dtype=np.int32)
         self.enabled_flags = np.ones(self.aligned_capacity, dtype=np.int32)
 
+        # PERFORMANCE: Per-cortical-area tracking of probabilistic firing needs
+        # Maps cortical_idx -> bool (True if area needs probabilistic firing)
+        self._area_probabilistic_firing = {}
+
         logger.info(f"Initialized NeuronArray: {self.backend_type} backend, capacity: {self.aligned_capacity}")
+
+    def set_cortical_area_excitability(self, cortical_idx: int, start_idx: int, end_idx: int, excitability: float) -> None:
+        """
+        Set excitability for a cortical area and update performance tracking.
+        
+        Args:
+            cortical_idx: Cortical area index
+            start_idx: Start neuron index
+            end_idx: End neuron index (exclusive)
+            excitability: Excitability value (0.0 to 1.0)
+        """
+        # Clamp excitability to valid range
+        excitability = max(0.0, min(1.0, excitability))
+        
+        # Set excitability values for the cortical area
+        self.excitability[start_idx:end_idx] = excitability
+        
+        # Update per-area probabilistic firing tracking
+        self._area_probabilistic_firing[cortical_idx] = excitability < 0.999
+
+    def set_excitability_range(self, start_idx: int, end_idx: int, excitability: float) -> None:
+        """
+        DEPRECATED: Use set_cortical_area_excitability instead for proper area tracking.
+        
+        This method is kept for backward compatibility but doesn't update area tracking.
+        """
+        # Clamp excitability to valid range
+        excitability = max(0.0, min(1.0, excitability))
+        
+        # Set excitability values
+        self.excitability[start_idx:end_idx] = excitability
+
+    def get_probabilistic_areas(self) -> set:
+        """Get set of cortical area indices that use probabilistic firing."""
+        return {idx for idx, needs_prob in self._area_probabilistic_firing.items() if needs_prob}
 
     def allocate_neuron(self, neuron_id: int) -> int:
         """Allocate space for a neuron and return its array index."""
@@ -308,8 +442,24 @@ class NeuronArray:
         # PHASE 3: Refractory period updates (SIMD-optimized)
         simd_refractory_update(self.refractory_counters, valid_neurons)
 
-        # PHASE 4: Threshold checking and firing decision (SIMD-optimized)
-        fired_mask = simd_firing_check(self.membrane_potentials, self.thresholds, can_update_mask)
+        # PHASE 4: Enhanced threshold checking and probabilistic firing (SIMD-optimized)
+        # PERFORMANCE OPTIMIZATION: Check if any cortical areas need probabilistic firing
+        probabilistic_areas = self.get_probabilistic_areas()
+        
+        if not probabilistic_areas:
+            # Fast path: No areas use probabilistic firing - use original deterministic function
+            fired_mask = simd_firing_check(self.membrane_potentials, self.thresholds, can_update_mask)
+        else:
+            # Mixed path: Some areas need probabilistic firing, some don't
+            # Use enhanced function but it will automatically handle deterministic neurons efficiently
+            if NUMBA_AVAILABLE:
+                fired_mask = simd_firing_check_with_excitability_numba(
+                    self.membrane_potentials, self.thresholds, can_update_mask, self.excitability
+                )
+            else:
+                fired_mask = simd_firing_check_with_excitability(
+                    self.membrane_potentials, self.thresholds, can_update_mask, self.excitability
+                )
 
         # PHASE 5: Process firing consequences (CRITICAL FIX!)
         fired_indices = np.where(fired_mask)[0]

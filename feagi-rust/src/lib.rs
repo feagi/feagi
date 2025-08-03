@@ -113,6 +113,7 @@ mod neural {
         pub decay_rate: f32,
         pub refractory_period: u16,
         pub refractory_countdown: u16,
+        pub excitability: f32,  // Firing probability (0.0 to 1.0)
     }
 
     impl Neuron {
@@ -125,6 +126,26 @@ mod neural {
                 decay_rate,
                 refractory_period,
                 refractory_countdown: 0,
+                excitability: 1.0,  // Default to 100% firing probability
+            }
+        }
+
+        /// Create a new neuron with excitability
+        pub fn new_with_excitability(
+            id: usize, 
+            threshold: f32, 
+            decay_rate: f32, 
+            refractory_period: u16,
+            excitability: f32
+        ) -> Self {
+            Self {
+                id,
+                membrane_potential: 0.0,
+                threshold,
+                decay_rate,
+                refractory_period,
+                refractory_countdown: 0,
+                excitability: excitability.clamp(0.0, 1.0),  // Ensure valid range
             }
         }
 
@@ -141,13 +162,50 @@ mod neural {
 
             // Check if neuron should fire
             if self.membrane_potential >= self.threshold {
-                // Reset membrane potential
-                self.membrane_potential = 0.0;
+                // Fast path: if excitability is ~1.0, always fire
+                if self.excitability >= 0.999 {
+                    self.membrane_potential = 0.0;
+                    self.refractory_countdown = self.refractory_period;
+                    return true;
+                }
+                
+                // Probabilistic firing using system random
+                if rand::random::<f32>() < self.excitability {
+                    self.membrane_potential = 0.0;
+                    self.refractory_countdown = self.refractory_period;
+                    return true;
+                }
+            }
 
-                // Enter refractory period
-                self.refractory_countdown = self.refractory_period;
+            false
+        }
 
-                return true;
+        /// Update with custom RNG for deterministic behavior
+        pub fn update_with_rng(&mut self, input: f32, rng: &mut impl rand::Rng) -> bool {
+            // If in refractory period, decrement countdown and don't fire
+            if self.refractory_countdown > 0 {
+                self.refractory_countdown -= 1;
+                return false;
+            }
+
+            // Update membrane potential
+            self.membrane_potential = self.membrane_potential * self.decay_rate + input;
+
+            // Check if neuron should fire
+            if self.membrane_potential >= self.threshold {
+                // Fast path: if excitability is ~1.0, always fire
+                if self.excitability >= 0.999 {
+                    self.membrane_potential = 0.0;
+                    self.refractory_countdown = self.refractory_period;
+                    return true;
+                }
+                
+                // Probabilistic firing
+                if rng.gen::<f32>() < self.excitability {
+                    self.membrane_potential = 0.0;
+                    self.refractory_countdown = self.refractory_period;
+                    return true;
+                }
             }
 
             false

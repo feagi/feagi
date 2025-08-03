@@ -726,7 +726,7 @@ genome_1_template = {
     "lifespan_growth_rate": 1,
     "init_lifespan": 9,
     "temporal_depth": 1,
-    "neuron_excitability": 100,
+    "neuron_excitability": 1.0,
 }
 
 genome_2_to_1 = {

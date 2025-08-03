@@ -102,8 +102,8 @@ class TestCorticalAreaParameterUpdates:
         ),
         ParameterTestCase(
             name="neuron_excitability",
-            initial_value=100.0,
-            test_value=120.0,
+            initial_value=1.0,
+            test_value=0.8,
             expected_routing="parameter",
             value_type=float,
             description="Neuron excitability - cortical area parameter"
@@ -355,7 +355,7 @@ class TestCorticalAreaParameterUpdates:
             ("neuron_consecutive_fire_count", 0, "Zero consecutive fires"),
             ("neuron_consecutive_fire_count", 100, "High consecutive fires"),
             ("neuron_excitability", 0.0, "Zero excitability"),
-            ("neuron_excitability", 1000.0, "Very high excitability"),
+            ("neuron_excitability", 1.0, "Maximum excitability"),
         ]
         
         for param_name, test_value, description in edge_cases:
@@ -399,7 +399,7 @@ class TestCorticalAreaParameterUpdates:
         restore_params = {
             "neuron_fire_threshold": initial_state.get("neuron_fire_threshold", 1.0),
             "neuron_consecutive_fire_count": initial_state.get("neuron_consecutive_fire_count", 3),
-            "neuron_excitability": initial_state.get("neuron_excitability", 100.0),
+            "neuron_excitability": initial_state.get("neuron_excitability", 1.0),
             "cortical_name": initial_state.get("cortical_name", "Brain_Power"),
         }
         

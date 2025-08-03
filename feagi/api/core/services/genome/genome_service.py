@@ -372,8 +372,9 @@ class GenomeService(BaseService):
 
                 # CRITICAL: Prepare connectome for new genome loading (clear existing brain data)
                 self.logger.info("Preparing connectome for new genome loading...")
+                # ARCHITECTURE FIX: Use converted hierarchical genome, not original flat format
                 preparation_result = self._connectome_manager.prepare_for_new_genome(
-                    genome_data, save_current_state=True
+                    self._current_genome, save_current_state=True
                 )
                 if not preparation_result.get("success", False):
                     self.logger.error("Failed to prepare connectome for new genome")

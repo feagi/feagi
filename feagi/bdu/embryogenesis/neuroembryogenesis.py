@@ -938,6 +938,42 @@ class NeuroEmbryogenesis:
                     varied_leak = np.clip(base_leak / 100.0 + variations, 0.0, 1.0)
                     neuron_array.decay_rates[start_idx:end_idx] = 1.0 - varied_leak
 
+                # 3. Neuron excitability (probabilistic firing)
+                excitability_value = properties.get("neuron_excitability", 1.0)
+                # Validate and clamp excitability to [0.0, 1.0] range
+                if excitability_value > 1.0:
+                    logger.warning(
+                        f"Cortical area {cortical_id}: excitability {excitability_value} > 1.0, clamping to 1.0"
+                    )
+                    excitability_value = 1.0
+                elif excitability_value < 0.0:
+                    logger.warning(
+                        f"Cortical area {cortical_id}: excitability {excitability_value} < 0.0, clamping to 0.0"
+                    )
+                    excitability_value = 0.0
+                
+                # Set excitability for all neurons in this cortical area using the area-aware method
+                neuron_array.set_cortical_area_excitability(
+                    cortical_idx=area.cortical_idx,
+                    start_idx=start_idx,
+                    end_idx=end_idx,
+                    excitability=excitability_value
+                )
+                
+                # Track areas that use probabilistic firing for performance optimization
+                if not hasattr(self, '_probabilistic_areas'):
+                    self._probabilistic_areas = set()
+                
+                if excitability_value < 0.999:
+                    self._probabilistic_areas.add(cortical_id)
+                    logger.info(
+                        f"Cortical area {cortical_id} (idx={area.cortical_idx}): probabilistic firing enabled "
+                        f"(excitability={excitability_value:.3f}, {area_neuron_count} neurons)"
+                    )
+                else:
+                    # Ensure deterministic areas are not in the set
+                    self._probabilistic_areas.discard(cortical_id)
+
                 # FAST: Update voxel mapping efficiently
                 if cortical_id not in self.voxel_neuron_map:
                     self.voxel_neuron_map[cortical_id] = {}

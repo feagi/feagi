@@ -279,6 +279,120 @@ def _special_areas_validator(gene_, blueprint, verbose=True):
     return True
 
 
+def validate_cortical_parameters(blueprint):
+    """
+    Validate cortical area parameters for correct types and ranges.
+    
+    This function validates parameters like excitability, thresholds, etc.
+    to ensure they are within acceptable ranges and types.
+    
+    Args:
+        blueprint: The blueprint section of the hierarchical genome
+        
+    Returns:
+        dict: {
+            "valid": bool,
+            "errors": List[str],
+            "warnings": List[str]
+        }
+    """
+    errors = []
+    warnings = []
+    
+    # Cortical parameter validation rules
+    parameter_rules = {
+        "neuron_excitability": {
+            "type": (int, float),
+            "min": 0.0,
+            "max": 1.0,
+            "auto_fix_max": True,  # Auto-clamp values > 1.0 to 1.0
+            "description": "Neuron firing probability (0.0 = never fire, 1.0 = always fire when threshold met)"
+        },
+        "firing_threshold": {
+            "type": (int, float),
+            "min": 0.0,
+            "description": "Neuron firing threshold"
+        },
+        "refractory_period": {
+            "type": int,
+            "min": 0,
+            "description": "Neuron refractory period in timesteps"
+        },
+        "leak_coefficient": {
+            "type": (int, float),
+            "min": 0.0,
+            "max": 1.0,
+            "description": "Membrane potential decay rate"
+        }
+    }
+    
+    for cortical_id, area_data in blueprint.items():
+        if not isinstance(area_data, dict):
+            continue
+            
+        # In hierarchical format, properties are stored directly under the cortical area
+        # NOT under a "parameters" sub-dict
+        for param_name, rules in parameter_rules.items():
+            if param_name in area_data:
+                value = area_data[param_name]
+                param_desc = rules["description"]
+                
+                # Type validation
+                if not isinstance(value, rules["type"]):
+                    errors.append(
+                        f"INVALID PARAMETER TYPE: Cortical area '{cortical_id}' parameter "
+                        f"'{param_name}' should be {rules['type']}, got {type(value).__name__}. "
+                        f"Description: {param_desc}"
+                    )
+                    continue
+                
+                # Range validation
+                if "min" in rules and value < rules["min"]:
+                    errors.append(
+                        f"INVALID PARAMETER RANGE: Cortical area '{cortical_id}' parameter "
+                        f"'{param_name}' value {value} is below minimum {rules['min']}. "
+                        f"Description: {param_desc}"
+                    )
+                
+                if "max" in rules and value > rules["max"]:
+                    if rules.get("auto_fix_max", False):
+                        # Auto-fix: clamp to maximum value
+                        area_data[param_name] = rules["max"]
+                        warnings.append(
+                            f"AUTO-CORRECTED: Cortical area '{cortical_id}' parameter "
+                            f"'{param_name}' value {value} exceeded maximum {rules['max']}, "
+                            f"clamped to {rules['max']}. Description: {param_desc}"
+                        )
+                    else:
+                        errors.append(
+                            f"INVALID PARAMETER RANGE: Cortical area '{cortical_id}' parameter "
+                            f"'{param_name}' value {value} exceeds maximum {rules['max']}. "
+                            f"Description: {param_desc}"
+                        )
+                
+                # Special validation for excitability
+                if param_name == "neuron_excitability":
+                    if value < 0.0:
+                        errors.append(
+                            f"INVALID EXCITABILITY: Cortical area '{cortical_id}' excitability "
+                            f"{value} cannot be negative. Use 0.0 for neurons that never fire, "
+                            f"1.0 for normal firing probability."
+                        )
+                    elif 0.0 < value < 0.01:
+                        warnings.append(
+                            f"LOW EXCITABILITY WARNING: Cortical area '{cortical_id}' excitability "
+                            f"{value} is very low (< 1%). Neurons will rarely fire."
+                        )
+    
+    is_valid = len(errors) == 0
+    
+    return {
+        "valid": is_valid,
+        "errors": errors,
+        "warnings": warnings
+    }
+
+
 def blueprint_validator(genome):
     """
     Responsible for validating integrity of genome by checking correctness of
@@ -289,6 +403,7 @@ def blueprint_validator(genome):
     - Destination cortical areas exist
     - Morphology references are valid
     - Special area types are supported
+    - Cortical parameters are within valid ranges
     """
     try:
         blueprint = genome["blueprint"]
@@ -309,6 +424,20 @@ def blueprint_validator(genome):
 
     def special_areas(gene_):
         return _special_areas_validator(gene_, blueprint)
+
+    # NEW: Validate cortical parameters including excitability
+    def cortical_parameters():
+        param_validation = validate_cortical_parameters(blueprint)
+        if not param_validation["valid"]:
+            for error in param_validation["errors"]:
+                logger.error(error)
+            valid_genome = False
+        
+        # Log warnings but don't fail validation
+        for warning in param_validation["warnings"]:
+            logger.warning(warning)
+        
+        return param_validation["valid"]
 
     # Skip invalid cortical area IDs with warnings instead of failing validation
     def check_cortical_area_validity():
@@ -400,6 +529,10 @@ def blueprint_validator(genome):
             valid_genome = False
         if not special_areas(gene):
             valid_genome = False
+
+    # Validate cortical area parameters (including excitability)
+    if not cortical_parameters():
+        valid_genome = False
 
     return valid_genome
 

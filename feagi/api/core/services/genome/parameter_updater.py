@@ -70,7 +70,7 @@ class CorticalParameterUpdater:
             # Apply each parameter change
             for param_name, value, property_type, conversion_func in mappings:
                 success = self._update_single_parameter(
-                    neuron_ids, param_name, value, property_type, conversion_func
+                    cortical_id, neuron_ids, param_name, value, property_type, conversion_func
                 )
                 if not success:
                     self.logger.error(f"Failed to update {param_name} for {cortical_id}")
@@ -94,6 +94,7 @@ class CorticalParameterUpdater:
             
     def _update_single_parameter(
         self, 
+        cortical_id: str,
         neuron_ids: List[int], 
         param_name: str, 
         value: Any,
@@ -128,7 +129,7 @@ class CorticalParameterUpdater:
             else:
                 # Custom property - handle with special logic
                 return self._update_custom_property(
-                    neuron_ids, param_name, converted_value, property_type
+                    cortical_id, neuron_ids, param_name, converted_value, property_type
                 )
                 
         except Exception as e:
@@ -137,6 +138,7 @@ class CorticalParameterUpdater:
             
     def _update_custom_property(
         self, 
+        cortical_id: str,
         neuron_ids: List[int], 
         param_name: str, 
         value: Any,
@@ -155,10 +157,50 @@ class CorticalParameterUpdater:
             )
             return True
             
+        elif property_type == "neuron_excitability":
+            # SPECIAL CASE: neuron_excitability needs to update the NeuronArray directly
+            try:
+                # Get cortical area info
+                cortical_area = self.connectome_manager.get_cortical_area(cortical_id)
+                if not cortical_area:
+                    self.logger.error(f"Cortical area {cortical_id} not found for excitability update")
+                    return False
+                
+                cortical_idx = cortical_area.cortical_idx
+                
+                # Get neuron index range for this cortical area
+                first_neuron_id = min(neuron_ids)
+                last_neuron_id = max(neuron_ids)
+                
+                start_idx = self.connectome_manager.get_neuron_index(first_neuron_id)
+                end_idx = self.connectome_manager.get_neuron_index(last_neuron_id)
+                
+                if start_idx is None or end_idx is None:
+                    self.logger.error(f"Could not map neuron IDs to indices for {cortical_id}")
+                    return False
+                
+                # Update excitability in NeuronArray
+                neuron_array = self.connectome_manager.neuron_array
+                neuron_array.set_cortical_area_excitability(
+                    cortical_idx=cortical_idx,
+                    start_idx=start_idx,
+                    end_idx=end_idx + 1,  # end_idx is inclusive in set_cortical_area_excitability
+                    excitability=float(value)
+                )
+                
+                self.logger.info(
+                    f"[FAST-UPDATE] Updated neuron_excitability to {value} for {len(neuron_ids)} neurons "
+                    f"in {cortical_id} (cortical_idx={cortical_idx}, indices {start_idx}-{end_idx})"
+                )
+                return True
+                
+            except Exception as e:
+                self.logger.error(f"Failed to update neuron_excitability for {cortical_id}: {e}")
+                return False
+                
         elif property_type in [
             "postsynaptic_current", 
             "postsynaptic_current_max",
-            "neuron_excitability",
             "firing_threshold_limit",
             "snooze_length",
             "degeneration",

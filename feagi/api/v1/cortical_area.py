@@ -317,7 +317,7 @@ class CorticalAreaAPI:
                     "temporal_depth", self._get_default_value("temporal_depth", 1)
                 ),
                 "neuron_excitability": parameters.get(
-                    "excite", self._get_default_value("neuron_excitability", 100)
+                    "excite", self._get_default_value("neuron_excitability", 1.0)
                 ),
                 "transforming": parameters.get(
                     "transforming", False
@@ -791,7 +791,7 @@ class CorticalAreaAPI:
                         ),
                         "neuron_excitability": parameters.get(
                             "excite",
-                            self._get_default_value("neuron_excitability", 100),
+                            self._get_default_value("neuron_excitability", 1.0),
                         ),
                         "transforming": parameters.get(
                             "transforming", False
