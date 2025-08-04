@@ -101,11 +101,9 @@ class SystemService(BaseService):
                 getattr(self.state_manager, "influxdb", False)
             )
 
-            # Resource limits - check parameters in state manager or use defaults
-            parameters = getattr(self.state_manager, "parameters", {})
-            limits = parameters.get("Limits", {}) if parameters else {}
-            health["neuron_count_max"] = int(limits.get("max_neuron_count", 0))
-            health["synapse_count_max"] = int(limits.get("max_synapse_count", 0))
+            # Resource limits - get from configuration and connectome manager
+            health["neuron_count_max"] = int(getattr(self._connectome_manager, "max_neurons", 0))
+            health["synapse_count_max"] = int(getattr(self._connectome_manager, "max_synapses", 0))
 
             # Genome-related information
             health["latest_changes_saved_externally"] = getattr(
