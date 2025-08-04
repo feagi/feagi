@@ -46,69 +46,62 @@ class ByteStructureEncoder:
     def encode_neuron_data(self, neuron_data: list) -> bytes:
         """Encode neuron data to FeagiByteStructure format using
         high-performance NumPy arrays"""
-        try:
-            import numpy as np
+        import numpy as np
 
-            if not neuron_data:
-                return b""
+        if not neuron_data:
+            return b""
 
-            # Create the main mapped neuron data container
-            generated_mapped_neuron_data = (
-                self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+        # Create the main mapped neuron data container
+        generated_mapped_neuron_data = (
+            self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+        )
+
+        # Organize data by cortical area for high-performance encoding
+        cortical_areas = {}
+
+        for neuron in neuron_data:
+            if isinstance(neuron, dict):
+                cortical_id = str(neuron.get("cortical_id", "0"))
+                if cortical_id not in cortical_areas:
+                    cortical_areas[cortical_id] = {
+                        "x": [],
+                        "y": [],
+                        "z": [],
+                        "p": [],
+                    }
+
+                cortical_areas[cortical_id]["x"].append(neuron.get("x", 0))
+                cortical_areas[cortical_id]["y"].append(neuron.get("y", 0))
+                cortical_areas[cortical_id]["z"].append(neuron.get("z", 0))
+                cortical_areas[cortical_id]["p"].append(neuron.get("p", 0))
+
+        # Use high-performance approach for each cortical area
+        for cortical_id, coords in cortical_areas.items():
+            if not coords["x"]:  # Skip empty areas
+                continue
+
+            # Create NumPy arrays with proper dtypes
+            neurons_x = np.asarray(coords["x"], dtype=np.uint32)
+            neurons_y = np.asarray(coords["y"], dtype=np.uint32)
+            neurons_z = np.asarray(coords["z"], dtype=np.uint32)
+            neurons_p = np.asarray(coords["p"], dtype=np.float32)
+
+            # Create cortical ID
+            cortical_id_obj = self.fdp.cortical_data.CorticalID(cortical_id)
+
+            # Use high-performance NumPy approach
+            neurons_array = (
+                self.fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                    neurons_x, neurons_y, neurons_z, neurons_p
+                )
             )
 
-            # Organize data by cortical area for high-performance encoding
-            cortical_areas = {}
+            # Insert the neuron array into the mapped data with its cortical ID
+            generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
 
-            for neuron in neuron_data:
-                if isinstance(neuron, dict):
-                    cortical_id = str(neuron.get("cortical_id", "0"))
-                    if cortical_id not in cortical_areas:
-                        cortical_areas[cortical_id] = {
-                            "x": [],
-                            "y": [],
-                            "z": [],
-                            "p": [],
-                        }
-
-                    cortical_areas[cortical_id]["x"].append(neuron.get("x", 0))
-                    cortical_areas[cortical_id]["y"].append(neuron.get("y", 0))
-                    cortical_areas[cortical_id]["z"].append(neuron.get("z", 0))
-                    cortical_areas[cortical_id]["p"].append(neuron.get("p", 0))
-
-            # Use high-performance approach for each cortical area
-            for cortical_id, coords in cortical_areas.items():
-                if not coords["x"]:  # Skip empty areas
-                    continue
-
-                # Create NumPy arrays with proper dtypes
-                neurons_x = np.asarray(coords["x"], dtype=np.uint32)
-                neurons_y = np.asarray(coords["y"], dtype=np.uint32)
-                neurons_z = np.asarray(coords["z"], dtype=np.uint32)
-                neurons_p = np.asarray(coords["p"], dtype=np.float32)
-
-                # Create cortical ID
-                cortical_id_obj = self.fdp.cortical_data.CorticalID(cortical_id)
-
-                # Use high-performance NumPy approach
-                neurons_array = (
-                    self.fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
-                        neurons_x, neurons_y, neurons_z, neurons_p
-                    )
-                )
-
-                # Insert the neuron array into the mapped data with its cortical ID
-                generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
-
-            # Create the final byte structure from the mapped data
-            byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
-            return byte_structure.copy_out_as_byte_vector()
-
-        except Exception:
-            # Fallback to simple JSON encoding
-            import json
-
-            return json.dumps(neuron_data).encode("utf-8")
+        # Create the final byte structure from the mapped data
+        byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+        return byte_structure.copy_out_as_byte_vector()
 
 
 class ByteStructureDecoder:
@@ -119,31 +112,21 @@ class ByteStructureDecoder:
 
     def decode_message(self, data: bytes) -> dict:
         """Decode FeagiByteStructure format to dictionary"""
-        # Try to create a FeagiByteStructure from the bytes
-        try:
-            byte_structure = self.fdp.byte_structures.FeagiByteStructure(data)
-            structure_type = byte_structure.try_get_structure_type()
+        # Create a FeagiByteStructure from the bytes - NO FALLBACKS
+        byte_structure = self.fdp.byte_structures.FeagiByteStructure(data)
+        structure_type = byte_structure.try_get_structure_type()
 
-            if structure_type == 11:  # NeuronCategoricalXYZP
-                # Create CorticalMappedXYZPNeuronData from the byte structure
-                cortical_mapped = (
-                    self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
-                )
-                cortical_mapped.from_feagi_byte_structure(byte_structure)
+        if structure_type == 11:  # NeuronCategoricalXYZP
+            # Create CorticalMappedXYZPNeuronData from the byte structure
+            cortical_mapped = (
+                self.fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+            )
+            cortical_mapped.from_feagi_byte_structure(byte_structure)
 
-                # Extract data (this is a simplified extraction)
-                return {"type": "neuron_data", "structure_type": structure_type}
-            else:
-                return {"type": "unknown", "structure_type": structure_type}
-
-        except Exception:
-            # Fallback to JSON parsing
-            try:
-                import json
-
-                return json.loads(data.decode("utf-8"))
-            except Exception as e:
-                return {"error": f"Could not decode message: {e}"}
+            # Extract data (this is a simplified extraction)
+            return {"type": "neuron_data", "structure_type": structure_type}
+        else:
+            return {"type": "unknown", "structure_type": structure_type}
 
 
 class ByteStructureTranslator:

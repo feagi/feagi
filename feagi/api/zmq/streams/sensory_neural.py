@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import zmq
 import zmq.asyncio
+import json
 
 from feagi.utils.logger import setup_logger
 from feagi.utils.zmq_debug import MessageType, log_inbound
@@ -235,84 +236,126 @@ class SensoryNeuralStream:
                 await asyncio.sleep(0.1)  # Error throttling
 
     async def _process_neural_data(self) -> StreamResult:
-        """Process one neural data message with zero-copy."""
-        # Get write slot from ring buffer
-        slot = self.ring_buffer.get_write_slot()
-        if not slot:
-            return StreamResult.BUFFER_FULL
-
-        # Track whether we successfully processed data
+        """Process incoming neural data - feagi_data_processing format only."""
+        slot = None
         data_processed = False
-
+        
         try:
-            # Receive data from ZMQ socket
+            # Get write slot from ring buffer
+            slot = self.ring_buffer.get_write_slot()
+            if not slot:
+                self._stats["buffer_full"] += 1
+                return StreamResult.BUFFER_FULL
+
+            # ZMQ receive - async sockets use recv() not recv_into()
             try:
-                # ZMQ doesn't have recv_into - use recv() instead
-                data = await self.socket.recv(flags=zmq.NOBLOCK | zmq.DONTWAIT)
+                data = await self.socket.recv(flags=zmq.NOBLOCK)
                 nbytes = len(data)
-
-                # Debug logging for inbound neural data (zero-overhead when disabled)
-                log_inbound(
-                    endpoint=self.debug_endpoint,
-                    frames=[data],
-                    message_type=MessageType.SENSORY,
-                    context=f"neural_data_{self._stats['messages_received'] + 1}",
-                )
-
+                
                 # Check if data fits in the slot
                 if nbytes > len(slot.memory_view):
-                    logger.error(
-                        f"Message too large: {nbytes} bytes > {len(slot.memory_view)} slot size"
-                    )
+                    logger.error(f"Message too large: {nbytes} bytes > {len(slot.memory_view)} slot size")
                     return StreamResult.BUFFER_FULL
-
+                
                 # Copy data into the memory slot
                 slot.memory_view[:nbytes] = data
-                data_processed = True  # Mark that we got real data
-
+                data_processed = True
+                
             except zmq.Again:
-                # No data available - don't commit the slot
+                # No data available
                 return StreamResult.NO_DATA
 
-            # Update stats
             self._stats["messages_received"] += 1
             self._stats["bytes_received"] += nbytes
             self._stats["last_message_time"] = time.time()
 
-            # Parse header without copying
+            # Decode feagi_data_processing format directly - NO FALLBACKS
             try:
-                # Temporarily skip header parsing to test basic ZMQ functionality
-                logger.debug(f"Received {nbytes} bytes of neural data")
-                # TODO: Re-enable header parsing once dependencies are resolved
-                # header, payload_view = parse_header(slot.memory_view[:nbytes])
-
-                # For now, just report success
-                return StreamResult.SUCCESS
-
+                import feagi_data_processing as fdp
+                
+                # Create FeagiByteStructure directly from raw bytes - CORRECT API
+                raw_bytes = slot.memory_view[:nbytes].tobytes()
+                byte_structure = fdp.byte_structures.FeagiByteStructure(raw_bytes)
+                
+                # Get structure type using FEAGI's API - PROPERTY NOT METHOD
+                structure_type = byte_structure.structure_type
+                
+                if structure_type != 11:
+                    logger.warning(f"Unexpected structure type: {structure_type}, expected 11 (NEURON_CATEGORIES)")
+                    logger.debug(f"Raw data (first 20 bytes): {raw_bytes[:20].hex()}")
+                    return StreamResult.SUCCESS
+                
+                # Create CorticalMappedXYZPNeuronData from the byte structure - CORRECT METHOD
+                cortical_mapped = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData.new_from_feagi_byte_structure(byte_structure)
+                
+                # Extract neuron data using iter_easy() - this gives us the actual neuron data
+                cortical_areas = {}
+                neuron_count = 0
+                
+                for cortical_id, neuron_arrays in cortical_mapped.iter_easy():
+                    # neuron_arrays is a tuple: (x_coords, y_coords, z_coords, potentials)
+                    x_coords, y_coords, z_coords, potentials = neuron_arrays
+                    
+                    if cortical_id not in cortical_areas:
+                        cortical_areas[cortical_id] = {
+                            'coordinates_x': [],
+                            'coordinates_y': [],
+                            'coordinates_z': [],
+                            'membrane_potentials': []
+                        }
+                    
+                    # Convert numpy arrays to lists and extend
+                    cortical_areas[cortical_id]['coordinates_x'].extend(x_coords.tolist())
+                    cortical_areas[cortical_id]['coordinates_y'].extend(y_coords.tolist())
+                    cortical_areas[cortical_id]['coordinates_z'].extend(z_coords.tolist())
+                    cortical_areas[cortical_id]['membrane_potentials'].extend(potentials.tolist())
+                    
+                    neuron_count += len(x_coords)
+                
+                logger.info(f"✅ Decoded {neuron_count} neurons using feagi_data_processing direct decoding")
+                
+                # Convert back to numpy arrays for SIMD performance
+                import numpy as np
+                neural_data = {}
+                
+                for cortical_id, data in cortical_areas.items():
+                    neural_data[cortical_id] = {
+                        'coordinates_x': np.array(data['coordinates_x'], dtype=np.uint32),
+                        'coordinates_y': np.array(data['coordinates_y'], dtype=np.uint32),
+                        'coordinates_z': np.array(data['coordinates_z'], dtype=np.uint32),
+                        'membrane_potentials': np.array(data['membrane_potentials'], dtype=np.float32)
+                    }
+                    logger.info(f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons")
+                
+                # Inject into FCL using SIMD-optimized stimulate_neurons method
+                result = self.core_api.stimulate_neurons(neural_data)
+                
+                if result.get("success", False):
+                    logger.info(f"🧠 Successfully injected {neuron_count} neurons into FCL across {len(neural_data)} cortical areas (VECTORIZED)")
+                    return StreamResult.SUCCESS
+                else:
+                    logger.error(f"❌ FCL injection failed: {result.get('error', 'Unknown error')}")
+                    self._stats["api_errors"] += 1
+                    return StreamResult.API_ERROR
+                    
             except Exception as e:
+                logger.error(f"❌ Failed to decode feagi_data_processing format: {e}")
+                import traceback
+                logger.error(f"🔍 Decode traceback: {traceback.format_exc()}")
                 self._stats["decode_errors"] += 1
-                logger.error(f"Failed to parse neural header: {e}")
                 return StreamResult.DECODE_ERROR
 
-            # Comment out protocol handling for now
-            # # Get protocol handler
-            # handler = self._protocol_handlers.get(header.protocol_id)
-            # if not handler:
-            #     logger.warning(f"Unknown neural protocol: {header.protocol_id}")
-            #     return StreamResult.UNKNOWN_PROTOCOL
-            #
-            # # Process neural data based on protocol
-            # result = await handler(header, payload_view)
-            #
-            # return result
+        except Exception as e:
+            self._stats["decode_errors"] += 1
+            logger.error(f"Failed to process neural data: {e}")
+            return StreamResult.DECODE_ERROR
 
         finally:
-            # Only commit the write slot if we actually processed data
-            if data_processed:
+            # Only commit the write slot if we actually processed data - CORRECT METHOD
+            if data_processed and slot:
                 self.ring_buffer.commit_write(slot)
             # Clear the slot reference to help with memory cleanup
             slot = None
-            # If no data was processed, the slot will be automatically released
 
     async def _handle_neuron_flat(
         self, header: NeuralDataHeader, payload: memoryview
