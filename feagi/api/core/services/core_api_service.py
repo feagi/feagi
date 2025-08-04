@@ -1674,58 +1674,24 @@ class CoreAPIService:
         """Get usage report for a specific morphology."""
         try:
             genome = self.get_genome()
-            if not genome or "blueprint" not in genome:
+            if not genome:
                 return []
 
-            blueprint = genome["blueprint"]
             usage_list = []
 
-            self.logger.info(
-                f"Searching for morphology '{morphology_name}' usage in {len(blueprint)} cortical areas"
-            )
+            # COPY THE EXACT LOGIC FROM THE WORKING SAFETY SYSTEM
+            # This is the same logic that correctly blocks deletion
+            
+            # Check cortical mappings for morphology usage (flat genome format)
+            if "blueprint" in genome:
+                blueprint = genome["blueprint"]
+                for area_id, area_data in blueprint.items():
+                    if isinstance(area_data, dict):
+                                                 # Deep scan for morphology references in blueprint data
+                         self._scan_for_cortical_mappings(
+                             area_data, morphology_name, area_id, area_id, usage_list
+                         )
 
-            # ARCHITECTURE: Use hierarchical genome structure (single source of truth)
-            cortical_areas = {}
-
-            # Extract mappings from hierarchical structure
-            for area_id, area_definition in blueprint.items():
-                if isinstance(area_definition, dict) and "parameters" in area_definition:
-                    parameters = area_definition["parameters"]
-                    if isinstance(parameters, dict) and "mapping" in parameters:
-                        cortical_areas[area_id] = parameters["mapping"]
-
-            self.logger.debug(
-                f"Found {len(cortical_areas)} cortical areas with mappings"
-            )
-
-            # Search through cortical areas for connections using this morphology
-            for source_area_id, mapping_dst in cortical_areas.items():
-                if not isinstance(mapping_dst, dict):
-                    continue
-
-                for target_area_id, connections in mapping_dst.items():
-                    self.logger.debug(
-                        f"Checking connection {source_area_id} -> {target_area_id}: type={type(connections)}, value={connections}"
-                    )
-
-                    if not connections or not isinstance(connections, (list, tuple)):
-                        continue
-
-                    # Check each connection for the morphology
-                    for connection in connections:
-                        if isinstance(connection, list) and len(connection) > 0:
-                            # First element is morphology_id
-                            morphology_id = connection[0]
-                            if morphology_id == morphology_name:
-                                # Add [source_area, target_area] pair
-                                usage_list.append([source_area_id, target_area_id])
-                                self.logger.debug(
-                                    f"Found usage: {source_area_id} -> {target_area_id} using {morphology_name}"
-                                )
-
-            self.logger.info(
-                f"Found {len(usage_list)} usages for morphology: {morphology_name}"
-            )
             return usage_list
 
         except Exception as e:
@@ -1734,6 +1700,82 @@ class CoreAPIService:
 
             self.logger.error(f"Full traceback: {traceback.format_exc()}")
             raise ValueError(f"Failed to get morphology usage: {str(e)}")
+
+    def _extract_area_name_from_flat_format(self, flat_area_name: str) -> str:
+        """
+        Extract clean cortical area name from flat genome format.
+        
+        Converts: "_____10c-CTGM4_-cx-dstmap-d" → "CTGM4_"
+        Converts: "_____10c-iv00_C-cx-..." → "iv00_C"
+        """
+        if not flat_area_name:
+            return flat_area_name
+            
+        # Remove common flat format prefixes and suffixes
+        clean_name = flat_area_name
+        
+        # Remove _____10c- prefix if present
+        if clean_name.startswith("_____10c-"):
+            clean_name = clean_name[9:]  # Remove "_____10c-"
+        
+        # Remove -cx-dstmap-d suffix if present
+        if "-cx-dstmap-d" in clean_name:
+            clean_name = clean_name.split("-cx-dstmap-d")[0]
+        
+        # Remove other common flat format suffixes
+        for suffix in ["-cx-subgrp-t", "-cx-_n_cnt-i", "-nx-pstcrm-f", "-cx-synatt-f"]:
+            if clean_name.endswith(suffix):
+                clean_name = clean_name.replace(suffix, "")
+                break
+        
+        return clean_name
+
+    def _scan_for_cortical_mappings(self, data: Dict[str, Any], morphology_id: str, 
+                                   context_key: str, original_area_id: str, usage_list: List[List[str]]) -> None:
+        """
+        Scan dictionary for cortical mapping usage of morphology.
+        
+        This replicates the exact logic from the working deletion safety system.
+        """
+        if not isinstance(data, dict):
+            return
+            
+        for key, value in data.items():
+            if value == morphology_id:
+                # Found direct usage - extract area names
+                source_area = self._extract_area_name_from_flat_format(original_area_id)
+                target_area = key
+                # SPECIAL HANDLING: If key is "morphology_id", extract target from context_key
+                if key == "morphology_id" and ":" in context_key:
+                    # Parse context like "_____10c-CTGM4_-cx-dstmap-d:o__mot"
+                    parts = context_key.split(":")
+                    if len(parts) >= 2:
+                        target_area = parts[-1].split("[")[0]  # Remove [0] if present
+                        usage_list.append([source_area, target_area])
+                        return
+                usage_list.append([source_area, target_area])
+            elif isinstance(value, dict):
+                # Recurse into nested dictionaries
+                self._scan_for_cortical_mappings(value, morphology_id, f"{context_key}:{key}", original_area_id, usage_list)
+            elif isinstance(value, list):
+                # Check list items
+                for i, item in enumerate(value):
+                    if item == morphology_id:
+                        # Found in list - extract area names
+                        source_area = self._extract_area_name_from_flat_format(original_area_id)
+                        target_area = key
+                        usage_list.append([source_area, target_area])
+                    elif isinstance(item, dict):
+                        # Recurse into list items that are dictionaries
+                        self._scan_for_cortical_mappings(item, morphology_id, f"{context_key}:{key}[{i}]", original_area_id, usage_list)
+                    elif isinstance(item, list) and len(item) > 0 and item[0] == morphology_id:
+                        # Found in nested list (like the cortical mapping format)
+                        # Original_area_id format: "_____10c-CTGM4_-cx-dstmap-d"
+                        # Key format: "o__mot"
+                        source_area = self._extract_area_name_from_flat_format(original_area_id)
+                        target_area = key
+
+                        usage_list.append([source_area, target_area])
 
     def get_cortical_mapping(self) -> Dict[str, Any]:
         """

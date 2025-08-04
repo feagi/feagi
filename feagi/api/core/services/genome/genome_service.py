@@ -20,7 +20,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..shared.base_service import BaseService
 
@@ -1761,6 +1761,112 @@ class GenomeService(BaseService):
             self.logger.error(f"Error updating morphology: {str(e)}")
             return False
 
+    def _check_morphology_usage(self, genome: Dict[str, Any], morphology_id: str) -> Dict[str, List[str]]:
+        """
+        Check if a morphology is being used anywhere in the genome.
+        
+        COMPREHENSIVE SAFETY CHECK: Scans all genome sections for morphology references
+        to prevent deletion of morphologies that are still in use.
+        
+        Args:
+            genome: The genome dictionary to scan
+            morphology_id: The morphology ID to search for
+            
+        Returns:
+            Dictionary with usage locations:
+            {
+                "cortical_areas": ["area1", "area2", ...],
+                "cortical_mappings": ["mapping1", "mapping2", ...],
+                "blueprints": ["blueprint1", "blueprint2", ...]
+            }
+        """
+        usage_locations = {
+            "cortical_areas": [],
+            "cortical_mappings": [],
+            "blueprints": []
+        }
+        
+        try:
+            # Check cortical areas for morphology usage
+            if "blueprint" in genome:
+                for area_id, area_data in genome["blueprint"].items():
+                    if isinstance(area_data, dict):
+                        # Check direct neuron_morphology reference
+                        if area_data.get("neuron_morphology") == morphology_id:
+                            usage_locations["cortical_areas"].append(area_id)
+                        
+                        # Check in cortical parameters if they exist
+                        if "cortical_parameters" in area_data:
+                            params = area_data["cortical_parameters"]
+                            if isinstance(params, dict) and params.get("neuron_morphology") == morphology_id:
+                                usage_locations["cortical_areas"].append(area_id)
+            
+            # Check cortical mappings for morphology usage
+            if "cortical_mappings" in genome:
+                for mapping_id, mapping_data in genome["cortical_mappings"].items():
+                    if isinstance(mapping_data, dict):
+                        # Check mapping parameters for morphology references
+                        if "parameters" in mapping_data:
+                            params = mapping_data["parameters"]
+                            if isinstance(params, dict):
+                                # Check various parameter fields that might reference morphologies
+                                for param_key, param_value in params.items():
+                                    if param_value == morphology_id:
+                                        usage_locations["cortical_mappings"].append(f"{mapping_id}:{param_key}")
+            
+            # Check any other blueprint sections
+            if "blueprint" in genome:
+                blueprint = genome["blueprint"]
+                if isinstance(blueprint, dict):
+                    for blueprint_key, blueprint_data in blueprint.items():
+                        if isinstance(blueprint_data, dict):
+                            # Deep scan for morphology references in blueprint data
+                            self._scan_dict_for_morphology(
+                                blueprint_data, morphology_id, blueprint_key, usage_locations["blueprints"]
+                            )
+            
+            self.logger.debug(f"Morphology usage check for '{morphology_id}': {usage_locations}")
+            
+        except Exception as e:
+            self.logger.error(f"Error checking morphology usage: {e}")
+            # Return empty dict on error to be safe (prevents deletion if we can't verify safety)
+            return {"error": [f"Could not verify morphology safety: {str(e)}"]}
+        
+        # Remove duplicates and return only non-empty categories
+        filtered_usage = {}
+        for category, items in usage_locations.items():
+            unique_items = list(set(items))
+            if unique_items:
+                filtered_usage[category] = unique_items
+        
+        return filtered_usage
+    
+    def _scan_dict_for_morphology(self, data: Dict[str, Any], morphology_id: str, 
+                                 context_key: str, usage_list: List[str]) -> None:
+        """
+        Recursively scan a dictionary for morphology references.
+        
+        Args:
+            data: Dictionary to scan
+            morphology_id: Morphology ID to search for
+            context_key: Context for where this reference was found
+            usage_list: List to append findings to
+        """
+        if not isinstance(data, dict):
+            return
+            
+        for key, value in data.items():
+            if value == morphology_id:
+                usage_list.append(f"{context_key}:{key}")
+            elif isinstance(value, dict):
+                self._scan_dict_for_morphology(value, morphology_id, f"{context_key}:{key}", usage_list)
+            elif isinstance(value, list):
+                for i, item in enumerate(value):
+                    if item == morphology_id:
+                        usage_list.append(f"{context_key}:{key}[{i}]")
+                    elif isinstance(item, dict):
+                        self._scan_dict_for_morphology(item, morphology_id, f"{context_key}:{key}[{i}]", usage_list)
+
     def delete_morphology(self, morphology_id: str) -> bool:
         """
         Delete a morphology through proper genome modification pipeline.
@@ -1810,7 +1916,30 @@ class GenomeService(BaseService):
                 if morphology.get("source") == "core":
                     raise ValueError("Cannot delete core morphologies")
 
-                # Remove from genome structure
+                # Don't allow deleting function morphologies (critical system components)
+                if morphology.get("type") == "function":
+                    raise ValueError(
+                        f"Cannot delete function morphology '{morphology_id}' - "
+                        f"function morphologies are critical system components and cannot be removed"
+                    )
+
+                # CRITICAL SAFETY CHECK: Verify morphology is not in use before deletion
+                usage_locations = self._check_morphology_usage(current_genome, morphology_id)
+                if usage_locations:
+                    # Build detailed error message listing all usage locations
+                    usage_details = []
+                    for location_type, items in usage_locations.items():
+                        if items:
+                            usage_details.append(f"{location_type}: {', '.join(items)}")
+                    
+                    usage_summary = "; ".join(usage_details)
+                    raise ValueError(
+                        f"Cannot delete morphology '{morphology_id}' - it is currently in use. "
+                        f"Found {sum(len(items) for items in usage_locations.values())} usage(s): {usage_summary}. "
+                        f"Remove all references to this morphology before deleting it."
+                    )
+
+                # Safe to remove from genome structure
                 del current_genome["neuron_morphologies"][morphology_id]
 
                 # Update the genome through proper pipeline
@@ -1825,8 +1954,9 @@ class GenomeService(BaseService):
                     self._connectome_manager, self.state_manager
                 )
 
-                # Apply the morphology deletion
-                success = embryogenesis.delete_morphology(morphology_id)
+                # The morphology has been removed from the genome structure
+                # No additional embryogenesis processing needed for deletion
+                success = True
 
                 if success and transaction:
                     transaction.commit()

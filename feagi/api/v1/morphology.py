@@ -211,9 +211,29 @@ class MorphologyAPI:
         "DELETE", "/delete/{morphology_id}", response_model=SuccessResponse
     )
     async def delete_morphology(self, morphology_id: str) -> SuccessResponse:
-        """Delete a morphology."""
+        """Delete a morphology by ID."""
         try:
             success = self.core_api_service.delete_morphology(morphology_id)
+            if not success:
+                raise ValueError("Failed to delete morphology")
+
+            return SuccessResponse(message="Morphology deleted successfully")
+        except Exception as e:
+            logger.error(f"Error deleting morphology: {e}")
+            raise ValueError(f"Failed to delete morphology: {str(e)}")
+
+    @morphology_endpoint(
+        "DELETE",
+        "/morphology",
+        request_model=MorphologyNameRequest,
+        response_model=SuccessResponse,
+    )
+    async def delete_morphology_by_name(
+        self, request: MorphologyNameRequest
+    ) -> SuccessResponse:
+        """Delete a morphology by name (client-compatible endpoint)."""
+        try:
+            success = self.core_api_service.delete_morphology(request.morphology_name)
             if not success:
                 raise ValueError("Failed to delete morphology")
 
