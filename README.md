@@ -1,13 +1,16 @@
 # FEAGI Connector
 
-Client-side integration library for agents connecting to FEAGI.
+**Complete SDK library** for building agents that connect to FEAGI.
 
 ## Overview
 
-FEAGI Connector provides a simple, high-level API for agents to connect to FEAGI (Flexible & Extensible Artificial General Intelligence) and exchange data using its communication protocols. It abstracts the underlying transport details and provides an async-first interface.
+FEAGI Connector is a complete client-side SDK that provides a simple, high-level API for building agents that connect to FEAGI (Flexible & Extensible Artificial General Intelligence). It handles communication protocols, sensorimotor data processing, device management, and provides extensible frameworks for custom agent development.
+
+**This is a pure library** - it does not contain standalone applications. For complete agent examples and reference implementations, see the `simple_agent` project.
 
 ## Features
 
+### Core Communication
 - Async API for modern Python applications
 - Agent registration and discovery
 - Sensory data transmission to FEAGI
@@ -15,16 +18,33 @@ FEAGI Connector provides a simple, high-level API for agents to connect to FEAGI
 - Neural activity visualization data
 - Connection management with heartbeats
 - ZeroMQ transport for efficient communication
-- Designed for future Rust implementation
+
+### Sensorimotor Processing
+- **CapabilitiesManager**: JSON-based device configuration
+- **MotorProcessor**: Generic motor command processing with extensible device handlers
+- **Connection state management**: Standard connection lifecycle tracking
+- **Agent logging**: Structured logging for agents and neuron data
+
+### Performance & Compatibility
+- Optional Rust implementations for performance-critical operations
+- Designed for future full Rust implementation
+- Cross-platform compatibility
 
 ## Installation
 
+### From PyPI (when published):
 ```bash
 pip install feagi_connector
 ```
 
-Or install from source:
+### Development Installation (current):
+```bash
+# Install in development mode from local directory
+cd feagi_connector
+pip install -e .
+```
 
+### From Source:
 ```bash
 git clone https://github.com/feagi/feagi_connector
 cd feagi_connector
@@ -34,42 +54,85 @@ pip install -e .
 ## Quick Usage
 
 ```python
-import asyncio
 from feagi_connector import FeagiClient
 from feagi_connector.protocols import FSMPChannel
 
-async def main():
-    # Create a client
-    client = FeagiClient(
-        host="localhost",
-        agent_id="my-agent",
-        agent_type="example"
-    )
+# Create a client
+client = FeagiClient(
+    host="localhost",
+    agent_id="my-agent",
+    agent_type="example"
+)
+
+# Connect to FEAGI
+connected = await client.connect()
+if not connected:
+    print("Failed to connect to FEAGI")
+    return
     
-    # Connect to FEAGI
-    connected = await client.connect()
-    if not connected:
-        print("Failed to connect to FEAGI")
-        return
-        
-    # Register a callback for motor data
-    await client.register_motor_callback(handle_motor_data)
-    
-    # Send some sensory data
-    image_data = bytes([0x80] * (10 * 10))  # 10x10 grayscale image
-    await client.send_sensory_data(FSMPChannel.VISION, image_data)
-    
-    # Keep the connection alive for a while
-    await asyncio.sleep(10)
-    
-    # Disconnect
-    await client.disconnect()
-    
+# Register a callback for motor data
+await client.register_motor_callback(handle_motor_data)
+
+# Send some sensory data
+image_data = bytes([0x80] * (10 * 10))  # 10x10 grayscale image
+await client.send_sensory_data(FSMPChannel.VISION, image_data)
+
+# Disconnect
+await client.disconnect()
+
 def handle_motor_data(channel_id, data):
     print(f"Received motor data on channel {channel_id}: {len(data)} bytes")
+```
 
-if __name__ == "__main__":
-    asyncio.run(main())
+**For complete agent implementations with continuous sensorimotor loops, see the `simple_agent` project.**
+
+## Advanced Usage
+
+### Using Sensorimotor Processing Components
+
+```python
+from feagi_connector import (
+    FeagiClient,
+    CapabilitiesManager,
+    MotorProcessor,
+    setup_agent_logging
+)
+
+# Set up logging
+logger, neuron_logger = setup_agent_logging()
+
+# Load device capabilities
+capabilities = CapabilitiesManager("capabilities.json")
+capabilities.load_capabilities()
+
+# Set up motor processing
+motor_processor = MotorProcessor()
+
+# Create FEAGI client
+client = FeagiClient(host="localhost", agent_id="my-agent")
+await client.connect()
+
+# Register motor callback that uses the motor processor
+async def handle_motor_data(channel_id, data):
+    # Process motor commands through the generic processor
+    await motor_processor.process_motor_commands(data, capabilities)
+
+await client.register_motor_callback(handle_motor_data)
+```
+
+### Custom Device Handlers
+
+```python
+from feagi_connector import MotorProcessor
+
+motor_processor = MotorProcessor()
+
+# Register custom device handler
+async def handle_my_custom_device(device_id: str, config: dict, neuron_data: dict):
+    print(f"Custom device {device_id} received: {neuron_data}")
+    # Your custom device control logic here
+
+motor_processor.register_device_handler("my_device_type", handle_my_custom_device)
 ```
 
 ## Documentation
@@ -78,7 +141,7 @@ For complete usage documentation, see:
 
 - [FEAGI Connector Usage Guide](docs/guide-connector-usage.md) - Comprehensive guide to using the connector
 - [API Reference](https://feagi.github.io/feagi_connector) - API reference documentation
-- [Example Agent](examples/example_agent.py) - Full example of an agent implementation
+- **[Simple Agent Project](../simple_agent/)** - Complete agent examples and reference implementations
 
 ## Integration with FEAGI
 

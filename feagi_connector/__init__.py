@@ -1,16 +1,22 @@
 """
-FEAGI Connector
---------------
+FEAGI Connector SDK
 
-Client-side integration library for agents connecting to FEAGI.
-
-FEAGI Connector provides a simple, high-level API for agents to connect to FEAGI
-(Flexible & Extensible Artificial General Intelligence) and exchange data using
-its communication protocols.
+Complete SDK library for connecting to FEAGI (Fractal Evolutionary Adaptive General Intelligence).
 """
 
-__version__ = "0.1.0"
-
 from feagi_connector.client import FeagiClient
+from feagi_connector.capabilities.manager import CapabilitiesManager
+from feagi_connector.motor.processor import MotorProcessor
+from feagi_connector.state.connection import ConnectionState
+from feagi_connector.logging.setup import setup_agent_logging
 
-__all__ = ["FeagiClient"] 
+# Export main classes and functions
+__all__ = [
+    "FeagiClient",
+    "CapabilitiesManager", 
+    "MotorProcessor",
+    "ConnectionState",
+    "setup_agent_logging",
+]
+
+__version__ = "1.0.0" 

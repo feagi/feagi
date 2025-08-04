@@ -1,77 +1,53 @@
 # FEAGI Connector Examples
 
-This directory contains example scripts for using FEAGI Connector with explicit Python and Rust implementations.
+**Note: FEAGI Connector is now a pure SDK library. For complete agent examples and reference implementations, please see the `simple_agent` project.**
 
-## Example Scripts
+This directory contains only SDK usage documentation and basic code snippets.
 
-### 1. Python Implementation Example
+## SDK Usage Examples
 
-**File:** `neuron_processing_example.py`
+### Basic Connection Example
 
-This script demonstrates using the pure Python implementation of FEAGI byte processing utilities.
-It's the most accessible example that works without any additional dependencies beyond the
-base FEAGI Connector package.
+```python
+from feagi_connector import FeagiClient
+from feagi_connector.protocols import FSMPChannel
 
-```bash
-python neuron_processing_example.py
+# Create client
+client = FeagiClient(host="localhost", agent_id="my-agent")
+
+# Connect
+await client.connect()
+
+# Send sensory data  
+await client.send_sensory_data(FSMPChannel.VISION, image_bytes)
+
+# Register motor callback
+await client.register_motor_callback(handle_motor_data)
+
+# Disconnect
+await client.disconnect()
 ```
 
-### 2. Rust Implementation Example
+### Performance Comparison (Python vs Rust)
 
-**File:** `neuron_processing_example_rust.py`
+```python
+# Explicit implementation selection
+from feagi_connector.utils.processing import encode_neuron_potential_xyz_python
+from feagi_connector.utils.rust_processing import encode_neuron_potential_xyz_rust
 
-This script demonstrates using the high-performance Rust implementation of FEAGI byte processing
-utilities. It requires the optional Rust dependency to be installed. If the Rust dependency
-is missing, it will fail with a clear error message.
+# Use Python implementation
+py_encoded = encode_neuron_potential_xyz_python(neuron_data)
 
-```bash
-# First ensure you have the Rust dependency installed
-pip install "feagi_connector[rust]"
-
-# Then run the example
-python neuron_processing_example_rust.py
+# Use Rust implementation (5-20x faster)
+rust_encoded = encode_neuron_potential_xyz_rust(neuron_data)
 ```
 
-### 3. Implementation Comparison
+## Complete Agent Examples
 
-**File:** `neuron_processing_comparison.py`
+For complete, runnable agent implementations that demonstrate:
+- Robot control agents
+- IoT sensor agents  
+- Vision processing agents
+- Custom agent extensions
 
-This script provides a side-by-side comparison of the Python and Rust implementations,
-including performance benchmarks. It requires the Rust dependency to be installed.
-
-```bash
-# First ensure you have the Rust dependency installed
-pip install "feagi_connector[rust]"
-
-# Then run the comparison
-python neuron_processing_comparison.py
-```
-
-## Design Philosophy
-
-These examples demonstrate the explicit approach used in FEAGI Connector for accessing
-both Python and Rust implementations:
-
-1. **Python Implementation Example:** Uses only Python implementations with explicit naming
-   (`*_python` suffix), guaranteeing it works on all systems.
-
-2. **Rust Implementation Example:** Uses only Rust implementations with explicit naming 
-   (`*_rust` suffix), requiring the Rust dependencies to be installed.
-
-3. **Comparison Example:** Uses both implementations side-by-side for direct comparison.
-
-This explicit approach provides:
-- Maximum code clarity - always clear which implementation is being used
-- Zero runtime overhead - no conditional checks at function call time
-- Full control - you decide which implementation to use
-- Simple error handling - ImportErrors are handled explicitly
-
-## Expected Performance Results
-
-When running the comparison example, you can expect significant performance improvements
-with the Rust implementation, typically in the range of:
-
-- 5-20x faster encoding
-- 5-20x faster decoding
-
-The exact improvement will depend on your system and the size of the neuron data being processed. 
+**See the `simple_agent` project**, which serves as the reference implementation showing how to use FEAGI Connector in real applications. 

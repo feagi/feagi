@@ -1,365 +1,153 @@
 """
-Copyright 2025 Neuraville Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-"""
 FEAGI Sensory Client
 
-Client for sending sensory data to FEAGI and receiving motor data using ZMQ DEALER/ROUTER pattern.
+Simple client for sending sensory data to FEAGI using feagi_data_processing library.
 """
 
-import json
 import logging
-import uuid
-import asyncio
-from typing import Dict, Any, Optional, List, Union, Tuple
-
+from typing import Dict, Tuple, Optional
 import zmq
-import zmq.asyncio
-from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
+import numpy as np
 
-# Import constants
-from feagi_connector.utils import NEURON_POTENTIAL_CATEGORICAL_XYZ
+# Import the correct feagi_data_processing library
+try:
+    import feagi_data_processing as fdp
+    HAS_FEAGI_DATA_PROCESSING = True
+except ImportError:
+    HAS_FEAGI_DATA_PROCESSING = False
 
-# Import default implementation - this should be the Python implementation
-# for backward compatibility
-from feagi_connector.utils.processing import (
-    infer_byte_structure_type_python as infer_byte_structure_type,
-    decode_neuron_potential_xyz_python as decode_neuron_potential_xyz
-)
-
-# Configure logging
-logger = logging.getLogger("feagi_connector.sensory")
+logger = logging.getLogger(__name__)
 
 
 class FeagiSensoryClient:
-    """
-    Client for sending sensory data to FEAGI using DEALER/ROUTER pattern (port 5558).
+    """FEAGI sensory client that sends feagi_data_processing binary format."""
     
-    This client properly handles binary data transmission for sensory input,
-    using the correct message framing for DEALER/ROUTER.
-    """
-    
-    def __init__(
-        self, 
-        host: str = "127.0.0.1", 
-        port: int = 5558, 
-        agent_id: Optional[str] = None, 
-        socket_timeout: int = 1000
-    ):
-        """
-        Initialize the sensory client.
-        
-        Args:
-            host: FEAGI hostname or IP
-            port: ZMQ DEALER/ROUTER port (default 5558)
-            agent_id: Agent ID for FEAGI registration (default: auto-generated)
-            socket_timeout: Socket timeout in milliseconds
-        """
+    def __init__(self, host: str = "localhost", port: int = 5558, timeout: int = 5):
+        """Initialize sensory client with PUSH socket for feagi_data_processing format."""
         self.host = host
         self.port = port
-        self.agent_id = agent_id or f"agent-{uuid.uuid4().hex[:8]}"
-        self.timeout = socket_timeout
-        self.context = zmq.asyncio.Context.instance()
+        self.timeout = timeout
         self.socket = None
-        self.registered = False
-        
-    async def connect(self) -> bool:
-        """
-        Create and connect a socket.
-        
-        Returns:
-            True if connection was successful
-        """
+        self.context = None
+
+    def connect(self) -> bool:
+        """Connect to FEAGI sensory stream."""
+        try:
+            self.context = zmq.Context()
+            self.socket = self.context.socket(zmq.PUSH)
+            self.socket.setsockopt(zmq.LINGER, 1000)
+            self.socket.setsockopt(zmq.SNDHWM, 100)  # Prevent buffer overflow
+            
+            address = f"tcp://{self.host}:{self.port}"
+            self.socket.connect(address)
+            
+            logger.info(f"Connected to FEAGI sensory stream at {address}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to connect to sensory stream: {e}")
+            return False
+
+    def send_sensory_data(
+        self, cortical_area: str, neuron_data: Dict[Tuple[int, int, int], float]
+    ) -> bool:
+        """Send sensory data using feagi_data_processing format."""
+        try:
+            if not self.socket:
+                logger.error("Not connected to sensory stream")
+                return False
+                
+            if not neuron_data:
+                logger.debug(f"No neuron data to send for {cortical_area}")
+                return True
+            
+            if not HAS_FEAGI_DATA_PROCESSING:
+                logger.error("feagi_data_processing library not available")
+                return False
+            
+            # Encode using feagi_data_processing
+            binary_data = self._encode_with_feagi_data_processing(cortical_area, neuron_data)
+            if binary_data:
+                self.socket.send(binary_data, zmq.NOBLOCK)
+                logger.debug(f"Sent {len(neuron_data)} neurons for '{cortical_area}' as feagi_data_processing ({len(binary_data)} bytes)")
+                return True
+            else:
+                logger.error("Failed to encode neuron data")
+                return False
+            
+        except Exception as e:
+            logger.error(f"Failed to send sensory data: {e}")
+            return False
+
+    def _encode_with_feagi_data_processing(
+        self, cortical_area: str, neuron_data: Dict[Tuple[int, int, int], float]
+    ) -> Optional[bytes]:
+        """Encode neuron data using feagi_data_processing library."""
+        try:
+            if not neuron_data:
+                return None
+                
+            # Convert to lists
+            coords = list(neuron_data.keys())
+            potentials = list(neuron_data.values())
+            
+            x_coords = [coord[0] for coord in coords]
+            y_coords = [coord[1] for coord in coords]
+            z_coords = [coord[2] for coord in coords]
+            
+            logger.info(f"Step 1: Converted to coordinate lists - {len(x_coords)} neurons")
+            
+            # Create NumPy arrays with proper dtypes
+            neurons_x = np.asarray(x_coords, dtype=np.uint32)
+            neurons_y = np.asarray(y_coords, dtype=np.uint32)
+            neurons_z = np.asarray(z_coords, dtype=np.uint32)
+            neurons_p = np.asarray(potentials, dtype=np.float32)
+            
+            logger.info(f"Step 2: Created numpy arrays - x={len(neurons_x)}, y={len(neurons_y)}, z={len(neurons_z)}, p={len(neurons_p)}")
+            
+            # Create cortical ID
+            cortical_id_obj = fdp.cortical_data.CorticalID(str(cortical_area))
+            logger.info(f"Step 3: Created cortical ID object")
+            
+            # Use NumPy approach
+            neurons_array = fdp.neuron_data.neuron_arrays.NeuronXYZPArrays.new_from_numpy(
+                neurons_x, neurons_y, neurons_z, neurons_p
+            )
+            logger.info(f"Step 4: Created neuron arrays object")
+            
+            # Create mapped neuron data container
+            generated_mapped_neuron_data = fdp.neuron_data.neuron_mappings.CorticalMappedXYZPNeuronData()
+            logger.info(f"Step 5: Created mapped neuron data container")
+            
+            generated_mapped_neuron_data.insert(cortical_id_obj, neurons_array)
+            logger.info(f"Step 6: Inserted data into container")
+            
+            # Create the final byte structure from the mapped data
+            byte_structure = generated_mapped_neuron_data.as_new_feagi_byte_structure()
+            logger.info(f"Step 7: Created byte structure")
+            
+            # Get binary data - USE STANDARD METHOD - NO FALLBACKS
+            binary_data = byte_structure.copy_as_bytes()
+            logger.info(f"Step 8: Extracted binary data - {len(binary_data)} bytes")
+            
+            logger.info(f"📊 Agent encoded {len(neuron_data)} neurons into {len(binary_data)} bytes")
+            
+            logger.debug(f"Encoded {len(neuron_data)} neurons for '{cortical_area}' into {len(binary_data)} bytes using feagi_data_processing")
+            return bytes(binary_data)
+            
+        except Exception as e:
+            logger.error(f"Failed to encode with feagi_data_processing: {e}")
+            import traceback
+            logger.error(f"Encoding traceback: {traceback.format_exc()}")
+            return None
+
+    def close(self):
+        """Close the sensory client connection."""
         try:
             if self.socket:
                 self.socket.close()
-                
-            self.socket = self.context.socket(zmq.DEALER)
-            self.socket.setsockopt(zmq.IDENTITY, self.agent_id.encode())
-            self.socket.setsockopt(zmq.RCVTIMEO, self.timeout)
-            self.socket.setsockopt(zmq.LINGER, 0)  # Don't wait for pending messages on close
-            
-            # Set a connect timeout
-            self.socket.setsockopt(zmq.CONNECT_TIMEOUT, 1000)  # 1 second timeout
-            
-            logger.debug(f"Connecting to sensorimotor server at tcp://{self.host}:{self.port}")
-            self.socket.connect(f"tcp://{self.host}:{self.port}")
-            logger.debug(f"Connected to sensorimotor server")
-            return True
-            
-        except zmq.error.ZMQError as e:
-            logger.error(f"ZMQ Error connecting to {self.host}:{self.port}: {e}")
-            if self.socket:
-                self.socket.close()
-                self.socket = None
-            return False
-            
-    async def close(self) -> None:
-        """Close the socket."""
-        if self.socket:
-            self.socket.close()
-            self.socket = None
-            self.registered = False
-    
-    async def register_agent(
-        self, 
-        agent_type: str = "external", 
-        sensory_channels: Optional[List[int]] = None, 
-        motor_channels: Optional[List[int]] = None
-    ) -> bool:
-        """
-        Register this agent with FEAGI.
-        
-        Args:
-            agent_type: Type of agent 
-            sensory_channels: List of sensory channels
-            motor_channels: List of motor channels
-            
-        Returns:
-            True if registration was successful
-        """
-        if self.registered:
-            return True
-           
-        # Make sure we're connected
-        if not self.socket:
-            if not await self.connect():
-                return False
-            
-        # Create registration message
-        hello_msg = {
-            "message_type": "hello",
-            "agent_id": self.agent_id,
-            "agent_type": agent_type,
-            "sensory_channels": sensory_channels or [],
-            "motor_channels": motor_channels or []
-        }
-        
-        try:
-            # Send hello message
-            logger.debug(f"Sending hello message: {hello_msg}")
-            await self.socket.send_multipart([
-                b"",  # Empty delimiter frame required for ROUTER
-                json.dumps(hello_msg).encode('utf-8')
-            ])
-            
-            # Wait for welcome message
-            try:
-                welcome_frames = await self.socket.recv_multipart()
-                
-                if len(welcome_frames) < 2:
-                    logger.error(f"Invalid welcome message format: {welcome_frames}")
-                    return False
-                
-                # Skip the empty delimiter frame
-                welcome_data = welcome_frames[1]
-                
-                try:
-                    welcome_msg = json.loads(welcome_data.decode('utf-8'))
-                    
-                    if welcome_msg.get("message_type") == "welcome":
-                        logger.info(f"Successfully registered agent {self.agent_id} with FEAGI")
-                        self.registered = True
-                        return True
-                    else:
-                        logger.error(f"Unexpected response to hello: {welcome_msg}")
-                        return False
-                        
-                except json.JSONDecodeError:
-                    logger.error(f"Could not decode welcome message: {welcome_data}")
-                    return False
-                    
-            except zmq.error.Again:
-                logger.error("Timed out waiting for welcome message")
-                return False
-                
+            if self.context:
+                self.context.term()
+            logger.info("Sensory client closed")
         except Exception as e:
-            logger.error(f"Error registering agent: {e}")
-            return False
-    
-    async def send_sensory_data(
-        self, 
-        cortical_area: Union[str, int], 
-        data: Union[bytes, Dict[Tuple[int, int, int], float]]
-    ) -> bool:
-        """
-        Send sensory data to FEAGI.
-        
-        Args:
-            cortical_area: Cortical area ID or name
-            data: Sensory data as bytes or neuron activation dictionary
-            
-        Returns:
-            True if data was sent successfully
-        """
-        if not self.socket or not self.registered:
-            logger.error("Not connected or registered")
-            return False
-        
-        try:
-            # Prepare the message header
-            header = {
-                "message_type": "sensory_data",
-                "cortical_area": cortical_area,
-                "timestamp": int(asyncio.get_event_loop().time() * 1000)
-            }
-            
-            # Encode the data
-            if isinstance(data, bytes):
-                # Raw binary data
-                binary_data = data
-            elif isinstance(data, dict):
-                # Dictionary of neuron coordinates to activation values
-                encoder = ByteStructureEncoder()
-                binary_data = encoder.encode_neuron_data(data)
-            else:
-                logger.error(f"Unsupported data type: {type(data)}")
-                return False
-            
-            # Send the message
-            logger.debug(f"Sending sensory data to {cortical_area}: {len(binary_data)} bytes")
-            await self.socket.send_multipart([
-                b"",  # Empty delimiter frame required for ROUTER
-                json.dumps(header).encode('utf-8'),
-                binary_data
-            ])
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error sending sensory data: {e}")
-            return False
-    
-    async def process_motor_data(self, data: bytes) -> Optional[Dict]:
-        """
-        Process motor data received from FEAGI.
-        
-        Args:
-            data: Raw binary data from FEAGI
-            
-        Returns:
-            Processed motor data or None if processing failed
-        """
-        try:
-            # Determine the data type
-            data_type = infer_byte_structure_type(data)
-            
-            if data_type == NEURON_POTENTIAL_CATEGORICAL_XYZ:
-                # Decode neuron potential data
-                neuron_data = decode_neuron_potential_xyz(data)
-                    
-                return {
-                    "type": "neuron_potential",
-                    "format": "xyz",
-                    "neurons": neuron_data
-                }
-            else:
-                logger.warning(f"Unsupported data type: {data_type}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error processing motor data: {e}")
-            return None
-    
-    async def receive_motor_data(self, timeout: int = None) -> Optional[Tuple[int, bytes]]:
-        """
-        Receive motor data from FEAGI.
-        
-        Args:
-            timeout: Receive timeout in milliseconds (None for default)
-            
-        Returns:
-            Tuple of (channel_id, data) or None if no data available
-        """
-        if not self.socket or not self.registered:
-            logger.error("Not connected or registered")
-            return None
-        
-        try:
-            # Set timeout if provided
-            if timeout is not None:
-                old_timeout = self.socket.getsockopt(zmq.RCVTIMEO)
-                self.socket.setsockopt(zmq.RCVTIMEO, timeout)
-            
-            # Try to receive a message
-            try:
-                frames = await self.socket.recv_multipart()
-                
-                if len(frames) < 3:
-                    logger.warning(f"Invalid motor data format: {frames}")
-                    return None
-                
-                # Skip the empty delimiter frame
-                header_data = frames[1]
-                motor_data = frames[2]
-                
-                try:
-                    header = json.loads(header_data.decode('utf-8'))
-                    
-                    if header.get("message_type") == "motor_data":
-                        channel_id = header.get("channel_id")
-                        logger.debug(f"Received motor data on channel {channel_id}: {len(motor_data)} bytes")
-                        processed_data = await self.process_motor_data(motor_data)
-                        return channel_id, processed_data
-                    else:
-                        logger.warning(f"Unexpected message type: {header.get('message_type')}")
-                        return None
-                        
-                except json.JSONDecodeError:
-                    logger.error(f"Could not decode motor data header: {header_data}")
-                    return None
-                    
-            except zmq.error.Again:
-                # No data available within timeout
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error receiving motor data: {e}")
-            return None
-            
-        finally:
-            # Reset timeout if it was changed
-            if timeout is not None:
-                self.socket.setsockopt(zmq.RCVTIMEO, old_timeout)
-    
-    async def send_heartbeat(self) -> bool:
-        """
-        Send a heartbeat to keep the connection alive.
-        
-        Returns:
-            True if heartbeat was sent successfully
-        """
-        if not self.socket or not self.registered:
-            logger.error("Not connected or registered")
-            return False
-        
-        try:
-            heartbeat_msg = {
-                "message_type": "heartbeat",
-                "agent_id": self.agent_id,
-                "timestamp": int(asyncio.get_event_loop().time() * 1000)
-            }
-            
-            await self.socket.send_multipart([
-                b"",  # Empty delimiter frame required for ROUTER
-                json.dumps(heartbeat_msg).encode('utf-8')
-            ])
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error sending heartbeat: {e}")
-            return False 
+            logger.error(f"Error closing sensory client: {e}") 

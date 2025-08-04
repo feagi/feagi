@@ -1,58 +1,32 @@
 """
-FEAGI Communication Protocols
-
-This module defines the communication protocols used by FEAGI:
-
-- FSMP (FEAGI Sensorimotor Protocol): For exchanging sensory and motor data
-- FVP (FEAGI Visualization Protocol): For receiving neural activity and structure data
-- FCP (FEAGI Control Protocol): For agent registration and control
+Protocol definitions for FEAGI communication.
 """
 
-from enum import Enum, auto
+from feagi_connector.protocols.constants import ProtocolID
+from feagi_connector.protocols.neural import (
+    NeuralProtocolID,
+    NeuralDataHeader,
+    CompressionType,
+    NeuralPrecision,
+    create_header,
+    parse_header,
+    encode_neuron_flat_data,
+    create_neuron_flat_message,
+    encode_cortical_area_to_id,
+    NEURAL_HEADER_SIZE,
+    NEURAL_MAGIC,
+)
 
-
-class FSMPChannel(Enum):
-    """
-    FSMP Channel IDs for different sensory and motor modalities.
-    """
-    # Sensory channels
-    VISION = 1
-    AUDIO = 2
-    TACTILE = 3
-    PROPRIOCEPTION = 4
-    OLFACTORY = 5
-    GUSTATORY = 6
-    TEXT = 7
-    
-    # Motor channels
-    MOTOR_ARM = 101
-    MOTOR_LEG = 102
-    MOTOR_HAND = 103
-    MOTOR_SPEECH = 104
-    MOTOR_EYE = 105
-
-
-class FCPMessageType(Enum):
-    """
-    FCP Message types for control protocol.
-    """
-    HELLO = auto()
-    WELCOME = auto()
-    CAPABILITIES = auto()
-    ACK = auto()
-    HEARTBEAT = auto()
-    BYE = auto()
-    ERROR = auto()
-
-
-class FVPMessageType(Enum):
-    """
-    FVP Message types for visualization protocol.
-    """
-    ACTIVITY_REQUEST = auto()
-    ACTIVITY_DATA = auto()
-    STRUCTURE_REQUEST = auto()
-    STRUCTURE_DATA = auto()
-
-
-__all__ = ["FSMPChannel", "FCPMessageType", "FVPMessageType"] 
+__all__ = [
+    "NeuralProtocolID",
+    "NeuralDataHeader", 
+    "CompressionType",
+    "NeuralPrecision",
+    "create_header",
+    "parse_header",
+    "encode_neuron_flat_data",
+    "create_neuron_flat_message",
+    "encode_cortical_area_to_id",
+    "NEURAL_HEADER_SIZE",
+    "NEURAL_MAGIC",
+] 

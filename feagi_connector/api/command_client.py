@@ -34,19 +34,19 @@ logger = logging.getLogger("feagi_connector.control")
 
 class FeagiControlClient:
     """
-    Control client for FEAGI using REQ/REP pattern (port 5559).
+    Control client for FEAGI using REQ/REP pattern (port 5555).
     
     This client implements the control-based API over ZMQ REQ/REP pattern,
     correctly handling message formatting and state.
     """
     
-    def __init__(self, host: str = "127.0.0.1", port: int = 5559, timeout: int = 5000, auth_token: Optional[str] = None):
+    def __init__(self, host: str = "127.0.0.1", port: int = 5555, timeout: int = 5000, auth_token: Optional[str] = None):
         """
         Initialize the control client.
         
         Args:
             host: FEAGI hostname or IP
-            port: ZMQ REQ/REP port (default 5559)
+            port: ZMQ REQ/REP port (default 5555)
             timeout: Request timeout in milliseconds
             auth_token: Authentication token (optional)
         """
@@ -87,12 +87,103 @@ class FeagiControlClient:
         # Nothing to do here, each request creates and closes its own socket
         pass
     
+    async def register_agent(
+        self,
+        agent_id: str,
+        agent_type: str = "external",
+        capabilities: Optional[Dict[str, Any]] = None,
+        full_capabilities: Optional[Dict[str, Any]] = None,
+        agent_version: Optional[str] = None,
+        agent_ip: Optional[str] = None
+    ) -> Dict:
+        """
+        Register agent with FEAGI using REST Stream format.
+        
+        Args:
+            agent_id: Unique agent identifier
+            agent_type: Type of agent (external, brain_visualizer, etc.)
+            capabilities: Simple boolean capabilities (sensory, motor, visualization, etc.)
+            full_capabilities: Full capabilities structure from capabilities.json
+            agent_version: Agent version string
+            agent_ip: Agent IP address
+            
+        Returns:
+            Registration response data
+        """
+        # Use REST Stream format as documented in FEAGI
+        rest_message = {
+            "route": "/v1/agent/register",
+            "method": "POST",
+            "body": {
+                "agent_id": agent_id,
+                "agent_type": agent_type,
+                "capabilities": capabilities or {
+                    "sensory": True,
+                    "motor": True,
+                    "visualization": False
+                },
+                "agent_version": agent_version or "1.0.0",
+                "controller_version": "2.0.0",
+                "agent_data_port": 0,  # 0 indicates no specific port requirement
+                "agent_ip": agent_ip or "127.0.0.1"
+            },
+            "timestamp": int(time.time() * 1000)
+        }
+        
+        # Include full capabilities if provided
+        if full_capabilities:
+            rest_message["body"]["full_capabilities"] = full_capabilities
+        
+        return await self.make_rest_request(rest_message)
+
+    async def make_rest_request(self, rest_message: Dict) -> Dict:
+        """
+        Make a REST Stream request to FEAGI.
+        
+        Args:
+            rest_message: REST Stream format message
+            
+        Returns:
+            Response data or error dictionary
+        """
+        socket = None
+        try:
+            socket = self.context.socket(zmq.REQ)
+            socket.setsockopt(zmq.RCVTIMEO, self.timeout)
+            socket.setsockopt(zmq.LINGER, 0)
+            socket.connect(f"tcp://{self.host}:{self.port}")
+            
+            logger.debug(f"Sending REST request to {self.host}:{self.port}")
+            logger.debug(f"REST message: {json.dumps(rest_message, indent=2)}")
+            
+            # Send REST Stream format message
+            await socket.send_string(json.dumps(rest_message))
+            
+            # Receive response
+            response_str = await socket.recv_string()
+            response = json.loads(response_str)
+            
+            logger.debug(f"Received REST response: {json.dumps(response, indent=2)}")
+            return response
+            
+        except zmq.error.Again:
+            error_msg = f"REST request timed out after {self.timeout/1000.0} seconds"
+            logger.error(error_msg)
+            return {"error": error_msg}
+        except Exception as e:
+            error_msg = f"Error making REST request: {e}"
+            logger.error(error_msg)
+            return {"error": error_msg}
+        finally:
+            if socket:
+                socket.close()
+
     async def make_request(self, command: str, params: Optional[Dict] = None) -> Dict:
         """
         Make a direct command request with proper message formatting.
         
         Args:
-            command: Command name (e.g., 'ping', 'get_status')
+            command: Command name (e.g., 'ping', 'get_status', 'POST /v1/agent/register')
             params: Command parameters
             
         Returns:

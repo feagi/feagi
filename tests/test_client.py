@@ -24,7 +24,6 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from feagi_connector import FeagiClient
-from feagi_connector.protocols import FSMPChannel
 
 
 @pytest.fixture
