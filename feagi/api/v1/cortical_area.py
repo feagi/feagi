@@ -521,7 +521,7 @@ class CorticalAreaAPI:
                 cortical_id=cortical_id
             )
             
-            # CRITICAL: Trigger neurogenesis to create actual neurons in the area
+            # CRITICAL: Trigger neurogenesis using the proven GenomeService method
             logger.info(f"[NEUROGENESIS] Creating neurons for new cortical area {cortical_id}")
             neurogenesis_properties = {
                 "neurons_per_voxel": neuron_density,
@@ -529,7 +529,11 @@ class CorticalAreaAPI:
                 "leak_c": self._get_default_value("leak_c", 0),
                 "refrac": self._get_default_value("refrac", 1)
             }
+            
+            # Use the proven GenomeService method that properly associates neurons with cortical areas
             genome_service._rebuild_neurons_for_area(cortical_id, neurogenesis_properties)
+            
+            logger.info(f"[SUCCESS] Cortical area {cortical_id} created with neurons using FEAGI-compliant allocation")
             
             logger.info(f"[SUCCESS] Cortical area {cortical_id} created with {neuron_count} neurons")
 

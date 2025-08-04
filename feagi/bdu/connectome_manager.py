@@ -1920,17 +1920,40 @@ class ConnectomeManager(NeuronMappingProvider):
             # Get cortical_idx through the mapping
             cortical_idx = self.cortical_mapping.get_idx(cortical_id)
 
-            # Build complete properties dictionary
-            properties = {
-                "id": cortical_id,
-                "cortical_idx": int(cortical_idx) if cortical_idx is not None else None,
-                "name": area.name,
-                "coordinates": tuple(int(x) for x in area.position),
-                "dimensions": tuple(int(x) for x in area.dimensions),
-                "type": area.area_type,
-                "parameters": area.properties.copy() if area.properties else {},
-                "neuron_count": int(len(self.get_neurons_by_area(cortical_id))),
-            }
+            # Build complete properties dictionary with safe type conversion
+            try:
+                # Safely convert coordinates and dimensions to integers
+                coordinates = []
+                for i, x in enumerate(area.position):
+                    try:
+                        coordinates.append(int(x))
+                    except (ValueError, TypeError) as e:
+                        self.logger.error(f"Invalid position[{i}] value '{x}' for area {cortical_id}: {e}")
+                        coordinates.append(0)  # Fallback to 0
+                
+                dimensions = []
+                for i, x in enumerate(area.dimensions):
+                    try:
+                        dimensions.append(int(x))
+                    except (ValueError, TypeError) as e:
+                        self.logger.error(f"Invalid dimensions[{i}] value '{x}' for area {cortical_id}: {e}")
+                        dimensions.append(1)  # Fallback to 1
+                
+                properties = {
+                    "id": cortical_id,
+                    "cortical_idx": int(cortical_idx) if cortical_idx is not None else None,
+                    "name": area.name,
+                    "coordinates": tuple(coordinates),
+                    "dimensions": tuple(dimensions),
+                    "type": area.area_type,
+                    "parameters": area.properties.copy() if area.properties else {},
+                    "neuron_count": int(len(self.get_neurons_by_area(cortical_id))),
+                }
+            except Exception as conversion_error:
+                self.logger.error(f"Error during property conversion for area {cortical_id}: {conversion_error}")
+                self.logger.error(f"Area position type: {type(area.position)}, value: {area.position}")
+                self.logger.error(f"Area dimensions type: {type(area.dimensions)}, value: {area.dimensions}")
+                raise conversion_error
 
             # Ensure mapping information is included in parameters
             if "mapping" not in properties["parameters"]:

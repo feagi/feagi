@@ -1067,35 +1067,51 @@ class NeuroEmbryogenesis:
 
             # Memory register for memory-based morphologies
 
-            # Extract cortical mappings using modern EVO genome processor
-            logger.info("Using EVO GenomeProcessor to extract cortical mappings")
+            # Extract cortical mappings directly from hierarchical genome format
+            logger.info("Extracting cortical mappings from hierarchical genome")
 
             try:
-                # Create genome processor instance
-                genome_processor = create_genome_processor(self.genome)
-
-                # Extract mappings using the modern processor
-                mapping_data = genome_processor.extract_cortical_mappings()
-
-                # Count total mappings for logging
+                # Extract mappings directly from hierarchical genome
+                mapping_data = {}
                 mappings_found = 0
-                for src_mappings in mapping_data.values():
-                    for dst_connections in src_mappings.values():
-                        mappings_found += len(dst_connections)
+                
+                # Iterate through cortical areas in hierarchical blueprint
+                blueprint = self.genome.get("blueprint", {})
+                logger.info(f"Scanning {len(blueprint)} cortical areas for mappings")
+                
+                for cortical_id, area_data in blueprint.items():
+                    if isinstance(area_data, dict) and "cortical_mapping_dst" in area_data:
+                        cortical_mappings = area_data["cortical_mapping_dst"]
+                        
+                        if isinstance(cortical_mappings, dict) and cortical_mappings:
+                            # Initialize source area in mapping_data
+                            if cortical_id not in mapping_data:
+                                mapping_data[cortical_id] = {}
+                            
+                            logger.info(f"Found {len(cortical_mappings)} mappings from {cortical_id}")
+                            
+                            # Process each destination area
+                            for dst_area_id, connection_specs in cortical_mappings.items():
+                                if isinstance(connection_specs, list) and connection_specs:
+                                    # The format is already correct - just use it directly
+                                    mapping_data[cortical_id][dst_area_id] = connection_specs
+                                    mappings_found += len(connection_specs)
+                                    logger.info(f"  {cortical_id} -> {dst_area_id}: {len(connection_specs)} connections")
 
+                logger.info(f"Total mappings extracted: {mappings_found}")
+                
                 if debug_bdu:
                     logger.info(
-                        f"[BDU DEBUG] GenomeProcessor extracted {mappings_found} mappings"
+                        f"[BDU DEBUG] Hierarchical extraction found {mappings_found} mappings"
                     )
-                    logger.info(
-                        f"[BDU DEBUG] Genome version: {genome_processor.get_version()}"
-                    )
-                    stats = genome_processor.get_statistics()
-                    logger.info(f"[BDU DEBUG] Genome stats: {stats}")
+                    for src_id, dst_mappings in mapping_data.items():
+                        logger.info(
+                            f"[BDU DEBUG]   {src_id} -> {list(dst_mappings.keys())}"
+                        )
 
             except Exception as e:
-                logger.error(f"Failed to extract mappings using GenomeProcessor: {e}")
-                logger.info("Falling back to direct genome access")
+                logger.error(f"Failed to extract mappings from hierarchical genome: {e}")
+                logger.info("No cortical mappings could be extracted")
                 mapping_data = {}
                 mappings_found = 0
 

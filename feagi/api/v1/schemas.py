@@ -576,6 +576,12 @@ class CreateMorphologyRequest(BaseModel):
     """Request model for creating morphology."""
 
     morphology_data: Dict[str, Any]
+    dimension_sensitive: Optional[bool] = Field(
+        None, 
+        description="Whether this morphology is sensitive to cortical area dimensions. "
+                   "If not provided, will auto-detect based on morphology type: "
+                   "patterns/vectors=False, functions=True"
+    )
 
 
 class UpdateMorphologyRequest(BaseModel):
@@ -597,6 +603,12 @@ class DirectMorphologyRequest(BaseModel):
     morphology_name: str
     morphology_parameters: Dict[str, Any]
     morphology_type: str
+    dimension_sensitive: Optional[bool] = Field(
+        None,
+        description="Whether this morphology is sensitive to cortical area dimensions. "
+                   "If not provided, will auto-detect based on morphology type: "
+                   "patterns/vectors=False, functions=True"
+    )
 
 
 class MorphologyPropertiesResponse(BaseModel):

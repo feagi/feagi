@@ -73,6 +73,12 @@ def morphology_validator(genome):
                     )
                     return genome_validity
 
+                # NEW: Check for dimension_sensitive field
+                if "dimension_sensitive" not in neuron_morphologies[morphology]:
+                    logger.info(
+                        f'Morphology "{morphology}" missing dimension_sensitive field - will auto-add during recovery'
+                    )
+
                 if neuron_morphologies[morphology]["type"] == "composite":
                     if (
                         "src_seed" not in neuron_morphologies[morphology]["parameters"]
@@ -544,6 +550,55 @@ def print_validity(validity_status):
         logger.warning("Genome validation failed.", status="[ERR]")
 
 
+def add_missing_dimension_sensitive_fields(genome):
+    """
+    Add missing dimension_sensitive fields to morphologies with type-based defaults.
+    
+    This function ensures backward compatibility by automatically adding the dimension_sensitive
+    field to existing morphologies based on their type:
+    - patterns/vectors: False (dimension-agnostic)
+    - functions: True (dimension-sensitive)
+    - composite/other: False (conservative default)
+    
+    Args:
+        genome: The genome data to modify
+        
+    Returns:
+        int: Number of morphologies that had the field added
+    """
+    added_count = 0
+    
+    if "neuron_morphologies" not in genome:
+        return added_count
+        
+    morphologies = genome["neuron_morphologies"]
+    
+    for morph_name, morph_data in morphologies.items():
+        if not isinstance(morph_data, dict):
+            continue
+            
+        if "dimension_sensitive" not in morph_data:
+            morph_type = morph_data.get("type", "")
+            
+            # Set defaults based on morphology type
+            if morph_type in ["patterns", "vectors"]:
+                # Patterns and vectors are typically dimension-agnostic
+                morph_data["dimension_sensitive"] = False
+                logger.info(f"AUTO-MIGRATION: Added dimension_sensitive=False to {morph_type} morphology '{morph_name}'")
+            elif morph_type == "functions":
+                # Functions are typically dimension-sensitive (e.g., projectors)
+                morph_data["dimension_sensitive"] = True
+                logger.info(f"AUTO-MIGRATION: Added dimension_sensitive=True to {morph_type} morphology '{morph_name}'")
+            else:
+                # Conservative default for composite or unknown types
+                morph_data["dimension_sensitive"] = False
+                logger.info(f"AUTO-MIGRATION: Added dimension_sensitive=False to {morph_type} morphology '{morph_name}' (conservative default)")
+            
+            added_count += 1
+    
+    return added_count
+
+
 def genome_validator(genome):
     genome_validity = (
         morphology_validator(genome=genome)
@@ -941,6 +996,11 @@ def sanitize_invalid_morphologies(genome):
         != "No invalid cortical areas found to remove"
     ):
         fixed_references.append(invalid_area_removal_result["removal_summary"])
+
+    # NEW: Auto-add missing dimension_sensitive fields to morphologies
+    added_dimension_fields = add_missing_dimension_sensitive_fields(genome)
+    if added_dimension_fields > 0:
+        fixed_references.append(f"Added dimension_sensitive field to {added_dimension_fields} morphologies with type-based defaults")
 
     # Check if neuron_morphologies section exists
     if "neuron_morphologies" not in genome:

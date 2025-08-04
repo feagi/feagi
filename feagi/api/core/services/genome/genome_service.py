@@ -20,7 +20,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..shared.base_service import BaseService
 
@@ -1590,6 +1590,7 @@ class GenomeService(BaseService):
         Args:
             morphology_data: Dictionary containing morphology definition
                            Must include: name, type, parameters
+                           Optional: dimension_sensitive (bool)
 
         Returns:
             bool: True if morphology was created successfully
@@ -1644,6 +1645,7 @@ class GenomeService(BaseService):
                     "type": morphology_data["type"],
                     "parameters": morphology_data["parameters"],
                     "class": "custom",
+                    "dimension_sensitive": morphology_data.get("dimension_sensitive", False),  # Include dimension_sensitive field
                 }
 
                 # Update the genome through proper pipeline
@@ -3456,15 +3458,13 @@ class GenomeService(BaseService):
                     removed_neuron_indices = area.resize(new_dimensions)
                     
                     if removed_neuron_indices:
-                        # Mark neurons as inactive and add to free pool (GPU-friendly)
-                        self.logger.info(f"[LOCALIZED-REBUILD] Marking {len(removed_neuron_indices)} neurons as inactive (reusable)")
+                        # Use proper FEAGI neuron deletion method with free pool management
+                        self.logger.info(f"[LOCALIZED-REBUILD] Properly deleting {len(removed_neuron_indices)} neurons (FEAGI-compliant)")
                         for neuron_idx in removed_neuron_indices:
                             neuron_id = self._connectome_manager.index_to_neuron_id.get(neuron_idx)
                             if neuron_id:
-                                # Mark as inactive but don't delete - preserves memory location
-                                self._connectome_manager.neuron_array.is_active[neuron_idx] = False
-                                self._connectome_manager.neuron_array.valid_mask[neuron_idx] = False
-                                self._connectome_manager.neuron_array.free_indices.add(neuron_idx)
+                                # Use FEAGI's proper deletion method - handles all cleanup and free pool management
+                                self._connectome_manager.neuron_array.delete_neuron(neuron_id)
                     
                     # Calculate if we need more neurons
                     old_volume = old_dimensions[0] * old_dimensions[1] * old_dimensions[2]
@@ -3477,6 +3477,47 @@ class GenomeService(BaseService):
                         
                         # Reuse neurons from free pool - NO MEMORY ALLOCATION
                         self._reuse_neurons_for_area_expansion(cortical_id, additional_neurons_needed, properties)
+                        
+                        # INTELLIGENT PATTERN EXTENSION: Extend existing synaptic patterns to new neurons
+                        try:
+                            from feagi.api.core.services.expansion import PatternExtender, ConnectionAnalyzer
+                            
+                            # Analyze existing connectivity patterns
+                            analyzer = ConnectionAnalyzer(self._connectome_manager, self.state_manager)
+                            analysis = analyzer.analyze_area_connectivity(cortical_id)
+                            
+                            if analysis.get("internal_count", 0) > 0:
+                                # Get the newly created neurons from the expansion
+                                area = self._connectome_manager.cortical_areas[cortical_id]
+                                all_current_neurons = area._neuron_indices
+                                
+                                # Get the most recently created neurons (rough approximation)
+                                # In practice, we'd track this more precisely
+                                sorted_neurons = sorted(all_current_neurons)
+                                new_neurons = set(sorted_neurons[-additional_neurons_needed:]) if additional_neurons_needed <= len(sorted_neurons) else set()
+                                
+                                if new_neurons:
+                                    # Extend existing patterns to new neurons  
+                                    extender = PatternExtender(self._connectome_manager, self.state_manager)
+                                    synapses_created = extender.extend_patterns_for_expansion(
+                                        cortical_id=cortical_id,
+                                        old_dimensions=old_dimensions,
+                                        new_dimensions=new_dimensions,
+                                        new_neurons=new_neurons
+                                    )
+                                    
+                                    self.logger.info(f"[LOCALIZED-REBUILD] Extended connectivity patterns: {synapses_created} new synapses created for {cortical_id}")
+                                else:
+                                    self.logger.warning(f"[LOCALIZED-REBUILD] Could not identify new neurons for pattern extension")
+                            else:
+                                self.logger.info(f"[LOCALIZED-REBUILD] No internal connectivity found for {cortical_id} - skipping pattern extension")
+                                
+                        except ImportError as e:
+                            self.logger.warning(f"[LOCALIZED-REBUILD] Pattern extension unavailable: {e}")
+                        except Exception as e:
+                            self.logger.error(f"[LOCALIZED-REBUILD] Error during pattern extension: {e}")
+                            import traceback
+                            self.logger.error(f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}")
                     
                     self.logger.info(f"[LOCALIZED-REBUILD] Cortical area {cortical_id} resized - {len(self._connectome_manager.neuron_array.free_indices)} neurons in free pool")
                 else:
@@ -3513,13 +3554,41 @@ class GenomeService(BaseService):
                 self.logger.info(f"[LOCALIZED-REBUILD] Updated properties for existing area {cortical_id}")
             
             # 5. Update connections if needed (preserve existing structure)
-            # Only rebuild connections that specifically involve dimension changes
+            # Only rebuild connections that specifically involve dimension changes AND have existing mappings
             if old_area_existed and new_dimensions != old_dimensions:
-                self.logger.info(f"[LOCALIZED-REBUILD] Updating connections for resized area {cortical_id}")
-                # CRITICAL: Rebuild synaptic connections to include new neurons in expanded area
-                # This ensures cortical mappings extend to all neurons in the resized area
-                self._rebuild_connections_for_area(cortical_id, current_genome)
-                self.logger.info(f"[LOCALIZED-REBUILD] Rebuilt synaptic connections for expanded area {cortical_id}")
+                self.logger.info(f"[LOCALIZED-REBUILD] Checking for existing connections to rebuild for area {cortical_id}")
+                
+                # Check if this area has any existing cortical mappings to rebuild
+                has_outgoing_mappings = False
+                has_incoming_mappings = False
+                
+                # Check for outgoing mappings (this area -> others)
+                for gene_key in current_genome["blueprint"].keys():
+                    if (isinstance(gene_key, str) and 
+                        gene_key.startswith(f"_____10c-{cortical_id}-cx-dstmap-d")):
+                        has_outgoing_mappings = True
+                        break
+                
+                # Check for incoming mappings (others -> this area)
+                if not has_outgoing_mappings:  # Only check if we haven't found outgoing yet
+                    for gene_key, gene_value in current_genome["blueprint"].items():
+                        if (isinstance(gene_key, str) and 
+                            gene_key.startswith("_____10c-") and 
+                            gene_key.endswith("-cx-dstmap-d") and
+                            not gene_key.startswith(f"_____10c-{cortical_id}-") and
+                            isinstance(gene_value, dict) and cortical_id in gene_value):
+                            has_incoming_mappings = True
+                            break
+                
+                if has_outgoing_mappings or has_incoming_mappings:
+                    self.logger.info(f"[LOCALIZED-REBUILD] Found existing mappings for {cortical_id} - rebuilding synaptic connections")
+                    # CRITICAL: Rebuild synaptic connections to include new neurons in expanded area
+                    # This ensures cortical mappings extend to all neurons in the resized area
+                    self._rebuild_connections_for_area(cortical_id, current_genome)
+                    self.logger.info(f"[LOCALIZED-REBUILD] Rebuilt synaptic connections for expanded area {cortical_id}")
+                else:
+                    self.logger.info(f"[LOCALIZED-REBUILD] No existing cortical mappings found for {cortical_id} - skipping connection rebuild")
+                    self.logger.info(f"[LOCALIZED-REBUILD] Area {cortical_id} was likely created via API and has no predefined mappings")
             
             # NO VISUALIZATION INTERRUPTION NEEDED
             # Since we're not deleting/recreating neurons, neuron IDs remain stable
@@ -3545,10 +3614,10 @@ class GenomeService(BaseService):
 
     def _reuse_neurons_for_area_expansion(self, cortical_id: str, additional_neurons_needed: int, properties: Dict[str, Any]) -> None:
         """
-        Create additional neurons for cortical area expansion using proven approach.
+        Create additional neurons for cortical area expansion using FEAGI's proper allocation.
         
-        This uses the same reliable method as _rebuild_neurons_for_area but only 
-        creates the additional neurons needed for the expanded voxels.
+        ARCHITECTURE COMPLIANCE: Uses NeuronArray.batch_create_neurons() with free pool reuse
+        instead of direct SoA manipulation. This ensures Rust-friendly memory patterns.
         
         Args:
             cortical_id: The cortical area being expanded
@@ -3558,76 +3627,91 @@ class GenomeService(BaseService):
         if additional_neurons_needed <= 0:
             return
             
-        self.logger.info(f"[EXPANSION] Creating {additional_neurons_needed} additional neurons for {cortical_id}")
+        self.logger.info(f"[EXPANSION] Creating {additional_neurons_needed} additional neurons for {cortical_id} (FEAGI-compliant)")
         
         try:
             area = self._connectome_manager.cortical_areas[cortical_id]
             
-            # Use the same proven approach as _rebuild_neurons_for_area
-            neuron_array = self._connectome_manager.neuron_array
-            start_idx = neuron_array.next_index
-            end_idx = start_idx + additional_neurons_needed
+            # Generate positions for additional neurons distributed across expanded area
+            positions = self._generate_positions_for_expansion(cortical_id, additional_neurons_needed, properties)
             
-            if end_idx > neuron_array.max_neurons:
-                raise ValueError(f"Not enough capacity for {additional_neurons_needed} additional neurons")
+            # Use FEAGI's proper allocation method with free pool reuse
+            neuron_ids = self._connectome_manager.neuron_array.batch_create_neurons(
+                cortical_idx=area.cortical_idx,
+                positions=positions,
+                thresholds=properties.get("fire_t", 1.0),
+                membrane_potentials=0.0,
+                resting_potentials=0.0,
+                decay_rates=1.0 - (properties.get("leak_c", 0) / 100.0),
+                refractory_periods=properties.get("refrac", 1)
+            )
             
-            # Generate neuron IDs in bulk (continuing from current counter)
-            neuron_ids = list(range(neuron_array._next_neuron_id, neuron_array._next_neuron_id + additional_neurons_needed))
-            neuron_array._next_neuron_id += additional_neurons_needed
+            # CRITICAL FIX: Register expansion neurons with cortical area for coordinate lookup
+            # This is essential for manual stimulation to work in expanded regions
+            self.logger.info(f"[EXPANSION] Registering {len(neuron_ids)} expansion neurons with cortical area {cortical_id}")
             
-            # Update mappings in bulk via ConnectomeManager (single source of truth)
-            for j, neuron_id in enumerate(neuron_ids):
-                self._connectome_manager.set_neuron_mapping(neuron_id, start_idx + j)
+            # Bulk update cortical area mappings (same as NeuroEmbryogenesis and _rebuild_neurons_for_area)
+            area._neuron_indices.update(neuron_ids)
+            area._position_map.update(zip(neuron_ids, positions))
             
-            # Set uniform properties with vectorized array slicing
-            base_threshold = properties.get("fire_t", 1.0)
-            base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
-            base_refractory = properties.get("refrac", 1)
+            # Update position-to-neurons mapping for coordinate lookup
+            for neuron_id, position in zip(neuron_ids, positions):
+                if position not in area._position_to_neurons:
+                    area._position_to_neurons[position] = []
+                area._position_to_neurons[position].append(neuron_id)
             
-            # SoA OPTIMIZATION: Set all properties with single array operations
-            neuron_array.valid_mask[start_idx:end_idx] = True
-            neuron_array.membrane_potentials[start_idx:end_idx] = 0.0
-            neuron_array.resting_potentials[start_idx:end_idx] = 0.0
-            neuron_array.thresholds[start_idx:end_idx] = base_threshold
-            neuron_array.decay_rates[start_idx:end_idx] = base_decay_rate
-            neuron_array.refractory_periods[start_idx:end_idx] = base_refractory
-            neuron_array.refractory_counters[start_idx:end_idx] = 0
-            neuron_array.cortical_idxs[start_idx:end_idx] = area.cortical_idx
-            neuron_array.is_active[start_idx:end_idx] = True
-            
-            # Generate positions for additional neurons (simplified approach)
-            # This creates neurons distributed across the expanded area
-            import numpy as np
-            neurons_per_voxel = properties.get("neurons_per_voxel", 1)
-            width, height, depth = area.dimensions
-            positions = []
-            
-            # Generate enough positions for the additional neurons
-            total_voxels = width * height * depth
-            for i in range(additional_neurons_needed):
-                voxel_idx = i % total_voxels
-                x = voxel_idx % width
-                y = (voxel_idx // width) % height
-                z = voxel_idx // (width * height)
-                positions.append((x, y, z))
-            
-            # Set coordinates with vectorized operations
-            coords_x = np.array([pos[0] for pos in positions], dtype=np.uint32)
-            coords_y = np.array([pos[1] for pos in positions], dtype=np.uint32)
-            coords_z = np.array([pos[2] for pos in positions], dtype=np.uint32)
-            
-            neuron_array.coordinates_x[start_idx:end_idx] = coords_x
-            neuron_array.coordinates_y[start_idx:end_idx] = coords_y
-            neuron_array.coordinates_z[start_idx:end_idx] = coords_z
-            
-            # Update area's neuron count tracking
-            neuron_array.next_index = end_idx
-            
-            self.logger.info(f"[EXPANSION] Successfully created {additional_neurons_needed} additional neurons for {cortical_id}")
+            free_pool_size = len(self._connectome_manager.neuron_array.free_indices)
+            self.logger.info(f"[EXPANSION] Successfully allocated and registered {len(neuron_ids)} expansion neurons for {cortical_id} "
+                           f"(free pool size: {free_pool_size})")
             
         except Exception as e:
             self.logger.error(f"[EXPANSION] Error creating additional neurons for {cortical_id}: {e}")
             raise
+    
+    def _generate_positions_for_expansion(self, cortical_id: str, neuron_count: int, properties: Dict[str, Any]) -> List[Tuple[int, int, int]]:
+        """
+        Generate neuron positions for area expansion.
+        
+        CRITICAL FIX: Only place neurons in voxels that don't already have neurons.
+        This ensures expansion neurons go to the NEW expanded regions, not existing ones.
+        
+        Args:
+            cortical_id: The cortical area being expanded
+            neuron_count: Number of neurons to place
+            properties: Area properties containing density information
+            
+        Returns:
+            List of (x, y, z) position tuples for NEW/EMPTY voxels only
+        """
+        area = self._connectome_manager.cortical_areas[cortical_id]
+        width, height, depth = area.dimensions
+        positions = []
+        
+        # Find all voxels that DON'T have neurons yet (the expanded regions)
+        empty_voxels = []
+        for x in range(width):
+            for y in range(height):
+                for z in range(depth):
+                    position = (x, y, z)
+                    # Check if this voxel already has neurons
+                    existing_neurons = area.get_neurons_at_position(position)
+                    if not existing_neurons:  # This is an empty voxel in the expanded area
+                        empty_voxels.append(position)
+        
+        self.logger.info(f"[EXPANSION] Found {len(empty_voxels)} empty voxels in expanded area {cortical_id}")
+        self.logger.info(f"[EXPANSION] Empty voxels: {empty_voxels[:10]}...")  # Log first 10 for debugging
+        
+        # Distribute neurons across the empty voxels (the newly expanded regions)
+        for i in range(neuron_count):
+            if i < len(empty_voxels):
+                positions.append(empty_voxels[i])
+            else:
+                # If we have more neurons than empty voxels, cycle through them
+                voxel_idx = i % len(empty_voxels)
+                positions.append(empty_voxels[voxel_idx])
+        
+        self.logger.info(f"[EXPANSION] Generated {len(positions)} positions for expansion neurons: {positions}")
+        return positions
 
     def _extract_area_properties_from_genome(self, cortical_id: str, genome: Dict[str, Any]) -> Dict[str, Any]:
         """Extract cortical area properties from hierarchical genome format."""
@@ -3650,7 +3734,12 @@ class GenomeService(BaseService):
             raise ValueError(f"Missing required property in genome for area {cortical_id}: {e}")
 
     def _rebuild_neurons_for_area(self, cortical_id: str, properties: Dict[str, Any]) -> None:
-        """Rebuild neurons for a specific cortical area (adapted from NeuroEmbryogenesis._perform_neurogenesis)."""
+        """
+        Rebuild neurons for a specific cortical area using FEAGI-compliant allocation.
+        
+        ARCHITECTURE COMPLIANCE: Uses NeuronArray.batch_create_neurons() with free pool reuse
+        instead of direct SoA manipulation. This ensures Rust-friendly memory patterns.
+        """
         try:
             area = self._connectome_manager.cortical_areas[cortical_id]
             
@@ -3659,42 +3748,9 @@ class GenomeService(BaseService):
             neurons_per_voxel = properties.get("neurons_per_voxel", 1)
             area_neuron_count = width * height * depth * neurons_per_voxel
             
-            self.logger.info(f"[LOCALIZED-REBUILD] Creating {area_neuron_count} neurons for {cortical_id}")
+            self.logger.info(f"[LOCALIZED-REBUILD] Creating {area_neuron_count} neurons for {cortical_id} (FEAGI-compliant)")
             
-            # Reserve array indices in bulk
-            neuron_array = self._connectome_manager.neuron_array
-            start_idx = neuron_array.next_index
-            end_idx = start_idx + area_neuron_count
-            
-            if end_idx > neuron_array.max_neurons:
-                raise ValueError(f"Not enough capacity for {area_neuron_count} neurons")
-            
-            # Generate neuron IDs in bulk (continuing from current counter)
-            neuron_ids = list(range(neuron_array._next_neuron_id, neuron_array._next_neuron_id + area_neuron_count))
-            neuron_array._next_neuron_id += area_neuron_count
-            
-            # Update mappings in bulk via ConnectomeManager (single source of truth)
-            for j, neuron_id in enumerate(neuron_ids):
-                self._connectome_manager.set_neuron_mapping(neuron_id, start_idx + j)
-            
-            # Set uniform properties with vectorized array slicing
-            base_threshold = properties.get("fire_t", 1.0)
-            base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
-            base_refractory = properties.get("refrac", 1)
-            
-            # SoA OPTIMIZATION: Set all properties with single array operations
-            neuron_array.valid_mask[start_idx:end_idx] = True
-            neuron_array.membrane_potentials[start_idx:end_idx] = 0.0
-            neuron_array.resting_potentials[start_idx:end_idx] = 0.0
-            neuron_array.thresholds[start_idx:end_idx] = base_threshold
-            neuron_array.decay_rates[start_idx:end_idx] = base_decay_rate
-            neuron_array.refractory_periods[start_idx:end_idx] = base_refractory
-            neuron_array.refractory_counters[start_idx:end_idx] = 0
-            neuron_array.cortical_idxs[start_idx:end_idx] = area.cortical_idx
-            neuron_array.is_active[start_idx:end_idx] = True
-            
-            # Generate coordinates and apply position-based variations
-            import numpy as np
+            # Generate all positions for the cortical area
             positions = []
             for x in range(width):
                 for y in range(height):
@@ -3702,50 +3758,70 @@ class GenomeService(BaseService):
                         for _ in range(neurons_per_voxel):
                             positions.append((x, y, z))
             
-            # Set coordinates with vectorized operations
-            coords_x = np.array([pos[0] for pos in positions], dtype=np.uint32)
-            coords_y = np.array([pos[1] for pos in positions], dtype=np.uint32) 
-            coords_z = np.array([pos[2] for pos in positions], dtype=np.uint32)
+            # Calculate base properties
+            base_threshold = properties.get("fire_t", 1.0)
+            base_decay_rate = 1.0 - (properties.get("leak_c", 0) / 100.0)
+            base_refractory = properties.get("refrac", 1)
             
-            neuron_array.coordinates_x[start_idx:end_idx] = coords_x
-            neuron_array.coordinates_y[start_idx:end_idx] = coords_y
-            neuron_array.coordinates_z[start_idx:end_idx] = coords_z
-            
-            # Apply position-based variations with vectorized operations
+            # Handle position-based variations for thresholds
+            thresholds = [base_threshold] * area_neuron_count
             fire_increment = properties.get("fire_increment", 0.0)
             if fire_increment != 0.0:
-                z_increments = coords_z.astype(np.float32) * fire_increment
-                neuron_array.thresholds[start_idx:end_idx] += z_increments
+                for i, (x, y, z) in enumerate(positions):
+                    thresholds[i] = base_threshold + (z * fire_increment)
             
+            # Handle leak variability for decay rates
+            decay_rates = [base_decay_rate] * area_neuron_count
             leak_variability = properties.get("leak_variability", 0.0)
             base_leak = properties.get("leak_c", 0.0)
             if leak_variability != 0.0 and base_leak != 0.0:
+                import numpy as np
                 np.random.seed(42)  # Deterministic for reproducibility
                 variations = np.random.uniform(-leak_variability, leak_variability, area_neuron_count) / 100.0
-                varied_leak = np.clip(base_leak / 100.0 + variations, 0.0, 1.0)
-                neuron_array.decay_rates[start_idx:end_idx] = 1.0 - varied_leak
+                for i in range(area_neuron_count):
+                    varied_leak = np.clip(base_leak / 100.0 + variations[i], 0.0, 1.0)
+                    decay_rates[i] = 1.0 - varied_leak
             
-            # Sync neurons with cortical area objects using bulk operations
+            # Use FEAGI's proper allocation method with free pool reuse
+            neuron_ids = self._connectome_manager.neuron_array.batch_create_neurons(
+                cortical_idx=area.cortical_idx,
+                positions=positions,
+                thresholds=thresholds,
+                membrane_potentials=0.0,
+                resting_potentials=0.0,
+                decay_rates=decay_rates,
+                refractory_periods=base_refractory
+            )
+            
+            # CRITICAL FIX: Register neurons with cortical area for coordinate lookup
+            # This is essential for manual stimulation to work - same as NeuroEmbryogenesis
+            self.logger.info(f"[LOCALIZED-REBUILD] Registering {len(neuron_ids)} neurons with cortical area {cortical_id}")
+            
+            # Bulk update cortical area mappings (same as NeuroEmbryogenesis lines 996-1006)
             area._neuron_indices.update(neuron_ids)
             area._position_map.update(zip(neuron_ids, positions))
             
+            # Update position-to-neurons mapping for coordinate lookup
             for neuron_id, position in zip(neuron_ids, positions):
                 if position not in area._position_to_neurons:
                     area._position_to_neurons[position] = []
                 area._position_to_neurons[position].append(neuron_id)
             
-            # Update array state
-            neuron_array.next_index = end_idx
-            neuron_array.neuron_count = end_idx
-            
-            self.logger.info(f"[LOCALIZED-REBUILD] Created {area_neuron_count} neurons for {cortical_id}")
+            free_pool_size = len(self._connectome_manager.neuron_array.free_indices)
+            self.logger.info(f"[LOCALIZED-REBUILD] Successfully allocated and registered {len(neuron_ids)} neurons for {cortical_id} "
+                           f"(free pool size after allocation: {free_pool_size})")
             
         except Exception as e:
             self.logger.error(f"Failed to rebuild neurons for area {cortical_id}: {e}")
             raise
 
     def _rebuild_connections_for_area(self, cortical_id: str, genome: Dict[str, Any]) -> None:
-        """Rebuild synaptic connections involving the specified cortical area."""
+        """
+        Rebuild synaptic connections involving the specified cortical area.
+        
+        ARCHITECTURE COMPLIANCE: Uses ConnectomeManager directly to avoid circular dependencies.
+        GenomeService should not access CoreAPIService (which creates GenomeService).
+        """
         try:
             # Import NeuroEmbryogenesis for connection building
             from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
@@ -3757,8 +3833,9 @@ class GenomeService(BaseService):
             # 1. Remove all existing connections involving this area
             self._remove_area_connections(cortical_id)
             
-            # 2. Rebuild outgoing connections (this area -> others)
+            # 2. Rebuild outgoing connections (this area -> others) from genome
             # Look for cortical mappings in the FLAT genome format (_____10c-{area}-cx-dstmap-d)
+            self.logger.info(f"[LOCALIZED-REBUILD] Scanning genome for outgoing connections from {cortical_id}")
             outgoing_mappings = {}
             for gene_key, gene_value in genome["blueprint"].items():
                 if (isinstance(gene_key, str) and 
@@ -3767,16 +3844,17 @@ class GenomeService(BaseService):
                     self.logger.info(f"[LOCALIZED-REBUILD] Found outgoing mapping: {gene_key}")
                     if isinstance(gene_value, dict) and gene_value:
                         outgoing_mappings.update(gene_value)
-            
+
             if outgoing_mappings:
                 self.logger.info(f"[LOCALIZED-REBUILD] Rebuilding {len(outgoing_mappings)} outgoing connections from {cortical_id}")
                 api_mapping = {cortical_id: outgoing_mappings}
                 embryogenesis.update_cortical_mapping(api_mapping)
             else:
                 self.logger.info(f"[LOCALIZED-REBUILD] No outgoing mappings found for {cortical_id}")
-            
+
             # 3. Rebuild incoming connections (others -> this area) 
             # Look for any mappings that target this cortical area
+            self.logger.info(f"[LOCALIZED-REBUILD] Scanning genome for incoming connections to {cortical_id}")
             incoming_mappings = {}
             for gene_key, gene_value in genome["blueprint"].items():
                 if (isinstance(gene_key, str) and 
@@ -3795,18 +3873,20 @@ class GenomeService(BaseService):
                                 incoming_mappings[source_area_id] = {}
                             incoming_mappings[source_area_id][cortical_id] = gene_value[cortical_id]
                             self.logger.info(f"[LOCALIZED-REBUILD] Found incoming mapping: {source_area_id} -> {cortical_id}")
-            
+
             # Rebuild each incoming mapping
             for source_area_id, mapping_data in incoming_mappings.items():
                 self.logger.info(f"[LOCALIZED-REBUILD] Rebuilding incoming connection: {source_area_id} -> {cortical_id}")
                 api_mapping = {source_area_id: mapping_data}
                 embryogenesis.update_cortical_mapping(api_mapping)
-            
+
             total_rebuilt = len(outgoing_mappings) + len(incoming_mappings)
             self.logger.info(f"[LOCALIZED-REBUILD] Completed rebuilding {total_rebuilt} connection types for {cortical_id}")
             
         except Exception as e:
             self.logger.error(f"Failed to rebuild connections for area {cortical_id}: {e}")
+            import traceback
+            self.logger.error(f"[LOCALIZED-REBUILD] Traceback: {traceback.format_exc()}")
             raise
 
     def _remove_area_connections(self, cortical_id: str) -> None:
