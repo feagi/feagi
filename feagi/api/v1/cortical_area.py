@@ -27,6 +27,7 @@ NO endpoint definitions should exist anywhere else - this is the single source o
 from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
+from feagi.bdu.models.cortical_area import generate_cortical_id
 from feagi.api.v1.schemas import (
     CorticalAreaIdListResponse,
     CorticalAreaIndexListResponse,
@@ -45,6 +46,7 @@ from feagi.api.v1.schemas import (
     NeuronCountResponse,
     SuccessResponse,
     CorticalPropertiesUpdateRequest,
+    CustomCorticalAreaRequest,
 )
 from feagi.utils.logger import setup_logger
 
@@ -383,7 +385,8 @@ class CorticalAreaAPI:
         try:
             # Check if connectome is ready
             connectome = self.core_api_service.get_connectome()
-            if not connectome or not connectome.is_connectome_ready():
+            state_manager = self.core_api_service.state_manager
+            if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
             cortical_id = new_cortical_properties.get("cortical_id")
@@ -395,23 +398,24 @@ class CorticalAreaAPI:
             raise ValueError(f"Error adding cortical area: {str(e)}")
 
     @cortical_area_endpoint(
-        "POST", "/custom_cortical_area", response_model=Dict[str, str]
+        "POST", "/custom_cortical_area", request_model=CustomCorticalAreaRequest, response_model=Dict[str, str]
     )
     def add_custom_cortical_area(
-        self, new_custom_cortical_properties: Dict[str, Any]
+        self, request: CustomCorticalAreaRequest
     ) -> Dict[str, str]:
         """Add a new custom cortical area."""
         try:
             # Check if connectome is ready
             connectome = self.core_api_service.get_connectome()
-            if not connectome or not connectome.is_connectome_ready():
+            state_manager = self.core_api_service.state_manager
+            if not connectome or not state_manager.is_connectome_ready():
                 raise ValueError("Connectome is not ready!")
 
-            # Extract properties
-            cortical_name = new_custom_cortical_properties.get("cortical_name")
-            parent_region_id = new_custom_cortical_properties.get("parent_region_id")
-            sub_group_id = new_custom_cortical_properties.get("sub_group_id")
-            copy_of = new_custom_cortical_properties.get("copy_of")
+            # Extract properties from request
+            cortical_name = request.cortical_name
+            parent_region_id = request.brain_region_id  # brain_region_id maps to parent_region_id
+            sub_group_id = request.cortical_sub_group   # cortical_sub_group maps to sub_group_id
+            copy_of = request.copy_of
 
             # Validate parent region
             # ConnectomeManager ensures brain_regions structure exists during genome loading
@@ -432,13 +436,7 @@ class CorticalAreaAPI:
             if is_memory:
                 cortical_dimensions = self._get_structural_default("memory_dimensions")
             else:
-                cortical_dimensions = new_custom_cortical_properties.get(
-                    "cortical_dimensions"
-                )
-
-            cortical_id = connectome.generate_cortical_id(
-                temp_name[:3], is_memory=is_memory
-            )
+                cortical_dimensions = request.cortical_dimensions
 
             # Calculate neuron count and validate limits
             neuron_density = self._get_default_value("per_voxel_neuron_cnt", 1)
@@ -453,31 +451,87 @@ class CorticalAreaAPI:
                 * cortical_dimensions[1]
                 * cortical_dimensions[2]
             )
-            max_allowable_neuron_count = int(
-                connectome.parameters["Limits"]["max_neuron_count"]
-            )
+            max_allowable_neuron_count = int(connectome.max_neurons)
 
             if (
-                neuron_count + connectome.brain_stats["neuron_count"]
+                neuron_count + connectome.get_neuron_count()
                 > max_allowable_neuron_count
             ):
                 raise ValueError(
                     f"Cannot create new cortical area as neuron count will exceed {max_allowable_neuron_count} threshold"
                 )
 
-            # Prepare message
-            message_data = new_custom_cortical_properties.copy()
-            message_data.update(
-                {
-                    "is_memory": is_memory,
-                    "cortical_dimensions": cortical_dimensions,
-                    "copy_of": copy_of,
-                    "cortical_id": cortical_id,
-                }
+            # Generate proper cortical ID using FEAGI's standard format
+            cortical_id = generate_cortical_id(
+                prefix="M" if is_memory else "C",
+                seed=temp_name[:3]
             )
-
-            message = {"add_custom_cortical_area": message_data}
-            connectome.add_custom_cortical_area(message)
+            
+            # Add cortical area to genome AND connectome 
+            genome_service = self.core_api_service._genome_service
+            
+            # First add to genome with our generated ID
+            current_genome = genome_service.get_genome()
+            if "blueprint" not in current_genome:
+                current_genome["blueprint"] = {}
+                
+            # Create area definition in genome format
+            area_definition = {
+                "cortical_id": cortical_id,
+                "cortical_name": cortical_name,
+                "coordinates_3d": {
+                    "x": request.coordinates_3d[0],
+                    "y": request.coordinates_3d[1], 
+                    "z": request.coordinates_3d[2]
+                },
+                "cortical_dimensions": {
+                    "width": cortical_dimensions[0],
+                    "height": cortical_dimensions[1],
+                    "depth": cortical_dimensions[2]
+                },
+                "cortical_type": "memory" if is_memory else "custom",
+                "parameters": {
+                    "cortical_group": request.cortical_group,
+                    "cortical_sub_group": sub_group_id,
+                    "coordinates_2d": request.coordinates_2d,
+                    "brain_region_id": parent_region_id,
+                    "copy_of": copy_of,
+                    "per_voxel_neuron_cnt": neuron_density
+                }
+            }
+            
+            # Add to genome blueprint
+            current_genome["blueprint"][cortical_id] = area_definition
+            genome_service._current_genome = current_genome
+            
+            # Also add to ConnectomeManager
+            connectome.add_cortical_area(
+                name=cortical_name,
+                dimensions=(cortical_dimensions[0], cortical_dimensions[1], cortical_dimensions[2]),
+                position=(request.coordinates_3d[0], request.coordinates_3d[1], request.coordinates_3d[2]),
+                area_type="memory" if is_memory else "custom",
+                properties={
+                    "cortical_group": request.cortical_group,
+                    "cortical_sub_group": sub_group_id,
+                    "coordinates_2d": request.coordinates_2d,
+                    "brain_region_id": parent_region_id,
+                    "copy_of": copy_of,
+                    "per_voxel_neuron_cnt": neuron_density  # Add this for neurogenesis
+                },
+                cortical_id=cortical_id
+            )
+            
+            # CRITICAL: Trigger neurogenesis to create actual neurons in the area
+            logger.info(f"[NEUROGENESIS] Creating neurons for new cortical area {cortical_id}")
+            neurogenesis_properties = {
+                "neurons_per_voxel": neuron_density,
+                "fire_t": self._get_default_value("fire_t", 1.0),
+                "leak_c": self._get_default_value("leak_c", 0),
+                "refrac": self._get_default_value("refrac", 1)
+            }
+            genome_service._rebuild_neurons_for_area(cortical_id, neurogenesis_properties)
+            
+            logger.info(f"[SUCCESS] Cortical area {cortical_id} created with {neuron_count} neurons")
 
             return {"cortical_id": cortical_id}
         except Exception as e:

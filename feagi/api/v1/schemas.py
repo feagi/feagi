@@ -333,6 +333,19 @@ class CorticalPropertiesUpdateRequest(BaseModel):
         extra = "allow"  # Allow additional fields for dynamic properties
 
 
+class CustomCorticalAreaRequest(BaseModel):
+    """Request model for creating custom cortical areas."""
+
+    cortical_name: str
+    brain_region_id: str  # Maps to parent_region_id
+    cortical_group: str
+    cortical_sub_group: str  # Maps to sub_group_id
+    cortical_dimensions: List[int]
+    coordinates_2d: List[int]
+    coordinates_3d: List[int]
+    copy_of: Optional[str] = None
+
+
 class CoordinateUpdateRequest(BaseModel):
     """Request model for coordinate updates."""
 
