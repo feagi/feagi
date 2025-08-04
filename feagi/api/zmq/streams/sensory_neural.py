@@ -226,7 +226,9 @@ class SensoryNeuralStream:
                 elif result == StreamResult.BUFFER_FULL:
                     # Ring buffer full, apply backpressure
                     self._stats["buffer_overruns"] += 1
-                    logger.warning("Ring buffer full, applying backpressure")
+                    logger.warning(f"Ring buffer full, applying backpressure. Buffer stats: "
+                                 f"used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
+                                 f"full_count={self.ring_buffer.stats.buffer_full_count}")
                     await asyncio.sleep(0.01)  # 10ms backpressure
 
             except asyncio.CancelledError:
@@ -245,6 +247,10 @@ class SensoryNeuralStream:
             slot = self.ring_buffer.get_write_slot()
             if not slot:
                 self._stats["buffer_full"] += 1
+                # DIAGNOSTIC: Log buffer state when full
+                logger.warning(f"Ring buffer full! Used slots: {self.ring_buffer.used_slots}/{self.ring_buffer.slots}, "
+                             f"Write index: {self.ring_buffer.write_index.value}, "
+                             f"Read index: {self.ring_buffer.read_index.value}")
                 return StreamResult.BUFFER_FULL
 
             # ZMQ receive - async sockets use recv() not recv_into()
@@ -347,13 +353,26 @@ class SensoryNeuralStream:
 
         except Exception as e:
             self._stats["decode_errors"] += 1
-            logger.error(f"Failed to process neural data: {e}")
+            # Provide more context for buffer-related errors
+            if "buffer" in str(e).lower():
+                logger.error(f"Failed to process neural data (buffer issue): {e}. "
+                           f"Ring buffer state: used={self.ring_buffer.used_slots}/{self.ring_buffer.slots}")
+            else:
+                logger.error(f"Failed to process neural data: {e}")
             return StreamResult.DECODE_ERROR
 
         finally:
             # Only commit the write slot if we actually processed data - CORRECT METHOD
             if data_processed and slot:
                 self.ring_buffer.commit_write(slot)
+                
+                # CRITICAL FIX: Auto-drain ring buffer after successful processing
+                # Since we process data immediately (not in separate consumer), 
+                # we need to advance read index to prevent buffer_full errors
+                read_slot = self.ring_buffer.get_read_slot()
+                if read_slot and read_slot.index == slot.index:
+                    self.ring_buffer.commit_read(read_slot)
+                    
             # Clear the slot reference to help with memory cleanup
             slot = None
 
