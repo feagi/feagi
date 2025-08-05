@@ -15,8 +15,12 @@ Architecture Principles:
 - Core areas pre-allocated (_death=0, ___pwr=1)
 """
 
+# Standard imports
 import logging
 from typing import Dict, Optional, Set, Tuple
+
+# MEMORY OPTIMIZATION: Import invalid cortical index constant
+from feagi.bdu.models.neuron import INVALID_CORTICAL_IDX
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +68,7 @@ class BiDirectionalCorticalMap:
             True if mapping added successfully, False if invalid input
         """
         # Input validation - single path, no exceptions
-        if not cortical_id or cortical_idx < 0:
+        if not cortical_id or cortical_idx == INVALID_CORTICAL_IDX:
             return False
 
         # Protect core areas (0,1) from modification

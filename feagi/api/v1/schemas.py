@@ -933,3 +933,40 @@ class ManualStimulationRequest(BaseModel):
     stimulation_payload: Dict[str, List[List[int]]] = Field(
         description="Dictionary mapping cortical area IDs to lists of [x, y, z] coordinates"
     )
+
+
+# ===== Memory Usage Schemas =====
+
+
+class MemoryComponentInfo(BaseModel):
+    """Memory information for a component (neurons or synapses)."""
+    
+    count: int = Field(description="Number of items")
+    size_bytes: int = Field(description="Memory size in bytes")
+    size_human: str = Field(description="Human-readable memory size (e.g., '1.2 KB')")
+    avg_bytes_per_item: float = Field(description="Average memory per item in bytes")
+    avg_human_per_item: str = Field(description="Human-readable average memory per item (e.g., '49 B')")
+
+
+class SynapseMemoryBreakdown(BaseModel):
+    """Memory breakdown for synapses by type."""
+    
+    incoming: MemoryComponentInfo = Field(description="Synapses coming into this area from other areas")
+    outgoing: MemoryComponentInfo = Field(description="Synapses going from this area to other areas")
+    internal: MemoryComponentInfo = Field(description="Synapses within the area (recurrent connections)")
+
+
+class TotalMemoryInfo(BaseModel):
+    """Total memory usage information."""
+    
+    size_bytes: int = Field(description="Total memory size in bytes")
+    size_human: str = Field(description="Human-readable total memory size (e.g., '5.7 MB')")
+
+
+class CorticalAreaMemoryUsageResponse(BaseModel):
+    """Response model for cortical area memory usage breakdown."""
+    
+    cortical_id: str = Field(description="The cortical area ID")
+    neurons: MemoryComponentInfo = Field(description="Memory usage for all neurons in the area")
+    synapses: SynapseMemoryBreakdown = Field(description="Memory usage breakdown for synapses")
+    total: TotalMemoryInfo = Field(description="Total memory usage (neurons + all synapses)")

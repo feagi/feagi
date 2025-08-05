@@ -137,7 +137,7 @@ class NeuronArray:
         self.valid_mask = np.zeros(max_neurons, dtype=bool)
         self.membrane_potentials = np.zeros(max_neurons, dtype=np.float32)
         self.thresholds = np.ones(max_neurons, dtype=np.float32)
-        self.cortical_idxs = np.zeros(max_neurons, dtype=np.int32)
+        self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
         self.coordinates_x = np.zeros(
             max_neurons, dtype=np.int32
         )  # ✅ FIXED: Use coordinates_x
@@ -147,6 +147,10 @@ class NeuronArray:
         self.coordinates_z = np.zeros(
             max_neurons, dtype=np.int32
         )  # ✅ FIXED: Use coordinates_z
+
+        # Area mapping and activation  
+        self.cortical_idxs = np.zeros(max_neurons, dtype=np.uint16)
+        self.is_active = np.zeros(max_neurons, dtype=np.bool_)
 
         # Core neuron properties (numeric)
         self.decay_rates = np.ones(max_neurons, dtype=np.float32) * 0.5

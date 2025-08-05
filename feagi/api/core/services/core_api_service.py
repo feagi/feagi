@@ -513,6 +513,60 @@ class CoreAPIService:
             self.logger.error(f"Error getting neuron count for {cortical_id}: {str(e)}")
             raise e
 
+    def get_cortical_area_memory_usage(self, cortical_id: str):
+        """Get detailed memory usage breakdown for a specific cortical area.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            
+        Returns:
+            CorticalAreaMemoryUsageResponse with detailed memory breakdown
+        """
+        try:
+            if not self._connectome_manager:
+                raise ValueError("ConnectomeManager not available")
+                
+            # Import the response schemas
+            from feagi.api.v1.schemas import (
+                CorticalAreaMemoryUsageResponse,
+                MemoryComponentInfo,
+                SynapseMemoryBreakdown,
+                TotalMemoryInfo
+            )
+            
+            # Get neuron memory usage
+            neuron_info = self._calculate_neuron_memory_usage(cortical_id)
+            
+            # Get synapse memory usage breakdown
+            synapse_breakdown = self._calculate_synapse_memory_breakdown(cortical_id)
+            
+            # Calculate total memory
+            total_bytes = (neuron_info["size_bytes"] + 
+                          synapse_breakdown["incoming"]["size_bytes"] +
+                          synapse_breakdown["outgoing"]["size_bytes"] +
+                          synapse_breakdown["internal"]["size_bytes"])
+            
+            total_info = TotalMemoryInfo(
+                size_bytes=total_bytes,
+                size_human=self._format_bytes(total_bytes)
+            )
+            
+            # Create response
+            return CorticalAreaMemoryUsageResponse(
+                cortical_id=cortical_id,
+                neurons=MemoryComponentInfo(**neuron_info),
+                synapses=SynapseMemoryBreakdown(
+                    incoming=MemoryComponentInfo(**synapse_breakdown["incoming"]),
+                    outgoing=MemoryComponentInfo(**synapse_breakdown["outgoing"]),
+                    internal=MemoryComponentInfo(**synapse_breakdown["internal"])
+                ),
+                total=total_info
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error getting memory usage for {cortical_id}: {str(e)}")
+            raise e
+
     def get_cortical_area_geometry(self) -> Dict[str, Any]:
         """Get cortical area geometry information."""
         try:
@@ -4183,3 +4237,194 @@ class CoreAPIService:
 
     # ===== READ OPERATIONS (Already properly routed) =====
     # These methods are READ operations and correctly use existing services
+
+    # ===== MEMORY USAGE CALCULATION METHODS =====
+
+    def _calculate_neuron_memory_usage(self, cortical_id: str) -> Dict[str, Any]:
+        """Calculate memory usage for neurons in a cortical area using actual NeuronArray memory."""
+        try:
+            # Get neurons in the area
+            neurons = self._connectome_manager.get_neurons_by_cortical_area(cortical_id)
+            neuron_count = len(neurons)
+            
+            if neuron_count == 0:
+                return {
+                    "count": 0,
+                    "size_bytes": 0,
+                    "size_human": "0 B",
+                    "avg_bytes_per_item": 0.0,
+                    "avg_human_per_item": "0 B"
+                }
+            
+            # Calculate ACTUAL memory per neuron by inspecting the NeuronArray
+            neuron_array = self._connectome_manager.neuron_array
+            
+            if neuron_array._use_rust:
+                # For Rust backend, estimate based on standard sizes
+                # TODO: Add actual Rust backend memory inspection when available
+                bytes_per_neuron = 49.0  # Conservative estimate for Rust backend
+                self.logger.info(f"Using estimated memory for Rust backend: {bytes_per_neuron} bytes per neuron")
+            else:
+                # Calculate ACTUAL memory per neuron from numpy arrays
+                bytes_per_neuron = 0.0
+                
+                # Inspect all the actual arrays in NeuronArray
+                arrays_to_check = [
+                    'membrane_potentials', 'resting_potentials', 'thresholds', 'excitability', 
+                    'decay_rates', 'refractory_periods', 'refractory_counters',
+                    'coordinates_x', 'coordinates_y', 'coordinates_z', 'cortical_idxs',
+                    'is_active', 'valid_mask', 'last_fired', 'neuron_types', 'enabled_flags'
+                ]
+                
+                for array_name in arrays_to_check:
+                    if hasattr(neuron_array, array_name):
+                        array = getattr(neuron_array, array_name)
+                        if hasattr(array, 'itemsize'):
+                            bytes_per_neuron += array.itemsize
+                            self.logger.debug(f"Array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}")
+                
+                self.logger.info(f"Calculated ACTUAL memory per neuron: {bytes_per_neuron} bytes (from {len(arrays_to_check)} arrays)")
+            
+            total_bytes = int(neuron_count * bytes_per_neuron)
+            
+            return {
+                "count": neuron_count,
+                "size_bytes": total_bytes,
+                "size_human": self._format_bytes(total_bytes),
+                "avg_bytes_per_item": bytes_per_neuron,
+                "avg_human_per_item": self._format_bytes(int(bytes_per_neuron))
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating neuron memory for {cortical_id}: {str(e)}")
+            return {
+                "count": 0,
+                "size_bytes": 0,
+                "size_human": "0 B",
+                "avg_bytes_per_item": 0.0,
+                "avg_human_per_item": "0 B"
+            }
+
+    def _calculate_synapse_memory_breakdown(self, cortical_id: str) -> Dict[str, Dict[str, Any]]:
+        """Calculate memory usage breakdown for synapses by type."""
+        try:
+            # Get area neurons for classification
+            area_neurons = set(self._connectome_manager.get_neurons_by_cortical_area(cortical_id))
+            
+            if not area_neurons:
+                empty_result = {
+                    "count": 0,
+                    "size_bytes": 0,
+                    "size_human": "0 B",
+                    "avg_bytes_per_item": 0.0,
+                    "avg_human_per_item": "0 B"
+                }
+                return {
+                    "incoming": empty_result.copy(),
+                    "outgoing": empty_result.copy(), 
+                    "internal": empty_result.copy()
+                }
+            
+            # Get all synapses and classify them
+            incoming_count = 0
+            outgoing_count = 0
+            internal_count = 0
+            
+            # Iterate through all neurons in the area and classify their connections
+            for neuron_id in area_neurons:
+                # Get outgoing connections from this neuron
+                # Returns List[Tuple[int, float]] where tuple is (target_neuron_id, weight)
+                outgoing_connections = self._connectome_manager.get_outgoing_connections(neuron_id)
+                for target_id, weight in outgoing_connections:
+                    if target_id in area_neurons:
+                        # Target is also in this area - internal/recurrent synapse
+                        internal_count += 1
+                    else:
+                        # Target is outside this area - outgoing synapse
+                        outgoing_count += 1
+                
+                # Get incoming connections to this neuron
+                # Returns List[Tuple[int, float]] where tuple is (source_neuron_id, weight)
+                incoming_connections = self._connectome_manager.get_incoming_connections(neuron_id)
+                for source_id, weight in incoming_connections:
+                    if source_id not in area_neurons:
+                        # Source is outside this area - incoming synapse
+                        incoming_count += 1
+                    # Note: internal synapses are already counted in outgoing connections
+            
+            # Calculate ACTUAL memory per synapse by inspecting the GlobalSynapseArray
+            synapse_array = self._connectome_manager.synapse_array
+            
+            # Calculate actual memory per synapse from the SoA structure
+            bytes_per_synapse = 0.0
+            
+            # Inspect all the actual arrays in GlobalSynapseArray
+            arrays_to_check = [
+                "pre_neuron_ids", "post_neuron_ids", "weights", "delays",
+                "types", "plasticity_coeffs", "conductances", "is_plastic_flags"
+            ]
+            
+            for array_name in arrays_to_check:
+                if hasattr(synapse_array, array_name):
+                    array = getattr(synapse_array, array_name)
+                    if hasattr(array, "itemsize"):
+                        bytes_per_synapse += array.itemsize
+                        self.logger.debug(f"Synapse array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}")
+            
+            self.logger.info(f"Calculated ACTUAL memory per synapse: {bytes_per_synapse} bytes (from {len(arrays_to_check)} arrays)")            
+            return {
+                "incoming": {
+                    "count": incoming_count,
+                    "size_bytes": int(incoming_count * bytes_per_synapse),
+                    "size_human": self._format_bytes(int(incoming_count * bytes_per_synapse)),
+                    "avg_bytes_per_item": bytes_per_synapse if incoming_count > 0 else 0.0,
+                    "avg_human_per_item": self._format_bytes(int(bytes_per_synapse)) if incoming_count > 0 else "0 B"
+                },
+                "outgoing": {
+                    "count": outgoing_count,
+                    "size_bytes": int(outgoing_count * bytes_per_synapse),
+                    "size_human": self._format_bytes(int(outgoing_count * bytes_per_synapse)),
+                    "avg_bytes_per_item": bytes_per_synapse if outgoing_count > 0 else 0.0,
+                    "avg_human_per_item": self._format_bytes(int(bytes_per_synapse)) if outgoing_count > 0 else "0 B"
+                },
+                "internal": {
+                    "count": internal_count,
+                    "size_bytes": int(internal_count * bytes_per_synapse),
+                    "size_human": self._format_bytes(int(internal_count * bytes_per_synapse)),
+                    "avg_bytes_per_item": bytes_per_synapse if internal_count > 0 else 0.0,
+                    "avg_human_per_item": self._format_bytes(int(bytes_per_synapse)) if internal_count > 0 else "0 B"
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating synapse memory breakdown for {cortical_id}: {str(e)}")
+            empty_result = {
+                "count": 0,
+                "size_bytes": 0,
+                "size_human": "0 B",
+                "avg_bytes_per_item": 0.0,
+                "avg_human_per_item": "0 B"
+            }
+            return {
+                "incoming": empty_result.copy(),
+                "outgoing": empty_result.copy(),
+                "internal": empty_result.copy()
+            }
+
+    def _format_bytes(self, bytes_value: int) -> str:
+        """Format bytes into human-readable format."""
+        if bytes_value == 0:
+            return "0 B"
+        
+        units = ["B", "KB", "MB", "GB", "TB"]
+        unit_index = 0
+        size = float(bytes_value)
+        
+        while size >= 1024.0 and unit_index < len(units) - 1:
+            size /= 1024.0
+            unit_index += 1
+        
+        if unit_index == 0:
+            return f"{int(size)} {units[unit_index]}"
+        else:
+            return f"{size:.1f} {units[unit_index]}"

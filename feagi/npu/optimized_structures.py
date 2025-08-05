@@ -234,14 +234,16 @@ class Connectome:
             # source_offsets[i+1] - source_offsets[i] gives the number of connections from source i
             self.source_offsets = np.zeros(neuron_count + 1, dtype=np.int32)
 
-            # Allocate with expected capacity
-            # These arrays will be resized as needed
-            self.target_indices = np.zeros(estimated_connections, dtype=np.int32)
+            # Connection tracking arrays (Structure of Arrays design)
+            self.source_ids = np.zeros(estimated_connections, dtype=np.uint32)
+            self.target_ids = np.zeros(estimated_connections, dtype=np.uint32)
             self.weights = np.zeros(estimated_connections, dtype=np.float32)
-            self.delays = np.zeros(estimated_connections, dtype=np.int32)
-            self.connection_types = np.zeros(estimated_connections, dtype=np.int32)
-            self.source_cortical_idxs = np.zeros(estimated_connections, dtype=np.int32)
-            self.target_cortical_idxs = np.zeros(estimated_connections, dtype=np.int32)
+            self.delays = np.ones(estimated_connections, dtype=np.uint8)
+            self.conductances = np.ones(estimated_connections, dtype=np.float32)
+            
+            # MEMORY OPTIMIZATION: Use uint16 for cortical indices (supports 65,536 areas)
+            self.source_cortical_idxs = np.zeros(estimated_connections, dtype=np.uint16)
+            self.target_cortical_idxs = np.zeros(estimated_connections, dtype=np.uint16)
 
             # Track actual used size
             self._connection_count = 0

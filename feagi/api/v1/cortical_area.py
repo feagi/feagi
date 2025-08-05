@@ -47,6 +47,7 @@ from feagi.api.v1.schemas import (
     SuccessResponse,
     CorticalPropertiesUpdateRequest,
     CustomCorticalAreaRequest,
+    CorticalAreaMemoryUsageResponse,
 )
 from feagi.utils.logger import setup_logger
 
@@ -1054,6 +1055,15 @@ class CorticalAreaAPI:
             return NeuronCountResponse(neuron_count=count)
         except Exception as e:
             raise ValueError(f"Error getting neuron count for area {cortical_id}: {str(e)}")
+
+    @cortical_area_endpoint("GET", "/{cortical_id}/memory_usage", response_model=CorticalAreaMemoryUsageResponse)
+    def get_area_memory_usage(self, cortical_id: str) -> CorticalAreaMemoryUsageResponse:
+        """Get detailed memory usage breakdown for a specific cortical area."""
+        try:
+            memory_usage = self.core_api_service.get_cortical_area_memory_usage(cortical_id)
+            return memory_usage
+        except Exception as e:
+            raise ValueError(f"Error getting memory usage for area {cortical_id}: {str(e)}")
 
     @cortical_area_endpoint("PUT", "/reset", response_model=SuccessResponse)
     def reset_cortical_area(self, cortical_list: List[str]) -> SuccessResponse:

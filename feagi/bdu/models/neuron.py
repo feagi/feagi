@@ -46,10 +46,17 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
+# Enable efficient SIMD vectorization (16 values per 512-bit vector)
+VECTOR_WIDTH = 16
+
+# MEMORY OPTIMIZATION: Invalid cortical area index for uint16 optimization
+INVALID_CORTICAL_IDX = 65535  # Max value for uint16, used instead of -1
+
+# Rust extension availability check
 try:
-    from feagi.rust.bdu_operations import create_gna
+    from feagi.rust.neuron_array import create_gna
     RUST_AVAILABLE = True
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     RUST_AVAILABLE = False
 
 # Import vectorized SIMD operations
@@ -164,10 +171,6 @@ try:
     
 except ImportError:
     NUMBA_AVAILABLE = False
-
-
-# SIMD vector width for cache alignment
-VECTOR_WIDTH = 64
 
 
 class NeuronMappingProvider(ABC):
@@ -353,7 +356,7 @@ class NeuronArray:
         self.coordinates_z = np.zeros(self.aligned_capacity, dtype=np.uint32)
         
         # Area mapping and activation
-        self.cortical_idxs = np.zeros(self.aligned_capacity, dtype=np.int32)
+        self.cortical_idxs = np.zeros(self.aligned_capacity, dtype=np.uint16)
         self.is_active = np.zeros(self.aligned_capacity, dtype=np.bool_)
         self.valid_mask = np.zeros(self.aligned_capacity, dtype=np.bool_)
         
@@ -721,7 +724,7 @@ class NeuronArray:
 
             # Reset neuron properties to defaults
             self.membrane_potentials[index] = 0.0
-            self.cortical_idxs[index] = -1  # Invalid cortical area
+            self.cortical_idxs[index] = INVALID_CORTICAL_IDX  # Invalid cortical area
 
         # Add to free indices for reuse
         self.free_indices.add(index)
