@@ -2220,8 +2220,9 @@ class GenomeService(BaseService):
                     if "parameters" not in area_def:
                         area_def["parameters"] = {}
 
-                    # Update the mapping
-                    area_def["parameters"]["mapping"] = genome_mapping
+                    # CRITICAL FIX: Update mapping in correct hierarchical genome location
+                    # ConnectionAnalyzer expects mappings in 'cortical_mapping_dst', not 'parameters.mapping'
+                    area_def["cortical_mapping_dst"] = genome_mapping
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
