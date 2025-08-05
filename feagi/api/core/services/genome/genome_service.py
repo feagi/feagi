@@ -22,10 +22,10 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..shared.base_service import BaseService
-
 # Import genome conversion functions for flat <-> hierarchical conversion
 from feagi.evo.genome_processor import genome_2_1_convertor
+
+from ..shared.base_service import BaseService
 
 
 class GenomeService(BaseService):
@@ -505,6 +505,14 @@ class GenomeService(BaseService):
                     self.logger.info(
                         "✅ Brain readiness set to True - complete genome loaded"
                     )
+                    
+                    # CRITICAL FIX: Set connectome state to READY after successful brain development
+                    # This ensures API endpoints work correctly without requiring ProcessManager
+                    from feagi.core.state_manager import ConnectomeState
+                    self.state_manager.set_connectome_state(ConnectomeState.READY)
+                    self.logger.info(
+                        "✅ Connectome state set to READY - API endpoints now functional"
+                    )
 
                     # Log current burst engine state for monitoring
 
@@ -533,7 +541,11 @@ class GenomeService(BaseService):
                     
                     # CRITICAL: Emit GENOME_LOADED event to trigger burst engine startup (fallback)
                     try:
-                        from feagi.utils.event_system import EventType, EventPriority, emit_event
+                        from feagi.utils.event_system import (
+                            EventPriority,
+                            EventType,
+                            emit_event,
+                        )
                         # Get cortical area count for event data
                         current_cortical_area_count = len(
                             getattr(self._connectome_manager, "cortical_areas", {})
@@ -1301,14 +1313,40 @@ class GenomeService(BaseService):
                 if "blueprint" not in current_genome:
                     current_genome["blueprint"] = {}
 
-                # Generate unique cortical area ID
-                existing_ids = set(current_genome["blueprint"].keys())
-                new_id = 1
-                while str(new_id) in existing_ids:
-                    new_id += 1
-                cortical_id = str(new_id)
+                # Use provided cortical_id or generate a unique one using FEAGI's standard format
+                if parameters and "cortical_id" in parameters:
+                    cortical_id = parameters["cortical_id"]
+                    # Remove cortical_id from parameters to avoid duplication
+                    parameters = {k: v for k, v in parameters.items() if k != "cortical_id"}
+                else:
+                    # Fallback: generate a unique cortical area ID using FEAGI's standard format
+                    import random
+                    import string
 
-                # Create new cortical area definition in hierarchical format
+                    try:
+                        from feagi.api.v1.utils import generate_cortical_id
+                    except ImportError:
+                        # Fallback if utils module not available
+                        def generate_cortical_id(prefix="C", seed="ABC"):
+                            return f"{prefix}{seed}"
+                    
+                    existing_ids = set(current_genome["blueprint"].keys())
+                    attempts = 0
+                    while attempts < 100:  # Prevent infinite loop
+                        # Generate a random 3-character seed for the ID
+                        seed = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+                        cortical_id = generate_cortical_id(prefix="C", seed=seed)
+                        if cortical_id not in existing_ids:
+                            break
+                        attempts += 1
+                    
+                    if attempts >= 100:
+                        raise ValueError("Failed to generate unique cortical area ID after 100 attempts")
+
+                # Import cortical template for proper defaults
+                from feagi.evo.templates import cortical_template
+
+                # Create new cortical area definition in hierarchical format with template defaults
                 new_area = {
                     "cortical_id": cortical_id,
                     "cortical_name": name,
@@ -1318,30 +1356,91 @@ class GenomeService(BaseService):
                     "parameters": parameters or {},
                 }
 
+                # Apply cortical template defaults to the new area
+                for key, default_value in cortical_template.items():
+                    if key not in new_area:
+                        new_area[key] = default_value
+
+                # Override with any provided parameters
+                if parameters:
+                    new_area.update(parameters)
+
                 # Add to hierarchical blueprint structure
                 current_genome["blueprint"][cortical_id] = new_area
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
+                
+                # Update genome in state manager (single source of truth)
+                if self.state_manager:
+                    self.state_manager.genome = current_genome
 
-                # Trigger NeuroEmbryogenesis to update ConnectomeManager
-                from feagi.bdu.embryogenesis.neuroembryogenesis import (
-                    NeuroEmbryogenesis,
-                )
-
-                embryogenesis = NeuroEmbryogenesis(
-                    self._connectome_manager, self.state_manager
-                )
-
-                # Apply the cortical area creation
-                success = embryogenesis.create_cortical_area(
-                    cortical_id=cortical_id,
-                    name=name,
-                    coordinates=coordinates,
-                    dimensions=dimensions,
-                    area_type=area_type,
-                    parameters=parameters,
-                )
+                # Create the cortical area directly in ConnectomeManager
+                # ARCHITECTURE: Don't rebuild entire brain - just add the new area to preserve existing neuron associations
+                try:
+                    created_cortical_id = self._connectome_manager.add_cortical_area(
+                        name=name,
+                        dimensions=tuple([dimensions["width"], dimensions["height"], dimensions["depth"]]),
+                        position=tuple([coordinates["x"], coordinates["y"], coordinates["z"]]),
+                        area_type=area_type,
+                        properties=parameters or {},
+                        cortical_id=cortical_id
+                    )
+                    
+                    # Extract proper neuron properties from the cortical area template
+                    area = self._connectome_manager.cortical_areas[cortical_id]
+                    width, height, depth = area.dimensions
+                    neurons_per_voxel = new_area.get("per_voxel_neuron_cnt", 1)
+                    area_neuron_count = width * height * depth * neurons_per_voxel
+                    
+                    # Generate positions for all neurons in the cortical area
+                    positions = []
+                    for z in range(depth):
+                        for y in range(height):
+                            for x in range(width):
+                                for _ in range(neurons_per_voxel):
+                                    positions.append((x, y, z))
+                    
+                    # Extract neuron properties from template (following NeuroEmbryogenesis pattern)
+                    base_threshold = new_area.get("firing_threshold", 1.0)
+                    base_decay_rate = 1.0 - (new_area.get("leak_coefficient", 0) / 100.0)
+                    base_refractory = new_area.get("refractory_period", 1)
+                    excitability = new_area.get("neuron_excitability", 1.0)
+                    
+                    self.logger.info(f"Creating neurons with properties: threshold={base_threshold}, decay_rate={base_decay_rate}, refractory={base_refractory}, excitability={excitability}")
+                    
+                    # Create neurons using ConnectomeManager's batch creation (which handles position mapping)
+                    neuron_ids = self._connectome_manager.batch_create_neurons(
+                        cortical_id=cortical_id,
+                        positions=positions,
+                        threshold=base_threshold,
+                        membrane_potential=0.0,
+                        resting_potential=0.0,
+                        decay_rate=base_decay_rate,
+                        refractory_period=base_refractory
+                    )
+                    
+                    # CRITICAL FIX: Set excitability for all created neurons
+                    # Since batch_create_neurons doesn't support excitability parameter,
+                    # we need to set it manually on the neuron array
+                    neuron_array = self._connectome_manager.neuron_array
+                    for neuron_id in neuron_ids:
+                        try:
+                            neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
+                            if neuron_idx is not None:
+                                neuron_array.excitability[neuron_idx] = excitability
+                        except Exception as e:
+                            self.logger.warning(f"Could not set excitability for neuron {neuron_id}: {e}")
+                    
+                    self.logger.info(f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={excitability}")
+                    success = True
+                    
+                except Exception as create_error:
+                    self.logger.error(f"Error creating cortical area {cortical_id}: {str(create_error)}")
+                    # Clean up on failure
+                    if cortical_id in self._connectome_manager.cortical_areas:
+                        del self._connectome_manager.cortical_areas[cortical_id]
+                    success = False
 
                 if success and transaction:
                     transaction.commit()
@@ -1350,7 +1449,7 @@ class GenomeService(BaseService):
                     return None
 
                 if success:
-                    self.logger.info(f"Created cortical area: {cortical_id} ({name})")
+                    self.logger.info(f"Created cortical area: {cortical_id} ({name}) with template properties")
                     return {
                         "cortical_id": cortical_id,
                         "name": name,
@@ -1358,7 +1457,8 @@ class GenomeService(BaseService):
                         "dimensions": dimensions,
                         "type": area_type,
                         "parameters": parameters or {},
-                        "neuron_count": 0,  # New area has no neurons yet
+                        "neuron_count": area_neuron_count,
+                        "excitability": excitability,
                     }
                 else:
                     return None
@@ -1447,7 +1547,8 @@ class GenomeService(BaseService):
 
                 # INTELLIGENT ROUTING: Classify changes for optimal performance
                 from feagi.api.core.services.genome.change_classifier import (
-                    CorticalChangeClassifier, ChangeType
+                    ChangeType,
+                    CorticalChangeClassifier,
                 )
                 
                 change_type = CorticalChangeClassifier.classify_changes(changes)
@@ -1740,8 +1841,9 @@ class GenomeService(BaseService):
                     self._connectome_manager, self.state_manager
                 )
 
-                # Apply the morphology update
-                success = embryogenesis.update_morphology(morphology_id, updates)
+                # Apply the morphology update by triggering brain development
+                # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
+                success = embryogenesis.develop_brain_from_genome_data(current_genome)
 
                 if success and transaction:
                     transaction.commit()
@@ -2414,8 +2516,18 @@ class GenomeService(BaseService):
                 transaction = None
 
             try:
-                # Clear the current genome
-                self._current_genome = None
+                # Create an empty genome structure
+                empty_genome = {
+                    "blueprint": {},
+                    "neuron_morphologies": {},
+                    "cortical_mappings": {},
+                    "version": "2.1"
+                }
+                
+                # Clear the current genome and update state manager
+                self._current_genome = empty_genome
+                if self.state_manager:
+                    self.state_manager.genome = empty_genome
 
                 # Trigger NeuroEmbryogenesis to reset the connectome
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (
@@ -2426,8 +2538,9 @@ class GenomeService(BaseService):
                     self._connectome_manager, self.state_manager
                 )
 
-                # Apply the genome reset
-                success = embryogenesis.reset_genome()
+                # Apply the genome reset by developing brain from empty genome
+                # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
+                success = embryogenesis.develop_brain_from_genome_data(empty_genome)
 
                 if success and transaction:
                     transaction.commit()
@@ -2485,7 +2598,10 @@ class GenomeService(BaseService):
                 )
 
                 # Apply the amalgamation
-                result = embryogenesis.amalgamate_genome(amalgamation_data)
+                # TODO: Implement genome amalgamation - merge the amalgamation_data into current_genome
+                # then call embryogenesis.develop_brain_from_genome_data(updated_genome)
+                self.logger.error("Genome amalgamation not yet implemented - needs proper genome merging logic")
+                result = {"success": False, "error": "Amalgamation not implemented"}
 
                 if result.get("success") and transaction:
                     transaction.commit()
@@ -2538,7 +2654,10 @@ class GenomeService(BaseService):
                 )
 
                 # Apply the amalgamation cancellation
-                success = embryogenesis.cancel_amalgamation(amalgamation_id)
+                # TODO: Implement amalgamation cancellation - restore previous genome state
+                # then call embryogenesis.develop_brain_from_genome_data(restored_genome)
+                self.logger.error("Amalgamation cancellation not yet implemented")
+                success = False
 
                 if success and transaction:
                     transaction.commit()
@@ -2598,7 +2717,10 @@ class GenomeService(BaseService):
                 )
 
                 # Apply the file appending
-                success = embryogenesis.append_file_to_genome(file_data)
+                # TODO: Implement file appending to genome - merge file_data into current_genome
+                # then call embryogenesis.develop_brain_from_genome_data(updated_genome)
+                self.logger.error("File appending to genome not yet implemented")
+                success = False
 
                 if success and transaction:
                     transaction.commit()
@@ -2715,15 +2837,9 @@ class GenomeService(BaseService):
                     self._connectome_manager, self.state_manager
                 )
 
-                # Apply the brain region creation
-                success = embryogenesis.create_brain_region(
-                    region_id=region_id,
-                    region_name=region_name,
-                    parent_region_id=parent_region_id,
-                    coordinates=coordinates,
-                    dimensions=dimensions,
-                    parameters=parameters,
-                )
+                # Apply the brain region creation by triggering brain development
+                # ARCHITECTURE: Pass hierarchical genome directly (single source of truth)
+                success = embryogenesis.develop_brain_from_genome_data(current_genome)
 
                 if success and transaction:
                     transaction.commit()
@@ -2858,14 +2974,7 @@ class GenomeService(BaseService):
                 )
 
                 # Apply the brain region update
-                success = embryogenesis.update_brain_region(
-                    region_id=region_id,
-                    region_name=region_name,
-                    parent_region_id=parent_region_id,
-                    coordinates=coordinates,
-                    dimensions=dimensions,
-                    parameters=parameters,
-                )
+                success = embryogenesis.develop_brain_from_genome_data(current_genome)
 
                 if success and transaction:
                     transaction.commit()
@@ -3006,7 +3115,7 @@ class GenomeService(BaseService):
                 )
 
                 # Apply the brain region deletion
-                success = embryogenesis.delete_brain_region(region_id, delete_members)
+                success = embryogenesis.develop_brain_from_genome_data(current_genome)
 
                 if success and transaction:
                     transaction.commit()
@@ -3140,7 +3249,9 @@ class GenomeService(BaseService):
             area_def = current_genome["blueprint"][cortical_id]
             
             # Filter to parameter changes only  
-            from feagi.api.core.services.genome.change_classifier import CorticalChangeClassifier
+            from feagi.api.core.services.genome.change_classifier import (
+                CorticalChangeClassifier,
+            )
             parameter_changes = {
                 k: v for k, v in changes.items() 
                 if k in CorticalChangeClassifier.PARAMETER_TO_NEURON_PROPERTY
@@ -3161,10 +3272,12 @@ class GenomeService(BaseService):
             # CRITICAL: Synchronize StateManager's genome to maintain consistency
             if self.state_manager:
                 self.state_manager.genome = current_genome
-                self.logger.debug(f"[PARAMETER-UPDATE] Synchronized genome with StateManager")
+                self.logger.debug("[PARAMETER-UPDATE] Synchronized genome with StateManager")
             
             # Direct neuron updates (NO REBUILD!)
-            from feagi.api.core.services.genome.parameter_updater import CorticalParameterUpdater
+            from feagi.api.core.services.genome.parameter_updater import (
+                CorticalParameterUpdater,
+            )
             updater = CorticalParameterUpdater(self._connectome_manager)
             
             # Update neurons in arrays
@@ -3221,7 +3334,9 @@ class GenomeService(BaseService):
             area_def = current_genome["blueprint"][cortical_id]
             
             # Filter to metadata changes only
-            from feagi.api.core.services.genome.change_classifier import CorticalChangeClassifier
+            from feagi.api.core.services.genome.change_classifier import (
+                CorticalChangeClassifier,
+            )
             metadata_changes = {
                 k: v for k, v in changes.items() 
                 if k in CorticalChangeClassifier.METADATA_CHANGES
@@ -3298,7 +3413,7 @@ class GenomeService(BaseService):
             # CRITICAL: Synchronize StateManager's genome to maintain consistency
             if self.state_manager:
                 self.state_manager.genome = current_genome
-                self.logger.debug(f"[FULL-REBUILD] Synchronized genome with StateManager")
+                self.logger.debug("[FULL-REBUILD] Synchronized genome with StateManager")
             
             # Full brain rebuild (existing logic)
             from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
@@ -3349,7 +3464,8 @@ class GenomeService(BaseService):
         try:
             # Separate changes by type
             from feagi.api.core.services.genome.change_classifier import (
-                CorticalChangeClassifier, ChangeType
+                ChangeType,
+                CorticalChangeClassifier,
             )
             
             separated = CorticalChangeClassifier.separate_changes_by_type(changes)
@@ -3414,6 +3530,16 @@ class GenomeService(BaseService):
         import time
         start_time = time.time()
         
+        # 🔍 CHECKPOINT 0: Initial state before expansion
+        initial_synapse_count = self._connectome_manager.get_synapse_count()
+        initial_neuron_count = self._connectome_manager.neuron_array.get_neuron_count()
+        
+        self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 0 - Initial State:")
+        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Cortical area: {cortical_id}")
+        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Initial synapses: {initial_synapse_count}")
+        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Initial neurons: {initial_neuron_count}")
+        self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Changes requested: {changes}")
+        
         try:
             # 1. Update genome (hierarchical format) first
             current_genome = self._current_genome.copy()
@@ -3435,7 +3561,7 @@ class GenomeService(BaseService):
             # CRITICAL: Synchronize StateManager's genome to maintain consistency
             if self.state_manager:
                 self.state_manager.genome = current_genome
-                self.logger.info(f"[LOCALIZED-REBUILD] Synchronized genome with StateManager")
+                self.logger.info("[LOCALIZED-REBUILD] Synchronized genome with StateManager")
             
             # 2. Extract properties for area recreation
             properties = self._extract_area_properties_from_genome(cortical_id, current_genome)
@@ -3476,41 +3602,54 @@ class GenomeService(BaseService):
                         self.logger.info(f"[LOCALIZED-REBUILD] Need {additional_neurons_needed} additional neurons - reusing from free pool")
                         
                         # Reuse neurons from free pool - NO MEMORY ALLOCATION
-                        self._reuse_neurons_for_area_expansion(cortical_id, additional_neurons_needed, properties)
+                        new_neurons = self._reuse_neurons_for_area_expansion(cortical_id, additional_neurons_needed, properties)
                         
-                        # INTELLIGENT PATTERN EXTENSION: Extend existing synaptic patterns to new neurons
+                        # 🔍 CHECKPOINT 3: INTELLIGENT PATTERN EXTENSION - Extend existing synaptic patterns to new neurons
+                        self.logger.info(f"🔍 [EXPANSION-DEBUG] CHECKPOINT 3 - Starting pattern extension for {cortical_id}")
                         try:
-                            from feagi.api.core.services.expansion import PatternExtender, ConnectionAnalyzer
+                            from feagi.api.core.services.expansion import (
+                                ConnectionAnalyzer,
+                                PatternExtender,
+                            )
                             
-                            # Analyze existing connectivity patterns
+                            # 🔍 CHECKPOINT 4: Analyze existing connectivity patterns
+                            self.logger.info(f"🔍 [EXPANSION-DEBUG] CHECKPOINT 4 - Analyzing connectivity for {cortical_id}")
                             analyzer = ConnectionAnalyzer(self._connectome_manager, self.state_manager)
                             analysis = analyzer.analyze_area_connectivity(cortical_id)
                             
-                            if analysis.get("internal_count", 0) > 0:
-                                # Get the newly created neurons from the expansion
-                                area = self._connectome_manager.cortical_areas[cortical_id]
-                                all_current_neurons = area._neuron_indices
+                            self.logger.info("🔍 [EXPANSION-DEBUG] Connectivity analysis results:")
+                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Internal mappings: {analysis.get('internal_count', 0)}")
+                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Incoming mappings: {analysis.get('incoming_count', 0)}")
+                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Outgoing mappings: {analysis.get('outgoing_count', 0)}")
+                            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Total mappings: {analysis.get('total_mappings', 0)}")
+                            
+                            if analysis.get("total_mappings", 0) > 0:
+                                # 🔍 CHECKPOINT 5: Use the exact newly created neurons from expansion
+                                self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - Using newly created neurons")
                                 
-                                # Get the most recently created neurons (rough approximation)
-                                # In practice, we'd track this more precisely
-                                sorted_neurons = sorted(all_current_neurons)
-                                new_neurons = set(sorted_neurons[-additional_neurons_needed:]) if additional_neurons_needed <= len(sorted_neurons) else set()
+                                self.logger.info(f"🔍 [EXPANSION-DEBUG]   - New neurons created: {len(new_neurons)}")
+                                self.logger.info(f"🔍 [EXPANSION-DEBUG]   - New neuron IDs: {sorted(list(new_neurons))[:10]}{'...' if len(new_neurons) > 10 else ''}")
                                 
                                 if new_neurons:
-                                    # Extend existing patterns to new neurons  
+                                    # 🔍 CHECKPOINT 6: Extend existing patterns to new neurons  
+                                    self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - Starting pattern extension")
                                     extender = PatternExtender(self._connectome_manager, self.state_manager)
                                     synapses_created = extender.extend_patterns_for_expansion(
                                         cortical_id=cortical_id,
                                         old_dimensions=old_dimensions,
                                         new_dimensions=new_dimensions,
-                                        new_neurons=new_neurons
+                                        new_neurons=set(new_neurons)
                                     )
                                     
+                                    self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 7 - Pattern extension completed")
+                                    self.logger.info(f"🔍 [EXPANSION-DEBUG]   - New synapses created: {synapses_created}")
                                     self.logger.info(f"[LOCALIZED-REBUILD] Extended connectivity patterns: {synapses_created} new synapses created for {cortical_id}")
                                 else:
-                                    self.logger.warning(f"[LOCALIZED-REBUILD] Could not identify new neurons for pattern extension")
+                                    self.logger.warning("🔍 [EXPANSION-DEBUG] CHECKPOINT 6 - No new neurons identified for pattern extension")
+                                    self.logger.warning("[LOCALIZED-REBUILD] Could not identify new neurons for pattern extension")
                             else:
-                                self.logger.info(f"[LOCALIZED-REBUILD] No internal connectivity found for {cortical_id} - skipping pattern extension")
+                                self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 5 - No cortical mappings found")
+                                self.logger.info(f"[LOCALIZED-REBUILD] No cortical mappings found for {cortical_id} - skipping pattern extension")
                                 
                         except ImportError as e:
                             self.logger.warning(f"[LOCALIZED-REBUILD] Pattern extension unavailable: {e}")
@@ -3597,7 +3736,19 @@ class GenomeService(BaseService):
             if transaction:
                 transaction.commit()
                 
+            # 🔍 CHECKPOINT 8: Final results
+            final_synapse_count = self._connectome_manager.get_synapse_count()
+            final_neuron_count = self._connectome_manager.neuron_array.get_neuron_count()
+            synapses_added = final_synapse_count - initial_synapse_count
+            neurons_added = final_neuron_count - initial_neuron_count
+            
             duration = time.time() - start_time
+            
+            self.logger.info("🔍 [EXPANSION-DEBUG] CHECKPOINT 8 - Final Results:")
+            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Final synapses: {final_synapse_count} (+{synapses_added})")
+            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Final neurons: {final_neuron_count} (+{neurons_added})")
+            self.logger.info(f"🔍 [EXPANSION-DEBUG]   - Duration: {duration*1000:.1f}ms")
+            
             self.logger.info(
                 f"[LOCALIZED-REBUILD] Real-time cortical area resize completed for {cortical_id} "
                 f"in {duration*1000:.1f}ms (no neuron deletion, GPU-friendly)"
@@ -3612,7 +3763,7 @@ class GenomeService(BaseService):
                 transaction.rollback()
             raise e
 
-    def _reuse_neurons_for_area_expansion(self, cortical_id: str, additional_neurons_needed: int, properties: Dict[str, Any]) -> None:
+    def _reuse_neurons_for_area_expansion(self, cortical_id: str, additional_neurons_needed: int, properties: Dict[str, Any]) -> List[int]:
         """
         Create additional neurons for cortical area expansion using FEAGI's proper allocation.
         
@@ -3635,34 +3786,35 @@ class GenomeService(BaseService):
             # Generate positions for additional neurons distributed across expanded area
             positions = self._generate_positions_for_expansion(cortical_id, additional_neurons_needed, properties)
             
-            # Use FEAGI's proper allocation method with free pool reuse
-            neuron_ids = self._connectome_manager.neuron_array.batch_create_neurons(
-                cortical_idx=area.cortical_idx,
+            # Use ConnectomeManager's batch creation method (handles position mapping automatically)
+            neuron_ids = self._connectome_manager.batch_create_neurons(
+                cortical_id=cortical_id,
                 positions=positions,
-                thresholds=properties.get("fire_t", 1.0),
-                membrane_potentials=0.0,
-                resting_potentials=0.0,
-                decay_rates=1.0 - (properties.get("leak_c", 0) / 100.0),
-                refractory_periods=properties.get("refrac", 1)
+                threshold=properties.get("fire_t", 1.0),
+                membrane_potential=0.0,
+                resting_potential=0.0,
+                decay_rate=1.0 - (properties.get("leak_c", 0) / 100.0),
+                refractory_period=properties.get("refrac", 1)
             )
             
-            # CRITICAL FIX: Register expansion neurons with cortical area for coordinate lookup
-            # This is essential for manual stimulation to work in expanded regions
-            self.logger.info(f"[EXPANSION] Registering {len(neuron_ids)} expansion neurons with cortical area {cortical_id}")
+            # CRITICAL FIX: Set excitability for all created neurons
+            excitability = properties.get("neuron_excitability", 1.0)
+            neuron_array = self._connectome_manager.neuron_array
+            for neuron_id in neuron_ids:
+                try:
+                    neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
+                    if neuron_idx is not None:
+                        neuron_array.excitability[neuron_idx] = excitability
+                except Exception as e:
+                    self.logger.warning(f"Could not set excitability for neuron {neuron_id}: {e}")
             
-            # Bulk update cortical area mappings (same as NeuroEmbryogenesis and _rebuild_neurons_for_area)
-            area._neuron_indices.update(neuron_ids)
-            area._position_map.update(zip(neuron_ids, positions))
-            
-            # Update position-to-neurons mapping for coordinate lookup
-            for neuron_id, position in zip(neuron_ids, positions):
-                if position not in area._position_to_neurons:
-                    area._position_to_neurons[position] = []
-                area._position_to_neurons[position].append(neuron_id)
+            self.logger.info(f"[EXPANSION] Created {len(neuron_ids)} expansion neurons with automatic position mapping and excitability={excitability}")
             
             free_pool_size = len(self._connectome_manager.neuron_array.free_indices)
             self.logger.info(f"[EXPANSION] Successfully allocated and registered {len(neuron_ids)} expansion neurons for {cortical_id} "
                            f"(free pool size: {free_pool_size})")
+            
+            return neuron_ids
             
         except Exception as e:
             self.logger.error(f"[EXPANSION] Error creating additional neurons for {cortical_id}: {e}")
@@ -3782,30 +3934,29 @@ class GenomeService(BaseService):
                     varied_leak = np.clip(base_leak / 100.0 + variations[i], 0.0, 1.0)
                     decay_rates[i] = 1.0 - varied_leak
             
-            # Use FEAGI's proper allocation method with free pool reuse
-            neuron_ids = self._connectome_manager.neuron_array.batch_create_neurons(
-                cortical_idx=area.cortical_idx,
+            # Use ConnectomeManager's batch creation method (handles position mapping automatically)
+            neuron_ids = self._connectome_manager.batch_create_neurons(
+                cortical_id=cortical_id,
                 positions=positions,
-                thresholds=thresholds,
-                membrane_potentials=0.0,
-                resting_potentials=0.0,
-                decay_rates=decay_rates,
-                refractory_periods=base_refractory
+                threshold=thresholds,
+                membrane_potential=0.0,
+                resting_potential=0.0,
+                decay_rate=decay_rates,
+                refractory_period=base_refractory
             )
             
-            # CRITICAL FIX: Register neurons with cortical area for coordinate lookup
-            # This is essential for manual stimulation to work - same as NeuroEmbryogenesis
-            self.logger.info(f"[LOCALIZED-REBUILD] Registering {len(neuron_ids)} neurons with cortical area {cortical_id}")
+            # CRITICAL FIX: Set excitability for all created neurons
+            excitability = properties.get("neuron_excitability", 1.0)
+            neuron_array = self._connectome_manager.neuron_array
+            for neuron_id in neuron_ids:
+                try:
+                    neuron_idx = self._connectome_manager.get_neuron_index(neuron_id)
+                    if neuron_idx is not None:
+                        neuron_array.excitability[neuron_idx] = excitability
+                except Exception as e:
+                    self.logger.warning(f"Could not set excitability for neuron {neuron_id}: {e}")
             
-            # Bulk update cortical area mappings (same as NeuroEmbryogenesis lines 996-1006)
-            area._neuron_indices.update(neuron_ids)
-            area._position_map.update(zip(neuron_ids, positions))
-            
-            # Update position-to-neurons mapping for coordinate lookup
-            for neuron_id, position in zip(neuron_ids, positions):
-                if position not in area._position_to_neurons:
-                    area._position_to_neurons[position] = []
-                area._position_to_neurons[position].append(neuron_id)
+            self.logger.info(f"[LOCALIZED-REBUILD] Created {len(neuron_ids)} neurons with automatic position mapping and excitability={excitability}")
             
             free_pool_size = len(self._connectome_manager.neuron_array.free_indices)
             self.logger.info(f"[LOCALIZED-REBUILD] Successfully allocated and registered {len(neuron_ids)} neurons for {cortical_id} "

@@ -467,75 +467,38 @@ class CorticalAreaAPI:
                 seed=temp_name[:3]
             )
             
-            # Add cortical area to genome AND connectome 
+            # ARCHITECTURE COMPLIANCE: Route through GenomeService instead of direct ConnectomeManager access
             genome_service = self.core_api_service._genome_service
             
-            # First add to genome with our generated ID
-            current_genome = genome_service.get_genome()
-            if "blueprint" not in current_genome:
-                current_genome["blueprint"] = {}
-                
-            # Create area definition in genome format
-            area_definition = {
-                "cortical_id": cortical_id,
-                "cortical_name": cortical_name,
-                "coordinates_3d": {
+            # Create cortical area through proper pipeline: hierarchical genome -> GenomeService -> connectome
+            result = genome_service.create_cortical_area(
+                name=cortical_name,
+                coordinates={
                     "x": request.coordinates_3d[0],
                     "y": request.coordinates_3d[1], 
                     "z": request.coordinates_3d[2]
                 },
-                "cortical_dimensions": {
+                dimensions={
                     "width": cortical_dimensions[0],
                     "height": cortical_dimensions[1],
                     "depth": cortical_dimensions[2]
                 },
-                "cortical_type": "memory" if is_memory else "custom",
-                "parameters": {
-                    "cortical_group": request.cortical_group,
-                    "cortical_sub_group": sub_group_id,
-                    "coordinates_2d": request.coordinates_2d,
-                    "brain_region_id": parent_region_id,
-                    "copy_of": copy_of,
-                    "per_voxel_neuron_cnt": neuron_density
-                }
-            }
-            
-            # Add to genome blueprint
-            current_genome["blueprint"][cortical_id] = area_definition
-            genome_service._current_genome = current_genome
-            
-            # Also add to ConnectomeManager
-            connectome.add_cortical_area(
-                name=cortical_name,
-                dimensions=(cortical_dimensions[0], cortical_dimensions[1], cortical_dimensions[2]),
-                position=(request.coordinates_3d[0], request.coordinates_3d[1], request.coordinates_3d[2]),
                 area_type="memory" if is_memory else "custom",
-                properties={
+                parameters={
                     "cortical_group": request.cortical_group,
                     "cortical_sub_group": sub_group_id,
                     "coordinates_2d": request.coordinates_2d,
                     "brain_region_id": parent_region_id,
                     "copy_of": copy_of,
-                    "per_voxel_neuron_cnt": neuron_density  # Add this for neurogenesis
-                },
-                cortical_id=cortical_id
+                    "per_voxel_neuron_cnt": neuron_density,
+                    "cortical_id": cortical_id  # Pass the generated ID
+                }
             )
             
-            # CRITICAL: Trigger neurogenesis using the proven GenomeService method
-            logger.info(f"[NEUROGENESIS] Creating neurons for new cortical area {cortical_id}")
-            neurogenesis_properties = {
-                "neurons_per_voxel": neuron_density,
-                "fire_t": self._get_default_value("fire_t", 1.0),
-                "leak_c": self._get_default_value("leak_c", 0),
-                "refrac": self._get_default_value("refrac", 1)
-            }
+            if not result:
+                raise ValueError("Failed to create cortical area through GenomeService")
             
-            # Use the proven GenomeService method that properly associates neurons with cortical areas
-            genome_service._rebuild_neurons_for_area(cortical_id, neurogenesis_properties)
-            
-            logger.info(f"[SUCCESS] Cortical area {cortical_id} created with neurons using FEAGI-compliant allocation")
-            
-            logger.info(f"[SUCCESS] Cortical area {cortical_id} created with {neuron_count} neurons")
+            logger.info(f"[SUCCESS] Cortical area {cortical_id} created through proper GenomeService pipeline")
 
             return {"cortical_id": cortical_id}
         except Exception as e:

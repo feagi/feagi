@@ -23,6 +23,7 @@ from .decorators import endpoint
 from .schemas import (
     CorticalMappingConnection,
     CorticalMappingPropertiesRequest,
+    CreateCorticalMappingRequest,
     SuccessResponse,
     UpdateCorticalMappingPropertiesRequest,
 )
@@ -49,6 +50,44 @@ class CorticalMappingAPI:
     async def get_cortical_mapping(self) -> Dict[str, Any]:
         mapping = self.core_api_service.get_cortical_mapping()
         return mapping
+
+    @cortical_mapping_endpoint(
+        "POST", 
+        "/mapping", 
+        request_model=CreateCorticalMappingRequest, 
+        response_model=SuccessResponse
+    )
+    async def create_cortical_mapping(self, request: CreateCorticalMappingRequest) -> SuccessResponse:
+        """Create a new cortical mapping between two cortical areas."""
+        try:
+            # Convert request to the format expected by the core API
+            mapping_data = {
+                request.src_cortical_area: {
+                    request.dst_cortical_area: [
+                        {
+                            "morphology_id": request.morphology_id,
+                            "morphology_scalar": request.morphology_scalar,
+                            "postSynapticCurrent_multiplier": request.postSynapticCurrent_multiplier,
+                            "plasticity_flag": request.plasticity_flag,
+                            "plasticity_constant": request.plasticity_constant,
+                            "ltp_multiplier": request.ltp_multiplier,
+                            "ltd_multiplier": request.ltd_multiplier,
+                        }
+                    ]
+                }
+            }
+
+            # Route through CoreAPIService to ensure proper hierarchical genome -> connectome flow
+            success = self.core_api_service.update_cortical_mapping(mapping_data)
+            
+            if not success:
+                raise ValueError("Failed to create cortical mapping")
+            
+            return SuccessResponse(
+                message=f"Cortical mapping created successfully from {request.src_cortical_area} to {request.dst_cortical_area}"
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to create cortical mapping: {str(e)}")
 
     @cortical_mapping_endpoint("PUT", "/mapping", response_model=SuccessResponse)
     async def update_cortical_mapping(self, mapping: Dict[str, Any]) -> SuccessResponse:

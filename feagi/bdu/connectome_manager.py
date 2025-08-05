@@ -1976,6 +1976,11 @@ class ConnectomeManager(NeuronMappingProvider):
             # Update mapping information in parameters
             properties["parameters"]["mapping"] = outgoing_mappings
 
+            # CRITICAL FIX: Extract actual neuron properties from neuron array
+            # The user expects to see excitability, threshold, etc. in the cortical area properties
+            neuron_properties = self._extract_neuron_properties_for_area(cortical_id)
+            properties.update(neuron_properties)
+
             # Convert all numpy types to native Python types for JSON serialization
             return self._convert_numpy_types_to_python(properties)
         except KeyError:
@@ -1984,6 +1989,73 @@ class ConnectomeManager(NeuronMappingProvider):
         except Exception as e:
             self.logger.error(f"Error getting properties for area {cortical_id}: {e}")
             return {}
+
+    def _extract_neuron_properties_for_area(self, cortical_id: str) -> Dict[str, Any]:
+        """
+        Extract actual neuron properties from the neuron array for a cortical area.
+        
+        Returns representative neuron properties like excitability, threshold, etc.
+        by sampling neurons in the area and computing averages.
+        """
+        try:
+            area = self.get_cortical_area(cortical_id)
+            if not area:
+                return {}
+            
+            cortical_idx = area.cortical_idx
+            neuron_array = self.neuron_array
+            
+            # Collect property values from all neurons in this area
+            excitability_values = []
+            threshold_values = []
+            decay_rate_values = []
+            refractory_values = []
+            
+            # Sample neurons in this cortical area
+            for idx in range(neuron_array.next_index):
+                if (neuron_array.valid_mask[idx] and 
+                    neuron_array.cortical_idxs[idx] == cortical_idx):
+                    
+                    excitability_values.append(float(neuron_array.excitability[idx]))
+                    threshold_values.append(float(neuron_array.thresholds[idx]))
+                    decay_rate_values.append(float(neuron_array.decay_rates[idx]))
+                    refractory_values.append(int(neuron_array.refractory_periods[idx]))
+            
+            # If no neurons found, return zeros (which is the current behavior user is seeing)
+            if not excitability_values:
+                return {
+                    "neuron_excitability": 0.0,
+                    "firing_threshold": 0.0,
+                    "refractory_period": 0,
+                    "leak_coefficient": 0.0,
+                }
+            
+            # Calculate averages of neuron properties
+            avg_excitability = sum(excitability_values) / len(excitability_values)
+            avg_threshold = sum(threshold_values) / len(threshold_values) 
+            avg_decay_rate = sum(decay_rate_values) / len(decay_rate_values)
+            avg_refractory = sum(refractory_values) / len(refractory_values)
+            
+            # Convert decay_rate back to leak_coefficient (reverse the calculation)
+            # decay_rate = 1.0 - (leak_coefficient / 100.0)
+            # leak_coefficient = (1.0 - decay_rate) * 100.0
+            avg_leak_coefficient = (1.0 - avg_decay_rate) * 100.0
+            
+            return {
+                "neuron_excitability": avg_excitability,
+                "firing_threshold": avg_threshold,
+                "refractory_period": int(avg_refractory),
+                "leak_coefficient": avg_leak_coefficient,
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting neuron properties for area {cortical_id}: {e}")
+            return {
+                "neuron_excitability": 0.0,
+                "firing_threshold": 0.0,
+                "refractory_period": 0,
+                "leak_coefficient": 0.0,
+            }
 
     def update_cortical_area_properties(
         self, 

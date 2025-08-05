@@ -665,6 +665,20 @@ class UpdateCorticalMappingPropertiesRequest(BaseModel):
     mapping_string: List[Dict[str, Any]]  # List of connection dictionaries
 
 
+class CreateCorticalMappingRequest(BaseModel):
+    """Request model for creating a new cortical mapping between two areas."""
+
+    src_cortical_area: str
+    dst_cortical_area: str
+    morphology_id: str
+    morphology_scalar: List[int] = [1, 1, 1]  # Default [x, y, z] multipliers
+    postSynapticCurrent_multiplier: float = 1.0
+    plasticity_flag: bool = False
+    plasticity_constant: float = 1.0
+    ltp_multiplier: float = 1.0
+    ltd_multiplier: float = 1.0
+
+
 # ===== Monitoring Schemas =====
 
 
