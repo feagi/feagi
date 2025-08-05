@@ -422,9 +422,9 @@ class FeagiTestRunner:
                 if coordinates_x:
                     import numpy as np
                     neural_data[cortical_area_id] = {
-                        'coordinates_x': np.array(coordinates_x, dtype=np.uint32),
-                        'coordinates_y': np.array(coordinates_y, dtype=np.uint32),
-                        'coordinates_z': np.array(coordinates_z, dtype=np.uint32),
+                        'coordinates_x': np.array(coordinates_x, dtype=np.uint16),
+                        'coordinates_y': np.array(coordinates_y, dtype=np.uint16),
+                        'coordinates_z': np.array(coordinates_z, dtype=np.uint16),
                         'membrane_potentials': np.array(membrane_potentials, dtype=np.float32),
                     }
                     logger.debug(f"Prepared {len(coordinates_x)} coordinates for stimulation in {cortical_area_id}")

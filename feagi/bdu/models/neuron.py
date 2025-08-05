@@ -350,10 +350,10 @@ class NeuronArray:
         self.refractory_periods = np.ones(self.aligned_capacity, dtype=np.int32)
         self.refractory_counters = np.zeros(self.aligned_capacity, dtype=np.int32)
         
-        # Coordinate arrays
-        self.coordinates_x = np.zeros(self.aligned_capacity, dtype=np.uint32)
-        self.coordinates_y = np.zeros(self.aligned_capacity, dtype=np.uint32)
-        self.coordinates_z = np.zeros(self.aligned_capacity, dtype=np.uint32)
+        # MEMORY OPTIMIZATION: Coordinate arrays using uint16 (supports 0-65,535 per dimension)
+        self.coordinates_x = np.zeros(self.aligned_capacity, dtype=np.uint16)
+        self.coordinates_y = np.zeros(self.aligned_capacity, dtype=np.uint16)
+        self.coordinates_z = np.zeros(self.aligned_capacity, dtype=np.uint16)
         
         # Area mapping and activation
         self.cortical_idxs = np.zeros(self.aligned_capacity, dtype=np.uint16)
@@ -691,10 +691,10 @@ class NeuronArray:
         self.refractory_periods[idx] = refractory_period
         self.refractory_counters[idx] = 0  # Start with no refractory state
 
-        # Initialize coordinates as uint32
-        self.coordinates_x[idx] = np.uint32(max(0, position[0]))
-        self.coordinates_y[idx] = np.uint32(max(0, position[1]))
-        self.coordinates_z[idx] = np.uint32(max(0, position[2]))
+        # Set coordinates with uint16 clamping
+        self.coordinates_x[idx] = np.uint16(max(0, min(65535, position[0])))
+        self.coordinates_y[idx] = np.uint16(max(0, min(65535, position[1])))
+        self.coordinates_z[idx] = np.uint16(max(0, min(65535, position[2])))
 
         self.cortical_idxs[idx] = cortical_idx
         self.is_active[idx] = is_active
@@ -812,9 +812,10 @@ class NeuronArray:
                 self.is_active[neuron_index] = bool(value)
             elif property_name == "position":
                 if isinstance(value, (tuple, list)) and len(value) >= 3:
-                    self.coordinates_x[neuron_index] = np.uint32(max(0, value[0]))
-                    self.coordinates_y[neuron_index] = np.uint32(max(0, value[1]))
-                    self.coordinates_z[neuron_index] = np.uint32(max(0, value[2]))
+                    # MEMORY OPTIMIZATION: Use uint16 with range clamping (0-65535)
+                    self.coordinates_x[neuron_index] = np.uint16(max(0, min(65535, value[0])))
+                    self.coordinates_y[neuron_index] = np.uint16(max(0, min(65535, value[1])))
+                    self.coordinates_z[neuron_index] = np.uint16(max(0, min(65535, value[2])))
                 else:
                     logger.error(f"Invalid position value for neuron {neuron_id}: {value}")
                     return False

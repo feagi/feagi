@@ -733,9 +733,9 @@ class CoreAPIService:
             neural_data: Data in the format:
                 {
                     'cortical_area_1': {
-                        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint32),
-                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint32),
-                        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint32),
+                        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint16),
+                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint16),
+                        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint16),
                         'membrane_potentials': np.array([0.8, 1.2, 0.9, ...], dtype=np.float32),
                     },
                     'cortical_area_2': { ... }
@@ -2116,9 +2116,9 @@ class CoreAPIService:
                 if coordinates:
                     neural_data = {
                         cortical_id: {
-                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint32),
-                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint32),
-                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint16),
+                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint16),
+                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint16),
                             'membrane_potentials': np.array([intensity] * len(coordinates), dtype=np.float32)
                         }
                     }
@@ -2148,9 +2148,9 @@ class CoreAPIService:
                 if coordinates:
                     neural_data = {
                         cortical_id: {
-                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint32),
-                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint32),
-                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint32),
+                            'coordinates_x': np.array([coord.get('x', 0) for coord in coordinates], dtype=np.uint16),
+                            'coordinates_y': np.array([coord.get('y', 0) for coord in coordinates], dtype=np.uint16),
+                            'coordinates_z': np.array([coord.get('z', 0) for coord in coordinates], dtype=np.uint16),
                             'membrane_potentials': np.array([intensity] * len(coordinates), dtype=np.float32)
                         }
                     }

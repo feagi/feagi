@@ -326,9 +326,9 @@ class SensoryNeuralStream:
                 
                 for cortical_id, data in cortical_areas.items():
                     neural_data[cortical_id] = {
-                        'coordinates_x': np.array(data['coordinates_x'], dtype=np.uint32),
-                        'coordinates_y': np.array(data['coordinates_y'], dtype=np.uint32),
-                        'coordinates_z': np.array(data['coordinates_z'], dtype=np.uint32),
+                        'coordinates_x': np.array(data['coordinates_x'], dtype=np.uint16),
+                        'coordinates_y': np.array(data['coordinates_y'], dtype=np.uint16),
+                        'coordinates_z': np.array(data['coordinates_z'], dtype=np.uint16),
                         'membrane_potentials': np.array(data['membrane_potentials'], dtype=np.float32)
                     }
                     logger.info(f"🧠 Cortical area {cortical_id}: {len(data['coordinates_x'])} neurons")
@@ -423,14 +423,33 @@ class SensoryNeuralStream:
             else:
                 x_coords = y_coords = z_coords = None
 
-            # Convert to unified neural data format
+            # Convert to unified neural data format with SAFE uint16 conversion
             try:
-                # Build neural data in the unified format expected by stimulate_neurons
+                # CRITICAL FIX: Validate coordinate ranges before conversion to uint16
+                if x_coords is not None:
+                    max_x = x_coords.max() if len(x_coords) > 0 else 0
+                    if max_x > 65535:
+                        logger.error(f"Coordinate X values exceed uint16 range! Max: {max_x}, limit: 65535")
+                        return StreamResult.DECODE_ERROR
+                        
+                if y_coords is not None:
+                    max_y = y_coords.max() if len(y_coords) > 0 else 0
+                    if max_y > 65535:
+                        logger.error(f"Coordinate Y values exceed uint16 range! Max: {max_y}, limit: 65535")
+                        return StreamResult.DECODE_ERROR
+                        
+                if z_coords is not None:
+                    max_z = z_coords.max() if len(z_coords) > 0 else 0
+                    if max_z > 65535:
+                        logger.error(f"Coordinate Z values exceed uint16 range! Max: {max_z}, limit: 65535")
+                        return StreamResult.DECODE_ERROR
+
+                # Build neural data with SAFE uint16 conversion (after validation)
                 neural_data = {
                     str(header.cortical_area_id): {
-                        'coordinates_x': x_coords.astype(np.uint32) if x_coords is not None else np.array([], dtype=np.uint32),
-                        'coordinates_y': y_coords.astype(np.uint32) if y_coords is not None else np.array([], dtype=np.uint32),
-                        'coordinates_z': z_coords.astype(np.uint32) if z_coords is not None else np.array([], dtype=np.uint32),
+                        'coordinates_x': x_coords.astype(np.uint16) if x_coords is not None else np.array([], dtype=np.uint16),
+                        'coordinates_y': y_coords.astype(np.uint16) if y_coords is not None else np.array([], dtype=np.uint16),
+                        'coordinates_z': z_coords.astype(np.uint16) if z_coords is not None else np.array([], dtype=np.uint16),
                         'membrane_potentials': firing_rates.astype(np.float32)
                     }
                 }

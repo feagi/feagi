@@ -596,9 +596,9 @@ class BrainService(BaseService):
             neural_data: Dictionary with cortical_area_id as keys and coordinate arrays as values:
                 {
                     'cortical_area_1': {
-                        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint32),
-                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint32), 
-                        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint32),
+                        'coordinates_x': np.array([1, 2, 3, ...], dtype=np.uint16),
+                        'coordinates_y': np.array([4, 5, 6, ...], dtype=np.uint16), 
+                        'coordinates_z': np.array([7, 8, 9, ...], dtype=np.uint16),
                         'membrane_potentials': np.array([0.8, 1.2, 0.9, ...], dtype=np.float32),
                     }
                 }
@@ -649,10 +649,40 @@ class BrainService(BaseService):
                         continue
                     
                     # SIMD OPTIMIZATION 1: Vectorized coordinate processing
-                    # Convert to numpy arrays if not already (ensure proper dtypes)
-                    coords_x = np.asarray(coords_x, dtype=np.uint32)
-                    coords_y = np.asarray(coords_y, dtype=np.uint32)
-                    coords_z = np.asarray(coords_z, dtype=np.uint32)
+                    # CRITICAL: Validate coordinate ranges before uint16 conversion to prevent silent data corruption
+                    coords_x_array = np.asarray(coords_x)
+                    coords_y_array = np.asarray(coords_y)
+                    coords_z_array = np.asarray(coords_z)
+                    
+                    # Check for values that would be truncated by uint16 conversion
+                    if len(coords_x_array) > 0 and coords_x_array.max() > 65535:
+                        self.logger.error(f"Area {cortical_id}: X coordinates exceed uint16 range! Max: {coords_x_array.max()}, limit: 65535")
+                        area_results[cortical_id] = {
+                            "success": False,
+                            "error": f"X coordinates exceed uint16 range (max: {coords_x_array.max()})"
+                        }
+                        continue
+                        
+                    if len(coords_y_array) > 0 and coords_y_array.max() > 65535:
+                        self.logger.error(f"Area {cortical_id}: Y coordinates exceed uint16 range! Max: {coords_y_array.max()}, limit: 65535")
+                        area_results[cortical_id] = {
+                            "success": False,
+                            "error": f"Y coordinates exceed uint16 range (max: {coords_y_array.max()})"
+                        }
+                        continue
+                        
+                    if len(coords_z_array) > 0 and coords_z_array.max() > 65535:
+                        self.logger.error(f"Area {cortical_id}: Z coordinates exceed uint16 range! Max: {coords_z_array.max()}, limit: 65535")
+                        area_results[cortical_id] = {
+                            "success": False,
+                            "error": f"Z coordinates exceed uint16 range (max: {coords_z_array.max()})"
+                        }
+                        continue
+                    
+                    # Convert to numpy arrays with validated uint16 conversion
+                    coords_x = coords_x_array.astype(np.uint16)
+                    coords_y = coords_y_array.astype(np.uint16)
+                    coords_z = coords_z_array.astype(np.uint16)
                     potentials = np.asarray(potentials, dtype=np.float32)
                     
                     # SIMD OPTIMIZATION 2: Vectorized unique coordinate finding
