@@ -1344,7 +1344,17 @@ class GenomeService(BaseService):
                         raise ValueError("Failed to generate unique cortical area ID after 100 attempts")
 
                 # Import cortical template for proper defaults
-                from feagi.evo.templates import cortical_template
+                from feagi.evo.templates import cortical_template, cortical_template_memory
+
+                # Check if this is a memory cortical area
+                is_memory_area = (parameters and parameters.get("sub_group_id") == "MEMORY")
+                
+                # Choose appropriate template
+                if is_memory_area:
+                    template = cortical_template_memory
+                    self.logger.info(f"Creating memory cortical area {cortical_id} with memory template")
+                else:
+                    template = cortical_template
 
                 # Create new cortical area definition in hierarchical format with template defaults
                 new_area = {
@@ -1356,14 +1366,25 @@ class GenomeService(BaseService):
                     "parameters": parameters or {},
                 }
 
-                # Apply cortical template defaults to the new area
-                for key, default_value in cortical_template.items():
+                # Apply template defaults to the new area
+                for key, default_value in template.items():
                     if key not in new_area:
                         new_area[key] = default_value
 
                 # Override with any provided parameters
                 if parameters:
                     new_area.update(parameters)
+
+                # Ensure memory areas have required properties with defaults
+                if is_memory_area:
+                    memory_defaults = {
+                        "init_lifespan": new_area.get("init_lifespan", 9),
+                        "lifespan_growth_rate": new_area.get("lifespan_growth_rate", 1.0),
+                        "longterm_mem_threshold": new_area.get("longterm_mem_threshold", 100),
+                        "temporal_depth": new_area.get("temporal_depth", 1),
+                        "sub_group_id": "MEMORY"
+                    }
+                    new_area.update(memory_defaults)
 
                 # Add to hierarchical blueprint structure
                 current_genome["blueprint"][cortical_id] = new_area
@@ -1433,6 +1454,19 @@ class GenomeService(BaseService):
                             self.logger.warning(f"Could not set excitability for neuron {neuron_id}: {e}")
                     
                     self.logger.info(f"✅ Created cortical area {cortical_id} with {area_neuron_count} neurons, proper position mapping, and excitability={excitability}")
+                    
+                    # Register as memory area if needed
+                    if is_memory_area:
+                        temporal_depth = new_area.get("temporal_depth", 1)
+                        memory_registered = self._connectome_manager.register_memory_area(
+                            cortical_id=cortical_id,
+                            temporal_depth=temporal_depth
+                        )
+                        if memory_registered:
+                            self.logger.info(f"✅ Registered memory area {cortical_id} with temporal_depth={temporal_depth}")
+                        else:
+                            self.logger.warning(f"⚠️  Failed to register memory area {cortical_id}")
+                    
                     success = True
                     
                 except Exception as create_error:

@@ -115,12 +115,18 @@ enable_plasticity = true       # learning mechanisms
 # regardless of genome requirements
 min_neuron_space = 100000      # Minimum neuron slots to reserve (default safety margin)
 min_synapse_space = 500000     # Minimum synapse slots to reserve (default safety margin)
+min_memory_neuron_space = 50000 # Minimum memory neuron slots to reserve (separate SoA)
 
 # Dynamic sizing policy:
 # - Read genome stats to determine actual neuron/synapse requirements
 # - Reserve 50% more than genome requirements OR the minimum values above (whichever is larger)
 # - This prevents memory waste while ensuring adequate space for growth
 buffer_multiplier = 1.5        # Reserve 50% more than genome requirements (1.5x = +50%)
+
+# Memory system configuration
+memory_processing_batch_size = 100    # Process N memory areas per batch operation
+memory_pattern_cache_size = 10000     # LRU cache size for pattern lookups
+memory_neuron_limit_per_area = 10000  # Maximum memory neurons per memory cortical area
 
 [resources]
 # Resource allocation settings

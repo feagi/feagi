@@ -177,6 +177,10 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         self.fcl_manager = fcl_manager or connectome_manager.fcl_manager
         self.config = config or {}
 
+        # Initialize MemoryProcessor for memory cortical areas
+        self.memory_processor = None
+        self._initialize_memory_processor()
+
         # WGPU-COMPATIBLE: Check debug_npu from config only (no environment variables)
         self.debug_npu = self.config.get("debug_npu", False)
 
@@ -573,7 +577,16 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 )
             self.injection_service.inject_post_burst(current_timestep)
 
-        # 5. Debug fire queue output if --debug-npu flag is enabled
+        # 5. Memory processing for memory cortical areas
+        #    Process temporal patterns and manage memory neuron lifecycle
+        if self.memory_processor:
+            if state_manager.is_debug_npu_enabled():
+                logger.info(
+                    "[NPU-DEBUG] BURST ENGINE: Processing memory areas for temporal patterns"
+                )
+            self._process_memory_areas(current_timestep)
+
+        # 6. Debug fire queue output if --debug-npu flag is enabled
         if self.debug_npu:
             self._debug_fire_queue_output()
 
@@ -1030,6 +1043,108 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         except Exception as e:
             logger.error(f"Error in fire queue processing: {e}")
             return False
+
+    def _initialize_memory_processor(self) -> None:
+        """Initialize MemoryProcessor for memory cortical area processing."""
+        try:
+            from feagi.npu.memory_processor import MemoryProcessor
+            
+            # Get memory configuration from config or use defaults
+            batch_size = self.config.get("memory_processing_batch_size", 100)
+            pattern_cache_size = self.config.get("memory_pattern_cache_size", 10000)
+            
+            # Initialize MemoryProcessor with ConnectomeManager's memory neuron array
+            if hasattr(self.connectome_manager, 'memory_neuron_array'):
+                self.memory_processor = MemoryProcessor(
+                    memory_neuron_array=self.connectome_manager.memory_neuron_array,
+                    fcl_manager=self.fcl_manager,
+                    batch_size=batch_size,
+                    pattern_cache_size=pattern_cache_size
+                )
+                logger.info(f"MemoryProcessor initialized with batch_size={batch_size}, cache_size={pattern_cache_size}")
+            else:
+                logger.warning("ConnectomeManager does not have memory_neuron_array - memory processing disabled")
+                
+        except Exception as e:
+            logger.warning(f"Could not initialize MemoryProcessor: {e}")
+            self.memory_processor = None
+
+    def _process_memory_areas(self, current_timestep: int) -> None:
+        """Process memory areas in parallel with neural processing."""
+        if not self.memory_processor:
+            return
+        
+        try:
+            # Process memory areas asynchronously to avoid blocking neural processing
+            import threading
+            
+            def memory_processing_thread():
+                try:
+                    results = self.memory_processor.process_memory_areas_batch(current_timestep)
+                    if self.debug_npu and results.get("success"):
+                        stats = results.get("stats", {})
+                        processing_time = results.get("processing_time_ms", 0)
+                        logger.info(f"[NPU-DEBUG] Memory processing: {stats}, time: {processing_time:.2f}ms")
+                except Exception as e:
+                    logger.error(f"Error in memory processing thread: {e}")
+            
+            # Start memory processing in background thread
+            thread = threading.Thread(target=memory_processing_thread, daemon=True)
+            thread.start()
+            
+        except Exception as e:
+            logger.error(f"Error starting memory processing: {e}")
+
+    def register_memory_area_with_processor(self, cortical_id: str, properties: Dict[str, Any]) -> bool:
+        """Register a memory area with the memory processor."""
+        if not self.memory_processor:
+            return False
+        
+        try:
+            # Extract memory properties
+            temporal_depth = properties.get("temporal_depth", 1)
+            initial_lifespan = properties.get("init_lifespan", 9)
+            lifespan_growth_rate = properties.get("lifespan_growth_rate", 1.0)
+            longterm_threshold = properties.get("longterm_mem_threshold", 100)
+            
+            # Get upstream areas from ConnectomeManager
+            upstream_areas = set()
+            if hasattr(self.connectome_manager, 'get_upstream_areas_for_memory'):
+                upstream_areas = self.connectome_manager.get_upstream_areas_for_memory(cortical_id)
+            
+            return self.memory_processor.register_memory_area(
+                cortical_id=cortical_id,
+                temporal_depth=temporal_depth,
+                initial_lifespan=initial_lifespan,
+                lifespan_growth_rate=lifespan_growth_rate,
+                longterm_threshold=longterm_threshold,
+                upstream_areas=upstream_areas
+            )
+        except Exception as e:
+            logger.error(f"Error registering memory area {cortical_id}: {e}")
+            return False
+
+    def unregister_memory_area_from_processor(self, cortical_id: str) -> bool:
+        """Unregister a memory area from the memory processor."""
+        if not self.memory_processor:
+            return False
+        
+        try:
+            return self.memory_processor.unregister_memory_area(cortical_id)
+        except Exception as e:
+            logger.error(f"Error unregistering memory area {cortical_id}: {e}")
+            return False
+
+    def get_memory_processing_statistics(self) -> Optional[Dict[str, Any]]:
+        """Get memory processing statistics."""
+        if not self.memory_processor:
+            return None
+        
+        try:
+            return self.memory_processor.get_processing_statistics()
+        except Exception as e:
+            logger.error(f"Error getting memory processing statistics: {e}")
+            return None
 
 
 # Export the main class and import UnifiedFQSampler from the dedicated module

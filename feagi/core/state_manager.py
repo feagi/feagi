@@ -10,7 +10,8 @@ import logging
 import threading
 import time
 from enum import IntEnum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Callable, Tuple
+from collections import defaultdict
 
 from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
@@ -23,6 +24,135 @@ except ImportError:
     get_agent_config = None
 
 logger = logging.getLogger(__name__)
+
+
+class FCLWindowSizeCache:
+    """
+    Cached FCL window size computation for dynamic memory area support.
+    Tracks cortical area mappings to memory areas and computes optimal window sizes.
+    """
+    
+    def __init__(self, default_window_size: int = 20):
+        self.default_window_size = default_window_size
+        self._lock = threading.RLock()
+        
+        # Mapping tracking: cortical_id -> set(memory_area_ids) 
+        self.cortical_to_memory_mappings: Dict[str, Set[str]] = defaultdict(set)
+        
+        # Memory area properties: memory_area_id -> temporal_depth
+        self.memory_temporal_depths: Dict[str, int] = {}
+        
+        # Computed window sizes: cortical_id -> computed_window_size
+        self.computed_window_sizes: Dict[str, int] = {}
+        
+        # Memory areas registry
+        self.memory_areas: Set[str] = set()
+        
+        logger.info("FCLWindowSizeCache initialized with default window size: %d", default_window_size)
+    
+    def register_memory_area(self, cortical_id: str, temporal_depth: int) -> None:
+        """Register a new memory cortical area with its temporal depth."""
+        with self._lock:
+            self.memory_areas.add(cortical_id)
+            self.memory_temporal_depths[cortical_id] = temporal_depth
+            # Invalidate any cortical areas that might be affected
+            self._invalidate_dependent_areas(cortical_id)
+            logger.debug("Registered memory area %s with temporal_depth=%d", cortical_id, temporal_depth)
+    
+    def unregister_memory_area(self, cortical_id: str) -> None:
+        """Unregister a memory cortical area."""
+        with self._lock:
+            self.memory_areas.discard(cortical_id)
+            self.memory_temporal_depths.pop(cortical_id, None)
+            # Remove from all mappings
+            for source_id in list(self.cortical_to_memory_mappings.keys()):
+                self.cortical_to_memory_mappings[source_id].discard(cortical_id)
+                if not self.cortical_to_memory_mappings[source_id]:
+                    del self.cortical_to_memory_mappings[source_id]
+            self._invalidate_dependent_areas(cortical_id)
+            logger.debug("Unregistered memory area %s", cortical_id)
+    
+    def update_memory_temporal_depth(self, memory_cortical_id: str, new_temporal_depth: int) -> None:
+        """Update temporal depth for a memory area and invalidate affected window sizes."""
+        with self._lock:
+            if memory_cortical_id in self.memory_areas:
+                old_depth = self.memory_temporal_depths.get(memory_cortical_id, 1)
+                self.memory_temporal_depths[memory_cortical_id] = new_temporal_depth
+                if old_depth != new_temporal_depth:
+                    self._invalidate_dependent_areas(memory_cortical_id)
+                    logger.debug("Updated memory area %s temporal_depth: %d -> %d", 
+                               memory_cortical_id, old_depth, new_temporal_depth)
+    
+    def add_cortical_mapping(self, source_cortical_id: str, target_cortical_id: str) -> None:
+        """Add a mapping from source cortical area to target (potentially memory) area."""
+        with self._lock:
+            if target_cortical_id in self.memory_areas:
+                self.cortical_to_memory_mappings[source_cortical_id].add(target_cortical_id)
+                self.invalidate_cortical_area(source_cortical_id)
+                logger.debug("Added mapping %s -> %s (memory area)", source_cortical_id, target_cortical_id)
+    
+    def remove_cortical_mapping(self, source_cortical_id: str, target_cortical_id: str) -> None:
+        """Remove a mapping from source cortical area to target area."""
+        with self._lock:
+            if source_cortical_id in self.cortical_to_memory_mappings:
+                self.cortical_to_memory_mappings[source_cortical_id].discard(target_cortical_id)
+                if not self.cortical_to_memory_mappings[source_cortical_id]:
+                    del self.cortical_to_memory_mappings[source_cortical_id]
+                self.invalidate_cortical_area(source_cortical_id)
+                logger.debug("Removed mapping %s -> %s", source_cortical_id, target_cortical_id)
+    
+    def invalidate_cortical_area(self, cortical_id: str) -> None:
+        """Invalidate cached window size for a specific cortical area."""
+        with self._lock:
+            self.computed_window_sizes.pop(cortical_id, None)
+            logger.debug("Invalidated window size cache for cortical area %s", cortical_id)
+    
+    def get_window_size(self, cortical_id: str) -> int:
+        """Get computed window size for cortical area (cached computation)."""
+        with self._lock:
+            # Return cached value if available
+            if cortical_id in self.computed_window_sizes:
+                return self.computed_window_sizes[cortical_id]
+            
+            # Compute window size
+            connected_memory_areas = self.cortical_to_memory_mappings.get(cortical_id, set())
+            if not connected_memory_areas:
+                # No memory areas connected, use default
+                window_size = self.default_window_size
+            else:
+                # Find maximum temporal depth among connected memory areas
+                max_temporal_depth = max(
+                    self.memory_temporal_depths.get(mem_area, 1) 
+                    for mem_area in connected_memory_areas
+                )
+                window_size = max(self.default_window_size, max_temporal_depth)
+            
+            # Cache and return
+            self.computed_window_sizes[cortical_id] = window_size
+            logger.debug("Computed window size for %s: %d (connected to %s)", 
+                        cortical_id, window_size, connected_memory_areas)
+            return window_size
+    
+    def _invalidate_dependent_areas(self, memory_cortical_id: str) -> None:
+        """Invalidate all cortical areas that map to this memory area."""
+        areas_to_invalidate = [
+            source_id for source_id, targets in self.cortical_to_memory_mappings.items()
+            if memory_cortical_id in targets
+        ]
+        for area_id in areas_to_invalidate:
+            self.invalidate_cortical_area(area_id)
+    
+    def get_debug_info(self) -> Dict:
+        """Get debug information about current cache state."""
+        with self._lock:
+            return {
+                "memory_areas": list(self.memory_areas),
+                "memory_temporal_depths": dict(self.memory_temporal_depths),
+                "cortical_to_memory_mappings": {k: list(v) for k, v in self.cortical_to_memory_mappings.items()},
+                "computed_window_sizes": dict(self.computed_window_sizes),
+                "default_window_size": self.default_window_size
+            }
+
 
 # ===== State Enums (for compatibility with existing imports) =====
 class GenomeState(IntEnum):
@@ -161,6 +291,9 @@ class FeagiStateManager:
         # Initialize Morton spatial hash tracking
         self._morton_coordinate_limit = (1 << 21)  # 2,097,152 per dimension for 21-bit Morton encoding
         self._morton_class_name = "RoaringSpatialHash"  # Current active Morton implementation
+        
+        # Initialize memory area tracking
+        self._memory_area_cache = FCLWindowSizeCache()
         
         logger.info("FeagiStateManager initialized")
         logger.info(f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}")
@@ -1326,6 +1459,66 @@ class FeagiStateManager:
             return Result.err(StateError.VALIDATION_FAILED)
         
         return Result.ok(None)
+
+    # === MEMORY AREA MANAGEMENT ===
+    
+    def register_memory_area(self, cortical_id: str, temporal_depth: int) -> Result[None]:
+        """Register a memory cortical area with its temporal depth."""
+        try:
+            self._memory_area_cache.register_memory_area(cortical_id, temporal_depth)
+            logger.info(f"Registered memory area {cortical_id} with temporal_depth={temporal_depth}")
+            return Result.ok(None)
+        except Exception as e:
+            logger.error(f"Failed to register memory area {cortical_id}: {e}")
+            return Result.err(StateError.OPERATION_FAILED)
+    
+    def unregister_memory_area(self, cortical_id: str) -> Result[None]:
+        """Unregister a memory cortical area."""
+        try:
+            self._memory_area_cache.unregister_memory_area(cortical_id)
+            logger.info(f"Unregistered memory area {cortical_id}")
+            return Result.ok(None)
+        except Exception as e:
+            logger.error(f"Failed to unregister memory area {cortical_id}: {e}")
+            return Result.err(StateError.OPERATION_FAILED)
+    
+    def update_memory_temporal_depth(self, cortical_id: str, new_temporal_depth: int) -> Result[None]:
+        """Update temporal depth for a memory area."""
+        try:
+            self._memory_area_cache.update_memory_temporal_depth(cortical_id, new_temporal_depth)
+            logger.info(f"Updated memory area {cortical_id} temporal_depth to {new_temporal_depth}")
+            return Result.ok(None)
+        except Exception as e:
+            logger.error(f"Failed to update memory area temporal depth {cortical_id}: {e}")
+            return Result.err(StateError.OPERATION_FAILED)
+    
+    def add_cortical_mapping_to_cache(self, source_cortical_id: str, target_cortical_id: str) -> None:
+        """Add cortical mapping to memory area cache (called by ConnectomeManager)."""
+        self._memory_area_cache.add_cortical_mapping(source_cortical_id, target_cortical_id)
+    
+    def remove_cortical_mapping_from_cache(self, source_cortical_id: str, target_cortical_id: str) -> None:
+        """Remove cortical mapping from memory area cache (called by ConnectomeManager)."""
+        self._memory_area_cache.remove_cortical_mapping(source_cortical_id, target_cortical_id)
+    
+    def get_fcl_window_size(self, cortical_id: str) -> int:
+        """Get computed FCL window size for cortical area."""
+        return self._memory_area_cache.get_window_size(cortical_id)
+    
+    def invalidate_fcl_window_cache(self, cortical_id: str) -> None:
+        """Invalidate FCL window size cache for cortical area."""
+        self._memory_area_cache.invalidate_cortical_area(cortical_id)
+    
+    def is_memory_area(self, cortical_id: str) -> bool:
+        """Check if cortical area is a memory area."""
+        return cortical_id in self._memory_area_cache.memory_areas
+    
+    def get_memory_areas(self) -> List[str]:
+        """Get list of all registered memory areas."""
+        return list(self._memory_area_cache.memory_areas)
+    
+    def get_memory_area_debug_info(self) -> Dict:
+        """Get debug information about memory area cache state."""
+        return self._memory_area_cache.get_debug_info()
 
 
 class GenomeTransaction:

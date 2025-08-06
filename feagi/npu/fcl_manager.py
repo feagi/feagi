@@ -321,6 +321,11 @@ class FCLManager:
         self.window_size: int = window_size
         self.default_window_size: int = window_size  # For backward compatibility
 
+        # Dynamic window sizing integration with StateManager
+        self._state_manager = None
+        self._dynamic_sizing_enabled = False
+        self._cortical_window_sizes: Dict[CorticalIdx, int] = {}  # Cache for dynamic window sizes
+
         # WGPU-COMPATIBLE: Pre-allocate BitMaps more efficiently
         # Main FCL history - stores all neurons regardless of cortical
         self.global_fcl_history: List[BitMap] = []
@@ -349,6 +354,116 @@ class FCLManager:
 
         # Logger
         self.logger = setup_logger("feagi.npu.fcl_manager")
+
+        # Initialize StateManager integration for dynamic window sizing
+        self._initialize_state_manager_integration()
+
+    def _initialize_state_manager_integration(self) -> None:
+        """Initialize integration with StateManager for dynamic window sizing."""
+        try:
+            from feagi.core.state_manager import get_state_manager
+            self._state_manager = get_state_manager()
+            self._dynamic_sizing_enabled = True
+            self.logger.info("FCL Manager: Dynamic window sizing enabled via StateManager")
+        except Exception as e:
+            self.logger.warning(f"FCL Manager: Could not initialize StateManager integration: {e}")
+            self._dynamic_sizing_enabled = False
+
+    def enable_dynamic_window_sizing(self, enabled: bool = True) -> None:
+        """Enable or disable dynamic window sizing based on memory areas."""
+        if enabled and self._state_manager is None:
+            self._initialize_state_manager_integration()
+        
+        self._dynamic_sizing_enabled = enabled and self._state_manager is not None
+        self.logger.info(f"FCL Manager: Dynamic window sizing {'enabled' if self._dynamic_sizing_enabled else 'disabled'}")
+
+    def update_cortical_window_size(self, cortical_idx: CorticalIdx, new_window_size: int) -> bool:
+        """
+        Update window size for a cortical area and resize its history if needed.
+        
+        Args:
+            cortical_idx: Cortical area index
+            new_window_size: New window size
+            
+        Returns:
+            True if successful
+        """
+        if cortical_idx not in self.cortical_fcl_history:
+            # Initialize new cortical history with new window size
+            self.cortical_fcl_history[cortical_idx] = []
+            for _ in range(new_window_size):
+                self.cortical_fcl_history[cortical_idx].append(BitMap())
+        else:
+            # Resize existing history
+            current_history = self.cortical_fcl_history[cortical_idx]
+            current_size = len(current_history)
+            
+            if new_window_size > current_size:
+                # Expand history
+                for _ in range(new_window_size - current_size):
+                    current_history.append(BitMap())
+            elif new_window_size < current_size:
+                # Shrink history (keep most recent data)
+                self.cortical_fcl_history[cortical_idx] = current_history[-new_window_size:]
+        
+        # Update cached window size
+        self._cortical_window_sizes[cortical_idx] = new_window_size
+        
+        self.logger.debug(f"Updated window size for cortical_idx {cortical_idx} to {new_window_size}")
+        return True
+
+    def get_cortical_window_size(self, cortical_idx: CorticalIdx) -> int:
+        """
+        Get the window size for a specific cortical area with dynamic sizing support.
+
+        Args:
+            cortical_idx: ID of the cortical area
+
+        Returns:
+            Window size for the specified cortical area
+        """
+        # Check if dynamic sizing is enabled and we have a state manager
+        if self._dynamic_sizing_enabled and self._state_manager is not None:
+            try:
+                # First check cached value
+                if cortical_idx in self._cortical_window_sizes:
+                    return self._cortical_window_sizes[cortical_idx]
+                
+                # Get cortical ID from index mapping
+                cortical_id = self._get_cortical_id_from_index(cortical_idx)
+                if cortical_id:
+                    # Query StateManager for dynamic window size
+                    dynamic_size = self._state_manager.get_fcl_window_size(cortical_id)
+                    # Cache the result
+                    self._cortical_window_sizes[cortical_idx] = dynamic_size
+                    return dynamic_size
+            except Exception as e:
+                self.logger.warning(f"Error getting dynamic window size for cortical_idx {cortical_idx}: {e}")
+        
+        # Fallback to legacy behavior
+        if cortical_idx in self.custom_cortical_history:
+            return self.custom_cortical_history[cortical_idx][0]
+        return self.default_window_size
+
+    def _get_cortical_id_from_index(self, cortical_idx: CorticalIdx) -> Optional[str]:
+        """Convert cortical index to cortical ID using ConnectomeManager mapping."""
+        try:
+            from feagi.bdu.connectome_manager import ConnectomeManager
+            connectome_manager = ConnectomeManager.instance()
+            return connectome_manager.get_cortical_id_by_idx(cortical_idx)
+        except Exception as e:
+            self.logger.debug(f"Could not resolve cortical_idx {cortical_idx} to cortical_id: {e}")
+            return None
+
+    def invalidate_cortical_window_cache(self, cortical_idx: CorticalIdx) -> None:
+        """Invalidate cached window size for a cortical area."""
+        self._cortical_window_sizes.pop(cortical_idx, None)
+        self.logger.debug(f"Invalidated window size cache for cortical_idx {cortical_idx}")
+
+    def clear_all_window_caches(self) -> None:
+        """Clear all cached window sizes to force recomputation."""
+        self._cortical_window_sizes.clear()
+        self.logger.info("Cleared all FCL window size caches")
 
     def register_memory_cortical(
         self, cortical_idx: CorticalIdx, window_size: int
@@ -395,20 +510,6 @@ class FCLManager:
             True if this is a memory cortical area with custom window size, False otherwise
         """
         return cortical_idx in self.memory_cortical_indices
-
-    def get_cortical_window_size(self, cortical_idx: CorticalIdx) -> int:
-        """
-        Get the window size for a specific cortical area.
-
-        Args:
-            cortical_idx: ID of the cortical area
-
-        Returns:
-            Window size for the specified cortical area (custom size for memory areas, default size for others)
-        """
-        if cortical_idx in self.custom_cortical_history:
-            return self.custom_cortical_history[cortical_idx][0]
-        return self.default_window_size
 
     def _get_custom_cortical_index(
         self, cortical_idx: CorticalIdx, timestep: int

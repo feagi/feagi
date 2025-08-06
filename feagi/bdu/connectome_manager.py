@@ -36,6 +36,7 @@ from feagi.bdu.models.cortical_area import CorticalArea
 
 # Import models
 from feagi.bdu.models.neuron import NeuronArray, NeuronMappingProvider
+from feagi.bdu.models.memory_neuron import MemoryNeuronArray
 from feagi.bdu.synapse_array import GlobalSynapseArray
 
 # Import utility functions
@@ -188,6 +189,19 @@ class ConnectomeManager(NeuronMappingProvider):
             self.neuron_array._next_neuron_id = (
                 1  # Start from 1, 0 reserved for invalid
             )
+
+        # Initialize memory neuron array for memory cortical areas
+        if hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
+            max_memory_neurons = self._calculate_memory_neuron_space(config_or_max_neurons)
+        else:
+            max_memory_neurons = 50_000  # Default fallback
+        
+        self.memory_neuron_array = MemoryNeuronArray(capacity=max_memory_neurons)
+        self.logger.info(f"[CONNECTOME] Memory neuron array initialized with capacity {max_memory_neurons}")
+
+        # Memory area tracking for pattern processing
+        self.memory_areas: Set[str] = set()
+        self.memory_area_upstream_mappings: Dict[str, Set[str]] = defaultdict(set)  # memory_area -> upstream areas
 
         # Initialize cortical areas and brain regions
         self.cortical_areas: Dict[str, CorticalArea] = {}
@@ -493,6 +507,23 @@ class ConnectomeManager(NeuronMappingProvider):
             # Fallback to minimum if no genome stats available
             logger.warning(f"⚠️  [DYNAMIC SIZING] No genome stats available, using minimum: {min_synapse_space:,}")
             return min_synapse_space
+
+    def _calculate_memory_neuron_space(self, config) -> int:
+        """
+        Calculate optimal memory neuron space based on configuration.
+        
+        Args:
+            config: FeagiConfig object with connectome settings
+            
+        Returns:
+            Optimal memory neuron space size
+        """
+        # Get configuration values  
+        min_memory_neuron_space = config.get("connectome.min_memory_neuron_space", 50_000)
+        
+        logger.info(f"🧠 [MEMORY SIZING] Memory neuron space: {min_memory_neuron_space:,}")
+        
+        return min_memory_neuron_space
     
     def _get_genome_neuron_count(self, config) -> int:
         """Extract neuron count from genome stats."""
@@ -1817,6 +1848,122 @@ class ConnectomeManager(NeuronMappingProvider):
             List of area names
         """
         return [area.name for area in self.cortical_areas.values()]
+
+    # === MEMORY AREA MANAGEMENT ===
+
+    def register_memory_area(self, cortical_id: str, temporal_depth: int) -> bool:
+        """
+        Register a cortical area as a memory area with temporal depth.
+        
+        Args:
+            cortical_id: ID of the cortical area
+            temporal_depth: Temporal depth for pattern recognition
+            
+        Returns:
+            True if successful, False if area doesn't exist
+        """
+        if cortical_id not in self.cortical_areas:
+            logger.error(f"Cannot register memory area: cortical area {cortical_id} not found")
+            return False
+        
+        self.memory_areas.add(cortical_id)
+        
+        # Update StateManager cache
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            result = state_manager.register_memory_area(cortical_id, temporal_depth)
+            if result.is_err:
+                logger.error(f"Failed to register memory area in StateManager: {result.unwrap_err()}")
+                return False
+        except Exception as e:
+            logger.error(f"Error registering memory area with StateManager: {e}")
+            return False
+        
+        logger.info(f"Registered memory area {cortical_id} with temporal_depth={temporal_depth}")
+        return True
+
+    def unregister_memory_area(self, cortical_id: str) -> bool:
+        """
+        Unregister a memory area.
+        
+        Args:
+            cortical_id: ID of the memory area to unregister
+            
+        Returns:
+            True if successful
+        """
+        self.memory_areas.discard(cortical_id)
+        
+        # Remove from upstream mappings
+        for memory_area in list(self.memory_area_upstream_mappings.keys()):
+            if memory_area == cortical_id:
+                del self.memory_area_upstream_mappings[memory_area]
+        
+        # Update StateManager cache
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            result = state_manager.unregister_memory_area(cortical_id)
+            if result.is_err:
+                logger.warning(f"Failed to unregister memory area from StateManager: {result.unwrap_err()}")
+        except Exception as e:
+            logger.warning(f"Error unregistering memory area from StateManager: {e}")
+        
+        logger.info(f"Unregistered memory area {cortical_id}")
+        return True
+
+    def add_memory_area_mapping(self, source_cortical_id: str, target_cortical_id: str) -> None:
+        """
+        Add a mapping to a memory area and update FCL window cache.
+        
+        Args:
+            source_cortical_id: Source cortical area
+            target_cortical_id: Target cortical area (memory area)
+        """
+        if target_cortical_id in self.memory_areas:
+            self.memory_area_upstream_mappings[target_cortical_id].add(source_cortical_id)
+            
+            # Update StateManager cache
+            try:
+                from feagi.core.state_manager import get_state_manager
+                state_manager = get_state_manager()
+                state_manager.add_cortical_mapping_to_cache(source_cortical_id, target_cortical_id)
+                logger.debug(f"Added mapping {source_cortical_id} -> {target_cortical_id} (memory area)")
+            except Exception as e:
+                logger.warning(f"Error updating StateManager mapping cache: {e}")
+
+    def remove_memory_area_mapping(self, source_cortical_id: str, target_cortical_id: str) -> None:
+        """
+        Remove a mapping from a memory area and update FCL window cache.
+        
+        Args:
+            source_cortical_id: Source cortical area
+            target_cortical_id: Target cortical area (memory area)
+        """
+        if target_cortical_id in self.memory_area_upstream_mappings:
+            self.memory_area_upstream_mappings[target_cortical_id].discard(source_cortical_id)
+            
+            # Update StateManager cache
+            try:
+                from feagi.core.state_manager import get_state_manager
+                state_manager = get_state_manager()
+                state_manager.remove_cortical_mapping_from_cache(source_cortical_id, target_cortical_id)
+                logger.debug(f"Removed mapping {source_cortical_id} -> {target_cortical_id} (memory area)")
+            except Exception as e:
+                logger.warning(f"Error updating StateManager mapping cache: {e}")
+
+    def is_memory_area(self, cortical_id: str) -> bool:
+        """Check if a cortical area is a memory area."""
+        return cortical_id in self.memory_areas
+
+    def get_memory_areas(self) -> List[str]:
+        """Get list of all memory area IDs."""
+        return list(self.memory_areas)
+
+    def get_upstream_areas_for_memory(self, memory_cortical_id: str) -> Set[str]:
+        """Get upstream cortical areas for a memory area."""
+        return self.memory_area_upstream_mappings.get(memory_cortical_id, set())
 
     def get_all_cortical_ids(self) -> List[str]:
         """Get all cortical area IDs (6-character strings).

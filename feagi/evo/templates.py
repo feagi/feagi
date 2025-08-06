@@ -608,12 +608,41 @@ cortical_template = {
     "firing_threshold_limit": 0,
     "mp_charge_accumulation": False,
     "mp_driven_psp": False,
-    "is_mem_type": False,
+    "neuron_excitability": 1.0,  # Changed from 100 to 1.0 (100% firing probability)
+}
+
+cortical_template_memory = {
+    "sub_group_id": "",
+    "psp_uniform_distribution": True,
+    "postsynaptic_current_max": 99999,
+    "plasticity_constant": 1,
+    "cortical_mapping_dst": {},
+    "postsynaptic_current": 1,
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
     "init_lifespan": 9,
     "temporal_depth": 1,
     "neuron_excitability": 1.0,  # Changed from 100 to 1.0 (100% firing probability)
+}
+
+cortical_template_memory = {
+    "sub_group_id": "MEMORY",
+    "per_voxel_neuron_cnt": 0,  # No regular neurons for memory areas
+    "psp_uniform_distribution": True,
+    "postsynaptic_current_max": 99999,
+    "plasticity_constant": 1,
+    "cortical_mapping_dst": {},
+    "postsynaptic_current": 1,
+    "firing_threshold": 1.0,
+    "refractory_period": 0,
+    "leak_coefficient": 0,
+    "neuron_excitability": 1.0,
+    "visualization": True,
+    # Memory-specific properties
+    "init_lifespan": 9,                    # Initial neuron lifespan
+    "lifespan_growth_rate": 1.0,           # Growth rate on reactivation
+    "longterm_mem_threshold": 100,         # Long-term conversion threshold
+    "temporal_depth": 1,                   # Pattern history depth
 }
 
 
