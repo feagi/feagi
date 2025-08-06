@@ -415,7 +415,8 @@ class CorticalAreaAPI:
             # Extract properties from request
             cortical_name = request.cortical_name
             parent_region_id = request.brain_region_id  # brain_region_id maps to parent_region_id
-            sub_group_id = request.cortical_sub_group   # cortical_sub_group maps to sub_group_id
+            # Prefer sub_group_id if provided, otherwise use cortical_sub_group
+            sub_group_id = request.sub_group_id or request.cortical_sub_group
             copy_of = request.copy_of
 
             # Validate parent region
@@ -488,11 +489,19 @@ class CorticalAreaAPI:
                 parameters={
                     "cortical_group": request.cortical_group,
                     "cortical_sub_group": sub_group_id,
+                    "sub_group_id": sub_group_id,  # Add explicit sub_group_id for memory detection
                     "coordinates_2d": request.coordinates_2d,
                     "brain_region_id": parent_region_id,
                     "copy_of": copy_of,
                     "per_voxel_neuron_cnt": neuron_density,
-                    "cortical_id": cortical_id  # Pass the generated ID
+                    "cortical_id": cortical_id,  # Pass the generated ID
+                    # Include memory-specific properties if provided
+                    **{k: v for k, v in {
+                        "init_lifespan": request.init_lifespan,
+                        "lifespan_growth_rate": request.lifespan_growth_rate,
+                        "longterm_mem_threshold": request.longterm_mem_threshold,
+                        "temporal_depth": request.temporal_depth,
+                    }.items() if v is not None}
                 }
             )
             

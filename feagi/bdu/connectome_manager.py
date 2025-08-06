@@ -2141,14 +2141,41 @@ class ConnectomeManager(NeuronMappingProvider):
         """
         Extract actual neuron properties from the neuron array for a cortical area.
         
-        Returns representative neuron properties like excitability, threshold, etc.
-        by sampling neurons in the area and computing averages.
+        For regular cortical areas: Returns representative neuron properties like excitability, 
+        threshold, etc. by sampling neurons in the area and computing averages.
+        
+        For memory cortical areas: Returns properties from the area's template configuration
+        since memory areas don't have regular neurons.
         """
         try:
             area = self.get_cortical_area(cortical_id)
             if not area:
                 return {}
             
+            # Check if this is a memory cortical area
+            is_memory_area = (area.properties and 
+                            area.properties.get("sub_group_id") == "MEMORY")
+            
+            if is_memory_area:
+                # For memory areas, return properties from the area's configuration
+                # Memory areas don't have regular neurons, so we use template properties
+                memory_properties = {
+                    # Standard neuron properties (from memory template)
+                    "neuron_excitability": area.properties.get("neuron_excitability", 1.0),
+                    "firing_threshold": area.properties.get("firing_threshold", 1.0),
+                    "refractory_period": area.properties.get("refractory_period", 0),
+                    "leak_coefficient": area.properties.get("leak_coefficient", 0.0),
+                    # Memory-specific properties
+                    "init_lifespan": area.properties.get("init_lifespan", 9),
+                    "lifespan_growth_rate": area.properties.get("lifespan_growth_rate", 1.0),
+                    "longterm_mem_threshold": area.properties.get("longterm_mem_threshold", 100),
+                    "temporal_depth": area.properties.get("temporal_depth", 1),
+                    "sub_group_id": "MEMORY"
+                }
+                self.logger.debug(f"Extracted memory area properties for {cortical_id}: {memory_properties}")
+                return memory_properties
+            
+            # For regular cortical areas, extract properties from actual neurons
             cortical_idx = area.cortical_idx
             neuron_array = self.neuron_array
             
@@ -2168,7 +2195,7 @@ class ConnectomeManager(NeuronMappingProvider):
                     decay_rate_values.append(float(neuron_array.decay_rates[idx]))
                     refractory_values.append(int(neuron_array.refractory_periods[idx]))
             
-            # If no neurons found, return zeros (which is the current behavior user is seeing)
+            # If no neurons found, return zeros
             if not excitability_values:
                 return {
                     "neuron_excitability": 0.0,

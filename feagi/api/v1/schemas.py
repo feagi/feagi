@@ -344,6 +344,18 @@ class CustomCorticalAreaRequest(BaseModel):
     coordinates_2d: List[int]
     coordinates_3d: List[int]
     copy_of: Optional[str] = None
+    
+    # Support for sub_group_id field (alternative to cortical_sub_group)
+    sub_group_id: Optional[str] = None
+    
+    # Memory-specific properties for memory cortical areas
+    init_lifespan: Optional[int] = None
+    lifespan_growth_rate: Optional[float] = None
+    longterm_mem_threshold: Optional[int] = None
+    temporal_depth: Optional[int] = None
+    
+    class Config:
+        extra = "allow"  # Allow additional fields for extensibility
 
 
 class CoordinateUpdateRequest(BaseModel):

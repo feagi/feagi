@@ -1384,7 +1384,9 @@ class GenomeService(BaseService):
                         "temporal_depth": new_area.get("temporal_depth", 1),
                         "sub_group_id": "MEMORY"
                     }
+                    # Add memory properties to both top level and parameters
                     new_area.update(memory_defaults)
+                    new_area["parameters"].update(memory_defaults)
 
                 # Add to hierarchical blueprint structure
                 current_genome["blueprint"][cortical_id] = new_area
@@ -1399,12 +1401,15 @@ class GenomeService(BaseService):
                 # Create the cortical area directly in ConnectomeManager
                 # ARCHITECTURE: Don't rebuild entire brain - just add the new area to preserve existing neuron associations
                 try:
+                    # Use the enhanced parameters that include memory template properties
+                    enhanced_properties = new_area.get("parameters", {})
+                    
                     created_cortical_id = self._connectome_manager.add_cortical_area(
                         name=name,
                         dimensions=tuple([dimensions["width"], dimensions["height"], dimensions["depth"]]),
                         position=tuple([coordinates["x"], coordinates["y"], coordinates["z"]]),
                         area_type=area_type,
-                        properties=parameters or {},
+                        properties=enhanced_properties,
                         cortical_id=cortical_id
                     )
                     
