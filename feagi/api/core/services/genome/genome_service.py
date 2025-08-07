@@ -1469,6 +1469,31 @@ class GenomeService(BaseService):
                         )
                         if memory_registered:
                             self.logger.info(f"✅ Registered memory area {cortical_id} with temporal_depth={temporal_depth}")
+                            
+                            # CRITICAL: Also register with BurstEngine MemoryProcessor
+                            try:
+                                from feagi.npu.burst_engine import BurstEngine
+                                burst_engine = BurstEngine.get_instance()
+                                if burst_engine:
+                                    # Prepare memory area properties for BurstEngine registration
+                                    memory_properties = {
+                                        "temporal_depth": temporal_depth,
+                                        "init_lifespan": new_area.get("init_lifespan", 9),
+                                        "lifespan_growth_rate": new_area.get("lifespan_growth_rate", 1.0),
+                                        "longterm_mem_threshold": new_area.get("longterm_mem_threshold", 100),
+                                    }
+                                    
+                                    processor_registered = burst_engine.register_memory_area_with_processor(
+                                        cortical_id, memory_properties
+                                    )
+                                    if processor_registered:
+                                        self.logger.info(f"✅ Registered memory area {cortical_id} with MemoryProcessor")
+                                    else:
+                                        self.logger.warning(f"⚠️  Failed to register memory area {cortical_id} with MemoryProcessor")
+                                else:
+                                    self.logger.warning("⚠️  BurstEngine instance not available for memory area registration")
+                            except Exception as burst_error:
+                                self.logger.warning(f"Failed to register memory area with BurstEngine: {burst_error}")
                         else:
                             self.logger.warning(f"⚠️  Failed to register memory area {cortical_id}")
                     
@@ -2265,28 +2290,40 @@ class GenomeService(BaseService):
 
                 # Update the genome through proper pipeline
                 self._current_genome = current_genome
+                
+                # CRITICAL FIX: Persist genome changes to StateManager
+                # This ensures other parts of the system see the updated genome
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Saving updated genome to StateManager...")
+                self.state_manager.genome = current_genome
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Genome saved to StateManager successfully")
 
                 # Trigger NeuroEmbryogenesis to update ConnectomeManager
                 from feagi.bdu.embryogenesis.neuroembryogenesis import (
                     NeuroEmbryogenesis,
                 )
 
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Creating NeuroEmbryogenesis instance...")
                 embryogenesis = NeuroEmbryogenesis(
                     self._connectome_manager, self.state_manager
                 )
+                self.logger.info(f"🧠 [MAPPING-DEBUG] NeuroEmbryogenesis created successfully")
 
                 # CRITICAL FIX: Load the genome data into the NeuroEmbryogenesis instance
                 # This ensures the morphology definitions are available for cortical mapping
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Loading genome data into NeuroEmbryogenesis...")
                 if not embryogenesis._load_genome_data(current_genome):
                     self.logger.error(
-                        "Failed to load genome data into NeuroEmbryogenesis"
+                        "🧠 [MAPPING-DEBUG] ERROR: Failed to load genome data into NeuroEmbryogenesis"
                     )
                     if transaction:
                         transaction.rollback()
                     return False
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Genome data loaded successfully")
 
                 # Apply the cortical mapping update
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Calling embryogenesis.update_cortical_mapping with: {mapping}")
                 success = embryogenesis.update_cortical_mapping(mapping)
+                self.logger.info(f"🧠 [MAPPING-DEBUG] embryogenesis.update_cortical_mapping result: {success}")
 
                 if success and transaction:
                     transaction.commit()
@@ -2296,6 +2333,16 @@ class GenomeService(BaseService):
 
                 if success:
                     self.logger.info("Updated cortical mapping")
+                    
+                    # ARCHITECTURE COMPLIANCE: Invalidate StateManager cache after mapping updates
+                    # This ensures /v1/cortical_mapping/mapping shows fresh data immediately
+                    self.logger.info("🧠 [MAPPING-DEBUG] Invalidating cortical areas cache via StateManager...")
+                    try:
+                        self.state_manager.invalidate_cortical_areas_cache()
+                        self.logger.info("🧠 [MAPPING-DEBUG] Cache invalidated successfully - fresh data will be served")
+                        
+                    except Exception as cache_clear_error:
+                        self.logger.warning(f"🧠 [MAPPING-DEBUG] Cache invalidation failed: {cache_clear_error}")
 
                 return success
 
@@ -2326,70 +2373,91 @@ class GenomeService(BaseService):
             dst_area = update_data.get("dst_cortical_area")
             mapping_data = update_data.get("mapping_data", [])
 
+            self.logger.info(f"🧠 [MAPPING-DEBUG] update_cortical_mapping_properties called")
+            self.logger.info(f"🧠 [MAPPING-DEBUG] src_area: {src_area}")
+            self.logger.info(f"🧠 [MAPPING-DEBUG] dst_area: {dst_area}")
+            self.logger.info(f"🧠 [MAPPING-DEBUG] mapping_data: {mapping_data}")
+
             if not src_area or not dst_area:
                 self.logger.error(
-                    "Source and destination cortical areas must be specified"
+                    "🧠 [MAPPING-DEBUG] ERROR: Source and destination cortical areas must be specified"
                 )
                 return False
 
             if not self.is_genome_loaded():
                 self.logger.error(
-                    "Cannot update cortical mapping properties: No genome loaded"
+                    "🧠 [MAPPING-DEBUG] ERROR: Cannot update cortical mapping properties: No genome loaded"
                 )
                 return False
 
             self.logger.info(
-                f"Updating cortical mapping properties from {src_area} to {dst_area}"
+                f"🧠 [MAPPING-DEBUG] Updating cortical mapping properties from {src_area} to {dst_area}"
             )
 
             # Begin genome transaction for atomic modification
             if self.state_manager:
                 transaction = self.state_manager.begin_genome_transaction()
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Started genome transaction")
             else:
                 transaction = None
+                self.logger.warning(f"🧠 [MAPPING-DEBUG] No StateManager - no transaction protection")
 
             try:
                 # Get current genome for modification
                 current_genome = self.get_genome()
                 if not current_genome:
                     self.logger.error(
-                        "Cannot update cortical mapping properties: Genome data not available"
+                        "🧠 [MAPPING-DEBUG] ERROR: Cannot update cortical mapping properties: Genome data not available"
                     )
                     return False
+
+                self.logger.info(f"🧠 [MAPPING-DEBUG] Current genome loaded successfully")
 
                 # CRITICAL FIX: Handle empty mapping_data as deletion request
                 if not mapping_data or len(mapping_data) == 0:
                     self.logger.info(
-                        f"Empty mapping_data detected - treating as deletion request for {src_area} -> {dst_area}"
+                        f"🧠 [MAPPING-DEBUG] Empty mapping_data detected - treating as deletion request for {src_area} -> {dst_area}"
                     )
                     # Use the delete_cortical_mapping method for proper synapse removal
                     success = self.delete_cortical_mapping(src_area, dst_area)
+                    self.logger.info(f"🧠 [MAPPING-DEBUG] Deletion result: {success}")
                 else:
                     # Convert mapping_data to the expected format for normal updates
                     formatted_mapping = {src_area: {dst_area: mapping_data}}
+                    self.logger.info(f"🧠 [MAPPING-DEBUG] Formatted mapping: {formatted_mapping}")
+                    
                     # Use the existing update_cortical_mapping method
+                    self.logger.info(f"🧠 [MAPPING-DEBUG] Calling update_cortical_mapping...")
                     success = self.update_cortical_mapping(formatted_mapping)
+                    self.logger.info(f"🧠 [MAPPING-DEBUG] update_cortical_mapping result: {success}")
 
                 if success and transaction:
+                    self.logger.info(f"🧠 [MAPPING-DEBUG] Committing transaction...")
                     transaction.commit()
+                    self.logger.info(f"🧠 [MAPPING-DEBUG] Transaction committed successfully")
                 elif transaction:
+                    self.logger.error(f"🧠 [MAPPING-DEBUG] Rolling back transaction due to failure")
                     transaction.rollback()
                     return False
 
                 if success:
-                    self.logger.info(
-                        f"Successfully updated mapping properties from {src_area} to {dst_area}"
-                    )
+                    self.logger.info(f"🧠 [MAPPING-DEBUG] SUCCESS: Mapping properties updated successfully")
+                else:
+                    self.logger.error(f"🧠 [MAPPING-DEBUG] FAILURE: Mapping properties update failed")
 
                 return success
 
             except Exception as e:
+                self.logger.error(f"🧠 [MAPPING-DEBUG] EXCEPTION in inner try block: {e}")
+                self.logger.exception(f"🧠 [MAPPING-DEBUG] Exception traceback:")
                 if transaction:
+                    self.logger.error(f"🧠 [MAPPING-DEBUG] Rolling back transaction due to exception")
                     transaction.rollback()
                 raise e
 
         except Exception as e:
-            self.logger.error(f"Error updating cortical mapping properties: {str(e)}")
+            self.logger.error(f"🧠 [MAPPING-DEBUG] EXCEPTION in outer try block: {e}")
+            self.logger.exception(f"🧠 [MAPPING-DEBUG] Outer exception traceback:")
             return False
 
     def delete_cortical_mapping(

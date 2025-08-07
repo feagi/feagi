@@ -27,6 +27,7 @@ import numpy as np
 # import os  # REMOVED: Environment variables not available in WGPU contexts
 from feagi.core.state_manager import FeagiStateManager, ServiceState
 from feagi.npu.fcl_injection_service import FCLInjectionService
+from feagi.npu.memory_processor import MemoryProcessor
 
 # New imports for power area injection
 from feagi.utils.logger import setup_logger
@@ -584,7 +585,11 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 logger.info(
                     "[NPU-DEBUG] BURST ENGINE: Processing memory areas for temporal patterns"
                 )
+                logger.info(f"[NPU-DEBUG] Active memory areas: {list(self.memory_processor.active_memory_areas)}")
             self._process_memory_areas(current_timestep)
+        else:
+            if state_manager.is_debug_npu_enabled():
+                logger.info("[NPU-DEBUG] BURST ENGINE: No MemoryProcessor - skipping memory processing")
 
         # 6. Debug fire queue output if --debug-npu flag is enabled
         if self.debug_npu:
@@ -1045,58 +1050,90 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
             return False
 
     def _initialize_memory_processor(self) -> None:
-        """Initialize MemoryProcessor for memory cortical area processing."""
+        """Initialize the memory processor if ConnectomeManager has memory_neuron_array."""
         try:
-            from feagi.npu.memory_processor import MemoryProcessor
-            
-            # Get memory configuration from config or use defaults
-            batch_size = self.config.get("memory_processing_batch_size", 100)
-            pattern_cache_size = self.config.get("memory_pattern_cache_size", 10000)
-            
-            # Initialize MemoryProcessor with ConnectomeManager's memory neuron array
+            # Check if we have access to the memory neuron array
             if hasattr(self.connectome_manager, 'memory_neuron_array'):
+                memory_config = self.config.get("memory_processing", {})
+                batch_size = memory_config.get("batch_size", 100)
+                cache_size = memory_config.get("pattern_cache_size", 10000)
+                
+                logger.info(f"[MEMORY-INIT] Starting MemoryProcessor initialization...")
+                logger.info(f"[MEMORY-INIT] Config: batch_size={batch_size}, cache_size={cache_size}")
+                logger.info(f"[MEMORY-INIT] ConnectomeManager type: {type(self.connectome_manager)}")
+                logger.info(f"[MEMORY-INIT] Has memory_neuron_array: {hasattr(self.connectome_manager, 'memory_neuron_array')}")
+                
+                if hasattr(self.connectome_manager, 'memory_neuron_array'):
+                    array_capacity = getattr(self.connectome_manager.memory_neuron_array, 'capacity', 'unknown')
+                    logger.info(f"[MEMORY-INIT] Memory neuron array capacity: {array_capacity}")
+                
+                # DEBUG: Check parameters before MemoryProcessor call
+                logger.info(f"[MEMORY-INIT] About to create MemoryProcessor...")
+                logger.info(f"[MEMORY-INIT] memory_neuron_array type: {type(self.connectome_manager.memory_neuron_array)}")
+                logger.info(f"[MEMORY-INIT] fcl_manager type: {type(self.fcl_manager)}")
+                logger.info(f"[MEMORY-INIT] fcl_manager is None: {self.fcl_manager is None}")
+                
                 self.memory_processor = MemoryProcessor(
                     memory_neuron_array=self.connectome_manager.memory_neuron_array,
                     fcl_manager=self.fcl_manager,
                     batch_size=batch_size,
-                    pattern_cache_size=pattern_cache_size
+                    pattern_cache_size=cache_size,
+                    connectome_manager=self.connectome_manager
                 )
-                logger.info(f"MemoryProcessor initialized with batch_size={batch_size}, cache_size={pattern_cache_size}")
+                
+                logger.info(f"[MEMORY-INIT] MemoryProcessor constructor completed successfully")
+                
+                logger.info(f"[OK] MemoryProcessor initialized with batch_size={batch_size}, cache_size={cache_size}")
             else:
-                logger.warning("ConnectomeManager does not have memory_neuron_array - memory processing disabled")
+                logger.info("[MEMORY-INIT] ConnectomeManager doesn't have memory_neuron_array - MemoryProcessor not initialized")
+                self.memory_processor = None
                 
         except Exception as e:
-            logger.warning(f"Could not initialize MemoryProcessor: {e}")
+            logger.error(f"🧠 [MEMORY] Error initializing MemoryProcessor: {e}")
             self.memory_processor = None
 
     def _process_memory_areas(self, current_timestep: int) -> None:
-        """Process memory areas in parallel with neural processing."""
-        if not self.memory_processor:
-            return
-        
+        """Process memory areas for temporal pattern detection."""
         try:
-            # Process memory areas asynchronously to avoid blocking neural processing
-            import threading
+            npu_debug = self.state_manager.is_debug_npu_enabled() if self.state_manager else False
             
-            def memory_processing_thread():
-                try:
-                    results = self.memory_processor.process_memory_areas_batch(current_timestep)
-                    if self.debug_npu and results.get("success"):
-                        stats = results.get("stats", {})
-                        processing_time = results.get("processing_time_ms", 0)
-                        logger.info(f"[NPU-DEBUG] Memory processing: {stats}, time: {processing_time:.2f}ms")
-                except Exception as e:
-                    logger.error(f"Error in memory processing thread: {e}")
+            if npu_debug:
+                logger.info(f"🧠 [MEMORY] BURST ENGINE: Processing memory areas for temporal patterns")
             
-            # Start memory processing in background thread
-            thread = threading.Thread(target=memory_processing_thread, daemon=True)
-            thread.start()
+            if not self.memory_processor:
+                if npu_debug:
+                    logger.info(f"🧠 [MEMORY] BURST ENGINE: No MemoryProcessor - skipping memory processing")
+                return
+            
+            if npu_debug:
+                active_areas = list(self.memory_processor.active_memory_areas) if hasattr(self.memory_processor, 'active_memory_areas') else []
+                logger.info(f"🧠 [MEMORY] Active memory areas: {active_areas}")
+            
+            # Process memory areas - use FCL's current timestep instead of BurstEngine's internal timestep
+            fcl_current_timestep = self.fcl_manager.current_timestep if self.fcl_manager else current_timestep
+            if npu_debug:
+                logger.info(f"🧠 [MEMORY] Using FCL timestep {fcl_current_timestep} instead of BurstEngine timestep {current_timestep}")
+            memory_stats = self.memory_processor.process_memory_areas_batch(fcl_current_timestep)
+            
+            if npu_debug:
+                logger.info(f"🧠 [MEMORY] Memory processing: {memory_stats}, time: {memory_stats.get('processing_time_ms', 0):.2f}ms")
             
         except Exception as e:
-            logger.error(f"Error starting memory processing: {e}")
+            logger.error(f"🧠 [MEMORY] Error starting memory processing: {e}")
 
     def register_memory_area_with_processor(self, cortical_id: str, properties: Dict[str, Any]) -> bool:
         """Register a memory area with the memory processor."""
+        if not self.memory_processor:
+            # CRITICAL FIX: Retry MemoryProcessor initialization if it failed due to timing
+            logger.info(f"🔧 [MEMORY-FIX] MemoryProcessor is None, attempting reinitialization...")
+            self._initialize_memory_processor()
+            
+            if not self.memory_processor:
+                logger.error(f"🔧 [MEMORY-FIX] MemoryProcessor reinitialization failed")
+                return False
+            else:
+                logger.info(f"🔧 [MEMORY-FIX] MemoryProcessor reinitialization SUCCESS!")
+        
         if not self.memory_processor:
             return False
         
@@ -1121,7 +1158,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
                 upstream_areas=upstream_areas
             )
         except Exception as e:
-            logger.error(f"Error registering memory area {cortical_id}: {e}")
+            logger.error(f"🧠 [MEMORY] Error registering memory area {cortical_id}: {e}")
             return False
 
     def unregister_memory_area_from_processor(self, cortical_id: str) -> bool:
@@ -1132,7 +1169,7 @@ class BurstEngine(BurstEngineDebugMixin, BurstEnginePerformanceMixin):
         try:
             return self.memory_processor.unregister_memory_area(cortical_id)
         except Exception as e:
-            logger.error(f"Error unregistering memory area {cortical_id}: {e}")
+            logger.error(f"🧠 [MEMORY] Error unregistering memory area {cortical_id}: {e}")
             return False
 
     def get_memory_processing_statistics(self) -> Optional[Dict[str, Any]]:

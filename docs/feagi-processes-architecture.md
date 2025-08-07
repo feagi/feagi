@@ -26,6 +26,12 @@ This document contains the comprehensive architecture diagram showing all major 
 - **FeagiStateManager**: Singleton managing all system states across FEAGI
 - **State File**: Binary storage for persistent state information
 - **Service States**: Tracks status of BurstEngine and other core services
+- **Event-Driven Cache System**: High-performance caching with zero time-based expiry guessing
+  - **Cortical Areas Cache**: Cached cortical area data updated immediately on any change
+  - **Memory Area Cache**: FCL window size computation with automatic invalidation
+  - **Producer Responsibility**: ConnectomeManager triggers cache updates on all modifications
+  - **Single Source of Truth**: StateManager stores all cached data, services read from it
+  - **Architectural Compliance**: No fallbacks, no hardcoded timeouts, no stale data
 
 ### **Connectome Management Layer** ⭐ **CRITICAL**
 - **ConnectomeManager**: Singleton managing neural connectivity and structure

@@ -36,9 +36,9 @@ class CorticalAreaService(BaseService):
         """Initialize cortical area service."""
         super().__init__(connectome_manager, state_manager)
         self._genome_service = genome_service
-        # Cache for frequently accessed data
-        self._cortical_areas_cache = None
-        self._cortical_areas_cache_timestamp = 0
+        # REMOVED: Time-based cache replaced with StateManager event-driven cache
+        # self._cortical_areas_cache = None
+        # self._cortical_areas_cache_timestamp = 0
 
     def _validate_state_consistency(self) -> bool:
         """
@@ -148,33 +148,39 @@ class CorticalAreaService(BaseService):
         # Use O(1) lookup from BiDirectionalCorticalMap - no more O(N) disaster!
         return self._connectome_manager.get_cortical_id_for_idx(cortical_idx)
 
-    def get_all_areas(self) -> List[Dict[str, Any]]:
-        """Get all cortical areas from ConnectomeManager (single source of truth)."""
-        # Check if we can use the cached version
-        if self._cortical_areas_cache is not None:
-            return self._cortical_areas_cache
+    def clear_cache(self) -> None:
+        """Clear the cortical areas cache to force fresh data retrieval."""
+        # Delegate to StateManager event-driven cache
+        if self.state_manager:
+            self.state_manager.invalidate_cortical_areas_cache()
+            self.logger.debug("Cortical areas cache invalidated via StateManager")
+        else:
+            self.logger.warning("No StateManager available for cache invalidation")
 
+    def get_all_areas(self) -> List[Dict[str, Any]]:
+        """Get all cortical areas using StateManager event-driven cache."""
         try:
-            # ARCHITECTURE COMPLIANCE: Use ConnectomeManager as single source of truth
-            result = self._connectome_manager.get_all_cortical_area_properties()
-            # Filter out empty dictionaries
-            result = [area for area in result if area]
-            self.logger.debug(f"Retrieved {len(result)} areas from ConnectomeManager")
+            # ARCHITECTURE COMPLIANCE: Use StateManager as single source of truth for cache
+            if self.state_manager:
+                result = self.state_manager.get_cortical_areas_cache(self._connectome_manager)
+                self.logger.debug(f"Retrieved {len(result)} areas from StateManager cache")
+                return result
+            else:
+                # Fallback if no StateManager (shouldn't happen in production)
+                self.logger.warning("No StateManager available, falling back to direct ConnectomeManager access")
+                result = self._connectome_manager.get_all_cortical_area_properties()
+                # Filter out empty dictionaries
+                result = [area for area in result if area]
+                self.logger.debug(f"Retrieved {len(result)} areas from ConnectomeManager (fallback)")
+                return result
 
         except Exception as e:
             self.logger.error(
-                f"Error retrieving cortical areas from ConnectomeManager: {str(e)}"
+                f"Error retrieving cortical areas: {str(e)}"
             )
             import traceback
-
             self.logger.error(traceback.format_exc())
-            result = []
-
-        # Cache the result
-        self._cortical_areas_cache = result
-        self._cortical_areas_cache_timestamp = time.time()
-
-        return result
+            return []
 
     def get_area(self, cortical_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -792,5 +798,5 @@ class CorticalAreaService(BaseService):
     def refresh_cache(self):
         """Refresh cached data when state changes occur."""
         # Clear caches so they'll be rebuilt on next access
-        self._cortical_areas_cache = None
-        self._cortical_areas_cache_timestamp = 0
+        # self._cortical_areas_cache = None
+        # self._cortical_areas_cache_timestamp = 0

@@ -319,6 +319,7 @@ def apply_cli_overrides(
         "embedded": ("system", "embedded"),
         "debug_api": ("debug", "api"),
         "debug_npu": ("debug", "npu"),
+        "debug_bdu": ("debug", "bdu"),
         "debug_zmq_outbound": ("debug", "zmq_outbound"),
         "debug_zmq_inbound": ("debug", "zmq_inbound"),
     }

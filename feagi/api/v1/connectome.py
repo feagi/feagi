@@ -44,6 +44,7 @@ from .schemas import (
     CorticalAreasListResponse,
     CorticalStatsResponse,
     FileUploadRequest,
+    FireQueueResponse,
     NeuronMappingsResponse,
     NeuronPropertiesResponse,
     PlasticityInfoResponse,
@@ -136,6 +137,18 @@ class ConnectomeAPI:
         except Exception as e:
             logger.error(f"Error getting cortical info: {e}")
             raise ValueError(f"Failed to get cortical info: {str(e)}")
+
+    @connectome_endpoint(
+        "GET", "/fire_queue/{cortical_area}", response_model=FireQueueResponse
+    )
+    async def get_fire_queue(self, cortical_area: str) -> FireQueueResponse:
+        """Get fire queue data for a specific cortical area."""
+        try:
+            fire_queue_data = self.core_api_service.get_area_fire_queue(cortical_area)
+            return FireQueueResponse(fire_queue=fire_queue_data)
+        except Exception as e:
+            logger.error(f"Error getting fire queue for {cortical_area}: {e}")
+            raise ValueError(f"Failed to get fire queue: {str(e)}")
 
     @connectome_endpoint(
         "GET", "/neuron/{neuron_id}/properties", response_model=NeuronPropertiesResponse

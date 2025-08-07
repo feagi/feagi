@@ -295,6 +295,10 @@ class FeagiStateManager:
         # Initialize memory area tracking
         self._memory_area_cache = FCLWindowSizeCache()
         
+        # Initialize cortical areas cache for event-driven updates
+        self._cortical_areas_cache = None
+        self._cortical_areas_cache_dirty = True  # Mark as dirty initially
+        
         logger.info("FeagiStateManager initialized")
         logger.info(f"Morton spatial hash: {self._morton_class_name}, coordinate limit: {self._morton_coordinate_limit}")
     
@@ -918,17 +922,22 @@ class FeagiStateManager:
                 "log_level": log_level,
                 "verbose": verbose,
                 "config_loaded": True,
-                # Debug flags from command line args
-                "debug_npu": debug_config.get("debug_npu", False),
-                "debug_api": debug_config.get("debug_api", False),
-                "debug_bdu": debug_config.get("debug_bdu", False),
-                "debug_zmq_inbound": debug_config.get("debug_zmq_inbound", False),
-                "debug_zmq_outbound": debug_config.get("debug_zmq_outbound", False),
+                # Debug flags from command line args - FIXED: use correct key names from CLI mapping
+                "debug_npu": debug_config.get("npu", False),  # CLI maps debug_npu -> debug.npu
+                "debug_api": debug_config.get("api", False),  # CLI maps debug_api -> debug.api
+                "debug_bdu": debug_config.get("bdu", False),  # CLI maps debug_bdu -> debug.bdu (not defined yet)
+                "debug_zmq_inbound": debug_config.get("zmq_inbound", False),  # CLI maps debug_zmq_inbound -> debug.zmq_inbound
+                "debug_zmq_outbound": debug_config.get("zmq_outbound", False),  # CLI maps debug_zmq_outbound -> debug.zmq_outbound
             }
             
-            logger.info(
-                f"Debug configuration set: log_level={log_level}, verbose={verbose}"
-            )
+            # Show which debug flags are enabled
+            enabled_flags = [flag.replace("debug_", "") for flag, enabled in self._debug_config.items() 
+                            if flag.startswith("debug_") and enabled]
+            if enabled_flags:
+                logger.info(f"Debug configuration set: log_level={log_level}, verbose={verbose}")
+                logger.info(f"Debug flags enabled: {', '.join(enabled_flags)}")
+            else:
+                logger.info(f"Debug configuration set: log_level={log_level}, verbose={verbose}")
             
             # Log enabled debug flags
             enabled_flags = [
@@ -1519,6 +1528,60 @@ class FeagiStateManager:
     def get_memory_area_debug_info(self) -> Dict:
         """Get debug information about memory area cache state."""
         return self._memory_area_cache.get_debug_info()
+
+    # === CORTICAL AREAS CACHE MANAGEMENT ===
+    
+    def invalidate_cortical_areas_cache(self) -> None:
+        """Mark cortical areas cache as dirty - will be refreshed on next access."""
+        self._cortical_areas_cache_dirty = True
+        self._cortical_areas_cache = None
+        logger.debug("Cortical areas cache invalidated")
+    
+    def get_cortical_areas_cache(self, connectome_manager=None) -> List[Dict]:
+        """
+        Get cached cortical areas data, refreshing if needed.
+        
+        Args:
+            connectome_manager: ConnectomeManager instance to refresh from if cache is dirty
+            
+        Returns:
+            List of cortical area dictionaries
+        """
+        if self._cortical_areas_cache_dirty or self._cortical_areas_cache is None:
+            if connectome_manager is None:
+                logger.warning("Cache is dirty but no connectome_manager provided for refresh")
+                return self._cortical_areas_cache or []
+            
+            # Refresh cache from ConnectomeManager
+            try:
+                fresh_data = connectome_manager.get_all_cortical_area_properties()
+                # Filter out empty dictionaries
+                fresh_data = [area for area in fresh_data if area]
+                
+                self._cortical_areas_cache = fresh_data
+                self._cortical_areas_cache_dirty = False
+                
+                logger.debug(f"Refreshed cortical areas cache with {len(fresh_data)} areas")
+                return fresh_data
+                
+            except Exception as e:
+                logger.error(f"Failed to refresh cortical areas cache: {e}")
+                return self._cortical_areas_cache or []
+        
+        return self._cortical_areas_cache
+    
+    def update_cortical_areas_cache(self, cortical_id: str, operation: str) -> None:
+        """
+        Update cortical areas cache after operations.
+        
+        Args:
+            cortical_id: ID of the cortical area that changed
+            operation: Type of operation ('add', 'update', 'delete', 'mapping_update')
+        """
+        # For simplicity, mark cache as dirty for any operation
+        # In a more sophisticated implementation, we could selectively update
+        self._cortical_areas_cache_dirty = True
+        logger.debug(f"Marked cortical areas cache dirty due to {operation} on {cortical_id}")
 
 
 class GenomeTransaction:

@@ -12,9 +12,10 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+FEAGI v1 Cortical Mapping API
 """
 
-"""FEAGI v1 Cortical Mapping API"""
 from typing import Any, Dict, List
 
 from feagi.api.core.services.core_api_service import CoreAPIService
@@ -33,8 +34,8 @@ def cortical_mapping_endpoint(
     methods, path, request_model=None, response_model=None, description=None
 ):
     return endpoint(
-        methods=methods,
-        path=path,
+        methods,
+        path,
         request_model=request_model,
         response_model=response_model,
         description=description,
@@ -57,7 +58,9 @@ class CorticalMappingAPI:
         request_model=CreateCorticalMappingRequest, 
         response_model=SuccessResponse
     )
-    async def create_cortical_mapping(self, request: CreateCorticalMappingRequest) -> SuccessResponse:
+    async def create_cortical_mapping(
+        self, request: CreateCorticalMappingRequest
+    ) -> SuccessResponse:
         """Create a new cortical mapping between two cortical areas."""
         try:
             # Convert request to the format expected by the core API
@@ -67,7 +70,9 @@ class CorticalMappingAPI:
                         {
                             "morphology_id": request.morphology_id,
                             "morphology_scalar": request.morphology_scalar,
-                            "postSynapticCurrent_multiplier": request.postSynapticCurrent_multiplier,
+                            "postSynapticCurrent_multiplier": (
+                                request.postSynapticCurrent_multiplier
+                            ),
                             "plasticity_flag": request.plasticity_flag,
                             "plasticity_constant": request.plasticity_constant,
                             "ltp_multiplier": request.ltp_multiplier,
@@ -77,24 +82,32 @@ class CorticalMappingAPI:
                 }
             }
 
-            # Route through CoreAPIService to ensure proper hierarchical genome -> connectome flow
+            # Route through CoreAPIService to ensure proper hierarchical 
+            # genome -> connectome flow
             success = self.core_api_service.update_cortical_mapping(mapping_data)
             
             if not success:
                 raise ValueError("Failed to create cortical mapping")
             
             return SuccessResponse(
-                message=f"Cortical mapping created successfully from {request.src_cortical_area} to {request.dst_cortical_area}"
+                message=(
+                    f"Cortical mapping created successfully from "
+                    f"{request.src_cortical_area} to "
+                    f"{request.dst_cortical_area}"
+                )
             )
         except Exception as e:
-            raise ValueError(f"Failed to create cortical mapping: {str(e)}")
+            raise ValueError(f"Failed to create cortical mapping: {str(e)}") from e
 
     @cortical_mapping_endpoint("PUT", "/mapping", response_model=SuccessResponse)
     async def update_cortical_mapping(self, mapping: Dict[str, Any]) -> SuccessResponse:
+        """Update cortical mapping with new data.""" 
         success = self.core_api_service.update_cortical_mapping(mapping)
         if not success:
-            raise ValueError("Failed to update cortical mapping")
-        return SuccessResponse(message="Cortical mapping updated successfully")
+            raise ValueError("Failed to update cortical mapping") from None
+        return SuccessResponse(
+            message="Cortical mapping updated successfully"
+        )
 
     @cortical_mapping_endpoint(
         "POST",
@@ -129,7 +142,7 @@ class CorticalMappingAPI:
 
             return connections
         except Exception as e:
-            raise ValueError(f"Failed to get mapping properties: {str(e)}")
+            raise ValueError(f"Failed to get mapping properties: {str(e)}") from e
 
     @cortical_mapping_endpoint(
         "PUT",
@@ -152,11 +165,17 @@ class CorticalMappingAPI:
                 raise ValueError("Failed to update cortical mapping properties")
 
             return SuccessResponse(
-                message=f"Cortical mapping properties updated successfully from {request.src_cortical_area} to {request.dst_cortical_area}"
+                message=(
+                    f"Cortical mapping properties updated successfully from "
+                    f"{request.src_cortical_area} to "
+                    f"{request.dst_cortical_area}"
+                )
             )
 
         except Exception as e:
-            raise ValueError(f"Failed to update mapping properties: {str(e)}")
+            raise ValueError(
+                f"Failed to update mapping properties: {str(e)}"
+            ) from e
 
     @cortical_mapping_endpoint(
         "DELETE",
@@ -167,7 +186,8 @@ class CorticalMappingAPI:
     async def delete_cortical_mapping(
         self, request: CorticalMappingPropertiesRequest
     ) -> SuccessResponse:
-        """Delete cortical mapping and all associated synapses between two cortical areas."""
+        """Delete cortical mapping and all associated synapses between 
+        two cortical areas."""
         try:
             success = self.core_api_service.delete_cortical_mapping(
                 request.src_cortical_area,
@@ -178,11 +198,17 @@ class CorticalMappingAPI:
                 raise ValueError("Failed to delete cortical mapping")
 
             return SuccessResponse(
-                message=f"Cortical mapping deleted successfully from {request.src_cortical_area} to {request.dst_cortical_area}"
+                message=(
+                    f"Cortical mapping deleted successfully from "
+                    f"{request.src_cortical_area} to "
+                    f"{request.dst_cortical_area}"
+                )
             )
 
         except Exception as e:
-            raise ValueError(f"Failed to delete cortical mapping: {str(e)}")
+            raise ValueError(
+                f"Failed to delete cortical mapping: {str(e)}"
+            ) from e
 
 
 def create_cortical_mapping_api(core_api_service: CoreAPIService) -> CorticalMappingAPI:

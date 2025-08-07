@@ -640,6 +640,16 @@ class NeuroEmbryogenesis:
                     f"✅ Successfully created and verified cortical area {cortical_id} → {cortical_idx}"
                 )
 
+                # CRITICAL FIX: Register memory areas with ConnectomeManager
+                if area_type == "memory":
+                    temporal_depth = properties.get("temporal_depth", 1)
+                    logger.info(f"🧠 [MEMORY-REG] Registering memory area {cortical_id} with temporal_depth={temporal_depth}")
+                    success = self.connectome_manager.register_memory_area(cortical_id, temporal_depth)
+                    if success:
+                        logger.info(f"🧠 [MEMORY-REG] Successfully registered memory area {cortical_id}")
+                    else:
+                        logger.error(f"🧠 [MEMORY-REG] Failed to register memory area {cortical_id}")
+
                 # Report progress for remaining areas
                 remaining_progress = (
                     30 + ((i + 1) / total_remaining) * 60
@@ -1518,7 +1528,9 @@ class NeuroEmbryogenesis:
             bool: True if mapping was updated successfully
         """
         try:
-            logger.info("Applying cortical mapping updates to connectome")
+            logger.info("🧠 [MAPPING-DEBUG] NeuroEmbryogenesis.update_cortical_mapping started")
+            logger.info(f"🧠 [MAPPING-DEBUG] Input mapping: {mapping}")
+            logger.info("🧠 [MAPPING-DEBUG] Applying cortical mapping updates to connectome")
 
             if not self.connectome_manager:
                 logger.error("Cannot update cortical mapping: No connectome manager")
@@ -1662,7 +1674,22 @@ class NeuroEmbryogenesis:
                         api_mapping[dst_area_id] = connection_arrays
 
                 # Store the mapping in the cortical area properties
+                logger.info(f"🧠 [MAPPING-DEBUG] CRITICAL: Updating ConnectomeManager cortical area {src_area_id}")
+                logger.info(f"🧠 [MAPPING-DEBUG] Current properties: {src_area.properties}")
+                logger.info(f"🧠 [MAPPING-DEBUG] Setting mapping to: {api_mapping}")
                 src_area.properties["mapping"] = api_mapping
+                
+                # Update StateManager cortical areas cache
+                try:
+                    from feagi.core.state_manager import get_state_manager
+                    state_manager = get_state_manager()
+                    state_manager.update_cortical_areas_cache(src_area_id, 'mapping_update')
+                    logger.info(f"🧠 [MAPPING-DEBUG] Updated cache for area {src_area_id}")
+                except Exception as e:
+                    logger.warning(f"🧠 [MAPPING-DEBUG] Failed to update cortical areas cache for {src_area_id}: {e}")
+                
+                logger.info(f"🧠 [MAPPING-DEBUG] SUCCESS: ConnectomeManager area {src_area_id} properties updated")
+                logger.info(f"🧠 [MAPPING-DEBUG] New properties: {src_area.properties}")
 
                 # Process mappings to target areas
                 for dst_area_id, connection_data in target_mappings.items():
@@ -1853,6 +1880,37 @@ class NeuroEmbryogenesis:
             if not morphology_type:
                 logger.warning(f"No type specified for morphology {morphology_id}")
                 return 0
+
+            # CRITICAL: Special handling for memory morphology - NO synapse creation
+            if morphology_id == "memory":
+                logger.info(f"[MEMORY-MORPHOLOGY] Detected memory morphology from {src_area_id} to {dst_area_id}")
+                logger.info(f"[MEMORY-MORPHOLOGY] Registering memory mapping without creating synapses")
+                
+                # Import and call syn_memory directly to populate memory register  
+                from feagi.bdu.connectivity.rules.functions import syn_memory
+                
+                # Create memory register and populate it
+                memory_register = {}
+                syn_memory(src_area_id, dst_area_id, memory_register)
+                logger.info(f"[MEMORY-MORPHOLOGY] Memory register updated: {memory_register}")
+                
+                # Propagate memory register to ConnectomeManager (same as _process_function_morphology)
+                if memory_register:
+                    logger.info(f"[MEMORY-PROPAGATION] Memory register found with {len(memory_register)} entries: {memory_register}")
+                    for memory_area_id, upstream_area_ids in memory_register.items():
+                        logger.info(f"[MEMORY-PROPAGATION] Processing memory area {memory_area_id} with upstream areas: {upstream_area_ids}")
+                        for upstream_area_id in upstream_area_ids:
+                            try:
+                                logger.info(f"[MEMORY-PROPAGATION] Calling add_memory_area_mapping({upstream_area_id}, {memory_area_id})")
+                                self.connectome_manager.add_memory_area_mapping(upstream_area_id, memory_area_id)
+                                logger.info(f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}")
+                            except Exception as e:
+                                logger.error(f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}")
+                                logger.exception(f"[MEMORY-PROPAGATION] Full exception trace:")
+                    logger.info(f"[MEMORY-PROPAGATION] Completed processing all memory register entries")
+                
+                logger.info(f"[MEMORY-MORPHOLOGY] Memory morphology processing completed - 0 synapses created as expected")
+                return 0  # No synapses created for memory morphology
 
             # Route to appropriate processor based on morphology type
             if morphology_type == "vectors":
@@ -2342,6 +2400,23 @@ class NeuroEmbryogenesis:
                         f"{src_neuron_id}: {e}"
                     )
                     continue
+
+            # CRITICAL: Propagate memory register to ConnectomeManager for memory area tracking
+            if memory_register:
+                logger.info(f"[MEMORY-PROPAGATION] Memory register found with {len(memory_register)} entries: {memory_register}")
+                for memory_area_id, upstream_area_ids in memory_register.items():
+                    logger.info(f"[MEMORY-PROPAGATION] Processing memory area {memory_area_id} with upstream areas: {upstream_area_ids}")
+                    for upstream_area_id in upstream_area_ids:
+                        try:
+                            logger.info(f"[MEMORY-PROPAGATION] Calling add_memory_area_mapping({upstream_area_id}, {memory_area_id})")
+                            self.connectome_manager.add_memory_area_mapping(upstream_area_id, memory_area_id)
+                            logger.info(f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}")
+                        except Exception as e:
+                            logger.error(f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}")
+                            logger.exception(f"[MEMORY-PROPAGATION] Full exception trace:")
+                logger.info(f"[MEMORY-PROPAGATION] Completed processing all memory register entries")
+            else:
+                logger.info(f"[MEMORY-PROPAGATION] No memory register found for morphology {morphology_id}")
 
             return total_synapses
 

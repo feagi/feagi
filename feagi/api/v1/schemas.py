@@ -393,6 +393,12 @@ class CorticalAreaInfoResponse(BaseModel):
     area_info: Dict[str, Any]
 
 
+class FireQueueResponse(BaseModel):
+    """Response schema for fire queue data."""
+
+    fire_queue: Optional[Dict[str, Any]]
+
+
 class PlasticityInfoResponse(BaseModel):
     """Response model for plasticity information."""
 

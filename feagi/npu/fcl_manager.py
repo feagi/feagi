@@ -250,6 +250,10 @@ if PYROARING_AVAILABLE:
         def is_empty(self) -> bool:
             return len(self._bitmap) == 0
 
+        def serialize(self) -> bytes:
+            """Serialize the bitmap to bytes for pattern storage."""
+            return self._bitmap.serialize()
+
         def __repr__(self) -> str:
             return repr(self._bitmap)
 

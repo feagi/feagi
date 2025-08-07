@@ -1833,18 +1833,62 @@ class CoreAPIService:
 
     def get_cortical_mapping(self) -> Dict[str, Any]:
         """
-        Get the complete cortical mapping structure from the genome blueprint.
+        Get the simple cortical mapping structure showing source -> destination relationships.
 
         Returns:
-            Dictionary containing all cortical area mappings in the expected format
+            Dictionary containing cortical area mappings as source -> [destinations] format
         """
         try:
-            # Use the existing get_detailed_cortical_map method for consistent behavior
-            return self.get_detailed_cortical_map()
+            # Use the new simple mapping method
+            return self.get_simple_cortical_mapping()
 
         except Exception as e:
             self.logger.error(f"Error getting cortical mapping: {str(e)}")
             return {}
+
+    def get_simple_cortical_mapping(self) -> Dict[str, List[str]]:
+        """
+        Get simple cortical mapping showing only source -> destination relationships.
+
+        Returns a clean dictionary where each cortical area ID maps to a list
+        of destination cortical areas it connects to.
+
+        Returns:
+            Dict[str, List[str]]: Simple mapping of source_area -> [dest_areas]
+        """
+        try:
+            # Get all cortical areas using the correct service method
+            all_areas_list = self._cortical_area_service.get_all_areas()
+
+            # Build the simple mapping response
+            mapping_response = {}
+
+            for area_data in all_areas_list:
+                area_id = area_data.get("id")
+                if not area_id:
+                    continue
+
+                # Initialize area entry (empty list for areas with no outgoing connections)
+                mapping_response[area_id] = []
+
+                # Get the area's mapping data from its parameters
+                area_parameters = area_data.get("parameters", {})
+                area_mapping = area_parameters.get("mapping", {})
+
+                if area_mapping:
+                    # Simply collect the destination area IDs
+                    for target_area_id, connection_list in area_mapping.items():
+                        if connection_list:  # If there are any connections to this target
+                            mapping_response[area_id].append(target_area_id)
+
+            self.logger.info(
+                f"Generated simple cortical mapping for {len(mapping_response)} areas"
+            )
+            return mapping_response
+
+        except Exception as e:
+            self.logger.error(f"Error generating simple cortical mapping: {e}")
+            raise
 
     def update_cortical_mapping(self, mapping: Dict[str, Any]) -> bool:
         """

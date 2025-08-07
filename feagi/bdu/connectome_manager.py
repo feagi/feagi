@@ -191,13 +191,20 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
         # Initialize memory neuron array for memory cortical areas
-        if hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
-            max_memory_neurons = self._calculate_memory_neuron_space(config_or_max_neurons)
-        else:
-            max_memory_neurons = 50_000  # Default fallback
-        
-        self.memory_neuron_array = MemoryNeuronArray(capacity=max_memory_neurons)
-        self.logger.info(f"[CONNECTOME] Memory neuron array initialized with capacity {max_memory_neurons}")
+        try:
+            if hasattr(config_or_max_neurons, "get"):  # FeagiConfig object
+                max_memory_neurons = self._calculate_memory_neuron_space(config_or_max_neurons)
+            else:
+                max_memory_neurons = 50_000  # Default fallback
+            
+            self.memory_neuron_array = MemoryNeuronArray(capacity=max_memory_neurons)
+            self.logger.info(f"[CONNECTOME] Memory neuron array initialized with capacity {max_memory_neurons}")
+        except Exception as e:
+            # CRITICAL FIX: Always ensure memory_neuron_array exists for BurstEngine
+            self.logger.warning(f"Error initializing memory neuron array with config: {e}")
+            self.logger.info("[CONNECTOME] Fallback: Initializing memory neuron array with default capacity")
+            self.memory_neuron_array = MemoryNeuronArray(capacity=50_000)
+            self.logger.info("[CONNECTOME] Memory neuron array initialized with fallback capacity 50000")
 
         # Memory area tracking for pattern processing
         self.memory_areas: Set[str] = set()
@@ -1085,6 +1092,13 @@ class ConnectomeManager(NeuronMappingProvider):
             logger.info(
                 f"[BDU-DEBUG] Created neuron {neuron_id} in area {area.name} at position {position}"
             )
+        
+        # Update StateManager cortical areas cache
+        try:
+            state_manager.update_cortical_areas_cache(area.id, 'add')
+        except Exception as e:
+            logger.warning(f"Failed to update cortical areas cache after adding {area.id}: {e}")
+        
         return neuron_id
 
     def get_neuron(self, neuron_id: int) -> Dict[str, Any]:
@@ -1807,6 +1821,13 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.debug(
             f"Added cortical area '{name}' with ID {area.id} and cortical_idx {cortical_idx}"
         )
+        
+        # Update StateManager cortical areas cache
+        try:
+            state_manager.update_cortical_areas_cache(area.id, 'add')
+        except Exception as e:
+            logger.warning(f"Failed to update cortical areas cache after adding {area.id}: {e}")
+        
         return area.id
 
     def get_cortical_area(self, cortical_id: str) -> CorticalArea:
@@ -1862,25 +1883,51 @@ class ConnectomeManager(NeuronMappingProvider):
         Returns:
             True if successful, False if area doesn't exist
         """
+        logger.info(f"[MEMORY-REG] Starting registration for cortical_id={cortical_id}, temporal_depth={temporal_depth}")
+        
         if cortical_id not in self.cortical_areas:
             logger.error(f"Cannot register memory area: cortical area {cortical_id} not found")
+            logger.debug(f"Available cortical areas: {list(self.cortical_areas.keys())}")
             return False
         
+        logger.info(f"[MEMORY-REG] Cortical area {cortical_id} found, adding to memory_areas set")
         self.memory_areas.add(cortical_id)
+        logger.info(f"[MEMORY-REG] memory_areas set now contains: {self.memory_areas}")
         
-        # Update StateManager cache
+        # CRITICAL FIX: Initialize upstream mappings for this memory area
+        if cortical_id not in self.memory_area_upstream_mappings:
+            self.memory_area_upstream_mappings[cortical_id] = set()
+            logger.info(f"[MEMORY-REG] Initialized upstream mappings for {cortical_id}")
+        
+        # Update StateManager cache - but don't fail registration if StateManager fails
+        state_manager_success = False
         try:
+            logger.info(f"[MEMORY-REG] Importing StateManager...")
             from feagi.core.state_manager import get_state_manager
+            logger.info(f"[MEMORY-REG] Getting StateManager instance...")
             state_manager = get_state_manager()
+            logger.info(f"[MEMORY-REG] Calling state_manager.register_memory_area({cortical_id}, {temporal_depth})")
             result = state_manager.register_memory_area(cortical_id, temporal_depth)
+            logger.info(f"[MEMORY-REG] StateManager call returned: {type(result)}")
+            logger.info(f"[MEMORY-REG] Result.is_err: {result.is_err}")
+            
             if result.is_err:
-                logger.error(f"Failed to register memory area in StateManager: {result.unwrap_err()}")
-                return False
+                error_msg = result.unwrap_err()
+                logger.warning(f"StateManager registration failed: {error_msg}")
+                logger.warning(f"[MEMORY-REG] Continuing with memory area registration despite StateManager failure")
+            else:
+                logger.info(f"[MEMORY-REG] StateManager registration successful")
+                state_manager_success = True
         except Exception as e:
-            logger.error(f"Error registering memory area with StateManager: {e}")
-            return False
+            logger.warning(f"Error registering memory area with StateManager: {e}")
+            logger.exception(f"[MEMORY-REG] Full exception trace:")
+            logger.warning(f"[MEMORY-REG] Continuing with memory area registration despite StateManager failure")
         
+        # CRITICAL FIX: Don't fail memory area registration if StateManager fails
+        # The memory area should still be functional for cortical mappings
         logger.info(f"Registered memory area {cortical_id} with temporal_depth={temporal_depth}")
+        logger.info(f"[MEMORY-REG] StateManager success: {state_manager_success}")
+        logger.info(f"[MEMORY-REG] Final memory_areas set: {self.memory_areas}")
         return True
 
     def unregister_memory_area(self, cortical_id: str) -> bool:
@@ -1921,17 +1968,84 @@ class ConnectomeManager(NeuronMappingProvider):
             source_cortical_id: Source cortical area
             target_cortical_id: Target cortical area (memory area)
         """
+        logger.info(f"[MEMORY-MAPPING] Called add_memory_area_mapping({source_cortical_id} -> {target_cortical_id})")
+        logger.info(f"[MEMORY-MAPPING] Current memory_areas set: {self.memory_areas}")
+        logger.info(f"[MEMORY-MAPPING] Is {target_cortical_id} in memory_areas? {target_cortical_id in self.memory_areas}")
+        
         if target_cortical_id in self.memory_areas:
+            logger.info(f"[MEMORY-MAPPING] Target {target_cortical_id} is a registered memory area, proceeding...")
             self.memory_area_upstream_mappings[target_cortical_id].add(source_cortical_id)
+            logger.info(f"[MEMORY-MAPPING] Updated upstream mappings: {dict(self.memory_area_upstream_mappings)}")
             
             # Update StateManager cache
             try:
+                logger.info(f"[MEMORY-MAPPING] Updating StateManager cache...")
                 from feagi.core.state_manager import get_state_manager
                 state_manager = get_state_manager()
                 state_manager.add_cortical_mapping_to_cache(source_cortical_id, target_cortical_id)
                 logger.debug(f"Added mapping {source_cortical_id} -> {target_cortical_id} (memory area)")
+                logger.info(f"[MEMORY-MAPPING] StateManager cache updated successfully")
             except Exception as e:
                 logger.warning(f"Error updating StateManager mapping cache: {e}")
+                logger.exception(f"[MEMORY-MAPPING] StateManager cache update exception:")
+            
+            # CRITICAL FIX: Update MemoryProcessor with new upstream mapping
+            try:
+                logger.info(f"[MEMORY-MAPPING] Updating MemoryProcessor...")
+                from feagi.npu.burst_engine import BurstEngine
+                burst_engine = BurstEngine.get_instance()
+                if burst_engine and burst_engine.memory_processor:
+                    # CRITICAL: Ensure memory area is registered with MemoryProcessor
+                    if target_cortical_id not in burst_engine.memory_processor.active_memory_areas:
+                        logger.warning(f"[MEMORY-MAPPING] Memory area {target_cortical_id} not in active_memory_areas, registering now...")
+                        
+                        # Get memory area properties for registration
+                        area = self.cortical_areas.get(target_cortical_id)
+                        if area and hasattr(area, 'properties'):
+                            props = area.properties or {}
+                            temporal_depth = props.get("temporal_depth", 1)
+                            init_lifespan = props.get("init_lifespan", 9)
+                            lifespan_growth_rate = props.get("lifespan_growth_rate", 1.0)
+                            longterm_threshold = props.get("longterm_mem_threshold", 100)
+                            
+                            registered = burst_engine.memory_processor.register_memory_area(
+                                cortical_id=target_cortical_id,
+                                temporal_depth=temporal_depth,
+                                initial_lifespan=init_lifespan,
+                                lifespan_growth_rate=lifespan_growth_rate,
+                                longterm_threshold=longterm_threshold,
+                                upstream_areas=set()
+                            )
+                            if registered:
+                                logger.info(f"[MEMORY-MAPPING] Successfully registered {target_cortical_id} with MemoryProcessor")
+                            else:
+                                logger.error(f"[MEMORY-MAPPING] Failed to register {target_cortical_id} with MemoryProcessor")
+                        else:
+                            logger.error(f"[MEMORY-MAPPING] Cannot get properties for memory area {target_cortical_id}")
+                    
+                    # Get current upstream areas for this memory area
+                    current_upstream = self.memory_area_upstream_mappings[target_cortical_id]
+                    # Update MemoryProcessor with the complete set of upstream areas
+                    burst_engine.memory_processor.update_memory_area_upstream(target_cortical_id, current_upstream)
+                    logger.debug(f"Updated MemoryProcessor upstream areas for {target_cortical_id}: {current_upstream}")
+                    logger.info(f"[MEMORY-MAPPING] MemoryProcessor updated successfully")
+                    
+                    # ENHANCED DEBUG: Check final state
+                    logger.info(f"[MEMORY-MAPPING] Final MemoryProcessor active areas: {list(burst_engine.memory_processor.active_memory_areas)}")
+                else:
+                    logger.warning("BurstEngine or MemoryProcessor not available for upstream mapping update")
+                    logger.info(f"[MEMORY-MAPPING] BurstEngine available: {burst_engine is not None}")
+                    if burst_engine:
+                        logger.info(f"[MEMORY-MAPPING] MemoryProcessor available: {hasattr(burst_engine, 'memory_processor') and burst_engine.memory_processor is not None}")
+            except Exception as e:
+                logger.warning(f"Error updating MemoryProcessor upstream mapping: {e}")
+                logger.exception(f"[MEMORY-MAPPING] MemoryProcessor update exception:")
+            
+            logger.info(f"[MEMORY-MAPPING] Memory area mapping completed successfully")
+        else:
+            logger.error(f"[MEMORY-MAPPING] Target cortical area {target_cortical_id} is NOT in memory_areas set!")
+            logger.error(f"[MEMORY-MAPPING] Available memory areas: {list(self.memory_areas)}")
+            logger.error(f"[MEMORY-MAPPING] This will cause the memory mapping to be silently ignored!")
 
     def remove_memory_area_mapping(self, source_cortical_id: str, target_cortical_id: str) -> None:
         """
@@ -2102,25 +2216,35 @@ class ConnectomeManager(NeuronMappingProvider):
                 self.logger.error(f"Area dimensions type: {type(area.dimensions)}, value: {area.dimensions}")
                 raise conversion_error
 
+            # CRITICAL FIX: Preserve existing mapping data from NeuroEmbryogenesis
+            # The area.properties["mapping"] may contain mapping specifications that haven't
+            # been converted to actual synaptic connections yet (e.g., memory mappings)
+            existing_mapping = area.properties.get("mapping", {}) if area.properties else {}
+            
             # Ensure mapping information is included in parameters
             if "mapping" not in properties["parameters"]:
                 properties["parameters"]["mapping"] = {}
 
-            # Get all outgoing connections for this area
-            outgoing_mappings = {}
+            # Start with existing mapping data from NeuroEmbryogenesis
+            outgoing_mappings = existing_mapping.copy()
+
+            # ARCHITECTURE COMPLIANCE: Only supplement with connection matrix data
+            # if there's no existing mapping specification for that target
             for dst_area_id in self.cortical_areas.keys():
                 if dst_area_id != cortical_id:  # Skip self-connections
-                    # Get connection matrix between areas
-                    connection_matrix = self.get_connection_matrix(
-                        cortical_id, dst_area_id
-                    )
-                    if connection_matrix and connection_matrix.get("connections"):
-                        # Store mapping information
-                        outgoing_mappings[dst_area_id] = connection_matrix.get(
-                            "connections", []
+                    # Only check connection matrix if no mapping specification exists
+                    if dst_area_id not in outgoing_mappings:
+                        # Get connection matrix between areas
+                        connection_matrix = self.get_connection_matrix(
+                            cortical_id, dst_area_id
                         )
+                        if connection_matrix and connection_matrix.get("connections"):
+                            # Store mapping information
+                            outgoing_mappings[dst_area_id] = connection_matrix.get(
+                                "connections", []
+                            )
 
-            # Update mapping information in parameters
+            # Update mapping information in parameters (preserving NeuroEmbryogenesis data)
             properties["parameters"]["mapping"] = outgoing_mappings
 
             # CRITICAL FIX: Extract actual neuron properties from neuron array
@@ -2283,6 +2407,14 @@ class ConnectomeManager(NeuronMappingProvider):
                     f"{', '.join(updated_properties)}"
                 )
                 
+                # Update StateManager cortical areas cache
+                try:
+                    from feagi.core.state_manager import get_state_manager
+                    state_manager = get_state_manager()
+                    state_manager.update_cortical_areas_cache(cortical_id, 'update')
+                except Exception as e:
+                    self.logger.warning(f"Failed to update cortical areas cache after updating {cortical_id}: {e}")
+                
             return True
             
         except Exception as e:
@@ -2415,6 +2547,15 @@ class ConnectomeManager(NeuronMappingProvider):
             )
 
         logger.info(f"Deleted cortical area {cortical_id} ({area_name})")
+        
+        # Update StateManager cortical areas cache
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            state_manager.update_cortical_areas_cache(cortical_id, 'delete')
+        except Exception as e:
+            self.logger.warning(f"Failed to update cortical areas cache after deleting {cortical_id}: {e}")
+        
         return True
 
     # ----------------------------------------------------------------------
@@ -4943,6 +5084,18 @@ class ConnectomeManager(NeuronMappingProvider):
                 self.cortical_connections[connection_id][key] = value
 
         logger.info(f"Updated cortical connection {connection_id}")
+        
+        # Update StateManager cortical areas cache for mapping changes
+        try:
+            from feagi.core.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            connection = self.cortical_connections[connection_id]
+            # Invalidate cache for both source and target areas
+            state_manager.update_cortical_areas_cache(connection["source_area_id"], 'mapping_update')
+            state_manager.update_cortical_areas_cache(connection["target_area_id"], 'mapping_update')
+        except Exception as e:
+            self.logger.warning(f"Failed to update cortical areas cache after connection update {connection_id}: {e}")
+        
         return True
 
     def delete_cortical_connection(

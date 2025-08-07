@@ -612,22 +612,8 @@ cortical_template = {
 }
 
 cortical_template_memory = {
-    "sub_group_id": "",
-    "psp_uniform_distribution": True,
-    "postsynaptic_current_max": 99999,
-    "plasticity_constant": 1,
-    "cortical_mapping_dst": {},
-    "postsynaptic_current": 1,
-    "longterm_mem_threshold": 100,
-    "lifespan_growth_rate": 1,
-    "init_lifespan": 9,
-    "temporal_depth": 1,
-    "neuron_excitability": 1.0,  # Changed from 100 to 1.0 (100% firing probability)
-}
-
-cortical_template_memory = {
     "sub_group_id": "MEMORY",
-    "per_voxel_neuron_cnt": 0,  # No regular neurons for memory areas
+    "per_voxel_neuron_cnt": 10,  # CRITICAL FIX: Memory areas need real neurons for FQ Sampler
     "psp_uniform_distribution": True,
     "postsynaptic_current_max": 99999,
     "plasticity_constant": 1,
