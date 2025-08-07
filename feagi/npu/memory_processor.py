@@ -89,6 +89,13 @@ class MemoryProcessor:
         self.connectome_manager = connectome_manager  # Direct access
         self.batch_size = batch_size
         
+        # DEBUG: Log initialization state
+        logger.info(f"🧠 [MEMORY-INIT] MemoryProcessor initialized with connectome_manager: {connectome_manager is not None}")
+        if hasattr(fcl_manager, 'connectome_manager'):
+            logger.info(f"🧠 [MEMORY-INIT] FCLManager has connectome_manager: {fcl_manager.connectome_manager is not None}")
+        else:
+            logger.info(f"🧠 [MEMORY-INIT] FCLManager does NOT have connectome_manager attribute")
+        
         # Processing control
         self._processing_lock = threading.RLock()
         self._is_processing = False
@@ -341,11 +348,20 @@ class MemoryProcessor:
                 stats['neurons_created'] = 1
             else:
                 stats['neurons_reactivated'] = 1
+            
+            # 3. CRITICAL FIX: Inject active memory neurons into FCL for visualization
+            # Memory neurons must fire to be visible to FQ Sampler
+            if npu_debug:
+                logger.info(f"🧠 [MEMORY] Injecting reactivated memory neurons into FCL for {memory_area_id}")
+            
+            # For now, inject a single representative neuron (index 0) - proper implementation would 
+            # get actual memory neuron indices from the pattern cache
+            self._inject_memory_neurons_into_fcl(memory_area_id, [0], current_burst)
         else:
             if npu_debug:
                 logger.info(f"🧠 [MEMORY] No temporal pattern detected for memory area {memory_area_id} (no upstream activity)")
         
-        # 3. Perform aging and lifecycle management for all memory neurons in this area
+        # 4. Perform aging and lifecycle management for all memory neurons in this area
         if npu_debug:
             logger.info(f"🧠 [MEMORY] Performing memory neuron aging and lifecycle management")
         
@@ -594,12 +610,16 @@ class MemoryProcessor:
             List of real neuron IDs that exist in the neuron array
         """
         try:
-            # Get access to ConnectomeManager through FCL manager
-            if not hasattr(self.fcl_manager, 'connectome_manager'):
-                logger.warning(f"🧠 [MEMORY] Cannot access ConnectomeManager for memory area {memory_area_id}")
-                return []
+            # Try direct ConnectomeManager first, fallback to FCL manager approach
+            connectome_manager = None
+            if self.connectome_manager:
+                connectome_manager = self.connectome_manager
+            elif hasattr(self.fcl_manager, 'connectome_manager'):
+                connectome_manager = self.fcl_manager.connectome_manager
             
-            connectome_manager = self.fcl_manager.connectome_manager
+            if not connectome_manager:
+                logger.warning(f"🧠 [MEMORY] No ConnectomeManager available for memory area {memory_area_id}")
+                return []
             
             # Get neurons for this memory area
             memory_area_neurons = connectome_manager.get_neurons_by_cortical_area(memory_area_id)
@@ -721,12 +741,17 @@ class MemoryProcessor:
     def _get_cortical_idx_for_memory_area(self, memory_area_id: str) -> Optional[int]:
         """Get cortical_idx for a memory area."""
         try:
-            # We need access to ConnectomeManager to get cortical_idx
-            # The FCL manager should have access to this
-            if hasattr(self.fcl_manager, 'connectome_manager'):
+            # Try direct ConnectomeManager first, fallback to FCL manager approach
+            connectome_manager = None
+            if self.connectome_manager:
+                connectome_manager = self.connectome_manager
+            elif hasattr(self.fcl_manager, 'connectome_manager'):
                 connectome_manager = self.fcl_manager.connectome_manager
-                if hasattr(connectome_manager, 'cortical_mapping'):
-                    return connectome_manager.cortical_mapping.get_idx(memory_area_id)
+            
+            if connectome_manager and hasattr(connectome_manager, 'cortical_areas'):
+                area_obj = connectome_manager.cortical_areas.get(memory_area_id)
+                if area_obj and hasattr(area_obj, 'cortical_idx'):
+                    return area_obj.cortical_idx
             
             # Alternative: try to get it from the memory area properties
             area_properties = self.memory_area_properties.get(memory_area_id)
