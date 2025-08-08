@@ -1059,23 +1059,38 @@ class VisualizationStream:
                     neuron_ids = area_data.get("neuron_ids", [])
                     membrane_potentials = area_data.get("membrane_potentials", [])
 
-                    # Use high-performance coordinate extraction - real data only
-                    coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
-                    if coords_result and "coordinates_x" in coords_result:
-                        x_coords = coords_result["coordinates_x"]
-                        y_coords = coords_result["coordinates_y"]
-                        z_coords = coords_result["coordinates_z"]
+                    # MEMORY AREA FIX: Check if coordinates are already provided (for memory areas)
+                    provided_coordinates = area_data.get("coordinates", [])
+                    
+                    if provided_coordinates:
+                        # Use pre-provided coordinates (memory areas)
+                        # Convert from list of tuples to separate x,y,z lists
+                        x_coords = [coord[0] for coord in provided_coordinates]
+                        y_coords = [coord[1] for coord in provided_coordinates]
+                        z_coords = [coord[2] for coord in provided_coordinates]
+                        logger.info(f"[VIZ-DEBUG] Using provided coordinates for {area_id}: {provided_coordinates}")
                     else:
-                        # ❌ NO FALLBACKS - Coordinates must exist
-                        raise ValueError(
-                            f"Failed to get coordinates for {len(neuron_ids)} "
-                            f"neurons in area {area_id}"
-                        )
+                        # Use high-performance coordinate extraction - real data only (regular areas)
+                        coords_result = self.core_api.get_neuron_coordinates(neuron_ids)
+                        if coords_result and "coordinates_x" in coords_result:
+                            x_coords = coords_result["coordinates_x"]
+                            y_coords = coords_result["coordinates_y"]
+                            z_coords = coords_result["coordinates_z"]
+                            logger.info(f"[VIZ-DEBUG] Looked up coordinates for {area_id}: {len(x_coords)} coords")
+                        else:
+                            # ❌ NO FALLBACKS - Coordinates must exist
+                            raise ValueError(
+                                f"Failed to get coordinates for {len(neuron_ids)} "
+                                f"neurons in area {area_id}"
+                            )
 
                     # Ensure all arrays are the same length
                     max_len = len(neuron_ids)
                     if max_len == 0:
                         continue
+
+                    # DEBUG: Log array lengths before processing
+                    logger.info(f"[VIZ-DEBUG] {area_id}: neuron_ids={len(neuron_ids)}, membrane_potentials={len(membrane_potentials)}, x_coords={len(x_coords)}, y_coords={len(y_coords)}, z_coords={len(z_coords)}")
 
                     # Pad membrane potentials if needed
                     if len(membrane_potentials) < max_len:
@@ -1085,6 +1100,9 @@ class VisualizationStream:
                     elif len(membrane_potentials) > max_len:
                         membrane_potentials = membrane_potentials[:max_len]
 
+                    # DEBUG: Log final array lengths
+                    logger.info(f"[VIZ-DEBUG] {area_id} FINAL: neuron_ids={len(neuron_ids)}, membrane_potentials={len(membrane_potentials)}, x_coords={len(x_coords)}, y_coords={len(y_coords)}, z_coords={len(z_coords)}")
+
                     # Create NumPy arrays with proper dtypes for performance
                     # (following neuron_c example)
                     neurons_x = np.asarray(x_coords[:max_len], dtype=np.uint32)
@@ -1093,6 +1111,9 @@ class VisualizationStream:
                     neurons_p = np.asarray(
                         membrane_potentials[:max_len], dtype=np.float32
                     )
+
+                    # DEBUG: Log NumPy array shapes
+                    logger.info(f"[VIZ-DEBUG] {area_id} NUMPY: x.shape={neurons_x.shape}, y.shape={neurons_y.shape}, z.shape={neurons_z.shape}, p.shape={neurons_p.shape}")
 
                     # Create cortical ID
                     cortical_id_obj = fdp.cortical_data.CorticalID(str(area_id))

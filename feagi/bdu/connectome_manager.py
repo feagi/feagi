@@ -1928,6 +1928,26 @@ class ConnectomeManager(NeuronMappingProvider):
         logger.info(f"Registered memory area {cortical_id} with temporal_depth={temporal_depth}")
         logger.info(f"[MEMORY-REG] StateManager success: {state_manager_success}")
         logger.info(f"[MEMORY-REG] Final memory_areas set: {self.memory_areas}")
+        
+        # CRITICAL FIX: Register memory area with FCL manager
+        # This ensures memory areas are handled correctly by FQ Sampler
+        try:
+            area = self.cortical_areas[cortical_id]
+            cortical_idx = area.cortical_idx
+            
+            # FCL window size should be at least temporal_depth for pattern recognition
+            # Use default FCL window size as minimum to avoid issues
+            fcl_window_size = max(temporal_depth, self.fcl_manager.default_window_size)
+            
+            logger.info(f"[MEMORY-REG] Registering cortical_idx={cortical_idx} with FCL manager (window_size={fcl_window_size})")
+            self.fcl_manager.register_memory_cortical(cortical_idx, fcl_window_size)
+            logger.info(f"[MEMORY-REG] Successfully registered cortical_idx={cortical_idx} with FCL manager")
+            
+        except Exception as e:
+            logger.error(f"[MEMORY-REG] Failed to register memory area {cortical_id} with FCL manager: {e}")
+            logger.exception("[MEMORY-REG] FCL registration exception:")
+            # Don't fail the entire registration if FCL registration fails
+        
         return True
 
     def unregister_memory_area(self, cortical_id: str) -> bool:
