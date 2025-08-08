@@ -111,7 +111,7 @@ def try_stimulation_endpoints():
     
     stimulation_tests = [
         {"endpoint": "/simulation/stimulation_string", "data": {"stimulation_script": {"iv00MR": [1.0]}}},
-        {"endpoint": "/burst_engine/stimulation_period", "data": {"stimulation_period": 1.0}},
+        {"endpoint": "/burst_engine/simulation_timestep", "data": {"simulation_timestep": 1.0}},
     ]
     
     for test in stimulation_tests:

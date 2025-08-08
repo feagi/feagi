@@ -34,15 +34,16 @@ class GenomeService(BaseService):
     and genome-related operations.
     """
 
-    def __init__(self, connectome_manager, state_manager=None):
+    def __init__(self, connectome_manager, state_manager=None, core_api_service=None):
         """Initialize genome service."""
         super().__init__(connectome_manager, state_manager)
         self._current_genome = None
         self._genome_filename = None
         self._temp_dir = tempfile.mkdtemp(prefix="feagi_")
+        self._core_api_service = core_api_service
 
         self.logger.debug(
-            "GENOME SERVICE: Initialized with clean architecture - no service dependencies"
+            "GENOME SERVICE: Initialized with clean architecture"
         )
 
     def load_genome(
@@ -487,6 +488,9 @@ class GenomeService(BaseService):
                     self.logger.info(
                         f"COMPLETE brain development finished: {stats.get('total_neurons', 0)} neurons, {stats.get('total_synapses', 0)} synapses"
                     )
+
+                    # CRITICAL: Apply genome's simulation_timestep to system configuration
+                    self._apply_genome_physiology_parameters(self._current_genome, self._core_api_service)
 
                     # CRITICAL: Set genome state to LOADED only after complete brain development
                     # This ensures genome is marked as loaded ONLY when everything is truly complete
@@ -4171,3 +4175,91 @@ class GenomeService(BaseService):
             
         except Exception as e:
             self.logger.warning(f"Error removing connections for area {cortical_id}: {e}")
+
+    def _initialize_state_manager(self):
+        """Initialize state manager reference and ensure consistency."""
+        try:
+            from feagi.core.state_manager import get_state_manager
+            self.state_manager = get_state_manager()
+        except Exception as e:
+            self.logger.error(f"Failed to get state manager: {e}")
+            self.state_manager = None
+
+    def _apply_genome_physiology_parameters(self, genome_data: Dict[str, Any], core_api_service=None) -> None:
+        """
+        Apply genome physiology parameters (like simulation_timestep) to system configuration.
+        
+        This ensures the genome's simulation_timestep overwrites the current stimulation period.
+        Also maintains backward compatibility with old genomes using burst_delay.
+        
+        Args:
+            genome_data: The loaded genome data containing physiology parameters
+        """
+        try:
+            # Extract simulation_timestep from genome physiology section
+            physiology = genome_data.get("physiology", {})
+            timestep = physiology.get("simulation_timestep")
+            
+            if timestep is None:
+                # Backward compatibility: Check for burst_delay in physiology
+                timestep = physiology.get("burst_delay") 
+            
+            if timestep is None:
+                # Backward compatibility: Check for old top-level burst_delay
+                timestep = genome_data.get("burst_delay")
+            
+            if timestep is not None:
+                self.logger.info(f"📊 [GENOME] Found simulation timestep in genome: {timestep}s")
+                
+                # Validate simulation timestep
+                if not isinstance(timestep, (int, float)) or timestep <= 0:
+                    self.logger.warning(f"Invalid simulation_timestep in genome: {timestep} (must be positive number)")
+                    return
+                
+                # Convert timestep (stimulation period) to frequency
+                burst_frequency_hz = 1.0 / float(timestep)
+                
+                # Apply same validation as API endpoint
+                if burst_frequency_hz <= 0.0 or burst_frequency_hz > 10000.0:
+                    self.logger.warning(f"Invalid frequency {burst_frequency_hz}Hz from timestep {timestep}s (must be 0 < freq <= 10000)")
+                    return
+                
+                # Get state manager
+                if not self.state_manager:
+                    self.logger.warning("No state manager available - cannot apply genome simulation_timestep")
+                    return
+                
+                # Use CoreAPIService's proven burst engine update mechanism
+                if core_api_service:
+                    try:
+                        # Use the same method that manual API endpoints use
+                        config_update = {"burst_frequency_hz": burst_frequency_hz}
+                        success = core_api_service.update_burst_engine_config(config_update)
+                        
+                        if success:
+                            self.logger.info(f"✅ [GENOME] Applied genome simulation_timestep: {timestep}s → {burst_frequency_hz}Hz")
+                        else:
+                            self.logger.warning(f"Failed to apply genome frequency {burst_frequency_hz}Hz to burst engine")
+                            
+                    except Exception as e:
+                        self.logger.warning(f"Error updating burst engine with genome frequency: {e}")
+                        # Fallback to state manager only
+                        self.state_manager.set_burst_frequency(burst_frequency_hz)
+                        self.logger.info(f"✅ [GENOME] Applied genome simulation_timestep to state manager: {timestep}s → {burst_frequency_hz}Hz")
+                else:
+                    # Fallback: Update state manager only
+                    self.state_manager.set_burst_frequency(burst_frequency_hz)
+                    self.logger.info(f"✅ [GENOME] Applied genome simulation_timestep to state manager: {timestep}s → {burst_frequency_hz}Hz")
+                    self.logger.warning("CoreAPIService not available - frequency will apply on next restart")
+                    
+            else:
+                self.logger.debug("No simulation_timestep or burst_delay found in genome physiology - keeping current stimulation period")
+                
+        except Exception as e:
+            self.logger.error(f"Error applying genome physiology parameters: {e}")
+            import traceback
+            self.logger.debug(f"Genome physiology error traceback: {traceback.format_exc()}")
+
+    def get_genome_filename(self) -> Optional[str]:
+        """Get the filename of the currently loaded genome."""
+        return self._genome_filename

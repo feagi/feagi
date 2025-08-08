@@ -84,7 +84,7 @@ class CoreAPIService:
         self._system_service = SystemService(connectome_manager, self.state_manager)
         
         # Initialize genome service first - needed by other services for WRITE operations
-        self._genome_service = GenomeService(connectome_manager, self.state_manager)
+        self._genome_service = GenomeService(connectome_manager, self.state_manager, core_api_service=self)
         
         # Initialize cortical area service WITH genome service for WRITE operations
         self._cortical_area_service = CorticalAreaService(

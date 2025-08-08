@@ -137,7 +137,9 @@ class SystemAPI:
                 brain_readiness=health.get("brain_readiness", False),
                 fitness=health.get("fitness"),
                 cortical_area_count=health.get("cortical_area_count"),
-                neuron_count=health.get("neuron_count"),
+                neuron_count=health.get("neuron_count"),  # Total neurons (regular + memory)
+                memory_neuron_count=health.get("memory_neuron_count"),  # Memory neurons only
+                regular_neuron_count=health.get("regular_neuron_count"),  # Regular neurons only  
                 synapse_count=health.get("synapse_count"),
                 estimated_brain_size_in_MB=health.get("estimated_brain_size_in_MB"),
                 genome_num=health.get("genome_num"),

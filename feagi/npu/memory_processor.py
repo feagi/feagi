@@ -29,6 +29,7 @@ import threading
 from typing import Dict, Set, List, Optional, Tuple, Any
 from collections import defaultdict, deque
 from dataclasses import dataclass
+import sys # Added for sys.argv
 
 import numpy as np
 
@@ -268,13 +269,42 @@ class MemoryProcessor:
             self._is_processing = False
 
     def _is_npu_debug_enabled(self) -> bool:
-        """Check if NPU debugging is enabled."""
+        """Check if memory debugging is enabled via --debug-mem flag."""
         try:
             from feagi.core.state_manager import get_state_manager
             state_manager = get_state_manager()
-            return state_manager.is_debug_npu_enabled()
-        except:
-            return False
+            
+            # Check for memory-specific debug flag first
+            if hasattr(state_manager, 'is_mem_debug_enabled') and callable(state_manager.is_mem_debug_enabled):
+                if state_manager.is_mem_debug_enabled():
+                    return True
+            
+            # Fallback: Check config system for mem_debug flag
+            try:
+                from feagi.config.toml_loader import get_config_manager
+                config_manager = get_config_manager()
+                if config_manager:
+                    config = config_manager.get_cached_config()
+                    if config.get("mem_debug", False):
+                        return True
+            except Exception:
+                pass
+                
+            # Fallback to NPU debug for backward compatibility
+            if hasattr(state_manager, 'is_debug_npu_enabled') and callable(state_manager.is_debug_npu_enabled):
+                if state_manager.is_debug_npu_enabled():
+                    return True
+                    
+        except Exception:
+            pass
+            
+        # Last resort: Check sys.argv directly
+        if "--debug-mem" in sys.argv:
+            return True
+        if "--debug-npu" in sys.argv:
+            return True
+            
+        return False
     
     def _process_memory_area_batch(self, memory_areas: List[str], current_burst: int) -> Dict[str, int]:
         """Process a batch of memory areas."""
@@ -330,6 +360,16 @@ class MemoryProcessor:
         longterm_threshold = area_properties.get('longterm_threshold', 100)
         upstream_areas = area_properties.get('upstream_areas', set())
         
+        # CRITICAL FIX: If upstream_areas is empty, discover them dynamically
+        if not upstream_areas:
+            logger.info(f"🔍 [MEMORY] No cached upstream areas for {memory_area_id}, discovering dynamically...")
+            upstream_areas = self._discover_upstream_areas(memory_area_id)
+            
+            # Update the cached properties to avoid repeated discovery
+            if upstream_areas:
+                self.memory_area_properties[memory_area_id]["upstream_areas"] = upstream_areas
+                logger.info(f"🔍 [MEMORY] Updated cached upstream areas for {memory_area_id}: {upstream_areas}")
+        
         if npu_debug:
             logger.info(f"🧠 [MEMORY] Memory area {memory_area_id}: temporal_depth={temporal_depth}, upstream_areas={upstream_areas}")
         
@@ -340,14 +380,54 @@ class MemoryProcessor:
             stats['patterns_processed'] = 1
             if npu_debug:
                 logger.info(f"🧠 [MEMORY] Pattern detected for {memory_area_id}: creating/reactivating memory neuron")
+                logger.info(f"🔍 [MEMORY] PATTERN DEBUG: {temporal_pattern}")
+                logger.info(f"🔍 [MEMORY] Pattern serialized: {temporal_pattern.serialize() if hasattr(temporal_pattern, 'serialize') else 'No serialize method'}")
             
             # 2. Find or create memory neuron for this pattern
-            memory_neuron_created = self._find_or_cache_pattern(temporal_pattern)
+            existing_neuron_idx = self._find_or_cache_pattern(temporal_pattern)
             
-            if memory_neuron_created:
-                stats['neurons_created'] = 1
-            else:
+            if npu_debug:
+                if existing_neuron_idx is not None:
+                    logger.info(f"🔍 [MEMORY] Pattern lookup result: FOUND existing neuron #{existing_neuron_idx}")
+                else:
+                    logger.info(f"🔍 [MEMORY] Pattern lookup result: NOT FOUND - will create NEW neuron")
+            
+            if existing_neuron_idx is not None:
+                # EXISTING neuron found - reactivate it
                 stats['neurons_reactivated'] = 1
+                if npu_debug:
+                    logger.info(f"🌟 [MEMORY] Pattern found: reactivating existing memory neuron {existing_neuron_idx}")
+                    logger.info(f"🔄 [MEMORY] EXISTING PATTERN detected - no new neuron created")
+                # TODO: Reactivate the existing memory neuron (extend lifespan, etc.)
+            else:
+                # NO existing neuron - create a new one
+                try:
+                    new_neuron_idx = self.memory_neuron_array.create_memory_neuron(
+                        pattern_key=temporal_pattern,
+                        cortical_area_id=memory_area_id,
+                        current_burst=current_burst,
+                        initial_lifespan=20,  # TODO: Make configurable
+                        lifespan_growth_rate=1.2  # TODO: Make configurable
+                    )
+                    stats['neurons_created'] = 1
+                    if npu_debug:
+                        logger.info(f"⭐ ⭐ ⭐ [MEMORY] 🆕 NEW MEMORY NEURON BORN! ⭐ ⭐ ⭐")
+                        logger.info(f"⭐ [MEMORY] Created memory neuron #{new_neuron_idx} for area {memory_area_id}")
+                        logger.info(f"⭐ [MEMORY] Pattern: {temporal_pattern}")
+                        logger.info(f"⭐ [MEMORY] This is a COMPLETELY NEW pattern - neuron count should increase!")
+                    
+                    # CRITICAL FIX: Update StateManager neuron count
+                    self._update_state_manager_neuron_count(increment=1)
+                    
+                    # Add new neuron to pattern cache
+                    self._add_to_pattern_cache(temporal_pattern, new_neuron_idx)
+                    
+                except Exception as e:
+                    logger.error(f"🚨 [MEMORY] CRITICAL ERROR: Failed to create memory neuron for {memory_area_id}: {e}")
+                    logger.error(f"🚨 [MEMORY] Exception details: {type(e).__name__}: {str(e)}")
+                    import traceback
+                    logger.error(f"🚨 [MEMORY] Full traceback: {traceback.format_exc()}")
+                    # Don't let memory neuron creation failure block the entire process
             
             # 3. CRITICAL FIX: Inject active memory neurons into FCL for visualization
             # Memory neurons must fire to be visible to FQ Sampler
@@ -369,12 +449,33 @@ class MemoryProcessor:
             died_neurons = self.memory_neuron_array.age_memory_neurons(current_burst)
             stats['neurons_died'] = len(died_neurons)
             
+            # CRITICAL FIX: Update StateManager neuron count when neurons die
+            if died_neurons:
+                self._update_state_manager_neuron_count(increment=-len(died_neurons))
+            
             # Check for long-term memory conversion
-            converted_neurons = self.memory_neuron_array.check_longterm_conversion(longterm_threshold)
+            converted_neurons = []
+            for area_id, properties in self.memory_area_properties.items():
+                longterm_threshold = properties["longterm_threshold"]
+                area_conversions = self.memory_neuron_array.check_longterm_conversion(longterm_threshold)
+                converted_neurons.extend(area_conversions)
+            
+            # Enhanced logging for conversions
+            npu_debug = self._is_npu_debug_enabled()
+            if converted_neurons and npu_debug:
+                logger.info(f"🏆 [MEMORY] 🔮 LONG-TERM ASCENSION COMPLETE! 🔮")
+                logger.info(f"🏆 [MEMORY] {len(converted_neurons)} memory neurons have achieved IMMORTALITY!")
+                logger.info(f"🏆 [MEMORY] Converted neuron IDs: {converted_neurons}")
+                logger.info(f"🏆 [MEMORY] These neurons will never age or die - they are now part of permanent memory!")
+            elif converted_neurons:
+                logger.info(f"🧠 [MEMORY] Memory neuron lifecycle: {len(died_neurons)} died, {len(converted_neurons)} converted to long-term")
+            
+            # Update stats
             stats['neurons_converted'] = len(converted_neurons)
             
-            if npu_debug and (died_neurons or converted_neurons):
-                logger.info(f"🧠 [MEMORY] Memory neuron lifecycle: {len(died_neurons)} died, {len(converted_neurons)} converted to long-term")
+            # Remove dead neurons from cache
+            for neuron_idx in died_neurons:
+                self._remove_neuron_from_cache(neuron_idx)
                 
         except Exception as e:
             if npu_debug:
@@ -445,6 +546,10 @@ class MemoryProcessor:
                             
                             if npu_debug:
                                 neuron_count = len(area_bitmap)
+                                # Show first 10 neuron IDs for debugging
+                                firing_neurons = list(area_bitmap)[:10]
+                                more_indicator = "..." if len(area_bitmap) > 10 else ""
+                                logger.info(f"🔍 [MEMORY] Timestep {timestep}: area {upstream_area_id} has {neuron_count} firing neurons: {firing_neurons}{more_indicator}")
                                 logger.info(f"🧠 [MEMORY] Timestep {timestep}: area {upstream_area_id} has {neuron_count} firing neurons")
                     except Exception as area_error:
                         if npu_debug:
@@ -479,6 +584,10 @@ class MemoryProcessor:
             
             if npu_debug:
                 logger.info(f"🧠 [MEMORY] PATTERN CREATED: {len(non_empty_patterns)}/{temporal_depth} non-empty timesteps, source_areas={pattern_key.source_cortical_areas}")
+                logger.info(f"🔍 [MEMORY] Pattern details: temporal_depth={temporal_depth}, pattern_data_length={len(pattern_key.pattern_data)}")
+                # Show pattern fingerprint for debugging
+                pattern_fingerprint = hash(pattern_key.pattern_data) % 10000  # Last 4 digits of hash
+                logger.info(f"🔍 [MEMORY] Pattern fingerprint: #{pattern_fingerprint:04d} (for pattern comparison)")
             
             return pattern_key
             
@@ -517,279 +626,59 @@ class MemoryProcessor:
         self._pattern_cache[pattern_key] = neuron_idx
         self._pattern_access_order.append(pattern_key)
     
-    def _cleanup_pattern_cache_for_area(self, cortical_id: str) -> None:
-        """Remove cached patterns for a specific cortical area."""
-        keys_to_remove = []
-        for pattern_key in self._pattern_cache:
-            if cortical_id in pattern_key.source_cortical_areas:
-                keys_to_remove.append(pattern_key)
-        
-        for key in keys_to_remove:
-            del self._pattern_cache[key]
-            self._pattern_access_order.remove(key)
-    
-    def _inject_memory_neurons_into_fcl(
-        self, 
-        memory_area_id: str, 
-        memory_neuron_indices: List[int], 
-        current_burst: int
-    ) -> None:
+    def _update_state_manager_neuron_count(self, increment: int) -> None:
         """
-        Inject active memory neurons into FCL so they appear as firing neurons.
-        
-        ARCHITECTURE FIX: Instead of using virtual neuron IDs, we need to ensure
-        memory areas have real neurons that the FQ Sampler can look up.
+        Update StateManager neuron count when memory neurons are created/destroyed.
         
         Args:
-            memory_area_id: ID of the memory cortical area
-            memory_neuron_indices: List of memory neuron indices that should fire
-            current_burst: Current burst timestep
+            increment: Number of neurons added (positive) or removed (negative)
         """
         try:
-            npu_debug = self._is_npu_debug_enabled()
-            if npu_debug:
-                logger.info(f"🧠 [MEMORY] FCL INJECTION START: area={memory_area_id}, neurons={memory_neuron_indices}, burst={current_burst}")
+            from feagi.core.state_manager import FeagiStateManager
+            state_manager = FeagiStateManager.instance()
             
-            # CRITICAL FIX: Get actual neuron IDs from memory area instead of creating virtual ones
-            # Memory areas should have real neurons that FQ Sampler can look up
-            real_neuron_ids = self._get_real_neuron_ids_for_memory_area(memory_area_id, memory_neuron_indices)
+            # Get current brain stats
+            current_stats = state_manager.get_brain_stats()
+            current_count = current_stats.get("neuron_count", 0)
             
-            if not real_neuron_ids:
-                if npu_debug:
-                    logger.warning(f"🧠 [MEMORY] No real neuron IDs available for memory area {memory_area_id} - this will cause FQ Sampler issues!")
-                return
+            # Update neuron count
+            new_count = max(0, current_count + increment)  # Ensure non-negative
+            updated_stats = current_stats.copy()
+            updated_stats["neuron_count"] = new_count
             
-            if npu_debug:
-                logger.info(f"🧠 [MEMORY] Using real neuron IDs for FCL injection: {real_neuron_ids}")
+            # Update StateManager
+            result = state_manager.set_brain_stats(updated_stats)
             
-            # Get cortical_idx for the memory area
-            cortical_idx = self._get_cortical_idx_for_memory_area(memory_area_id)
+            # DEBUG: Detailed result type analysis
+            logger.info(f"🔍 [MEMORY] StateManager result type: {type(result)}")
+            logger.info(f"🔍 [MEMORY] StateManager result value: {result}")
+            logger.info(f"🔍 [MEMORY] Has is_err attr: {hasattr(result, 'is_err')}")
+            if hasattr(result, 'is_err'):
+                logger.info(f"🔍 [MEMORY] is_err callable: {callable(getattr(result, 'is_err'))}")
             
-            if cortical_idx is not None:
-                if npu_debug:
-                    logger.info(f"🧠 [MEMORY] Found cortical_idx={cortical_idx} for memory area {memory_area_id}")
-                    logger.info(f"�� [MEMORY] Injecting real neuron IDs {real_neuron_ids} into FCL")
+            # Handle both boolean and Result return types for compatibility
+            if hasattr(result, 'is_err') and callable(getattr(result, 'is_err')):
+                # Result object - check if it actually succeeded
+                logger.info(f"🔍 [MEMORY] Processing as Result object")
+                if result.is_err():
+                    logger.error(f"🚨 [MEMORY] FAILED to update StateManager neuron count: {result.err()}")
+                else:
+                    logger.info(f"⭐ [MEMORY] ✅ StateManager neuron count updated: {current_count} → {new_count} (Δ{increment:+d})")
+                    logger.info(f"⭐ [MEMORY] 📊 Total brain neurons now: {new_count}")
+            elif isinstance(result, bool):
+                # Boolean return type
+                logger.info(f"🔍 [MEMORY] Processing as boolean: {result}")
+                if not result:
+                    logger.error(f"🚨 [MEMORY] FAILED to update StateManager neuron count: returned False")
+                else:
+                    logger.info(f"⭐ [MEMORY] ✅ StateManager neuron count updated: {current_count} → {new_count} (Δ{increment:+d})")
+                    logger.info(f"⭐ [MEMORY] 📊 Total brain neurons now: {new_count}")
+            else:
+                # Unknown return type, log for debugging but assume failure
+                logger.error(f"🚨 [MEMORY] StateManager returned unexpected type: {type(result)} = {result}")
+                logger.error(f"🚨 [MEMORY] Cannot verify if neuron count update succeeded!")
                 
-                # Inject memory neurons into FCL using real neuron IDs
-                neurons_by_cortical = {cortical_idx: real_neuron_ids}
-                self.fcl_manager.update_fcl(current_burst, neurons_by_cortical)
-                
-                if npu_debug:
-                    logger.info(f"🧠 [MEMORY] FCL INJECTION SUCCESS: {len(real_neuron_ids)} memory neurons injected")
-                    
-                    # Verify FCL contains our real neurons
-                    try:
-                        fcl_bitmap = self.fcl_manager.get_cortical_fcl(cortical_idx, current_burst)
-                        if fcl_bitmap:
-                            fcl_neurons = list(fcl_bitmap)
-                            logger.info(f"🧠 [MEMORY] FCL verification: area {memory_area_id} now has {len(fcl_neurons)} neurons in FCL")
-                            logger.info(f"🧠 [MEMORY] FCL contains our real IDs: {[nid for nid in real_neuron_ids if nid in fcl_neurons]}")
-                            logger.info(f"🧠 [MEMORY] SUCCESS: These are REAL neuron IDs - FQ Sampler should find them!")
-                        else:
-                            logger.warning(f"🧠 [MEMORY] FCL verification failed: no neurons found for area {memory_area_id}")
-                    except Exception as e:
-                        logger.warning(f"🧠 [MEMORY] FCL verification error: {e}")
-            else:
-                logger.warning(f"🧠 [MEMORY] Could not get cortical_idx for memory area {memory_area_id} - FCL injection failed")
-            
         except Exception as e:
-            logger.error(f"🧠 [MEMORY] Error injecting memory neurons into FCL: {e}")
-    
-    def _get_real_neuron_ids_for_memory_area(self, memory_area_id: str, memory_neuron_indices: List[int]) -> List[int]:
-        """
-        Get real neuron IDs for memory neurons in a memory area.
-        
-        This method ensures memory areas have actual neurons that FQ Sampler can look up.
-        If memory area doesn't have enough neurons, we need to create them.
-        
-        Args:
-            memory_area_id: Memory cortical area ID
-            memory_neuron_indices: List of memory neuron indices that should fire
-            
-        Returns:
-            List of real neuron IDs that exist in the neuron array
-        """
-        try:
-            # Try direct ConnectomeManager first, fallback to FCL manager approach
-            connectome_manager = None
-            if self.connectome_manager:
-                connectome_manager = self.connectome_manager
-            elif hasattr(self.fcl_manager, 'connectome_manager'):
-                connectome_manager = self.fcl_manager.connectome_manager
-            
-            if not connectome_manager:
-                logger.warning(f"🧠 [MEMORY] No ConnectomeManager available for memory area {memory_area_id}")
-                return []
-            
-            # Get neurons for this memory area
-            memory_area_neurons = connectome_manager.get_neurons_by_cortical_area(memory_area_id)
-            
-            if not memory_area_neurons:
-                logger.warning(f"🧠 [MEMORY] Memory area {memory_area_id} has no neurons! Memory areas need real neurons for FQ Sampler.")
-                # TODO: We should create neurons for memory areas during creation
-                return []
-            
-            # Map memory neuron indices to real neuron IDs
-            # For now, use the first N neurons from the memory area
-            max_needed = max(memory_neuron_indices) + 1 if memory_neuron_indices else 0
-            available_neurons = list(memory_area_neurons)
-            
-            if len(available_neurons) < max_needed:
-                logger.warning(f"🧠 [MEMORY] Memory area {memory_area_id} has {len(available_neurons)} neurons but needs {max_needed}")
-                # Use what we have, cycling if necessary
-                real_neuron_ids = []
-                for mem_idx in memory_neuron_indices:
-                    if mem_idx < len(available_neurons):
-                        real_neuron_ids.append(available_neurons[mem_idx])
-                    else:
-                        # Cycle through available neurons
-                        real_neuron_ids.append(available_neurons[mem_idx % len(available_neurons)])
-                return real_neuron_ids
-            else:
-                # Direct mapping: memory_neuron_index -> available_neurons[index]
-                return [available_neurons[mem_idx] for mem_idx in memory_neuron_indices]
-            
-        except Exception as e:
-            logger.error(f"🧠 [MEMORY] Error getting real neuron IDs for memory area {memory_area_id}: {e}")
-            return []
-
-    def _perform_aging_and_lifecycle(self, current_burst: int) -> Dict[str, int]:
-        """Perform aging and lifecycle management for all memory neurons."""
-        # Age all memory neurons
-        died_neurons = self.memory_neuron_array.age_memory_neurons(current_burst)
-        
-        # Check for long-term memory conversions
-        converted_neurons = []
-        for area_id, properties in self.memory_area_properties.items():
-            longterm_threshold = properties["longterm_threshold"]
-            area_conversions = self.memory_neuron_array.check_longterm_conversion(longterm_threshold)
-            converted_neurons.extend(area_conversions)
-        
-        # Remove dead neurons from cache
-        for neuron_idx in died_neurons:
-            self._remove_neuron_from_cache(neuron_idx)
-        
-        return {
-            "neurons_died": len(died_neurons),
-            "neurons_converted": len(converted_neurons)
-        }
-    
-    def _remove_neuron_from_cache(self, neuron_idx: int) -> None:
-        """Remove neuron from pattern cache when it dies."""
-        keys_to_remove = []
-        for pattern_key, cached_idx in self._pattern_cache.items():
-            if cached_idx == neuron_idx:
-                keys_to_remove.append(pattern_key)
-        
-        for key in keys_to_remove:
-            del self._pattern_cache[key]
-            self._pattern_access_order.remove(key)
-    
-    def get_processing_statistics(self) -> Dict[str, Any]:
-        """Get comprehensive processing statistics."""
-        neuron_stats = self.memory_neuron_array.get_statistics()
-        
-        return {
-            "memory_processor": {
-                "total_patterns_processed": self.stats.total_patterns_processed,
-                "memory_neurons_created": self.stats.memory_neurons_created,
-                "memory_neurons_reactivated": self.stats.memory_neurons_reactivated,
-                "memory_neurons_died": self.stats.memory_neurons_died,
-                "memory_neurons_converted_to_longterm": self.stats.memory_neurons_converted_to_longterm,
-                "last_processing_time_ms": self.stats.processing_time_ms,
-                "pattern_cache_hits": self.stats.pattern_cache_hits,
-                "pattern_cache_misses": self.stats.pattern_cache_misses,
-                "cache_hit_ratio": self.stats.pattern_cache_hits / max(1, self.stats.pattern_cache_hits + self.stats.pattern_cache_misses),
-                "active_memory_areas": len(self.active_memory_areas),
-                "pattern_cache_size": len(self._pattern_cache)
-            },
-            "memory_neuron_array": neuron_stats
-        }
-    
-    def enable_debug(self, enabled: bool = True) -> None:
-        """Enable or disable debug logging."""
-        self._debug_enabled = enabled
-        logger.info(f"🧠 [MEMORY] Memory processor debug logging {'enabled' if enabled else 'disabled'}")
-        
-        # Auto-enable when NPU debug is active
-        if not enabled and self._is_npu_debug_enabled():
-            self._debug_enabled = True
-            logger.info("🧠 [MEMORY] Memory processor debug auto-enabled due to --debug-npu flag")
-    
-    def get_memory_area_debug_info(self, cortical_id: str) -> Optional[Dict[str, Any]]:
-        """Get debug information for a specific memory area."""
-        if cortical_id not in self.memory_area_properties:
-            return None
-        
-        properties = self.memory_area_properties[cortical_id]
-        active_neurons = self.memory_neuron_array.get_active_neurons_for_area(cortical_id)
-        
-        neuron_details = []
-        for neuron_idx in active_neurons[:10]:  # Limit to first 10 for performance
-            neuron_info = self.memory_neuron_array.get_memory_neuron_info(neuron_idx)
-            if neuron_info:
-                neuron_details.append(neuron_info)
-        
-        return {
-            "cortical_id": cortical_id,
-            "properties": properties,
-            "active_neuron_count": len(active_neurons),
-            "sample_neurons": neuron_details,
-            "is_active": cortical_id in self.active_memory_areas
-        } 
-
-    def _get_cortical_idx_for_memory_area(self, memory_area_id: str) -> Optional[int]:
-        """Get cortical_idx for a memory area."""
-        try:
-            # Try direct ConnectomeManager first, fallback to FCL manager approach
-            connectome_manager = None
-            if self.connectome_manager:
-                connectome_manager = self.connectome_manager
-            elif hasattr(self.fcl_manager, 'connectome_manager'):
-                connectome_manager = self.fcl_manager.connectome_manager
-            
-            if connectome_manager and hasattr(connectome_manager, 'cortical_areas'):
-                area_obj = connectome_manager.cortical_areas.get(memory_area_id)
-                if area_obj and hasattr(area_obj, 'cortical_idx'):
-                    return area_obj.cortical_idx
-            
-            # Alternative: try to get it from the memory area properties
-            area_properties = self.memory_area_properties.get(memory_area_id)
-            if area_properties and 'cortical_idx' in area_properties:
-                return area_properties['cortical_idx']
-            
-            logger.warning(f"🧠 [MEMORY] Could not determine cortical_idx for memory area {memory_area_id}")
-            return None
-            
-        except Exception as e:
-            logger.error(f"🧠 [MEMORY] Error getting cortical_idx for memory area {memory_area_id}: {e}")
-            return None
-
-    def _get_cortical_idx_for_area(self, area_id: str) -> Optional[int]:
-        """Get cortical_idx for any cortical area (memory or upstream)."""
-        try:
-            # Use direct connectome_manager reference first
-            if self.connectome_manager:
-                connectome_manager = self.connectome_manager
-            elif hasattr(self.fcl_manager, 'connectome_manager'):
-                connectome_manager = self.fcl_manager.connectome_manager
-            else:
-                logger.warning(f"🧠 [MEMORY] No connectome_manager available for area {area_id}")
-                return None
-            
-            # Try cortical_areas mapping first
-            if hasattr(connectome_manager, 'cortical_areas'):
-                area_obj = connectome_manager.cortical_areas.get(area_id)
-                if area_obj and hasattr(area_obj, 'cortical_idx'):
-                    return area_obj.cortical_idx
-            
-            # Try cortical_mapping as fallback
-            if hasattr(connectome_manager, 'cortical_mapping'):
-                return connectome_manager.cortical_mapping.get_idx(area_id)
-            
-            logger.warning(f"🧠 [MEMORY] Could not determine cortical_idx for area {area_id}")
-            return None
-            
-        except Exception as e:
-            logger.error(f"🧠 [MEMORY] Error getting cortical_idx for area {area_id}: {e}")
-            return None 
+            logger.error(f"🚨 [MEMORY] CRITICAL ERROR updating StateManager neuron count: {e}")
+            import traceback
+            logger.error(f"🚨 [MEMORY] StateManager update traceback: {traceback.format_exc()}") 

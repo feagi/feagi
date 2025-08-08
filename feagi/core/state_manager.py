@@ -928,11 +928,17 @@ class FeagiStateManager:
                 "debug_bdu": debug_config.get("bdu", False),  # CLI maps debug_bdu -> debug.bdu (not defined yet)
                 "debug_zmq_inbound": debug_config.get("zmq_inbound", False),  # CLI maps debug_zmq_inbound -> debug.zmq_inbound
                 "debug_zmq_outbound": debug_config.get("zmq_outbound", False),  # CLI maps debug_zmq_outbound -> debug.zmq_outbound
+                "mem_debug": debug_config.get("mem_debug", False), # CLI maps mem_debug -> debug.mem_debug
             }
             
             # Show which debug flags are enabled
             enabled_flags = [flag.replace("debug_", "") for flag, enabled in self._debug_config.items() 
                             if flag.startswith("debug_") and enabled]
+            
+            # Add memory debug flag separately since it doesn't follow the "debug_" prefix pattern
+            if self._debug_config.get("mem_debug", False):
+                enabled_flags.append("mem_debug")
+                
             if enabled_flags:
                 logger.info(f"Debug configuration set: log_level={log_level}, verbose={verbose}")
                 logger.info(f"Debug flags enabled: {', '.join(enabled_flags)}")
@@ -1033,6 +1039,12 @@ class FeagiStateManager:
         if not hasattr(self, '_debug_config'):
             return False
         return self._debug_config.get('debug_zmq_outbound', False)
+
+    def is_mem_debug_enabled(self) -> bool:
+        """Check if memory debug mode is enabled."""
+        if not hasattr(self, '_debug_config'):
+            return False
+        return self._debug_config.get('mem_debug', False)
 
     def get_critical_services_status(self) -> Dict[str, Any]:
         """Get status of all critical services for system readiness checks."""

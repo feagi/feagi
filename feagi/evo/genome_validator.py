@@ -628,6 +628,14 @@ def genome_validator_with_errors(genome):
     """
     errors = []
 
+    # MIGRATION: Convert burst_delay to simulation_timestep for backward compatibility
+    migration_result = migrate_burst_delay_to_simulation_timestep(genome)
+    if migration_result["warnings"]:
+        # Add migration warnings to validation errors if they indicate issues
+        for warning in migration_result["warnings"]:
+            if "Error during" in warning:
+                errors.append(f"Migration warning: {warning}")
+
     # Validate morphologies
     if not morphology_validator(genome=genome):
         errors.append(
@@ -1458,6 +1466,80 @@ def auto_correct_cortical_area_types(genome):
     }
 
 
+def migrate_burst_delay_to_simulation_timestep(genome):
+    """
+    Migrate burst_delay to simulation_timestep for backward compatibility.
+    
+    This function ensures old genomes using burst_delay are automatically converted
+    to use the new simulation_timestep key during validation.
+    
+    Args:
+        genome: The genome dictionary to migrate
+        
+    Returns:
+        dict: {
+            "migrated": bool,  # True if migration was performed
+            "changes": List[str],  # List of changes made
+            "warnings": List[str]  # List of warnings
+        }
+    """
+    changes = []
+    warnings = []
+    migrated = False
+    
+    try:
+        # Check for top-level burst_delay
+        if "burst_delay" in genome:
+            if "physiology" not in genome:
+                genome["physiology"] = {}
+            
+            # Only migrate if simulation_timestep doesn't already exist
+            if "simulation_timestep" not in genome["physiology"]:
+                genome["physiology"]["simulation_timestep"] = genome["burst_delay"]
+                changes.append(f"Migrated top-level burst_delay ({genome['burst_delay']}s) → physiology.simulation_timestep")
+                migrated = True
+            else:
+                warnings.append("Top-level burst_delay found but physiology.simulation_timestep already exists - keeping simulation_timestep")
+            
+            # Remove the old top-level key
+            genome.pop("burst_delay")
+            changes.append("Removed obsolete top-level burst_delay")
+        
+        # Check for physiology.burst_delay  
+        if "physiology" in genome and "burst_delay" in genome["physiology"]:
+            # Only migrate if simulation_timestep doesn't already exist
+            if "simulation_timestep" not in genome["physiology"]:
+                genome["physiology"]["simulation_timestep"] = genome["physiology"]["burst_delay"]
+                changes.append(f"Migrated physiology.burst_delay ({genome['physiology']['burst_delay']}s) → physiology.simulation_timestep")
+                migrated = True
+            else:
+                warnings.append("physiology.burst_delay found but physiology.simulation_timestep already exists - keeping simulation_timestep")
+            
+            # Remove the old physiology key
+            genome["physiology"].pop("burst_delay")
+            changes.append("Removed obsolete physiology.burst_delay")
+        
+        # Log migration results
+        if migrated:
+            print(f"🔄 [GENOME MIGRATION] Successfully migrated burst_delay → simulation_timestep")
+            for change in changes:
+                print(f"🔄 [GENOME MIGRATION] {change}")
+        
+        if warnings:
+            for warning in warnings:
+                print(f"⚠️ [GENOME MIGRATION] {warning}")
+    
+    except Exception as e:
+        warnings.append(f"Error during burst_delay migration: {e}")
+        print(f"❌ [GENOME MIGRATION] Error: {e}")
+    
+    return {
+        "migrated": migrated,
+        "changes": changes, 
+        "warnings": warnings
+    }
+
+
 def blueprint_validator_silent(genome):
     """
     Silent version of blueprint_validator that doesn't log errors.
@@ -1547,6 +1629,13 @@ def genome_validator_with_errors_silent(genome):
         }
     """
     errors = []
+
+    # MIGRATION: Convert burst_delay to simulation_timestep for backward compatibility (silent)
+    try:
+        migrate_burst_delay_to_simulation_timestep(genome)
+    except Exception:
+        # Silent mode - don't log migration errors
+        pass
 
     # Validate morphologies (silent)
     if not morphology_validator_silent(genome):

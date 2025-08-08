@@ -613,7 +613,7 @@ cortical_template = {
 
 cortical_template_memory = {
     "sub_group_id": "MEMORY",
-    "per_voxel_neuron_cnt": 10,  # CRITICAL FIX: Memory areas need real neurons for FQ Sampler
+    "per_voxel_neuron_cnt": 0,  # FIXED: Memory areas start empty, memory neurons created dynamically
     "psp_uniform_distribution": True,
     "postsynaptic_current_max": 99999,
     "plasticity_constant": 1,
@@ -678,7 +678,7 @@ cortical_structural_properties = {
 # Default physiology template for auto-recovery when physiology section is missing or incomplete
 # This provides the essential system-level parameters required for FEAGI to function properly
 physiology_template = {
-    "burst_delay": 0.025,  # Delay between neural processing bursts (in seconds)
+    "simulation_timestep": 0.025,  # Neural simulation timestep (in seconds) - was burst_delay
     "max_age": 10000000,  # Maximum age for neurons before lifecycle management
     "evolution_burst_count": 50,  # Number of bursts per evolution cycle
     "ipu_idle_threshold": 1000,  # Threshold for IPU idle detection
@@ -690,7 +690,7 @@ physiology_template = {
 # Property mappings for physiology template
 # Maps physiology_template keys to their configuration types for validation
 physiology_property_types = {
-    "burst_delay": "float",
+    "simulation_timestep": "float",  # was burst_delay
     "max_age": "int",
     "evolution_burst_count": "int",
     "ipu_idle_threshold": "int",

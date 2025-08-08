@@ -321,6 +321,11 @@ def main():
         action="store_true",
         help="Enable detailed BDU (Brain Development Unit) debugging - shows synapse creation and candidate neighbors",
     )
+    parser.add_argument(
+        "--debug-mem",
+        action="store_true",
+        help="Enable detailed memory system debugging - shows memory neuron creation, pattern detection, and long-term conversion",
+    )
 
     # Performance profiling arguments
     parser.add_argument(
@@ -413,6 +418,10 @@ def main():
         if args.debug_bdu:
             cli_overrides["debug_bdu"] = True
             logger.info("BDU debugging enabled via --debug-bdu flag")
+
+        if args.debug_mem:
+            cli_overrides["debug_mem"] = True
+            logger.info("Memory debugging enabled via --debug-mem flag")
 
         if args.profile:
             cli_overrides["profile"] = True

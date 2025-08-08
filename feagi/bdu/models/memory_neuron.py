@@ -253,7 +253,27 @@ class MemoryNeuronArray:
             if self.lifespan_current[neuron_idx] >= longterm_threshold:
                 self.is_longterm_memory[neuron_idx] = True
                 converted_neurons.append(neuron_idx)
-                logger.debug(f"Memory neuron {neuron_idx} converted to long-term memory (lifespan={self.lifespan_current[neuron_idx]})")
+                
+                # Enhanced logging for --debug-mem flag
+                debug_mem_enabled = False
+                try:
+                    from feagi.core.state_manager import get_state_manager
+                    state_manager = get_state_manager()
+                    if hasattr(state_manager, 'is_mem_debug_enabled'):
+                        debug_mem_enabled = state_manager.is_mem_debug_enabled()
+                    elif hasattr(state_manager, 'is_debug_npu_enabled'):
+                        debug_mem_enabled = state_manager.is_debug_npu_enabled()  # Fallback
+                except Exception:
+                    # Fallback to sys.argv check  
+                    import sys
+                    debug_mem_enabled = "--debug-mem" in sys.argv or "--debug-npu" in sys.argv
+                    
+                if debug_mem_enabled:
+                    logger.info(f"🏆 [MEMORY] 🔮 LONG-TERM MEMORY CONVERSION! 🔮 Neuron #{neuron_idx} ASCENDED!")
+                    logger.info(f"🏆 [MEMORY] Lifespan: {self.lifespan_current[neuron_idx]} ≥ {longterm_threshold} (threshold)")
+                    logger.info(f"🏆 [MEMORY] This neuron is now IMMORTAL - will never age or die!")
+                else:
+                    logger.debug(f"Memory neuron {neuron_idx} converted to long-term memory (lifespan={self.lifespan_current[neuron_idx]})")
         
         return converted_neurons
     

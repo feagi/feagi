@@ -129,14 +129,20 @@ class SystemService(BaseService):
                     health["cortical_area_count"] = len(
                         self._connectome_manager.cortical_areas
                     )
-                    health["neuron_count"] = self._connectome_manager.neuron_count
+                    
+                    # ENHANCED NEURON COUNTS: Get memory vs regular breakdown
+                    neuron_counts = self._get_neuron_count_breakdown()
+                    health["neuron_count"] = neuron_counts["total"]  # Keep existing key for UI compatibility
+                    health["memory_neuron_count"] = neuron_counts["memory"]
+                    health["regular_neuron_count"] = neuron_counts["regular"]
+                    
                     health["synapse_count"] = (
                         self._connectome_manager.get_synapse_count()
                     )
 
-                    # Estimate brain size
+                    # Estimate brain size using total neuron count
                     neuron_size_mb = (
-                        self._connectome_manager.neuron_count * 0.001
+                        neuron_counts["total"] * 0.001
                     )  # ~1KB per neuron
                     synapse_size_mb = (
                         self._connectome_manager.get_synapse_count() * 0.0001
@@ -148,6 +154,8 @@ class SystemService(BaseService):
                     # Fallback to zero values if connectome not ready
                     health["cortical_area_count"] = 0
                     health["neuron_count"] = 0
+                    health["memory_neuron_count"] = 0
+                    health["regular_neuron_count"] = 0
                     health["synapse_count"] = 0
                     health["estimated_brain_size_in_MB"] = 0.0
             else:
@@ -156,6 +164,8 @@ class SystemService(BaseService):
                 health["fitness"] = 0.0  # Use 0.0 instead of None for consistency
                 health["cortical_area_count"] = 0
                 health["neuron_count"] = 0
+                health["memory_neuron_count"] = 0
+                health["regular_neuron_count"] = 0
                 health["synapse_count"] = 0
                 health["estimated_brain_size_in_MB"] = 0.0
 
@@ -180,6 +190,64 @@ class SystemService(BaseService):
         except Exception as e:
             self.logger.error(f"Error retrieving system health: {str(e)}")
             return {"error": str(e)}
+
+    def _get_neuron_count_breakdown(self) -> Dict[str, int]:
+        """
+        Get breakdown of neuron counts: memory vs regular neurons.
+        
+        Returns:
+            Dict with keys: total, memory, regular
+        """
+        try:
+            # Get regular neuron count from ConnectomeManager
+            regular_count = self._connectome_manager.neuron_count if self._connectome_manager else 0
+            
+            # Get memory neuron count from MemoryProcessor via StateManager
+            memory_count = 0
+            if self.state_manager:
+                try:
+                    # Try to get BurstEngine and MemoryProcessor
+                    from feagi.core.feagi import FEAGI
+                    feagi_instance = FEAGI()
+                    if hasattr(feagi_instance, 'burst_engine') and feagi_instance.burst_engine:
+                        burst_engine = feagi_instance.burst_engine
+                        if hasattr(burst_engine, 'memory_processor') and burst_engine.memory_processor:
+                            memory_processor = burst_engine.memory_processor
+                            if hasattr(memory_processor, 'memory_neuron_array'):
+                                # Get total active memory neurons across all areas
+                                memory_stats = memory_processor.memory_neuron_array.get_statistics()
+                                memory_count = memory_stats.get('total_active_neurons', 0)
+                                self.logger.debug(f"📊 [HEALTH] Memory neuron count from MemoryProcessor: {memory_count}")
+                except Exception as e:
+                    self.logger.warning(f"Could not get memory neuron count from MemoryProcessor: {e}")
+                    
+                # Fallback: Use StateManager brain stats memory count if available  
+                if memory_count == 0:
+                    try:
+                        brain_stats = self.state_manager.get_brain_stats()
+                        if isinstance(brain_stats, dict) and 'memory_neuron_count' in brain_stats:
+                            memory_count = brain_stats.get('memory_neuron_count', 0)
+                            self.logger.debug(f"📊 [HEALTH] Memory neuron count from StateManager: {memory_count}")
+                    except Exception as e:
+                        self.logger.debug(f"No memory neuron count in StateManager: {e}")
+            
+            total_count = regular_count + memory_count
+            
+            self.logger.debug(f"📊 [HEALTH] Neuron breakdown: regular={regular_count}, memory={memory_count}, total={total_count}")
+            
+            return {
+                "total": total_count,
+                "memory": memory_count, 
+                "regular": regular_count
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating neuron count breakdown: {e}")
+            return {
+                "total": 0,
+                "memory": 0,
+                "regular": 0
+            }
 
     def _has_pending_amalgamation(self) -> bool:
         """Check if there is a pending amalgamation operation."""

@@ -441,7 +441,14 @@ class CorticalAreaAPI:
                 cortical_dimensions = request.cortical_dimensions
 
             # Calculate neuron count and validate limits
-            neuron_density = self._get_default_value("per_voxel_neuron_cnt", 1)
+            if is_memory:
+                # MEMORY AREA FIX: Memory areas start empty (0 regular neurons)
+                # Memory neurons are created dynamically by MemoryProcessor
+                neuron_density = 0
+            else:
+                # Regular areas use template default
+                neuron_density = self._get_default_value("per_voxel_neuron_cnt", 1)
+                
             if copy_of:
                 neuron_density = connectome.genome["blueprint"][copy_of][
                     "per_voxel_neuron_cnt"

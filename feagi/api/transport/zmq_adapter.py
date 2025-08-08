@@ -223,8 +223,8 @@ else:
                 "GET:/v1/connectome/cortical_areas/list/detailed": self._handle_get_cortical_areas_detailed,
                 "GET:/v1/connectome/cortical_areas/list/transforming": self._handle_get_transforming_cortical_areas,
                 # ===== Burst Engine Endpoints (using v1 API) =====
-                "GET:/v1/burst_engine/stimulation_period": self._handle_get_stimulation_period,
-                "POST:/v1/burst_engine/stimulation_period": self._handle_change_stimulation_period,
+                "GET:/v1/burst_engine/simulation_timestep": self._handle_get_simulation_timestep,
+                "POST:/v1/burst_engine/simulation_timestep": self._handle_change_simulation_timestep,
                 "GET:/v1/burst_engine/status": self._handle_get_burst_engine_status,
                 # ===== Status Endpoint (maps to health_check) =====
                 "GET:/v1/status": self._handle_get_health_check,
@@ -637,18 +637,18 @@ else:
 
         # ===== Burst Engine Handler Implementations (using v1 API) =====
 
-        async def _handle_get_stimulation_period(self, params, query, body, headers):
-            """Handler for GET /v1/burst_engine/stimulation_period"""
-            return self.burst_engine_api.get_stimulation_period()
+        async def _handle_get_simulation_timestep(self, params, query, body, headers):
+            """Handler for GET /v1/burst_engine/simulation_timestep"""
+            return self.burst_engine_api.get_simulation_timestep()
 
-        async def _handle_change_stimulation_period(self, params, query, body, headers):
-            """Handler for POST /v1/burst_engine/stimulation_period"""
-            # Create StimulationPeriodRequest from the body using the new simplified format
-            from feagi.api.v1.burst_engine import StimulationPeriodRequest
+        async def _handle_change_simulation_timestep(self, params, query, body, headers):
+            """Handler for POST /v1/burst_engine/simulation_timestep"""
+            # Create SimulationTimestepRequest from the body using the new simplified format
+            from feagi.api.v1.burst_engine import SimulationTimestepRequest
             
-            # Create the request object by unpacking the body (expects {"stimulation_period": 0.1})
-            request = StimulationPeriodRequest(**body)
-            return self.burst_engine_api.change_stimulation_period(request)
+            # Create the request object by unpacking the body (expects {"simulation_timestep": 0.1})
+            request = SimulationTimestepRequest(**body)
+            return self.burst_engine_api.change_simulation_timestep(request)
 
         async def _handle_get_burst_engine_status(self, params, query, body, headers):
             """Handler for GET /v1/burst_engine/status"""

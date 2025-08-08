@@ -619,9 +619,19 @@ def genome_physiology_updator(genome: dict):
         genome["physiology"] = {}
     if "max_burst_count" in genome:
         genome.pop("max_burst_count")
+    
+    # MIGRATION: Convert burst_delay to simulation_timestep for backward compatibility
     if "burst_delay" in genome:
-        genome["physiology"]["burst_delay"] = genome["burst_delay"]
+        genome["physiology"]["simulation_timestep"] = genome["burst_delay"]
         genome.pop("burst_delay")
+        print(f"🔄 [GENOME] Migrated burst_delay → simulation_timestep: {genome['physiology']['simulation_timestep']}")
+    
+    # Also handle physiology.burst_delay → physiology.simulation_timestep
+    if "burst_delay" in genome.get("physiology", {}):
+        genome["physiology"]["simulation_timestep"] = genome["physiology"]["burst_delay"]
+        genome["physiology"].pop("burst_delay")
+        print(f"🔄 [GENOME] Migrated physiology.burst_delay → physiology.simulation_timestep: {genome['physiology']['simulation_timestep']}")
+    
     if "max_age" in genome:
         genome["physiology"]["max_age"] = genome["max_age"]
         genome.pop("max_age")

@@ -71,7 +71,9 @@ class HealthCheckResponse(BaseModel):
     # Optional fields when genome is loaded
     fitness: Optional[float] = None
     cortical_area_count: Optional[int] = None
-    neuron_count: Optional[int] = None
+    neuron_count: Optional[int] = None  # Total neurons (regular + memory)
+    memory_neuron_count: Optional[int] = None  # Memory neurons only  
+    regular_neuron_count: Optional[int] = None  # Regular neurons only
     synapse_count: Optional[int] = None
     estimated_brain_size_in_MB: Optional[float] = None
     # Genome tracking fields for downstream clients (Bridge/Godot)

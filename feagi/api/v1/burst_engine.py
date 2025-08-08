@@ -50,10 +50,10 @@ class BurstEngineRequest(BaseModel):
     burst_engine_config: Dict[str, Any]
 
 
-class StimulationPeriodRequest(BaseModel):
-    """Request model for stimulation period endpoint."""
+class SimulationTimestepRequest(BaseModel):
+    """Request model for simulation timestep endpoint."""
 
-    stimulation_period: float
+    simulation_timestep: float
 
 
 # Define the convenience decorator for burst engine endpoints
@@ -87,49 +87,49 @@ class BurstEngineAPI:
 
     # ===== Legacy Burst Engine Endpoints =====
 
-    @burst_engine_endpoint("GET", "/stimulation_period")
-    def get_stimulation_period(self) -> float:
-        """Returns the time it takes for each burst to execute in seconds."""
+    @burst_engine_endpoint("GET", "/simulation_timestep")
+    def get_simulation_timestep(self) -> float:
+        """Returns the simulation timestep (time between neural bursts) in seconds."""
         try:
             burst_timer = self.core_api_service.get_burst_timer()
             return burst_timer if burst_timer is not None else 0.0
         except Exception as e:
-            logger.error(f"Error getting stimulation period: {e}")
-            raise ValueError(f"Failed to get stimulation period: {str(e)}")
+            logger.error(f"Error getting simulation timestep: {e}")
+            raise ValueError(f"Failed to get simulation timestep: {str(e)}")
 
     @burst_engine_endpoint(
         "POST",
-        "/stimulation_period",
-        request_model=StimulationPeriodRequest,
+        "/simulation_timestep",
+        request_model=SimulationTimestepRequest,
         response_model=SuccessResponse,
     )
-    def change_stimulation_period(self, message: StimulationPeriodRequest) -> SuccessResponse:
-        """Enables changes against various Burst Engine parameters."""
+    def change_simulation_timestep(self, message: SimulationTimestepRequest) -> SuccessResponse:
+        """Update the simulation timestep (neural processing period)."""
         try:
-            # Extract stimulation period directly from the request
-            stimulation_period = message.stimulation_period
+            # Extract simulation timestep directly from the request
+            simulation_timestep = message.simulation_timestep
             
-            # Validate stimulation period
-            if stimulation_period <= 0:
-                raise ValueError("Invalid stimulation_period: must be a positive number.")
+            # Validate simulation timestep
+            if simulation_timestep <= 0:
+                raise ValueError("Invalid simulation_timestep: must be a positive number.")
             
-            # Convert stimulation period (seconds) to frequency (Hz)
+            # Convert simulation timestep (seconds) to frequency (Hz)
             # frequency = 1 / period
-            burst_frequency_hz = 1.0 / float(stimulation_period)
+            burst_frequency_hz = 1.0 / float(simulation_timestep)
             
             # Update burst engine configuration using the correct method
             config_update = {"burst_frequency_hz": burst_frequency_hz}
             success = self.core_api_service.update_burst_engine_config(config_update)
 
             if not success:
-                raise ValueError("Failed to change stimulation period")
+                raise ValueError("Failed to change simulation timestep")
 
-            logger.info(f"Successfully updated stimulation period to {stimulation_period}s (frequency: {burst_frequency_hz}Hz)")
-            return SuccessResponse(message=f"Stimulation period changed to {stimulation_period}s successfully")
+            logger.info(f"Successfully updated simulation timestep to {simulation_timestep}s (frequency: {burst_frequency_hz}Hz)")
+            return SuccessResponse(message=f"Simulation timestep changed to {simulation_timestep}s successfully")
             
         except Exception as e:
-            logger.error(f"Error changing stimulation period: {e}")
-            raise ValueError(f"Failed to change stimulation period: {str(e)}")
+            logger.error(f"Error changing simulation timestep: {e}")
+            raise ValueError(f"Failed to change simulation timestep: {str(e)}")
 
     # ===== Burst Engine Status and Info =====
 

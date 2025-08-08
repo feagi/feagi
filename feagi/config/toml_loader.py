@@ -322,6 +322,7 @@ def apply_cli_overrides(
         "debug_bdu": ("debug", "bdu"),
         "debug_zmq_outbound": ("debug", "zmq_outbound"),
         "debug_zmq_inbound": ("debug", "zmq_inbound"),
+        "debug_mem": ("debug", "mem_debug"),
     }
 
     for cli_arg, (section, key) in cli_mappings.items():
