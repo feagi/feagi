@@ -71,7 +71,7 @@ The MemoryNeuronArray implements a Structure of Arrays (SoA) specifically design
 # Lifecycle Management
 lifespan_current: np.uint32     # Current remaining lifespan in burst cycles
 lifespan_initial: np.uint32     # Initial lifespan when created
-lifespan_growth_rate: np.float32 # Multiplier for lifespan growth on reactivation
+lifespan_growth_rate: np.float32 # Additive increment (in bursts) applied on each reactivation
 is_longterm_memory: np.bool_    # Whether neuron has converted to long-term memory
 
 # Temporal Tracking
@@ -82,6 +82,9 @@ activation_count: np.uint32     # Total number of activations
 # Pattern Association
 pattern_to_index: Dict[MemoryPatternKey, int]  # Pattern → neuron mapping
 index_to_pattern: Dict[int, MemoryPatternKey]  # Neuron → pattern mapping
+# Rust-friendly digest mapping for cross-language determinism
+pattern_digest_to_index: Dict[bytes, int]      # 32-byte digest → neuron index
+index_to_pattern_digest: Dict[int, bytes]      # neuron index → 32-byte digest
 
 # Area Association
 cortical_area_id: List[str]     # Which memory area each neuron belongs to
@@ -97,15 +100,15 @@ neuron_idx = memory_array.create_memory_neuron(
     cortical_area_id="MEM001",
     current_burst=10,
     initial_lifespan=20,
-    lifespan_growth_rate=1.2
+    lifespan_growth_rate=3   # Additive increment (bursts) on reactivation
 )
 
 # 2. Aging (happens every burst)
-died_neurons = memory_array.age_memory_neurons(current_burst=11)
+died_neurons = memory_array.age_memory_neurons(current_burst=11)  # Vectorized aging
 
 # 3. Reactivation (when pattern detected again)
 success = memory_array.reactivate_memory_neuron(neuron_idx, current_burst=15)
-# Lifespan grows: new_lifespan = current_lifespan * growth_rate
+# Lifespan grows ADDITIVELY: new_lifespan = current_lifespan + int(lifespan_growth_rate)
 
 # 4. Long-term conversion (when lifespan exceeds threshold)
 converted = memory_array.check_longterm_conversion(longterm_threshold=100)
@@ -317,22 +320,25 @@ Every burst cycle, all active memory neurons age:
 
 ```python
 def age_memory_neurons(self, current_burst: int) -> List[int]:
-    died_neurons = []
-    
-    for neuron_idx in range(self.next_available_index):
-        if not self.is_active[neuron_idx] or self.is_longterm_memory[neuron_idx]:
-            continue  # Skip inactive or long-term neurons
-        
-        # Decrease lifespan
-        if self.lifespan_current[neuron_idx] > 0:
-            self.lifespan_current[neuron_idx] -= 1
-        
-        # Check for death
-        if self.lifespan_current[neuron_idx] == 0:
-            self._deactivate_memory_neuron(neuron_idx)
-            died_neurons.append(neuron_idx)
-    
-    return died_neurons
+    """Vectorized aging for all eligible neurons using NumPy masks."""
+    n = self.next_available_index
+    if n == 0:
+        return []
+    active = self.is_active[:n]
+    not_longterm = ~self.is_longterm_memory[:n]
+    eligible = active & not_longterm
+    if not np.any(eligible):
+        return []
+    lifespans = self.lifespan_current[:n]
+    positive = eligible & (lifespans > 0)
+    lifespans[positive] -= 1
+    died_mask = eligible & (lifespans == 0)
+    died_indices = np.flatnonzero(died_mask).astype(int).tolist()
+    if died_indices:
+        self.is_active[died_indices] = False
+        for idx in died_indices:
+            self.deleted_indices.add(int(idx))
+    return died_indices
 ```
 
 ### Reactivation and Strengthening
@@ -345,12 +351,11 @@ def reactivate_memory_neuron(self, neuron_idx: int, current_burst: int) -> bool:
     self.last_activation_burst[neuron_idx] = current_burst
     self.activation_count[neuron_idx] += 1
     
-    # Strengthen memory by growing lifespan
+    # Strengthen memory by growing lifespan (additive)
     if not self.is_longterm_memory[neuron_idx]:
-        current_lifespan = self.lifespan_current[neuron_idx]
-        growth_rate = self.lifespan_growth_rate[neuron_idx]
-        new_lifespan = int(current_lifespan * growth_rate)
-        self.lifespan_current[neuron_idx] = new_lifespan
+        current_lifespan = int(self.lifespan_current[neuron_idx])
+        increment = int(self.lifespan_growth_rate[neuron_idx])
+        self.lifespan_current[neuron_idx] = np.uint32(current_lifespan + increment)
     
     return True
 ```
@@ -377,13 +382,13 @@ def check_longterm_conversion(self, longterm_threshold: int = 100) -> List[int]:
 ### Memory Consolidation Example
 
 ```
-Burst 1: Pattern ABC detected → Create neuron N1 (lifespan=20)
-Burst 5: Pattern ABC reactivated → N1 lifespan = 20 * 1.2 = 24
-Burst 12: Pattern ABC reactivated → N1 lifespan = 24 * 1.2 = 29
-Burst 20: Pattern ABC reactivated → N1 lifespan = 29 * 1.2 = 35
+Burst 1:  Pattern ABC detected → Create neuron N1 (lifespan=20)
+Burst 5:  Pattern ABC reactivated → N1 lifespan = 20 + 3 = 23
+Burst 12: Pattern ABC reactivated → N1 lifespan = 23 + 3 = 26
+Burst 20: Pattern ABC reactivated → N1 lifespan = 26 + 3 = 29
 ...
-Burst 85: N1 lifespan reaches 105 → Convert to long-term memory
-Burst 86+: N1 no longer ages, permanent storage
+Burst 85: N1 lifespan reaches ≥100 → Convert to long-term memory
+ Burst 86+: N1 no longer ages, permanent storage
 ```
 
 ---
@@ -665,8 +670,8 @@ cortical_template_memory = {
     "per_voxel_neuron_cnt": 0,  # No regular neurons
     
     # Memory-specific properties
-    "init_lifespan": 9,                    # Initial neuron lifespan
-    "lifespan_growth_rate": 1.0,           # Growth rate on reactivation
+    "init_lifespan": 9,                    # Initial neuron lifespan (bursts)
+    "lifespan_growth_rate": 1,             # Additive increment (bursts) per reactivation
     "longterm_mem_threshold": 100,         # Long-term conversion threshold
     "temporal_depth": 1,                   # Pattern history depth
     
@@ -691,6 +696,23 @@ config = {
 burst_engine = BurstEngine(connectome_manager, config=config)
 ```
 
+### Sleep Manager (Low-Activity Maintenance)
+
+The Sleep Manager runs background maintenance (GC and long-term consolidation) when FCL activity is low for a sustained period. It is strictly config-gated via TOML.
+
+```toml
+[memory_processing.sleep_manager]
+enabled = true
+fcl_low_activity_window_bursts = 50        # Window size to average global FCL activity
+fcl_low_activity_threshold = 5             # Avg. neuron count per burst considered "low"
+monitor_interval_seconds = 2.0             # Poll interval
+gc_prune_inactive_after_bursts = 500       # Prune inactive pattern mappings older than this
+```
+
+Maintenance tasks:
+- Consolidation pass: re-checks long-term conversion under current thresholds
+- Garbage collection: prunes stale inactive pattern→neuron and digest mappings
+
 ---
 
 ## API Usage & Examples
@@ -711,7 +733,7 @@ curl -X POST "http://localhost:8000/v1/cortical_area/custom_cortical_area" \
         "sub_group_id": "MEMORY",
         "temporal_depth": 3,
         "init_lifespan": 15,
-        "lifespan_growth_rate": 1.2,
+        "lifespan_growth_rate": 3,
         "longterm_mem_threshold": 80
     }
 }'
@@ -731,7 +753,7 @@ curl -X POST "http://localhost:8000/v1/cortical_area/custom_cortical_area" \
         "sub_group_id": "MEMORY",
         "temporal_depth": 10,
         "init_lifespan": 50,
-        "lifespan_growth_rate": 1.5,
+        "lifespan_growth_rate": 5,
         "longterm_mem_threshold": 200,
         "firing_threshold": 0.8,
         "neuron_excitability": 1.2
@@ -930,7 +952,7 @@ Based on testing with the comprehensive test suite:
 | **Memory neuron creation** | ~100,000/sec | Including pattern key generation |
 | **Pattern lookup (cache hit)** | ~1,000,000/sec | O(1) hash table access |
 | **Pattern lookup (cache miss)** | ~500,000/sec | O(1) memory array lookup |
-| **Aging 1M neurons** | ~10ms | Vectorized numpy operation |
+| **Aging 1M neurons** | ~10ms | Vectorized NumPy operation |
 | **Pattern extraction (5 areas, depth 3)** | ~1ms | RoaringBitmap serialization |
 | **Memory processing (100 areas)** | ~5-10ms | Parallel thread execution |
 

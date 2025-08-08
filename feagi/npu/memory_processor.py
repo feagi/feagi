@@ -212,7 +212,27 @@ class MemoryProcessor:
                 if not self.active_memory_areas:
                     if mem_debug:
                         logger.info(f"🧠 [MEMORY] No active memory areas to process")
-                    return {"success": True, "processed_areas": 0, "stats": {}}
+                    # Still perform global aging/lifecycle to allow short-term memories to expire
+                    lifecycle_result = self._perform_aging_and_lifecycle(current_burst)
+                    self.stats.memory_neurons_died += lifecycle_result.get("neurons_died", 0)
+                    self.stats.memory_neurons_converted_to_longterm += lifecycle_result.get("neurons_converted", 0)
+                    if mem_debug:
+                        # Dump snapshots for all known memory areas (properties keys)
+                        for area_id in list(self.memory_area_properties.keys()):
+                            self._debug_log_memory_area_snapshot(area_id)
+                    self.stats.processing_time_ms = (time.time() - start_time) * 1000
+                    return {
+                        "success": True,
+                        "processed_areas": 0,
+                        "processing_time_ms": self.stats.processing_time_ms,
+                        "stats": {
+                            "patterns_processed": 0,
+                            "neurons_created": 0,
+                            "neurons_reactivated": 0,
+                            "neurons_died": lifecycle_result.get("neurons_died", 0),
+                            "neurons_converted": lifecycle_result.get("neurons_converted", 0),
+                        },
+                    }
                 
                 # Process memory areas in batches
                 memory_areas = list(self.active_memory_areas)
@@ -238,6 +258,11 @@ class MemoryProcessor:
                     logger.info(f"🧠 [MEMORY] Performing memory neuron aging and lifecycle management")
                 lifecycle_result = self._perform_aging_and_lifecycle(current_burst)
                 
+                if mem_debug:
+                    # Dump snapshots after lifecycle
+                    for area_id in memory_areas:
+                        self._debug_log_memory_area_snapshot(area_id)
+
                 # Update statistics
                 self.stats.total_patterns_processed += total_patterns
                 self.stats.memory_neurons_created += total_created
@@ -386,12 +411,13 @@ class MemoryProcessor:
                     logger.info(f"🔍 [MEMORY] Pattern lookup result: NOT FOUND - will create NEW neuron")
             
             if existing_neuron_idx is not None:
-                # EXISTING neuron found - reactivate it
-                stats['neurons_reactivated'] = 1
-                if mem_debug:
-                    logger.info(f"🌟 [MEMORY] Pattern found: reactivating existing memory neuron {existing_neuron_idx}")
-                    logger.info(f"🔄 [MEMORY] EXISTING PATTERN detected - no new neuron created")
-                # TODO: Reactivate the existing memory neuron (extend lifespan, etc.)
+                # EXISTING neuron found - reactivate it (apply additive lifespan growth)
+                reactivated = self.memory_neuron_array.reactivate_memory_neuron(existing_neuron_idx, current_burst)
+                if reactivated:
+                    stats['neurons_reactivated'] = 1
+                    if mem_debug:
+                        logger.info(f"🌟 [MEMORY] Pattern found: reactivated existing memory neuron {existing_neuron_idx}")
+                        logger.info(f"🔄 [MEMORY] EXISTING PATTERN detected - no new neuron created")
             else:
                 # NO existing neuron - create a new one
                 try:
@@ -399,8 +425,8 @@ class MemoryProcessor:
                         pattern_key=temporal_pattern,
                         cortical_area_id=memory_area_id,
                         current_burst=current_burst,
-                        initial_lifespan=20,  # TODO: Make configurable
-                        lifespan_growth_rate=1.2  # TODO: Make configurable
+                        initial_lifespan=initial_lifespan,
+                        lifespan_growth_rate=lifespan_growth_rate
                     )
                     stats['neurons_created'] = 1
                     if mem_debug:
@@ -434,45 +460,7 @@ class MemoryProcessor:
             if mem_debug:
                 logger.info(f"🧠 [MEMORY] No temporal pattern detected for memory area {memory_area_id} (no upstream activity)")
         
-        # 4. Perform aging and lifecycle management for all memory neurons in this area
-        if mem_debug:
-            logger.info(f"🧠 [MEMORY] Performing memory neuron aging and lifecycle management")
-        
-        try:
-            died_neurons = self.memory_neuron_array.age_memory_neurons(current_burst)
-            stats['neurons_died'] = len(died_neurons)
-            
-            # CRITICAL FIX: Update StateManager neuron count when neurons die
-            if died_neurons:
-                self._update_state_manager_neuron_count(increment=-len(died_neurons))
-            
-            # Check for long-term memory conversion
-            converted_neurons = []
-            for area_id, properties in self.memory_area_properties.items():
-                longterm_threshold = properties["longterm_threshold"]
-                area_conversions = self.memory_neuron_array.check_longterm_conversion(longterm_threshold)
-                converted_neurons.extend(area_conversions)
-            
-            # Enhanced logging for conversions
-            mem_debug = self._is_mem_debug_enabled()
-            if converted_neurons and mem_debug:
-                logger.info(f"🏆 [MEMORY] 🔮 LONG-TERM ASCENSION COMPLETE! 🔮")
-                logger.info(f"🏆 [MEMORY] {len(converted_neurons)} memory neurons have achieved IMMORTALITY!")
-                logger.info(f"🏆 [MEMORY] Converted neuron IDs: {converted_neurons}")
-                logger.info(f"🏆 [MEMORY] These neurons will never age or die - they are now part of permanent memory!")
-            elif converted_neurons:
-                logger.info(f"🧠 [MEMORY] Memory neuron lifecycle: {len(died_neurons)} died, {len(converted_neurons)} converted to long-term")
-            
-            # Update stats
-            stats['neurons_converted'] = len(converted_neurons)
-            
-            # Remove dead neurons from cache
-            for neuron_idx in died_neurons:
-                self._remove_neuron_from_cache(neuron_idx)
-                
-        except Exception as e:
-            if mem_debug:
-                logger.error(f"🧠 [MEMORY] Error during memory neuron aging: {e}")
+        # Aging and long-term conversion occur once per burst in batch lifecycle processing
         
         return stats
 
@@ -729,9 +717,40 @@ class MemoryProcessor:
         neurons_converted: Set[int] = set()
 
         try:
+            mem_debug = self._is_mem_debug_enabled()
+            # Pre-aging diagnostics
+            try:
+                pre_stats = self.memory_neuron_array.get_statistics()
+            except Exception:
+                pre_stats = {"total_active_neurons": -1}
+            try:
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                pre_brain = sm.get_brain_stats() or {}
+            except Exception:
+                pre_brain = {}
+
             # Age neurons once per burst
             died = self.memory_neuron_array.age_memory_neurons(current_burst)
             neurons_died = len(died)
+            if mem_debug:
+                sample = died[:10]
+                logger.info(
+                    f"🧠 [MEMORY] Aging results: died={neurons_died}, sample={sample}, pre_active={pre_stats.get('total_active_neurons')}"
+                )
+            if neurons_died:
+                # Reflect deaths in global stats
+                self._update_state_manager_neuron_count(increment=-neurons_died)
+                if mem_debug:
+                    try:
+                        post_brain = sm.get_brain_stats() if sm else {}
+                    except Exception:
+                        post_brain = {}
+                    logger.info(
+                        f"🧠 [MEMORY] Brain stats update after deaths: before={pre_brain}, after={post_brain}"
+                    )
+            elif mem_debug:
+                logger.info("🧠 [MEMORY] No neurons died this burst; brain stats unchanged by aging")
 
             # Apply long-term conversion using configured thresholds per area
             # Note: MemoryNeuronArray operates globally; we invoke conversion check
@@ -747,6 +766,8 @@ class MemoryProcessor:
                 converted = self.memory_neuron_array.check_longterm_conversion(longterm_threshold=threshold)
                 for idx in converted:
                     neurons_converted.add(idx)
+            if mem_debug and neurons_converted:
+                logger.info(f"🧠 [MEMORY] Long-term conversions this burst: {len(neurons_converted)} (ids sample: {list(neurons_converted)[:10]})")
 
         except Exception as e:
             logger.error(f"🧠 [MEMORY] Error in aging/lifecycle processing: {e}")
@@ -786,3 +807,61 @@ class MemoryProcessor:
         # Intentionally left as a no-op to maintain strict FCL semantics.
         # Memory neuron to FCL integration will use proper ID mapping in future work.
         return 
+
+    def _debug_log_memory_area_snapshot(self, memory_area_id: str, include_inactive: bool = True, limit: int = 0) -> None:
+        """
+        Log a detailed snapshot of memory neurons for a given area.
+
+        Args:
+            memory_area_id: Memory cortical area ID to inspect
+            include_inactive: Whether to include inactive neurons (default: True)
+            limit: If >0, limit the number of rows logged (0 = no limit)
+        """
+        try:
+            n = self.memory_neuron_array.next_available_index
+            if n == 0:
+                logger.info(f"[MEMORY] Snapshot for {memory_area_id}: no neurons available")
+                return
+            rows = []
+            arr = self.memory_neuron_array
+            for idx in range(n):
+                if arr.cortical_area_id[idx] != memory_area_id:
+                    continue
+                if not include_inactive and not arr.is_active[idx]:
+                    continue
+                rows.append(
+                    (
+                        idx,
+                        bool(arr.is_active[idx]),
+                        int(arr.lifespan_current[idx]),
+                        int(arr.lifespan_initial[idx]),
+                        float(arr.lifespan_growth_rate[idx]),
+                        bool(arr.is_longterm_memory[idx]),
+                        int(arr.creation_burst[idx]),
+                        int(arr.last_activation_burst[idx]),
+                        int(arr.activation_count[idx]),
+                    )
+                )
+            # Sort by lifespan_current ascending (soonest to die first)
+            rows.sort(key=lambda r: r[2])
+            total = len(rows)
+            if total == 0:
+                logger.info(f"[MEMORY] Snapshot for {memory_area_id}: no neurons in area yet")
+                return
+            # Apply limit
+            view = rows if limit <= 0 else rows[:limit]
+            logger.info(
+                f"[MEMORY] Snapshot for {memory_area_id}: total={total} (showing={len(view)}), columns=(idx,active,life,current_init,gr,ltm,created,last_act,acts)"
+            )
+            for (idx, active, life_cur, life_init, gr, ltm, created, last_act, acts) in view:
+                logger.info(
+                    f"[MEMORY]   idx={idx:5d} active={int(active)} life={life_cur}/{life_init} gr={gr:.2f} ltm={int(ltm)} created={created} last={last_act} acts={acts}"
+                )
+            # Summary stats
+            active_count = sum(1 for r in rows if r[1])
+            longterm_count = sum(1 for r in rows if r[5])
+            logger.info(
+                f"[MEMORY] Summary for {memory_area_id}: active={active_count}, longterm={longterm_count}, inactive={total - active_count}"
+            )
+        except Exception as e:
+            logger.debug(f"[MEMORY] Snapshot error for {memory_area_id}: {e}") 

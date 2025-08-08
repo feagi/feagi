@@ -58,19 +58,17 @@ class CoreAPIService:
     - Zero breaking changes to existing code
     """
 
-    def __init__(self, connectome_manager, state_manager=None, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, connectome_manager, state_manager=None):
         """
         Initialize the Core API Service facade.
 
         Args:
             connectome_manager: ConnectomeManager instance
             state_manager: FeagiStateManager instance (optional)
-            config: Optional configuration dict (forwarded to core components)
         """
         # Initialize connectome manager
         self._connectome_manager = connectome_manager
         self.state_manager = state_manager
-        self._config = config or {}
         self.logger = logger
 
         # CRITICAL: Ensure state manager singleton consistency
@@ -86,7 +84,7 @@ class CoreAPIService:
         self._system_service = SystemService(connectome_manager, self.state_manager)
         
         # Initialize genome service first - needed by other services for WRITE operations
-        self._genome_service = GenomeService(connectome_manager, self.state_manager, core_api_service=self)
+        self._genome_service = GenomeService(connectome_manager, self.state_manager)
         
         # Initialize cortical area service WITH genome service for WRITE operations
         self._cortical_area_service = CorticalAreaService(
@@ -875,19 +873,7 @@ class CoreAPIService:
 
                 # Check for debug NPU flag and pass through config
                 debug_npu = self.state_manager.is_debug_npu_enabled()
-                engine_config: Dict[str, Any] = {"debug_npu": debug_npu}
-                # Forward memory_processing config if present (authoritative over legacy keys)
-                if "memory_processing" in self._config:
-                    engine_config["memory_processing"] = self._config.get("memory_processing", {})
-                else:
-                    # Backward compatibility with legacy placement under [connectome]
-                    mp_batch = self._config.get("connectome", {}).get("memory_processing_batch_size")
-                    mp_cache = self._config.get("connectome", {}).get("memory_pattern_cache_size")
-                    if mp_batch is not None or mp_cache is not None:
-                        engine_config["memory_processing"] = {
-                            "batch_size": mp_batch if mp_batch is not None else 100,
-                            "pattern_cache_size": mp_cache if mp_cache is not None else 10000,
-                        }
+                engine_config = {"debug_npu": debug_npu}
 
                 singleton_instance = BurstEngine(
                     connectome_manager=self._connectome_manager, config=engine_config
@@ -1847,62 +1833,18 @@ class CoreAPIService:
 
     def get_cortical_mapping(self) -> Dict[str, Any]:
         """
-        Get the simple cortical mapping structure showing source -> destination relationships.
+        Get the complete cortical mapping structure from the genome blueprint.
 
         Returns:
-            Dictionary containing cortical area mappings as source -> [destinations] format
+            Dictionary containing all cortical area mappings in the expected format
         """
         try:
-            # Use the new simple mapping method
-            return self.get_simple_cortical_mapping()
+            # Use the existing get_detailed_cortical_map method for consistent behavior
+            return self.get_detailed_cortical_map()
 
         except Exception as e:
             self.logger.error(f"Error getting cortical mapping: {str(e)}")
             return {}
-
-    def get_simple_cortical_mapping(self) -> Dict[str, List[str]]:
-        """
-        Get simple cortical mapping showing only source -> destination relationships.
-
-        Returns a clean dictionary where each cortical area ID maps to a list
-        of destination cortical areas it connects to.
-
-        Returns:
-            Dict[str, List[str]]: Simple mapping of source_area -> [dest_areas]
-        """
-        try:
-            # Get all cortical areas using the correct service method
-            all_areas_list = self._cortical_area_service.get_all_areas()
-
-            # Build the simple mapping response
-            mapping_response = {}
-
-            for area_data in all_areas_list:
-                area_id = area_data.get("id")
-                if not area_id:
-                    continue
-
-                # Initialize area entry (empty list for areas with no outgoing connections)
-                mapping_response[area_id] = []
-
-                # Get the area's mapping data from its parameters
-                area_parameters = area_data.get("parameters", {})
-                area_mapping = area_parameters.get("mapping", {})
-
-                if area_mapping:
-                    # Simply collect the destination area IDs
-                    for target_area_id, connection_list in area_mapping.items():
-                        if connection_list:  # If there are any connections to this target
-                            mapping_response[area_id].append(target_area_id)
-
-            self.logger.info(
-                f"Generated simple cortical mapping for {len(mapping_response)} areas"
-            )
-            return mapping_response
-
-        except Exception as e:
-            self.logger.error(f"Error generating simple cortical mapping: {e}")
-            raise
 
     def update_cortical_mapping(self, mapping: Dict[str, Any]) -> bool:
         """

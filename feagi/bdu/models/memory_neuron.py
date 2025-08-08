@@ -220,12 +220,17 @@ class MemoryNeuronArray:
         self.last_activation_burst[neuron_idx] = current_burst
         self.activation_count[neuron_idx] += 1
         
-        # Grow lifespan if not long-term memory
+        # Grow lifespan additively if not long-term memory
         if not self.is_longterm_memory[neuron_idx]:
-            current_lifespan = self.lifespan_current[neuron_idx]
-            growth_rate = self.lifespan_growth_rate[neuron_idx]
-            new_lifespan = int(current_lifespan * growth_rate)
-            self.lifespan_current[neuron_idx] = new_lifespan
+            current_lifespan = int(self.lifespan_current[neuron_idx])
+            # Treat growth_rate as additive increment per activation
+            increment = int(self.lifespan_growth_rate[neuron_idx])
+            # Saturating addition within uint32 range
+            max_u32 = np.iinfo(np.uint32).max
+            new_lifespan = current_lifespan + increment
+            if new_lifespan > max_u32:
+                new_lifespan = max_u32
+            self.lifespan_current[neuron_idx] = np.uint32(new_lifespan)
             
             logger.debug(f"Memory neuron {neuron_idx} reactivated: lifespan {current_lifespan} -> {new_lifespan}")
         
@@ -260,24 +265,85 @@ class MemoryNeuronArray:
         Returns:
             List of neuron indices that died from aging
         """
-        died_neurons = []
-        
-        for neuron_idx in range(self.next_available_index):
-            if not self.is_active[neuron_idx] or self.is_longterm_memory[neuron_idx]:
-                continue
-            
-            # Decrease lifespan
-            if self.lifespan_current[neuron_idx] > 0:
-                self.lifespan_current[neuron_idx] -= 1
-            
-            # Check if neuron should die
-            if self.lifespan_current[neuron_idx] == 0:
-                self._deactivate_memory_neuron(neuron_idx)
-                died_neurons.append(neuron_idx)
-                logger.debug(f"Memory neuron {neuron_idx} died from aging at burst {current_burst}")
-        
-        return died_neurons
+        n = self.next_available_index
+        if n == 0:
+            return []
+        active = self.is_active[:n]
+        not_longterm = ~self.is_longterm_memory[:n]
+        eligible = active & not_longterm
+        if not np.any(eligible):
+            return []
+        lifespans = self.lifespan_current[:n]
+        # Decrement lifespans for eligible neurons where lifespan > 0
+        positive = eligible & (lifespans > 0)
+        lifespans[positive] -= 1
+        # Determine deaths (eligible that reached 0)
+        died_mask = eligible & (lifespans == 0)
+        died_indices = np.flatnonzero(died_mask).astype(int).tolist()
+        if died_indices:
+            self.is_active[died_indices] = False
+            # Update deleted_indices set in bulk
+            for idx in died_indices:
+                self.deleted_indices.add(int(idx))
+            logger.debug(f"Memory neurons died from aging at burst {current_burst}: {died_indices}")
+        return died_indices
     
+    def age_by_bursts(self, delta_bursts: int) -> List[int]:
+        """
+        Age all eligible memory neurons by an arbitrary number of bursts.
+
+        This method is vectorized for efficiency. It safely subtracts the given
+        delta from current lifespans of active, non-long-term neurons, clamps at
+        zero to avoid underflow, and deactivates neurons whose lifespan reaches
+        zero. Returns the list of neuron indices that died.
+
+        Args:
+            delta_bursts: Number of bursts to age by (must be >= 0)
+
+        Returns:
+            List of indices for neurons that died due to aging
+        """
+        if delta_bursts is None:
+            return []
+        try:
+            delta = int(delta_bursts)
+        except Exception:
+            return []
+        if delta <= 0:
+            return []
+
+        n = self.next_available_index
+        if n == 0:
+            return []
+
+        # Determine eligibility mask once
+        active_mask = self.is_active[:n]
+        not_ltm_mask = ~self.is_longterm_memory[:n]
+        eligible_mask = active_mask & not_ltm_mask
+        if not np.any(eligible_mask):
+            return []
+
+        # Work on eligible indices to avoid dtype underflow
+        eligible_indices = np.flatnonzero(eligible_mask)
+        current_life = self.lifespan_current[eligible_indices].astype(np.int64, copy=False)
+        # Subtract and clamp to [0, max_u32]
+        current_life -= delta
+        died_local_mask = current_life <= 0
+        current_life = np.clip(current_life, 0, np.iinfo(np.uint32).max)
+        # Write back
+        self.lifespan_current[eligible_indices] = current_life.astype(np.uint32, copy=False)
+
+        # Determine global indices that died
+        if not np.any(died_local_mask):
+            return []
+        died_indices = eligible_indices[died_local_mask].astype(int).tolist()
+        # Deactivate and mark for reuse
+        self.is_active[died_indices] = False
+        for idx in died_indices:
+            self.deleted_indices.add(int(idx))
+        logger.debug(f"Memory neurons died from aging by Δ={delta}: {died_indices[:10]}{'...' if len(died_indices) > 10 else ''}")
+        return died_indices
+
     def check_longterm_conversion(self, longterm_threshold: int = DEFAULT_LONGTERM_THRESHOLD) -> List[int]:
         """
         Check for memory neurons that should convert to long-term memory.
@@ -288,39 +354,21 @@ class MemoryNeuronArray:
         Returns:
             List of neuron indices that converted to long-term memory
         """
-        converted_neurons = []
-        
-        for neuron_idx in range(self.next_available_index):
-            if not self.is_active[neuron_idx] or self.is_longterm_memory[neuron_idx]:
-                continue
-            
-            # Check if lifespan exceeds threshold
-            if self.lifespan_current[neuron_idx] >= longterm_threshold:
-                self.is_longterm_memory[neuron_idx] = True
-                converted_neurons.append(neuron_idx)
-                
-                # Enhanced logging for --debug-mem flag
-                debug_mem_enabled = False
-                try:
-                    from feagi.core.state_manager import get_state_manager
-                    state_manager = get_state_manager()
-                    if hasattr(state_manager, 'is_mem_debug_enabled'):
-                        debug_mem_enabled = state_manager.is_mem_debug_enabled()
-                    elif hasattr(state_manager, 'is_debug_npu_enabled'):
-                        debug_mem_enabled = state_manager.is_debug_npu_enabled()  # Fallback
-                except Exception:
-                    # Fallback to sys.argv check  
-                    import sys
-                    debug_mem_enabled = "--debug-mem" in sys.argv or "--debug-npu" in sys.argv
-                    
-                if debug_mem_enabled:
-                    logger.info(f"🏆 [MEMORY] 🔮 LONG-TERM MEMORY CONVERSION! 🔮 Neuron #{neuron_idx} ASCENDED!")
-                    logger.info(f"🏆 [MEMORY] Lifespan: {self.lifespan_current[neuron_idx]} ≥ {longterm_threshold} (threshold)")
-                    logger.info(f"🏆 [MEMORY] This neuron is now IMMORTAL - will never age or die!")
-                else:
-                    logger.debug(f"Memory neuron {neuron_idx} converted to long-term memory (lifespan={self.lifespan_current[neuron_idx]})")
-        
-        return converted_neurons
+        n = self.next_available_index
+        if n == 0:
+            return []
+        active = self.is_active[:n]
+        not_longterm = ~self.is_longterm_memory[:n]
+        eligible = active & not_longterm
+        if not np.any(eligible):
+            return []
+        meets_threshold = eligible & (self.lifespan_current[:n] >= longterm_threshold)
+        converted_indices = np.flatnonzero(meets_threshold).astype(int).tolist()
+        if converted_indices:
+            self.is_longterm_memory[converted_indices] = True
+            # Optional detailed logging remains minimal to avoid overhead
+            logger.debug(f"Converted to long-term (threshold={longterm_threshold}): {converted_indices}")
+        return converted_indices
     
     def get_active_neurons_for_area(self, cortical_area_id: str) -> List[int]:
         """
@@ -415,7 +463,45 @@ class MemoryNeuronArray:
     def _is_valid_index(self, neuron_idx: int) -> bool:
         """Check if neuron index is valid."""
         return 0 <= neuron_idx < self.next_available_index
-    
+
+    def collect_garbage(self, current_burst: int, prune_inactive_after_bursts: Optional[int]) -> int:
+        """
+        Remove pattern mappings for neurons that are inactive and stale.
+
+        Args:
+            current_burst: Current burst number
+            prune_inactive_after_bursts: If provided, only prune entries whose
+                last_activation_burst is older than this threshold; if None, prune all inactive.
+
+        Returns:
+            Number of mapping entries pruned.
+        """
+        n = self.next_available_index
+        if n == 0:
+            return 0
+        inactive = ~self.is_active[:n]
+        if prune_inactive_after_bursts is not None:
+            age = current_burst - self.last_activation_burst[:n]
+            stale = inactive & (age >= prune_inactive_after_bursts)
+        else:
+            stale = inactive
+        if not np.any(stale):
+            return 0
+        indices = np.flatnonzero(stale).astype(int).tolist()
+        pruned = 0
+        for idx in indices:
+            # Remove legacy pattern mapping
+            pattern = self.index_to_pattern.pop(idx, None)
+            if pattern is not None:
+                self.pattern_to_index.pop(pattern, None)
+            # Remove digest mapping
+            digest = self.index_to_pattern_digest.pop(idx, None)
+            if digest is not None:
+                self.pattern_digest_to_index.pop(digest, None)
+            pruned += 1
+        logger.info(f"[MEMORY-GC] Pruned {pruned} stale pattern mappings (inactive) at burst {current_burst}")
+        return pruned
+
     def _calculate_memory_usage(self) -> int:
         """Calculate total memory usage in bytes."""
         # NumPy arrays

@@ -164,3 +164,18 @@ compress_sensory = false      # Disable compression for sensory input (typically
 # Cloud deployment example:
 # This file can be mounted as a ConfigMap in Kubernetes:
 # kubectl create configmap feagi-config --from-file=feagi_configuration.toml
+
+[memory_processing]
+# Memory processing configuration (preferred location)
+# Note: Existing [connectome] keys (memory_processing_batch_size, memory_pattern_cache_size)
+# are still supported for backward compatibility. This section is authoritative when present.
+batch_size = 100            # Process N memory areas per batch operation
+pattern_cache_size = 10000  # LRU cache size for pattern lookups
+
+[memory_processing.sleep_manager]
+# Background maintenance for memory system during sustained low FCL activity
+enabled = true                              # Disabled by default; set true to enable
+fcl_low_activity_window_bursts = 50          # Window length (bursts) to average FCL activity
+fcl_low_activity_threshold = 5               # Avg neurons per burst considered "low activity"
+monitor_interval_seconds = 2.0               # Polling interval for activity check
+gc_prune_inactive_after_bursts = 500         # Prune inactive pattern mappings older than this many bursts

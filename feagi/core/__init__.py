@@ -43,7 +43,7 @@ def create_core_api(connectome, config: Dict[str, Any] = None):
     # use_gpu = config.get("core", {}).get("use_gpu", False)  # Unused variable removed
 
     # Create the CoreAPIService wrapper around the FEAGI core
-    core_api = CoreAPIService(connectome)
+    core_api = CoreAPIService(connectome, config=config)
 
     logger.info("FEAGI core components initialized successfully")
     return core_api

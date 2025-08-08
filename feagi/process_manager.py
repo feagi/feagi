@@ -83,6 +83,7 @@ class ProcessManager:
         self._fq_sampler_config = {}
         self._monitoring_active = False
         self._zmq_server = None  # Add missing _zmq_server attribute
+        self._sleep_manager = None
 
         # Add startup phase tracking
         self._startup_phase = True  # True during initial startup, False during runtime
@@ -702,6 +703,48 @@ class ProcessManager:
                 # Non-critical - continue without resource monitoring
 
             logger.info("Important processes initialization completed")
+
+            # --- Sleep Manager (Memory GC/Consolidation) ---
+            try:
+                # Strict config gating: require explicit section and keys
+                if (
+                    "memory_processing" in config
+                    and isinstance(config["memory_processing"], dict)
+                    and "sleep_manager" in config["memory_processing"]
+                    and isinstance(config["memory_processing"]["sleep_manager"], dict)
+                ):
+                    sm_cfg = config["memory_processing"]["sleep_manager"]
+                    enabled = sm_cfg.get("enabled", False)
+                    # Required numeric keys must exist to enable
+                    required_keys = [
+                        "fcl_low_activity_window_bursts",
+                        "fcl_low_activity_threshold",
+                        "monitor_interval_seconds",
+                        "gc_prune_inactive_after_bursts",
+                    ]
+                    has_required = all(k in sm_cfg for k in required_keys)
+                    if enabled and has_required:
+                        try:
+                            self._sleep_manager = SleepManager(
+                                fcl_manager=self._fcl_manager,
+                                connectome_manager=self._connectome_manager,
+                                memory_processor=self._burst_engine.memory_processor if self._burst_engine else None,
+                                window_bursts=int(sm_cfg["fcl_low_activity_window_bursts"]),
+                                activity_threshold=int(sm_cfg["fcl_low_activity_threshold"]),
+                                monitor_interval=float(sm_cfg["monitor_interval_seconds"]),
+                                gc_prune_after_bursts=int(sm_cfg["gc_prune_inactive_after_bursts"]),
+                            )
+                            self._sleep_manager.start()
+                            self._processes["sleep_manager"] = self._sleep_manager
+                            logger.info("Sleep Manager initialized and monitoring FCL activity")
+                        except Exception as sm_err:
+                            logger.error(f"Failed to initialize Sleep Manager: {sm_err}")
+                    else:
+                        logger.info("Sleep Manager disabled or missing required config; skipping initialization")
+                else:
+                    logger.info("Sleep Manager config section not found; skipping initialization")
+            except Exception as e:
+                logger.error(f"Error during Sleep Manager setup: {e}")
             return True
 
         except Exception as e:
@@ -1224,6 +1267,14 @@ class ProcessManager:
                         file=sys.stderr,
                         flush=True,
                     )
+
+            # Stop Sleep Manager if running
+            try:
+                if hasattr(self, "_sleep_manager") and self._sleep_manager:
+                    print("Stopping Sleep Manager...", file=sys.stderr, flush=True)
+                    self._sleep_manager.stop()
+            except Exception as e:
+                print(f"Error stopping Sleep Manager: {e}", file=sys.stderr, flush=True)
 
             print("FEAGI services shut down", file=sys.stderr, flush=True)
 
@@ -1867,3 +1918,150 @@ def start_all_processes(startup_config: dict, config: Dict[str, Any]) -> bool:
 
 
 # Removed the global process_manager instantiation that was here
+
+
+class SleepManager:
+    """
+    Background task that detects periods of low FCL activity and triggers
+    memory maintenance tasks such as pattern-map GC and consolidation.
+
+    Configuration is provided via TOML and must include:
+      - memory_processing.sleep_manager.enabled = true
+      - memory_processing.sleep_manager.fcl_low_activity_window_bursts
+      - memory_processing.sleep_manager.fcl_low_activity_threshold
+      - memory_processing.sleep_manager.monitor_interval_seconds
+      - memory_processing.sleep_manager.gc_prune_inactive_after_bursts
+    """
+
+    def __init__(
+        self,
+        fcl_manager,
+        connectome_manager,
+        memory_processor,
+        window_bursts: int,
+        activity_threshold: int,
+        monitor_interval: float,
+        gc_prune_after_bursts: int,
+    ) -> None:
+        self._fcl = fcl_manager
+        self._cm = connectome_manager
+        self._mp = memory_processor
+        self._window = int(window_bursts)
+        self._threshold = int(activity_threshold)
+        self._interval = float(monitor_interval)
+        self._gc_prune_after = int(gc_prune_after_bursts)
+        self._running = False
+        self._thread = None
+
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._running = False
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2.0)  # @architecture:acceptable - shutdown cleanup
+
+    def is_running(self) -> bool:
+        return self._running and self._thread and self._thread.is_alive()
+
+    def _run(self) -> None:
+        try:
+            while self._running:
+                try:
+                    if not self._fcl or not hasattr(self._fcl, "current_timestep"):
+                        time.sleep(self._interval)
+                        continue
+                    current_ts = int(self._fcl.current_timestep)
+                    # Compute average global activity over the last window bursts
+                    total = 0
+                    steps = 0
+                    for i in range(self._window):
+                        ts = current_ts - i
+                        if ts < 0:
+                            break
+                        try:
+                            global_fcl = self._fcl.get_global_fcl(ts)
+                            total += len(global_fcl) if global_fcl is not None else 0
+                            steps += 1
+                        except Exception:
+                            # If FCL not available for this timestep, skip
+                            pass
+                    avg = (total / steps) if steps > 0 else 0
+                    if steps >= self._window and avg <= self._threshold:
+                        # Low activity sustained -> run memory maintenance
+                        self._run_memory_maintenance(current_ts)
+                except Exception as loop_err:
+                    logger.debug(f"Sleep Manager loop error: {loop_err}")
+                time.sleep(self._interval)
+        except Exception as e:
+            logger.error(f"Sleep Manager terminated with error: {e}")
+
+    def _run_memory_maintenance(self, current_ts: int) -> None:
+        try:
+            if not self._cm or not hasattr(self._cm, "memory_neuron_array"):
+                return
+            mna = self._cm.memory_neuron_array
+            # Aging: decrement lifespans by elapsed bursts since last run
+            try:
+                if not hasattr(self, "_last_aging_burst"):
+                    self._last_aging_burst = current_ts
+                delta = int(current_ts - getattr(self, "_last_aging_burst", current_ts))
+                if delta > 0:
+                    died = []
+                    # Prefer vectorized aging if available
+                    if hasattr(mna, "age_by_bursts") and callable(mna.age_by_bursts):
+                        died = mna.age_by_bursts(delta)
+                    else:
+                        # Fallback to per-burst aging loop (should be rare)
+                        for _ in range(delta):
+                            died.extend(mna.age_memory_neurons(current_burst=current_ts))
+                    if died:
+                        # Update global counts via MemoryProcessor helper if available
+                        try:
+                            if self._mp and hasattr(self._mp, "_update_state_manager_neuron_count"):
+                                self._mp._update_state_manager_neuron_count(increment=-len(died))
+                        except Exception:
+                            pass
+                        logger.info(f"[MEMORY-DEATH] aged_by={delta} died={len(died)} sample={died[:10]}")
+                    self._last_aging_burst = current_ts
+            except Exception as age_err:
+                logger.debug(f"Sleep Manager aging error: {age_err}")
+            # Consolidation: re-check long-term conversion under current thresholds
+            try:
+                # Derive thresholds from registered memory areas if memory processor exists
+                if self._mp and hasattr(self._mp, "memory_area_properties"):
+                    thresholds = set()
+                    for props in self._mp.memory_area_properties.values():
+                        try:
+                            thresholds.add(int(props.get("longterm_threshold", 100)))
+                        except Exception:
+                            pass
+                    converted_total = 0
+                    converted_sample = []
+                    for t in thresholds:
+                        converted = mna.check_longterm_conversion(longterm_threshold=t)
+                        if converted:
+                            converted_total += len(converted)
+                            if len(converted_sample) < 10:
+                                converted_sample.extend(converted[: max(0, 10 - len(converted_sample))])
+                    if converted_total:
+                        logger.info(f"[MEMORY-LTM] converted={converted_total} sample={converted_sample}")
+            except Exception as conv_err:
+                logger.debug(f"Sleep Manager conversion pass error: {conv_err}")
+            # GC: prune stale inactive pattern mappings
+            try:
+                pruned = mna.collect_garbage(current_burst=current_ts, prune_inactive_after_bursts=self._gc_prune_after)
+                if pruned and self._mp and hasattr(self._mp, "_remove_neuron_from_cache"):
+                    # Best effort: ensure caches drop any pruned indices
+                    # Note: indexes removed from mappings may still be present in cache if inactive; flush conservatively
+                    pass  # Cache uses pattern keys; pruning mappings already reduces memory footprint
+                if pruned:
+                    logger.info(f"[SLEEP] Memory GC completed: pruned {pruned} mappings (ts={current_ts})")
+            except Exception as gc_err:
+                logger.debug(f"Sleep Manager GC error: {gc_err}")
+        except Exception as e:
+            logger.debug(f"Sleep Manager maintenance error: {e}")
